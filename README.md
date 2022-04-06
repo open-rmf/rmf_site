@@ -1,4 +1,4 @@
-# RMF Sandbox
+# The RMF Sandbox
 
 The RMF Sandbox is an experimental approach to visualizing large RMF deployment sites.
 It will be built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
