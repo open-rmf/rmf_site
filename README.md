@@ -4,7 +4,7 @@ The RMF Sandbox is an experimental approach to visualizing large RMF deployment 
 It will be built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
 
 Rust and Bevy will allow The RMF Sandbox to target both desktop (Windows/Linux/Mac) and web (WebAssembly+WebGL/WebGPU) using the same codebase.
-For example, the [Traffic Editor III](https://github.com/open-rmf/traffic_editor_iii) experiment can be [https://open-rmf.github.io/traffic_editor_iii](used in a web browser) for convenience, or it can compiled to a native executable for maximum performance.
+For example, the [Traffic Editor III](https://github.com/open-rmf/traffic_editor_iii) experiment can be [used in a web browser](https://open-rmf.github.io/traffic_editor_iii) for convenience, or it can compiled to a native executable for maximum performance.
 
 # Helpful Links
 
