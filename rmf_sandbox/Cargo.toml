@@ -1,0 +1,49 @@
+[package]
+name = "rmf_sandbox"
+version = "0.0.1"
+edition = "2021"
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+name = "librmf_sandbox"
+
+[[bin]]
+path = "src/main.rs"
+name = "rmf_sandbox"
+
+[dependencies]
+yaml-rust = "0.4"
+serde_yaml = "0.8.23"
+bevy_egui = "0.12"
+wasm-bindgen = "0.2"
+web-sys = { version = "0.3.56", features = ["console"] }
+bevy = "0.6"
+
+# [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# 
+# bevy = { git = "https://github.com/bevyengine/bevy", branch = "pipelined-rendering", default-features = false, features = [
+#   "bevy_core_pipeline",
+#   "bevy_gltf2",
+#   "bevy_pbr2",
+#   "bevy_render2",
+#   "bevy_sprite2",
+#   "bevy_wgpu",
+#   "bevy_winit",
+#   "dynamic",
+#   "render",
+#   "png",
+#   "x11",
+# ] }
+# 
+# [target.'cfg(target_arch = "wasm32")'.dependencies]
+# 
+# bevy = { git = "https://github.com/bevyengine/bevy", branch = "pipelined-rendering", default-features = false, features = [
+#   "bevy_core_pipeline",
+#   "bevy_gltf2",
+#   "bevy_pbr2",
+#   "bevy_render2",
+#   "bevy_sprite2",
+#   "bevy_winit",
+#   "png",
+#   "x11"
+# ] }
