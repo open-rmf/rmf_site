@@ -32,6 +32,7 @@ Alternatively, if you already have a Rust installation managed by `rustup`, you 
 
 Now install the necessary tooling for WebAssembly:
 ```
+sudo apt install binaryen
 cargo install wasm-bindgen-cli basic-http-server
 ```
 
