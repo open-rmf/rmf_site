@@ -38,7 +38,7 @@ cargo install wasm-bindgen-cli basic-http-server
 
 # Build and Run (Desktop)
 
-### Desktop build (tested on Ubuntu 20.04)
+Currently only tested on Ubuntu 20.04.4 LTS.
 
 From the `rmf_sandbox` subdirectory:
 
@@ -48,8 +48,6 @@ cargo run
 ```
 
 # Build and Run (WebAssembly)
-
-(currently broken, it's a work-in-progress)
 
 ```
 scripts/build-web.sh
