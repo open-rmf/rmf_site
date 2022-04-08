@@ -6,5 +6,4 @@ export CARGO_PROFILE_RELEASE_OPT_LEVEL=z
 cargo build --target wasm32-unknown-unknown --release
 wasm-bindgen --target web --out-dir web target/wasm32-unknown-unknown/release/librmf_sandbox.wasm
 cd web
-wasm-opt -Oz -o optimized_for_size.wasm ../target/wasm32-unknown-unknown/release/librmf_sandbox.wasm
-mv optimized_for_size.wasm librmf_sandbox_bg.wasm
+wasm-opt -Oz -o librmf_sandbox_bg_optimized.wasm librmf_sandbox_bg.wasm
