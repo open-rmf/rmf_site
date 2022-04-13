@@ -1,30 +1,3 @@
-/*
-use bevy::{
-    // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    ecs::prelude::*,
-    input::Input,
-    input::keyboard::KeyCode,
-    math::{Quat, Vec3},
-    pbr2::{
-        AmbientLight,
-        DirectionalLight,
-        DirectionalLightBundle,
-        DirectionalLightShadowMap,
-        PbrBundle,
-        // PointLightBundle,
-        // PointLight,
-        StandardMaterial,
-    },
-    prelude::{App, Assets, AssetServer, Transform},
-    PipelinedDefaultPlugins,
-    render2::{
-        color::Color,
-        mesh::{shape, Mesh},
-        //view::Msaa
-    },
-    window::{WindowDescriptor},
-};
-*/
 use bevy::prelude::*;
 use wasm_bindgen::prelude::*;
 
@@ -50,8 +23,8 @@ mod demo_world;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
 
-mod supercamera;
-use supercamera::{SuperCameraPlugin, FlexibleProjection, ProjectionMode};
+//mod supercamera;
+//use supercamera::{SuperCameraPlugin, FlexibleProjection, ProjectionMode};
 
 mod site_map;
 use site_map::{SiteMap, SiteMapPlugin};
@@ -59,28 +32,28 @@ use site_map::{SiteMap, SiteMapPlugin};
 
 fn handle_keyboard(
     keyboard_input: Res<Input<KeyCode>>,
-    mut query: Query<&mut FlexibleProjection>,
+    //mut query: Query<&mut FlexibleProjection>,
 ) {
-    let mut projection = query.single_mut();
+    //let mut projection = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::Key2) {
-        projection.set_mode(ProjectionMode::Orthographic);
+        //projection.set_mode(ProjectionMode::Orthographic);
     }
 
     if keyboard_input.just_pressed(KeyCode::Key3) {
-        projection.set_mode(ProjectionMode::Perspective);
+        //projection.set_mode(ProjectionMode::Perspective);
     }
 }
 
 fn egui_ui(
     mut sm: ResMut<SiteMap>,
     mut egui_context: ResMut<EguiContext>,
-    mut query: Query<&mut FlexibleProjection>,
+    //mut query: Query<&mut FlexibleProjection>,
     commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    let mut projection = query.single_mut();
+    //let mut projection = query.single_mut();
     egui::TopBottomPanel::top("top_panel")
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical(|ui| {
@@ -101,6 +74,7 @@ fn egui_ui(
 
                 ui.horizontal(|ui| {
                     ui.label("[toolbar buttons]");
+                    /*
                     ui.separator();
                     if ui.add(egui::SelectableLabel::new(projection.mode == ProjectionMode::Orthographic, "2D")).clicked() {
                         projection.set_mode(ProjectionMode::Orthographic);
@@ -108,6 +82,7 @@ fn egui_ui(
                     if ui.add(egui::SelectableLabel::new(projection.mode == ProjectionMode::Perspective, "3D")).clicked() {
                         projection.set_mode(ProjectionMode::Perspective);
                     }
+                    */
                 });
             });
         });
@@ -169,6 +144,11 @@ fn setup(
         },
         ..Default::default()
     });
+
+    commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+        ..default()
+    });
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -202,7 +182,7 @@ pub fn run() {
         .insert_resource( DirectionalLightShadowMap {
             size: 1024
         })
-        .add_plugin(SuperCameraPlugin)
+        //.add_plugin(SuperCameraPlugin)
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_system(handle_keyboard)
@@ -232,7 +212,7 @@ pub fn run() {
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
-        .add_plugin(SuperCameraPlugin)
+        //.add_plugin(SuperCameraPlugin)
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_system(handle_keyboard)
