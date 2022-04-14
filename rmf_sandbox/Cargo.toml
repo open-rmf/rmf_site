@@ -18,32 +18,3 @@ bevy_egui = { git = "https://github.com/aevyrie/bevy_egui", branch = "bevy-main"
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3.56", features = ["console"] }
 bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
-
-# [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-# 
-# bevy = { git = "https://github.com/bevyengine/bevy", branch = "pipelined-rendering", default-features = false, features = [
-#   "bevy_core_pipeline",
-#   "bevy_gltf2",
-#   "bevy_pbr2",
-#   "bevy_render2",
-#   "bevy_sprite2",
-#   "bevy_wgpu",
-#   "bevy_winit",
-#   "dynamic",
-#   "render",
-#   "png",
-#   "x11",
-# ] }
-# 
-# [target.'cfg(target_arch = "wasm32")'.dependencies]
-# 
-# bevy = { git = "https://github.com/bevyengine/bevy", branch = "pipelined-rendering", default-features = false, features = [
-#   "bevy_core_pipeline",
-#   "bevy_gltf2",
-#   "bevy_pbr2",
-#   "bevy_render2",
-#   "bevy_sprite2",
-#   "bevy_winit",
-#   "png",
-#   "x11"
-# ] }
