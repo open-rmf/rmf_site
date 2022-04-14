@@ -1,39 +1,3 @@
-/*
-use bevy::{
-    core_pipeline::ClearColor,
-    ecs::bundle::Bundle,
-    ecs::prelude::*,
-    input::{
-        Input,
-        mouse::{MouseButton, MouseWheel},
-    },
-    math::{Vec2, Vec3, Mat3, Mat4, Quat},
-    prelude::{App, Assets, CoreStage, GlobalTransform, Plugin, Transform},
-    pbr2::{StandardMaterial},
-    reflect::Reflect,
-    render2::mesh::Mesh,
-    render2::{
-        camera::{
-            camera_system,
-            Camera,
-            CameraPlugin,
-            CameraProjection,
-            DepthCalculation,
-            PerspectiveProjection,
-            OrthographicProjection,
-            ScalingMode,
-            WindowOrigin,
-        },
-        color::Color,
-        primitives::Frustum,
-        view::VisibleEntities,
-    },
-    window::{CursorMoved, Windows},
-};
-use bevy::ecs as bevy_ecs;
-use bevy::reflect as bevy_reflect;
-*/
-
 use bevy::prelude::*;
 use bevy::{
     input::{
@@ -154,11 +118,13 @@ impl Default for SuperCameraBundle {
             flexible_projection.far(),
         );
 
+            // Camera {
+            //    #name: Some(CameraPlugin::CAMERA_3D.to_string()),
+            //    ..Default::default()
+            //},
+
         SuperCameraBundle {
-            camera: Camera {
-                name: Some(CameraPlugin::CAMERA_3D.to_string()),
-                ..Default::default()
-            },
+            camera: Default::default(),
             flexible_projection,
             initial_position: Default::default(),
             visible_entities: VisibleEntities::default(),
