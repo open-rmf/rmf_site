@@ -259,7 +259,7 @@ fn egui_ui(
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
-    mut exit: EventWriter<AppExit>,
+    exit: EventWriter<AppExit>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top_panel")
@@ -407,15 +407,16 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
+        .insert_resource(MouseLocation::default())
         .add_plugins(DefaultPlugins)
         .insert_resource( DirectionalLightShadowMap {
             size: 1024
         })
-        //.add_plugin(SuperCameraPlugin)
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_system(handle_keyboard)
         .add_plugin(EguiPlugin)
+        .add_system(camera_controls)
         .add_system(egui_ui)
         .add_system_set(
             SystemSet::new()
@@ -441,7 +442,6 @@ pub fn run() {
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
-        //.add_plugin(SuperCameraPlugin)
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_system(handle_keyboard)
