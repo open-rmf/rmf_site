@@ -1,6 +1,3 @@
-use bevy::prelude::*;
-use wasm_bindgen::prelude::*;
-
 use bevy::{
     app::AppExit,
     // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
@@ -11,10 +8,12 @@ use bevy::{
         DirectionalLight,
         DirectionalLightShadowMap,
     },
+    prelude::*,
     render::{
         camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
     },
 };
+use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
@@ -30,9 +29,6 @@ extern crate web_sys;
 mod demo_world;
 
 use bevy_egui::{egui, EguiContext, EguiPlugin};
-
-//mod supercamera;
-//use supercamera::{SuperCameraPlugin, FlexibleProjection, ProjectionMode};
 
 mod site_map;
 use site_map::{SiteMap, SiteMapPlugin};
@@ -151,14 +147,6 @@ fn camera_controls(
       scroll = scroll * 0.1; // not sure why, but web scrolling seems SO FAST
     }
 
-    /*
-    let (
-        _camera,
-        mut transform,
-        mut proj,
-        initial_position
-    ) = query.single_mut();
-    */
     let mut controls = controls_query.single_mut();
 
     /*
@@ -200,7 +188,7 @@ fn camera_controls(
     }
     else {
         // perspective mode
-        let (mut persp_proj, mut persp_transform) = persp_query.single_mut();
+        let (persp_proj, mut persp_transform) = persp_query.single_mut();
 
         let mut changed = false;
 
