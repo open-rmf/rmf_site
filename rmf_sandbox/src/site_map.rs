@@ -1,15 +1,3 @@
-/*
-use bevy::{
-    ecs::prelude::*,
-    math::{Quat, Vec2, Vec3},
-    pbr2::{PbrBundle, StandardMaterial},
-    prelude::{App, Assets, AssetServer, Plugin, Transform},
-    render2::{
-        color::Color,
-        mesh::{shape, Mesh},
-    },
-};
-*/
 use bevy::prelude::*;
 
 use std::{
