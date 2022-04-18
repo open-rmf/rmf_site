@@ -14,7 +14,7 @@ jobs:
     - name: deps
       run: |
         sudo apt-get update
-        sudo apt-get install alsa-base
+        sudo apt-get install libasound2-dev
     - uses: actions/checkout@v3
     - name: Build
       run: cd rmf_sandbox && cargo build
