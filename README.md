@@ -4,10 +4,13 @@
 # The RMF Sandbox
 
 The RMF Sandbox is an experimental approach to visualizing large RMF deployment sites.
-It will be built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
+It is built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
 
-Rust and Bevy will allow The RMF Sandbox to target both desktop (Windows/Linux/Mac) and web (WebAssembly+WebGL/WebGPU) using the same codebase.
-For example, the [Traffic Editor III](https://github.com/open-rmf/traffic_editor_iii) experiment can be [used in a web browser](https://open-rmf.github.io/traffic_editor_iii) for convenience, or it can compiled to a native executable for maximum performance.
+Rust and Bevy allow The RMF Sandbox to target both desktop (Windows/Linux/Mac) and web (WebAssembly+WebGL/WebGPU) using the same codebase:
+ * Web build: the browser sandbox provides maximum convenience, since there is nothing to build or install.
+ * Desktop build: maximum performance, thanks to multithreading and lower-level GPU integration.
+
+[Click here to use the web build in your browser](https://osrf.github.io/rmf_sandbox/).
 
 # Helpful Links
 
@@ -33,7 +36,8 @@ A bunch of stuff will happen. Be sure to close and re-open your terminal afterwa
 
 Alternatively, if you already have a Rust installation managed by `rustup`, you can just do this to bring it up-to-date: `rustup update`
 
-# Install extra dependendies for WebAssembly
+# Install extra dependencies for WebAssembly
+
 These are only needed if you're going to build a WebAssembly binary:
 ```
 sudo apt install binaryen
