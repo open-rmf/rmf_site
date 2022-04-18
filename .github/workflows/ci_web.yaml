@@ -1,0 +1,21 @@
+name: ci_web
+
+on: [push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev libudev-dev binaryen
+        cargo install wasm-bindgen-cli
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cd rmf_sandbox && scripts/build-web.sh
