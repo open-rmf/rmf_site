@@ -1,0 +1,22 @@
+name: ci_linux
+
+on: [push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev libudev-dev
+    - uses: actions/checkout@v3
+    - name: Build
+      run: cd rmf_sandbox && cargo build
+    - name: Run tests
+      run: cd rmf_sandbox && cargo test

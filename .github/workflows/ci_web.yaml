@@ -1,0 +1,33 @@
+name: ci_web
+
+on: [push]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+
+    - name: rust-wasm-target
+      run: |
+        rustup toolchain install nightly
+        rustup default nightly
+        rustup target add wasm32-unknown-unknown
+
+    - name: apt-deps
+      run: |
+        sudo apt-get update
+        sudo apt-get install libasound2-dev libudev-dev binaryen
+
+    - name: cargo-deps
+      run: |
+        cargo install wasm-bindgen-cli
+
+    - uses: actions/checkout@v3
+
+    - name: build
+      run: cd rmf_sandbox && scripts/build-web.sh

@@ -15,7 +15,7 @@ use crate::demo_world::demo_office;
 pub struct Vertex {
     x: f64,
     y: f64,
-    name: String,
+    _name: String,
 }
 
 pub struct Lane {
@@ -88,7 +88,7 @@ impl SiteMap {
                 let v = Vertex {
                     x: x,
                     y: -y,
-                    name: name
+                    _name: name
                 };
                 self.vertices.push(v);
             }
@@ -122,7 +122,7 @@ impl SiteMap {
         println!("site name: [{}]", &self.site_name);
         println!("vertices:");
         for v in &self.vertices {
-            println!("{} {} {}", v.name, v.x, v.y);
+            println!("{} {} {}", v._name, v.x, v.y);
         }
     }
 

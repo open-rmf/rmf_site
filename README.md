@@ -30,10 +30,12 @@ A bunch of stuff will happen. Be sure to close and re-open your terminal afterwa
 
 Alternatively, if you already have a Rust installation managed by `rustup`, you can just do this to bring it up-to-date: `rustup update`
 
-Now install the necessary tooling for WebAssembly:
+# Install extra dependendies for WebAssembly
+These are only needed if you're going to build a WebAssembly binary:
 ```
 sudo apt install binaryen
 cargo install wasm-bindgen-cli basic-http-server
+rustup target add wasm32-unknown-unknown
 ```
 
 # Build and Run (Desktop)
