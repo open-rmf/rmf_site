@@ -259,7 +259,7 @@ fn egui_ui(
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
-    exit: EventWriter<AppExit>,
+    mut exit: EventWriter<AppExit>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top_panel")
