@@ -11,12 +11,21 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - name: deps
+
+    - name: rust-wasm-target
+      run: |
+        rustup target add wasm32-unknown-unknown
+
+    - name: apt-deps
       run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev libudev-dev binaryen
+
+    - name: cargo-deps
+      run: |
         cargo install wasm-bindgen-cli
-        rustup target add wasm32-unknown-unknown
+
     - uses: actions/checkout@v3
-    - name: Build
+
+    - name: build
       run: cd rmf_sandbox && scripts/build-web.sh
