@@ -13,6 +13,6 @@ jobs:
     steps:
     - uses: actions/checkout@v3
     - name: Build
-      run: cd rmf_sandbox && cargo build --verbose
+      run: cd rmf_sandbox && cargo build
     - name: Run tests
-      run: cd rmf_sandbox && cargo test --verbose
+      run: cd rmf_sandbox && cargo test
