@@ -292,7 +292,10 @@ fn egui_ui(
                                 data
                             });
 
+                            #[cfg(not(target_arch = "wasm32"))]
+                            {
                             commands.spawn().insert(future);
+                            }
 
                         }
 
@@ -468,7 +471,7 @@ pub fn run() {
         .add_plugin(EguiPlugin)
         .add_system(camera_controls)
         .add_system(egui_ui)
-        .add_system(handle_file_open)
+        //.add_system(handle_file_open)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
