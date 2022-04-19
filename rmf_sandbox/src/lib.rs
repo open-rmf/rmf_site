@@ -12,6 +12,7 @@ use bevy::{
     render::{
         camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
     },
+    tasks::{AsyncComputeTaskPool, Task}
 };
 use wasm_bindgen::prelude::*;
 
@@ -32,6 +33,9 @@ use bevy_egui::{egui, EguiContext, EguiPlugin};
 
 mod site_map;
 use site_map::{SiteMap, SiteMapPlugin};
+
+use rfd::AsyncFileDialog;
+use futures_lite::future;
 
 struct MouseLocation {
     previous: Vec2,
@@ -254,12 +258,13 @@ fn egui_ui(
     mut sm: ResMut<SiteMap>,
     mut egui_context: ResMut<EguiContext>,
     mut query: Query<&mut CameraControls>,
-    commands: Commands,
+    mut commands: Commands,
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut exit: EventWriter<AppExit>,
+    thread_pool: Res<AsyncComputeTaskPool>
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top_panel")
@@ -271,6 +276,19 @@ fn egui_ui(
                         if ui.button("Load demo").clicked() {
                             sm.load_demo();
                             sm.spawn(commands, meshes, materials, asset_server);
+                        }
+                        else if ui.button("Open...").clicked() {
+                            let future = thread_pool.spawn(async move {
+                                let file = AsyncFileDialog::new().pick_file().await;
+                                let data = match file {
+                                    Some(data) => Some(data.read().await),
+                                    None => None
+                                };
+                                data
+                            });
+
+                            commands.spawn().insert(future);
+
                         }
 
                         #[cfg(not(target_arch = "wasm32"))]
@@ -294,6 +312,32 @@ fn egui_ui(
                 });
             });
         });
+}
+
+/// Handles the file opening events
+fn handle_file_open(
+    mut sm: ResMut<SiteMap>,
+    mut commands: Commands,
+    meshes: ResMut<Assets<Mesh>>,
+    materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut tasks: Query<(Entity,
+    &mut Task<Option<Vec<u8>>>)>) {
+
+    let mut assets_changed = false;
+    for (entity, mut task) in tasks.iter_mut() {
+        if let Some(result) = future::block_on(future::poll_once(&mut *task)) {
+            match result {
+                Some(result) => {
+                    sm.load_yaml_from_data(&result);
+                    assets_changed =true;
+                    commands.entity(entity).remove::<Task<Option<Vec<u8>>>>();
+                },
+                None => {}
+            }
+        }
+    }
+    sm.spawn(commands, meshes, materials, asset_server);
 }
 
 fn setup(
@@ -418,6 +462,7 @@ pub fn run() {
         .add_plugin(EguiPlugin)
         .add_system(camera_controls)
         .add_system(egui_ui)
+        .add_system(handle_file_open)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -448,5 +493,6 @@ pub fn run() {
         .add_plugin(EguiPlugin)
         .add_system(camera_controls)
         .add_system(egui_ui)
+        .add_system(handle_file_open)
         .run();
 }

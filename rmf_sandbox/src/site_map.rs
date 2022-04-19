@@ -76,6 +76,15 @@ impl SiteMap {
         }
     }
 
+    pub fn load_yaml_from_data(&mut self, file_data: &Vec<u8>) {
+        let result: serde_yaml::Result<serde_yaml::Value>  =
+            serde_yaml::from_slice(file_data);
+        match result {
+            Ok(doc) => self.load_yaml(doc),
+            Err(e) => println!("error parsing file: {:?}", e),
+        }
+    }
+
     pub fn load_yaml(&mut self, doc: serde_yaml::Value) {
         self.site_name = doc["name"].as_str().unwrap().to_string();
         for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() { //.iter() {
