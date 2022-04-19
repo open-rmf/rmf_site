@@ -12,7 +12,7 @@ use bevy::{
     render::{
         camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
     },
-    tasks::{AsyncComputeTaskPool, Task}
+    tasks::{AsyncComputeTaskPool}
 };
 use wasm_bindgen::prelude::*;
 
@@ -23,6 +23,7 @@ use bevy::{
         FixedTimestep,
         //Time
     },
+    tasks::Task
     window::{Windows},
 };
 
@@ -315,6 +316,7 @@ fn egui_ui(
 }
 
 /// Handles the file opening events
+#[cfg(not(target_arch = "wasm32"))]
 fn handle_file_open(
     mut sm: ResMut<SiteMap>,
     mut commands: Commands,
@@ -458,7 +460,7 @@ pub fn run() {
         })
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
-        .add_system(handle_keyboard)
+        //.add_system(handle_keyboard)
         .add_plugin(EguiPlugin)
         .add_system(camera_controls)
         .add_system(egui_ui)
