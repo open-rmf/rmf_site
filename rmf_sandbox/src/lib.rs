@@ -23,8 +23,12 @@ use bevy::{
         FixedTimestep,
         //Time
     },
-    tasks::Task
     window::{Windows},
+};
+
+#[cfg(not(target_arch = "wasm32"))]
+use bevy::{
+    tasks::Task
 };
 
 extern crate web_sys;
