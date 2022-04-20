@@ -9,8 +9,7 @@ use serde_yaml;
 
 // todo: use asset-server or something more sophisticated eventually.
 // for now, just hack it up and toss the office-demo YAML into a big string
-use crate::demo_world::demo_office;
-
+use super::demo_world::demo_office;
 
 pub struct Vertex {
     x: f64,
