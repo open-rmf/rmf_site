@@ -9,8 +9,7 @@ use serde_yaml;
 
 // todo: use asset-server or something more sophisticated eventually.
 // for now, just hack it up and toss the office-demo YAML into a big string
-use crate::demo_world::demo_office;
-
+use super::demo_world::demo_office;
 
 pub struct Vertex {
     x: f64,
@@ -74,6 +73,12 @@ impl SiteMap {
             let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
             self.load_yaml(doc);
         }
+    }
+    
+    pub fn clear(&mut self) {
+        self.vertices = Vec::new();
+        self.lanes = Vec::new();
+        self.walls = Vec::new();
     }
 
     pub fn load_yaml_from_data(&mut self, file_data: &Vec<u8>) {
