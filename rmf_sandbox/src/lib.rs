@@ -11,11 +11,8 @@ use wasm_bindgen::prelude::*;
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
 use bevy::{
-    core::{
-        FixedTimestep,
-        //Time
-    },
-    window::{Windows},
+    core::FixedTimestep,
+    window::Windows,
 };
 
 extern crate web_sys;
@@ -23,13 +20,13 @@ extern crate web_sys;
 mod demo_world;
 
 mod site_map;
-use site_map::{SiteMapPlugin};
+use site_map::SiteMapPlugin;
 
 mod camera_controls;
-use camera_controls::{CameraControlsPlugin};
+use camera_controls::CameraControlsPlugin;
 
 mod ui_widgets;
-use ui_widgets::{UIWidgetsPlugin};
+use ui_widgets::UIWidgetsPlugin;
 
 fn setup(
     mut commands: Commands,
