@@ -11,24 +11,27 @@ use serde_yaml;
 // for now, just hack it up and toss the office-demo YAML into a big string
 use super::demo_world::demo_office;
 
-pub struct Vertex {
+////////////////////////////////////////////////////////
+// A few helper structs to use when parsing YAML files
+////////////////////////////////////////////////////////
+
+struct Vertex {
     x: f64,
     y: f64,
     _name: String,
 }
 
-pub struct Lane {
+struct Lane {
     start: usize,
     end: usize,
 }
 
-pub struct Wall {
+struct Wall {
     start: usize,
     end: usize,
 }
 
-pub struct SiteMap {
-    filename: String,
+struct SiteMap {
     site_name: String,
     vertices: Vec<Vertex>,
     lanes: Vec<Lane>,
@@ -38,7 +41,6 @@ pub struct SiteMap {
 impl Default for SiteMap {
     fn default() -> Self {
         SiteMap {
-            filename: String::new(),
             site_name: String::new(),
             vertices: Vec::new(),
             lanes: Vec::new(),
@@ -47,51 +49,59 @@ impl Default for SiteMap {
     }
 }
 
-impl SiteMap {
-    pub fn load(&mut self, filename: String) {
-        println!("SiteMap loading file: [{}]", filename); //{} = {:?}", args.len(), args);
-        self.filename = filename;
-        if !metadata(&self.filename).is_ok() {
-            println!("could not open [{}]", &self.filename);
+////////////////////////////////////////////////////////
+// A few events to use when requesting to spawn a map
+////////////////////////////////////////////////////////
+
+pub struct SpawnSiteMapFilename {
+    pub filename: String,
+}
+
+pub struct SpawnSiteMapYaml {
+    pub yaml_doc: serde_yaml::Value,
+}
+
+pub fn spawn_site_map_filename(
+    mut ev_filename: EventReader<SpawnSiteMapFilename>,
+    mut ev_yaml: EventWriter<SpawnSiteMapYaml>
+) {
+    for ev in ev_filename.iter() {
+        let filename = &ev.filename;
+        println!("spawn_site_map_filename: : [{}]", filename);
+        if !metadata(&filename).is_ok() {
+            println!("could not open [{}]", &filename);
             return;
         }
-        let file = File::open(&self.filename).expect("Could not open file");
+        let file = File::open(&filename).expect("Could not open file");
         let doc: serde_yaml::Value = serde_yaml::from_reader(file).ok().unwrap();
-        self.load_yaml(doc);
+        ev_yaml.send(SpawnSiteMapYaml { yaml_doc: doc });
     }
+}
 
-    pub fn load_demo(
-        &mut self,
-    ) {
-        // todo: use asset-server or something more sophisticated eventually.
-        // for now, just hack it up and toss the office-demo YAML into a big string
-        let result: serde_yaml::Result<serde_yaml::Value> = serde_yaml::from_str(&demo_office());
-        if result.is_err() {
-            println!("serde threw an error: {:?}", result.err());
-        }
-        else {
-            let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
-            self.load_yaml(doc);
-        }
-    }
-    
-    pub fn clear(&mut self) {
-        self.vertices = Vec::new();
-        self.lanes = Vec::new();
-        self.walls = Vec::new();
-    }
+pub fn spawn_site_map_yaml(
+    mut ev_spawn: EventReader<SpawnSiteMapYaml>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    _asset_server: Res<AssetServer>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+) {
+    for ev in ev_spawn.iter() {
+        let doc = &ev.yaml_doc;
 
-    pub fn load_yaml_from_data(&mut self, file_data: &Vec<u8>) {
-        let result: serde_yaml::Result<serde_yaml::Value>  =
-            serde_yaml::from_slice(file_data);
-        match result {
-            Ok(doc) => self.load_yaml(doc),
-            Err(e) => println!("error parsing file: {:?}", e),
+        // first, despawn all existing mesh entities
+        println!("despawing all meshes...");
+        for entity_mesh in mesh_query.iter() {
+            let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
         }
-    }
 
-    pub fn load_yaml(&mut self, doc: serde_yaml::Value) {
-        self.site_name = doc["name"].as_str().unwrap().to_string();
+        // parse the file into this object
+        let mut sm = SiteMap {
+            ..Default::default()
+        };
+
+        sm.site_name = doc["name"].as_str().unwrap().to_string();
         for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() { //.iter() {
             println!("level name: [{}]", k.as_str().unwrap());
             for vertex_yaml in level_yaml["vertices"].as_sequence().unwrap() {
@@ -104,7 +114,7 @@ impl SiteMap {
                     y: -y,
                     _name: name
                 };
-                self.vertices.push(v);
+                sm.vertices.push(v);
             }
             for lane_yaml in level_yaml["lanes"].as_sequence().unwrap() {
                 let data = lane_yaml.as_sequence().unwrap();
@@ -114,7 +124,7 @@ impl SiteMap {
                     start: start as usize,
                     end: end as usize
                 };
-                self.lanes.push(lane);
+                sm.lanes.push(lane);
             }
             let walls_yaml = level_yaml["walls"].as_sequence();
             if walls_yaml.is_some() {
@@ -126,40 +136,17 @@ impl SiteMap {
                         start: start as usize,
                         end: end as usize
                     };
-                    self.walls.push(wall);
+                    sm.walls.push(wall);
                 }
             }
         }
-    }
 
-    fn _print(&self) {
-        println!("site name: [{}]", &self.site_name);
-        println!("vertices:");
-        for v in &self.vertices {
-            println!("{} {} {}", v._name, v.x, v.y);
-        }
-    }
-
-    pub fn spawn(
-        &self,
-        mut commands: Commands,
-        mut meshes: ResMut<Assets<Mesh>>,
-        mut materials: ResMut<Assets<StandardMaterial>>,
-        _asset_server: Res<AssetServer>,
-        mesh_query: Query<(Entity, &Handle<Mesh>)>,
-    ) {
-        // first, despawn all existing mesh entities
-        println!("despawing all meshes...");
-        for entity_mesh in mesh_query.iter() {
-            let (entity, _mesh) = entity_mesh;
-            commands.entity(entity).despawn_recursive();
-        }
-
+        // todo: calculate scale and inter-level alignment
         let mut ofs_x = 0.0;
         let mut ofs_y = 0.0;
         let scale = 1.0 / 100.0;
         let mut num_v = 0;
-        for v in &self.vertices {
+        for v in &sm.vertices {
             ofs_x += v.x;
             ofs_y += v.y;
             num_v += 1;
@@ -167,6 +154,7 @@ impl SiteMap {
         ofs_x /= num_v as f64;
         ofs_y /= num_v as f64;
 
+        // now spawn the file into the scene
         let vertex_handle = meshes.add(
             Mesh::from(
                 shape::Capsule {
@@ -182,7 +170,7 @@ impl SiteMap {
 
         let vertex_material_handle = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
 
-        for v in &self.vertices {
+        for v in &sm.vertices {
             commands.spawn_bundle(PbrBundle {
                 mesh: vertex_handle.clone(),
                 material: vertex_material_handle.clone(),
@@ -202,9 +190,9 @@ impl SiteMap {
         let lane_material_handle = materials.add(Color::rgba(1.0, 0.5, 0.3, 0.5).into());
 
         let mut z_ofs = 0.01;
-        for lane in &self.lanes {
-            let v1 = &self.vertices[lane.start];
-            let v2 = &self.vertices[lane.end];
+        for lane in &sm.lanes {
+            let v1 = &sm.vertices[lane.start];
+            let v2 = &sm.vertices[lane.end];
             let v1x = ((v1.x - ofs_x) * scale) as f32;
             let v1y = ((v1.y - ofs_y) * scale) as f32;
             let v2x = ((v2.x - ofs_x) * scale) as f32;
@@ -233,9 +221,9 @@ impl SiteMap {
 
         let wall_material_handle = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
 
-        for wall in &self.walls {
-            let v1 = &self.vertices[wall.start];
-            let v2 = &self.vertices[wall.end];
+        for wall in &sm.walls {
+            let v1 = &sm.vertices[wall.start];
+            let v2 = &sm.vertices[wall.end];
             let v1x = ((v1.x - ofs_x) * scale) as f32;
             let v1y = ((v1.y - ofs_y) * scale) as f32;
             let v2x = ((v2.x - ofs_x) * scale) as f32;
@@ -261,26 +249,32 @@ impl SiteMap {
                 ..Default::default()
             });
         }
+
     }
 }
 
+////////////////////////////////////////////////////////
+// When starting up, either load the requested filename,
+// or load a built-in demo map (the OSRC-SG office).
+////////////////////////////////////////////////////////
+
 pub fn initialize_site_map(
-    mut sm: ResMut<SiteMap>,
-    commands: Commands,
-    meshes: ResMut<Assets<Mesh>>,
-    materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
-    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
+    mut spawn_filename_writer: EventWriter<SpawnSiteMapFilename>,
 ) {
     let args: Vec<String> = env::args().collect();
     if args.len() >= 2 {
-        println!("parsing...");
-        sm.load(args[1].clone());
-        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
-        println!("parsing complete");
+        spawn_filename_writer.send(SpawnSiteMapFilename { filename: args[1].clone() });
     } else {
-        sm.load_demo();
-        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
+        // load the office demo that is hard-coded in demo_world.rs
+        let result: serde_yaml::Result<serde_yaml::Value> = serde_yaml::from_str(&demo_office());
+        if result.is_err() {
+            println!("serde threw an error: {:?}", result.err());
+        }
+        else {
+            let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
+            spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
+        }
     }
 }
 
@@ -289,7 +283,10 @@ pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SiteMap>()
-           .add_startup_system(initialize_site_map);
+        app.add_event::<SpawnSiteMapYaml>()
+           .add_event::<SpawnSiteMapFilename>()
+           .add_startup_system(initialize_site_map)
+           .add_system(spawn_site_map_yaml)
+           .add_system(spawn_site_map_filename);
     }
 }
