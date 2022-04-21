@@ -74,6 +74,21 @@ impl SiteMap {
             self.load_yaml(doc);
         }
     }
+    
+    pub fn clear(&mut self) {
+        self.vertices = Vec::new();
+        self.lanes = Vec::new();
+        self.walls = Vec::new();
+    }
+
+    pub fn load_yaml_from_data(&mut self, file_data: &Vec<u8>) {
+        let result: serde_yaml::Result<serde_yaml::Value>  =
+            serde_yaml::from_slice(file_data);
+        match result {
+            Ok(doc) => self.load_yaml(doc),
+            Err(e) => println!("error parsing file: {:?}", e),
+        }
+    }
 
     pub fn load_yaml(&mut self, doc: serde_yaml::Value) {
         self.site_name = doc["name"].as_str().unwrap().to_string();
@@ -131,7 +146,15 @@ impl SiteMap {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         _asset_server: Res<AssetServer>,
+        mesh_query: Query<(Entity, &Handle<Mesh>)>,
     ) {
+        // first, despawn all existing mesh entities
+        println!("despawing all meshes...");
+        for entity_mesh in mesh_query.iter() {
+            let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
+        }
+
         let mut ofs_x = 0.0;
         let mut ofs_y = 0.0;
         let scale = 1.0 / 100.0;
@@ -247,16 +270,17 @@ pub fn initialize_site_map(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
 ) {
     let args: Vec<String> = env::args().collect();
     if args.len() >= 2 {
         println!("parsing...");
         sm.load(args[1].clone());
-        sm.spawn(commands, meshes, materials, asset_server);
+        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
         println!("parsing complete");
     } else {
         sm.load_demo();
-        sm.spawn(commands, meshes, materials, asset_server);
+        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
     }
 }
 
