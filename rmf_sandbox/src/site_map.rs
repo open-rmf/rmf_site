@@ -146,7 +146,15 @@ impl SiteMap {
         mut meshes: ResMut<Assets<Mesh>>,
         mut materials: ResMut<Assets<StandardMaterial>>,
         _asset_server: Res<AssetServer>,
+        mesh_query: Query<(Entity, &Handle<Mesh>)>,
     ) {
+        // first, despawn all existing mesh entities
+        println!("despawing all meshes...");
+        for entity_mesh in mesh_query.iter() {
+            let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
+        }
+
         let mut ofs_x = 0.0;
         let mut ofs_y = 0.0;
         let scale = 1.0 / 100.0;
@@ -262,16 +270,17 @@ pub fn initialize_site_map(
     meshes: ResMut<Assets<Mesh>>,
     materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
 ) {
     let args: Vec<String> = env::args().collect();
     if args.len() >= 2 {
         println!("parsing...");
         sm.load(args[1].clone());
-        sm.spawn(commands, meshes, materials, asset_server);
+        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
         println!("parsing complete");
     } else {
         sm.load_demo();
-        sm.spawn(commands, meshes, materials, asset_server);
+        sm.spawn(commands, meshes, materials, asset_server, mesh_query);
     }
 }
 
