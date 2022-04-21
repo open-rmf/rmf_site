@@ -39,29 +39,29 @@ fn egui_ui(
                 egui::menu::bar(ui, |ui| {
                     egui::menu::menu_button(ui, "File", |ui| {
                         if ui.button("Load demo").clicked() {
+                            sm.clear();
                             sm.load_demo();
                             sm.spawn(commands, meshes, materials, asset_server, mesh_query);
                         }
-                        else if ui.button("Open...").clicked() {
-                            let future = thread_pool.spawn(async move {
-                                let file = AsyncFileDialog::new().pick_file().await;
-                                let data = match file {
-                                    Some(data) => Some(data.read().await),
-                                    None => None
-                                };
-                                data
-                            });
-
+                        else {
+                            // menu commands that only make sense for non-web builds:
                             #[cfg(not(target_arch = "wasm32"))]
                             {
-                            commands.spawn().insert(future);
+                                if ui.button("Open...").clicked() {
+                                    let future = thread_pool.spawn(async move {
+                                        let file = AsyncFileDialog::new().pick_file().await;
+                                        let data = match file {
+                                            Some(data) => Some(data.read().await),
+                                            None => None
+                                        };
+                                        data
+                                    });
+                                    commands.spawn().insert(future);
+                                }
+                                if ui.button("Quit").clicked() {
+                                    _exit.send(AppExit);
+                                }
                             }
-
-                        }
-
-                        #[cfg(not(target_arch = "wasm32"))]
-                        if ui.button("Quit").clicked() {
-                            _exit.send(AppExit);
                         }
                     });
                 });
@@ -110,8 +110,6 @@ fn handle_file_open(
     }
 
     if assets_changed {
-        // TODO: ask Bevy to clear everything from the scene first!
-        // currently it adds the new scene to the existing scene :)
         sm.spawn(commands, _meshes, _materials, _asset_server, _mesh_query);
     }
 }
