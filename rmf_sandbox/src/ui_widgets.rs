@@ -6,21 +6,20 @@ use bevy::{
     },
     tasks::{AsyncComputeTaskPool}
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::{
-    tasks::Task
-};
-
 use bevy_egui::{egui, EguiContext, EguiPlugin};
+use rfd::AsyncFileDialog;
 use super::camera_controls::{CameraControls, ProjectionMode};
 use super::site_map::{SpawnSiteMapYaml};
-use rfd::AsyncFileDialog;
-use futures_lite::future;
 
 // todo: use asset-server or something more sophisticated eventually.
 // for now, just hack it up and toss the office-demo YAML into a big string
 use super::demo_world::demo_office;
+
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    bevy::tasks::Task,
+    futures_lite::future,
+};
 
 pub struct SuppressInput {
     pub should_suppress: bool,
@@ -45,28 +44,6 @@ fn egui_ui(
     egui::TopBottomPanel::top("top_panel")
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical(|ui| {
-
-                egui::menu::bar(ui, |ui| {
-                    // File menu commands only make sense for non-web builds:
-                    #[cfg(not(target_arch = "wasm32"))]
-                    egui::menu::menu_button(ui, "File", |ui| {
-                        if ui.button("Open...").clicked() {
-                            let future = thread_pool.spawn(async move {
-                                let file = AsyncFileDialog::new().pick_file().await;
-                                let data = match file {
-                                    Some(data) => Some(data.read().await),
-                                    None => None
-                                };
-                                data
-                            });
-                            commands.spawn().insert(future);
-                        }
-                        if ui.button("Quit").clicked() {
-                            _exit.send(AppExit);
-                        }
-                    });
-                });
-
                 ui.horizontal(|ui| {
                     if ui.button("Return to main menu").clicked() {
                         visible_windows.welcome = true;
@@ -85,7 +62,6 @@ fn egui_ui(
         });
 
     if visible_windows.welcome {
-        let rect = egui_context.ctx_mut().input().screen_rect();
         egui::Window::new("Welcome!")
             .collapsible(false)
             .resizable(false)
@@ -110,18 +86,20 @@ fn egui_ui(
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
-                if ui.button("Open a local map file").clicked() {
-                    let future = thread_pool.spawn(async move {
-                        let file = AsyncFileDialog::new().pick_file().await;
-                        let data = match file {
-                            Some(f) => Some(f.read().await),
-                            None => None
-                        };
-                        data
-                    });
-                    commands.spawn().insert(future);
-                    visible_windows.welcome = false;
-                    input_suppression.should_suppress = false;
+                {
+                    if ui.button("Open a local map file").clicked() {
+                        let future = thread_pool.spawn(async move {
+                            let file = AsyncFileDialog::new().pick_file().await;
+                            let data = match file {
+                                Some(f) => Some(f.read().await),
+                                None => None
+                            };
+                            data
+                        });
+                        commands.spawn().insert(future);
+                        visible_windows.welcome = false;
+                        input_suppression.should_suppress = false;
+                    }
                 }
 
                 ui.add_space(10.);

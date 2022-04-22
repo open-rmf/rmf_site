@@ -267,7 +267,6 @@ pub fn spawn_site_map_yaml(
 }
 
 pub fn initialize_site_map(
-    mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
     mut spawn_filename_writer: EventWriter<SpawnSiteMapFilename>,
 ) {
     let args: Vec<String> = env::args().collect();
