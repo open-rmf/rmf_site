@@ -1,7 +1,12 @@
 use bevy::prelude::*;
 use bevy::render::camera::{ActiveCamera, Camera3d};
+use bevy::ui::Interaction;
+use bevy_egui::EguiContext;
 use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
-use bevy_mod_picking::{DefaultPickingPlugins, PickableBundle, PickingCamera, PickingCameraBundle};
+use bevy_mod_picking::{
+    DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
+    PickingPluginsState,
+};
 
 use std::{
     env,
@@ -287,6 +292,7 @@ pub fn spawn_site_map_yaml(
 ////////////////////////////////////////////////////////
 
 pub fn initialize_site_map(
+    mut commands: Commands,
     mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
     mut spawn_filename_writer: EventWriter<SpawnSiteMapFilename>,
 ) {
@@ -305,6 +311,10 @@ pub fn initialize_site_map(
             spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
         }
     }
+    commands
+        .spawn()
+        .insert(PickingBlocker)
+        .insert(Interaction::default());
 }
 
 fn update_picking_cam(
@@ -329,6 +339,26 @@ fn update_picking_cam(
             }
             None => (),
         }
+    }
+}
+
+/// Stops picking when egui is in focus.
+/// This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
+/// 
+/// Normally bevy_mod_picking automatically stops when
+/// a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
+fn enable_picking(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
+) {
+    let egui_ctx = egui_context.ctx_mut();
+    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
+
+    let mut blocker = picking_blocker.single_mut();
+    if enable {
+        *blocker = Interaction::None;
+    } else {
+        *blocker = Interaction::Clicked;
     }
 }
 
@@ -359,6 +389,7 @@ impl Plugin for SiteMapPlugin {
             .add_system(spawn_site_map_yaml)
             .add_system(spawn_site_map_filename)
             .add_system(update_picking_cam)
+            .add_system(enable_picking)
             .add_system(maintain_inspected_entities);
     }
 }

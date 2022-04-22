@@ -3,6 +3,7 @@ use bevy::{
     prelude::*,
     render::camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
 };
+use bevy_egui::EguiContext;
 
 struct MouseLocation {
     previous: Vec2,
@@ -65,7 +66,14 @@ fn camera_controls(
         (&mut PerspectiveProjection, &mut Transform),
         Without<OrthographicProjection>,
     >,
+    mut egui_context: ResMut<EguiContext>,
 ) {
+    // give input priority to ui elements
+    let egui_ctx = egui_context.ctx_mut();
+    if egui_ctx.wants_pointer_input() || egui_ctx.wants_keyboard_input() {
+        return;
+    }
+
     let pan_button = MouseButton::Left;
     let orbit_button = MouseButton::Right;
 
