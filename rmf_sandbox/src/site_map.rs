@@ -7,10 +7,6 @@ use std::{
 
 use serde_yaml;
 
-// todo: use asset-server or something more sophisticated eventually.
-// for now, just hack it up and toss the office-demo YAML into a big string
-use super::demo_world::demo_office;
-
 ////////////////////////////////////////////////////////
 // A few helper structs to use when parsing YAML files
 ////////////////////////////////////////////////////////
@@ -250,13 +246,25 @@ pub fn spawn_site_map_yaml(
             });
         }
 
+        // For now just spawn a plane for the floor.
+        // todo: calculate the actual floor polygons.
+        commands.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+            //material: materials.add(Color::rgb(0.3, 0.7, 0.3).into()),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.3, 0.3, 0.3),
+                ..Default::default()
+            }),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+
+
     }
 }
-
-////////////////////////////////////////////////////////
-// When starting up, either load the requested filename,
-// or load a built-in demo map (the OSRC-SG office).
-////////////////////////////////////////////////////////
 
 pub fn initialize_site_map(
     mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
@@ -265,16 +273,6 @@ pub fn initialize_site_map(
     let args: Vec<String> = env::args().collect();
     if args.len() >= 2 {
         spawn_filename_writer.send(SpawnSiteMapFilename { filename: args[1].clone() });
-    } else {
-        // load the office demo that is hard-coded in demo_world.rs
-        let result: serde_yaml::Result<serde_yaml::Value> = serde_yaml::from_str(&demo_office());
-        if result.is_err() {
-            println!("serde threw an error: {:?}", result.err());
-        }
-        else {
-            let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
-            spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
-        }
     }
 }
 
