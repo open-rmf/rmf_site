@@ -1,11 +1,7 @@
 use bevy::{
-    input::{
-        mouse::{MouseButton, MouseWheel},
-    },
+    input::mouse::{MouseButton, MouseWheel},
     prelude::*,
-    render::{
-        camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
-    },
+    render::camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
 };
 
 struct MouseLocation {
@@ -21,7 +17,10 @@ impl Default for MouseLocation {
 }
 
 #[derive(PartialEq, Debug, Clone, Reflect)]
-pub enum ProjectionMode { Perspective, Orthographic }
+pub enum ProjectionMode {
+    Perspective,
+    Orthographic,
+}
 
 #[derive(Component, Debug, Clone, Reflect)]
 pub struct CameraControls {
@@ -34,13 +33,13 @@ pub struct CameraControls {
 }
 
 impl CameraControls {
-    pub fn set_mode(&mut self, mode: ProjectionMode) { //, &mut active_camera_3d: ActiveCamera<Camera3d>) {
+    pub fn set_mode(&mut self, mode: ProjectionMode) {
+        //, &mut active_camera_3d: ActiveCamera<Camera3d>) {
 
         self.mode = mode;
         if self.mode == ProjectionMode::Orthographic {
             // active_camera_3d.set(self.orthographic_camera_entity);
-        }
-        else if self.mode == ProjectionMode::Perspective {
+        } else if self.mode == ProjectionMode::Perspective {
             // active_camera_3d.set(self.perspective_camera_entity);
         }
     }
@@ -58,8 +57,14 @@ fn camera_controls(
     input_mouse: Res<Input<MouseButton>>,
     mut previous_mouse_location: ResMut<MouseLocation>,
     mut controls_query: Query<&mut CameraControls>,
-    mut ortho_query: Query<(&mut OrthographicProjection, &mut Transform), Without<PerspectiveProjection>>,
-    mut persp_query: Query<(&mut PerspectiveProjection, &mut Transform), Without<OrthographicProjection>>,
+    mut ortho_query: Query<
+        (&mut OrthographicProjection, &mut Transform),
+        Without<PerspectiveProjection>,
+    >,
+    mut persp_query: Query<
+        (&mut PerspectiveProjection, &mut Transform),
+        Without<OrthographicProjection>,
+    >,
 ) {
     let pan_button = MouseButton::Left;
     let orbit_button = MouseButton::Right;
@@ -98,16 +103,12 @@ fn camera_controls(
         let (mut ortho_proj, mut ortho_transform) = ortho_query.single_mut();
 
         let window = windows.get_primary().unwrap();
-        let window_size = Vec2::new(
-            window.width() as f32,
-            window.height() as f32);
+        let window_size = Vec2::new(window.width() as f32, window.height() as f32);
         let aspect_ratio = window_size[0] / window_size[1];
 
         if cursor_motion.length_squared() > 0.0 {
-            cursor_motion *= 2. / window_size * Vec2::new(
-                ortho_proj.scale * aspect_ratio,
-                ortho_proj.scale
-            );
+            cursor_motion *=
+                2. / window_size * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
             let right = -cursor_motion.x * Vec3::X;
             let up = -cursor_motion.y * Vec3::Y;
             ortho_transform.translation += right + up;
@@ -116,8 +117,7 @@ fn camera_controls(
             ortho_proj.scale -= scroll * ortho_proj.scale * 0.1;
             ortho_proj.scale = f32::max(ortho_proj.scale, 0.02);
         }
-    }
-    else {
+    } else {
         // perspective mode
         let (persp_proj, mut persp_transform) = persp_query.single_mut();
 
@@ -136,7 +136,11 @@ fn camera_controls(
             let window_size = Vec2::new(window.width() as f32, window.height() as f32);
             let delta_x = {
                 let delta = cursor_motion.x / window_size.x * std::f32::consts::PI * 2.0;
-                if controls.orbit_upside_down { -delta } else { delta }
+                if controls.orbit_upside_down {
+                    -delta
+                } else {
+                    delta
+                }
             };
             let delta_y = -cursor_motion.y / window_size.y * std::f32::consts::PI;
             let yaw = Quat::from_rotation_z(-delta_x);
@@ -150,10 +154,7 @@ fn camera_controls(
             let window_size = Vec2::new(window.width() as f32, window.height() as f32);
 
             cursor_motion *=
-                Vec2::new(
-                    persp_proj.fov * persp_proj.aspect_ratio,
-                    persp_proj.fov
-                ) / window_size;
+                Vec2::new(persp_proj.fov * persp_proj.aspect_ratio, persp_proj.fov) / window_size;
             // translate by local axes
             let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
             let up = persp_transform.rotation * Vec3::Y * -cursor_motion.y;
@@ -174,8 +175,7 @@ fn camera_controls(
             // parent = x and y rotation
             // child = z-offset
             let rot_matrix = Mat3::from_quat(persp_transform.rotation);
-            persp_transform.translation =
-                controls.orbit_center
+            persp_transform.translation = controls.orbit_center
                 + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, controls.orbit_radius));
         }
     }
@@ -198,25 +198,26 @@ fn handle_keyboard(
     }
 }
 
-fn camera_controls_setup(
-    mut commands: Commands,
-) {
-    let proj_entity = commands.spawn_bundle(PerspectiveCameraBundle {
-        transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-        ..default()
-    }).id();
-
-    let ortho_entity = commands.spawn_bundle(OrthographicCameraBundle {
-        transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-        orthographic_projection: OrthographicProjection {
-            window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::FixedVertical,
-            scale: 10.0,
+fn camera_controls_setup(mut commands: Commands) {
+    let proj_entity = commands
+        .spawn_bundle(PerspectiveCameraBundle {
+            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
             ..default()
-        },
-        ..OrthographicCameraBundle::new_3d()
-    }).id();
+        })
+        .id();
 
+    let ortho_entity = commands
+        .spawn_bundle(OrthographicCameraBundle {
+            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+            orthographic_projection: OrthographicProjection {
+                window_origin: WindowOrigin::Center,
+                scaling_mode: ScalingMode::FixedVertical,
+                scale: 10.0,
+                ..default()
+            },
+            ..OrthographicCameraBundle::new_3d()
+        })
+        .id();
     commands.spawn_bundle(CameraControlsBundle {
         controls: CameraControls {
             mode: ProjectionMode::Perspective,
@@ -225,7 +226,7 @@ fn camera_controls_setup(
             orbit_center: Vec3::ZERO,
             orbit_radius: 20.0,
             orbit_upside_down: false,
-        }
+        },
     });
 }
 
@@ -234,8 +235,8 @@ pub struct CameraControlsPlugin;
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MouseLocation::default())
-           .add_startup_system(camera_controls_setup)
-           .add_system(handle_keyboard)
-           .add_system(camera_controls);
+            .add_startup_system(camera_controls_setup)
+            .add_system(handle_keyboard)
+            .add_system(camera_controls);
     }
 }
