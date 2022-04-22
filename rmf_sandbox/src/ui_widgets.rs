@@ -109,6 +109,7 @@ fn egui_ui(
                     input_suppression.should_suppress = false;
                 }
 
+                #[cfg(not(target_arch = "wasm32"))]
                 if ui.button("Open a local map file").clicked() {
                     let future = thread_pool.spawn(async move {
                         let file = AsyncFileDialog::new().pick_file().await;
