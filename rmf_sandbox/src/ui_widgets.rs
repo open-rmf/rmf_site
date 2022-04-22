@@ -1,22 +1,18 @@
 use bevy::{
     app::AppExit,
     prelude::*,
-    render::{
-        camera::{ActiveCamera, Camera3d},
-    },
-    tasks::{AsyncComputeTaskPool}
+    render::camera::{ActiveCamera, Camera3d},
+    tasks::AsyncComputeTaskPool,
 };
 
 #[cfg(not(target_arch = "wasm32"))]
-use bevy::{
-    tasks::Task
-};
+use bevy::tasks::Task;
 
-use bevy_egui::{egui, EguiContext, EguiPlugin};
 use super::camera_controls::{CameraControls, ProjectionMode};
-use super::site_map::{SpawnSiteMapYaml};
-use rfd::AsyncFileDialog;
+use super::site_map::SpawnSiteMapYaml;
+use bevy_egui::{egui, EguiContext, EguiPlugin};
 use futures_lite::future;
+use rfd::AsyncFileDialog;
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
@@ -27,45 +23,55 @@ fn egui_ui(
     thread_pool: Res<AsyncComputeTaskPool>,
 ) {
     let mut controls = query.single_mut();
-    egui::TopBottomPanel::top("top_panel")
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.vertical(|ui| {
-
-                egui::menu::bar(ui, |ui| {
-                    // File menu commands only make sense for non-web builds:
-                    #[cfg(not(target_arch = "wasm32"))]
-                    egui::menu::menu_button(ui, "File", |ui| {
-                        if ui.button("Open...").clicked() {
-                            let future = thread_pool.spawn(async move {
-                                let file = AsyncFileDialog::new().pick_file().await;
-                                let data = match file {
-                                    Some(data) => Some(data.read().await),
-                                    None => None
-                                };
-                                data
-                            });
-                            commands.spawn().insert(future);
-                        }
-                        if ui.button("Quit").clicked() {
-                            _exit.send(AppExit);
-                        }
-                    });
-                });
-
-                ui.horizontal(|ui| {
-                    ui.label("[toolbar buttons]");
-                    ui.separator();
-                    if ui.add(egui::SelectableLabel::new(controls.mode == ProjectionMode::Orthographic, "2D")).clicked() {
-                        controls.set_mode(ProjectionMode::Orthographic);
-                        active_camera_3d.set(controls.orthographic_camera_entity);
+    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+        ui.vertical(|ui| {
+            egui::menu::bar(ui, |ui| {
+                // File menu commands only make sense for non-web builds:
+                #[cfg(not(target_arch = "wasm32"))]
+                egui::menu::menu_button(ui, "File", |ui| {
+                    if ui.button("Open...").clicked() {
+                        let future = thread_pool.spawn(async move {
+                            let file = AsyncFileDialog::new().pick_file().await;
+                            let data = match file {
+                                Some(data) => Some(data.read().await),
+                                None => None,
+                            };
+                            data
+                        });
+                        commands.spawn().insert(future);
                     }
-                    if ui.add(egui::SelectableLabel::new(controls.mode == ProjectionMode::Perspective, "3D")).clicked() {
-                        controls.set_mode(ProjectionMode::Perspective);
-                        active_camera_3d.set(controls.perspective_camera_entity);
+                    if ui.button("Quit").clicked() {
+                        _exit.send(AppExit);
                     }
                 });
             });
+
+            ui.horizontal(|ui| {
+                ui.label("[toolbar buttons]");
+                ui.separator();
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        controls.mode == ProjectionMode::Orthographic,
+                        "2D",
+                    ))
+                    .clicked()
+                {
+                    controls.set_mode(ProjectionMode::Orthographic);
+                    active_camera_3d.set(controls.orthographic_camera_entity);
+                }
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        controls.mode == ProjectionMode::Perspective,
+                        "3D",
+                    ))
+                    .clicked()
+                {
+                    controls.set_mode(ProjectionMode::Perspective);
+                    active_camera_3d.set(controls.perspective_camera_entity);
+                }
+            });
         });
+    });
 }
 
 /// Handles the file opening events
@@ -87,7 +93,7 @@ fn handle_file_open(
                         Err(e) => println!("error parsing file: {:?}", e),
                     }
                     commands.entity(entity).remove::<Task<Option<Vec<u8>>>>();
-                },
+                }
                 None => {}
             }
         }
@@ -96,10 +102,13 @@ fn handle_file_open(
 
 pub struct UIWidgetsPlugin;
 
-impl Plugin for UIWidgetsPlugin{
+impl Plugin for UIWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(EguiPlugin)
-           .add_system(egui_ui);
+        // avoid conflict with bevy-inspect-egui
+        if !app.world.contains_resource::<EguiContext>() {
+            app.add_plugin(EguiPlugin);
+        }
+        app.add_system(egui_ui);
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_file_open);

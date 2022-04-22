@@ -1,19 +1,13 @@
 use bevy::{
     // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::{
-        DirectionalLight,
-        DirectionalLightShadowMap,
-    },
+    pbr::{DirectionalLight, DirectionalLightShadowMap},
     prelude::*,
 };
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
-use bevy::{
-    core::FixedTimestep,
-    window::Windows,
-};
+use bevy::{core::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
@@ -103,7 +97,6 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
 
 #[wasm_bindgen]
 pub fn run() {
-
     #[cfg(target_arch = "wasm32")]
     App::new()
         .insert_resource(WindowDescriptor {
@@ -113,9 +106,7 @@ pub fn run() {
             ..Default::default()
         })
         .add_plugins(DefaultPlugins)
-        .insert_resource( DirectionalLightShadowMap {
-            size: 1024
-        })
+        .insert_resource(DirectionalLightShadowMap { size: 1024 })
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
@@ -123,29 +114,27 @@ pub fn run() {
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
-                .with_system(check_browser_window_size)
-            )
+                .with_system(check_browser_window_size),
+        )
         .run();
 
     #[cfg(not(target_arch = "wasm32"))]
     App::new()
         .insert_resource(WindowDescriptor {
             title: "RMF Sandbox".to_string(),
-            width: 800.,
-            height: 800.,
+            width: 1600.,
+            height: 900.,
             //vsync: false,
             ..Default::default()
         })
-        .insert_resource( DirectionalLightShadowMap {
-            size: 2048
-        })
+        .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins(DefaultPlugins)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
-        .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
         .add_plugin(UIWidgetsPlugin)
+        .add_startup_system(setup)
         .run();
 }
