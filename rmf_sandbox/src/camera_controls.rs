@@ -7,6 +7,7 @@ use bevy::{
         camera::{ActiveCamera, Camera3d, ScalingMode, WindowOrigin},
     },
 };
+use super::ui_widgets::SuppressInput;
 
 struct MouseLocation {
     previous: Vec2,
@@ -53,6 +54,7 @@ pub struct CameraControlsBundle {
 
 fn camera_controls(
     windows: Res<Windows>,
+    input_suppression: Res<SuppressInput>,
     mut ev_cursor_moved: EventReader<CursorMoved>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
@@ -61,6 +63,11 @@ fn camera_controls(
     mut ortho_query: Query<(&mut OrthographicProjection, &mut Transform), Without<PerspectiveProjection>>,
     mut persp_query: Query<(&mut PerspectiveProjection, &mut Transform), Without<OrthographicProjection>>,
 ) {
+    if input_suppression.should_suppress {
+        return;
+    }
+
+
     let pan_button = MouseButton::Left;
     let orbit_button = MouseButton::Right;
 
