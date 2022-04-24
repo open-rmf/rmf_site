@@ -22,44 +22,7 @@ use camera_controls::CameraControlsPlugin;
 mod ui_widgets;
 use ui_widgets::UIWidgetsPlugin;
 
-fn setup(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
-    println!("entering setup() startup system...");
-
-    /*
-    // this is useful for debugging lighting... spheres are very forgiving
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::UVSphere {
-            radius: 20.,
-            ..Default::default()
-        })),
-        material: materials.add(StandardMaterial {
-            base_color: Color::LIME_GREEN,
-            ..Default::default()
-        }),
-        transform: Transform::from_xyz(0., 0., 0.),
-        ..Default::default()
-    });
-    */
-
-    // plane
-    commands.spawn_bundle(PbrBundle {
-        mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-        //material: materials.add(Color::rgb(0.3, 0.7, 0.3).into()),
-        material: materials.add(StandardMaterial {
-            base_color: Color::rgb(0.3, 0.3, 0.3),
-            ..Default::default()
-        }),
-        transform: Transform {
-            rotation: Quat::from_rotation_x(1.57),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
-
+fn setup(mut commands: Commands) {
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
