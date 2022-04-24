@@ -12,7 +12,6 @@ path = "src/main.rs"
 name = "rmf_sandbox"
 
 [dependencies]
-bevy = { version = "0.7", features = ["dynamic"] }
 bevy_egui = "0.13"
 bevy_mod_picking = "0.6"
 bevy-inspector-egui = "0.10"
@@ -22,3 +21,8 @@ wasm-bindgen = "0.2"
 web-sys = { version = "0.3.56", features = ["console"] }
 yaml-rust = "0.4"
 futures-lite = "1.12.0"
+bevy = { version = "0.7" }
+
+# only enable the 'dynamic' feature if we're not building for web
+[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+bevy = { version = "0.7", features = ["dynamic"] }

@@ -26,10 +26,10 @@ pub struct VisibleWindows {
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut query: Query<&mut CameraControls>,
-    mut commands: Commands,
+    mut _commands: Commands,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut _exit: EventWriter<AppExit>,
-    thread_pool: Res<AsyncComputeTaskPool>,
+    _thread_pool: Res<AsyncComputeTaskPool>,
     mut visible_windows: ResMut<VisibleWindows>,
     mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
 ) {
@@ -91,7 +91,7 @@ fn egui_ui(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.button("Open a local map file").clicked() {
-                        let future = thread_pool.spawn(async move {
+                        let future = _thread_pool.spawn(async move {
                             let file = AsyncFileDialog::new().pick_file().await;
                             let data = match file {
                                 Some(f) => Some(f.read().await),
@@ -99,7 +99,7 @@ fn egui_ui(
                             };
                             data
                         });
-                        commands.spawn().insert(future);
+                        _commands.spawn().insert(future);
                         visible_windows.welcome = false;
                     }
                 }
