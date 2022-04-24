@@ -73,7 +73,6 @@ fn camera_controls(
     if egui_ctx.wants_pointer_input() || egui_ctx.wants_keyboard_input() {
         return;
     }
-
     let pan_button = MouseButton::Left;
     let orbit_button = MouseButton::Right;
 

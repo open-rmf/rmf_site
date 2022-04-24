@@ -4,15 +4,24 @@ use bevy::{
     render::camera::{ActiveCamera, Camera3d},
     tasks::AsyncComputeTaskPool,
 };
-
-#[cfg(not(target_arch = "wasm32"))]
-use bevy::tasks::Task;
-
+use bevy_egui::{egui, EguiContext, EguiPlugin};
 use super::camera_controls::{CameraControls, ProjectionMode};
 use super::site_map::SpawnSiteMapYaml;
-use bevy_egui::{egui, EguiContext, EguiPlugin};
-use futures_lite::future;
-use rfd::AsyncFileDialog;
+
+// todo: use asset-server or something more sophisticated eventually.
+// for now, just hack it up and toss the office-demo YAML into a big string
+use super::demo_world::demo_office;
+
+#[cfg(not(target_arch = "wasm32"))]
+use {
+    bevy::tasks::Task,
+    futures_lite::future,
+    rfd::AsyncFileDialog,
+};
+
+pub struct VisibleWindows {
+    pub welcome: bool,
+}
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
@@ -21,33 +30,16 @@ fn egui_ui(
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut _exit: EventWriter<AppExit>,
     thread_pool: Res<AsyncComputeTaskPool>,
+    mut visible_windows: ResMut<VisibleWindows>,
+    mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
 ) {
     let mut controls = query.single_mut();
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+    egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
         ui.vertical(|ui| {
-            egui::menu::bar(ui, |ui| {
-                // File menu commands only make sense for non-web builds:
-                #[cfg(not(target_arch = "wasm32"))]
-                egui::menu::menu_button(ui, "File", |ui| {
-                    if ui.button("Open...").clicked() {
-                        let future = thread_pool.spawn(async move {
-                            let file = AsyncFileDialog::new().pick_file().await;
-                            let data = match file {
-                                Some(data) => Some(data.read().await),
-                                None => None,
-                            };
-                            data
-                        });
-                        commands.spawn().insert(future);
-                    }
-                    if ui.button("Quit").clicked() {
-                        _exit.send(AppExit);
-                    }
-                });
-            });
-
             ui.horizontal(|ui| {
-                ui.label("[toolbar buttons]");
+                if ui.button("Return to main menu").clicked() {
+                    visible_windows.welcome = true;
+                }
                 ui.separator();
                 if ui
                     .add(egui::SelectableLabel::new(
@@ -72,6 +64,58 @@ fn egui_ui(
             });
         });
     });
+
+    if visible_windows.welcome {
+        egui::Window::new("Welcome!")
+            .collapsible(false)
+            .resizable(false)
+            .title_bar(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.heading("Welcome to The RMF Sandbox!");
+                ui.add_space(10.);
+
+                if ui.button("Open a demonstration map").clicked() {
+                    // load the office demo that is hard-coded in demo_world.rs
+                    let result: serde_yaml::Result<serde_yaml::Value> = serde_yaml::from_str(&demo_office());
+                    if result.is_err() {
+                        println!("serde threw an error: {:?}", result.err());
+                    }
+                    else {
+                        let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
+                        spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
+                    }
+                    visible_windows.welcome = false;
+                }
+
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui.button("Open a local map file").clicked() {
+                        let future = thread_pool.spawn(async move {
+                            let file = AsyncFileDialog::new().pick_file().await;
+                            let data = match file {
+                                Some(f) => Some(f.read().await),
+                                None => None
+                            };
+                            data
+                        });
+                        commands.spawn().insert(future);
+                        visible_windows.welcome = false;
+                    }
+                }
+
+                ui.add_space(10.);
+                if ui.button("Quit").clicked() {
+                    _exit.send(AppExit);
+                }
+
+                /*
+                if ui.button("Close").clicked() {
+                  visible_windows.welcome = false;
+                }
+                */
+            });
+    }
 }
 
 /// Handles the file opening events
@@ -92,10 +136,10 @@ fn handle_file_open(
                         Ok(doc) => spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc }),
                         Err(e) => println!("error parsing file: {:?}", e),
                     }
-                    commands.entity(entity).remove::<Task<Option<Vec<u8>>>>();
-                }
+                },
                 None => {}
             }
+            commands.entity(entity).remove::<Task<Option<Vec<u8>>>>();
         }
     }
 }
@@ -109,6 +153,7 @@ impl Plugin for UIWidgetsPlugin {
             app.add_plugin(EguiPlugin);
         }
         app.add_system(egui_ui);
+        app.insert_resource(VisibleWindows { welcome: true });
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_file_open);
