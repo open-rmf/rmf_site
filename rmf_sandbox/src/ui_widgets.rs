@@ -100,11 +100,10 @@ fn egui_ui(
                         visible_windows.welcome = false;
                         input_suppression.should_suppress = false;
                     }
-                }
-
-                ui.add_space(10.);
-                if ui.button("Quit").clicked() {
-                    _exit.send(AppExit);
+                    ui.add_space(10.);
+                    if ui.button("Quit").clicked() {
+                        _exit.send(AppExit);
+                    }
                 }
 
                 /*
