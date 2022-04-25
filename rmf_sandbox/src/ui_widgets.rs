@@ -61,6 +61,21 @@ fn egui_ui(
             });
         });
 
+    egui::TopBottomPanel::bottom("bottom")
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.horizontal(|ui| {
+                if visible_windows.welcome {
+                    ui.label("Welcome!");
+                }
+                else if controls.mode == ProjectionMode::Orthographic {
+                    ui.label("Left-drag: pan. Scroll wheel: zoom.");
+                }
+                else if controls.mode == ProjectionMode::Perspective {
+                    ui.label("Left-drag: pan. Right-drag: rotate. Scroll wheel: zoom.");
+                }
+            });
+        });
+
     if visible_windows.welcome {
         egui::Window::new("Welcome!")
             .collapsible(false)
