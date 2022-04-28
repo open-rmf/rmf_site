@@ -1,3 +1,4 @@
+[![](https://github.com/osrf/rmf_sandbox/workflows/style/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/style.yaml)
 [![](https://github.com/osrf/rmf_sandbox/workflows/ci_linux/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/ci_linux.yaml)
 [![](https://github.com/osrf/rmf_sandbox/workflows/ci_web/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/ci_web.yaml)
 
