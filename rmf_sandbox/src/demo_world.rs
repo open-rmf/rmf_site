@@ -1,6 +1,6 @@
 pub fn demo_office() -> String {
-  return String::from(
-r##"crowd_sim:
+    return String::from(
+        r##"crowd_sim:
   agent_groups:
     - {agents_name: [tinyRobot1, tinyRobot2], agents_number: 2, group_id: 0, profile_selector: external_agent, state_selector: external_static, x: 0, y: 0}
   agent_profiles:
@@ -237,5 +237,6 @@ levels:
 lifts:
   {}
 name: building
-"##);
+"##,
+    );
 }
