@@ -353,7 +353,7 @@ fn update_picking_cam(
 
 /// Stops picking when egui is in focus.
 /// This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
-/// 
+///
 /// Normally bevy_mod_picking automatically stops when
 /// a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
 fn enable_picking(
