@@ -1,15 +1,12 @@
 use bevy::{
     app::AppExit,
     prelude::*,
-    render::{
-        camera::{ActiveCamera, Camera3d},
-    },
-    tasks::{AsyncComputeTaskPool}
+    render::camera::{ActiveCamera, Camera3d},
+    tasks::AsyncComputeTaskPool,
 };
 use bevy_egui::{egui, EguiContext, EguiPlugin};
-use rfd::AsyncFileDialog;
 use super::camera_controls::{CameraControls, ProjectionMode};
-use super::site_map::{SpawnSiteMapYaml};
+use super::site_map::SpawnSiteMapYaml;
 
 // todo: use asset-server or something more sophisticated eventually.
 // for now, just hack it up and toss the office-demo YAML into a big string
@@ -19,11 +16,8 @@ use super::demo_world::demo_office;
 use {
     bevy::tasks::Task,
     futures_lite::future,
+    rfd::AsyncFileDialog,
 };
-
-pub struct SuppressInput {
-    pub should_suppress: bool,
-}
 
 pub struct VisibleWindows {
     pub welcome: bool,
@@ -32,34 +26,44 @@ pub struct VisibleWindows {
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut query: Query<&mut CameraControls>,
-    mut commands: Commands,
+    mut _commands: Commands,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut _exit: EventWriter<AppExit>,
-    thread_pool: Res<AsyncComputeTaskPool>,
-    mut input_suppression: ResMut<SuppressInput>,
+    _thread_pool: Res<AsyncComputeTaskPool>,
     mut visible_windows: ResMut<VisibleWindows>,
     mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
 ) {
     let mut controls = query.single_mut();
-    egui::TopBottomPanel::top("top_panel")
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.vertical(|ui| {
-                ui.horizontal(|ui| {
-                    if ui.button("Return to main menu").clicked() {
-                        visible_windows.welcome = true;
-                    }
-                    ui.separator();
-                    if ui.add(egui::SelectableLabel::new(controls.mode == ProjectionMode::Orthographic, "2D")).clicked() {
-                        controls.set_mode(ProjectionMode::Orthographic);
-                        active_camera_3d.set(controls.orthographic_camera_entity);
-                    }
-                    if ui.add(egui::SelectableLabel::new(controls.mode == ProjectionMode::Perspective, "3D")).clicked() {
-                        controls.set_mode(ProjectionMode::Perspective);
-                        active_camera_3d.set(controls.perspective_camera_entity);
-                    }
-                });
+    egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
+        ui.vertical(|ui| {
+            ui.horizontal(|ui| {
+                if ui.button("Return to main menu").clicked() {
+                    visible_windows.welcome = true;
+                }
+                ui.separator();
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        controls.mode == ProjectionMode::Orthographic,
+                        "2D",
+                    ))
+                    .clicked()
+                {
+                    controls.set_mode(ProjectionMode::Orthographic);
+                    active_camera_3d.set(controls.orthographic_camera_entity);
+                }
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        controls.mode == ProjectionMode::Perspective,
+                        "3D",
+                    ))
+                    .clicked()
+                {
+                    controls.set_mode(ProjectionMode::Perspective);
+                    active_camera_3d.set(controls.perspective_camera_entity);
+                }
             });
         });
+    });
 
     egui::TopBottomPanel::bottom("bottom")
         .show(egui_context.ctx_mut(), |ui| {
@@ -97,13 +101,12 @@ fn egui_ui(
                         spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
                     }
                     visible_windows.welcome = false;
-                    input_suppression.should_suppress = false;
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.button("Open a local map file").clicked() {
-                        let future = thread_pool.spawn(async move {
+                        let future = _thread_pool.spawn(async move {
                             let file = AsyncFileDialog::new().pick_file().await;
                             let data = match file {
                                 Some(f) => Some(f.read().await),
@@ -111,9 +114,8 @@ fn egui_ui(
                             };
                             data
                         });
-                        commands.spawn().insert(future);
+                        _commands.spawn().insert(future);
                         visible_windows.welcome = false;
-                        input_suppression.should_suppress = false;
                     }
                     ui.add_space(10.);
                     if ui.button("Quit").clicked() {
@@ -124,7 +126,6 @@ fn egui_ui(
                 /*
                 if ui.button("Close").clicked() {
                   visible_windows.welcome = false;
-                  input_suppression.should_suppress = false;
                 }
                 */
             });
@@ -159,14 +160,14 @@ fn handle_file_open(
 
 pub struct UIWidgetsPlugin;
 
-impl Plugin for UIWidgetsPlugin{
+impl Plugin for UIWidgetsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(SuppressInput { should_suppress: true })
-           .insert_resource(VisibleWindows {
-               welcome: true
-           })
-           .add_plugin(EguiPlugin)
-           .add_system(egui_ui);
+        // avoid conflict with bevy-inspect-egui
+        if !app.world.contains_resource::<EguiContext>() {
+            app.add_plugin(EguiPlugin);
+        }
+        app.add_system(egui_ui);
+        app.insert_resource(VisibleWindows { welcome: true });
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_file_open);

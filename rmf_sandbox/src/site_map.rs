@@ -1,27 +1,51 @@
 use bevy::prelude::*;
+use bevy::render::camera::{ActiveCamera, Camera3d};
+use bevy::ui::Interaction;
+use bevy_egui::EguiContext;
+use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
+use bevy_mod_picking::{
+    DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
+    PickingPluginsState,
+};
 
 use std::{
     env,
-    fs::{File, metadata},
+    fs::{metadata, File},
 };
 
 use serde_yaml;
+
+#[derive(Inspectable, Default)]
+struct Inspector {
+    #[inspectable(deletable = false)]
+    active: Option<Editable>,
+}
+
+#[derive(Inspectable, Component, Clone)]
+enum Editable {
+    Vertex(Vertex),
+    Lane(Lane),
+    Wall(Wall),
+}
 
 ////////////////////////////////////////////////////////
 // A few helper structs to use when parsing YAML files
 ////////////////////////////////////////////////////////
 
+#[derive(Component, Inspectable, Clone, Default)]
 struct Vertex {
     x: f64,
     y: f64,
     _name: String,
 }
 
+#[derive(Component, Inspectable, Clone, Default)]
 struct Lane {
     start: usize,
     end: usize,
 }
 
+#[derive(Component, Inspectable, Clone, Default)]
 struct Wall {
     start: usize,
     end: usize,
@@ -59,7 +83,7 @@ pub struct SpawnSiteMapYaml {
 
 pub fn spawn_site_map_filename(
     mut ev_filename: EventReader<SpawnSiteMapFilename>,
-    mut ev_yaml: EventWriter<SpawnSiteMapYaml>
+    mut ev_yaml: EventWriter<SpawnSiteMapYaml>,
 ) {
     for ev in ev_filename.iter() {
         let filename = &ev.filename;
@@ -98,17 +122,22 @@ pub fn spawn_site_map_yaml(
         };
 
         sm.site_name = doc["name"].as_str().unwrap().to_string();
-        for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() { //.iter() {
+        for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
+            //.iter() {
             println!("level name: [{}]", k.as_str().unwrap());
             for vertex_yaml in level_yaml["vertices"].as_sequence().unwrap() {
                 let data = vertex_yaml.as_sequence().unwrap();
                 let x = data[0].as_f64().unwrap();
                 let y = data[1].as_f64().unwrap();
-                let name = if data.len() > 3 { data[3].as_str().unwrap().to_string() } else { String::new() };
+                let name = if data.len() > 3 {
+                    data[3].as_str().unwrap().to_string()
+                } else {
+                    String::new()
+                };
                 let v = Vertex {
                     x: x,
                     y: -y,
-                    _name: name
+                    _name: name,
                 };
                 sm.vertices.push(v);
             }
@@ -118,7 +147,7 @@ pub fn spawn_site_map_yaml(
                 let end = data[1].as_u64().unwrap();
                 let lane = Lane {
                     start: start as usize,
-                    end: end as usize
+                    end: end as usize,
                 };
                 sm.lanes.push(lane);
             }
@@ -130,7 +159,7 @@ pub fn spawn_site_map_yaml(
                     let end = data[1].as_u64().unwrap();
                     let wall = Wall {
                         start: start as usize,
-                        end: end as usize
+                        end: end as usize,
                     };
                     sm.walls.push(wall);
                 }
@@ -151,39 +180,38 @@ pub fn spawn_site_map_yaml(
         ofs_y /= num_v as f64;
 
         // now spawn the file into the scene
-        let vertex_handle = meshes.add(
-            Mesh::from(
-                shape::Capsule {
-                    radius: 0.25,
-                    rings: 2,
-                    depth: 0.05,
-                    latitudes: 8,
-                    longitudes: 16,
-                    uv_profile: shape::CapsuleUvProfile::Fixed,
-                }
-            )
-        );
+        let vertex_handle = meshes.add(Mesh::from(shape::Capsule {
+            radius: 0.25,
+            rings: 2,
+            depth: 0.05,
+            latitudes: 8,
+            longitudes: 16,
+            uv_profile: shape::CapsuleUvProfile::Fixed,
+        }));
 
         let vertex_material_handle = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
 
         for v in &sm.vertices {
-            commands.spawn_bundle(PbrBundle {
-                mesh: vertex_handle.clone(),
-                material: vertex_material_handle.clone(),
-                transform: Transform {
-                    translation: Vec3::new(
-                        ((v.x - ofs_x) * scale) as f32,
-                        ((v.y - ofs_y) * scale) as f32,
-                        0.0,
-                    ),
-                    rotation: Quat::from_rotation_x(1.57),
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: vertex_handle.clone(),
+                    material: vertex_material_handle.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(
+                            ((v.x - ofs_x) * scale) as f32,
+                            ((v.y - ofs_y) * scale) as f32,
+                            0.0,
+                        ),
+                        rotation: Quat::from_rotation_x(1.57),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            });
+                })
+                .insert_bundle(PickableBundle::default())
+                .insert(Editable::Vertex(v.clone()));
         }
 
-        let lane_material_handle = materials.add(Color::rgba(1.0, 0.5, 0.3, 0.5).into());
+        let lane_material_handle = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
 
         let mut z_ofs = 0.01;
         for lane in &sm.lanes {
@@ -202,17 +230,20 @@ pub fn spawn_site_map_yaml(
             let cx = (v1x + v2x) / 2.;
             let cy = (v1y + v2y) / 2.;
 
-            commands.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
-                material: lane_material_handle.clone(),
-                transform: Transform {
-                    translation: Vec3::new(cx, cy, z_ofs),
-                    rotation: Quat::from_rotation_z(yaw),
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
+                    material: lane_material_handle.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(cx, cy, z_ofs),
+                        rotation: Quat::from_rotation_z(yaw),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            });
-            z_ofs += 0.001;  // avoid flicker
+                })
+                .insert_bundle(PickableBundle::default())
+                .insert(Editable::Lane(lane.clone()));
+            z_ofs += 0.001; // avoid flicker
         }
 
         let wall_material_handle = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
@@ -234,18 +265,20 @@ pub fn spawn_site_map_yaml(
             let cx = (v1x + v2x) / 2.;
             let cy = (v1y + v2y) / 2.;
 
-            commands.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
-                material: wall_material_handle.clone(),
-                transform: Transform {
-                    translation: Vec3::new(cx, cy, height / 2.),
-                    rotation: Quat::from_rotation_z(yaw),
+            commands
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
+                    material: wall_material_handle.clone(),
+                    transform: Transform {
+                        translation: Vec3::new(cx, cy, height / 2.),
+                        rotation: Quat::from_rotation_z(yaw),
+                        ..Default::default()
+                    },
                     ..Default::default()
-                },
-                ..Default::default()
-            });
+                })
+                .insert_bundle(PickableBundle::default())
+                .insert(Editable::Wall(wall.clone()));
         }
-
         // For now just spawn a plane for the floor.
         // todo: calculate the actual floor polygons.
         commands.spawn_bundle(PbrBundle {
@@ -261,17 +294,80 @@ pub fn spawn_site_map_yaml(
             },
             ..Default::default()
         });
-
-
     }
 }
 
 pub fn initialize_site_map(
+    mut commands: Commands,
     mut spawn_filename_writer: EventWriter<SpawnSiteMapFilename>,
 ) {
     let args: Vec<String> = env::args().collect();
     if args.len() >= 2 {
-        spawn_filename_writer.send(SpawnSiteMapFilename { filename: args[1].clone() });
+        spawn_filename_writer.send(SpawnSiteMapFilename {
+            filename: args[1].clone(),
+        });
+    }
+    commands
+        .spawn()
+        .insert(PickingBlocker)
+        .insert(Interaction::default());
+}
+
+fn update_picking_cam(
+    mut commands: Commands,
+    opt_active_camera: Option<Res<ActiveCamera<Camera3d>>>,
+    picking_cams: Query<Entity, With<PickingCamera>>,
+) {
+    let active_camera = match opt_active_camera {
+        Some(cam) => cam,
+        None => return,
+    };
+    if active_camera.is_changed() {
+        match active_camera.get() {
+            Some(active_cam) => {
+                // remove all previous picking cameras
+                for cam in picking_cams.iter() {
+                    commands.entity(cam).remove_bundle::<PickingCameraBundle>();
+                }
+                commands
+                    .entity(active_cam)
+                    .insert_bundle(PickingCameraBundle::default());
+            }
+            None => (),
+        }
+    }
+}
+
+/// Stops picking when egui is in focus.
+/// This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
+/// 
+/// Normally bevy_mod_picking automatically stops when
+/// a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
+fn enable_picking(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
+) {
+    let egui_ctx = egui_context.ctx_mut();
+    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
+
+    let mut blocker = picking_blocker.single_mut();
+    if enable {
+        *blocker = Interaction::None;
+    } else {
+        *blocker = Interaction::Clicked;
+    }
+}
+
+fn maintain_inspected_entities(
+    mut inspector: ResMut<Inspector>,
+    editables: Query<(&Editable, &Interaction), Changed<Interaction>>,
+) {
+    let selected = editables.iter().find_map(|(e, i)| match i {
+        Interaction::Clicked => Some(e),
+        _ => None,
+    });
+    if let Some(selected) = selected {
+        inspector.active = Some(selected.clone())
     }
 }
 
@@ -280,10 +376,16 @@ pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SpawnSiteMapYaml>()
-           .add_event::<SpawnSiteMapFilename>()
-           .add_startup_system(initialize_site_map)
-           .add_system(spawn_site_map_yaml)
-           .add_system(spawn_site_map_filename);
+        app.add_plugins(DefaultPickingPlugins)
+            .add_plugin(InspectorPlugin::<Inspector>::default())
+            .register_inspectable::<Lane>()
+            .add_event::<SpawnSiteMapYaml>()
+            .add_event::<SpawnSiteMapFilename>()
+            .add_startup_system(initialize_site_map)
+            .add_system(spawn_site_map_yaml)
+            .add_system(spawn_site_map_filename)
+            .add_system(update_picking_cam)
+            .add_system(enable_picking)
+            .add_system(maintain_inspected_entities);
     }
 }
