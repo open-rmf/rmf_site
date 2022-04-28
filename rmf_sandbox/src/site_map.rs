@@ -32,6 +32,15 @@ enum Editable {
 // A few helper structs to use when parsing YAML files
 ////////////////////////////////////////////////////////
 
+#[derive(Default)]
+struct Handles {
+    vertex_mesh: Handle<Mesh>,
+    vertex_material: Handle<StandardMaterial>,
+    lane_material: Handle<StandardMaterial>,
+    wall_material: Handle<StandardMaterial>,
+    default_floor_material: Handle<StandardMaterial>,
+}
+
 #[derive(Component, Inspectable, Clone, Default)]
 struct Vertex {
     x: f64,
@@ -58,28 +67,10 @@ struct Level {
     walls: Vec<Wall>,
 }
 
-impl Default for Level {
-    fn default() -> Self {
-        Level {
-            vertices: Vec::new(),
-            lanes: Vec::new(),
-            walls: Vec::new(),
-        }
-    }
-}
-
-struct SiteMap {
+#[derive(Default)]
+pub struct SiteMap {
     site_name: String,
     levels: Vec<Level>,
-}
-
-impl Default for SiteMap {
-    fn default() -> Self {
-        SiteMap {
-            site_name: String::new(),
-            levels: Vec::new(),
-        }
-    }
 }
 
 ////////////////////////////////////////////////////////
@@ -92,6 +83,10 @@ pub struct SpawnSiteMapFilename {
 
 pub struct SpawnSiteMapYaml {
     pub yaml_doc: serde_yaml::Value,
+}
+
+pub struct SpawnSiteMap {
+    pub site_map: SiteMap,
 }
 
 pub fn spawn_site_map_filename(
@@ -112,22 +107,11 @@ pub fn spawn_site_map_filename(
 }
 
 pub fn spawn_site_map_yaml(
-    mut ev_spawn: EventReader<SpawnSiteMapYaml>,
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    _asset_server: Res<AssetServer>,
-    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    mut ev_yaml: EventReader<SpawnSiteMapYaml>,
+    mut ev_site_map: EventWriter<SpawnSiteMap>,
 ) {
-    for ev in ev_spawn.iter() {
+    for ev in ev_yaml.iter() {
         let doc = &ev.yaml_doc;
-
-        // first, despawn all existing mesh entities
-        println!("despawing all meshes...");
-        for entity_mesh in mesh_query.iter() {
-            let (entity, _mesh) = entity_mesh;
-            commands.entity(entity).despawn_recursive();
-        }
 
         // parse the file into this object
         let mut sm = SiteMap {
@@ -136,7 +120,7 @@ pub fn spawn_site_map_yaml(
 
         sm.site_name = doc["name"].as_str().unwrap().to_string();
         for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
-            //.iter() {
+            let mut level = Level::default();
             println!("level name: [{}]", k.as_str().unwrap());
             for vertex_yaml in level_yaml["vertices"].as_sequence().unwrap() {
                 let data = vertex_yaml.as_sequence().unwrap();
@@ -152,7 +136,7 @@ pub fn spawn_site_map_yaml(
                     y: -y,
                     _name: name,
                 };
-                sm.vertices.push(v);
+                level.vertices.push(v);
             }
             for lane_yaml in level_yaml["lanes"].as_sequence().unwrap() {
                 let data = lane_yaml.as_sequence().unwrap();
@@ -162,7 +146,7 @@ pub fn spawn_site_map_yaml(
                     start: start as usize,
                     end: end as usize,
                 };
-                sm.lanes.push(lane);
+                level.lanes.push(lane);
             }
             let walls_yaml = level_yaml["walls"].as_sequence();
             if walls_yaml.is_some() {
@@ -174,139 +158,166 @@ pub fn spawn_site_map_yaml(
                         start: start as usize,
                         end: end as usize,
                     };
-                    sm.walls.push(wall);
+                    level.walls.push(wall);
                 }
             }
+
+            // todo: calculate scale and inter-level alignment
+            let mut ofs_x = 0.0;
+            let mut ofs_y = 0.0;
+            let scale = 1.0 / 100.0;
+            let mut num_v = 0;
+            for v in &level.vertices {
+                ofs_x += v.x;
+                ofs_y += v.y;
+                num_v += 1;
+            }
+            ofs_x /= num_v as f64;
+            ofs_y /= num_v as f64;
+            for v in level.vertices.iter_mut() { //mut level.vertices {
+                v.x = (v.x - ofs_x) * scale;
+                v.y = (v.y - ofs_y) * scale;
+            }
+            sm.levels.push(level);
         }
+        ev_site_map.send(SpawnSiteMap { site_map: sm });
+    }
+}
 
-        // todo: calculate scale and inter-level alignment
-        let mut ofs_x = 0.0;
-        let mut ofs_y = 0.0;
-        let scale = 1.0 / 100.0;
-        let mut num_v = 0;
-        for v in &sm.vertices {
-            ofs_x += v.x;
-            ofs_y += v.y;
-            num_v += 1;
-        }
-        ofs_x /= num_v as f64;
-        ofs_y /= num_v as f64;
-
-        // now spawn the file into the scene
-        let vertex_handle = meshes.add(Mesh::from(shape::Capsule {
-            radius: 0.25,
-            rings: 2,
-            depth: 0.05,
-            latitudes: 8,
-            longitudes: 16,
-            uv_profile: shape::CapsuleUvProfile::Fixed,
-        }));
-
-        let vertex_material_handle = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-
-        for v in &sm.vertices {
-            commands
-                .spawn_bundle(PbrBundle {
-                    mesh: vertex_handle.clone(),
-                    material: vertex_material_handle.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(
-                            ((v.x - ofs_x) * scale) as f32,
-                            ((v.y - ofs_y) * scale) as f32,
-                            0.0,
-                        ),
-                        rotation: Quat::from_rotation_x(1.57),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert_bundle(PickableBundle::default())
-                .insert(Editable::Vertex(v.clone()));
-        }
-
-        let lane_material_handle = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-
-        let mut z_ofs = 0.01;
-        for lane in &sm.lanes {
-            let v1 = &sm.vertices[lane.start];
-            let v2 = &sm.vertices[lane.end];
-            let v1x = ((v1.x - ofs_x) * scale) as f32;
-            let v1y = ((v1.y - ofs_y) * scale) as f32;
-            let v2x = ((v2.x - ofs_x) * scale) as f32;
-            let v2y = ((v2.y - ofs_y) * scale) as f32;
-
-            let dx = v2x - v1x;
-            let dy = v2y - v1y;
-            let length = Vec2::from([dx, dy]).length();
-            let width = 0.5 as f32;
-            let yaw = dy.atan2(dx);
-            let cx = (v1x + v2x) / 2.;
-            let cy = (v1y + v2y) / 2.;
-
-            commands
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
-                    material: lane_material_handle.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(cx, cy, z_ofs),
-                        rotation: Quat::from_rotation_z(yaw),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert_bundle(PickableBundle::default())
-                .insert(Editable::Lane(lane.clone()));
-            z_ofs += 0.001; // avoid flicker
-        }
-
-        let wall_material_handle = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
-
-        for wall in &sm.walls {
-            let v1 = &sm.vertices[wall.start];
-            let v2 = &sm.vertices[wall.end];
-            let v1x = ((v1.x - ofs_x) * scale) as f32;
-            let v1y = ((v1.y - ofs_y) * scale) as f32;
-            let v2x = ((v2.x - ofs_x) * scale) as f32;
-            let v2y = ((v2.y - ofs_y) * scale) as f32;
-
-            let dx = v2x - v1x;
-            let dy = v2y - v1y;
-            let length = Vec2::from([dx, dy]).length();
-            let width = 0.1 as f32;
-            let height = 1.0 as f32;
-            let yaw = dy.atan2(dx);
-            let cx = (v1x + v2x) / 2.;
-            let cy = (v1y + v2y) / 2.;
-
-            commands
-                .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
-                    material: wall_material_handle.clone(),
-                    transform: Transform {
-                        translation: Vec3::new(cx, cy, height / 2.),
-                        rotation: Quat::from_rotation_z(yaw),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert_bundle(PickableBundle::default())
-                .insert(Editable::Wall(wall.clone()));
-        }
-        // For now just spawn a plane for the floor.
-        // todo: calculate the actual floor polygons.
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            //material: materials.add(Color::rgb(0.3, 0.7, 0.3).into()),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.3, 0.3, 0.3),
-                ..Default::default()
-            }),
+fn spawn_vertex(
+    v: & Vertex,
+    commands: &mut Commands,
+    handles: & Res<Handles>,
+) {
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: handles.vertex_mesh.clone(),
+            material: handles.vertex_material.clone(),
             transform: Transform {
+                translation: Vec3::new(v.x as f32, v.y as f32, 0.0),
                 rotation: Quat::from_rotation_x(1.57),
                 ..Default::default()
             },
             ..Default::default()
-        });
+        })
+        .insert_bundle(PickableBundle::default())
+        .insert(Editable::Vertex(v.clone()));
+}
+
+fn spawn_lane(
+    lane: & Lane,
+    vertices: & Vec<Vertex>,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    handles: & Res<Handles>,
+) {
+    let v1 = &vertices[lane.start];
+    let v2 = &vertices[lane.end];
+    let dx = v2.x - v1.x;
+    let dy = v2.y - v1.y;
+    let length = Vec2::from([dx as f32, dy as f32]).length();
+    let width = 0.5 as f32;
+    let yaw = dy.atan2(dx) as f32;
+    let cx = ((v1.x + v2.x) / 2.) as f32;
+    let cy = ((v1.y + v2.y) / 2.) as f32;
+
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
+            material: handles.lane_material.clone(),
+            transform: Transform {
+                translation: Vec3::new(cx, cy, 0.01),
+                rotation: Quat::from_rotation_z(yaw),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert_bundle(PickableBundle::default())
+        .insert(Editable::Lane(lane.clone()));
+}
+
+fn spawn_wall(
+    wall: & Wall,
+    vertices: & Vec<Vertex>,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    handles: & Res<Handles>,
+) {
+    let v1 = &vertices[wall.start];
+    let v2 = &vertices[wall.end];
+    let dx = (v2.x - v1.x) as f32;
+    let dy = (v2.y - v1.y) as f32;
+    let length = Vec2::from([dx, dy]).length();
+    let width = 0.1 as f32;
+    let height = 1.0 as f32;
+    let yaw = dy.atan2(dx) as f32;
+    let cx = ((v1.x + v2.x) / 2.) as f32;
+    let cy = ((v1.y + v2.y) / 2.) as f32;
+
+    commands
+        .spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
+            material: handles.wall_material.clone(),
+            transform: Transform {
+                translation: Vec3::new(cx, cy, height / 2.),
+                rotation: Quat::from_rotation_z(yaw),
+                ..Default::default()
+            },
+            ..Default::default()
+        })
+        .insert_bundle(PickableBundle::default())
+        .insert(Editable::Wall(wall.clone()));
+}
+
+fn spawn_level(
+    level: & Level,
+    commands: &mut Commands,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    handles: & Res<Handles>,
+) {
+    for v in &level.vertices {
+        spawn_vertex(v, commands, handles);
+    }
+
+    for lane in &level.lanes {
+        spawn_lane(lane, &level.vertices, commands, meshes, handles);
+    }
+
+    for wall in &level.walls {
+        spawn_wall(wall, &level.vertices, commands, meshes, handles);
+    }
+}
+
+fn spawn_site_map(
+    mut ev_spawn: EventReader<SpawnSiteMap>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    handles: Res<Handles>,
+) {
+    for ev in ev_spawn.iter() {
+        let sm = &ev.site_map;
+
+        // first, despawn all existing mesh entities
+        println!("despawing all meshes...");
+        for entity_mesh in mesh_query.iter() {
+            let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
+        }
+
+        for level in &sm.levels {
+            spawn_level(level, &mut commands, &mut meshes, &handles);
+        }
+
+        commands.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+                material: handles.default_floor_material.clone(),
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(1.57),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
     }
 }
 
@@ -384,6 +395,27 @@ fn maintain_inspected_entities(
     }
 }
 
+fn init_handles(
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut handles: ResMut<Handles>,
+) {
+    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
+        radius: 0.25,
+        rings: 2,
+        depth: 0.05,
+        latitudes: 8,
+        longitudes: 16,
+        uv_profile: shape::CapsuleUvProfile::Fixed,
+    }));
+
+    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+}
+
+
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
@@ -392,9 +424,13 @@ impl Plugin for SiteMapPlugin {
         app.add_plugins(DefaultPickingPlugins)
             .add_plugin(InspectorPlugin::<Inspector>::default())
             .register_inspectable::<Lane>()
-            .add_event::<SpawnSiteMapYaml>()
+            .init_resource::<Handles>()
+            .add_startup_system(init_handles)
+            .add_event::<SpawnSiteMap>()
             .add_event::<SpawnSiteMapFilename>()
+            .add_event::<SpawnSiteMapYaml>()
             .add_startup_system(initialize_site_map)
+            .add_system(spawn_site_map)
             .add_system(spawn_site_map_yaml)
             .add_system(spawn_site_map_filename)
             .add_system(update_picking_cam)
