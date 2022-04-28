@@ -51,20 +51,33 @@ struct Wall {
     end: usize,
 }
 
-struct SiteMap {
-    site_name: String,
+#[derive(Component, Inspectable, Clone, Default)]
+struct Level {
     vertices: Vec<Vertex>,
     lanes: Vec<Lane>,
     walls: Vec<Wall>,
+}
+
+impl Default for Level {
+    fn default() -> Self {
+        Level {
+            vertices: Vec::new(),
+            lanes: Vec::new(),
+            walls: Vec::new(),
+        }
+    }
+}
+
+struct SiteMap {
+    site_name: String,
+    levels: Vec<Level>,
 }
 
 impl Default for SiteMap {
     fn default() -> Self {
         SiteMap {
             site_name: String::new(),
-            vertices: Vec::new(),
-            lanes: Vec::new(),
-            walls: Vec::new(),
+            levels: Vec::new(),
         }
     }
 }
