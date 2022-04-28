@@ -1,3 +1,5 @@
+use super::camera_controls::{CameraControls, ProjectionMode};
+use super::site_map::SpawnSiteMapYaml;
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -5,19 +7,13 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
 };
 use bevy_egui::{egui, EguiContext, EguiPlugin};
-use super::camera_controls::{CameraControls, ProjectionMode};
-use super::site_map::SpawnSiteMapYaml;
 
 // todo: use asset-server or something more sophisticated eventually.
 // for now, just hack it up and toss the office-demo YAML into a big string
 use super::demo_world::demo_office;
 
 #[cfg(not(target_arch = "wasm32"))]
-use {
-    bevy::tasks::Task,
-    futures_lite::future,
-    rfd::AsyncFileDialog,
-};
+use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
 pub struct VisibleWindows {
     pub welcome: bool,
@@ -65,20 +61,17 @@ fn egui_ui(
         });
     });
 
-    egui::TopBottomPanel::bottom("bottom")
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.horizontal(|ui| {
-                if visible_windows.welcome {
-                    ui.label("Welcome!");
-                }
-                else if controls.mode == ProjectionMode::Orthographic {
-                    ui.label("Left-drag: pan. Scroll wheel: zoom.");
-                }
-                else if controls.mode == ProjectionMode::Perspective {
-                    ui.label("Left-drag: pan. Right-drag: rotate. Scroll wheel: zoom.");
-                }
-            });
+    egui::TopBottomPanel::bottom("bottom").show(egui_context.ctx_mut(), |ui| {
+        ui.horizontal(|ui| {
+            if visible_windows.welcome {
+                ui.label("Welcome!");
+            } else if controls.mode == ProjectionMode::Orthographic {
+                ui.label("Left-drag: pan. Scroll wheel: zoom.");
+            } else if controls.mode == ProjectionMode::Perspective {
+                ui.label("Left-drag: pan. Right-drag: rotate. Scroll wheel: zoom.");
+            }
         });
+    });
 
     if visible_windows.welcome {
         egui::Window::new("Welcome!")
@@ -92,12 +85,13 @@ fn egui_ui(
 
                 if ui.button("Open a demonstration map").clicked() {
                     // load the office demo that is hard-coded in demo_world.rs
-                    let result: serde_yaml::Result<serde_yaml::Value> = serde_yaml::from_str(&demo_office());
+                    let result: serde_yaml::Result<serde_yaml::Value> =
+                        serde_yaml::from_str(&demo_office());
                     if result.is_err() {
                         println!("serde threw an error: {:?}", result.err());
-                    }
-                    else {
-                        let doc: serde_yaml::Value = serde_yaml::from_str(&demo_office()).ok().unwrap();
+                    } else {
+                        let doc: serde_yaml::Value =
+                            serde_yaml::from_str(&demo_office()).ok().unwrap();
                         spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
                     }
                     visible_windows.welcome = false;
@@ -110,7 +104,7 @@ fn egui_ui(
                             let file = AsyncFileDialog::new().pick_file().await;
                             let data = match file {
                                 Some(f) => Some(f.read().await),
-                                None => None
+                                None => None,
                             };
                             data
                         });
@@ -150,7 +144,7 @@ fn handle_file_open(
                         Ok(doc) => spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc }),
                         Err(e) => println!("error parsing file: {:?}", e),
                     }
-                },
+                }
                 None => {}
             }
             commands.entity(entity).remove::<Task<Option<Vec<u8>>>>();
