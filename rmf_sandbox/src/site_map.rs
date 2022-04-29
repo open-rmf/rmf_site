@@ -1,12 +1,12 @@
+use super::lane::Lane;
+use super::vertex::Vertex;
+use super::wall::Wall;
 use bevy::prelude::*;
 use bevy::render::camera::{ActiveCamera, Camera3d};
 use bevy::ui::Interaction;
 use bevy_egui::EguiContext;
 use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
-use bevy_mod_picking::{
-    DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
-    PickingPluginsState,
-};
+use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
 
 use std::{
     env,
@@ -22,7 +22,7 @@ struct Inspector {
 }
 
 #[derive(Inspectable, Component, Clone)]
-enum Editable {
+pub enum Editable {
     Vertex(Vertex),
     Lane(Lane),
     Wall(Wall),
@@ -33,31 +33,12 @@ enum Editable {
 ////////////////////////////////////////////////////////
 
 #[derive(Default)]
-struct Handles {
-    vertex_mesh: Handle<Mesh>,
-    vertex_material: Handle<StandardMaterial>,
-    lane_material: Handle<StandardMaterial>,
-    wall_material: Handle<StandardMaterial>,
-    default_floor_material: Handle<StandardMaterial>,
-}
-
-#[derive(Component, Inspectable, Clone, Default)]
-struct Vertex {
-    x: f64,
-    y: f64,
-    _name: String,
-}
-
-#[derive(Component, Inspectable, Clone, Default)]
-struct Lane {
-    start: usize,
-    end: usize,
-}
-
-#[derive(Component, Inspectable, Clone, Default)]
-struct Wall {
-    start: usize,
-    end: usize,
+pub struct Handles {
+    pub vertex_mesh: Handle<Mesh>,
+    pub vertex_material: Handle<StandardMaterial>,
+    pub lane_material: Handle<StandardMaterial>,
+    pub wall_material: Handle<StandardMaterial>,
+    pub default_floor_material: Handle<StandardMaterial>,
 }
 
 #[derive(Component, Inspectable, Clone, Default)]
@@ -184,87 +165,6 @@ pub fn spawn_site_map_yaml(
     }
 }
 
-fn spawn_vertex(v: &Vertex, commands: &mut Commands, handles: &Res<Handles>) {
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: handles.vertex_mesh.clone(),
-            material: handles.vertex_material.clone(),
-            transform: Transform {
-                translation: Vec3::new(v.x as f32, v.y as f32, 0.0),
-                rotation: Quat::from_rotation_x(1.57),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert_bundle(PickableBundle::default())
-        .insert(Editable::Vertex(v.clone()));
-}
-
-fn spawn_lane(
-    lane: &Lane,
-    vertices: &Vec<Vertex>,
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    handles: &Res<Handles>,
-) {
-    let v1 = &vertices[lane.start];
-    let v2 = &vertices[lane.end];
-    let dx = v2.x - v1.x;
-    let dy = v2.y - v1.y;
-    let length = Vec2::from([dx as f32, dy as f32]).length();
-    let width = 0.5 as f32;
-    let yaw = dy.atan2(dx) as f32;
-    let cx = ((v1.x + v2.x) / 2.) as f32;
-    let cy = ((v1.y + v2.y) / 2.) as f32;
-
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
-            material: handles.lane_material.clone(),
-            transform: Transform {
-                translation: Vec3::new(cx, cy, 0.01),
-                rotation: Quat::from_rotation_z(yaw),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert_bundle(PickableBundle::default())
-        .insert(Editable::Lane(lane.clone()));
-}
-
-fn spawn_wall(
-    wall: &Wall,
-    vertices: &Vec<Vertex>,
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    handles: &Res<Handles>,
-) {
-    let v1 = &vertices[wall.start];
-    let v2 = &vertices[wall.end];
-    let dx = (v2.x - v1.x) as f32;
-    let dy = (v2.y - v1.y) as f32;
-    let length = Vec2::from([dx, dy]).length();
-    let width = 0.1 as f32;
-    let height = 1.0 as f32;
-    let yaw = dy.atan2(dx) as f32;
-    let cx = ((v1.x + v2.x) / 2.) as f32;
-    let cy = ((v1.y + v2.y) / 2.) as f32;
-
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
-            material: handles.wall_material.clone(),
-            transform: Transform {
-                translation: Vec3::new(cx, cy, height / 2.),
-                rotation: Quat::from_rotation_z(yaw),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert_bundle(PickableBundle::default())
-        .insert(Editable::Wall(wall.clone()));
-}
-
 fn spawn_level(
     level: &Level,
     commands: &mut Commands,
@@ -272,15 +172,15 @@ fn spawn_level(
     handles: &Res<Handles>,
 ) {
     for v in &level.vertices {
-        spawn_vertex(v, commands, handles);
+        v.spawn(commands, handles);
     }
 
     for lane in &level.lanes {
-        spawn_lane(lane, &level.vertices, commands, meshes, handles);
+        lane.spawn(&level.vertices, commands, meshes, handles);
     }
 
     for wall in &level.walls {
-        spawn_wall(wall, &level.vertices, commands, meshes, handles);
+        wall.spawn(&level.vertices, commands, meshes, handles);
     }
 }
 

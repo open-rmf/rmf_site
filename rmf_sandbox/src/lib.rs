@@ -16,6 +16,10 @@ mod demo_world;
 mod site_map;
 use site_map::SiteMapPlugin;
 
+mod lane;
+mod vertex;
+mod wall;
+
 mod camera_controls;
 use camera_controls::CameraControlsPlugin;
 
