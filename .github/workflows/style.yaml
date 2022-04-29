@@ -18,7 +18,7 @@ jobs:
       run: |
         rustup toolchain install nightly
         rustup default nightly
-        rustup component add rustfmt
+        rustup component add rustfmt --toolchain nightly-2022-04-27
 
     - name: style
       run: cd rmf_sandbox && rustfmt --check --edition 2021 src/*
