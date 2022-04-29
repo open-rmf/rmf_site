@@ -174,7 +174,7 @@ pub fn spawn_site_map_yaml(
             }
             ofs_x /= num_v as f64;
             ofs_y /= num_v as f64;
-            for v in level.vertices.iter_mut() { //mut level.vertices {
+            for v in level.vertices.iter_mut() {
                 v.x = (v.x - ofs_x) * scale;
                 v.y = (v.y - ofs_y) * scale;
             }
@@ -184,11 +184,7 @@ pub fn spawn_site_map_yaml(
     }
 }
 
-fn spawn_vertex(
-    v: & Vertex,
-    commands: &mut Commands,
-    handles: & Res<Handles>,
-) {
+fn spawn_vertex(v: &Vertex, commands: &mut Commands, handles: &Res<Handles>) {
     commands
         .spawn_bundle(PbrBundle {
             mesh: handles.vertex_mesh.clone(),
@@ -205,11 +201,11 @@ fn spawn_vertex(
 }
 
 fn spawn_lane(
-    lane: & Lane,
-    vertices: & Vec<Vertex>,
+    lane: &Lane,
+    vertices: &Vec<Vertex>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    handles: & Res<Handles>,
+    handles: &Res<Handles>,
 ) {
     let v1 = &vertices[lane.start];
     let v2 = &vertices[lane.end];
@@ -237,11 +233,11 @@ fn spawn_lane(
 }
 
 fn spawn_wall(
-    wall: & Wall,
-    vertices: & Vec<Vertex>,
+    wall: &Wall,
+    vertices: &Vec<Vertex>,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    handles: & Res<Handles>,
+    handles: &Res<Handles>,
 ) {
     let v1 = &vertices[wall.start];
     let v2 = &vertices[wall.end];
@@ -270,10 +266,10 @@ fn spawn_wall(
 }
 
 fn spawn_level(
-    level: & Level,
+    level: &Level,
     commands: &mut Commands,
     meshes: &mut ResMut<Assets<Mesh>>,
-    handles: & Res<Handles>,
+    handles: &Res<Handles>,
 ) {
     for v in &level.vertices {
         spawn_vertex(v, commands, handles);
@@ -311,13 +307,13 @@ fn spawn_site_map(
 
         commands.spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-                material: handles.default_floor_material.clone(),
-                transform: Transform {
-                    rotation: Quat::from_rotation_x(1.57),
-                    ..Default::default()
-                },
+            material: handles.default_floor_material.clone(),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
                 ..Default::default()
-            });
+            },
+            ..Default::default()
+        });
     }
 }
 
@@ -414,7 +410,6 @@ fn init_handles(
     handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
 }
-
 
 #[derive(Default)]
 pub struct SiteMapPlugin;
