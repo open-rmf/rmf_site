@@ -1,5 +1,5 @@
-use super::site_map::Handles;
 use super::lane::Lane;
+use super::site_map::Handles;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
@@ -22,11 +22,11 @@ impl Level {
         for v in &self.vertices {
             v.spawn(commands, handles);
         }
-    
+
         for lane in &self.lanes {
             lane.spawn(&self.vertices, commands, meshes, handles);
         }
-    
+
         for wall in &self.walls {
             wall.spawn(&self.vertices, commands, meshes, handles);
         }

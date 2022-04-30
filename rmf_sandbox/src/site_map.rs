@@ -56,7 +56,8 @@ impl SiteMap {
 
         sm.site_name = doc["name"].as_str().unwrap().to_string();
         for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
-            sm.levels.push(Level::from_yaml(k.as_str().unwrap(), level_yaml));
+            let name_str = k.as_str().unwrap();
+            sm.levels.push(Level::from_yaml(name_str, level_yaml));
         }
 
         // todo: global alignment via fiducials
