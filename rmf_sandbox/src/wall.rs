@@ -43,4 +43,14 @@ impl Wall {
             .insert_bundle(PickableBundle::default())
             .insert(Editable::Wall(self.clone()));
     }
+
+    pub fn from_yaml(value: &serde_yaml::Value) -> Wall {
+        let data = value.as_sequence().unwrap();
+        let start = data[0].as_u64().unwrap();
+        let end = data[1].as_u64().unwrap();
+        return Wall {
+            start: start as usize,
+            end: end as usize,
+        };
+    }
 }

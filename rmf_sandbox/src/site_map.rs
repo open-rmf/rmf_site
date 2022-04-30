@@ -104,42 +104,15 @@ pub fn spawn_site_map_yaml(
             let mut level = Level::default();
             println!("level name: [{}]", k.as_str().unwrap());
             for vertex_yaml in level_yaml["vertices"].as_sequence().unwrap() {
-                let data = vertex_yaml.as_sequence().unwrap();
-                let x = data[0].as_f64().unwrap();
-                let y = data[1].as_f64().unwrap();
-                let name = if data.len() > 3 {
-                    data[3].as_str().unwrap().to_string()
-                } else {
-                    String::new()
-                };
-                let v = Vertex {
-                    x: x,
-                    y: -y,
-                    _name: name,
-                };
-                level.vertices.push(v);
+                level.vertices.push(Vertex::from_yaml(vertex_yaml));
             }
             for lane_yaml in level_yaml["lanes"].as_sequence().unwrap() {
-                let data = lane_yaml.as_sequence().unwrap();
-                let start = data[0].as_u64().unwrap();
-                let end = data[1].as_u64().unwrap();
-                let lane = Lane {
-                    start: start as usize,
-                    end: end as usize,
-                };
-                level.lanes.push(lane);
+                level.lanes.push(Lane::from_yaml(lane_yaml));
             }
             let walls_yaml = level_yaml["walls"].as_sequence();
             if walls_yaml.is_some() {
                 for wall_yaml in walls_yaml.unwrap() {
-                    let data = wall_yaml.as_sequence().unwrap();
-                    let start = data[0].as_u64().unwrap();
-                    let end = data[1].as_u64().unwrap();
-                    let wall = Wall {
-                        start: start as usize,
-                        end: end as usize,
-                    };
-                    level.walls.push(wall);
+                    level.walls.push(Wall::from_yaml(wall_yaml));
                 }
             }
 

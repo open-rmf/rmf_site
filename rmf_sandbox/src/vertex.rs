@@ -2,6 +2,7 @@ use super::site_map::{Editable, Handles};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::PickableBundle;
+use serde_yaml;
 
 #[derive(Component, Inspectable, Clone, Default)]
 pub struct Vertex {
@@ -25,5 +26,21 @@ impl Vertex {
             })
             .insert_bundle(PickableBundle::default())
             .insert(Editable::Vertex(self.clone()));
+    }
+
+    pub fn from_yaml(value: &serde_yaml::Value) -> Vertex {
+        let data = value.as_sequence().unwrap();
+        let x = data[0].as_f64().unwrap();
+        let y = data[1].as_f64().unwrap();
+        let name = if data.len() > 3 {
+            data[3].as_str().unwrap().to_string()
+        } else {
+            String::new()
+        };
+        return Vertex {
+            x: x,
+            y: -y,
+            _name: name,
+        };
     }
 }
