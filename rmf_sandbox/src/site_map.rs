@@ -1,4 +1,5 @@
 use super::lane::Lane;
+use super::level::Level;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
@@ -41,17 +42,27 @@ pub struct Handles {
     pub default_floor_material: Handle<StandardMaterial>,
 }
 
-#[derive(Component, Inspectable, Clone, Default)]
-struct Level {
-    vertices: Vec<Vertex>,
-    lanes: Vec<Lane>,
-    walls: Vec<Wall>,
-}
-
 #[derive(Default)]
 pub struct SiteMap {
     site_name: String,
     levels: Vec<Level>,
+}
+
+impl SiteMap {
+    pub fn from_yaml(doc: &serde_yaml::Value) -> SiteMap {
+        let mut sm = SiteMap {
+            ..Default::default()
+        };
+
+        sm.site_name = doc["name"].as_str().unwrap().to_string();
+        for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
+            sm.levels.push(Level::from_yaml(k.as_str().unwrap(), level_yaml));
+        }
+
+        // todo: global alignment via fiducials
+
+        return sm;
+    }
 }
 
 ////////////////////////////////////////////////////////
@@ -92,68 +103,8 @@ pub fn spawn_site_map_yaml(
     mut ev_site_map: EventWriter<SpawnSiteMap>,
 ) {
     for ev in ev_yaml.iter() {
-        let doc = &ev.yaml_doc;
-
-        // parse the file into this object
-        let mut sm = SiteMap {
-            ..Default::default()
-        };
-
-        sm.site_name = doc["name"].as_str().unwrap().to_string();
-        for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
-            let mut level = Level::default();
-            println!("level name: [{}]", k.as_str().unwrap());
-            for vertex_yaml in level_yaml["vertices"].as_sequence().unwrap() {
-                level.vertices.push(Vertex::from_yaml(vertex_yaml));
-            }
-            for lane_yaml in level_yaml["lanes"].as_sequence().unwrap() {
-                level.lanes.push(Lane::from_yaml(lane_yaml));
-            }
-            let walls_yaml = level_yaml["walls"].as_sequence();
-            if walls_yaml.is_some() {
-                for wall_yaml in walls_yaml.unwrap() {
-                    level.walls.push(Wall::from_yaml(wall_yaml));
-                }
-            }
-
-            // todo: calculate scale and inter-level alignment
-            let mut ofs_x = 0.0;
-            let mut ofs_y = 0.0;
-            let scale = 1.0 / 100.0;
-            let mut num_v = 0;
-            for v in &level.vertices {
-                ofs_x += v.x;
-                ofs_y += v.y;
-                num_v += 1;
-            }
-            ofs_x /= num_v as f64;
-            ofs_y /= num_v as f64;
-            for v in level.vertices.iter_mut() {
-                v.x = (v.x - ofs_x) * scale;
-                v.y = (v.y - ofs_y) * scale;
-            }
-            sm.levels.push(level);
-        }
+        let sm = SiteMap::from_yaml(&ev.yaml_doc);
         ev_site_map.send(SpawnSiteMap { site_map: sm });
-    }
-}
-
-fn spawn_level(
-    level: &Level,
-    commands: &mut Commands,
-    meshes: &mut ResMut<Assets<Mesh>>,
-    handles: &Res<Handles>,
-) {
-    for v in &level.vertices {
-        v.spawn(commands, handles);
-    }
-
-    for lane in &level.lanes {
-        lane.spawn(&level.vertices, commands, meshes, handles);
-    }
-
-    for wall in &level.walls {
-        wall.spawn(&level.vertices, commands, meshes, handles);
     }
 }
 
@@ -175,18 +126,8 @@ fn spawn_site_map(
         }
 
         for level in &sm.levels {
-            spawn_level(level, &mut commands, &mut meshes, &handles);
+            level.spawn(&mut commands, &mut meshes, &handles);
         }
-
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
-                ..Default::default()
-            },
-            ..Default::default()
-        });
     }
 }
 
