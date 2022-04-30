@@ -17,6 +17,7 @@ mod site_map;
 use site_map::SiteMapPlugin;
 
 mod lane;
+mod level;
 mod vertex;
 mod wall;
 
