@@ -17,6 +17,7 @@ impl Lane {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         handles: &Res<Handles>,
+        elevation: f32,
     ) {
         let v1 = &vertices[self.start];
         let v2 = &vertices[self.end];
@@ -33,7 +34,7 @@ impl Lane {
                 mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
                 material: handles.lane_material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(cx, cy, 0.01),
+                    translation: Vec3::new(cx, cy, 0.01 + elevation),
                     rotation: Quat::from_rotation_z(yaw),
                     ..Default::default()
                 },

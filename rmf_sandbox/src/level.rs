@@ -10,6 +10,7 @@ pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
     pub walls: Vec<Wall>,
+    pub elevation: f32,
 }
 
 impl Level {
@@ -20,17 +21,18 @@ impl Level {
         handles: &Res<Handles>,
     ) {
         for v in &self.vertices {
-            v.spawn(commands, handles);
+            v.spawn(commands, handles, self.elevation);
         }
 
         for lane in &self.lanes {
-            lane.spawn(&self.vertices, commands, meshes, handles);
+            lane.spawn(&self.vertices, commands, meshes, handles, self.elevation);
         }
 
         for wall in &self.walls {
-            wall.spawn(&self.vertices, commands, meshes, handles);
+            wall.spawn(&self.vertices, commands, meshes, handles, self.elevation);
         }
 
+        // todo: use elevation
         commands.spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
             material: handles.default_floor_material.clone(),
@@ -57,6 +59,11 @@ impl Level {
                 level.walls.push(Wall::from_yaml(wall_yaml));
             }
         }
+
+        level.elevation = match data["elevation"].as_f64() {
+            Some(e) => e as f32,
+            None => 0.,
+        };
 
         // todo: calculate scale and inter-level alignment
         let mut ofs_x = 0.0;

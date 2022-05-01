@@ -12,13 +12,13 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn spawn(&self, commands: &mut Commands, handles: &Res<Handles>) {
+    pub fn spawn(&self, commands: &mut Commands, handles: &Res<Handles>, elevation: f32) {
         commands
             .spawn_bundle(PbrBundle {
                 mesh: handles.vertex_mesh.clone(),
                 material: handles.vertex_material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(self.x as f32, self.y as f32, 0.0),
+                    translation: Vec3::new(self.x as f32, self.y as f32, elevation),
                     rotation: Quat::from_rotation_x(1.57),
                     ..Default::default()
                 },
