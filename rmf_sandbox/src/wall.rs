@@ -17,6 +17,7 @@ impl Wall {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         handles: &Res<Handles>,
+        elevation: f32,
     ) {
         let v1 = &vertices[self.start];
         let v2 = &vertices[self.end];
@@ -34,7 +35,7 @@ impl Wall {
                 mesh: meshes.add(Mesh::from(shape::Box::new(length, width, height))),
                 material: handles.wall_material.clone(),
                 transform: Transform {
-                    translation: Vec3::new(cx, cy, height / 2.),
+                    translation: Vec3::new(cx, cy, height / 2. + elevation),
                     rotation: Quat::from_rotation_z(yaw),
                     ..Default::default()
                 },
