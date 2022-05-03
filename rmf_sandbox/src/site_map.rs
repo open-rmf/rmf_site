@@ -1,5 +1,6 @@
 use super::lane::Lane;
 use super::level::Level;
+use super::measurement::Measurement;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
@@ -24,8 +25,9 @@ struct Inspector {
 
 #[derive(Inspectable, Component, Clone)]
 pub enum Editable {
-    Vertex(Vertex),
     Lane(Lane),
+    Measurement(Measurement),
+    Vertex(Vertex),
     Wall(Wall),
 }
 
@@ -35,11 +37,12 @@ pub enum Editable {
 
 #[derive(Default)]
 pub struct Handles {
+    pub default_floor_material: Handle<StandardMaterial>,
+    pub lane_material: Handle<StandardMaterial>,
+    pub measurement_material: Handle<StandardMaterial>,
     pub vertex_mesh: Handle<Mesh>,
     pub vertex_material: Handle<StandardMaterial>,
-    pub lane_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
-    pub default_floor_material: Handle<StandardMaterial>,
 }
 
 #[derive(Default)]
@@ -220,10 +223,11 @@ fn init_handles(
         uv_profile: shape::CapsuleUvProfile::Fixed,
     }));
 
-    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
+    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
 }
 
 #[derive(Default)]

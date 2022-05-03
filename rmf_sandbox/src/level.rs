@@ -1,4 +1,5 @@
 use super::lane::Lane;
+use super::measurement::Measurement;
 use super::site_map::Handles;
 use super::vertex::Vertex;
 use super::wall::Wall;
@@ -9,6 +10,7 @@ use serde_yaml;
 pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
+    pub measurements: Vec<Measurement>,
     pub walls: Vec<Wall>,
     pub elevation: f32,
 }
@@ -26,6 +28,10 @@ impl Level {
 
         for lane in &self.lanes {
             lane.spawn(&self.vertices, commands, meshes, handles, self.elevation);
+        }
+
+        for measurement in &self.measurements {
+            measurement.spawn(&self.vertices, commands, meshes, handles, self.elevation);
         }
 
         for wall in &self.walls {
@@ -57,6 +63,13 @@ impl Level {
         if walls_yaml.is_some() {
             for wall_yaml in walls_yaml.unwrap() {
                 level.walls.push(Wall::from_yaml(wall_yaml));
+            }
+        }
+
+        let meas_seq = data["measurements"].as_sequence();
+        if meas_seq.is_some() {
+            for meas in meas_seq.unwrap() {
+                level.measurements.push(Measurement::from_yaml(meas));
             }
         }
 
