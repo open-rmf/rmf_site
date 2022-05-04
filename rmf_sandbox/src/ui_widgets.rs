@@ -1,5 +1,8 @@
 use super::camera_controls::{CameraControls, ProjectionMode};
-use super::site_map::SpawnSiteMapYaml;
+use super::level::Level;
+use super::vertex::Vertex;
+use super::wall::Wall;
+use super::site_map::{Handles, SpawnSiteMapYaml};
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -17,6 +20,19 @@ use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
 pub struct VisibleWindows {
     pub welcome: bool,
+    pub generator: bool,
+    pub inspector: bool,
+}
+
+#[derive(Clone, Default, PartialEq)]
+pub struct WarehouseParams {
+    pub square_feet: f64,
+}
+
+#[derive(Default)]
+pub struct WarehouseState {
+    pub requested: WarehouseParams,
+    pub spawned: WarehouseParams,
 }
 
 fn egui_ui(
@@ -28,6 +44,7 @@ fn egui_ui(
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut visible_windows: ResMut<VisibleWindows>,
     mut spawn_yaml_writer: EventWriter<SpawnSiteMapYaml>,
+    mut warehouse_state: ResMut<WarehouseState>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -35,6 +52,7 @@ fn egui_ui(
             ui.horizontal(|ui| {
                 if ui.button("Return to main menu").clicked() {
                     visible_windows.welcome = true;
+                    visible_windows.generator = false;
                 }
                 ui.separator();
                 if ui
@@ -56,6 +74,15 @@ fn egui_ui(
                 {
                     controls.set_mode(ProjectionMode::Perspective);
                     active_camera_3d.set(controls.perspective_camera_entity);
+                }
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        visible_windows.inspector,
+                        "Inspector",
+                    ))
+                    .clicked()
+                {
+                    visible_windows.inspector = !visible_windows.inspector;
                 }
             });
         });
@@ -83,46 +110,69 @@ fn egui_ui(
                 ui.heading("Welcome to The RMF Sandbox!");
                 ui.add_space(10.);
 
-                if ui.button("Open a demonstration map").clicked() {
-                    // load the office demo that is hard-coded in demo_world.rs
-                    let result: serde_yaml::Result<serde_yaml::Value> =
-                        serde_yaml::from_str(&demo_office());
-                    if result.is_err() {
-                        println!("serde threw an error: {:?}", result.err());
-                    } else {
-                        let doc: serde_yaml::Value =
-                            serde_yaml::from_str(&demo_office()).ok().unwrap();
-                        spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
+                ui.horizontal(|ui| {
+                    if ui.button("View demo map").clicked() {
+                        // load the office demo that is hard-coded in demo_world.rs
+                        let result: serde_yaml::Result<serde_yaml::Value> =
+                            serde_yaml::from_str(&demo_office());
+                        if result.is_err() {
+                            println!("serde threw an error: {:?}", result.err());
+                        } else {
+                            let doc: serde_yaml::Value =
+                                serde_yaml::from_str(&demo_office()).ok().unwrap();
+                            spawn_yaml_writer.send(SpawnSiteMapYaml { yaml_doc: doc });
+                        }
+                        visible_windows.welcome = false;
                     }
-                    visible_windows.welcome = false;
-                }
+
+                    if ui.button("Use building generator").clicked() {
+                        visible_windows.welcome = false;
+                        visible_windows.generator = true;
+                    }
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        if ui.button("Open a map file").clicked() {
+                            let future = _thread_pool.spawn(async move {
+                                let file = AsyncFileDialog::new().pick_file().await;
+                                let data = match file {
+                                    Some(f) => Some(f.read().await),
+                                    None => None,
+                                };
+                                data
+                            });
+                            _commands.spawn().insert(future);
+                            visible_windows.welcome = false;
+                        }
+                    }
+                });
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if ui.button("Open a local map file").clicked() {
-                        let future = _thread_pool.spawn(async move {
-                            let file = AsyncFileDialog::new().pick_file().await;
-                            let data = match file {
-                                Some(f) => Some(f.read().await),
-                                None => None,
-                            };
-                            data
+                    ui.add_space(20.);
+                    ui.horizontal(|ui| {
+                        ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                            if ui.button("Exit").clicked() {
+                                _exit.send(AppExit);
+                            }
                         });
-                        _commands.spawn().insert(future);
-                        visible_windows.welcome = false;
-                    }
-                    ui.add_space(10.);
-                    if ui.button("Quit").clicked() {
-                        _exit.send(AppExit);
-                    }
+                    });
                 }
 
                 /*
-                if ui.button("Close").clicked() {
+                if ui.button("Close this menu").clicked() {
                   visible_windows.welcome = false;
                 }
                 */
             });
+    }
+
+    if visible_windows.generator {
+        egui::SidePanel::left("left").show(egui_context.ctx_mut(), |ui| {
+            ui.heading("Warehouse Generator");
+            ui.add_space(10.);
+            ui.add(egui::Slider::new(&mut warehouse_state.requested.square_feet, 100.0..=1000.0).text("Square feet"));
+        });
     }
 }
 
@@ -152,6 +202,66 @@ fn handle_file_open(
     }
 }
 
+fn warehouse_generator(
+    mut commands: Commands,
+    mut warehouse_state: ResMut<WarehouseState>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    handles: Res<Handles>,
+    visible_windows: ResMut<VisibleWindows>,
+) {
+    if !visible_windows.generator {
+        return;
+    }
+    if warehouse_state.requested != warehouse_state.spawned {
+        // first, despawn all existing mesh entities
+        for entity_mesh in mesh_query.iter() {
+            let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
+        }
+
+        let width = warehouse_state.requested.square_feet.sqrt();
+        let mut level = Level::default();
+        level.vertices.push(Vertex {
+            x_meters: -width / 2.,
+            y_meters: -width / 2.,
+            ..Default::default()
+        });
+        level.vertices.push(Vertex {
+            x_meters: width / 2.,
+            y_meters: -width / 2.,
+            ..Default::default()
+        });
+        level.vertices.push(Vertex {
+            x_meters: width / 2.,
+            y_meters: width / 2.,
+            ..Default::default()
+        });
+        level.vertices.push(Vertex {
+            x_meters: -width / 2.,
+            y_meters: width / 2.,
+            ..Default::default()
+        });
+        level.walls.push(Wall { start: 0, end: 1 } );
+        level.walls.push(Wall { start: 1, end: 2 } );
+        level.walls.push(Wall { start: 2, end: 3 } );
+        level.walls.push(Wall { start: 3, end: 0 } );
+ 
+        level.spawn(&mut commands, &mut meshes, &handles);
+
+        commands.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
+            material: handles.default_floor_material.clone(),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
+        warehouse_state.spawned = warehouse_state.requested.clone();
+    }
+}
+
 pub struct UIWidgetsPlugin;
 
 impl Plugin for UIWidgetsPlugin {
@@ -161,7 +271,18 @@ impl Plugin for UIWidgetsPlugin {
             app.add_plugin(EguiPlugin);
         }
         app.add_system(egui_ui);
-        app.insert_resource(VisibleWindows { welcome: true });
+        app.insert_resource(WarehouseState {
+            requested: WarehouseParams {
+                square_feet: 100.,
+            },
+            ..Default::default()
+        });
+        app.insert_resource(VisibleWindows {
+            welcome: true,
+            generator: false,
+            inspector: false,
+        });
+        app.add_system(warehouse_generator);
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_file_open);
