@@ -38,17 +38,6 @@ impl Level {
         for wall in &self.walls {
             wall.spawn(&self.vertices, commands, meshes, handles, &self.transform);
         }
-
-        // todo: use elevation
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
-                ..Default::default()
-            },
-            ..Default::default()
-        });
     }
 
     pub fn from_yaml(name: &str, data: &serde_yaml::Value) -> Level {

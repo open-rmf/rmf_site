@@ -1,12 +1,14 @@
 use super::lane::Lane;
 use super::level::Level;
 use super::measurement::Measurement;
+use super::ui_widgets::VisibleWindows;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
 use bevy::render::camera::{ActiveCamera, Camera3d};
 use bevy::ui::Interaction;
 use bevy_egui::EguiContext;
+use bevy_inspector_egui::plugin::InspectorWindows;
 use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
 use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
 
@@ -132,6 +134,17 @@ fn spawn_site_map(
         for level in &sm.levels {
             level.spawn(&mut commands, &mut meshes, &handles);
         }
+
+        // todo: use real floor polygons
+        commands.spawn_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+            material: handles.default_floor_material.clone(),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
+                ..Default::default()
+            },
+            ..Default::default()
+        });
     }
 }
 
@@ -149,6 +162,14 @@ pub fn initialize_site_map(
         .spawn()
         .insert(PickingBlocker)
         .insert(Interaction::default());
+}
+
+pub fn manage_inspector(
+    visible_windows: ResMut<VisibleWindows>,
+    mut inspector_windows: ResMut<InspectorWindows>,
+) {
+    let mut inspector_window_data = inspector_windows.window_data_mut::<Inspector>();
+    inspector_window_data.visible = visible_windows.inspector;
 }
 
 fn update_picking_cam(
@@ -236,7 +257,7 @@ pub struct SiteMapPlugin;
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
-            .add_plugin(InspectorPlugin::<Inspector>::default())
+            .add_plugin(InspectorPlugin::<Inspector>::new())
             .register_inspectable::<Lane>()
             .init_resource::<Handles>()
             .add_startup_system(init_handles)
@@ -249,6 +270,7 @@ impl Plugin for SiteMapPlugin {
             .add_system(spawn_site_map_filename)
             .add_system(update_picking_cam)
             .add_system(enable_picking)
-            .add_system(maintain_inspected_entities);
+            .add_system(maintain_inspected_entities)
+            .add_system(manage_inspector);
     }
 }
