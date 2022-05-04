@@ -38,7 +38,6 @@ impl Level {
         for wall in &self.walls {
             wall.spawn(&self.vertices, commands, meshes, handles, &self.transform);
         }
-
     }
 
     pub fn from_yaml(name: &str, data: &serde_yaml::Value) -> Level {
