@@ -1,6 +1,7 @@
 name: ci_web
 
-on: [push]
+on:
+  pull_request:
 
 env:
   CARGO_TERM_COLOR: always
