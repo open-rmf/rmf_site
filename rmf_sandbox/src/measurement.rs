@@ -50,7 +50,9 @@ impl Measurement {
         let data = value.as_sequence().unwrap();
         let start = data[0].as_u64().unwrap();
         let end = data[1].as_u64().unwrap();
-        let distance = data[2]["distance"].as_sequence().unwrap()[1].as_f64().unwrap();
+        let distance = data[2]["distance"].as_sequence().unwrap()[1]
+            .as_f64()
+            .unwrap();
         return Measurement {
             start: start as usize,
             end: end as usize,

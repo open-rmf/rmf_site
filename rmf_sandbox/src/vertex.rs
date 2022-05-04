@@ -15,7 +15,12 @@ pub struct Vertex {
 }
 
 impl Vertex {
-    pub fn spawn(&self, commands: &mut Commands, handles: &Res<Handles>, transform: &LevelTransform) {
+    pub fn spawn(
+        &self,
+        commands: &mut Commands,
+        handles: &Res<Handles>,
+        transform: &LevelTransform,
+    ) {
         commands
             .spawn_bundle(PbrBundle {
                 mesh: handles.vertex_mesh.clone(),
@@ -24,7 +29,8 @@ impl Vertex {
                     translation: Vec3::new(
                         self.x_meters as f32,
                         self.y_meters as f32,
-                        transform.translation[2] as f32),
+                        transform.translation[2] as f32,
+                    ),
                     rotation: Quat::from_rotation_x(1.57),
                     ..Default::default()
                 },
