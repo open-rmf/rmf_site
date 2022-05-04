@@ -8,8 +8,8 @@ use bevy::prelude::*;
 use bevy::render::camera::{ActiveCamera, Camera3d};
 use bevy::ui::Interaction;
 use bevy_egui::EguiContext;
-use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
 use bevy_inspector_egui::plugin::InspectorWindows;
+use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
 use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
 
 use std::{

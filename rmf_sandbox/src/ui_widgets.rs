@@ -1,8 +1,8 @@
 use super::camera_controls::{CameraControls, ProjectionMode};
 use super::level::Level;
+use super::site_map::{Handles, SpawnSiteMapYaml};
 use super::vertex::Vertex;
 use super::wall::Wall;
-use super::site_map::{Handles, SpawnSiteMapYaml};
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -171,7 +171,10 @@ fn egui_ui(
         egui::SidePanel::left("left").show(egui_context.ctx_mut(), |ui| {
             ui.heading("Warehouse Generator");
             ui.add_space(10.);
-            ui.add(egui::Slider::new(&mut warehouse_state.requested.square_feet, 100.0..=1000.0).text("Square feet"));
+            ui.add(
+                egui::Slider::new(&mut warehouse_state.requested.square_feet, 100.0..=1000.0)
+                    .text("Square feet"),
+            );
         });
     }
 }
@@ -242,11 +245,11 @@ fn warehouse_generator(
             y_meters: width / 2.,
             ..Default::default()
         });
-        level.walls.push(Wall { start: 0, end: 1 } );
-        level.walls.push(Wall { start: 1, end: 2 } );
-        level.walls.push(Wall { start: 2, end: 3 } );
-        level.walls.push(Wall { start: 3, end: 0 } );
- 
+        level.walls.push(Wall { start: 0, end: 1 });
+        level.walls.push(Wall { start: 1, end: 2 });
+        level.walls.push(Wall { start: 2, end: 3 });
+        level.walls.push(Wall { start: 3, end: 0 });
+
         level.spawn(&mut commands, &mut meshes, &handles);
 
         commands.spawn_bundle(PbrBundle {
@@ -272,9 +275,7 @@ impl Plugin for UIWidgetsPlugin {
         }
         app.add_system(egui_ui);
         app.insert_resource(WarehouseState {
-            requested: WarehouseParams {
-                square_feet: 100.,
-            },
+            requested: WarehouseParams { square_feet: 100. },
             ..Default::default()
         });
         app.insert_resource(VisibleWindows {
