@@ -1,8 +1,9 @@
 use super::level_transform::LevelTransform;
-use super::site_map::{Editable, Handles};
+use super::site_map::Handles;
+//use super::site_map::{Editable, Handles};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use bevy_mod_picking::PickableBundle;
+//use bevy_mod_picking::PickableBundle;
 use serde_yaml;
 
 #[derive(Component, Inspectable, Clone, Default)]
@@ -23,32 +24,34 @@ impl Model {
         meshes: &mut ResMut<Assets<Mesh>>,
         handles: &Res<Handles>,
         transform: &LevelTransform,
+        asset_server: &Res<AssetServer>,
     ) {
-        /*
+        let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
+            + &self.model_name
+            + &String::from(".glb#Scene0");
+        println!(
+            "spawning {} at {}, {}",
+            &bundle_path, self.x_meters, self.y_meters
+        );
+        let glb = asset_server.load(&bundle_path);
         commands
-            .spawn_bundle(PbrBundle {
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.vertex_material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(
-                        self.x_meters as f32,
-                        self.y_meters as f32,
-                        transform.translation[2] as f32,
-                    ),
-                    rotation: Quat::from_rotation_x(1.57),
-                    ..Default::default()
+            .spawn_bundle((
+                Transform {
+                    rotation: Quat::from_rotation_z(self.yaw as f32),
+                    translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+                    scale: Vec3::ONE,
                 },
-                ..Default::default()
-            })
-            .insert_bundle(PickableBundle::default())
-            .insert(Editable::Vertex(self.clone()));
-        */
+                GlobalTransform::identity(),
+            ))
+            .with_children(|parent| {
+                parent.spawn_scene(glb);
+            });
     }
 
     pub fn from_yaml(value: &serde_yaml::Value) -> Model {
         let x_raw = value["x"].as_f64().unwrap();
         let y_raw = value["y"].as_f64().unwrap();
-        let yaw = value["yaw"].as_f64().unwrap();
+        let yaw = value["yaw"].as_f64().unwrap() - 3.14159 / 2.;
         let model_name = value["model_name"].as_str().unwrap();
         let instance_name = value["name"].as_str().unwrap();
         println!("model {} at ({}, {})", model_name, x_raw, y_raw);
