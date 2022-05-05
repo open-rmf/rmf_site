@@ -120,6 +120,7 @@ fn spawn_site_map(
     mut meshes: ResMut<Assets<Mesh>>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
     handles: Res<Handles>,
+    asset_server: Res<AssetServer>,
 ) {
     for ev in ev_spawn.iter() {
         let sm = &ev.site_map;
@@ -132,7 +133,7 @@ fn spawn_site_map(
         }
 
         for level in &sm.levels {
-            level.spawn(&mut commands, &mut meshes, &handles);
+            level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
         }
 
         // todo: use real floor polygons

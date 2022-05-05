@@ -26,7 +26,7 @@ impl Wall {
         let dy = (v2.y_meters - v1.y_meters) as f32;
         let length = Vec2::from([dx, dy]).length();
         let width = 0.1 as f32;
-        let height = 1.0 as f32;
+        let height = 2.0 as f32;
         let yaw = dy.atan2(dx) as f32;
         let cx = ((v1.x_meters + v2.x_meters) / 2.) as f32;
         let cy = ((v1.y_meters + v2.y_meters) / 2.) as f32;

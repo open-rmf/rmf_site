@@ -24,6 +24,7 @@ impl Level {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         handles: &Res<Handles>,
+        asset_server: &Res<AssetServer>,
     ) {
         for v in &self.vertices {
             v.spawn(commands, handles, &self.transform);
@@ -42,7 +43,7 @@ impl Level {
         }
 
         for model in &self.models {
-            model.spawn(commands, meshes, handles, &self.transform);
+            model.spawn(commands, meshes, handles, &self.transform, asset_server);
         }
     }
 
