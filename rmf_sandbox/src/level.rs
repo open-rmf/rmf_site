@@ -1,6 +1,7 @@
 use super::lane::Lane;
 use super::level_transform::LevelTransform;
 use super::measurement::Measurement;
+use super::model::Model;
 use super::site_map::Handles;
 use super::vertex::Vertex;
 use super::wall::Wall;
@@ -12,6 +13,7 @@ pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
     pub measurements: Vec<Measurement>,
+    pub models: Vec<Model>,
     pub walls: Vec<Wall>,
     pub transform: LevelTransform,
 }
@@ -22,6 +24,7 @@ impl Level {
         commands: &mut Commands,
         meshes: &mut ResMut<Assets<Mesh>>,
         handles: &Res<Handles>,
+        asset_server: &Res<AssetServer>,
     ) {
         for v in &self.vertices {
             v.spawn(commands, handles, &self.transform);
@@ -37,6 +40,10 @@ impl Level {
 
         for wall in &self.walls {
             wall.spawn(&self.vertices, commands, meshes, handles, &self.transform);
+        }
+
+        for model in &self.models {
+            model.spawn(commands, meshes, handles, &self.transform, asset_server);
         }
     }
 
@@ -60,6 +67,13 @@ impl Level {
         if meas_seq.is_some() {
             for meas in meas_seq.unwrap() {
                 level.measurements.push(Measurement::from_yaml(meas));
+            }
+        }
+
+        let model_seq = data["models"].as_sequence();
+        if model_seq.is_some() {
+            for model in model_seq.unwrap() {
+                level.models.push(Model::from_yaml(model));
             }
         }
 
@@ -99,6 +113,11 @@ impl Level {
         for v in level.vertices.iter_mut() {
             v.x_meters = (v.x_raw - ofs_x) * scale;
             v.y_meters = (v.y_raw - ofs_y) * scale;
+        }
+
+        for m in level.models.iter_mut() {
+            m.x_meters = (m.x_raw - ofs_x) * scale;
+            m.y_meters = (m.y_raw - ofs_y) * scale;
         }
         return level;
     }

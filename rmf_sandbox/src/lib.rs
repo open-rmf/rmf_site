@@ -3,6 +3,7 @@ use bevy::{
     pbr::{DirectionalLight, DirectionalLightShadowMap},
     prelude::*,
 };
+use bevy_web_asset::WebAssetPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -20,6 +21,7 @@ mod lane;
 mod level;
 mod level_transform;
 mod measurement;
+mod model;
 mod vertex;
 mod wall;
 
@@ -75,7 +77,9 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
-        .add_plugins(DefaultPlugins)
+        .add_plugins_with(DefaultPlugins, |group| {
+            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+        })
         .insert_resource(DirectionalLightShadowMap { size: 1024 })
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
@@ -98,7 +102,9 @@ pub fn run() {
             ..Default::default()
         })
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
-        .add_plugins(DefaultPlugins)
+        .add_plugins_with(DefaultPlugins, |group| {
+            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+        })
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
