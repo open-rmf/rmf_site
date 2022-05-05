@@ -212,6 +212,7 @@ fn warehouse_generator(
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
     handles: Res<Handles>,
     visible_windows: ResMut<VisibleWindows>,
+    asset_server: Res<AssetServer>,
 ) {
     if !visible_windows.generator {
         return;
@@ -250,7 +251,7 @@ fn warehouse_generator(
         level.walls.push(Wall { start: 2, end: 3 });
         level.walls.push(Wall { start: 3, end: 0 });
 
-        level.spawn(&mut commands, &mut meshes, &handles);
+        level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
 
         commands.spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
