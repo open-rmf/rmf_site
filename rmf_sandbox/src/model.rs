@@ -30,13 +30,16 @@ impl Model {
         // when hosted over https
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
+            //let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
+            let bundle_path = String::from("")
                 + &self.model_name
                 + &String::from(".glb#Scene0");
+            /*
             println!(
                 "spawning {} at {}, {}",
                 &bundle_path, self.x_meters, self.y_meters
             );
+            */
             let glb = asset_server.load(&bundle_path);
             commands
                 .spawn_bundle((
@@ -59,7 +62,7 @@ impl Model {
         let yaw = value["yaw"].as_f64().unwrap() - 3.14159 / 2.;
         let model_name = value["model_name"].as_str().unwrap();
         let instance_name = value["name"].as_str().unwrap();
-        println!("model {} at ({}, {})", model_name, x_raw, y_raw);
+        // println!("model {} at ({}, {})", model_name, x_raw, y_raw);
         return Model {
             x_raw: x_raw,
             y_raw: -y_raw,

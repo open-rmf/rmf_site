@@ -32,11 +32,14 @@ mod ui_widgets;
 use ui_widgets::UIWidgetsPlugin;
 
 fn setup(mut commands: Commands) {
+    /*
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
-        brightness: 0.001,
+        brightness: 0.01,
     });
+    */
 
+    /*
     commands.spawn_bundle(DirectionalLightBundle {
         directional_light: DirectionalLight {
             shadows_enabled: false,
@@ -50,6 +53,34 @@ fn setup(mut commands: Commands) {
         },
         ..Default::default()
     });
+    commands.spawn_bundle(PointLightBundle {
+        transform: Transform::from_xyz(0.0, 0.0, 3.0),
+        point_light: PointLight {
+            intensity: 1000.,
+            range: 30.,
+            ..default()
+        },
+        ..default()
+    });
+    commands.spawn_bundle(PointLightBundle {
+        transform: Transform::from_xyz(10.0, 0.0, 3.0),
+        point_light: PointLight {
+            intensity: 1000.,
+            range: 30.,
+            ..default()
+        },
+        ..default()
+    });
+    commands.spawn_bundle(PointLightBundle {
+        transform: Transform::from_xyz(-10.0, 0.0, 3.0),
+        point_light: PointLight {
+            intensity: 1000.,
+            range: 30.,
+            ..default()
+        },
+        ..default()
+    });
+    */
 }
 
 #[cfg(target_arch = "wasm32")]
