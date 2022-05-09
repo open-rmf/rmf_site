@@ -2,7 +2,7 @@ use super::camera_controls::{CameraControls, ProjectionMode};
 use super::level::Level;
 use super::site_map::{Handles, SpawnSiteMapYaml};
 use super::vertex::Vertex;
-use super::wall::Wall;
+//use super::wall::Wall;
 use bevy::{
     app::AppExit,
     prelude::*,
