@@ -1,5 +1,5 @@
 use super::level_transform::LevelTransform;
-use super::site_map::Handles;
+//use super::site_map::Handles;
 //use super::site_map::{Editable, Handles};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
@@ -21,9 +21,9 @@ impl Model {
     pub fn spawn(
         &self,
         commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        handles: &Res<Handles>,
-        transform: &LevelTransform,
+        //meshes: &mut ResMut<Assets<Mesh>>,
+        //handles: &Res<Handles>,
+        _transform: &LevelTransform,
         asset_server: &Res<AssetServer>,
     ) {
         // TODO: need to set up https on this server, for this WASM to work
@@ -31,7 +31,8 @@ impl Model {
         #[cfg(not(target_arch = "wasm32"))]
         {
             //let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
-            let bundle_path = String::from("")
+            //let bundle_path = String::from("")
+            let bundle_path = String::from("sandbox://")
                 + &self.model_name
                 + &String::from(".glb#Scene0");
             /*

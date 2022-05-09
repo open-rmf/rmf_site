@@ -50,7 +50,7 @@ impl Level {
         }
 
         for model in &self.models {
-            model.spawn(commands, meshes, handles, &self.transform, asset_server);
+            model.spawn(commands, &self.transform, asset_server);
         }
     }
 

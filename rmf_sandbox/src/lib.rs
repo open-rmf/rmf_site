@@ -1,9 +1,8 @@
 use bevy::{
     // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::{DirectionalLight, DirectionalLightShadowMap},
+    pbr::{/*DirectionalLight, */DirectionalLightShadowMap},
     prelude::*,
 };
-use bevy_web_asset::WebAssetPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -12,26 +11,25 @@ use bevy::{core::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
+mod camera_controls;
 mod demo_world;
-
-mod site_map;
-use site_map::SiteMapPlugin;
-
 mod lane;
 mod level;
 mod level_transform;
 mod measurement;
 mod model;
+mod sandbox_asset_io;
+mod site_map;
+mod ui_widgets;
 mod vertex;
 mod wall;
 
-mod camera_controls;
 use camera_controls::CameraControlsPlugin;
-
-mod ui_widgets;
+use sandbox_asset_io::SandboxAssetIoPlugin;
+use site_map::SiteMapPlugin;
 use ui_widgets::UIWidgetsPlugin;
 
-fn setup(mut commands: Commands) {
+fn setup() { //mut commands: Commands) {
     /*
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -109,7 +107,7 @@ pub fn run() {
             ..Default::default()
         })
         .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         .insert_resource(DirectionalLightShadowMap { size: 1024 })
         .add_startup_system(setup)
@@ -134,7 +132,7 @@ pub fn run() {
         })
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
