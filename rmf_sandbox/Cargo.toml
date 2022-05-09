@@ -23,6 +23,7 @@ yaml-rust = "0.4"
 futures-lite = "1.12.0"
 bevy = { version = "0.7" }
 dirs = "4.0"
+surf = "2.3"
 
 # only enable the 'dynamic' feature if we're not building for web
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

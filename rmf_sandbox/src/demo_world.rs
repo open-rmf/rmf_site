@@ -71,68 +71,68 @@ levels:
       - [2, 3, {distance: [3, 20.089]}]
     models:
       - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 775.16, y: 794.006, yaw: 4.2503, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 737, y: 884, yaw: 4.2239, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 680.226, y: 975.778, yaw: 4.247, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 637.397, y: 1066.178, yaw: 4.2458, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 457.405, y: 976.296, yaw: 1.0926, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 503.457, y: 884.746, yaw: 1.1213, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 549.605, y: 797.635, yaw: 1.0613, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 592.124, y: 715.71, yaw: 1.0779, z: 0}
-      - {model_name: OpenRobotics/Fridge, name: Fridge, static: true, x: 1888.625, y: 679.327, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1683.984, y: 655.241, yaw: 0.0166, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1392.53, y: 706.367, yaw: 3.1613, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 991.717, y: 514.345, yaw: 1.099, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1682.699, y: 701.847, yaw: 3.1594, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1207.952, y: 1007.22, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1202.918, y: 1168.317, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1631.416, y: 1161.315, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1109.385, y: 1009.033, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1106.837, y: 1168.293, yaw: 4.7124, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1529.036, y: 1160.878, yaw: 4.7124, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1530.348, y: 1000.746, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1631.416, y: 999.433, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 795.487, y: 1142.915, yaw: 1.0878, z: 0}
-      - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 721.897, y: 1247.935, yaw: 1.1104, z: 0}
-      - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 2045.916, y: 985.492, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 2049.535, y: 1147.682, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 1946.8, y: 1149.375, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 1947.365, y: 990.194, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2607.625, y: 1219.095, yaw: 4.6088, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2644, y: 896, yaw: 4.5816, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2355.87, y: 1021.154, yaw: 1.5864, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2354.629, y: 849.779, yaw: 1.5733, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 883, y: 457, yaw: 4.2286, z: 0}
-      - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1536.41, y: 657.461, yaw: 1.5914, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2544.666, y: 466.974, yaw: 0, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2648.309, y: 466.974, yaw: 0, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2681.089, y: 531.5700000000001, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2643.97, y: 594.72, yaw: 3.1416, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2537.917, y: 593.756, yaw: 3.1416, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2475.249, y: 532.534, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1678.061, y: 1006.211, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2598, y: 888, yaw: 1.419, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2567.058, y: 1215.851, yaw: 1.4599, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1047.543, y: 989.277, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1045.85, y: 1155.797, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1264.301, y: 1004.518, yaw: 4.7124, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1263.737, y: 1165.958, yaw: 4.7124, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1471.463, y: 1000.567, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1690.479, y: 1161.442, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1892.611, y: 1154.456, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1894.869, y: 996.403, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 2103.16, y: 1009.386, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 2106.547, y: 1148.811, yaw: -1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 1464.125, y: 1147.33, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1398.96, y: 657.332, yaw: 0.016, z: 0}
-      - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 2119.682, y: 936.998, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 2625.448, y: 1094.713, yaw: 4.6217, z: 0}
-      - {model_name: OpenRobotics/ConfTable, name: ConfTable, static: true, x: 620, y: 872, yaw: 1.1017, z: 0}
-      - {model_name: OpenRobotics/RecTable, name: RecTable, static: true, x: 2584.195, y: 527.713, yaw: 0, z: 0}
-      - {model_name: OpenRobotics/WhiteCabinet, name: WhiteCabinet, static: true, x: 1779.929, y: 344.234, yaw: -0.0292, z: 0}
-      - {model_name: OpenRobotics/SquareShelf, name: SquareShelf, static: true, x: 938.97, y: 352.118, yaw: 2.664, z: 0}
-      - {model_name: OpenRobotics/TeleportDispenser, name: coke_dispenser, static: true, x: 2091.359, y: 624.821, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/Coke, name: Coke, static: false, x: 2091.359, y: 625.071, yaw: 1.5708, z: 0}
-      - {model_name: OpenRobotics/TeleportIngestor, name: coke_ingestor, static: true, x: 2662.887, y: 898.996, yaw: 1.5708, z: 0.805}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 737, y: 884, yaw: 4.2239, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 680.226, y: 975.778, yaw: 4.247, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 637.397, y: 1066.178, yaw: 4.2458, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 457.405, y: 976.296, yaw: 1.0926, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 503.457, y: 884.746, yaw: 1.1213, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 549.605, y: 797.635, yaw: 1.0613, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 592.124, y: 715.71, yaw: 1.0779, z: 0}
+      # - {model_name: OpenRobotics/Fridge, name: Fridge, static: true, x: 1888.625, y: 679.327, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1683.984, y: 655.241, yaw: 0.0166, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1392.53, y: 706.367, yaw: 3.1613, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 991.717, y: 514.345, yaw: 1.099, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1682.699, y: 701.847, yaw: 3.1594, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1207.952, y: 1007.22, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1202.918, y: 1168.317, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1631.416, y: 1161.315, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1109.385, y: 1009.033, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1106.837, y: 1168.293, yaw: 4.7124, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1529.036, y: 1160.878, yaw: 4.7124, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1530.348, y: 1000.746, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/SmallCubicle, name: SmallCubicle, static: true, x: 1631.416, y: 999.433, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 795.487, y: 1142.915, yaw: 1.0878, z: 0}
+      # - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 721.897, y: 1247.935, yaw: 1.1104, z: 0}
+      # - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 2045.916, y: 985.492, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 2049.535, y: 1147.682, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 1946.8, y: 1149.375, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/BigCubicle, name: BigCubicle, static: true, x: 1947.365, y: 990.194, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2607.625, y: 1219.095, yaw: 4.6088, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2644, y: 896, yaw: 4.5816, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2355.87, y: 1021.154, yaw: 1.5864, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 2354.629, y: 849.779, yaw: 1.5733, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 883, y: 457, yaw: 4.2286, z: 0}
+      # - {model_name: OpenRobotics/AdjTable, name: AdjTable, static: true, x: 1536.41, y: 657.461, yaw: 1.5914, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2544.666, y: 466.974, yaw: 0, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2648.309, y: 466.974, yaw: 0, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2681.089, y: 531.5700000000001, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2643.97, y: 594.72, yaw: 3.1416, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2537.917, y: 593.756, yaw: 3.1416, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2475.249, y: 532.534, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1678.061, y: 1006.211, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2598, y: 888, yaw: 1.419, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 2567.058, y: 1215.851, yaw: 1.4599, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1047.543, y: 989.277, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1045.85, y: 1155.797, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1264.301, y: 1004.518, yaw: 4.7124, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1263.737, y: 1165.958, yaw: 4.7124, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1471.463, y: 1000.567, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1690.479, y: 1161.442, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1892.611, y: 1154.456, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 1894.869, y: 996.403, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 2103.16, y: 1009.386, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlue, name: OfficeChairBlue, static: true, x: 2106.547, y: 1148.811, yaw: -1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairBlack, name: OfficeChairBlack, static: true, x: 1464.125, y: 1147.33, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/OfficeChairGrey, name: OfficeChairGrey, static: true, x: 1398.96, y: 657.332, yaw: 0.016, z: 0}
+      # - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 2119.682, y: 936.998, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/Drawer, name: Drawer, static: true, x: 2625.448, y: 1094.713, yaw: 4.6217, z: 0}
+      # - {model_name: OpenRobotics/ConfTable, name: ConfTable, static: true, x: 620, y: 872, yaw: 1.1017, z: 0}
+      # - {model_name: OpenRobotics/RecTable, name: RecTable, static: true, x: 2584.195, y: 527.713, yaw: 0, z: 0}
+      # - {model_name: OpenRobotics/WhiteCabinet, name: WhiteCabinet, static: true, x: 1779.929, y: 344.234, yaw: -0.0292, z: 0}
+      # - {model_name: OpenRobotics/SquareShelf, name: SquareShelf, static: true, x: 938.97, y: 352.118, yaw: 2.664, z: 0}
+      # - {model_name: OpenRobotics/TeleportDispenser, name: coke_dispenser, static: true, x: 2091.359, y: 624.821, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/Coke, name: Coke, static: false, x: 2091.359, y: 625.071, yaw: 1.5708, z: 0}
+      # - {model_name: OpenRobotics/TeleportIngestor, name: coke_ingestor, static: true, x: 2662.887, y: 898.996, yaw: 1.5708, z: 0.805}
     vertices:
       - [80.27, 1024.974, 0, ""]
       - [580.795, 43.396, 0, ""]
