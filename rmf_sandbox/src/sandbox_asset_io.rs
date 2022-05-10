@@ -3,12 +3,11 @@ use bevy::{
     prelude::*,
     utils::BoxedFuture,
 };
-use std::fs::{create_dir_all, File};
-use std::io::prelude::*;
-use std::path::{Path, PathBuf};
 use dirs;
 use std::fs;
 use std::io;
+use std::io::prelude::*;
+use std::path::{Path, PathBuf};
 
 pub fn cache_path() -> PathBuf {
     let mut p = dirs::cache_dir().unwrap();
@@ -25,23 +24,21 @@ impl AssetIo for SandboxAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         info!("load_path({:?})", path);
         if path.starts_with("sandbox://") {
-            let without_prefix = path
-                .to_str()
-                .unwrap()
-                .strip_prefix("sandbox://")
-                .unwrap();
-            let uri = String::from("https://models.sandbox.open-rmf.org/models/")
-                + without_prefix;
+            let without_prefix = path.to_str().unwrap().strip_prefix("sandbox://").unwrap();
+            let uri = String::from("https://models.sandbox.open-rmf.org/models/") + without_prefix;
 
             #[cfg(not(target_arch = "wasm32"))]
             {
                 let mut asset_path = cache_path();
                 asset_path.push(PathBuf::from(without_prefix));
                 if asset_path.exists() {
-                    println!("loading {} from cache", &asset_path.clone().into_os_string().into_string().unwrap());
+                    println!(
+                        "loading {} from cache",
+                        &asset_path.clone().into_os_string().into_string().unwrap()
+                    );
                     return Box::pin(async move {
                         let mut bytes = Vec::new();
-                        match File::open(&asset_path) {
+                        match fs::File::open(&asset_path) {
                             Ok(mut file) => {
                                 file.read_to_end(&mut bytes)?;
                             }
@@ -54,32 +51,33 @@ impl AssetIo for SandboxAssetIo {
                             }
                         }
                         Ok(bytes)
-                    })
+                    });
                 }
             }
 
             Box::pin(async move {
                 info!("downloading from {}", &uri);
-                let bytes = surf::get(uri)
-                    .recv_bytes()
-                    .await
-                    .map_err(|e| AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+                let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
+                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+                })?;
                 info!("received {} bytes", bytes.len());
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
                     asset_path.push(PathBuf::from(without_prefix));
-                    create_dir_all(asset_path.parent().unwrap()).unwrap();
-                    println!("saving to {}", &asset_path.clone().into_os_string().into_string().unwrap());
+                    fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
+                    println!(
+                        "saving to {}",
+                        &asset_path.clone().into_os_string().into_string().unwrap()
+                    );
                     if bytes.len() > 0 {
                         fs::write(asset_path, &bytes).expect("unable to write to file");
                     }
                 }
                 Ok(bytes)
             })
-        }
-        else {
+        } else {
             self.default_io.load_path(path)
         }
     }

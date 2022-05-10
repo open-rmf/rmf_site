@@ -2,9 +2,9 @@ use super::level_transform::LevelTransform;
 use super::site_map::{Editable, Handles};
 use super::vertex::Vertex;
 use bevy::prelude::*;
+use bevy::render::mesh::{Indices, PrimitiveTopology};
 use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::PickableBundle;
-use bevy::render::mesh::{Indices, PrimitiveTopology};
 
 #[derive(Component, Inspectable, Clone, Default)]
 pub struct Wall {
