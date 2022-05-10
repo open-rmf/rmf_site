@@ -119,6 +119,7 @@ fn spawn_site_map(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    light_query: Query<(Entity, &PointLight)>,
     handles: Res<Handles>,
     asset_server: Res<AssetServer>,
 ) {
@@ -126,14 +127,58 @@ fn spawn_site_map(
         let sm = &ev.site_map;
 
         // first, despawn all existing mesh entities
-        println!("despawing all meshes...");
+        println!("despawing all meshes and lights...");
         for entity_mesh in mesh_query.iter() {
             let (entity, _mesh) = entity_mesh;
+            commands.entity(entity).despawn_recursive();
+        }
+        for entity_light in light_query.iter() {
+            let (entity, _light) = entity_light;
             commands.entity(entity).despawn_recursive();
         }
 
         for level in &sm.levels {
             level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
+            // todo: calculate bounding box of this level
+            let bb = level.calc_bb();
+            let make_light_grid = false; // todo: select based on WASM and GPU (or not)
+            if make_light_grid {
+                // spawn a grid of lights for this level
+                let light_spacing = 10.;
+                let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
+                let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
+                for x_idx in 0..num_x_lights {
+                    for y_idx in 0..num_y_lights {
+                        let x = bb.min_x + (x_idx as f64) * light_spacing;
+                        let y = bb.min_y + (y_idx as f64) * light_spacing;
+                        commands.spawn_bundle(PointLightBundle {
+                            transform: Transform::from_xyz(x as f32, y as f32, 3.0),
+                            point_light: PointLight {
+                                intensity: 500.,
+                                range: 10.,
+                                //shadows_enabled: true,
+                                ..default()
+                            },
+                            ..default()
+                        });
+                    }
+                }
+            } else {
+                // create a single directional light (for machines without GPU)
+                commands.spawn_bundle(DirectionalLightBundle {
+                    directional_light: DirectionalLight {
+                        shadows_enabled: false,
+                        illuminance: 20000.,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::new(0., 0., 50.),
+                        rotation: Quat::from_rotation_x(0.4),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                });
+            }
         }
 
         // todo: use real floor polygons
@@ -235,9 +280,10 @@ fn init_handles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut handles: ResMut<Handles>,
+    asset_server: Res<AssetServer>,
 ) {
     handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-        radius: 0.25,
+        radius: 0.15,
         rings: 2,
         depth: 0.05,
         latitudes: 8,
@@ -249,7 +295,14 @@ fn init_handles(
     handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
     handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+
+    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
+    //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    handles.wall_material = materials.add(StandardMaterial {
+        base_color_texture: Some(default_wall_material_texture.clone()),
+        unlit: false,
+        ..default()
+    });
 }
 
 #[derive(Default)]

@@ -2,7 +2,7 @@ use super::camera_controls::{CameraControls, ProjectionMode};
 use super::level::Level;
 use super::site_map::{Handles, SpawnSiteMapYaml};
 use super::vertex::Vertex;
-use super::wall::Wall;
+//use super::wall::Wall;
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -246,10 +246,12 @@ fn warehouse_generator(
             y_meters: width / 2.,
             ..Default::default()
         });
+        /*
         level.walls.push(Wall { start: 0, end: 1 });
         level.walls.push(Wall { start: 1, end: 2 });
         level.walls.push(Wall { start: 2, end: 3 });
         level.walls.push(Wall { start: 3, end: 0 });
+        */
 
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
 
