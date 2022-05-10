@@ -23,6 +23,7 @@ mod site_map;
 mod ui_widgets;
 mod vertex;
 mod wall;
+mod warehouse_generator;
 
 use camera_controls::CameraControlsPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
