@@ -32,43 +32,52 @@ impl AssetIo for SandboxAssetIo {
                 .unwrap();
             let uri = String::from("https://models.sandbox.open-rmf.org/models/")
                 + without_prefix;
-            let mut asset_path = cache_path();
-            asset_path.push(PathBuf::from(without_prefix));
-            if asset_path.exists() {
-                println!("loading {} from cache", &asset_path.clone().into_os_string().into_string().unwrap());
-                Box::pin(async move {
-                    let mut bytes = Vec::new();
-                    match File::open(&asset_path) {
-                        Ok(mut file) => {
-                            file.read_to_end(&mut bytes)?;
-                        }
-                        Err(e) => {
-                            return if e.kind() == std::io::ErrorKind::NotFound {
-                                Err(AssetIoError::NotFound(asset_path))
-                            } else {
-                                Err(e.into())
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                let mut asset_path = cache_path();
+                asset_path.push(PathBuf::from(without_prefix));
+                if asset_path.exists() {
+                    println!("loading {} from cache", &asset_path.clone().into_os_string().into_string().unwrap());
+                    return Box::pin(async move {
+                        let mut bytes = Vec::new();
+                        match File::open(&asset_path) {
+                            Ok(mut file) => {
+                                file.read_to_end(&mut bytes)?;
+                            }
+                            Err(e) => {
+                                return if e.kind() == std::io::ErrorKind::NotFound {
+                                    Err(AssetIoError::NotFound(asset_path))
+                                } else {
+                                    Err(e.into())
+                                }
                             }
                         }
-                    }
-                    Ok(bytes)
-                })
+                        Ok(bytes)
+                    })
+                }
             }
-            else {
-                println!("downloading from {} into {}", &uri, &asset_path.clone().into_os_string().into_string().unwrap());
-                println!("  directories to create: {}", asset_path.parent().unwrap().to_str().unwrap());
-                create_dir_all(asset_path.parent().unwrap()).unwrap();
-                Box::pin(async move {
-                    let bytes = surf::get(uri)
-                        .recv_bytes()
-                        .await
-                        .map_err(|e| AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
-                    println!("received {} bytes", bytes.len());
+
+            Box::pin(async move {
+                info!("downloading from {}", &uri);
+                let bytes = surf::get(uri)
+                    .recv_bytes()
+                    .await
+                    .map_err(|e| AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+                info!("received {} bytes", bytes.len());
+
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut asset_path = cache_path();
+                    asset_path.push(PathBuf::from(without_prefix));
+                    create_dir_all(asset_path.parent().unwrap()).unwrap();
+                    println!("saving to {}", &asset_path.clone().into_os_string().into_string().unwrap());
                     if bytes.len() > 0 {
                         fs::write(asset_path, &bytes).expect("unable to write to file");
                     }
-                    Ok(bytes)
-                })
-            }
+                }
+                Ok(bytes)
+            })
         }
         else {
             self.default_io.load_path(path)
@@ -80,21 +89,37 @@ impl AssetIo for SandboxAssetIo {
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
         info!("read_directory({:?})", path);
+
         self.default_io.read_directory(path)
     }
 
     fn is_directory(&self, path: &Path) -> bool {
         info!("is_directory({:?})", path);
+
+        #[cfg(target_arch = "wasm32")]
+        return false;
+
+        #[cfg(not(target_arch = "wasm32"))]
         self.default_io.is_directory(path)
     }
 
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
         info!("watch_path_for_changes({:?})", path);
+
+        #[cfg(target_arch = "wasm32")]
+        return Ok(());
+
+        #[cfg(not(target_arch = "wasm32"))]
         self.default_io.watch_path_for_changes(path)
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
         info!("watch_for_changes()");
+
+        #[cfg(target_arch = "wasm32")]
+        return Ok(());
+
+        #[cfg(not(target_arch = "wasm32"))]
         self.default_io.watch_for_changes()
     }
 }

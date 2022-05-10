@@ -297,7 +297,7 @@ fn init_handles(
     handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
 
-    let default_wall_material_texture = asset_server.load("textures/default.png");
+    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
     //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
     handles.wall_material = materials.add(StandardMaterial {
         base_color_texture: Some(default_wall_material_texture.clone()),
