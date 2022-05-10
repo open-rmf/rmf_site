@@ -3,11 +3,11 @@ use bevy::{
     prelude::*,
     utils::BoxedFuture,
 };
-use std::fs::File;
-use std::io::Read;
+use std::fs::{create_dir_all, File};
+use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use dirs; //::cache_dir;
-use surf::get;
+use dirs;
+use std::fs;
 use std::io;
 
 pub fn cache_path() -> PathBuf {
@@ -15,19 +15,6 @@ pub fn cache_path() -> PathBuf {
     p.push("open-robotics");
     p.push("rmf_sandbox");
     return p;
-    /*
-    return cache_dir()
-        .unwrap()
-        .push("open-robotics")
-        .push("rmf_sandbox");
-        /*
-        .unwrap()
-        .into_os_string()
-        .into_string()
-        .unwrap()
-        + "/open-robotics/rmf_sandbox/";
-        */
-  */
 }
 
 struct SandboxAssetIo {
@@ -47,42 +34,41 @@ impl AssetIo for SandboxAssetIo {
                 + without_prefix;
             let mut asset_path = cache_path();
             asset_path.push(PathBuf::from(without_prefix));
-                //+ without_prefix;  //path.to_str().unwrap().strip_prefix("sandbox://").unwrap();
-            println!("downloading from {} into {}", &uri, &asset_path.clone().into_os_string().into_string().unwrap());
-            println!("  directories to create: {}", asset_path.parent().unwrap().to_str().unwrap());
-            // fs::create_dir_all(
-            Box::pin(async move {
-                /*
-                let bytes = surf::get(uri)
-                    .recv_bytes()
-                    .await
-                    .map_err(|e| AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
-                println!("received {} bytes", bytes.len());
-                Ok(bytes)
-                */
-                let mut bytes = Vec::new();
-                Ok(bytes)
-            })
-            //assert!(bytes.len() > 0);
-            /*
-            Box::pin(async move {
-                //let full_path = self.root_path.join(cached_path);
-                let mut bytes = Vec::new();
-                match File::open(&asset_path) {
-                    Ok(mut file) => {
-                        file.read_to_end(&mut bytes)?;
-                    }
-                    Err(e) => {
-                        return if e.kind() == std::io::ErrorKind::NotFound {
-                            Err(AssetIoError::NotFound(PathBuf::from(cached_path)))
-                        } else {
-                            Err(e.into())
+            if asset_path.exists() {
+                println!("loading {} from cache", &asset_path.clone().into_os_string().into_string().unwrap());
+                Box::pin(async move {
+                    let mut bytes = Vec::new();
+                    match File::open(&asset_path) {
+                        Ok(mut file) => {
+                            file.read_to_end(&mut bytes)?;
+                        }
+                        Err(e) => {
+                            return if e.kind() == std::io::ErrorKind::NotFound {
+                                Err(AssetIoError::NotFound(asset_path))
+                            } else {
+                                Err(e.into())
+                            }
                         }
                     }
-                }
-                Ok(bytes)
-            })
-            */
+                    Ok(bytes)
+                })
+            }
+            else {
+                println!("downloading from {} into {}", &uri, &asset_path.clone().into_os_string().into_string().unwrap());
+                println!("  directories to create: {}", asset_path.parent().unwrap().to_str().unwrap());
+                create_dir_all(asset_path.parent().unwrap()).unwrap();
+                Box::pin(async move {
+                    let bytes = surf::get(uri)
+                        .recv_bytes()
+                        .await
+                        .map_err(|e| AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+                    println!("received {} bytes", bytes.len());
+                    if bytes.len() > 0 {
+                        fs::write(asset_path, &bytes).expect("unable to write to file");
+                    }
+                    Ok(bytes)
+                })
+            }
         }
         else {
             self.default_io.load_path(path)
