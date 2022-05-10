@@ -1,3 +1,4 @@
+use super::building_map::BuildingMap;
 use super::lane::Lane;
 use super::level::Level;
 use super::measurement::Measurement;
@@ -54,6 +55,18 @@ pub struct SiteMap {
 }
 
 impl SiteMap {
+    pub fn from_building_map(building_map: BuildingMap) -> SiteMap {
+        let sm = SiteMap {
+            site_name: building_map.name,
+            levels: building_map.levels.into_values().collect(),
+            ..Default::default()
+        };
+
+        // todo: global alignment via fiducials
+
+        return sm;
+    }
+
     pub fn from_yaml(doc: &serde_yaml::Value) -> SiteMap {
         let mut sm = SiteMap {
             ..Default::default()

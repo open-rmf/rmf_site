@@ -5,11 +5,22 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::PickableBundle;
 
-#[derive(Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[serde(from = "MeasurementRaw")]
 pub struct Measurement {
     pub start: usize,
     pub end: usize,
     pub distance: f64,
+}
+
+impl From<MeasurementRaw> for Measurement {
+    fn from(raw: MeasurementRaw) -> Measurement {
+        Measurement {
+            start: raw.data.0,
+            end: raw.data.1,
+            distance: raw.data.2.distance.1,
+        }
+    }
 }
 
 impl Measurement {
@@ -59,4 +70,15 @@ impl Measurement {
             distance: distance,
         };
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+struct MeasurementRaw {
+    data: (usize, usize, MeasurementProperties),
+}
+
+#[derive(serde::Deserialize)]
+struct MeasurementProperties {
+    distance: (f64, f64),
 }

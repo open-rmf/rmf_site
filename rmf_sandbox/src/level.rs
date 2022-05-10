@@ -8,13 +8,14 @@ use super::wall::Wall;
 use bevy::prelude::*;
 use serde_yaml;
 
-#[derive(Component, Clone, Default)]
+#[derive(serde::Deserialize, Component, Clone, Default)]
 pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
+    #[serde(skip)]
     pub transform: LevelTransform,
 }
 

@@ -14,9 +14,11 @@ extern crate web_sys;
 
 mod demo_world;
 
+mod main_menu;
 mod site_map;
 use site_map::SiteMapPlugin;
 
+mod building_map;
 mod lane;
 mod level;
 mod level_transform;
@@ -30,6 +32,12 @@ use camera_controls::CameraControlsPlugin;
 
 mod ui_widgets;
 use ui_widgets::UIWidgetsPlugin;
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum AppState {
+    MainMenu,
+    SiteMap,
+}
 
 fn setup(mut commands: Commands) {
     commands.insert_resource(AmbientLight {
@@ -101,16 +109,19 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
-        .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        // .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
         })
+        .add_plugin(bevy_egui::EguiPlugin)
+        .add_state(AppState::MainMenu)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
+        .add_plugin(main_menu::MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
-        .add_plugin(CameraControlsPlugin)
+        // .add_plugin(CameraControlsPlugin)
         .add_plugin(UIWidgetsPlugin)
-        .add_startup_system(setup)
+        // .add_startup_system(setup)
         .run();
 }
