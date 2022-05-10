@@ -141,7 +141,7 @@ fn spawn_site_map(
             level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
             // todo: calculate bounding box of this level
             let bb = level.calc_bb();
-            let make_light_grid = false;
+            let make_light_grid = false; // todo: select based on WASM and GPU (or not)
             if make_light_grid {
                 // spawn a grid of lights for this level
                 let light_spacing = 10.;
@@ -163,8 +163,7 @@ fn spawn_site_map(
                         });
                     }
                 }
-            }
-            else {
+            } else {
                 // create a single directional light (for machines without GPU)
                 commands.spawn_bundle(DirectionalLightBundle {
                     directional_light: DirectionalLight {

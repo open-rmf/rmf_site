@@ -1,6 +1,6 @@
 use bevy::{
     // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::{/*DirectionalLight, */DirectionalLightShadowMap},
+    pbr::DirectionalLightShadowMap,
     prelude::*,
 };
 use wasm_bindgen::prelude::*;
@@ -29,7 +29,7 @@ use sandbox_asset_io::SandboxAssetIoPlugin;
 use site_map::SiteMapPlugin;
 use ui_widgets::UIWidgetsPlugin;
 
-fn setup() { //mut commands: Commands) {
+fn setup() {
     /*
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,

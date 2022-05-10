@@ -1,6 +1,4 @@
 use super::level_transform::LevelTransform;
-//use super::site_map::Handles;
-//use super::site_map::{Editable, Handles};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 //use bevy_mod_picking::PickableBundle;
@@ -21,14 +19,11 @@ impl Model {
     pub fn spawn(
         &self,
         commands: &mut Commands,
-        //meshes: &mut ResMut<Assets<Mesh>>,
-        //handles: &Res<Handles>,
         _transform: &LevelTransform,
         asset_server: &Res<AssetServer>,
     ) {
-        let bundle_path = String::from("sandbox://")
-            + &self.model_name
-            + &String::from(".glb#Scene0");
+        let bundle_path =
+            String::from("sandbox://") + &self.model_name + &String::from(".glb#Scene0");
         let glb = asset_server.load(&bundle_path);
         commands
             .spawn_bundle((
@@ -50,7 +45,6 @@ impl Model {
         let yaw = value["yaw"].as_f64().unwrap() - 3.14159 / 2.;
         let model_name = value["model_name"].as_str().unwrap();
         let instance_name = value["name"].as_str().unwrap();
-        // println!("model {} at ({}, {})", model_name, x_raw, y_raw);
         return Model {
             x_raw: x_raw,
             y_raw: -y_raw,
