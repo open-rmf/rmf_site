@@ -5,10 +5,20 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::PickableBundle;
 
-#[derive(Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[serde(from = "LaneRaw")]
 pub struct Lane {
     pub start: usize,
     pub end: usize,
+}
+
+impl From<LaneRaw> for Lane {
+    fn from(raw: LaneRaw) -> Lane {
+        Lane {
+            start: raw.data.0,
+            end: raw.data.1,
+        }
+    }
 }
 
 impl Lane {
@@ -54,4 +64,19 @@ impl Lane {
             end: end as usize,
         };
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+struct LaneRaw {
+    // data: Vec<serde_yaml::Value>,
+    data: (usize, usize, LaneProperties),
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct LaneProperties {
+    bidirectional: (usize, bool),
+    graph_idx: (usize, usize),
+    orientation: (usize, String),
 }

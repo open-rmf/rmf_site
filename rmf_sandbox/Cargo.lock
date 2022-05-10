@@ -3652,6 +3652,7 @@ dependencies = [
  "bevy_web_asset",
  "futures-lite",
  "rfd",
+ "serde",
  "serde_yaml",
  "wasm-bindgen",
  "web-sys",

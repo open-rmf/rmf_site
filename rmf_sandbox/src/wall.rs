@@ -5,10 +5,20 @@ use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::PickableBundle;
 
-#[derive(Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[serde(from = "WallRaw")]
 pub struct Wall {
     pub start: usize,
     pub end: usize,
+}
+
+impl From<WallRaw> for Wall {
+    fn from(raw: WallRaw) -> Wall {
+        Wall {
+            start: raw.data.0,
+            end: raw.data.1,
+        }
+    }
 }
 
 impl Wall {
@@ -55,4 +65,17 @@ impl Wall {
             end: end as usize,
         };
     }
+}
+
+#[derive(serde::Deserialize)]
+#[serde(transparent)]
+struct WallRaw {
+    data: (usize, usize, WallProperties),
+}
+
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct WallProperties {
+    alpha: (usize, usize),
+    texture_name: (usize, String),
 }

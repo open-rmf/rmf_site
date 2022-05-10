@@ -271,22 +271,22 @@ pub struct UIWidgetsPlugin;
 impl Plugin for UIWidgetsPlugin {
     fn build(&self, app: &mut App) {
         // avoid conflict with bevy-inspect-egui
-        if !app.world.contains_resource::<EguiContext>() {
-            app.add_plugin(EguiPlugin);
-        }
-        app.add_system(egui_ui);
-        app.insert_resource(WarehouseState {
-            requested: WarehouseParams { square_feet: 100. },
-            ..Default::default()
-        });
+        // if !app.world.contains_resource::<EguiContext>() {
+        //     app.add_plugin(EguiPlugin);
+        // }
+        // app.add_system(egui_ui);
+        // app.insert_resource(WarehouseState {
+        //     requested: WarehouseParams { square_feet: 100. },
+        //     ..Default::default()
+        // });
         app.insert_resource(VisibleWindows {
             welcome: true,
             generator: false,
             inspector: false,
         });
-        app.add_system(warehouse_generator);
+        // app.add_system(warehouse_generator);
 
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(handle_file_open);
+        // #[cfg(not(target_arch = "wasm32"))]
+        // app.add_system(handle_file_open);
     }
 }

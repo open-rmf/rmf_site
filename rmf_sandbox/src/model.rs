@@ -6,7 +6,8 @@ use bevy_inspector_egui::Inspectable;
 //use bevy_mod_picking::PickableBundle;
 use serde_yaml;
 
-#[derive(Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[serde(from = "ModelRaw")]
 pub struct Model {
     pub x_raw: f64,
     pub y_raw: f64,
@@ -15,6 +16,20 @@ pub struct Model {
     pub y_meters: f64,
     pub instance_name: String,
     pub model_name: String,
+}
+
+impl From<ModelRaw> for Model {
+    fn from(raw: ModelRaw) -> Model {
+        Model {
+            x_raw: raw.x,
+            y_raw: raw.y,
+            yaw: raw.yaw,
+            x_meters: raw.x,
+            y_meters: raw.y,
+            instance_name: raw.name,
+            model_name: raw.model_name,
+        }
+    }
 }
 
 impl Model {
@@ -70,4 +85,16 @@ impl Model {
             instance_name: instance_name.to_string(),
         };
     }
+}
+
+#[derive(serde::Deserialize)]
+struct ModelRaw {
+    model_name: String,
+    name: String,
+    #[serde(rename = "static")]
+    static_: bool,
+    x: f64,
+    y: f64,
+    z: f64,
+    yaw: f64,
 }
