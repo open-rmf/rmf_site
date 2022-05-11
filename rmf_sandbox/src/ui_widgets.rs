@@ -157,7 +157,7 @@ fn egui_ui(
             });
     }
     if visible_windows.generator {
-        warehouse_ui(&egui_context, &mut warehouse_state);
+        warehouse_ui(&mut egui_context, &mut warehouse_state);
     }
 }
 

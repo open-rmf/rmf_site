@@ -39,6 +39,24 @@ impl Model {
             });
     }
 
+    pub fn from_xy_yaw(
+        instance_name: &str,
+        model_name: &str,
+        x: f64,
+        y: f64,
+        yaw: f64,
+    ) -> Model {
+        return Model {
+            instance_name: instance_name.to_string(),
+            model_name: model_name.to_string(),
+            x_raw: x,
+            y_raw: y,
+            x_meters: x,
+            y_meters: y,
+            yaw: yaw,
+        }
+    }
+
     pub fn from_yaml(value: &serde_yaml::Value) -> Model {
         let x_raw = value["x"].as_f64().unwrap();
         let y_raw = value["y"].as_f64().unwrap();
