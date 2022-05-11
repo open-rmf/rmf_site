@@ -1,9 +1,8 @@
 use super::level_transform::LevelTransform;
-use super::site_map::{Editable, Handles};
+use super::site_map::Handles;
 use super::vertex::Vertex;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use bevy_mod_picking::PickableBundle;
 
 #[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
 #[serde(from = "WallRaw")]
@@ -52,18 +51,7 @@ impl Wall {
                 },
                 ..Default::default()
             })
-            .insert_bundle(PickableBundle::default())
-            .insert(Editable::Wall(self.clone()));
-    }
-
-    pub fn from_yaml(value: &serde_yaml::Value) -> Wall {
-        let data = value.as_sequence().unwrap();
-        let start = data[0].as_u64().unwrap();
-        let end = data[1].as_u64().unwrap();
-        return Wall {
-            start: start as usize,
-            end: end as usize,
-        };
+            .insert(self.clone());
     }
 }
 
