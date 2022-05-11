@@ -128,6 +128,7 @@ impl Level {
         }
         return level;
     }
+
     pub fn calc_bb(&self) -> BoundingBox2D {
         let mut bb = BoundingBox2D {
             min_x: 1e100,
