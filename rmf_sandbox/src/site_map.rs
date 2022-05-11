@@ -18,8 +18,8 @@ pub struct Handles {
 
 #[derive(Default)]
 pub struct SiteMap {
-    site_name: String,
-    levels: Vec<Level>,
+    pub site_name: String,
+    pub levels: Vec<Level>,
 }
 
 impl SiteMap {
@@ -36,12 +36,11 @@ impl SiteMap {
     }
 }
 
-fn spawn_site_map(
+fn init_site_map(
     sm: Res<SiteMap>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut handles: ResMut<Handles>,
-    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     println!("Loading assets");
@@ -60,7 +59,7 @@ fn spawn_site_map(
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
     handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
 
-    println!("Spawning site map: {}", sm.site_name);
+    println!("Initializing site map: {}", sm.site_name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
@@ -80,7 +79,26 @@ fn spawn_site_map(
         ..Default::default()
     });
 
-    let handles: Res<Handles> = Res::from(handles);
+    println!("Finished initializing site map");
+}
+
+fn update_level(
+    sm: Option<Res<SiteMap>>,
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    asset_server: Res<AssetServer>,
+) {
+    let sm = match sm {
+        Some(sm) => {
+            if !sm.is_changed() {
+                return;
+            }
+            sm
+        }
+        None => return,
+    };
+
     for level in &sm.levels {
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
     }
@@ -95,8 +113,6 @@ fn spawn_site_map(
         },
         ..Default::default()
     });
-
-    println!("Finished spawning site map");
 }
 
 fn despawn_site_map(
@@ -121,7 +137,7 @@ fn despawn_site_map(
     }
 }
 
-fn should_spawn_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
+fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
     if let Some(sm) = sm {
         if sm.is_added() {
             return ShouldRun::Yes;
@@ -131,6 +147,8 @@ fn should_spawn_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
 }
 
 fn should_despawn_site_map(sm: Option<Res<SiteMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
+    // FIXME: Do we need to despawn entities to avoid leak?
+
     if sm.is_none() && *sm_existed {
         *sm_existed = false;
         return ShouldRun::Yes;
@@ -147,8 +165,9 @@ impl Plugin for SiteMapPlugin {
         app.init_resource::<Handles>().add_system_set(
             SystemSet::new()
                 .label(SiteMapLabel)
-                .with_system(spawn_site_map.with_run_criteria(should_spawn_site_map))
-                .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
+                .with_system(init_site_map.with_run_criteria(should_init_site_map))
+                .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map))
+                .with_system(update_level.after(init_site_map)),
         );
     }
 }
