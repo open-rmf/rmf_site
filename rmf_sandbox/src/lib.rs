@@ -1,8 +1,4 @@
-use bevy::{
-    // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::{DirectionalLight, DirectionalLightShadowMap},
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_web_asset::WebAssetPlugin;
 use wasm_bindgen::prelude::*;
 
@@ -31,33 +27,11 @@ mod camera_controls;
 use camera_controls::CameraControlsPlugin;
 
 mod ui_widgets;
-use ui_widgets::UIWidgetsPlugin;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
     MainMenu,
     SiteMap,
-}
-
-fn setup(mut commands: Commands) {
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.001,
-    });
-
-    commands.spawn_bundle(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: false,
-            illuminance: 20000.,
-            ..Default::default()
-        },
-        transform: Transform {
-            translation: Vec3::new(0., 0., 50.),
-            rotation: Quat::from_rotation_x(0.4),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -114,14 +88,13 @@ pub fn run() {
             group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
         })
         .add_plugin(bevy_egui::EguiPlugin)
+        .init_resource::<site_map::SiteMap>()
         .add_state(AppState::MainMenu)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
         .add_plugin(main_menu::MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
-        // .add_plugin(CameraControlsPlugin)
-        .add_plugin(UIWidgetsPlugin)
-        // .add_startup_system(setup)
+        .add_plugin(CameraControlsPlugin)
         .run();
 }

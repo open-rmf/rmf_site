@@ -1,6 +1,5 @@
 use super::demo_world::demo_office;
 use super::site_map::SiteMap;
-use super::site_map::SpawnSiteMap;
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
 
@@ -29,6 +28,7 @@ fn egui_ui(
                 if ui.button("View demo map").clicked() {
                     // load the office demo that is hard-coded in demo_world.rs
                     let future = _thread_pool.spawn(async move {
+                        println!("Loading site map");
                         let yaml = demo_office();
                         let data = yaml.as_bytes();
                         match BuildingMap::from_bytes(&data) {
@@ -54,6 +54,7 @@ fn egui_ui(
                                     return None;
                                 }
                             };
+                            println!("Loading site map");
                             let data = file.read().await;
                             match BuildingMap::from_bytes(&data) {
                                 Ok(map) => Some(SiteMap::from_building_map(map)),
@@ -88,28 +89,29 @@ fn egui_ui(
 
 /// Handles the file opening events
 #[cfg(not(target_arch = "wasm32"))]
-fn handle_file_open(
+fn map_load_complete(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut Task<Option<SiteMap>>)>,
-    mut spawn_site_map_writer: EventWriter<SpawnSiteMap>,
     mut app_state: ResMut<State<AppState>>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut *task)) {
-            match result {
-                Some(result) => {
-                    spawn_site_map_writer.send(SpawnSiteMap { site_map: result });
-                }
-                None => {}
-            }
+            println!("Site map loaded");
             // FIXME: Do we need to remove this entity and not just the component to avoid leaks?
             commands.entity(entity).remove::<Task<Option<SiteMap>>>();
 
-            match app_state.set(AppState::SiteMap) {
-                Ok(_) => {}
-                Err(err) => {
-                    println!("Failed to enter site map: {:?}", err);
+            match result {
+                Some(result) => {
+                    println!("Entering site map");
+                    commands.insert_resource(result);
+                    match app_state.set(AppState::SiteMap) {
+                        Ok(_) => {}
+                        Err(err) => {
+                            println!("Failed to enter site map: {:?}", err);
+                        }
+                    }
                 }
+                None => {}
             }
         }
     }
@@ -122,6 +124,6 @@ impl Plugin for MainMenuPlugin {
         app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(egui_ui));
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(handle_file_open));
+        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(map_load_complete));
     }
 }
