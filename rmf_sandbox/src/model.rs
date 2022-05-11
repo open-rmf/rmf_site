@@ -1,10 +1,5 @@
-use super::level_transform::LevelTransform;
-use super::site_map::Handles;
-//use super::site_map::{Editable, Handles};
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-//use bevy_mod_picking::PickableBundle;
-use serde_yaml;
 
 #[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
 #[serde(from = "ModelRaw")]
@@ -33,14 +28,7 @@ impl From<ModelRaw> for Model {
 }
 
 impl Model {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        handles: &Res<Handles>,
-        transform: &LevelTransform,
-        asset_server: &Res<AssetServer>,
-    ) {
+    pub fn spawn(&self, commands: &mut Commands, asset_server: &Res<AssetServer>) {
         // TODO: need to set up https on this server, for this WASM to work
         // when hosted over https
         #[cfg(not(target_arch = "wasm32"))]
@@ -67,27 +55,10 @@ impl Model {
                 });
         }
     }
-
-    pub fn from_yaml(value: &serde_yaml::Value) -> Model {
-        let x_raw = value["x"].as_f64().unwrap();
-        let y_raw = value["y"].as_f64().unwrap();
-        let yaw = value["yaw"].as_f64().unwrap() - 3.14159 / 2.;
-        let model_name = value["model_name"].as_str().unwrap();
-        let instance_name = value["name"].as_str().unwrap();
-        println!("model {} at ({}, {})", model_name, x_raw, y_raw);
-        return Model {
-            x_raw: x_raw,
-            y_raw: -y_raw,
-            x_meters: x_raw,
-            y_meters: -y_raw,
-            yaw: yaw,
-            model_name: model_name.to_string(),
-            instance_name: instance_name.to_string(),
-        };
-    }
 }
 
 #[derive(serde::Deserialize)]
+#[allow(dead_code)]
 struct ModelRaw {
     model_name: String,
     name: String,
