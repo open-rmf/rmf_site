@@ -68,24 +68,6 @@ impl Vertex {
             .insert_bundle(PickableBundle::default())
             .insert(Editable::Vertex(self.clone()));
     }
-
-    pub fn from_yaml(value: &serde_yaml::Value) -> Vertex {
-        let data = value.as_sequence().unwrap();
-        let x_raw = data[0].as_f64().unwrap();
-        let y_raw = data[1].as_f64().unwrap();
-        let name = if data.len() > 3 {
-            data[3].as_str().unwrap().to_string()
-        } else {
-            String::new()
-        };
-        return Vertex {
-            x_raw: x_raw,
-            y_raw: -y_raw,
-            x_meters: x_raw,
-            y_meters: -y_raw,
-            _name: name,
-        };
-    }
 }
 
 #[derive(serde::Deserialize)]
