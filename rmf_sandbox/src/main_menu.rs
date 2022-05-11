@@ -14,6 +14,7 @@ fn egui_ui(
     mut _commands: Commands,
     mut _exit: EventWriter<AppExit>,
     _thread_pool: Res<AsyncComputeTaskPool>,
+    mut app_state: ResMut<State<AppState>>,
 ) {
     egui::Window::new("Welcome!")
         .collapsible(false)
@@ -70,6 +71,11 @@ fn egui_ui(
                         // entity but never removes the entity itself.
                         _commands.spawn().insert(future);
                     }
+                }
+
+                if ui.button("Use building generator").clicked() {
+                    println!("Entering warehouse generator");
+                    app_state.set(AppState::WarehouseGenerator).unwrap();
                 }
             });
 

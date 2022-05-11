@@ -1,6 +1,8 @@
 use bevy::prelude::*;
 use bevy_web_asset::WebAssetPlugin;
 use traffic_editor::TrafficEditorPlugin;
+use warehouse_generator::WarehouseGeneratorPlugin;
+use main_menu::MainMenuPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -14,6 +16,7 @@ mod demo_world;
 mod main_menu;
 mod site_map;
 mod traffic_editor;
+mod warehouse_generator;
 
 mod building_map;
 mod lane;
@@ -33,6 +36,7 @@ use site_map::SiteMapPlugin;
 pub enum AppState {
     MainMenu,
     TrafficEditor,
+    WarehouseGenerator,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -93,9 +97,10 @@ pub fn run() {
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
-        .add_plugin(main_menu::MainMenuPlugin)
+        .add_plugin(MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
         .add_plugin(TrafficEditorPlugin)
+        .add_plugin(WarehouseGeneratorPlugin)
         .run();
 }
