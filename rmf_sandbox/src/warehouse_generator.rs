@@ -162,15 +162,15 @@ fn add_racks(
             y,
             yaw + 3.1415926 / 2.
         ));
-        /*
-        level.models.push(Model::from_xy_yaw(
-            "horiz_beam1",
-            "OpenRobotics/PalletRackHorBeams",
-            x + (idx as f64) * 2.3784,
-            y,
-            yaw + 3.1415926 / 2.
-        ));
-        */
+        if idx < num_racks {
+            level.models.push(Model::from_xy_yaw(
+                "horiz_beam1",
+                "OpenRobotics/PalletRackHorBeams",
+                x + ((idx + 1) as f64) * 2.3784,
+                y,
+                yaw + 3.1415926 / 2.
+            ));
+        }
     }
 }
 
