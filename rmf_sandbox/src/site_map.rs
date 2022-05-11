@@ -296,7 +296,13 @@ fn init_handles(
         uv_profile: shape::CapsuleUvProfile::Fixed,
     }));
 
-    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.default_floor_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
+        perceptual_roughness: 0.5,
+        ..default()
+    });
+
     handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
     handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());

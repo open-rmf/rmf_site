@@ -115,7 +115,7 @@ fn egui_ui(
                         visible_windows.welcome = false;
                     }
 
-                    if ui.button("Use building generator").clicked() {
+                    if ui.button("Warehouse generator").clicked() {
                         visible_windows.welcome = false;
                         visible_windows.generator = true;
                     }

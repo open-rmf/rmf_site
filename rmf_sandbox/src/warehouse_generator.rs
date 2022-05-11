@@ -8,7 +8,9 @@ use super::vertex::Vertex;
 
 #[derive(Clone, Default, PartialEq)]
 pub struct WarehouseParams {
-    pub square_feet: f64,
+    pub area: f64,
+    pub height: i32,
+    pub aisle_width: f64,
 }
 
 #[derive(Default)]
@@ -25,8 +27,17 @@ pub fn warehouse_ui(
         ui.heading("Warehouse Generator");
         ui.add_space(10.);
         ui.add(
-            egui::Slider::new(&mut warehouse_state.requested.square_feet, 200.0..=1000.0)
-                .text("Square feet"),
+            egui::Slider::new(&mut warehouse_state.requested.area, 400.0..=1000.0)
+                .text("Area (m^2)")
+        );
+        ui.add(
+            egui::Slider::new(&mut warehouse_state.requested.aisle_width, 2.0..=8.0)
+                .text("Aisle width (m)")
+        );
+        ui.add(
+            egui::Slider::new(&mut warehouse_state.requested.height, 2..=6)
+                .text("Shelf height (m)")
+                .step_by(2.)
         );
     });
 }
@@ -60,7 +71,7 @@ fn warehouse_generator(
             commands.entity(entity).despawn_recursive();
         }
 
-        let width = warehouse_state.requested.square_feet.sqrt();
+        let width = warehouse_state.requested.area.sqrt();
         let mut level = Level::default();
         level.vertices.push(Vertex {
             x_meters: -width / 2.,
@@ -88,9 +99,22 @@ fn warehouse_generator(
         level.walls.push(Wall { start: 2, end: 3 });
         level.walls.push(Wall { start: 3, end: 0 });
         */
+        let rack_width = 2.3784;
+        let num_racks = (width / rack_width - 1.) as i32;
 
-        add_racks(&mut level, 0., 0., 0., 1);
+        let aisle_width = warehouse_state.requested.aisle_width;
+        let rack_depth = 1.3;
+        let aisle_spacing = aisle_width + 2. * rack_depth;
+        let num_aisles = (width / aisle_spacing).floor() as i32;
 
+        let vert_stacks = warehouse_state.requested.height / 2;
+
+        /*
+        for aisle_idx in 0..num_aisles {
+            let y = (aisle_idx as f64 -  (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
+            add_racks(&mut level, -width / 2. + 1., y, 0., num_racks, vert_stacks);
+        }
+        */
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
 
         commands.spawn_bundle(PbrBundle {
@@ -109,15 +133,20 @@ fn warehouse_generator(
             let light_spacing = 10.;
             let num_x_lights = (width / light_spacing).ceil() as i32;
             let num_y_lights = (width / light_spacing).ceil() as i32;
+            let light_height = (warehouse_state.requested.height as f32) * 1.3 + 1.5;
+            let light_range = light_height * 3.0;
             for x_idx in 0..num_x_lights {
                 for y_idx in 0..num_y_lights {
-                    let x = -width / 2. + (x_idx as f64) * light_spacing;
-                    let y = -width / 2. + (y_idx as f64) * light_spacing;
+                    //let x = -width / 2. + (x_idx as f64) * light_spacing;
+                    //let y = -width / 2. + (y_idx as f64) * light_spacing;
+                    let x = (x_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
+                    let y = (y_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
+                    // let y = -width / 2. + (y_idx as f64) * light_spacing;
                     commands.spawn_bundle(PointLightBundle {
-                        transform: Transform::from_xyz(x as f32, y as f32, 3.0),
+                        transform: Transform::from_xyz(x as f32, y as f32, light_height),
                         point_light: PointLight {
-                            intensity: 500.,
-                            range: 10.,
+                            intensity: 2000.,
+                            range: light_range,
                             //shadows_enabled: true,
                             ..default()
                         },
@@ -152,24 +181,67 @@ fn add_racks(
     y: f64,
     yaw: f64,
     num_racks: i32,
+    num_stacks: i32,
 ) {
-    let mut num_beam = 0;
+    let rack_depth_spacing = 1.3;
+    let rack_depth_offset = 0.5;
+    let rack_height = 2.4;
+
     for idx in 0..(num_racks+1) {
-        level.models.push(Model::from_xy_yaw(
-            "vert_beam1",
-            "OpenRobotics/PalletRackVertBeams",
-            x + (idx as f64) * 2.3784,
-            y,
-            yaw + 3.1415926 / 2.
-        ));
-        if idx < num_racks {
-            level.models.push(Model::from_xy_yaw(
-                "horiz_beam1",
-                "OpenRobotics/PalletRackHorBeams",
-                x + ((idx + 1) as f64) * 2.3784,
-                y,
+        for vert_idx in 0..num_stacks {
+            let z_offset = (vert_idx as f64) * rack_height;
+            level.models.push(Model::from_xyz_yaw(
+                "vert_beam1",
+                "OpenRobotics/PalletRackVertBeams",
+                x + (idx as f64) * 2.3784,
+                y - rack_depth_offset - rack_depth_spacing / 2.,
+                z_offset,
                 yaw + 3.1415926 / 2.
             ));
+            level.models.push(Model::from_xyz_yaw(
+                "vert_beam1",
+                "OpenRobotics/PalletRackVertBeams",
+                x + (idx as f64) * 2.3784,
+                y - rack_depth_offset + rack_depth_spacing / 2.,
+                z_offset,
+                yaw + 3.1415926 / 2.
+            ));
+
+            if idx < num_racks {
+                level.models.push(Model::from_xyz_yaw(
+                    "horiz_beam1",
+                    "OpenRobotics/PalletRackHorBeams",
+                    x + ((idx + 1) as f64) * 2.3784,
+                    y - rack_depth_offset - rack_depth_spacing / 2.,
+                    z_offset,
+                    yaw + 3.1415926 / 2.
+                ));
+                level.models.push(Model::from_xyz_yaw(
+                    "horiz_beam1",
+                    "OpenRobotics/PalletRackHorBeams",
+                    x + ((idx + 1) as f64) * 2.3784,
+                    y - rack_depth_offset + rack_depth_spacing / 2.,
+                    z_offset,
+                    yaw + 3.1415926 / 2.
+                ));
+                let second_shelf_z_offset = 1.0;
+                level.models.push(Model::from_xyz_yaw(
+                    "horiz_beam1",
+                    "OpenRobotics/PalletRackHorBeams",
+                    x + ((idx + 1) as f64) * 2.3784,
+                    y - rack_depth_offset - rack_depth_spacing / 2.,
+                    z_offset + second_shelf_z_offset,
+                    yaw + 3.1415926 / 2.
+                ));
+                level.models.push(Model::from_xyz_yaw(
+                    "horiz_beam1",
+                    "OpenRobotics/PalletRackHorBeams",
+                    x + ((idx + 1) as f64) * 2.3784,
+                    y - rack_depth_offset + rack_depth_spacing / 2.,
+                    z_offset + second_shelf_z_offset,
+                    yaw + 3.1415926 / 2.
+                ));
+            }
         }
     }
 }
@@ -179,7 +251,7 @@ pub struct WarehouseGeneratorPlugin;
 impl Plugin for WarehouseGeneratorPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WarehouseState {
-            requested: WarehouseParams { square_feet: 100. },
+            requested: WarehouseParams { area: 400., height: 2, aisle_width: 5.},
             ..Default::default()
         });
         app.add_system(warehouse_generator);
