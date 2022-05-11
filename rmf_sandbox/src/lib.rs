@@ -1,5 +1,6 @@
 use bevy::prelude::*;
 use bevy_web_asset::WebAssetPlugin;
+use traffic_editor::TrafficEditorPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -12,7 +13,7 @@ mod demo_world;
 
 mod main_menu;
 mod site_map;
-use site_map::SiteMapPlugin;
+mod traffic_editor;
 
 mod building_map;
 mod lane;
@@ -26,12 +27,12 @@ mod wall;
 mod camera_controls;
 use camera_controls::CameraControlsPlugin;
 
-mod ui_widgets;
+use site_map::SiteMapPlugin;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
     MainMenu,
-    SiteMap,
+    TrafficEditor,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -88,7 +89,6 @@ pub fn run() {
             group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
         })
         .add_plugin(bevy_egui::EguiPlugin)
-        .init_resource::<site_map::SiteMap>()
         .add_state(AppState::MainMenu)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
@@ -96,5 +96,6 @@ pub fn run() {
         .add_plugin(main_menu::MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
+        .add_plugin(TrafficEditorPlugin)
         .run();
 }

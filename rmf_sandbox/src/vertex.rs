@@ -1,8 +1,7 @@
 use super::level_transform::LevelTransform;
-use super::site_map::{Editable, Handles};
+use super::site_map::Handles;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use bevy_mod_picking::PickableBundle;
 use serde_yaml;
 
 #[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
@@ -65,8 +64,7 @@ impl Vertex {
                 },
                 ..Default::default()
             })
-            .insert_bundle(PickableBundle::default())
-            .insert(Editable::Vertex(self.clone()));
+            .insert(self.clone());
     }
 }
 

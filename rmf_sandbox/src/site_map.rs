@@ -1,10 +1,10 @@
-pub mod ui;
-pub use ui::*;
-
 use crate::building_map::BuildingMap;
 use crate::level::Level;
-use crate::AppState;
+use bevy::ecs::schedule::ShouldRun;
 use bevy::prelude::*;
+
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+pub struct SiteMapLabel;
 
 #[derive(Default)]
 pub struct Handles {
@@ -40,11 +40,27 @@ fn spawn_site_map(
     sm: Res<SiteMap>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    mut handles: ResMut<Handles>,
     asset_server: Res<AssetServer>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    println!("Spawning site map: {}", sm.site_name);
+    println!("Loading assets");
+    commands.init_resource::<Handles>();
+    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
+        radius: 0.25,
+        rings: 2,
+        depth: 0.05,
+        latitudes: 8,
+        longitudes: 16,
+        uv_profile: shape::CapsuleUvProfile::Fixed,
+    }));
+    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
+    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
 
+    println!("Spawning site map: {}", sm.site_name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
@@ -64,6 +80,7 @@ fn spawn_site_map(
         ..Default::default()
     });
 
+    let handles: Res<Handles> = Res::from(handles);
     for level in &sm.levels {
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
     }
@@ -78,12 +95,25 @@ fn spawn_site_map(
         },
         ..Default::default()
     });
+
+    println!("Finished spawning site map");
 }
 
 fn despawn_site_map(
     mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    handles: Res<Handles>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    println!("Unloading assets");
+    meshes.remove(&handles.vertex_mesh);
+    materials.remove(&handles.default_floor_material);
+    materials.remove(&handles.lane_material);
+    materials.remove(&handles.measurement_material);
+    materials.remove(&handles.vertex_material);
+    materials.remove(&handles.wall_material);
+
     println!("Despawing all meshes...");
     for entity_mesh in mesh_query.iter() {
         let (entity, _mesh) = entity_mesh;
@@ -91,25 +121,22 @@ fn despawn_site_map(
     }
 }
 
-fn init_handles(
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut handles: ResMut<Handles>,
-) {
-    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-        radius: 0.25,
-        rings: 2,
-        depth: 0.05,
-        latitudes: 8,
-        longitudes: 16,
-        uv_profile: shape::CapsuleUvProfile::Fixed,
-    }));
+fn should_spawn_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
+    if let Some(sm) = sm {
+        if sm.is_added() {
+            return ShouldRun::Yes;
+        }
+    }
+    ShouldRun::No
+}
 
-    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
-    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
-    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+fn should_despawn_site_map(sm: Option<Res<SiteMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
+    if sm.is_none() && *sm_existed {
+        *sm_existed = false;
+        return ShouldRun::Yes;
+    }
+    *sm_existed = sm.is_some();
+    return ShouldRun::No;
 }
 
 #[derive(Default)]
@@ -117,13 +144,11 @@ pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(ui::SiteMapUIPlugin);
-
-        app.init_resource::<Handles>()
-            .add_startup_system(init_handles);
-
-        app.add_system_set(SystemSet::on_enter(AppState::SiteMap).with_system(spawn_site_map));
-
-        app.add_system_set(SystemSet::on_exit(AppState::SiteMap).with_system(despawn_site_map));
+        app.init_resource::<Handles>().add_system_set(
+            SystemSet::new()
+                .label(SiteMapLabel)
+                .with_system(spawn_site_map.with_run_criteria(should_spawn_site_map))
+                .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
+        );
     }
 }

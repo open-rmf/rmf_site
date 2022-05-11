@@ -102,12 +102,12 @@ fn map_load_complete(
 
             match result {
                 Some(result) => {
-                    println!("Entering site map");
+                    println!("Entering traffic editor");
                     commands.insert_resource(result);
-                    match app_state.set(AppState::SiteMap) {
+                    match app_state.set(AppState::TrafficEditor) {
                         Ok(_) => {}
                         Err(err) => {
-                            println!("Failed to enter site map: {:?}", err);
+                            println!("Failed to enter traffic editor: {:?}", err);
                         }
                     }
                 }

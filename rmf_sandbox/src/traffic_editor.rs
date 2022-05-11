@@ -1,6 +1,7 @@
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
+use crate::site_map::SiteMap;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::AppState;
@@ -13,7 +14,9 @@ use bevy::{
 use bevy_egui::{egui, EguiContext};
 use bevy_inspector_egui::plugin::InspectorWindows;
 use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
-use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
+use bevy_mod_picking::{
+    DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
+};
 
 #[derive(Inspectable, Default)]
 struct Inspector {
@@ -95,7 +98,8 @@ fn on_enter(mut inspector_windows: ResMut<InspectorWindows>) {
     inspector_windows.window_data_mut::<Inspector>().visible = true;
 }
 
-fn on_exit(mut inspector_windows: ResMut<InspectorWindows>) {
+fn on_exit(mut commands: Commands, mut inspector_windows: ResMut<InspectorWindows>) {
+    commands.remove_resource::<SiteMap>();
     inspector_windows.window_data_mut::<Inspector>().visible = false;
 }
 
@@ -137,15 +141,47 @@ fn update_picking_cam(
     }
 }
 
-/// Stops picking when egui is in focus.
-/// This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
-///
-/// Normally bevy_mod_picking automatically stops when
-/// a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
 fn enable_picking(
+    mut commands: Commands,
+    lanes: Query<(Entity, &Lane), Added<Lane>>,
+    vertices: Query<(Entity, &Vertex), Added<Vertex>>,
+    measurements: Query<(Entity, &Measurement), Added<Measurement>>,
+    walls: Query<(Entity, &Wall), Added<Wall>>,
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
+    // Go through all the entities spawned by site map and make them response to
+    // the inspector window.
+    for (entity, lane) in lanes.iter() {
+        commands
+            .entity(entity)
+            .insert_bundle(PickableBundle::default())
+            .insert(Editable::Lane(lane.clone()));
+    }
+    for (entity, vertex) in vertices.iter() {
+        commands
+            .entity(entity)
+            .insert_bundle(PickableBundle::default())
+            .insert(Editable::Vertex(vertex.clone()));
+    }
+    for (entity, wall) in walls.iter() {
+        commands
+            .entity(entity)
+            .insert_bundle(PickableBundle::default())
+            .insert(Editable::Wall(wall.clone()));
+    }
+    for (entity, measurement) in measurements.iter() {
+        commands
+            .entity(entity)
+            .insert_bundle(PickableBundle::default())
+            .insert(Editable::Measurement(measurement.clone()));
+    }
+
+    // Stops picking when egui is in focus.
+    // This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
+    //
+    // Normally bevy_mod_picking automatically stops when
+    // a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
     let egui_ctx = egui_context.ctx_mut();
     let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
 
@@ -158,25 +194,25 @@ fn enable_picking(
 }
 
 #[derive(Default)]
-pub struct SiteMapUIPlugin;
+pub struct TrafficEditorPlugin;
 
-impl Plugin for SiteMapUIPlugin {
+impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
             .add_plugin(InspectorPlugin::<Inspector>::new())
             .register_inspectable::<Lane>()
             .add_startup_system(on_startup);
 
-        app.add_system_set(SystemSet::on_enter(AppState::SiteMap).with_system(on_enter));
+        app.add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter));
 
         app.add_system_set(
-            SystemSet::on_update(AppState::SiteMap)
+            SystemSet::on_update(AppState::TrafficEditor)
                 .with_system(egui_ui)
                 .with_system(update_picking_cam)
                 .with_system(enable_picking)
                 .with_system(maintain_inspected_entities),
         );
 
-        app.add_system_set(SystemSet::on_exit(AppState::SiteMap).with_system(on_exit));
+        app.add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit));
     }
 }

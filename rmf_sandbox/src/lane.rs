@@ -1,9 +1,8 @@
 use super::level_transform::LevelTransform;
-use super::site_map::{Editable, Handles};
+use super::site_map::Handles;
 use super::vertex::Vertex;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-use bevy_mod_picking::PickableBundle;
 
 #[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
 #[serde(from = "LaneRaw")]
@@ -51,8 +50,7 @@ impl Lane {
                 },
                 ..Default::default()
             })
-            .insert_bundle(PickableBundle::default())
-            .insert(Editable::Lane(self.clone()));
+            .insert(self.clone());
     }
 }
 
