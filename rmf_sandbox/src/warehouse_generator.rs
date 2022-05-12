@@ -109,12 +109,10 @@ fn warehouse_generator(
 
         let vert_stacks = warehouse_state.requested.height / 2;
 
-        /*
         for aisle_idx in 0..num_aisles {
             let y = (aisle_idx as f64 -  (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
             add_racks(&mut level, -width / 2. + 1., y, 0., num_racks, vert_stacks);
         }
-        */
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
 
         commands.spawn_bundle(PbrBundle {
