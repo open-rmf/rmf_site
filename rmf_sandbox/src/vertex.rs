@@ -1,5 +1,3 @@
-use super::level_transform::LevelTransform;
-use super::site_map::Handles;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
 use serde_yaml;
@@ -43,28 +41,11 @@ impl TryFrom<VertexRaw> for Vertex {
 }
 
 impl Vertex {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        handles: &Res<Handles>,
-        transform: &LevelTransform,
-    ) {
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.vertex_material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(
-                        self.x_meters as f32,
-                        self.y_meters as f32,
-                        transform.translation[2] as f32,
-                    ),
-                    rotation: Quat::from_rotation_x(1.57),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(self.clone());
+    pub fn transform(&self) -> Transform {
+        Transform {
+            translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+            ..Default::default()
+        }
     }
 }
 

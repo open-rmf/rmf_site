@@ -28,31 +28,11 @@ impl From<ModelRaw> for Model {
 }
 
 impl Model {
-    pub fn spawn(&self, commands: &mut Commands, asset_server: &Res<AssetServer>) {
-        // TODO: need to set up https on this server, for this WASM to work
-        // when hosted over https
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
-                + &self.model_name
-                + &String::from(".glb#Scene0");
-            println!(
-                "spawning {} at {}, {}",
-                &bundle_path, self.x_meters, self.y_meters
-            );
-            let glb = asset_server.load(&bundle_path);
-            commands
-                .spawn_bundle((
-                    Transform {
-                        rotation: Quat::from_rotation_z(self.yaw as f32),
-                        translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
-                        scale: Vec3::ONE,
-                    },
-                    GlobalTransform::identity(),
-                ))
-                .with_children(|parent| {
-                    parent.spawn_scene(glb);
-                });
+    pub fn transform(&self) -> Transform {
+        Transform {
+            rotation: Quat::from_rotation_z(self.yaw as f32),
+            translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+            scale: Vec3::ONE,
         }
     }
 }

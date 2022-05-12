@@ -1,5 +1,3 @@
-use super::level_transform::LevelTransform;
-use super::site_map::Handles;
 use super::vertex::Vertex;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
@@ -23,14 +21,7 @@ impl From<MeasurementRaw> for Measurement {
 }
 
 impl Measurement {
-    pub fn spawn(
-        &self,
-        vertices: &Vec<Vertex>,
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        handles: &Res<Handles>,
-        transform: &LevelTransform,
-    ) {
+    pub fn transform(&self, vertices: &Vec<Vertex>) -> Transform {
         let v1 = &vertices[self.start];
         let v2 = &vertices[self.end];
         let dx = v2.x_meters - v1.x_meters;
@@ -41,18 +32,12 @@ impl Measurement {
         let cx = ((v1.x_meters + v2.x_meters) / 2.) as f32;
         let cy = ((v1.y_meters + v2.y_meters) / 2.) as f32;
 
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([length, width])))),
-                material: handles.measurement_material.clone(),
-                transform: Transform {
-                    translation: Vec3::new(cx, cy, 0.01 + transform.translation[2] as f32),
-                    rotation: Quat::from_rotation_z(yaw),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(self.clone());
+        Transform {
+            translation: Vec3::new(cx, cy, 0.01),
+            rotation: Quat::from_rotation_z(yaw),
+            scale: Vec3::new(length, width, 1.),
+            ..Default::default()
+        }
     }
 }
 
