@@ -23,11 +23,13 @@ mod site_map;
 mod ui_widgets;
 mod vertex;
 mod wall;
+mod warehouse_generator;
 
 use camera_controls::CameraControlsPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
 use site_map::SiteMapPlugin;
 use ui_widgets::UIWidgetsPlugin;
+use warehouse_generator::WarehouseGeneratorPlugin;
 
 fn setup() {
     /*
@@ -114,6 +116,7 @@ pub fn run() {
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
         .add_plugin(UIWidgetsPlugin)
+        .add_plugin(WarehouseGeneratorPlugin)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -140,6 +143,7 @@ pub fn run() {
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
         .add_plugin(UIWidgetsPlugin)
+        .add_plugin(WarehouseGeneratorPlugin)
         .add_startup_system(setup)
         .run();
 }

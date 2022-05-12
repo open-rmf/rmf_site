@@ -119,7 +119,8 @@ fn spawn_site_map(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
-    light_query: Query<(Entity, &PointLight)>,
+    point_light_query: Query<(Entity, &PointLight)>,
+    directional_light_query: Query<(Entity, &DirectionalLight)>,
     handles: Res<Handles>,
     asset_server: Res<AssetServer>,
 ) {
@@ -132,7 +133,11 @@ fn spawn_site_map(
             let (entity, _mesh) = entity_mesh;
             commands.entity(entity).despawn_recursive();
         }
-        for entity_light in light_query.iter() {
+        for entity_light in point_light_query.iter() {
+            let (entity, _light) = entity_light;
+            commands.entity(entity).despawn_recursive();
+        }
+        for entity_light in directional_light_query.iter() {
             let (entity, _light) = entity_light;
             commands.entity(entity).despawn_recursive();
         }
@@ -291,7 +296,13 @@ fn init_handles(
         uv_profile: shape::CapsuleUvProfile::Fixed,
     }));
 
-    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.default_floor_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
+        perceptual_roughness: 0.5,
+        ..default()
+    });
+
     handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
     handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());

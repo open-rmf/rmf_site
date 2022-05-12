@@ -2,7 +2,7 @@ use super::camera_controls::{CameraControls, ProjectionMode};
 use super::level::Level;
 use super::site_map::{Handles, SpawnSiteMapYaml};
 use super::vertex::Vertex;
-//use super::wall::Wall;
+use super::warehouse_generator::{warehouse_ui, WarehouseState};
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -22,17 +22,6 @@ pub struct VisibleWindows {
     pub welcome: bool,
     pub generator: bool,
     pub inspector: bool,
-}
-
-#[derive(Clone, Default, PartialEq)]
-pub struct WarehouseParams {
-    pub square_feet: f64,
-}
-
-#[derive(Default)]
-pub struct WarehouseState {
-    pub requested: WarehouseParams,
-    pub spawned: WarehouseParams,
 }
 
 fn egui_ui(
@@ -125,7 +114,7 @@ fn egui_ui(
                         visible_windows.welcome = false;
                     }
 
-                    if ui.button("Use building generator").clicked() {
+                    if ui.button("Warehouse generator").clicked() {
                         visible_windows.welcome = false;
                         visible_windows.generator = true;
                     }
@@ -166,16 +155,8 @@ fn egui_ui(
                 */
             });
     }
-
     if visible_windows.generator {
-        egui::SidePanel::left("left").show(egui_context.ctx_mut(), |ui| {
-            ui.heading("Warehouse Generator");
-            ui.add_space(10.);
-            ui.add(
-                egui::Slider::new(&mut warehouse_state.requested.square_feet, 100.0..=1000.0)
-                    .text("Square feet"),
-            );
-        });
+        warehouse_ui(&mut egui_context, &mut warehouse_state);
     }
 }
 
@@ -205,69 +186,6 @@ fn handle_file_open(
     }
 }
 
-fn warehouse_generator(
-    mut commands: Commands,
-    mut warehouse_state: ResMut<WarehouseState>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mesh_query: Query<(Entity, &Handle<Mesh>)>,
-    handles: Res<Handles>,
-    visible_windows: ResMut<VisibleWindows>,
-    asset_server: Res<AssetServer>,
-) {
-    if !visible_windows.generator {
-        return;
-    }
-    if warehouse_state.requested != warehouse_state.spawned {
-        // first, despawn all existing mesh entities
-        for entity_mesh in mesh_query.iter() {
-            let (entity, _mesh) = entity_mesh;
-            commands.entity(entity).despawn_recursive();
-        }
-
-        let width = warehouse_state.requested.square_feet.sqrt();
-        let mut level = Level::default();
-        level.vertices.push(Vertex {
-            x_meters: -width / 2.,
-            y_meters: -width / 2.,
-            ..Default::default()
-        });
-        level.vertices.push(Vertex {
-            x_meters: width / 2.,
-            y_meters: -width / 2.,
-            ..Default::default()
-        });
-        level.vertices.push(Vertex {
-            x_meters: width / 2.,
-            y_meters: width / 2.,
-            ..Default::default()
-        });
-        level.vertices.push(Vertex {
-            x_meters: -width / 2.,
-            y_meters: width / 2.,
-            ..Default::default()
-        });
-        /*
-        level.walls.push(Wall { start: 0, end: 1 });
-        level.walls.push(Wall { start: 1, end: 2 });
-        level.walls.push(Wall { start: 2, end: 3 });
-        level.walls.push(Wall { start: 3, end: 0 });
-        */
-
-        level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
-
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
-                ..Default::default()
-            },
-            ..Default::default()
-        });
-        warehouse_state.spawned = warehouse_state.requested.clone();
-    }
-}
-
 pub struct UIWidgetsPlugin;
 
 impl Plugin for UIWidgetsPlugin {
@@ -277,16 +195,11 @@ impl Plugin for UIWidgetsPlugin {
             app.add_plugin(EguiPlugin);
         }
         app.add_system(egui_ui);
-        app.insert_resource(WarehouseState {
-            requested: WarehouseParams { square_feet: 100. },
-            ..Default::default()
-        });
         app.insert_resource(VisibleWindows {
             welcome: true,
             generator: false,
             inspector: false,
         });
-        app.add_system(warehouse_generator);
 
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(handle_file_open);
