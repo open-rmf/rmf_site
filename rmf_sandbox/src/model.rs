@@ -13,6 +13,7 @@ pub struct Model {
     pub y_meters: f64,
     pub instance_name: String,
     pub model_name: String,
+    pub z_offset: f64,
 }
 
 impl Model {
@@ -29,7 +30,11 @@ impl Model {
             .spawn_bundle((
                 Transform {
                     rotation: Quat::from_rotation_z(self.yaw as f32),
-                    translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+                    translation: Vec3::new(
+                        self.x_meters as f32,
+                        self.y_meters as f32,
+                        self.z_offset as f32,
+                    ),
                     scale: Vec3::ONE,
                 },
                 GlobalTransform::identity(),
@@ -37,6 +42,26 @@ impl Model {
             .with_children(|parent| {
                 parent.spawn_scene(glb);
             });
+    }
+
+    pub fn from_xyz_yaw(
+        instance_name: &str,
+        model_name: &str,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f64,
+    ) -> Model {
+        return Model {
+            instance_name: instance_name.to_string(),
+            model_name: model_name.to_string(),
+            x_raw: x,
+            y_raw: y,
+            x_meters: x,
+            y_meters: y,
+            yaw: yaw,
+            z_offset: z,
+        };
     }
 
     pub fn from_yaml(value: &serde_yaml::Value) -> Model {
@@ -53,6 +78,7 @@ impl Model {
             yaw: yaw,
             model_name: model_name.to_string(),
             instance_name: instance_name.to_string(),
+            z_offset: 0., // todo
         };
     }
 }

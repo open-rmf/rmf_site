@@ -27,7 +27,7 @@ dirs = "4.0"
 # only enable the 'dynamic' feature if we're not building for web
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 bevy = { version = "0.7", features = ["dynamic"] }
-surf = { version = "2.3" }  #, features = ["curl-client", "middleware-logger", "encoding"] }
+surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 surf = { version = "2.3", default-features = false, features = ["wasm-client", "encoding"] }
