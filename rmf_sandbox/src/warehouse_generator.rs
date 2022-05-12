@@ -1,10 +1,10 @@
-use bevy::prelude::*;
-use bevy_egui::{egui, EguiContext};
 use super::level::Level;
 use super::model::Model;
-use super::ui_widgets::VisibleWindows;
 use super::site_map::Handles;
+use super::ui_widgets::VisibleWindows;
 use super::vertex::Vertex;
+use bevy::prelude::*;
+use bevy_egui::{egui, EguiContext};
 
 #[derive(Clone, Default, PartialEq)]
 pub struct WarehouseParams {
@@ -19,25 +19,22 @@ pub struct WarehouseState {
     pub spawned: WarehouseParams,
 }
 
-pub fn warehouse_ui(
-    egui_context: &mut EguiContext,
-    warehouse_state: &mut WarehouseState,
-) {
+pub fn warehouse_ui(egui_context: &mut EguiContext, warehouse_state: &mut WarehouseState) {
     egui::SidePanel::left("left").show(egui_context.ctx_mut(), |ui| {
         ui.heading("Warehouse Generator");
         ui.add_space(10.);
         ui.add(
             egui::Slider::new(&mut warehouse_state.requested.area, 400.0..=1000.0)
-                .text("Area (m^2)")
+                .text("Area (m^2)"),
         );
         ui.add(
             egui::Slider::new(&mut warehouse_state.requested.aisle_width, 2.0..=8.0)
-                .text("Aisle width (m)")
+                .text("Aisle width (m)"),
         );
         ui.add(
             egui::Slider::new(&mut warehouse_state.requested.height, 2..=6)
                 .text("Shelf height (m)")
-                .step_by(2.)
+                .step_by(2.),
         );
     });
 }
@@ -93,12 +90,7 @@ fn warehouse_generator(
             y_meters: width / 2.,
             ..Default::default()
         });
-        /*
-        level.walls.push(Wall { start: 0, end: 1 });
-        level.walls.push(Wall { start: 1, end: 2 });
-        level.walls.push(Wall { start: 2, end: 3 });
-        level.walls.push(Wall { start: 3, end: 0 });
-        */
+
         let rack_width = 2.3784;
         let num_racks = (width / rack_width - 1.) as i32;
 
@@ -110,7 +102,7 @@ fn warehouse_generator(
         let vert_stacks = warehouse_state.requested.height / 2;
 
         for aisle_idx in 0..num_aisles {
-            let y = (aisle_idx as f64 -  (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
+            let y = (aisle_idx as f64 - (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
             add_racks(&mut level, -width / 2. + 1., y, 0., num_racks, vert_stacks);
         }
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
@@ -170,19 +162,12 @@ fn warehouse_generator(
     }
 }
 
-fn add_racks(
-    level: &mut Level,
-    x: f64,
-    y: f64,
-    yaw: f64,
-    num_racks: i32,
-    num_stacks: i32,
-) {
+fn add_racks(level: &mut Level, x: f64, y: f64, yaw: f64, num_racks: i32, num_stacks: i32) {
     let rack_depth_spacing = 1.3;
     let rack_depth_offset = 0.5;
     let rack_height = 2.4;
 
-    for idx in 0..(num_racks+1) {
+    for idx in 0..(num_racks + 1) {
         for vert_idx in 0..num_stacks {
             let z_offset = (vert_idx as f64) * rack_height;
             level.models.push(Model::from_xyz_yaw(
@@ -191,7 +176,7 @@ fn add_racks(
                 x + (idx as f64) * 2.3784,
                 y - rack_depth_offset - rack_depth_spacing / 2.,
                 z_offset,
-                yaw + 3.1415926 / 2.
+                yaw + 3.1415926 / 2.,
             ));
             level.models.push(Model::from_xyz_yaw(
                 "vert_beam1",
@@ -199,7 +184,7 @@ fn add_racks(
                 x + (idx as f64) * 2.3784,
                 y - rack_depth_offset + rack_depth_spacing / 2.,
                 z_offset,
-                yaw + 3.1415926 / 2.
+                yaw + 3.1415926 / 2.,
             ));
 
             if idx < num_racks {
@@ -209,7 +194,7 @@ fn add_racks(
                     x + ((idx + 1) as f64) * 2.3784,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + 3.1415926 / 2.
+                    yaw + 3.1415926 / 2.,
                 ));
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
@@ -217,7 +202,7 @@ fn add_racks(
                     x + ((idx + 1) as f64) * 2.3784,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + 3.1415926 / 2.
+                    yaw + 3.1415926 / 2.,
                 ));
                 let second_shelf_z_offset = 1.0;
                 level.models.push(Model::from_xyz_yaw(
@@ -226,7 +211,7 @@ fn add_racks(
                     x + ((idx + 1) as f64) * 2.3784,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset + second_shelf_z_offset,
-                    yaw + 3.1415926 / 2.
+                    yaw + 3.1415926 / 2.,
                 ));
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
@@ -234,7 +219,7 @@ fn add_racks(
                     x + ((idx + 1) as f64) * 2.3784,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset + second_shelf_z_offset,
-                    yaw + 3.1415926 / 2.
+                    yaw + 3.1415926 / 2.,
                 ));
             }
         }
@@ -246,7 +231,11 @@ pub struct WarehouseGeneratorPlugin;
 impl Plugin for WarehouseGeneratorPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(WarehouseState {
-            requested: WarehouseParams { area: 400., height: 2, aisle_width: 5.},
+            requested: WarehouseParams {
+                area: 400.,
+                height: 2,
+                aisle_width: 5.,
+            },
             ..Default::default()
         });
         app.add_system(warehouse_generator);
