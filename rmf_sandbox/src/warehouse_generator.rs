@@ -135,11 +135,8 @@ fn warehouse_generator(
             let light_range = light_height * 3.0;
             for x_idx in 0..num_x_lights {
                 for y_idx in 0..num_y_lights {
-                    //let x = -width / 2. + (x_idx as f64) * light_spacing;
-                    //let y = -width / 2. + (y_idx as f64) * light_spacing;
                     let x = (x_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
                     let y = (y_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
-                    // let y = -width / 2. + (y_idx as f64) * light_spacing;
                     commands.spawn_bundle(PointLightBundle {
                         transform: Transform::from_xyz(x as f32, y as f32, light_height),
                         point_light: PointLight {

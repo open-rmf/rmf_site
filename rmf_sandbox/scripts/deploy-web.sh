@@ -8,11 +8,19 @@ if [[ ! $REPLY =~ ^[Yy]$ ]]; then
     exit 1
 fi
 
-echo "Starting deployment process..."
+read -p "Which branch? [main] ? "
+echo # send a carriage return
+BRANCH=$REPLY
+if [[ -z $BRANCH ]]; then
+    BRANCH="main"
+fi
+
+echo "Starting deployment process using branch $BRANCH"
 
 set -o verbose
 
-git clone ssh://git@github.com/osrf/rmf_sandbox temp-deploy-checkout
+git clone ssh://git@github.com/osrf/rmf_sandbox temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
+
 cd temp-deploy-checkout/rmf_sandbox
 git checkout --orphan gh-pages
 git reset
