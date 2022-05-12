@@ -2,8 +2,7 @@ use super::camera_controls::{CameraControls, ProjectionMode};
 use super::level::Level;
 use super::site_map::{Handles, SpawnSiteMapYaml};
 use super::vertex::Vertex;
-use super::warehouse_generator::{WarehouseState, warehouse_ui};
-//use super::wall::Wall;
+use super::warehouse_generator::{warehouse_ui, WarehouseState};
 use bevy::{
     app::AppExit,
     prelude::*,

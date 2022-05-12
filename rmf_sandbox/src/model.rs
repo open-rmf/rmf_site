@@ -33,7 +33,7 @@ impl Model {
                     translation: Vec3::new(
                         self.x_meters as f32,
                         self.y_meters as f32,
-                        self.z_offset as f32
+                        self.z_offset as f32,
                     ),
                     scale: Vec3::ONE,
                 },
@@ -61,7 +61,7 @@ impl Model {
             y_meters: y,
             yaw: yaw,
             z_offset: z,
-        }
+        };
     }
 
     pub fn from_yaml(value: &serde_yaml::Value) -> Model {
@@ -78,7 +78,7 @@ impl Model {
             yaw: yaw,
             model_name: model_name.to_string(),
             instance_name: instance_name.to_string(),
-            z_offset: 0.,  // todo
+            z_offset: 0., // todo
         };
     }
 }
