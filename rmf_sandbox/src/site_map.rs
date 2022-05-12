@@ -9,19 +9,8 @@ use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
 
-/// Event to spawn a vertex.
-pub struct SpawnVertex(Vertex);
-/// Event to spawn a lane.
-pub struct SpawnLane(Lane);
-/// Event to spawn a measurement.
-pub struct SpawnMeasurement(Measurement);
-/// Event to spawn a wall.
-pub struct SpawnWall(Wall);
-/// Event to spawn a model.
-pub struct SpawnModel(Model);
-
 #[derive(Default)]
-struct Handles {
+pub struct Handles {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
@@ -50,7 +39,8 @@ impl SiteMap {
     }
 }
 
-/// Used to keep track of the entity that represents the current level being rendered by the plugin.
+/// The entity that represents the current level being rendered by the plugin.
+/// User must spawn walls, lanes etc as a children of this entity for them to be displayed.
 struct SiteMapLevel(Entity);
 
 /// Used to keep track of entities created by the site map system.
@@ -62,11 +52,6 @@ fn init_site_map(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    mut spawn_vertex: EventWriter<SpawnVertex>,
-    mut spawn_lane: EventWriter<SpawnLane>,
-    mut spawn_measurement: EventWriter<SpawnMeasurement>,
-    mut spawn_wall: EventWriter<SpawnWall>,
-    mut spawn_model: EventWriter<SpawnModel>,
 ) {
     println!("Loading assets");
     let mut handles = Handles::default();
@@ -115,24 +100,25 @@ fn init_site_map(
             translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
             ..default()
         }))
+        .with_children(|cb| {
+            for v in vertices {
+                cb.spawn().insert(v.clone());
+            }
+            for lane in &level.lanes {
+                cb.spawn().insert(lane.clone());
+            }
+            for measurement in &level.measurements {
+                cb.spawn().insert(measurement.clone());
+            }
+            for wall in &level.walls {
+                cb.spawn().insert(wall.clone());
+            }
+            for model in &level.models {
+                cb.spawn().insert(model.clone());
+            }
+        })
         .id();
     commands.insert_resource(SiteMapLevel(entity));
-
-    for v in vertices {
-        spawn_vertex.send(SpawnVertex(v.clone()));
-    }
-    for lane in &level.lanes {
-        spawn_lane.send(SpawnLane(lane.clone()));
-    }
-    for measurement in &level.measurements {
-        spawn_measurement.send(SpawnMeasurement(measurement.clone()));
-    }
-    for wall in &level.walls {
-        spawn_wall.send(SpawnWall(wall.clone()));
-    }
-    for model in &level.models {
-        spawn_model.send(SpawnModel(model.clone()));
-    }
 
     // spawn the floor plane
     // todo: use real floor polygons
@@ -158,35 +144,29 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
     println!("Unloading assets");
     // removing all the strong handles should automatically unload the assets.
     commands.remove_resource::<Handles>();
-    // FIXME: removing this causes panick when unloading site map.
-    // commands.remove_resource::<AmbientLight>();
+    commands.remove_resource::<AmbientLight>();
 
     println!("Despawn all entites");
     for entity in site_map_entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    commands.remove_resource::<SiteMapLevel>();
 }
 
 fn update_vertices(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     handles: Res<Handles>,
     mut vertices: ResMut<Vec<Vertex>>,
-    mut spawn_vertex: EventReader<SpawnVertex>,
+    added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
     mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
 ) {
     // spawn new vertices
-    for v in spawn_vertex.iter() {
-        vertices.push(v.0.clone());
-        commands.entity(level_entity.0).with_children(|cb| {
-            cb.spawn_bundle(PbrBundle {
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.vertex_material.clone(),
-                transform: v.0.transform(),
-                ..Default::default()
-            })
-            .insert(v.0.clone());
+    for (e, v) in added_vertices.iter() {
+        vertices.push(v.clone());
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: handles.vertex_mesh.clone(),
+            material: handles.vertex_material.clone(),
+            transform: v.transform(),
+            ..Default::default()
         });
     }
     // update changed vertices
@@ -197,24 +177,23 @@ fn update_vertices(
 
 fn update_lanes(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
-    handles: Res<Handles>,
     mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
     vertices: Res<Vec<Vertex>>,
-    mut spawn_lane: EventReader<SpawnLane>,
+    added_lanes: Query<(Entity, &Lane), Added<Lane>>,
     mut changed_lanes: Query<(&Lane, &mut Transform), Changed<Lane>>,
 ) {
     // spawn new lanes
-    for lane in spawn_lane.iter() {
-        commands.entity(level_entity.0).with_children(|cb| {
-            cb.spawn_bundle(PbrBundle {
+    for (e, lane) in added_lanes.iter() {
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
                 material: handles.lane_material.clone(),
-                transform: lane.0.transform(&vertices),
+                transform: lane.transform(&vertices),
                 ..Default::default()
             })
-            .insert(lane.0.clone());
-        });
+            .insert(lane.clone());
     }
     // update changed lanes
     for (lane, mut t) in changed_lanes.iter_mut() {
@@ -224,24 +203,23 @@ fn update_lanes(
 
 fn update_measurements(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
-    handles: Res<Handles>,
     mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
     vertices: Res<Vec<Vertex>>,
-    mut spawn_measurement: EventReader<SpawnMeasurement>,
+    added_measurements: Query<(Entity, &Measurement), Added<Measurement>>,
     mut changed_measurements: Query<(&Measurement, &mut Transform), Changed<Measurement>>,
 ) {
     // spawn new measurements
-    for measurement in spawn_measurement.iter() {
-        commands.entity(level_entity.0).with_children(|cb| {
-            cb.spawn_bundle(PbrBundle {
+    for (e, measurement) in added_measurements.iter() {
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
                 material: handles.measurement_material.clone(),
-                transform: measurement.0.transform(&vertices),
+                transform: measurement.transform(&vertices),
                 ..Default::default()
             })
-            .insert(measurement.0.clone());
-        });
+            .insert(measurement.clone());
     }
     // update changed measurements
     for (measurement, mut t) in changed_measurements.iter_mut() {
@@ -251,23 +229,19 @@ fn update_measurements(
 
 fn update_walls(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
-    handles: Res<Handles>,
     mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
     vertices: Res<Vec<Vertex>>,
-    mut spawn_wall: EventReader<SpawnWall>,
+    added_walls: Query<(Entity, &Wall), Added<Wall>>,
     mut changed_walls: Query<(&Wall, &mut Transform), Changed<Wall>>,
 ) {
     // spawn new walls
-    for wall in spawn_wall.iter() {
-        commands.entity(level_entity.0).with_children(|cb| {
-            cb.spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-                material: handles.wall_material.clone(),
-                transform: wall.0.transform(&vertices),
-                ..Default::default()
-            })
-            .insert(wall.0.clone());
+    for (e, wall) in added_walls.iter() {
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+            material: handles.wall_material.clone(),
+            transform: wall.transform(&vertices),
+            ..Default::default()
         });
     }
     // update changed walls
@@ -278,41 +252,41 @@ fn update_walls(
 
 fn update_models(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
-    mut spawn_model: EventReader<SpawnModel>,
+    added_models: Query<(Entity, &Model), Added<Model>>,
     mut changed_models: Query<(&Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
 ) {
     // spawn new models
-    #[cfg(not(target_arch = "wasm32"))]
-    for model in spawn_model.iter() {
-        let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
-            + &model.0.model_name
-            + &String::from(".glb#Scene0");
-        println!(
-            "spawning {} at {}, {}",
-            &bundle_path, model.0.x_meters, model.0.y_meters
-        );
-        let glb = asset_server.load(&bundle_path);
-        commands.entity(level_entity.0).with_children(|cb| {
-            cb.spawn_bundle((model.0.transform(), GlobalTransform::identity()))
+    for (e, model) in added_models.iter() {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
+                + &model.model_name
+                + &String::from(".glb#Scene0");
+            println!(
+                "spawning {} at {}, {}",
+                &bundle_path, model.x_meters, model.y_meters
+            );
+            let glb = asset_server.load(&bundle_path);
+            commands
+                .entity(e)
+                .insert_bundle((
+                    Transform {
+                        rotation: Quat::from_rotation_z(model.yaw as f32),
+                        translation: Vec3::new(model.x_meters as f32, model.y_meters as f32, 0.),
+                        scale: Vec3::ONE,
+                    },
+                    GlobalTransform::identity(),
+                ))
                 .with_children(|parent| {
                     parent.spawn_scene(glb);
-                })
-                .insert(model.0.clone());
-        });
+                });
+        }
     }
     // update changed models
     for (model, mut t) in changed_models.iter_mut() {
         *t = model.transform();
     }
-}
-
-fn has_site_map(level_entity: Option<Res<SiteMapLevel>>) -> ShouldRun {
-    if level_entity.is_some() {
-        return ShouldRun::Yes;
-    }
-    return ShouldRun::No;
 }
 
 fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
@@ -340,21 +314,11 @@ impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Vec<Vertex>>()
             .init_resource::<Handles>()
-            .add_event::<SpawnVertex>()
-            .add_event::<SpawnLane>()
-            .add_event::<SpawnMeasurement>()
-            .add_event::<SpawnWall>()
-            .add_event::<SpawnModel>()
             .add_system_set(
                 SystemSet::new()
                     .label(SiteMapLabel)
                     .with_system(init_site_map.with_run_criteria(should_init_site_map))
-                    .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
-            )
-            .add_system_set(
-                SystemSet::new()
-                    .label(SiteMapLabel)
-                    .with_run_criteria(has_site_map)
+                    .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map))
                     .with_system(update_vertices.after(init_site_map))
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))
