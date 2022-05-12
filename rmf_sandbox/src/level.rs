@@ -2,7 +2,6 @@ use super::lane::Lane;
 use super::level_transform::LevelTransform;
 use super::measurement::Measurement;
 use super::model::Model;
-use super::site_map::Handles;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
@@ -73,36 +72,6 @@ impl From<LevelRaw> for Level {
             m.y_meters = (m.y_raw - ofs_y) * scale;
         }
         level
-    }
-}
-
-impl Level {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        handles: &Res<Handles>,
-        asset_server: &Res<AssetServer>,
-    ) {
-        for v in &self.vertices {
-            v.spawn(commands, handles, &self.transform);
-        }
-
-        for lane in &self.lanes {
-            lane.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for measurement in &self.measurements {
-            measurement.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for wall in &self.walls {
-            wall.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for model in &self.models {
-            model.spawn(commands, asset_server);
-        }
     }
 }
 

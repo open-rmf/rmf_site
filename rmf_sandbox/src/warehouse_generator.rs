@@ -33,6 +33,7 @@ fn warehouse_generator(
     mut commands: Commands,
     mut sm: ResMut<SiteMap>,
     mut warehouse_state: ResMut<WarehouseState>,
+    mut walls: Local<Vec<Wall>>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
 ) {
     if warehouse_state.requested != warehouse_state.spawned {
