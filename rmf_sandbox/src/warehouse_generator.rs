@@ -91,8 +91,8 @@ fn warehouse_generator(
             ..Default::default()
         });
 
-        let rack_width = 2.3784;
-        let num_racks = (width / rack_width - 1.) as i32;
+        let rack_length = 2.3784;
+        let num_racks = (width / rack_length - 1.) as i32;
 
         let aisle_width = warehouse_state.requested.aisle_width;
         let rack_depth = 1.3;
@@ -165,61 +165,64 @@ fn warehouse_generator(
 fn add_racks(level: &mut Level, x: f64, y: f64, yaw: f64, num_racks: i32, num_stacks: i32) {
     let rack_depth_spacing = 1.3;
     let rack_depth_offset = 0.5;
+    let rack_length = 2.3784;
     let rack_height = 2.4;
 
+    let pi_2 = 3.1415926 / 2.;
     for idx in 0..(num_racks + 1) {
         for vert_idx in 0..num_stacks {
             let z_offset = (vert_idx as f64) * rack_height;
             level.models.push(Model::from_xyz_yaw(
                 "vert_beam1",
                 "OpenRobotics/PalletRackVertBeams",
-                x + (idx as f64) * 2.3784,
+                x + (idx as f64) * rack_length,
                 y - rack_depth_offset - rack_depth_spacing / 2.,
                 z_offset,
-                yaw + 3.1415926 / 2.,
+                yaw + pi_2,
             ));
             level.models.push(Model::from_xyz_yaw(
                 "vert_beam1",
                 "OpenRobotics/PalletRackVertBeams",
-                x + (idx as f64) * 2.3784,
+                x + (idx as f64) * rack_length,
                 y - rack_depth_offset + rack_depth_spacing / 2.,
                 z_offset,
-                yaw + 3.1415926 / 2.,
+                yaw + pi_2,
             ));
 
             if idx < num_racks {
+                let rack_x = x + ((idx + 1) as f64) * rack_length;
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
                     "OpenRobotics/PalletRackHorBeams",
-                    x + ((idx + 1) as f64) * 2.3784,
+                    rack_x,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + 3.1415926 / 2.,
+                    yaw + pi_2,
                 ));
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
                     "OpenRobotics/PalletRackHorBeams",
-                    x + ((idx + 1) as f64) * 2.3784,
+                    rack_x,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + 3.1415926 / 2.,
+                    yaw + pi_2,
                 ));
                 let second_shelf_z_offset = 1.0;
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
                     "OpenRobotics/PalletRackHorBeams",
-                    x + ((idx + 1) as f64) * 2.3784,
+                    rack_x,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset + second_shelf_z_offset,
-                    yaw + 3.1415926 / 2.,
+                    yaw + pi_2,
                 ));
                 level.models.push(Model::from_xyz_yaw(
                     "horiz_beam1",
                     "OpenRobotics/PalletRackHorBeams",
-                    x + ((idx + 1) as f64) * 2.3784,
+                    rack_x,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset + second_shelf_z_offset,
-                    yaw + 3.1415926 / 2.,
+                    yaw + pi_2,
                 ));
             }
         }
