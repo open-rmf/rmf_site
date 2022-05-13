@@ -21,9 +21,7 @@ impl From<MeasurementRaw> for Measurement {
 }
 
 impl Measurement {
-    pub fn transform(&self, vertices: &Vec<Vertex>) -> Transform {
-        let v1 = &vertices[self.start];
-        let v2 = &vertices[self.end];
+    pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
         let dx = v2.x_meters - v1.x_meters;
         let dy = v2.y_meters - v1.y_meters;
         let length = Vec2::from([dx as f32, dy as f32]).length();
