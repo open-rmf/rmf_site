@@ -192,6 +192,7 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
         commands.entity(entity).despawn_recursive();
     }
     commands.remove_resource::<SiteMapLevel>();
+    commands.remove_resource::<VerticesManagerData>();
 }
 
 fn update_vertices(
