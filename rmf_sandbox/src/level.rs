@@ -18,6 +18,39 @@ pub struct Level {
     pub transform: LevelTransform,
 }
 
+impl Level {
+    pub fn calc_bb(&self) -> BoundingBox2D {
+        let mut bb = BoundingBox2D {
+            min_x: 1e100,
+            max_x: -1e100,
+            min_y: 1e100,
+            max_y: -1e100,
+        };
+        for v in self.vertices.iter() {
+            if v.x_meters < bb.min_x {
+                bb.min_x = v.x_meters;
+            }
+            if v.x_meters > bb.max_x {
+                bb.max_x = v.x_meters;
+            }
+            if v.y_meters < bb.min_y {
+                bb.min_y = v.y_meters;
+            }
+            if v.y_meters > bb.max_y {
+                bb.max_y = v.y_meters;
+            }
+        }
+        bb
+    }
+}
+
+pub struct BoundingBox2D {
+    pub min_x: f64,
+    pub max_x: f64,
+    pub min_y: f64,
+    pub max_y: f64,
+}
+
 impl From<LevelRaw> for Level {
     fn from(raw: LevelRaw) -> Self {
         let mut level = Level {
