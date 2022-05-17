@@ -11,6 +11,7 @@ use bevy_egui::EguiContext;
 use bevy_inspector_egui::plugin::InspectorWindows;
 use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
 use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
+use std::collections::HashMap;
 
 use std::{
     env,
@@ -31,6 +32,11 @@ pub enum Editable {
     Measurement(Measurement),
     Vertex(Vertex),
     Wall(Wall),
+}
+
+#[derive(Default)]
+pub struct MaterialMap {
+    pub materials: HashMap<String, Handle<StandardMaterial>>,
 }
 
 ////////////////////////////////////////////////////////
@@ -325,6 +331,7 @@ impl Plugin for SiteMapPlugin {
             .add_plugin(InspectorPlugin::<Inspector>::new())
             .register_inspectable::<Lane>()
             .init_resource::<Handles>()
+            .init_resource::<MaterialMap>()
             .add_startup_system(init_handles)
             .add_event::<SpawnSiteMap>()
             .add_event::<SpawnSiteMapFilename>()
