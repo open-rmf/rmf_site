@@ -90,22 +90,34 @@ fn init_site_map(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
     println!("Loading assets");
     let mut handles = Handles::default();
     handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-        radius: 0.25,
+        radius: 0.15,
         rings: 2,
         depth: 0.05,
         latitudes: 8,
         longitudes: 16,
         uv_profile: shape::CapsuleUvProfile::Fixed,
     }));
-    handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.default_floor_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
+        perceptual_roughness: 0.5,
+        ..default()
+    });
     handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
     handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
     handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-    handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
+    //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    handles.wall_material = materials.add(StandardMaterial {
+        base_color_texture: Some(default_wall_material_texture.clone()),
+        unlit: false,
+        ..default()
+    });
 
     println!("Initializing site map: {}", sm.site_name);
     commands.insert_resource(AmbientLight {
@@ -115,50 +127,91 @@ fn init_site_map(
 
     commands.init_resource::<VerticesManagerData>();
 
-    commands
-        .spawn_bundle(DirectionalLightBundle {
-            directional_light: DirectionalLight {
-                shadows_enabled: false,
-                illuminance: 20000.,
-                ..Default::default()
-            },
-            transform: Transform {
-                translation: Vec3::new(0., 0., 50.),
-                rotation: Quat::from_rotation_x(0.4),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(SiteMapTag);
+    let mut level_entities: Vec<Entity> = Vec::new();
+    let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
+    for level in &sm.levels {
+        // spawn lights
+        // todo: calculate bounding box of this level
+        let bb = level.calc_bb();
+        let make_light_grid = false; // todo: select based on WASM and GPU (or not)
+        if make_light_grid {
+            // spawn a grid of lights for this level
+            let light_spacing = 10.;
+            let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
+            let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
+            for x_idx in 0..num_x_lights {
+                for y_idx in 0..num_y_lights {
+                    let x = bb.min_x + (x_idx as f64) * light_spacing;
+                    let y = bb.min_y + (y_idx as f64) * light_spacing;
+                    commands
+                        .spawn_bundle(PointLightBundle {
+                            transform: Transform::from_xyz(x as f32, y as f32, 3.0),
+                            point_light: PointLight {
+                                intensity: 500.,
+                                range: 10.,
+                                //shadows_enabled: true,
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .insert(SiteMapTag);
+                }
+            }
+        } else {
+            // create a single directional light (for machines without GPU)
+            commands
+                .spawn_bundle(DirectionalLightBundle {
+                    directional_light: DirectionalLight {
+                        shadows_enabled: false,
+                        illuminance: 20000.,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::new(0., 0., 50.),
+                        rotation: Quat::from_rotation_x(0.4),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                })
+                .insert(SiteMapTag);
+        }
 
-    let level = &sm.levels[0];
-    let vertices = &level.vertices;
-    let entity = commands
-        .spawn()
-        .insert(SiteMapTag)
-        .insert_bundle(TransformBundle::from_transform(Transform {
-            translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
-            ..default()
-        }))
-        .with_children(|cb| {
-            for v in vertices {
-                cb.spawn().insert(v.clone());
-            }
-            for lane in &level.lanes {
-                cb.spawn().insert(lane.clone());
-            }
-            for measurement in &level.measurements {
-                cb.spawn().insert(measurement.clone());
-            }
-            for wall in &level.walls {
-                cb.spawn().insert(wall.clone());
-            }
-            for model in &level.models {
-                cb.spawn().insert(model.clone());
-            }
-        })
-        .id();
-    commands.insert_resource(SiteMapLevel(entity));
+        let vertices = &level.vertices;
+        level_vertices.push(vertices);
+        level_entities.push(
+            commands
+                .spawn()
+                .insert(SiteMapTag)
+                .insert_bundle(TransformBundle::from_transform(Transform {
+                    translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
+                    ..default()
+                }))
+                .with_children(|cb| {
+                    for v in vertices {
+                        cb.spawn().insert(v.clone());
+                    }
+                    for lane in &level.lanes {
+                        cb.spawn().insert(lane.clone());
+                    }
+                    for measurement in &level.measurements {
+                        cb.spawn().insert(measurement.clone());
+                    }
+                    for wall in &level.walls {
+                        cb.spawn().insert(wall.clone());
+                    }
+                    for model in &level.models {
+                        cb.spawn().insert(model.clone());
+                    }
+                })
+                .id(),
+        );
+    }
+    if level_entities.len() == 0 {
+        println!("No levels found in site map");
+        return;
+    }
+    commands.insert_resource(SiteMapLevel(level_entities[0]));
+    commands.insert_resource(level_vertices[0].clone());
 
     // spawn the floor plane
     // todo: use real floor polygons
@@ -174,7 +227,6 @@ fn init_site_map(
         })
         .insert(SiteMapTag);
 
-    commands.insert_resource(vertices.clone());
     commands.insert_resource(handles);
 
     println!("Finished initializing site map");
@@ -333,9 +385,8 @@ fn update_models(
     #[cfg(not(target_arch = "wasm32"))]
     {
         for (e, model) in added_models.iter() {
-            let bundle_path = String::from("http://models.sandbox.open-rmf.org/models/")
-                + &model.model_name
-                + &String::from(".glb#Scene0");
+            let bundle_path =
+                String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
             println!(
                 "spawning {} at {}, {}",
                 &bundle_path, model.x_meters, model.y_meters

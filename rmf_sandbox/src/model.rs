@@ -11,6 +11,7 @@ pub struct Model {
     pub y_meters: f64,
     pub instance_name: String,
     pub model_name: String,
+    pub z_offset: f64,
 }
 
 impl From<ModelRaw> for Model {
@@ -23,6 +24,8 @@ impl From<ModelRaw> for Model {
             y_meters: raw.y,
             instance_name: raw.name,
             model_name: raw.model_name,
+            // TODO: implement
+            z_offset: 0.,
         }
     }
 }
@@ -34,6 +37,26 @@ impl Model {
             translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
             scale: Vec3::ONE,
         }
+    }
+
+    pub fn from_xyz_yaw(
+        instance_name: &str,
+        model_name: &str,
+        x: f64,
+        y: f64,
+        z: f64,
+        yaw: f64,
+    ) -> Model {
+        return Model {
+            instance_name: instance_name.to_string(),
+            model_name: model_name.to_string(),
+            x_raw: x,
+            y_raw: y,
+            x_meters: x,
+            y_meters: y,
+            yaw: yaw,
+            z_offset: z,
+        };
     }
 }
 

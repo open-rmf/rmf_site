@@ -37,6 +37,11 @@ A bunch of stuff will happen. Be sure to close and re-open your terminal afterwa
 
 Alternatively, if you already have a Rust installation managed by `rustup`, you can just do this to bring it up-to-date: `rustup update`
 
+Finally, we need some library packages:
+```
+sudo apt install libgtk-3-dev
+```
+
 # Install extra dependencies for WebAssembly
 
 These are only needed if you're going to build a WebAssembly binary:

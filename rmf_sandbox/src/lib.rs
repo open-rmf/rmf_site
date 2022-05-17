@@ -1,8 +1,7 @@
-use bevy::prelude::*;
-use bevy_web_asset::WebAssetPlugin;
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
+use main_menu::MainMenuPlugin;
 use traffic_editor::TrafficEditorPlugin;
 use warehouse_generator::WarehouseGeneratorPlugin;
-use main_menu::MainMenuPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -11,6 +10,7 @@ use bevy::{core::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
+mod camera_controls;
 mod demo_world;
 
 mod main_menu;
@@ -24,11 +24,12 @@ mod level;
 mod level_transform;
 mod measurement;
 mod model;
+mod sandbox_asset_io;
 mod vertex;
 mod wall;
 
-mod camera_controls;
 use camera_controls::CameraControlsPlugin;
+use sandbox_asset_io::SandboxAssetIoPlugin;
 
 use site_map::SiteMapPlugin;
 
@@ -65,13 +66,14 @@ pub fn run() {
             ..Default::default()
         })
         .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         .insert_resource(DirectionalLightShadowMap { size: 1024 })
         .add_startup_system(setup)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
         .add_plugin(UIWidgetsPlugin)
+        .add_plugin(WarehouseGeneratorPlugin)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -88,9 +90,9 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
-        // .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(WebAssetPlugin)
+            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         .add_plugin(bevy_egui::EguiPlugin)
         .add_state(AppState::MainMenu)
