@@ -1,6 +1,6 @@
 use super::level::Level;
 use super::model::Model;
-use super::site_map::Handles;
+use super::site_map::{Handles, MaterialMap};
 use super::ui_widgets::VisibleWindows;
 use super::vertex::Vertex;
 use bevy::prelude::*;
@@ -43,6 +43,8 @@ fn warehouse_generator(
     mut commands: Commands,
     mut warehouse_state: ResMut<WarehouseState>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut material_map: ResMut<MaterialMap>,
     mesh_query: Query<(Entity, &Handle<Mesh>)>,
     handles: Res<Handles>,
     visible_windows: ResMut<VisibleWindows>,
@@ -107,11 +109,29 @@ fn warehouse_generator(
         }
         level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
 
+        if !material_map.materials.contains_key("concrete_floor") {
+            let albedo = asset_server.load("sandbox://textures/concrete_albedo_1024.png");
+            let roughness = asset_server.load("sandbox://textures/concrete_roughness_1024.png");
+            let concrete_floor_handle = materials.add(StandardMaterial {
+                base_color_texture: Some(albedo.clone()),
+                perceptual_roughness: 0.3,
+                metallic_roughness_texture: Some(roughness.clone()),
+                ..default()
+            });
+            material_map
+                .materials
+                .insert(String::from("concrete_floor"), concrete_floor_handle);
+        }
+
         commands.spawn_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
-            material: handles.default_floor_material.clone(),
+            material: material_map
+                .materials
+                .get("concrete_floor")
+                .unwrap()
+                .clone(),
             transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
+                rotation: Quat::from_rotation_x(1.5707963),
                 ..Default::default()
             },
             ..Default::default()
@@ -127,8 +147,8 @@ fn warehouse_generator(
             let light_range = light_height * 3.0;
             for x_idx in 0..num_x_lights {
                 for y_idx in 0..num_y_lights {
-                    let x = (x_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
-                    let y = (y_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
+                    let x = (x_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
+                    let y = (y_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
                     commands.spawn_bundle(PointLightBundle {
                         transform: Transform::from_xyz(x as f32, y as f32, light_height),
                         point_light: PointLight {
