@@ -1,3 +1,6 @@
+use std::collections::HashSet;
+
+use crate::despawn::*;
 use crate::level::Level;
 use crate::model::Model;
 use crate::site_map::{SiteMap, SiteMapLabel};
@@ -67,13 +70,26 @@ fn warehouse_generator(
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
     warehouse_racks: Query<(Entity, &WarehouseRackTag), With<WarehouseRackTag>>,
     mut generation: Local<usize>,
+    mut despawn: EventWriter<Despawn>,
+    mut despawned: EventReader<Despawned>,
+    mut despawning: Local<HashSet<Entity>>,
 ) {
+    for e in despawned.iter() {
+        despawning.remove(&e.0);
+    }
     if !warehouse.is_changed() {
+        return;
+    }
+    if despawning.len() > 0 {
+        println!("skipping warehouse_generator because some entities are still despawning");
         return;
     }
 
     let width = warehouse.area.sqrt();
     let mut vertices: Vec<Mut<Vertex>> = vertices.iter_mut().collect();
+    if vertices.len() == 0 {
+        return;
+    }
 
     vertices[0].x_meters = -width / 2.;
     vertices[0].y_meters = -width / 2.;
@@ -97,9 +113,8 @@ fn warehouse_generator(
     // clear all previous racks.
     *generation += 1;
     for (e, tag) in warehouse_racks.iter() {
-        if tag.0 < *generation {
-            commands.entity(e).despawn_recursive();
-        }
+        despawning.insert(e);
+        despawn.send(Despawn(e));
     }
 
     for aisle_idx in 0..num_aisles {
@@ -253,13 +268,8 @@ impl Plugin for WarehouseGeneratorPlugin {
         app.add_system_set(SystemSet::on_enter(AppState::WarehouseGenerator).with_system(on_enter));
         app.add_system_set(
             SystemSet::on_update(AppState::WarehouseGenerator)
-                .with_system(warehouse_ui)
-                // FIXME: Since spawning of the actual meshes is done by SiteMapPlugin and bevy commands
-                // are ran at the end of a stage, it is possible for entities to both despawn and spawn
-                // "at the same time", this will cause bevy to panic.
-                // The exclusive system is a super hacky workaround to make it not panic, we should
-                // look at a proper solution that avoids race condition.
-                .with_system(warehouse_generator.exclusive_system().before(SiteMapLabel)),
+                .with_system(warehouse_ui.before(warehouse_generator))
+                .with_system(warehouse_generator.after(SiteMapLabel)),
         );
         app.add_system_set(SystemSet::on_exit(AppState::WarehouseGenerator).with_system(on_exit));
     }
