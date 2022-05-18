@@ -1,4 +1,3 @@
-use std::collections::{HashMap, HashSet};
 use crate::lane::Lane;
 use crate::level::Level;
 use crate::measurement::Measurement;
@@ -7,6 +6,7 @@ use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::ecs::system::SystemParam;
 use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
+use std::collections::{HashMap, HashSet};
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
@@ -222,10 +222,10 @@ fn init_site_map(
                 ..Default::default()
             })
             .insert(SiteMapTag);
-        }
-        if level_entities.len() == 0 {
-            println!("No levels found in site map");
-            return;
+    }
+    if level_entities.len() == 0 {
+        println!("No levels found in site map");
+        return;
     }
     commands.insert_resource(SiteMapLevel(level_entities[0]));
     commands.insert_resource(level_vertices[0].clone());
@@ -385,25 +385,22 @@ fn update_models(
     asset_server: Res<AssetServer>,
 ) {
     // spawn new models
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        for (e, model) in added_models.iter() {
-            let bundle_path =
-                String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
-            println!(
-                "spawning {} at {}, {}",
-                &bundle_path, model.x_meters, model.y_meters
-            );
-            let glb = asset_server.load(&bundle_path);
-            commands
-                .entity(e)
-                .insert_bundle((model.transform(), GlobalTransform::identity()))
-                .with_children(|parent| {
-                    parent.spawn_scene(glb);
-                })
-                .insert(model.clone())
-                .insert(Parent(level_entity.0));
-        }
+    for (e, model) in added_models.iter() {
+        let bundle_path =
+            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
+        println!(
+            "spawning {} at {}, {}",
+            &bundle_path, model.x_meters, model.y_meters
+        );
+        let glb = asset_server.load(&bundle_path);
+        commands
+            .entity(e)
+            .insert_bundle((model.transform(), GlobalTransform::identity()))
+            .with_children(|parent| {
+                parent.spawn_scene(glb);
+            })
+            .insert(model.clone())
+            .insert(Parent(level_entity.0));
     }
     // update changed models
     for (model, mut t) in changed_models.iter_mut() {

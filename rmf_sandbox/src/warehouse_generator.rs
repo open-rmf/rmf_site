@@ -79,7 +79,6 @@ fn warehouse_generator(
         return;
     }
 
-
     let width = warehouse.area.sqrt();
     let mut vertices: Vec<Mut<Vertex>> = vertices.iter_mut().collect();
 
@@ -107,47 +106,48 @@ fn warehouse_generator(
     for (e, tag) in warehouse_racks.iter() {
         if tag.0 < *generation {
             commands.entity(e).despawn_recursive();
-/*
-        let make_light_grid = true; // todo: select based on WASM and GPU (or not)
-        if make_light_grid {
-            // spawn a grid of lights for this level
-            let light_spacing = 10.;
-            let num_x_lights = (width / light_spacing).ceil() as i32;
-            let num_y_lights = (width / light_spacing).ceil() as i32;
-            let light_height = (warehouse_state.requested.height as f32) * 1.3 + 1.5;
-            let light_range = light_height * 3.0;
-            for x_idx in 0..num_x_lights {
-                for y_idx in 0..num_y_lights {
-                    let x = (x_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
-                    let y = (y_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
-                    commands.spawn_bundle(PointLightBundle {
-                        transform: Transform::from_xyz(x as f32, y as f32, light_height),
-                        point_light: PointLight {
-                            intensity: 2000.,
-                            range: light_range,
-                            //shadows_enabled: true,
+            /*
+            let make_light_grid = true; // todo: select based on WASM and GPU (or not)
+            if make_light_grid {
+                // spawn a grid of lights for this level
+                let light_spacing = 10.;
+                let num_x_lights = (width / light_spacing).ceil() as i32;
+                let num_y_lights = (width / light_spacing).ceil() as i32;
+                let light_height = (warehouse_state.requested.height as f32) * 1.3 + 1.5;
+                let light_range = light_height * 3.0;
+                for x_idx in 0..num_x_lights {
+                    for y_idx in 0..num_y_lights {
+                        let x = (x_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
+                        let y = (y_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
+                        commands.spawn_bundle(PointLightBundle {
+                            transform: Transform::from_xyz(x as f32, y as f32, light_height),
+                            point_light: PointLight {
+                                intensity: 2000.,
+                                range: light_range,
+                                //shadows_enabled: true,
+                                ..default()
+                            },
                             ..default()
-                        },
-                        ..default()
-                    });
+                        });
+                    }
                 }
+            } else {
+                // create a single directional light (for machines without GPU)
+                commands.spawn_bundle(DirectionalLightBundle {
+                    directional_light: DirectionalLight {
+                        shadows_enabled: false,
+                        illuminance: 20000.,
+                        ..Default::default()
+                    },
+                    transform: Transform {
+                        translation: Vec3::new(0., 0., 50.),
+                        rotation: Quat::from_rotation_x(0.4),
+                        ..Default::default()
+                    },
+                    ..Default::default()
+                });
             }
-        } else {
-            // create a single directional light (for machines without GPU)
-            commands.spawn_bundle(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 20000.,
-                    ..Default::default()
-                },
-                transform: Transform {
-                    translation: Vec3::new(0., 0., 50.),
-                    rotation: Quat::from_rotation_x(0.4),
-                    ..Default::default()
-                },
-                ..Default::default()
-            });
-*/
+            */
         }
     }
 
@@ -192,7 +192,6 @@ fn warehouse_generator(
         },
         ..Default::default()
     });
-
 }
 
 fn add_racks(
