@@ -1,11 +1,13 @@
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
+use crate::despawn::DespawnBlocker;
 use crate::lane::Lane;
 use crate::level::Level;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
+use bevy::asset::LoadState;
 use bevy::ecs::system::SystemParam;
 use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
 
@@ -380,26 +382,48 @@ fn update_models(
     added_models: Query<(Entity, &Model), Added<Model>>,
     mut changed_models: Query<(&Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
+    mut loading_models: Local<HashMap<Entity, (Model, Handle<Scene>)>>,
+    mut spawned: Local<Vec<Entity>>,
 ) {
     // spawn new models
     #[cfg(not(target_arch = "wasm32"))]
     {
+        // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
+        // immediately after it is spawned.
+        // Work around it by checking the `spawned` container BEFORE updating it so that,
+        // entities are only despawned at the next frame.
+        for e in spawned.iter() {
+            commands.entity(*e).remove::<DespawnBlocker>();
+        }
+        spawned.clear();
+
+        for (e, (model, h)) in loading_models.iter() {
+            if asset_server.get_load_state(h) == LoadState::Loaded {
+                commands
+                    .entity(*e)
+                    .insert_bundle((model.transform(), GlobalTransform::identity()))
+                    .with_children(|parent| {
+                        parent.spawn_scene(h.clone());
+                    })
+                    .insert(Parent(level_entity.0));
+                spawned.push(*e);
+            }
+        }
+        for e in spawned.iter() {
+            loading_models.remove(e);
+        }
+
         for (e, model) in added_models.iter() {
+            println!("spawn {} {}", e.id(), e.generation());
             let bundle_path =
                 String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
             println!(
                 "spawning {} at {}, {}",
                 &bundle_path, model.x_meters, model.y_meters
             );
-            let glb = asset_server.load(&bundle_path);
-            commands
-                .entity(e)
-                .insert_bundle((model.transform(), GlobalTransform::identity()))
-                .with_children(|parent| {
-                    parent.spawn_scene(glb);
-                })
-                .insert(model.clone())
-                .insert(Parent(level_entity.0));
+            let glb: Handle<Scene> = asset_server.load(&bundle_path);
+            commands.entity(e).insert(DespawnBlocker());
+            loading_models.insert(e, (model.clone(), glb.clone()));
         }
     }
     // update changed models
