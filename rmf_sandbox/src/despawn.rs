@@ -1,6 +1,6 @@
 use std::collections::HashSet;
 
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// Event to despawn an entity.
 ///
@@ -16,6 +16,29 @@ pub struct DespawnBlocker();
 
 /// Sent when an entity has despawned.
 pub struct Despawned(pub Entity);
+
+#[derive(SystemParam)]
+pub struct DespawnTracker<'w, 's> {
+    despawn_writer: EventWriter<'w, 's, Despawn>,
+    despawned_reader: EventReader<'w, 's, Despawned>,
+    pub pending: Local<'s, HashSet<Entity>>,
+}
+
+impl<'w, 's> DespawnTracker<'w, 's> {
+    /// This MUST be called every frame to ensure that despawned events are not
+    /// missed.
+    /// TODO: Anyway to auto call this every frame?
+    pub fn tick(&mut self) {
+        for e in self.despawned_reader.iter() {
+            self.pending.remove(&e.0);
+        }
+    }
+
+    pub fn despawn(&mut self, entity: Entity) {
+        self.despawn_writer.send(Despawn(entity));
+        self.pending.insert(entity);
+    }
+}
 
 fn despawn_system(
     mut commands: Commands,

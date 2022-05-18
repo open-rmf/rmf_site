@@ -1,5 +1,3 @@
-use std::collections::HashSet;
-
 use crate::despawn::*;
 use crate::level::Level;
 use crate::model::Model;
@@ -21,8 +19,9 @@ struct Warehouse {
 #[derive(Component)]
 struct WarehouseTag;
 
+// Indicates entites that need to be respawned whenever the warehouse params change.
 #[derive(Component)]
-struct WarehouseRackTag(usize);
+struct WarehouseRespawnTag;
 
 struct UiData(Warehouse);
 
@@ -68,22 +67,27 @@ fn warehouse_generator(
     mut commands: Commands,
     warehouse: Res<Warehouse>,
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
-    warehouse_racks: Query<(Entity, &WarehouseRackTag), With<WarehouseRackTag>>,
-    mut generation: Local<usize>,
-    mut despawn: EventWriter<Despawn>,
-    mut despawned: EventReader<Despawned>,
-    mut despawning: Local<HashSet<Entity>>,
+    respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
+    mut despawner: DespawnTracker,
+    mut need_respawn: Local<bool>,
 ) {
-    for e in despawned.iter() {
-        despawning.remove(&e.0);
-    }
-    if !warehouse.is_changed() {
+    despawner.tick();
+
+    // despawn previous instance
+    if warehouse.is_changed() {
+        for e in respawn_entities.iter() {
+            despawner.despawn(e);
+        }
+        *need_respawn = true;
         return;
     }
-    if despawning.len() > 0 {
-        println!("skipping warehouse_generator because some entities are still despawning");
+
+    if !*need_respawn || despawner.pending.len() > 0 {
         return;
     }
+
+    // previous isntance should have despawned by now.
+    *need_respawn = false;
 
     let width = warehouse.area.sqrt();
     let mut vertices: Vec<Mut<Vertex>> = vertices.iter_mut().collect();
@@ -110,18 +114,10 @@ fn warehouse_generator(
 
     let vert_stacks = warehouse.height / 2;
 
-    // clear all previous racks.
-    *generation += 1;
-    for (e, tag) in warehouse_racks.iter() {
-        despawning.insert(e);
-        despawn.send(Despawn(e));
-    }
-
     for aisle_idx in 0..num_aisles {
         let y = (aisle_idx as f64 - (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
         add_racks(
             &mut commands,
-            *generation,
             -width / 2. + 1.,
             y,
             0.,
@@ -133,7 +129,6 @@ fn warehouse_generator(
 
 fn add_racks(
     commands: &mut Commands,
-    generation: usize,
     x: f64,
     y: f64,
     yaw: f64,
@@ -159,7 +154,7 @@ fn add_racks(
                     z_offset,
                     yaw + pi_2,
                 ))
-                .insert(WarehouseRackTag(generation));
+                .insert(WarehouseRespawnTag);
             commands
                 .spawn()
                 .insert(Model::from_xyz_yaw(
@@ -170,7 +165,7 @@ fn add_racks(
                     z_offset,
                     yaw + pi_2,
                 ))
-                .insert(WarehouseRackTag(generation));
+                .insert(WarehouseRespawnTag);
 
             if idx < num_racks {
                 let rack_x = x + ((idx + 1) as f64) * rack_length;
@@ -184,7 +179,7 @@ fn add_racks(
                         z_offset,
                         yaw + pi_2,
                     ))
-                    .insert(WarehouseRackTag(generation));
+                    .insert(WarehouseRespawnTag);
                 commands
                     .spawn()
                     .insert(Model::from_xyz_yaw(
@@ -195,7 +190,7 @@ fn add_racks(
                         z_offset,
                         yaw + pi_2,
                     ))
-                    .insert(WarehouseRackTag(generation));
+                    .insert(WarehouseRespawnTag);
                 let second_shelf_z_offset = 1.0;
                 commands
                     .spawn()
@@ -207,7 +202,7 @@ fn add_racks(
                         z_offset + second_shelf_z_offset,
                         yaw + pi_2,
                     ))
-                    .insert(WarehouseRackTag(generation));
+                    .insert(WarehouseRespawnTag);
                 commands
                     .spawn()
                     .insert(Model::from_xyz_yaw(
@@ -218,7 +213,7 @@ fn add_racks(
                         z_offset + second_shelf_z_offset,
                         yaw + pi_2,
                     ))
-                    .insert(WarehouseRackTag(generation));
+                    .insert(WarehouseRespawnTag);
             }
         }
     }
@@ -269,7 +264,7 @@ impl Plugin for WarehouseGeneratorPlugin {
         app.add_system_set(
             SystemSet::on_update(AppState::WarehouseGenerator)
                 .with_system(warehouse_ui.before(warehouse_generator))
-                .with_system(warehouse_generator.after(SiteMapLabel)),
+                .with_system(warehouse_generator.before(SiteMapLabel)),
         );
         app.add_system_set(SystemSet::on_exit(AppState::WarehouseGenerator).with_system(on_exit));
     }
