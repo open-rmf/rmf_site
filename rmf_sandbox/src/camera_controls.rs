@@ -208,7 +208,7 @@ fn handle_keyboard(
 fn camera_controls_setup(mut commands: Commands) {
     let proj_entity = commands
         .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+            transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
             ..default()
         })
         .id();
@@ -231,7 +231,7 @@ fn camera_controls_setup(mut commands: Commands) {
             perspective_camera_entity: proj_entity,
             orthographic_camera_entity: ortho_entity,
             orbit_center: Vec3::ZERO,
-            orbit_radius: 20.0,
+            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
             orbit_upside_down: false,
         },
     });

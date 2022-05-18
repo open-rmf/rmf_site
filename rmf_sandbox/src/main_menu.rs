@@ -73,7 +73,7 @@ fn egui_ui(
                     }
                 }
 
-                if ui.button("Use building generator").clicked() {
+                if ui.button("Warehouse generator").clicked() {
                     println!("Entering warehouse generator");
                     app_state.set(AppState::WarehouseGenerator).unwrap();
                 }

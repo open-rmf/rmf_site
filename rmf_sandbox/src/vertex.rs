@@ -25,7 +25,7 @@ impl TryFrom<VertexRaw> for Vertex {
         let name = if raw.data.len() > 3 {
             raw.data[3]
                 .as_str()
-                .ok_or("expected third element to be a string")?
+                .ok_or("expected fourth element to be a string")?
                 .to_string()
         } else {
             String::new()
