@@ -28,19 +28,45 @@ fn egui_ui(
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
                     // load the office demo that is hard-coded in demo_world.rs
-                    let future = _thread_pool.spawn(async move {
-                        println!("Loading site map");
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let future = _thread_pool.spawn(async move {
+                            let yaml = demo_office();
+                            let data = yaml.as_bytes();
+                            match BuildingMap::from_bytes(&data) {
+                                Ok(map) => Some(SiteMap::from_building_map(map)),
+                                Err(err) => {
+                                    println!("{:?}", err);
+                                    return None;
+                                }
+                            }
+                        });
+                        _commands.spawn().insert(future);
+                    }
+
+                    // on web, we don't have a handy thread pool, so we'll
+                    // just parse the map here in the main thread.
+                    #[cfg(target_arch = "wasm32")]
+                    {
                         let yaml = demo_office();
                         let data = yaml.as_bytes();
                         match BuildingMap::from_bytes(&data) {
-                            Ok(map) => Some(SiteMap::from_building_map(map)),
+                            Ok(map) => {
+                                _commands.insert_resource(SiteMap::from_building_map(map));
+                                match app_state.set(AppState::TrafficEditor) {
+                                    Ok(_) => {}
+                                    Err(err) => {
+                                        println!("Failed to enter traffic editor: {:?}", err);
+                                    }
+                                }
+                            }
                             Err(err) => {
                                 println!("{:?}", err);
-                                return None;
                             }
                         }
-                    });
-                    _commands.spawn().insert(future);
+                    }
+
+                    // switch to using a channel to signal completing the task
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
