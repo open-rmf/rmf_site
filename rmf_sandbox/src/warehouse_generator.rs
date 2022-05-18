@@ -1,10 +1,9 @@
 use crate::level::Level;
 use crate::model::Model;
-use crate::site_map::{SiteMap, SiteMapLabel};
+use crate::site_map::{MaterialMap, SiteMap, SiteMapLabel};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::AppState;
-
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
 
@@ -67,10 +66,19 @@ fn warehouse_generator(
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
     warehouse_racks: Query<(Entity, &WarehouseRackTag), With<WarehouseRackTag>>,
     mut generation: Local<usize>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut material_map: ResMut<MaterialMap>,
+    // mesh_query: Query<(Entity, &Handle<Mesh>)>,
+    //handles: Res<Handles>,
+    asset_server: Res<AssetServer>,
+    //point_light_query: Query<(Entity, &PointLight)>,
+    //directional_light_query: Query<(Entity, &DirectionalLight)>,
 ) {
     if !warehouse.is_changed() {
         return;
     }
+
 
     let width = warehouse.area.sqrt();
     let mut vertices: Vec<Mut<Vertex>> = vertices.iter_mut().collect();
@@ -99,6 +107,47 @@ fn warehouse_generator(
     for (e, tag) in warehouse_racks.iter() {
         if tag.0 < *generation {
             commands.entity(e).despawn_recursive();
+/*
+        let make_light_grid = true; // todo: select based on WASM and GPU (or not)
+        if make_light_grid {
+            // spawn a grid of lights for this level
+            let light_spacing = 10.;
+            let num_x_lights = (width / light_spacing).ceil() as i32;
+            let num_y_lights = (width / light_spacing).ceil() as i32;
+            let light_height = (warehouse_state.requested.height as f32) * 1.3 + 1.5;
+            let light_range = light_height * 3.0;
+            for x_idx in 0..num_x_lights {
+                for y_idx in 0..num_y_lights {
+                    let x = (x_idx as f64 - (num_x_lights as f64 - 1.) / 2.) * light_spacing;
+                    let y = (y_idx as f64 - (num_y_lights as f64 - 1.) / 2.) * light_spacing;
+                    commands.spawn_bundle(PointLightBundle {
+                        transform: Transform::from_xyz(x as f32, y as f32, light_height),
+                        point_light: PointLight {
+                            intensity: 2000.,
+                            range: light_range,
+                            //shadows_enabled: true,
+                            ..default()
+                        },
+                        ..default()
+                    });
+                }
+            }
+        } else {
+            // create a single directional light (for machines without GPU)
+            commands.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..Default::default()
+                },
+                transform: Transform {
+                    translation: Vec3::new(0., 0., 50.),
+                    rotation: Quat::from_rotation_x(0.4),
+                    ..Default::default()
+                },
+                ..Default::default()
+            });
+*/
         }
     }
 
@@ -114,6 +163,36 @@ fn warehouse_generator(
             vert_stacks,
         );
     }
+
+    // create the floor material if necessary
+    if !material_map.materials.contains_key("concrete_floor") {
+        let albedo = asset_server.load("sandbox://textures/concrete_albedo_1024.png");
+        let roughness = asset_server.load("sandbox://textures/concrete_roughness_1024.png");
+        let concrete_floor_handle = materials.add(StandardMaterial {
+            base_color_texture: Some(albedo.clone()),
+            perceptual_roughness: 0.3,
+            metallic_roughness_texture: Some(roughness.clone()),
+            ..default()
+        });
+        material_map
+            .materials
+            .insert(String::from("concrete_floor"), concrete_floor_handle);
+    }
+
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
+        material: material_map
+            .materials
+            .get("concrete_floor")
+            .unwrap()
+            .clone(),
+        transform: Transform {
+            rotation: Quat::from_rotation_x(1.5707963),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
+
 }
 
 fn add_racks(
@@ -130,7 +209,6 @@ fn add_racks(
     let rack_length = 2.3784;
     let rack_height = 2.4;
 
-    let pi_2 = 3.1415926 / 2.;
     for idx in 0..(num_racks + 1) {
         for vert_idx in 0..num_stacks {
             let z_offset = (vert_idx as f64) * rack_height;
@@ -142,7 +220,7 @@ fn add_racks(
                     x + (idx as f64) * rack_length,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + pi_2,
+                    yaw,
                 ))
                 .insert(WarehouseRackTag(generation));
             commands
@@ -153,12 +231,12 @@ fn add_racks(
                     x + (idx as f64) * rack_length,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + pi_2,
+                    yaw,
                 ))
                 .insert(WarehouseRackTag(generation));
 
             if idx < num_racks {
-                let rack_x = x + ((idx + 1) as f64) * rack_length;
+                let rack_x = x + (idx as f64) * rack_length;
                 commands
                     .spawn()
                     .insert(Model::from_xyz_yaw(
@@ -167,7 +245,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset - rack_depth_spacing / 2.,
                         z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRackTag(generation));
                 commands
@@ -178,7 +256,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset + rack_depth_spacing / 2.,
                         z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRackTag(generation));
                 let second_shelf_z_offset = 1.0;
@@ -190,7 +268,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset - rack_depth_spacing / 2.,
                         z_offset + second_shelf_z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRackTag(generation));
                 commands
@@ -201,7 +279,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset + rack_depth_spacing / 2.,
                         z_offset + second_shelf_z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRackTag(generation));
             }

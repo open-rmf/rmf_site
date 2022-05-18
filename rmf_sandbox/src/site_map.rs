@@ -1,5 +1,4 @@
-use std::collections::HashSet;
-
+use std::collections::{HashMap, HashSet};
 use crate::lane::Lane;
 use crate::level::Level;
 use crate::measurement::Measurement;
@@ -11,6 +10,11 @@ use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
+
+#[derive(Default)]
+pub struct MaterialMap {
+    pub materials: HashMap<String, Handle<StandardMaterial>>,
+}
 
 #[derive(Default)]
 struct Handles {
@@ -205,27 +209,26 @@ fn init_site_map(
                 })
                 .id(),
         );
-    }
-    if level_entities.len() == 0 {
-        println!("No levels found in site map");
-        return;
+
+        // spawn the floor plane
+        commands
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+                material: handles.default_floor_material.clone(),
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(1.57),
+                    ..Default::default()
+                },
+                ..Default::default()
+            })
+            .insert(SiteMapTag);
+        }
+        if level_entities.len() == 0 {
+            println!("No levels found in site map");
+            return;
     }
     commands.insert_resource(SiteMapLevel(level_entities[0]));
     commands.insert_resource(level_vertices[0].clone());
-
-    // spawn the floor plane
-    // todo: use real floor polygons
-    commands
-        .spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
-                ..Default::default()
-            },
-            ..Default::default()
-        })
-        .insert(SiteMapTag);
 
     commands.insert_resource(handles);
 
@@ -359,7 +362,7 @@ fn update_walls(
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                    mesh: meshes.add(wall.mesh(v1, v2)),
                     material: handles.wall_material.clone(),
                     transform: wall.transform(v1, v2),
                     ..Default::default()
@@ -439,7 +442,9 @@ pub struct SiteMapPlugin;
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<Vec<Vertex>>()
+            .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
             .init_resource::<Handles>()
+            .init_resource::<MaterialMap>()
             .add_system_set(
                 SystemSet::new()
                     .label(SiteMapLabel)
