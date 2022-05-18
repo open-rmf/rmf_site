@@ -390,8 +390,9 @@ fn update_models(
     {
         // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
         // immediately after it is spawned.
-        // Work around it by checking the `spawned` container BEFORE updating it so that,
-        // entities are only despawned at the next frame.
+        // Work around it by checking the `spawned` container BEFORE updating it so that
+        // entities are only despawned at the next frame. This also ensures that entities are
+        // "fully spawned" before despawning.
         for e in spawned.iter() {
             commands.entity(*e).remove::<DespawnBlocker>();
         }
@@ -414,7 +415,6 @@ fn update_models(
         }
 
         for (e, model) in added_models.iter() {
-            println!("spawn {} {}", e.id(), e.generation());
             let bundle_path =
                 String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
             println!(
