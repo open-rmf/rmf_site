@@ -18,10 +18,10 @@ impl From<ModelRaw> for Model {
     fn from(raw: ModelRaw) -> Model {
         Model {
             x_raw: raw.x,
-            y_raw: raw.y,
+            y_raw: -raw.y,
             yaw: raw.yaw,
             x_meters: raw.x,
-            y_meters: raw.y,
+            y_meters: -raw.y,
             instance_name: raw.name,
             model_name: raw.model_name,
             // TODO: implement
@@ -33,8 +33,12 @@ impl From<ModelRaw> for Model {
 impl Model {
     pub fn transform(&self) -> Transform {
         Transform {
-            rotation: Quat::from_rotation_z(self.yaw as f32),
-            translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+            rotation: Quat::from_rotation_z((self.yaw - 1.5707) as f32),
+            translation: Vec3::new(
+                self.x_meters as f32,
+                self.y_meters as f32,
+                self.z_offset as f32,
+            ),
             scale: Vec3::ONE,
         }
     }

@@ -30,15 +30,12 @@ impl From<WallRaw> for Wall {
 }
 
 impl Wall {
-    pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
+    pub fn mesh(&self, v1: &Vertex, v2: &Vertex) -> Mesh {
         let dx = (v2.x_meters - v1.x_meters) as f32;
         let dy = (v2.y_meters - v1.y_meters) as f32;
         let length = Vec2::from([dx, dy]).length();
         let width = 0.1 as f32;
         let height = 3.0 as f32;
-        let yaw = dy.atan2(dx) as f32;
-        let cx = ((v1.x_meters + v2.x_meters) / 2.) as f32;
-        let cy = ((v1.y_meters + v2.y_meters) / 2.) as f32;
 
         // let mut mesh = Mesh::new(PrimitiveTopology::
         // we need to wrap the base wall texture around the wall mesh
@@ -107,6 +104,15 @@ impl Wall {
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
         mesh.set_indices(Some(indices));
+        mesh
+    }
+
+    pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
+        let dx = (v2.x_meters - v1.x_meters) as f32;
+        let dy = (v2.y_meters - v1.y_meters) as f32;
+        let yaw = dy.atan2(dx) as f32;
+        let cx = ((v1.x_meters + v2.x_meters) / 2.) as f32;
+        let cy = ((v1.y_meters + v2.y_meters) / 2.) as f32;
 
         Transform {
             translation: Vec3::new(cx, cy, 0.),
