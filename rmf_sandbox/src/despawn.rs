@@ -49,7 +49,7 @@ impl<'w, 's> Despawner<'w, 's> {
         handle
     }
 
-    pub fn pending(&self, handle: usize) -> bool {
+    pub fn is_pending(&self, handle: usize) -> bool {
         self.tracker.0.contains_key(&handle)
     }
 }

@@ -82,7 +82,7 @@ fn warehouse_generator(
     }
 
     // don't spawn new entities if previous ones are still despawning.
-    if !*need_respawn || despawner.pending(*despawn_handle) {
+    if !*need_respawn || despawner.is_pending(*despawn_handle) {
         return;
     }
 
