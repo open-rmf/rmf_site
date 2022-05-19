@@ -67,14 +67,17 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
+        .add_state(AppState::MainMenu)
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         .insert_resource(DirectionalLightShadowMap { size: 1024 })
-        .add_startup_system(setup)
+        .add_plugin(bevy_egui::EguiPlugin)
+        .add_plugin(MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
-        .add_plugin(UIWidgetsPlugin)
+        .add_plugin(TrafficEditorPlugin)
+        .add_plugin(WarehouseGeneratorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
         .add_system_set(
             SystemSet::new()

@@ -1,11 +1,10 @@
 use crate::despawn::*;
 use crate::level::Level;
 use crate::model::Model;
-use crate::site_map::{SiteMap, SiteMapLabel};
+use crate::site_map::{MaterialMap, SiteMap, SiteMapLabel};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::AppState;
-
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
 
@@ -70,6 +69,10 @@ fn warehouse_generator(
     respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
     mut despawner: DespawnTracker,
     mut need_respawn: Local<bool>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut material_map: ResMut<MaterialMap>,
+    asset_server: Res<AssetServer>,
 ) {
     despawner.tick();
 
@@ -125,6 +128,37 @@ fn warehouse_generator(
             vert_stacks,
         );
     }
+
+    // create the floor material if necessary
+    // TODO: We should add floor material to level and have site map spawn it. This is needed so
+    // that the warehouse will look the same in traffic editor.
+    if !material_map.materials.contains_key("concrete_floor") {
+        let albedo = asset_server.load("sandbox://textures/concrete_albedo_1024.png");
+        let roughness = asset_server.load("sandbox://textures/concrete_roughness_1024.png");
+        let concrete_floor_handle = materials.add(StandardMaterial {
+            base_color_texture: Some(albedo.clone()),
+            perceptual_roughness: 0.3,
+            metallic_roughness_texture: Some(roughness.clone()),
+            ..default()
+        });
+        material_map
+            .materials
+            .insert(String::from("concrete_floor"), concrete_floor_handle);
+    }
+
+    commands.spawn_bundle(PbrBundle {
+        mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
+        material: material_map
+            .materials
+            .get("concrete_floor")
+            .unwrap()
+            .clone(),
+        transform: Transform {
+            rotation: Quat::from_rotation_x(1.5707963),
+            ..Default::default()
+        },
+        ..Default::default()
+    });
 }
 
 fn add_racks(
@@ -140,7 +174,6 @@ fn add_racks(
     let rack_length = 2.3784;
     let rack_height = 2.4;
 
-    let pi_2 = 3.1415926 / 2.;
     for idx in 0..(num_racks + 1) {
         for vert_idx in 0..num_stacks {
             let z_offset = (vert_idx as f64) * rack_height;
@@ -152,7 +185,7 @@ fn add_racks(
                     x + (idx as f64) * rack_length,
                     y - rack_depth_offset - rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + pi_2,
+                    yaw,
                 ))
                 .insert(WarehouseRespawnTag);
             commands
@@ -163,12 +196,12 @@ fn add_racks(
                     x + (idx as f64) * rack_length,
                     y - rack_depth_offset + rack_depth_spacing / 2.,
                     z_offset,
-                    yaw + pi_2,
+                    yaw,
                 ))
                 .insert(WarehouseRespawnTag);
 
             if idx < num_racks {
-                let rack_x = x + ((idx + 1) as f64) * rack_length;
+                let rack_x = x + (idx as f64) * rack_length;
                 commands
                     .spawn()
                     .insert(Model::from_xyz_yaw(
@@ -177,7 +210,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset - rack_depth_spacing / 2.,
                         z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRespawnTag);
                 commands
@@ -188,7 +221,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset + rack_depth_spacing / 2.,
                         z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRespawnTag);
                 let second_shelf_z_offset = 1.0;
@@ -200,7 +233,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset - rack_depth_spacing / 2.,
                         z_offset + second_shelf_z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRespawnTag);
                 commands
@@ -211,7 +244,7 @@ fn add_racks(
                         rack_x,
                         y - rack_depth_offset + rack_depth_spacing / 2.,
                         z_offset + second_shelf_z_offset,
-                        yaw + pi_2,
+                        yaw,
                     ))
                     .insert(WarehouseRespawnTag);
             }
