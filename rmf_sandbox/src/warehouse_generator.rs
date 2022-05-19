@@ -67,29 +67,26 @@ fn warehouse_generator(
     warehouse: Res<Warehouse>,
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
     respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
-    mut despawner: DespawnTracker,
+    mut despawner: Despawner,
+    mut despawn_handle: Local<usize>,
     mut need_respawn: Local<bool>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut material_map: ResMut<MaterialMap>,
     asset_server: Res<AssetServer>,
 ) {
-    despawner.tick();
-
     // despawn previous instance
     if warehouse.is_changed() {
-        for e in respawn_entities.iter() {
-            despawner.despawn(e);
-        }
+        *despawn_handle = despawner.despawn(respawn_entities.iter());
         *need_respawn = true;
+    }
+
+    // don't spawn new entities if previous ones are still despawning.
+    if !*need_respawn || despawner.pending(*despawn_handle) {
         return;
     }
 
-    if !*need_respawn || despawner.pending.len() > 0 {
-        return;
-    }
-
-    // previous isntance should have despawned by now.
+    // previous entities should have despawned by now.
     *need_respawn = false;
 
     let width = warehouse.area.sqrt();
