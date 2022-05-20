@@ -73,7 +73,6 @@ fn despawn_system(
         commands.entity(*e).despawn_recursive();
         despawned.send(Despawned(*e));
         done.push(*e);
-        println!("despawned entity {},{}", e.id(), e.generation());
     }
     for e in done {
         to_despawn.remove(&e);
