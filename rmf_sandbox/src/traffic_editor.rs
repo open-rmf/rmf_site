@@ -54,7 +54,7 @@ struct EditorWindow<'w, 's> {
 }
 
 /// Clone and draw an inspectable so as to avoid change detection in bevy.
-/// 
+///
 /// Bevy change detection works by implementing the dereference operator to mark something
 /// as changed, this cause the change detection to trigger even if there are no writes to
 /// it. Egui on the other hand requires data to be mutable, so passing a component directly
@@ -147,20 +147,13 @@ fn on_startup(mut commands: Commands) {
         .spawn()
         .insert(PickingBlocker)
         .insert(Interaction::default());
-    // inspector_windows.window_data_mut::<Inspector>().visible = false;
-}
-
-fn on_enter() {
-    // inspector_windows.window_data_mut::<Inspector>().visible = true;
 }
 
 fn on_exit(mut commands: Commands) {
     commands.remove_resource::<SiteMap>();
-    // inspector_windows.window_data_mut::<Inspector>().visible = false;
 }
 
 fn maintain_inspected_entities(
-    // mut inspector: ResMut<Inspector>,
     editables: Query<(&Editable, &Interaction), Changed<Interaction>>,
     mut selected: ResMut<Option<Editable>>,
 ) {
@@ -260,8 +253,6 @@ impl Plugin for TrafficEditorPlugin {
             // .add_plugin(InspectorPlugin::<Inspector>::new())
             // .register_inspectable::<Lane>()
             .add_startup_system(on_startup);
-
-        app.add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter));
 
         app.add_system_set(
             SystemSet::on_update(AppState::TrafficEditor)
