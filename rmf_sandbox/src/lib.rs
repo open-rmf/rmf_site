@@ -1,8 +1,7 @@
-use bevy::{
-    // diagnostic::{FrameTimeDiagnosticsPlugin, LogDiagnosticsPlugin},
-    pbr::DirectionalLightShadowMap,
-    prelude::*,
-};
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
+use main_menu::MainMenuPlugin;
+use traffic_editor::TrafficEditorPlugin;
+use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -13,74 +12,34 @@ extern crate web_sys;
 
 mod camera_controls;
 mod demo_world;
+mod despawn;
+
+mod main_menu;
+mod site_map;
+mod traffic_editor;
+mod warehouse_generator;
+
+mod building_map;
 mod lane;
 mod level;
 mod level_transform;
 mod measurement;
 mod model;
 mod sandbox_asset_io;
-mod site_map;
-mod ui_widgets;
 mod vertex;
 mod wall;
-mod warehouse_generator;
 
 use camera_controls::CameraControlsPlugin;
+use despawn::DespawnPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
+
 use site_map::SiteMapPlugin;
-use ui_widgets::UIWidgetsPlugin;
-use warehouse_generator::WarehouseGeneratorPlugin;
 
-fn setup() {
-    /*
-    commands.insert_resource(AmbientLight {
-        color: Color::WHITE,
-        brightness: 0.01,
-    });
-    */
-
-    /*
-    commands.spawn_bundle(DirectionalLightBundle {
-        directional_light: DirectionalLight {
-            shadows_enabled: false,
-            illuminance: 20000.,
-            ..Default::default()
-        },
-        transform: Transform {
-            translation: Vec3::new(0., 0., 50.),
-            rotation: Quat::from_rotation_x(0.4),
-            ..Default::default()
-        },
-        ..Default::default()
-    });
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(0.0, 0.0, 3.0),
-        point_light: PointLight {
-            intensity: 1000.,
-            range: 30.,
-            ..default()
-        },
-        ..default()
-    });
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(10.0, 0.0, 3.0),
-        point_light: PointLight {
-            intensity: 1000.,
-            range: 30.,
-            ..default()
-        },
-        ..default()
-    });
-    commands.spawn_bundle(PointLightBundle {
-        transform: Transform::from_xyz(-10.0, 0.0, 3.0),
-        point_light: PointLight {
-            intensity: 1000.,
-            range: 30.,
-            ..default()
-        },
-        ..default()
-    });
-    */
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum AppState {
+    MainMenu,
+    TrafficEditor,
+    WarehouseGenerator,
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -108,15 +67,18 @@ pub fn run() {
             //vsync: false,
             ..Default::default()
         })
+        .add_state(AppState::MainMenu)
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
         .insert_resource(DirectionalLightShadowMap { size: 1024 })
-        .add_startup_system(setup)
+        .add_plugin(bevy_egui::EguiPlugin)
+        .add_plugin(MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
-        .add_plugin(UIWidgetsPlugin)
+        .add_plugin(TrafficEditorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
+        .add_plugin(DespawnPlugin)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -137,13 +99,16 @@ pub fn run() {
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
+        .add_plugin(bevy_egui::EguiPlugin)
+        .add_state(AppState::MainMenu)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())
         //.insert_resource(Msaa { samples: 4})
+        .add_plugin(MainMenuPlugin)
         .add_plugin(SiteMapPlugin)
         .add_plugin(CameraControlsPlugin)
-        .add_plugin(UIWidgetsPlugin)
+        .add_plugin(TrafficEditorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
-        .add_startup_system(setup)
+        .add_plugin(DespawnPlugin)
         .run();
 }

@@ -1,10 +1,8 @@
-use super::level_transform::LevelTransform;
 use bevy::prelude::*;
 use bevy_inspector_egui::Inspectable;
-//use bevy_mod_picking::PickableBundle;
-use serde_yaml;
 
-#[derive(Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[serde(from = "ModelRaw")]
 pub struct Model {
     pub x_raw: f64,
     pub y_raw: f64,
@@ -16,32 +14,33 @@ pub struct Model {
     pub z_offset: f64,
 }
 
+impl From<ModelRaw> for Model {
+    fn from(raw: ModelRaw) -> Model {
+        Model {
+            x_raw: raw.x,
+            y_raw: -raw.y,
+            yaw: raw.yaw,
+            x_meters: raw.x,
+            y_meters: -raw.y,
+            instance_name: raw.name,
+            model_name: raw.model_name,
+            // TODO: implement
+            z_offset: 0.,
+        }
+    }
+}
+
 impl Model {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        _transform: &LevelTransform,
-        asset_server: &Res<AssetServer>,
-    ) {
-        let bundle_path =
-            String::from("sandbox://") + &self.model_name + &String::from(".glb#Scene0");
-        let glb = asset_server.load(&bundle_path);
-        commands
-            .spawn_bundle((
-                Transform {
-                    rotation: Quat::from_rotation_z(self.yaw as f32),
-                    translation: Vec3::new(
-                        self.x_meters as f32,
-                        self.y_meters as f32,
-                        self.z_offset as f32,
-                    ),
-                    scale: Vec3::ONE,
-                },
-                GlobalTransform::identity(),
-            ))
-            .with_children(|parent| {
-                parent.spawn_scene(glb);
-            });
+    pub fn transform(&self) -> Transform {
+        Transform {
+            rotation: Quat::from_rotation_z((self.yaw - 1.5707) as f32),
+            translation: Vec3::new(
+                self.x_meters as f32,
+                self.y_meters as f32,
+                self.z_offset as f32,
+            ),
+            scale: Vec3::ONE,
+        }
     }
 
     pub fn from_xyz_yaw(
@@ -63,22 +62,17 @@ impl Model {
             z_offset: z,
         };
     }
+}
 
-    pub fn from_yaml(value: &serde_yaml::Value) -> Model {
-        let x_raw = value["x"].as_f64().unwrap();
-        let y_raw = value["y"].as_f64().unwrap();
-        let yaw = value["yaw"].as_f64().unwrap() - 3.14159 / 2.;
-        let model_name = value["model_name"].as_str().unwrap();
-        let instance_name = value["name"].as_str().unwrap();
-        return Model {
-            x_raw: x_raw,
-            y_raw: -y_raw,
-            x_meters: x_raw,
-            y_meters: -y_raw,
-            yaw: yaw,
-            model_name: model_name.to_string(),
-            instance_name: instance_name.to_string(),
-            z_offset: 0., // todo
-        };
-    }
+#[derive(serde::Deserialize)]
+#[allow(dead_code)]
+struct ModelRaw {
+    model_name: String,
+    name: String,
+    #[serde(rename = "static")]
+    static_: bool,
+    x: f64,
+    y: f64,
+    z: f64,
+    yaw: f64,
 }
