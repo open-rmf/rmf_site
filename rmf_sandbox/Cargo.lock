@@ -3671,6 +3671,7 @@ dependencies = [
  "dirs",
  "futures-lite",
  "rfd",
+ "serde",
  "serde_yaml",
  "surf",
  "wasm-bindgen",

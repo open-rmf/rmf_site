@@ -1,50 +1,26 @@
-use super::lane::Lane;
-use super::level::Level;
-use super::measurement::Measurement;
-use super::ui_widgets::VisibleWindows;
-use super::vertex::Vertex;
-use super::wall::Wall;
-use bevy::prelude::*;
-use bevy::render::camera::{ActiveCamera, Camera3d};
-use bevy::ui::Interaction;
-use bevy_egui::EguiContext;
-use bevy_inspector_egui::plugin::InspectorWindows;
-use bevy_inspector_egui::{Inspectable, InspectorPlugin, RegisterInspectable};
-use bevy_mod_picking::{DefaultPickingPlugins, PickingBlocker, PickingCamera, PickingCameraBundle};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
-use std::{
-    env,
-    fs::{metadata, File},
-};
+use crate::despawn::DespawnBlocker;
+use crate::lane::Lane;
+use crate::level::Level;
+use crate::measurement::Measurement;
+use crate::model::Model;
+use crate::vertex::Vertex;
+use crate::{building_map::BuildingMap, wall::Wall};
+use bevy::asset::LoadState;
+use bevy::ecs::system::SystemParam;
+use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
 
-use serde_yaml;
-
-#[derive(Inspectable, Default)]
-struct Inspector {
-    #[inspectable(deletable = false)]
-    active: Option<Editable>,
-}
-
-#[derive(Inspectable, Component, Clone)]
-pub enum Editable {
-    Lane(Lane),
-    Measurement(Measurement),
-    Vertex(Vertex),
-    Wall(Wall),
-}
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+pub struct SiteMapLabel;
 
 #[derive(Default)]
 pub struct MaterialMap {
     pub materials: HashMap<String, Handle<StandardMaterial>>,
 }
 
-////////////////////////////////////////////////////////
-// A few helper structs to use when parsing YAML files
-////////////////////////////////////////////////////////
-
 #[derive(Default)]
-pub struct Handles {
+struct Handles {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
@@ -53,23 +29,19 @@ pub struct Handles {
     pub wall_material: Handle<StandardMaterial>,
 }
 
-#[derive(Default)]
+#[derive(Default, Component)]
 pub struct SiteMap {
-    site_name: String,
-    levels: Vec<Level>,
+    pub site_name: String,
+    pub levels: Vec<Level>,
 }
 
 impl SiteMap {
-    pub fn from_yaml(doc: &serde_yaml::Value) -> SiteMap {
-        let mut sm = SiteMap {
+    pub fn from_building_map(building_map: BuildingMap) -> SiteMap {
+        let sm = SiteMap {
+            site_name: building_map.name,
+            levels: building_map.levels.into_values().collect(),
             ..Default::default()
         };
-
-        sm.site_name = doc["name"].as_str().unwrap().to_string();
-        for (k, level_yaml) in doc["levels"].as_mapping().unwrap().iter() {
-            let name_str = k.as_str().unwrap();
-            sm.levels.push(Level::from_yaml(name_str, level_yaml));
-        }
 
         // todo: global alignment via fiducials
 
@@ -77,92 +49,109 @@ impl SiteMap {
     }
 }
 
-////////////////////////////////////////////////////////
-// A few events to use when requesting to spawn a map
-////////////////////////////////////////////////////////
+/// Used to keep track of the entity that represents the current level being rendered by the plugin.
+struct SiteMapLevel(Entity);
 
-pub struct SpawnSiteMapFilename {
-    pub filename: String,
+/// Used to keep track of entities created by the site map system.
+#[derive(Component)]
+struct SiteMapTag;
+
+/// Keeps track of the entities of vertices.
+#[derive(SystemParam)]
+struct VerticesManager<'w, 's> {
+    data: ResMut<'w, VerticesManagerData>,
+    query: Query<'w, 's, (&'static Vertex, ChangeTrackers<Vertex>)>,
 }
 
-pub struct SpawnSiteMapYaml {
-    pub yaml_doc: serde_yaml::Value,
+#[derive(Default)]
+struct VerticesManagerData {
+    entities: Vec<Entity>,
+    used_by_entites: Vec<HashSet<Entity>>,
 }
 
-pub struct SpawnSiteMap {
-    pub site_map: SiteMap,
-}
+impl<'w, 's> VerticesManager<'w, 's> {
+    fn push_vertex(&mut self, e: Entity, used_by: &[Entity]) {
+        self.data.entities.push(e);
+        self.data
+            .used_by_entites
+            .push(HashSet::from_iter(used_by.into_iter().cloned()));
+    }
 
-pub fn spawn_site_map_filename(
-    mut ev_filename: EventReader<SpawnSiteMapFilename>,
-    mut ev_yaml: EventWriter<SpawnSiteMapYaml>,
-) {
-    for ev in ev_filename.iter() {
-        let filename = &ev.filename;
-        println!("spawn_site_map_filename: : [{}]", filename);
-        if !metadata(&filename).is_ok() {
-            println!("could not open [{}]", &filename);
-            return;
-        }
-        let file = File::open(&filename).expect("Could not open file");
-        let doc: serde_yaml::Value = serde_yaml::from_reader(file).ok().unwrap();
-        ev_yaml.send(SpawnSiteMapYaml { yaml_doc: doc });
+    fn insert_used_by(&mut self, vertex_id: usize, used_entity: Entity) {
+        self.data.used_by_entites[vertex_id].insert(used_entity);
+    }
+
+    fn get_vertex(&self, vertex_id: usize) -> (&Vertex, ChangeTrackers<Vertex>) {
+        self.query.get(self.data.entities[vertex_id]).unwrap()
     }
 }
 
-pub fn spawn_site_map_yaml(
-    mut ev_yaml: EventReader<SpawnSiteMapYaml>,
-    mut ev_site_map: EventWriter<SpawnSiteMap>,
-) {
-    for ev in ev_yaml.iter() {
-        let sm = SiteMap::from_yaml(&ev.yaml_doc);
-        ev_site_map.send(SpawnSiteMap { site_map: sm });
-    }
-}
+#[derive(Component, Default)]
+struct VertexUsedBy(Vec<Entity>);
 
-fn spawn_site_map(
-    mut ev_spawn: EventReader<SpawnSiteMap>,
+#[derive(Component, Default)]
+struct VertexChanged(usize);
+
+fn init_site_map(
+    sm: Res<SiteMap>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    mesh_query: Query<(Entity, &Handle<Mesh>)>,
-    point_light_query: Query<(Entity, &PointLight)>,
-    directional_light_query: Query<(Entity, &DirectionalLight)>,
-    handles: Res<Handles>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
 ) {
-    for ev in ev_spawn.iter() {
-        let sm = &ev.site_map;
+    println!("Loading assets");
+    let mut handles = Handles::default();
+    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
+        radius: 0.15,
+        rings: 2,
+        depth: 0.05,
+        latitudes: 8,
+        longitudes: 16,
+        uv_profile: shape::CapsuleUvProfile::Fixed,
+    }));
+    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
+    handles.default_floor_material = materials.add(StandardMaterial {
+        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
+        perceptual_roughness: 0.5,
+        ..default()
+    });
+    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
+    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
+    //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
+    handles.wall_material = materials.add(StandardMaterial {
+        base_color_texture: Some(default_wall_material_texture.clone()),
+        unlit: false,
+        ..default()
+    });
 
-        // first, despawn all existing mesh entities
-        println!("despawing all meshes and lights...");
-        for entity_mesh in mesh_query.iter() {
-            let (entity, _mesh) = entity_mesh;
-            commands.entity(entity).despawn_recursive();
-        }
-        for entity_light in point_light_query.iter() {
-            let (entity, _light) = entity_light;
-            commands.entity(entity).despawn_recursive();
-        }
-        for entity_light in directional_light_query.iter() {
-            let (entity, _light) = entity_light;
-            commands.entity(entity).despawn_recursive();
-        }
+    println!("Initializing site map: {}", sm.site_name);
+    commands.insert_resource(AmbientLight {
+        color: Color::WHITE,
+        brightness: 0.001,
+    });
 
-        for level in &sm.levels {
-            level.spawn(&mut commands, &mut meshes, &handles, &asset_server);
-            // todo: calculate bounding box of this level
-            let bb = level.calc_bb();
-            let make_light_grid = false; // todo: select based on WASM and GPU (or not)
-            if make_light_grid {
-                // spawn a grid of lights for this level
-                let light_spacing = 10.;
-                let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
-                let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
-                for x_idx in 0..num_x_lights {
-                    for y_idx in 0..num_y_lights {
-                        let x = bb.min_x + (x_idx as f64) * light_spacing;
-                        let y = bb.min_y + (y_idx as f64) * light_spacing;
-                        commands.spawn_bundle(PointLightBundle {
+    commands.init_resource::<VerticesManagerData>();
+
+    let mut level_entities: Vec<Entity> = Vec::new();
+    let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
+    for level in &sm.levels {
+        // spawn lights
+        // todo: calculate bounding box of this level
+        let bb = level.calc_bb();
+        let make_light_grid = false; // todo: select based on WASM and GPU (or not)
+        if make_light_grid {
+            // spawn a grid of lights for this level
+            let light_spacing = 10.;
+            let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
+            let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
+            for x_idx in 0..num_x_lights {
+                for y_idx in 0..num_y_lights {
+                    let x = bb.min_x + (x_idx as f64) * light_spacing;
+                    let y = bb.min_y + (y_idx as f64) * light_spacing;
+                    commands
+                        .spawn_bundle(PointLightBundle {
                             transform: Transform::from_xyz(x as f32, y as f32, 3.0),
                             point_light: PointLight {
                                 intensity: 500.,
@@ -171,12 +160,14 @@ fn spawn_site_map(
                                 ..default()
                             },
                             ..default()
-                        });
-                    }
+                        })
+                        .insert(SiteMapTag);
                 }
-            } else {
-                // create a single directional light (for machines without GPU)
-                commands.spawn_bundle(DirectionalLightBundle {
+            }
+        } else {
+            // create a single directional light (for machines without GPU)
+            commands
+                .spawn_bundle(DirectionalLightBundle {
                     directional_light: DirectionalLight {
                         shadows_enabled: false,
                         illuminance: 20000.,
@@ -188,138 +179,285 @@ fn spawn_site_map(
                         ..Default::default()
                     },
                     ..Default::default()
-                });
-            }
+                })
+                .insert(SiteMapTag);
         }
 
-        // todo: use real floor polygons
-        commands.spawn_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
+        let vertices = &level.vertices;
+        level_vertices.push(vertices);
+        level_entities.push(
+            commands
+                .spawn()
+                .insert(SiteMapTag)
+                .insert_bundle(TransformBundle::from_transform(Transform {
+                    translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
+                    ..default()
+                }))
+                .with_children(|cb| {
+                    for v in vertices {
+                        cb.spawn().insert(v.clone());
+                    }
+                    for lane in &level.lanes {
+                        cb.spawn().insert(lane.clone());
+                    }
+                    for measurement in &level.measurements {
+                        cb.spawn().insert(measurement.clone());
+                    }
+                    for wall in &level.walls {
+                        cb.spawn().insert(wall.clone());
+                    }
+                    for model in &level.models {
+                        cb.spawn().insert(model.clone());
+                    }
+                })
+                .id(),
+        );
+
+        // spawn the floor plane
+        commands
+            .spawn_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+                material: handles.default_floor_material.clone(),
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(1.57),
+                    ..Default::default()
+                },
                 ..Default::default()
-            },
-            ..Default::default()
-        });
+            })
+            .insert(SiteMapTag);
+    }
+    if level_entities.len() == 0 {
+        println!("No levels found in site map");
+        return;
+    }
+    commands.insert_resource(SiteMapLevel(level_entities[0]));
+    commands.insert_resource(level_vertices[0].clone());
+
+    commands.insert_resource(handles);
+
+    println!("Finished initializing site map");
+}
+
+fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, With<SiteMapTag>>) {
+    println!("Unloading assets");
+    // removing all the strong handles should automatically unload the assets.
+    commands.remove_resource::<Handles>();
+    // removing this causes bevy to panic, instead just replace it with the default.
+    commands.init_resource::<AmbientLight>();
+
+    println!("Despawn all entites");
+    for entity in site_map_entities.iter() {
+        commands.entity(entity).despawn_recursive();
+    }
+    commands.remove_resource::<SiteMapLevel>();
+    commands.remove_resource::<VerticesManagerData>();
+}
+
+fn update_vertices(
+    mut commands: Commands,
+    level_entity: Res<SiteMapLevel>,
+    handles: Res<Handles>,
+    mut vertices_mgr: VerticesManager,
+    added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
+    mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
+) {
+    // spawn new vertices
+    for (e, v) in added_vertices.iter() {
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
+                mesh: handles.vertex_mesh.clone(),
+                material: handles.vertex_material.clone(),
+                transform: v.transform(),
+                ..Default::default()
+            })
+            .insert(Parent(level_entity.0));
+        vertices_mgr.push_vertex(e, &[]);
+    }
+    // update changed vertices
+    for (v, mut t) in changed_vertices.iter_mut() {
+        *t = v.transform();
     }
 }
 
-pub fn initialize_site_map(
+fn update_lanes(
     mut commands: Commands,
-    mut spawn_filename_writer: EventWriter<SpawnSiteMapFilename>,
+    level_entity: Res<SiteMapLevel>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    vertices_mgr: VerticesManager,
+    mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&mut Transform>)>,
 ) {
-    let args: Vec<String> = env::args().collect();
-    if args.len() >= 2 {
-        spawn_filename_writer.send(SpawnSiteMapFilename {
-            filename: args[1].clone(),
-        });
-    }
-    commands
-        .spawn()
-        .insert(PickingBlocker)
-        .insert(Interaction::default());
-}
+    // spawn new lanes
+    for (e, lane, change, t) in lanes.iter_mut() {
+        let (v1, v1_change) = vertices_mgr.get_vertex(lane.start);
+        let (v2, v2_change) = vertices_mgr.get_vertex(lane.end);
 
-pub fn manage_inspector(
-    visible_windows: ResMut<VisibleWindows>,
-    mut inspector_windows: ResMut<InspectorWindows>,
-) {
-    let mut inspector_window_data = inspector_windows.window_data_mut::<Inspector>();
-    inspector_window_data.visible = visible_windows.inspector;
-}
-
-fn update_picking_cam(
-    mut commands: Commands,
-    opt_active_camera: Option<Res<ActiveCamera<Camera3d>>>,
-    picking_cams: Query<Entity, With<PickingCamera>>,
-) {
-    let active_camera = match opt_active_camera {
-        Some(cam) => cam,
-        None => return,
-    };
-    if active_camera.is_changed() {
-        match active_camera.get() {
-            Some(active_cam) => {
-                // remove all previous picking cameras
-                for cam in picking_cams.iter() {
-                    commands.entity(cam).remove_bundle::<PickingCameraBundle>();
-                }
-                commands
-                    .entity(active_cam)
-                    .insert_bundle(PickingCameraBundle::default());
-            }
-            None => (),
+        if change.is_added() {
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
+                    material: handles.lane_material.clone(),
+                    transform: lane.transform(v1, v2),
+                    ..Default::default()
+                })
+                .insert(lane.clone())
+                .insert(Parent(level_entity.0));
+        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
+            *t.unwrap() = lane.transform(v1, v2);
         }
     }
 }
 
-/// Stops picking when egui is in focus.
-/// This creates a dummy PickingBlocker and make it "Clicked" whenever egui is in focus.
-///
-/// Normally bevy_mod_picking automatically stops when
-/// a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
-fn enable_picking(
-    mut egui_context: ResMut<EguiContext>,
-    mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
-) {
-    let egui_ctx = egui_context.ctx_mut();
-    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
-
-    let mut blocker = picking_blocker.single_mut();
-    if enable {
-        *blocker = Interaction::None;
-    } else {
-        *blocker = Interaction::Clicked;
-    }
-}
-
-fn maintain_inspected_entities(
-    mut inspector: ResMut<Inspector>,
-    editables: Query<(&Editable, &Interaction), Changed<Interaction>>,
-) {
-    let selected = editables.iter().find_map(|(e, i)| match i {
-        Interaction::Clicked => Some(e),
-        _ => None,
-    });
-    if let Some(selected) = selected {
-        inspector.active = Some(selected.clone())
-    }
-}
-
-fn init_handles(
+fn update_measurements(
+    mut commands: Commands,
+    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    mut handles: ResMut<Handles>,
-    asset_server: Res<AssetServer>,
+    handles: Res<Handles>,
+    vertices_mgr: VerticesManager,
+    mut measurements: Query<
+        (
+            Entity,
+            &Measurement,
+            ChangeTrackers<Measurement>,
+            Option<&mut Transform>,
+        ),
+        Changed<Measurement>,
+    >,
 ) {
-    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-        radius: 0.15,
-        rings: 2,
-        depth: 0.05,
-        latitudes: 8,
-        longitudes: 16,
-        uv_profile: shape::CapsuleUvProfile::Fixed,
-    }));
+    // spawn new measurements
+    for (e, measurement, change, t) in measurements.iter_mut() {
+        let (v1, v1_change) = vertices_mgr.get_vertex(measurement.start);
+        let (v2, v2_change) = vertices_mgr.get_vertex(measurement.end);
 
-    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
-    handles.default_floor_material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
-        perceptual_roughness: 0.5,
-        ..default()
-    });
+        if change.is_added() {
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
+                    material: handles.measurement_material.clone(),
+                    transform: measurement.transform(v1, v2),
+                    ..Default::default()
+                })
+                .insert(measurement.clone())
+                .insert(Parent(level_entity.0));
+        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
+            *t.unwrap() = measurement.transform(v1, v2);
+        }
+    }
+}
 
-    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
-    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+fn update_walls(
+    mut commands: Commands,
+    level_entity: Res<SiteMapLevel>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    mut vertices_mgr: VerticesManager,
+    mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>, Option<&mut Transform>)>,
+) {
+    // spawn new walls
+    for (e, wall, change, t) in walls.iter_mut() {
+        let (v1, v1_change) = vertices_mgr.get_vertex(wall.start);
+        let (v2, v2_change) = vertices_mgr.get_vertex(wall.end);
 
-    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
-    //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
-    handles.wall_material = materials.add(StandardMaterial {
-        base_color_texture: Some(default_wall_material_texture.clone()),
-        unlit: false,
-        ..default()
-    });
+        if change.is_added() {
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(wall.mesh(v1, v2)),
+                    material: handles.wall_material.clone(),
+                    transform: wall.transform(v1, v2),
+                    ..Default::default()
+                })
+                .insert(wall.clone())
+                .insert(Parent(level_entity.0));
+            vertices_mgr.insert_used_by(wall.start, e);
+            vertices_mgr.insert_used_by(wall.end, e);
+        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
+            *t.unwrap() = wall.transform(v1, v2);
+        }
+    }
+}
+
+fn update_models(
+    mut commands: Commands,
+    level_entity: Res<SiteMapLevel>,
+    added_models: Query<(Entity, &Model), Added<Model>>,
+    mut changed_models: Query<(&Model, &mut Transform), (Changed<Model>, With<Model>)>,
+    asset_server: Res<AssetServer>,
+    mut loading_models: Local<HashMap<Entity, (Model, Handle<Scene>)>>,
+    mut spawned: Local<Vec<Entity>>,
+) {
+    // spawn new models
+    {
+        // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
+        // immediately after it is spawned.
+        // Work around it by checking the `spawned` container BEFORE updating it so that
+        // entities are only despawned at the next frame. This also ensures that entities are
+        // "fully spawned" before despawning.
+        for e in spawned.iter() {
+            commands.entity(*e).remove::<DespawnBlocker>();
+        }
+        spawned.clear();
+
+        for (e, (model, h)) in loading_models.iter() {
+            if asset_server.get_load_state(h) == LoadState::Loaded {
+                commands
+                    .entity(*e)
+                    .insert_bundle((model.transform(), GlobalTransform::identity()))
+                    .with_children(|parent| {
+                        parent.spawn_scene(h.clone());
+                    })
+                    .insert(Parent(level_entity.0));
+                spawned.push(*e);
+            }
+        }
+        for e in spawned.iter() {
+            loading_models.remove(e);
+        }
+
+        for (e, model) in added_models.iter() {
+            let bundle_path =
+                String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
+            println!(
+                "spawning {} at {}, {}",
+                &bundle_path, model.x_meters, model.y_meters
+            );
+            let glb: Handle<Scene> = asset_server.load(&bundle_path);
+            commands.entity(e).insert(DespawnBlocker());
+            loading_models.insert(e, (model.clone(), glb.clone()));
+        }
+    }
+    // update changed models
+    for (model, mut t) in changed_models.iter_mut() {
+        *t = model.transform();
+    }
+}
+
+fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
+    if let Some(sm) = sm {
+        if sm.is_added() {
+            return ShouldRun::Yes;
+        }
+    }
+    ShouldRun::No
+}
+
+fn should_despawn_site_map(sm: Option<Res<SiteMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
+    if sm.is_none() && *sm_existed {
+        *sm_existed = false;
+        return ShouldRun::Yes;
+    }
+    *sm_existed = sm.is_some();
+    return ShouldRun::No;
+}
+
+fn has_site_map(level_entity: Option<Res<SiteMapLevel>>) -> ShouldRun {
+    if level_entity.is_some() {
+        return ShouldRun::Yes;
+    }
+    ShouldRun::No
 }
 
 #[derive(Default)]
@@ -327,22 +465,25 @@ pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DefaultPickingPlugins)
-            .add_plugin(InspectorPlugin::<Inspector>::new())
-            .register_inspectable::<Lane>()
+        app.init_resource::<Vec<Vertex>>()
+            .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
             .init_resource::<Handles>()
             .init_resource::<MaterialMap>()
-            .add_startup_system(init_handles)
-            .add_event::<SpawnSiteMap>()
-            .add_event::<SpawnSiteMapFilename>()
-            .add_event::<SpawnSiteMapYaml>()
-            .add_startup_system(initialize_site_map)
-            .add_system(spawn_site_map)
-            .add_system(spawn_site_map_yaml)
-            .add_system(spawn_site_map_filename)
-            .add_system(update_picking_cam)
-            .add_system(enable_picking)
-            .add_system(maintain_inspected_entities)
-            .add_system(manage_inspector);
+            .add_system_set(
+                SystemSet::new()
+                    .label(SiteMapLabel)
+                    .with_system(init_site_map.with_run_criteria(should_init_site_map))
+                    .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
+            )
+            .add_system_set(
+                SystemSet::new()
+                    .label(SiteMapLabel)
+                    .with_run_criteria(has_site_map)
+                    .with_system(update_vertices.after(init_site_map))
+                    .with_system(update_lanes.after(update_vertices))
+                    .with_system(update_walls.after(update_vertices))
+                    .with_system(update_measurements.after(update_vertices))
+                    .with_system(update_models.after(init_site_map)),
+            );
     }
 }

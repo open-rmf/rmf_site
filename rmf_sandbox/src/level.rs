@@ -2,20 +2,46 @@ use super::lane::Lane;
 use super::level_transform::LevelTransform;
 use super::measurement::Measurement;
 use super::model::Model;
-use super::site_map::Handles;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
-use serde_yaml;
 
-#[derive(Component, Clone, Default)]
+#[derive(serde::Deserialize, Component, Clone, Default)]
+#[serde(from = "LevelRaw")]
 pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
+    pub elevation: Option<f64>,
     pub transform: LevelTransform,
+}
+
+impl Level {
+    pub fn calc_bb(&self) -> BoundingBox2D {
+        let mut bb = BoundingBox2D {
+            min_x: 1e100,
+            max_x: -1e100,
+            min_y: 1e100,
+            max_y: -1e100,
+        };
+        for v in self.vertices.iter() {
+            if v.x_meters < bb.min_x {
+                bb.min_x = v.x_meters;
+            }
+            if v.x_meters > bb.max_x {
+                bb.max_x = v.x_meters;
+            }
+            if v.y_meters < bb.min_y {
+                bb.min_y = v.y_meters;
+            }
+            if v.y_meters > bb.max_y {
+                bb.max_y = v.y_meters;
+            }
+        }
+        bb
+    }
 }
 
 pub struct BoundingBox2D {
@@ -25,66 +51,18 @@ pub struct BoundingBox2D {
     pub max_y: f64,
 }
 
-impl Level {
-    pub fn spawn(
-        &self,
-        commands: &mut Commands,
-        meshes: &mut ResMut<Assets<Mesh>>,
-        handles: &Res<Handles>,
-        asset_server: &Res<AssetServer>,
-    ) {
-        for v in &self.vertices {
-            v.spawn(commands, handles, &self.transform);
-        }
+impl From<LevelRaw> for Level {
+    fn from(raw: LevelRaw) -> Self {
+        let mut level = Level {
+            vertices: raw.vertices,
+            lanes: raw.lanes,
+            measurements: raw.measurements,
+            models: raw.models,
+            walls: raw.walls,
+            ..default()
+        };
 
-        for lane in &self.lanes {
-            lane.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for measurement in &self.measurements {
-            measurement.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for wall in &self.walls {
-            wall.spawn(&self.vertices, commands, meshes, handles, &self.transform);
-        }
-
-        for model in &self.models {
-            model.spawn(commands, &self.transform, asset_server);
-        }
-    }
-
-    pub fn from_yaml(name: &str, data: &serde_yaml::Value) -> Level {
-        println!("parsing level name: [{}]", name);
-        let mut level = Level::default();
-        for vertex_yaml in data["vertices"].as_sequence().unwrap() {
-            level.vertices.push(Vertex::from_yaml(vertex_yaml));
-        }
-        for lane_yaml in data["lanes"].as_sequence().unwrap() {
-            level.lanes.push(Lane::from_yaml(lane_yaml));
-        }
-        let walls_yaml = data["walls"].as_sequence();
-        if walls_yaml.is_some() {
-            for wall_yaml in walls_yaml.unwrap() {
-                level.walls.push(Wall::from_yaml(wall_yaml));
-            }
-        }
-
-        let meas_seq = data["measurements"].as_sequence();
-        if meas_seq.is_some() {
-            for meas in meas_seq.unwrap() {
-                level.measurements.push(Measurement::from_yaml(meas));
-            }
-        }
-
-        let model_seq = data["models"].as_sequence();
-        if model_seq.is_some() {
-            for model in model_seq.unwrap() {
-                level.models.push(Model::from_yaml(model));
-            }
-        }
-
-        level.transform.translation[2] = match data["elevation"].as_f64() {
+        level.transform.translation[2] = match raw.elevation {
             Some(e) => e,
             None => 0.,
         };
@@ -126,30 +104,16 @@ impl Level {
             m.x_meters = (m.x_raw - ofs_x) * scale;
             m.y_meters = (m.y_raw - ofs_y) * scale;
         }
-        return level;
+        level
     }
+}
 
-    pub fn calc_bb(&self) -> BoundingBox2D {
-        let mut bb = BoundingBox2D {
-            min_x: 1e100,
-            max_x: -1e100,
-            min_y: 1e100,
-            max_y: -1e100,
-        };
-        for v in self.vertices.iter() {
-            if v.x_meters < bb.min_x {
-                bb.min_x = v.x_meters;
-            }
-            if v.x_meters > bb.max_x {
-                bb.max_x = v.x_meters;
-            }
-            if v.y_meters < bb.min_y {
-                bb.min_y = v.y_meters;
-            }
-            if v.y_meters > bb.max_y {
-                bb.max_y = v.y_meters;
-            }
-        }
-        bb
-    }
+#[derive(serde::Deserialize)]
+struct LevelRaw {
+    vertices: Vec<Vertex>,
+    lanes: Vec<Lane>,
+    measurements: Vec<Measurement>,
+    models: Vec<Model>,
+    walls: Vec<Wall>,
+    elevation: Option<f64>,
 }
