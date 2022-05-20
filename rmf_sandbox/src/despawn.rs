@@ -25,7 +25,7 @@ pub struct DespawnTracker(HashMap<usize, HashSet<Entity>>);
 
 /// A wrapper over the `Despawn` event that tracks `Despawned` events to track when
 /// the entities have all been despawned.
-/// 
+///
 /// The `Despawned` event is being tracked in the `PreUpdate` stage to avoid frame
 /// delays as much as possible. Do note that there may be a 1 frame delay if your
 /// system also runs in the `PreUpdate` stage.
