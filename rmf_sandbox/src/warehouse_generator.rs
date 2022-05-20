@@ -158,14 +158,7 @@ fn warehouse_generator(
     });
 }
 
-fn add_racks(
-    commands: &mut Commands,
-    x: f64,
-    y: f64,
-    yaw: f64,
-    num_racks: i32,
-    num_stacks: i32,
-) {
+fn add_racks(commands: &mut Commands, x: f64, y: f64, yaw: f64, num_racks: i32, num_stacks: i32) {
     let rack_depth_spacing = 1.3;
     let rack_depth_offset = 0.5;
     let rack_length = 2.3784;
