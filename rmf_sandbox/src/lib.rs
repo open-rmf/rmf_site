@@ -30,8 +30,8 @@ mod vertex;
 mod wall;
 
 use camera_controls::CameraControlsPlugin;
-use sandbox_asset_io::SandboxAssetIoPlugin;
 use despawn::DespawnPlugin;
+use sandbox_asset_io::SandboxAssetIoPlugin;
 
 use site_map::SiteMapPlugin;
 
