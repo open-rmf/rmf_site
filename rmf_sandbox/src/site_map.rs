@@ -390,7 +390,6 @@ fn update_models(
     mut spawned: Local<Vec<Entity>>,
 ) {
     // spawn new models
-    #[cfg(not(target_arch = "wasm32"))]
     {
         // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
         // immediately after it is spawned.

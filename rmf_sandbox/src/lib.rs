@@ -78,7 +78,7 @@ pub fn run() {
         .add_plugin(CameraControlsPlugin)
         .add_plugin(TrafficEditorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(WarehouseGeneratorPlugin)
+        .add_plugin(DespawnPlugin)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
