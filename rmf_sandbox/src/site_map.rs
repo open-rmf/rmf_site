@@ -420,10 +420,6 @@ fn update_models(
         for (e, model) in added_models.iter() {
             let bundle_path =
                 String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
-            println!(
-                "spawning {} at {}, {}",
-                &bundle_path, model.x_meters, model.y_meters
-            );
             let glb: Handle<Scene> = asset_server.load(&bundle_path);
             commands.entity(e).insert(DespawnBlocker());
             loading_models.insert(e, (model.clone(), glb.clone()));
