@@ -10,7 +10,59 @@ pub struct BuildingMap {
 
 impl BuildingMap {
     pub fn from_bytes(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
+        // TODO: detect if file is old pixel coordinates or new cartesian format.
+        BuildingMap::from_bytes_legacy(data)
+    }
+
+    fn from_bytes_cartesian(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
         serde_yaml::from_slice(data)
+    }
+
+    /// Loads a legacy building map which uses pixel coordinates.
+    fn from_bytes_legacy(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
+        let mut map = BuildingMap::from_bytes_cartesian(data)?;
+        for (_, level) in map.levels.iter_mut() {
+            // todo: calculate scale and inter-level alignment
+            let mut ofs_x = 0.0;
+            let mut ofs_y = 0.0;
+            let mut num_v = 0;
+            for v in &level.vertices {
+                ofs_x += v.x;
+                ofs_y += -v.y;
+                num_v += 1;
+            }
+            ofs_x /= num_v as f64;
+            ofs_y /= num_v as f64;
+
+            // try to guess the scale by averaging the measurement distances.
+            let mut n_dist = 0;
+            let mut sum_dist = 0.;
+            for meas in &level.measurements {
+                let dx_raw = level.vertices[meas.start].x - level.vertices[meas.end].x;
+                let dy_raw = level.vertices[meas.start].y - level.vertices[meas.end].y;
+                let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
+                let dist_meters = meas.distance;
+                sum_dist += dist_meters / dist_raw;
+                n_dist += 1;
+            }
+            let scale = match n_dist {
+                0 => 1.0,
+                _ => sum_dist / n_dist as f64,
+            };
+            println!("scale: {}", scale);
+
+            // convert to meters
+            for v in level.vertices.iter_mut() {
+                v.x = (v.x - ofs_x) * scale;
+                v.y = (-v.y - ofs_y) * scale;
+            }
+
+            for m in level.models.iter_mut() {
+                m.x = (m.x - ofs_x) * scale;
+                m.y = (-m.y - ofs_y) * scale;
+            }
+        }
+        Ok(map)
     }
 }
 
