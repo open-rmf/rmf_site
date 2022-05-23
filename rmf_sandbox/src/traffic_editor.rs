@@ -1,13 +1,11 @@
-use std::ops::DerefMut;
-
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
+use crate::model::Model;
 use crate::site_map::SiteMap;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::AppState;
-use bevy::ecs::system::SystemParam;
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -15,43 +13,194 @@ use bevy::{
     tasks::AsyncComputeTaskPool,
 };
 use bevy_egui::{egui, EguiContext};
-use bevy_inspector_egui::Inspectable;
 use bevy_mod_picking::{
     DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
 };
 
-#[derive(Component, Clone)]
-pub enum Editable {
-    Lane(Entity),
-    Measurement(Entity),
-    Vertex(Entity),
-    Wall(Entity),
+trait Editable: Sync + Send + Clone {
+    fn title() -> &'static str;
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool;
 }
 
-impl Editable {
-    fn get_title(&self) -> &'static str {
-        match self {
-            Editable::Lane(_) => "Lane",
-            Editable::Measurement(_) => "Measurement",
-            Editable::Vertex(_) => "Vertex",
-            Editable::Wall(_) => "Wall",
-        }
+impl Editable for Vertex {
+    fn title() -> &'static str {
+        "Vertex"
+    }
+
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("vertex").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("X (Meters)");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.x).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y (Meters)");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.y).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+        });
+
+        changed
     }
 }
 
-#[derive(SystemParam)]
-struct EditorWindow<'w, 's> {
-    q: Query<
-        'w,
-        's,
-        (
-            Option<&'static mut Lane>,
-            Option<&'static mut Measurement>,
-            Option<&'static mut Vertex>,
-            Option<&'static mut Wall>,
-        ),
-    >,
+impl Editable for Lane {
+    fn title() -> &'static str {
+        "Lane"
+    }
+
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("lane").num_columns(2).show(ui, |ui| {
+            ui.label("Start");
+            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            ui.end_row();
+
+            ui.label("End");
+            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
 }
+
+impl Editable for Measurement {
+    fn title() -> &'static str {
+        "Measurement"
+    }
+
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("measurement")
+            .num_columns(2)
+            .show(ui, |ui| {
+                ui.label("Start");
+                changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+                ui.end_row();
+
+                ui.label("End");
+                changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+                ui.end_row();
+
+                // TODO: Remove this field once we support new cartesian format. Doing so removes
+                // the ambiguity between the actual distance (from calculations) and the distance defined
+                // in the file.
+                ui.label("Distance");
+                changed = ui
+                    .add(egui::DragValue::new(&mut self.distance).speed(0.1))
+                    .changed()
+                    || changed;
+                ui.end_row();
+            });
+
+        changed
+    }
+}
+
+impl Editable for Wall {
+    fn title() -> &'static str {
+        "Wall"
+    }
+
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("wall").num_columns(2).show(ui, |ui| {
+            ui.label("Start");
+            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            ui.end_row();
+
+            ui.label("End");
+            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            ui.end_row();
+
+            ui.label("Height");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.height).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Texture");
+            changed = ui.text_edit_singleline(&mut self.texture_name).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
+impl Editable for Model {
+    fn title() -> &'static str {
+        "Model"
+    }
+
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("model").num_columns(2).show(ui, |ui| {
+            ui.label("X");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.x).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.y).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Yaw");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.yaw).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Z Offset");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.z_offset).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Model");
+            changed = ui.text_edit_singleline(&mut self.model_name).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
+#[derive(Component)]
+enum EditableTag {
+    Lane,
+    Vertex,
+    Measurement,
+    Wall,
+    Model,
+}
+
+struct SelectedEditable(Entity);
+
+struct EditorWindow;
 
 /// Clone and draw an inspectable so as to avoid change detection in bevy.
 ///
@@ -59,36 +208,21 @@ struct EditorWindow<'w, 's> {
 /// as changed, this cause the change detection to trigger even if there are no writes to
 /// it. Egui on the other hand requires data to be mutable, so passing a component directly
 /// to egui will cause change detection to trigger every frame.
-fn clone_and_draw<I: Inspectable + Clone>(ui: &mut egui::Ui, inspectable: &mut Mut<I>) {
-    let mut inspector_context = bevy_inspector_egui::Context::new_shared(None);
-    let mut ui_data = inspectable.clone();
-    if ui_data.ui(ui, I::Attributes::default(), &mut inspector_context) {
-        **inspectable = ui_data.clone();
+fn clone_and_draw<E: Editable>(ui: &mut egui::Ui, mut editable: Mut<E>) {
+    let mut ui_data = editable.clone();
+    if ui_data.draw(ui) {
+        *editable = ui_data.clone();
     }
 }
 
-impl<'w, 's> EditorWindow<'w, 's> {
-    fn draw(&mut self, egui_ctx: &mut EguiContext, e: &Editable) {
-        egui::Window::new(e.get_title())
-            .id(egui::Id::new("Inspector"))
+impl EditorWindow {
+    fn draw<E: Editable>(egui_ctx: &mut EguiContext, e: Mut<E>) {
+        egui::Window::new(E::title())
+            .id(egui::Id::new("inspector"))
             .collapsible(false)
-            .show(egui_ctx.ctx_mut(), |ui| match e {
-                Editable::Lane(e) => {
-                    let mut lane = self.q.get_component_mut::<Lane>(*e).unwrap();
-                    clone_and_draw(ui, &mut lane);
-                }
-                Editable::Measurement(e) => {
-                    let mut measurement = self.q.get_component_mut::<Measurement>(*e).unwrap();
-                    clone_and_draw(ui, &mut measurement);
-                }
-                Editable::Vertex(e) => {
-                    let mut vertex = self.q.get_component_mut::<Vertex>(*e).unwrap();
-                    clone_and_draw(ui, &mut vertex);
-                }
-                Editable::Wall(e) => {
-                    let mut wall = self.q.get_component_mut::<Wall>(*e).unwrap();
-                    clone_and_draw(ui, &mut wall);
-                }
+            .resizable(false)
+            .show(egui_ctx.ctx_mut(), |ui| {
+                clone_and_draw(ui, e);
             });
     }
 }
@@ -101,8 +235,15 @@ fn egui_ui(
     mut _exit: EventWriter<AppExit>,
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
-    mut selected: ResMut<Option<Editable>>,
-    mut editor_window: EditorWindow,
+    selected: ResMut<Option<SelectedEditable>>,
+    q_editable_tag: Query<&EditableTag>,
+    mut q_editable: Query<(
+        Option<&mut Lane>,
+        Option<&mut Measurement>,
+        Option<&mut Vertex>,
+        Option<&mut Wall>,
+        Option<&mut Model>,
+    )>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -137,9 +278,36 @@ fn egui_ui(
         });
     });
 
-    if let Some(selected) = selected.deref_mut() {
-        editor_window.draw(&mut *egui_context, selected);
-    }
+    match &*selected {
+        Some(selected) => {
+            let tag = q_editable_tag.get(selected.0).unwrap();
+            match tag {
+                EditableTag::Lane => EditorWindow::draw(
+                    &mut egui_context,
+                    q_editable.get_component_mut::<Lane>(selected.0).unwrap(),
+                ),
+                EditableTag::Vertex => EditorWindow::draw(
+                    &mut egui_context,
+                    q_editable.get_component_mut::<Vertex>(selected.0).unwrap(),
+                ),
+                EditableTag::Measurement => EditorWindow::draw(
+                    &mut egui_context,
+                    q_editable
+                        .get_component_mut::<Measurement>(selected.0)
+                        .unwrap(),
+                ),
+                EditableTag::Wall => EditorWindow::draw(
+                    &mut egui_context,
+                    q_editable.get_component_mut::<Wall>(selected.0).unwrap(),
+                ),
+                EditableTag::Model => EditorWindow::draw(
+                    &mut egui_context,
+                    q_editable.get_component_mut::<Model>(selected.0).unwrap(),
+                ),
+            };
+        }
+        None => (),
+    };
 }
 
 fn on_startup(mut commands: Commands) {
@@ -154,16 +322,16 @@ fn on_exit(mut commands: Commands) {
 }
 
 fn maintain_inspected_entities(
-    editables: Query<(&Editable, &Interaction), Changed<Interaction>>,
-    mut selected: ResMut<Option<Editable>>,
+    editables: Query<(Entity, &Interaction), (Changed<Interaction>, With<EditableTag>)>,
+    mut selected: ResMut<Option<SelectedEditable>>,
 ) {
-    let clicked = editables.iter().find_map(|(e, i)| match i {
-        Interaction::Clicked => Some(e.clone()),
-        _ => None,
+    editables.iter().any(|(e, i)| match i {
+        Interaction::Clicked => {
+            *selected = Some(SelectedEditable(e.clone()));
+            true
+        }
+        _ => false,
     });
-    if let Some(clicked) = clicked {
-        *selected = Some(clicked.clone())
-    }
 }
 
 fn update_picking_cam(
@@ -197,6 +365,7 @@ fn enable_picking(
     vertices: Query<Entity, Added<Vertex>>,
     measurements: Query<Entity, Added<Measurement>>,
     walls: Query<Entity, Added<Wall>>,
+    models: Query<Entity, Added<Model>>,
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
@@ -206,25 +375,32 @@ fn enable_picking(
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default())
-            .insert(Editable::Lane(entity));
+            .insert(EditableTag::Lane);
     }
     for entity in vertices.iter() {
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default())
-            .insert(Editable::Vertex(entity));
+            .insert(EditableTag::Vertex);
     }
     for entity in walls.iter() {
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default())
-            .insert(Editable::Wall(entity));
+            .insert(EditableTag::Wall);
     }
     for entity in measurements.iter() {
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default())
-            .insert(Editable::Measurement(entity));
+            .insert(EditableTag::Measurement);
+    }
+    // FIXME: Picking is not working for models.
+    for entity in models.iter() {
+        commands
+            .entity(entity)
+            .insert_bundle(PickableBundle::default())
+            .insert(EditableTag::Model);
     }
 
     // Stops picking when egui is in focus.
@@ -249,7 +425,7 @@ pub struct TrafficEditorPlugin;
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
-            .init_resource::<Option<Editable>>()
+            .init_resource::<Option<SelectedEditable>>()
             // .add_plugin(InspectorPlugin::<Inspector>::new())
             // .register_inspectable::<Lane>()
             .add_startup_system(on_startup);

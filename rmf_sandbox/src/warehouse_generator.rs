@@ -95,14 +95,14 @@ fn warehouse_generator(
         return;
     }
 
-    vertices[0].x_meters = -width / 2.;
-    vertices[0].y_meters = -width / 2.;
-    vertices[1].x_meters = width / 2.;
-    vertices[1].y_meters = -width / 2.;
-    vertices[2].x_meters = width / 2.;
-    vertices[2].y_meters = width / 2.;
-    vertices[3].x_meters = -width / 2.;
-    vertices[3].y_meters = width / 2.;
+    vertices[0].x = -width / 2.;
+    vertices[0].y = -width / 2.;
+    vertices[1].x = width / 2.;
+    vertices[1].y = -width / 2.;
+    vertices[2].x = width / 2.;
+    vertices[2].y = width / 2.;
+    vertices[3].x = -width / 2.;
+    vertices[3].y = width / 2.;
 
     let rack_length = 2.3784;
     let num_racks = (width / rack_length - 1.) as i32;

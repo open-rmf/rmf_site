@@ -1,20 +1,20 @@
 use bevy::prelude::*;
-use bevy_inspector_egui::Inspectable;
 use serde_yaml;
 
-#[derive(serde::Deserialize, Component, Inspectable, Clone, Default)]
+#[derive(serde::Deserialize, Component, Clone, Default)]
 #[serde(try_from = "VertexRaw")]
 pub struct Vertex {
-    pub x_raw: f64,
-    pub y_raw: f64,
-    pub x_meters: f64,
-    pub y_meters: f64,
-    pub _name: String,
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
 }
 
 impl TryFrom<VertexRaw> for Vertex {
     type Error = String;
 
+    /// NOTE: This loads the vertex data "as is", in older maps, it will contain the raw
+    /// "pixel coordinates" which needs to be converted to meters for the site map viewer
+    /// to work correctly.
     fn try_from(raw: VertexRaw) -> Result<Vertex, Self::Error> {
         let x_raw = raw.data[0]
             .as_f64()
@@ -31,11 +31,9 @@ impl TryFrom<VertexRaw> for Vertex {
             String::new()
         };
         Ok(Vertex {
-            x_raw,
-            y_raw: -y_raw,
-            x_meters: x_raw,
-            y_meters: -y_raw,
-            _name: name,
+            name,
+            x: x_raw,
+            y: y_raw,
         })
     }
 }
@@ -43,7 +41,7 @@ impl TryFrom<VertexRaw> for Vertex {
 impl Vertex {
     pub fn transform(&self) -> Transform {
         Transform {
-            translation: Vec3::new(self.x_meters as f32, self.y_meters as f32, 0.),
+            translation: Vec3::new(self.x as f32, self.y as f32, 0.),
             ..Default::default()
         }
     }
