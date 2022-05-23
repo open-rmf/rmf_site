@@ -22,7 +22,6 @@ struct SandboxAssetIo {
 
 impl AssetIo for SandboxAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        info!("load_path({:?})", path);
         if path.starts_with("sandbox://") {
             let without_prefix = path.to_str().unwrap().strip_prefix("sandbox://").unwrap();
             let uri = String::from("https://models.sandbox.open-rmf.org/models/") + without_prefix;
@@ -32,10 +31,6 @@ impl AssetIo for SandboxAssetIo {
                 let mut asset_path = cache_path();
                 asset_path.push(PathBuf::from(without_prefix));
                 if asset_path.exists() {
-                    println!(
-                        "loading {} from cache",
-                        &asset_path.clone().into_os_string().into_string().unwrap()
-                    );
                     return Box::pin(async move {
                         let mut bytes = Vec::new();
                         match fs::File::open(&asset_path) {
@@ -56,21 +51,15 @@ impl AssetIo for SandboxAssetIo {
             }
 
             Box::pin(async move {
-                info!("downloading from {}", &uri);
                 let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
                     AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
                 })?;
-                info!("received {} bytes", bytes.len());
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
                     asset_path.push(PathBuf::from(without_prefix));
                     fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
-                    println!(
-                        "saving to {}",
-                        &asset_path.clone().into_os_string().into_string().unwrap()
-                    );
                     if bytes.len() > 0 {
                         fs::write(asset_path, &bytes).expect("unable to write to file");
                     }
@@ -86,14 +75,10 @@ impl AssetIo for SandboxAssetIo {
         &self,
         path: &Path,
     ) -> Result<Box<dyn Iterator<Item = PathBuf>>, AssetIoError> {
-        info!("read_directory({:?})", path);
-
         self.default_io.read_directory(path)
     }
 
     fn is_directory(&self, path: &Path) -> bool {
-        info!("is_directory({:?})", path);
-
         #[cfg(target_arch = "wasm32")]
         return false;
 
@@ -102,8 +87,6 @@ impl AssetIo for SandboxAssetIo {
     }
 
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
-        info!("watch_path_for_changes({:?})", path);
-
         #[cfg(target_arch = "wasm32")]
         return Ok(());
 
@@ -112,8 +95,6 @@ impl AssetIo for SandboxAssetIo {
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
-        info!("watch_for_changes()");
-
         #[cfg(target_arch = "wasm32")]
         return Ok(());
 
