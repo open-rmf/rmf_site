@@ -115,6 +115,8 @@ impl Wall {
 
         Transform {
             translation: Vec3::new(cx, cy, 0.),
+            // base height is 3
+            scale: Vec3::new(1., 1., self.height / 3.),
             rotation: Quat::from_rotation_z(yaw),
             ..Default::default()
         }
