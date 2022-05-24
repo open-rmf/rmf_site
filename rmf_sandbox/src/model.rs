@@ -29,11 +29,7 @@ impl Model {
     pub fn transform(&self) -> Transform {
         Transform {
             rotation: Quat::from_rotation_z((self.yaw - 1.5707) as f32),
-            translation: Vec3::new(
-                self.x as f32,
-                self.y as f32,
-                self.z_offset as f32,
-            ),
+            translation: Vec3::new(self.x as f32, self.y as f32, self.z_offset as f32),
             scale: Vec3::ONE,
         }
     }
