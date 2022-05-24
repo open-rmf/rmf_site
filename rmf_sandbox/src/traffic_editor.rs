@@ -190,6 +190,7 @@ struct SelectedEditable(Entity, EditorData);
 
 #[derive(SystemParam)]
 struct EditorPanel<'w, 's> {
+    selected: ResMut<'w, Option<SelectedEditable>>,
     q_lane: Query<'w, 's, &'static mut Lane>,
     q_vertex: Query<'w, 's, &'static mut Vertex>,
     q_measurement: Query<'w, 's, &'static mut Measurement>,
@@ -198,15 +199,7 @@ struct EditorPanel<'w, 's> {
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
-    fn draw(&mut self, egui_ctx: &mut EguiContext, selected: &mut SelectedEditable) {
-        let title = match &selected.1 {
-            EditorData::Lane(_) => "Lane",
-            EditorData::Vertex(_) => "Vertex",
-            EditorData::Measurement(_) => "Measurement",
-            EditorData::Wall(_) => "Wall",
-            EditorData::Model(_) => "Model",
-        };
-
+    fn draw(&mut self, egui_ctx: &mut EguiContext) {
         fn commit_changes<E: Editable + Component>(
             q: &mut Query<&mut E>,
             target_entity: Entity,
@@ -222,11 +215,29 @@ impl<'w, 's> EditorPanel<'w, 's> {
             }
         }
 
-        egui::Window::new(title)
-            .id(egui::Id::new("editor"))
-            .collapsible(false)
+        egui::SidePanel::right("editor_panel")
             .resizable(false)
+            .min_width(200.)
             .show(egui_ctx.ctx_mut(), |ui| {
+                let selected = match *self.selected {
+                    Some(ref mut selected) => selected,
+                    None => {
+                        ui.add_sized(ui.available_size(), egui::Label::new("No object selected"));
+                        return;
+                    }
+                };
+
+                let title = match &selected.1 {
+                    EditorData::Lane(_) => "Lane",
+                    EditorData::Vertex(_) => "Vertex",
+                    EditorData::Measurement(_) => "Measurement",
+                    EditorData::Wall(_) => "Wall",
+                    EditorData::Model(_) => "Model",
+                };
+
+                ui.heading(title);
+                ui.separator();
+
                 match &mut selected.1 {
                     EditorData::Lane(lane) => {
                         if lane.draw(ui) {
@@ -265,7 +276,6 @@ fn egui_ui(
     mut _exit: EventWriter<AppExit>,
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
-    mut selected: ResMut<Option<SelectedEditable>>,
     mut editor: EditorPanel,
 ) {
     let mut controls = query.single_mut();
@@ -301,10 +311,7 @@ fn egui_ui(
         });
     });
 
-    match *selected {
-        Some(ref mut selected) => editor.draw(&mut egui_context, selected),
-        None => (),
-    };
+    editor.draw(&mut egui_context);
 }
 
 fn on_startup(mut commands: Commands) {
@@ -316,6 +323,7 @@ fn on_startup(mut commands: Commands) {
 
 fn on_exit(mut commands: Commands) {
     commands.remove_resource::<SiteMap>();
+    commands.init_resource::<Option<SelectedEditable>>();
 }
 
 fn maintain_inspected_entities(
