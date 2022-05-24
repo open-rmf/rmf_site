@@ -380,15 +380,36 @@ fn update_walls(
     }
 }
 
+#[derive(Component)]
+struct ModelCurrentScene(String);
+
 fn update_models(
     mut commands: Commands,
     level_entity: Res<SiteMapLevel>,
     added_models: Query<(Entity, &Model), Added<Model>>,
-    mut changed_models: Query<(&Model, &mut Transform), (Changed<Model>, With<Model>)>,
+    mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
     mut loading_models: Local<HashMap<Entity, (Model, Handle<Scene>)>>,
     mut spawned: Local<Vec<Entity>>,
+    q_current_scene: Query<&ModelCurrentScene>,
 ) {
+    fn spawn_model(
+        e: Entity,
+        model: &Model,
+        asset_server: &AssetServer,
+        commands: &mut Commands,
+        loading_models: &mut HashMap<Entity, (Model, Handle<Scene>)>,
+    ) {
+        let bundle_path =
+            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
+        let glb: Handle<Scene> = asset_server.load(&bundle_path);
+        commands
+            .entity(e)
+            .insert(DespawnBlocker())
+            .insert(ModelCurrentScene(model.model_name.clone()));
+        loading_models.insert(e, (model.clone(), glb.clone()));
+    }
+
     // spawn new models
     {
         // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -407,6 +428,10 @@ fn update_models(
                     .entity(*e)
                     .insert_bundle((model.transform(), GlobalTransform::identity()))
                     .with_children(|parent| {
+                        // bevy doesn't seem to allow us to add components to the scene at
+                        // spawn time. Should we spawn a "scene container", tag it with a
+                        // component then spawn the scene there so we can avoid despawning
+                        // children made by other plugins?
                         parent.spawn_scene(h.clone());
                     })
                     .insert(Parent(level_entity.0));
@@ -418,16 +443,20 @@ fn update_models(
         }
 
         for (e, model) in added_models.iter() {
-            let bundle_path =
-                String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
-            let glb: Handle<Scene> = asset_server.load(&bundle_path);
-            commands.entity(e).insert(DespawnBlocker());
-            loading_models.insert(e, (model.clone(), glb.clone()));
+            spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
         }
     }
     // update changed models
-    for (model, mut t) in changed_models.iter_mut() {
+    for (e, model, mut t) in changed_models.iter_mut() {
         *t = model.transform();
+        if let Ok(current_scene) = q_current_scene.get(e) {
+            if current_scene.0 != model.model_name {
+                // is this safe since we are also doing the spawning?
+                // aside from possibly despawning children created by other plugins.
+                commands.entity(e).despawn_descendants();
+                spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
+            }
+        }
     }
 }
 

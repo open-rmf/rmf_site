@@ -6,6 +6,7 @@ use crate::site_map::SiteMap;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::AppState;
+use bevy::ecs::system::SystemParam;
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -18,15 +19,10 @@ use bevy_mod_picking::{
 };
 
 trait Editable: Sync + Send + Clone {
-    fn title() -> &'static str;
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
 }
 
 impl Editable for Vertex {
-    fn title() -> &'static str {
-        "Vertex"
-    }
-
     fn draw(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -55,10 +51,6 @@ impl Editable for Vertex {
 }
 
 impl Editable for Lane {
-    fn title() -> &'static str {
-        "Lane"
-    }
-
     fn draw(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -77,10 +69,6 @@ impl Editable for Lane {
 }
 
 impl Editable for Measurement {
-    fn title() -> &'static str {
-        "Measurement"
-    }
-
     fn draw(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -111,10 +99,6 @@ impl Editable for Measurement {
 }
 
 impl Editable for Wall {
-    fn title() -> &'static str {
-        "Wall"
-    }
-
     fn draw(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -144,10 +128,6 @@ impl Editable for Wall {
 }
 
 impl Editable for Model {
-    fn title() -> &'static str {
-        "Model"
-    }
-
     fn draw(&mut self, ui: &mut egui::Ui) -> bool {
         let mut changed = false;
 
@@ -181,7 +161,7 @@ impl Editable for Model {
             ui.end_row();
 
             ui.label("Model");
-            changed = ui.text_edit_singleline(&mut self.model_name).changed() || changed;
+            changed = ui.text_edit_singleline(&mut self.model_name).lost_focus() || changed;
             ui.end_row();
         });
 
@@ -195,34 +175,85 @@ enum EditableTag {
     Vertex,
     Measurement,
     Wall,
-    Model,
+    Model(Entity),
 }
 
-struct SelectedEditable(Entity);
-
-struct EditorWindow;
-
-/// Clone and draw an inspectable so as to avoid change detection in bevy.
-///
-/// Bevy change detection works by implementing the dereference operator to mark something
-/// as changed, this cause the change detection to trigger even if there are no writes to
-/// it. Egui on the other hand requires data to be mutable, so passing a component directly
-/// to egui will cause change detection to trigger every frame.
-fn clone_and_draw<E: Editable>(ui: &mut egui::Ui, mut editable: Mut<E>) {
-    let mut ui_data = editable.clone();
-    if ui_data.draw(ui) {
-        *editable = ui_data.clone();
-    }
+enum EditorData {
+    Lane(Lane),
+    Vertex(Vertex),
+    Measurement(Measurement),
+    Wall(Wall),
+    Model(Model),
 }
 
-impl EditorWindow {
-    fn draw<E: Editable>(egui_ctx: &mut EguiContext, e: Mut<E>) {
-        egui::Window::new(E::title())
-            .id(egui::Id::new("inspector"))
+struct SelectedEditable(Entity, EditorData);
+
+#[derive(SystemParam)]
+struct EditorPanel<'w, 's> {
+    q_lane: Query<'w, 's, &'static mut Lane>,
+    q_vertex: Query<'w, 's, &'static mut Vertex>,
+    q_measurement: Query<'w, 's, &'static mut Measurement>,
+    q_wall: Query<'w, 's, &'static mut Wall>,
+    q_model: Query<'w, 's, &'static mut Model>,
+}
+
+impl<'w, 's> EditorPanel<'w, 's> {
+    fn draw(&mut self, egui_ctx: &mut EguiContext, selected: &mut SelectedEditable) {
+        let title = match &selected.1 {
+            EditorData::Lane(_) => "Lane",
+            EditorData::Vertex(_) => "Vertex",
+            EditorData::Measurement(_) => "Measurement",
+            EditorData::Wall(_) => "Wall",
+            EditorData::Model(_) => "Model",
+        };
+
+        fn commit_changes<E: Editable + Component>(
+            q: &mut Query<&mut E>,
+            target_entity: Entity,
+            updated: &E,
+        ) {
+            match q.get_mut(target_entity) {
+                Ok(mut e) => {
+                    *e = updated.clone();
+                }
+                Err(err) => {
+                    println!("ERROR: {err}");
+                }
+            }
+        }
+
+        egui::Window::new(title)
+            .id(egui::Id::new("editor"))
             .collapsible(false)
             .resizable(false)
             .show(egui_ctx.ctx_mut(), |ui| {
-                clone_and_draw(ui, e);
+                match &mut selected.1 {
+                    EditorData::Lane(lane) => {
+                        if lane.draw(ui) {
+                            commit_changes(&mut self.q_lane, selected.0, lane);
+                        }
+                    }
+                    EditorData::Vertex(vertex) => {
+                        if vertex.draw(ui) {
+                            commit_changes(&mut self.q_vertex, selected.0, vertex);
+                        }
+                    }
+                    EditorData::Measurement(measurement) => {
+                        if measurement.draw(ui) {
+                            commit_changes(&mut self.q_measurement, selected.0, measurement);
+                        }
+                    }
+                    EditorData::Wall(wall) => {
+                        if wall.draw(ui) {
+                            commit_changes(&mut self.q_wall, selected.0, wall);
+                        }
+                    }
+                    EditorData::Model(model) => {
+                        if model.draw(ui) {
+                            commit_changes(&mut self.q_model, selected.0, model);
+                        }
+                    }
+                };
             });
     }
 }
@@ -230,20 +261,12 @@ impl EditorWindow {
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut query: Query<&mut CameraControls>,
-    mut _commands: Commands,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut _exit: EventWriter<AppExit>,
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
-    selected: ResMut<Option<SelectedEditable>>,
-    q_editable_tag: Query<&EditableTag>,
-    mut q_editable: Query<(
-        Option<&mut Lane>,
-        Option<&mut Measurement>,
-        Option<&mut Vertex>,
-        Option<&mut Wall>,
-        Option<&mut Model>,
-    )>,
+    mut selected: ResMut<Option<SelectedEditable>>,
+    mut editor: EditorPanel,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -278,34 +301,8 @@ fn egui_ui(
         });
     });
 
-    match &*selected {
-        Some(selected) => {
-            let tag = q_editable_tag.get(selected.0).unwrap();
-            match tag {
-                EditableTag::Lane => EditorWindow::draw(
-                    &mut egui_context,
-                    q_editable.get_component_mut::<Lane>(selected.0).unwrap(),
-                ),
-                EditableTag::Vertex => EditorWindow::draw(
-                    &mut egui_context,
-                    q_editable.get_component_mut::<Vertex>(selected.0).unwrap(),
-                ),
-                EditableTag::Measurement => EditorWindow::draw(
-                    &mut egui_context,
-                    q_editable
-                        .get_component_mut::<Measurement>(selected.0)
-                        .unwrap(),
-                ),
-                EditableTag::Wall => EditorWindow::draw(
-                    &mut egui_context,
-                    q_editable.get_component_mut::<Wall>(selected.0).unwrap(),
-                ),
-                EditableTag::Model => EditorWindow::draw(
-                    &mut egui_context,
-                    q_editable.get_component_mut::<Model>(selected.0).unwrap(),
-                ),
-            };
-        }
+    match *selected {
+        Some(ref mut selected) => editor.draw(&mut egui_context, selected),
         None => (),
     };
 }
@@ -322,16 +319,66 @@ fn on_exit(mut commands: Commands) {
 }
 
 fn maintain_inspected_entities(
-    editables: Query<(Entity, &Interaction), (Changed<Interaction>, With<EditableTag>)>,
+    editables: Query<(Entity, &Interaction, &EditableTag), Changed<Interaction>>,
     mut selected: ResMut<Option<SelectedEditable>>,
+    q_lane: Query<&Lane>,
+    q_vertex: Query<&Vertex>,
+    q_measurement: Query<&Measurement>,
+    q_wall: Query<&Wall>,
+    q_model: Query<&Model>,
 ) {
-    editables.iter().any(|(e, i)| match i {
-        Interaction::Clicked => {
-            *selected = Some(SelectedEditable(e.clone()));
-            true
-        }
+    let clicked = editables.iter().find(|(_, i, _)| match i {
+        Interaction::Clicked => true,
         _ => false,
     });
+    let (e, _, tag) = match clicked {
+        Some(clicked) => clicked,
+        None => return,
+    };
+    let try_selected = match tag {
+        // Clone and draw an inspectable so as to avoid change detection in bevy.
+        // This also allows us to commit changes only when needed, e.g. commit only
+        // when the user press "enter" when editing a text field.
+        //
+        // Bevy change detection works by implementing the dereference operator to mark something
+        // as changed, this cause the change detection to trigger even if there are no writes to
+        // it. Egui on the other hand requires data to be mutable, so passing a component directly
+        // to egui will cause change detection to trigger every frame.
+        EditableTag::Lane => match q_lane.get(e) {
+            Ok(lane) => Ok(SelectedEditable(e, EditorData::Lane(lane.clone()))),
+            Err(err) => Err(err),
+        },
+        EditableTag::Vertex => match q_vertex.get(e) {
+            Ok(vertex) => Ok(SelectedEditable(e, EditorData::Vertex(vertex.clone()))),
+            Err(err) => Err(err),
+        },
+        EditableTag::Measurement => match q_measurement.get(e) {
+            Ok(measurement) => Ok(SelectedEditable(
+                e,
+                EditorData::Measurement(measurement.clone()),
+            )),
+            Err(err) => Err(err),
+        },
+        EditableTag::Wall => match q_wall.get(e) {
+            Ok(wall) => Ok(SelectedEditable(e, EditorData::Wall(wall.clone()))),
+            Err(err) => Err(err),
+        },
+        EditableTag::Model(model_entity) => match q_model.get(*model_entity) {
+            Ok(model) => Ok(SelectedEditable(
+                *model_entity,
+                EditorData::Model(model.clone()),
+            )),
+            Err(err) => Err(err),
+        },
+    };
+
+    *selected = match try_selected {
+        Ok(selected) => Some(selected),
+        Err(err) => {
+            println!("{err}");
+            None
+        }
+    }
 }
 
 fn update_picking_cam(
@@ -365,7 +412,9 @@ fn enable_picking(
     vertices: Query<Entity, Added<Vertex>>,
     measurements: Query<Entity, Added<Measurement>>,
     walls: Query<Entity, Added<Wall>>,
-    models: Query<Entity, Added<Model>>,
+    models: Query<Entity, With<Model>>,
+    meshes: Query<Entity, Added<Handle<Mesh>>>,
+    parent: Query<&Parent>,
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
@@ -395,12 +444,24 @@ fn enable_picking(
             .insert_bundle(PickableBundle::default())
             .insert(EditableTag::Measurement);
     }
-    // FIXME: Picking is not working for models.
-    for entity in models.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Model);
+
+    // bevy_mod_picking only works on entities with meshes, the models are spawned with
+    // child scenes so making the model entity pickable will not work. We need to check
+    // all meshes added and go up the hierarchy to find if the mesh is part of a model.
+    for mesh_entity in meshes.iter() {
+        // go up the hierarchy tree until the root, trying to find if a mesh is part of a model.
+        let mut pe = parent.get(mesh_entity);
+        while let Ok(Parent(e)) = pe {
+            // check if this entity is a model, if so, make it pickable.
+            if let Ok(model_entity) = models.get(*e) {
+                commands
+                    .entity(mesh_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Model(model_entity));
+                break;
+            }
+            pe = parent.get(*e);
+        }
     }
 
     // Stops picking when egui is in focus.
