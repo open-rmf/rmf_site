@@ -31,14 +31,14 @@ impl Editable for Vertex {
             changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
             ui.end_row();
 
-            ui.label("X (Meters)");
+            ui.label("X");
             changed = ui
                 .add(egui::DragValue::new(&mut self.x).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("Y (Meters)");
+            ui.label("Y");
             changed = ui
                 .add(egui::DragValue::new(&mut self.y).speed(0.1))
                 .changed()
