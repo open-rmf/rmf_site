@@ -137,52 +137,6 @@ fn init_site_map(
     let mut level_entities: Vec<Entity> = Vec::new();
     let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
     for level in &sm.levels {
-        // spawn lights
-        // todo: calculate bounding box of this level
-        let bb = level.calc_bb();
-        let make_light_grid = false; // todo: select based on WASM and GPU (or not)
-        if make_light_grid {
-            // spawn a grid of lights for this level
-            let light_spacing = 10.;
-            let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
-            let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
-            for x_idx in 0..num_x_lights {
-                for y_idx in 0..num_y_lights {
-                    let x = bb.min_x + (x_idx as f64) * light_spacing;
-                    let y = bb.min_y + (y_idx as f64) * light_spacing;
-                    commands
-                        .spawn_bundle(PointLightBundle {
-                            transform: Transform::from_xyz(x as f32, y as f32, 3.0),
-                            point_light: PointLight {
-                                intensity: 500.,
-                                range: 10.,
-                                //shadows_enabled: true,
-                                ..default()
-                            },
-                            ..default()
-                        })
-                        .insert(SiteMapTag);
-                }
-            }
-        } else {
-            // create a single directional light (for machines without GPU)
-            commands
-                .spawn_bundle(DirectionalLightBundle {
-                    directional_light: DirectionalLight {
-                        shadows_enabled: false,
-                        illuminance: 20000.,
-                        ..Default::default()
-                    },
-                    transform: Transform {
-                        translation: Vec3::new(0., 0., 50.),
-                        rotation: Quat::from_rotation_x(0.4),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(SiteMapTag);
-        }
-
         let vertices = &level.vertices;
         level_vertices.push(vertices);
         level_entities.push(

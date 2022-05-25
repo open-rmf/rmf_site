@@ -211,6 +211,16 @@ fn camera_controls_setup(mut commands: Commands) {
             transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
             ..default()
         })
+        .with_children(|parent| {
+            parent.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..default()
+                },
+                ..default()
+            });
+        })
         .id();
 
     let ortho_entity = commands
