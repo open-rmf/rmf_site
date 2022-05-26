@@ -1,5 +1,4 @@
 use bevy::prelude::*;
-use serde_yaml;
 
 #[derive(serde::Deserialize, Component, Clone, Default)]
 #[serde(try_from = "VertexRaw")]
@@ -7,6 +6,14 @@ pub struct Vertex {
     pub name: String,
     pub x: f64,
     pub y: f64,
+    pub z: f64,
+    pub is_charger: bool,
+    pub is_holding_point: bool,
+    pub is_parking_spot: bool,
+    pub spawn_robot_name: String,
+    pub spawn_robot_type: String,
+    pub dropoff_ingestor: String,
+    pub pickup_dispenser: String,
 }
 
 impl TryFrom<VertexRaw> for Vertex {
@@ -16,24 +23,18 @@ impl TryFrom<VertexRaw> for Vertex {
     /// "pixel coordinates" which needs to be converted to meters for the site map viewer
     /// to work correctly.
     fn try_from(raw: VertexRaw) -> Result<Vertex, Self::Error> {
-        let x_raw = raw.data[0]
-            .as_f64()
-            .ok_or("expected first element to be a number")?;
-        let y_raw = raw.data[1]
-            .as_f64()
-            .ok_or("expected second element to be a number")?;
-        let name = if raw.data.len() > 3 {
-            raw.data[3]
-                .as_str()
-                .ok_or("expected fourth element to be a string")?
-                .to_string()
-        } else {
-            String::new()
-        };
         Ok(Vertex {
-            name,
-            x: x_raw,
-            y: y_raw,
+            x: raw.0,
+            y: raw.1,
+            z: raw.2,
+            name: raw.3,
+            is_charger: raw.4.is_charger.map_or(false, |x| x.1),
+            is_holding_point: raw.4.is_holding_point.map_or(false, |x| x.1),
+            is_parking_spot: raw.4.is_parking_spot.map_or(false, |x| x.1),
+            spawn_robot_name: raw.4.spawn_robot_name.map_or("".to_string(), |x| x.1),
+            spawn_robot_type: raw.4.spawn_robot_type.map_or("".to_string(), |x| x.1),
+            dropoff_ingestor: raw.4.dropoff_ingestor.map_or("".to_string(), |x| x.1),
+            pickup_dispenser: raw.4.pickup_dispenser.map_or("".to_string(), |x| x.1),
         })
     }
 }
@@ -47,14 +48,7 @@ impl Vertex {
     }
 }
 
-#[derive(serde::Deserialize)]
-#[serde(transparent)]
-struct VertexRaw {
-    data: Vec<serde_yaml::Value>,
-}
-
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
+#[derive(serde::Deserialize, Default)]
 struct VertexProperties {
     is_charger: Option<(usize, bool)>,
     is_parking_spot: Option<(usize, bool)>,
@@ -64,3 +58,12 @@ struct VertexProperties {
     dropoff_ingestor: Option<(usize, String)>,
     pickup_dispenser: Option<(usize, String)>,
 }
+
+#[derive(serde::Deserialize)]
+struct VertexRaw(
+    f64,
+    f64,
+    f64,
+    String,
+    #[serde(default)] VertexProperties,
+);
