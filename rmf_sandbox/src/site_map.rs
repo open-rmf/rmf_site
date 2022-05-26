@@ -388,15 +388,36 @@ fn update_walls(
     }
 }
 
+#[derive(Component)]
+struct ModelCurrentScene(String);
+
 fn update_models(
     mut commands: Commands,
     level_entity: Res<SiteMapLevel>,
     added_models: Query<(Entity, &Model), Added<Model>>,
-    mut changed_models: Query<(&Model, &mut Transform), (Changed<Model>, With<Model>)>,
+    mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
+    q_current_scene: Query<&ModelCurrentScene>,
 ) {
+    fn spawn_model(
+        e: Entity,
+        model: &Model,
+        asset_server: &AssetServer,
+        commands: &mut Commands,
+        loading_models: &mut LoadingModels,
+    ) {
+        let bundle_path =
+            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
+        let glb: Handle<Scene> = asset_server.load(&bundle_path);
+        commands
+            .entity(e)
+            .insert(DespawnBlocker())
+            .insert(ModelCurrentScene(model.model_name.clone()));
+        loading_models.0.insert(e, (model.clone(), glb.clone()));
+    }
+
     // spawn new models
 
     // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -433,8 +454,16 @@ fn update_models(
         loading_models.0.insert(e, (model.clone(), glb.clone()));
     }
     // update changed models
-    for (model, mut t) in changed_models.iter_mut() {
+    for (e, model, mut t) in changed_models.iter_mut() {
         *t = model.transform();
+        if let Ok(current_scene) = q_current_scene.get(e) {
+            if current_scene.0 != model.model_name {
+                // is this safe since we are also doing the spawning?
+                // aside from possibly despawning children created by other plugins.
+                commands.entity(e).despawn_descendants();
+                spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
+            }
+        }
     }
 }
 
