@@ -5,6 +5,7 @@ use crate::lane::Lane;
 use crate::level::Level;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::settings::*;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
@@ -98,6 +99,7 @@ fn init_site_map(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    settings: Res<Settings>,
 ) {
     println!("Loading assets");
     let mut handles = Handles::default();
@@ -137,6 +139,34 @@ fn init_site_map(
     let mut level_entities: Vec<Entity> = Vec::new();
     let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
     for level in &sm.levels {
+        // spawn lights
+        // todo: calculate bounding box of this level
+        let bb = level.calc_bb();
+        if settings.graphics_quality == GraphicsQuality::Ultra {
+            // spawn a grid of lights for this level
+            let light_spacing = 10.;
+            let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
+            let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
+            for x_idx in 0..num_x_lights {
+                for y_idx in 0..num_y_lights {
+                    let x = bb.min_x + (x_idx as f64) * light_spacing;
+                    let y = bb.min_y + (y_idx as f64) * light_spacing;
+                    commands
+                        .spawn_bundle(PointLightBundle {
+                            transform: Transform::from_xyz(x as f32, y as f32, 3.0),
+                            point_light: PointLight {
+                                intensity: 500.,
+                                range: 10.,
+                                //shadows_enabled: true,
+                                ..default()
+                            },
+                            ..default()
+                        })
+                        .insert(SiteMapTag);
+                }
+            }
+        }
+
         let vertices = &level.vertices;
         level_vertices.push(vertices);
         level_entities.push(
