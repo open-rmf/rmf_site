@@ -6,13 +6,19 @@ use bevy::prelude::*;
 pub struct Lane {
     pub start: usize,
     pub end: usize,
+    pub bidirection: bool,
+    pub graph_idx: usize,
+    pub orientation: String,
 }
 
 impl From<LaneRaw> for Lane {
     fn from(raw: LaneRaw) -> Lane {
         Lane {
-            start: raw.data.0,
-            end: raw.data.1,
+            start: raw.0,
+            end: raw.1,
+            bidirection: raw.2.bidirectional.1,
+            graph_idx: raw.2.graph_idx.1,
+            orientation: raw.2.orientation.1,
         }
     }
 }
@@ -38,14 +44,9 @@ impl Lane {
 }
 
 #[derive(serde::Deserialize)]
-#[serde(transparent)]
-struct LaneRaw {
-    // data: Vec<serde_yaml::Value>,
-    data: (usize, usize, LaneProperties),
-}
+struct LaneRaw(usize, usize, LaneProperties);
 
 #[derive(serde::Deserialize)]
-#[allow(dead_code)]
 struct LaneProperties {
     bidirectional: (usize, bool),
     graph_idx: (usize, usize),
