@@ -44,6 +44,53 @@ impl Editable for Vertex {
                 .changed()
                 || changed;
             ui.end_row();
+
+            ui.label("Z");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.z).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Charger");
+            changed = ui.checkbox(&mut self.is_charger, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Holding Point");
+            changed = ui.checkbox(&mut self.is_holding_point, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Parking Spot");
+            changed = ui.checkbox(&mut self.is_parking_spot, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Spawn Robot");
+            changed = ui
+                .text_edit_singleline(&mut self.spawn_robot_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Spawn Robot Type");
+            changed = ui
+                .text_edit_singleline(&mut self.spawn_robot_type)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Dropoff Ingestor");
+            changed = ui
+                .text_edit_singleline(&mut self.dropoff_ingestor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Pickup Dispenser");
+            changed = ui
+                .text_edit_singleline(&mut self.pickup_dispenser)
+                .changed()
+                || changed;
+            ui.end_row();
         });
 
         changed
@@ -61,6 +108,18 @@ impl Editable for Lane {
 
             ui.label("End");
             changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            ui.end_row();
+
+            ui.label("Bidirection");
+            changed = ui.checkbox(&mut self.bidirection, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Graph");
+            changed = ui.add(egui::DragValue::new(&mut self.graph_idx)).changed() || changed;
+            ui.end_row();
+
+            ui.label("Orientation");
+            changed = ui.text_edit_singleline(&mut self.orientation).changed() || changed;
             ui.end_row();
         });
 
@@ -121,6 +180,13 @@ impl Editable for Wall {
             ui.label("Texture");
             changed = ui.text_edit_singleline(&mut self.texture_name).changed() || changed;
             ui.end_row();
+
+            ui.label("Alpha");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.alpha).speed(0.01))
+                .changed()
+                || changed;
+            ui.end_row();
         });
 
         changed
@@ -158,6 +224,10 @@ impl Editable for Model {
                 .add(egui::DragValue::new(&mut self.z_offset).speed(0.1))
                 .changed()
                 || changed;
+            ui.end_row();
+
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.instance_name).changed() || changed;
             ui.end_row();
 
             ui.label("Model");
