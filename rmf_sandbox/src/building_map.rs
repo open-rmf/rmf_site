@@ -4,7 +4,7 @@ use std::collections::HashMap;
 use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct BuildingMap {
     pub name: String,
     pub levels: HashMap<String, Level>,

@@ -46,6 +46,8 @@ pub enum AppState {
     WarehouseGenerator,
 }
 
+pub struct OpenedMapFile(std::path::PathBuf);
+
 #[cfg(target_arch = "wasm32")]
 fn check_browser_window_size(mut windows: ResMut<Windows>) {
     let window = windows.get_primary_mut().unwrap();

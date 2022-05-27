@@ -2,7 +2,6 @@ use std::collections::{HashMap, HashSet};
 
 use crate::despawn::DespawnBlocker;
 use crate::lane::Lane;
-use crate::level::Level;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::vertex::Vertex;
@@ -27,26 +26,6 @@ struct Handles {
     pub vertex_mesh: Handle<Mesh>,
     pub vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
-}
-
-#[derive(Default, Component)]
-pub struct SiteMap {
-    pub site_name: String,
-    pub levels: Vec<Level>,
-}
-
-impl SiteMap {
-    pub fn from_building_map(building_map: BuildingMap) -> SiteMap {
-        let sm = SiteMap {
-            site_name: building_map.name,
-            levels: building_map.levels.into_values().collect(),
-            ..Default::default()
-        };
-
-        // todo: global alignment via fiducials
-
-        return sm;
-    }
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
@@ -99,7 +78,7 @@ struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
 struct SpawnedModels(Vec<Entity>);
 
 fn init_site_map(
-    sm: Res<SiteMap>,
+    sm: Res<BuildingMap>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -132,7 +111,7 @@ fn init_site_map(
         ..default()
     });
 
-    println!("Initializing site map: {}", sm.site_name);
+    println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
@@ -142,7 +121,7 @@ fn init_site_map(
 
     let mut level_entities: Vec<Entity> = Vec::new();
     let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
-    for level in &sm.levels {
+    for level in sm.levels.values() {
         // spawn lights
         // todo: calculate bounding box of this level
         let bb = level.calc_bb();
@@ -467,7 +446,7 @@ fn update_models(
     }
 }
 
-fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
+fn should_init_site_map(sm: Option<Res<BuildingMap>>) -> ShouldRun {
     if let Some(sm) = sm {
         if sm.is_added() {
             return ShouldRun::Yes;
@@ -476,7 +455,7 @@ fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
     ShouldRun::No
 }
 
-fn should_despawn_site_map(sm: Option<Res<SiteMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
+fn should_despawn_site_map(sm: Option<Res<BuildingMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
     if sm.is_none() && *sm_existed {
         *sm_existed = false;
         return ShouldRun::Yes;
