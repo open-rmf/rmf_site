@@ -3,37 +3,15 @@ use crate::rbmf::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Component, Clone, Default)]
-#[serde(from = "MeasurementRaw", into = "MeasurementRaw")]
-pub struct Measurement {
-    pub start: usize,
-    pub end: usize,
+#[derive(Deserialize, Serialize, Clone, Default)]
+pub struct MeasurementProperties {
     // TODO: For new cartesian format, there should be no need for this value since the
     // metric distance is always equal to the distance between start and end.
-    pub distance: f64,
+    pub distance: RbmfFloat,
 }
 
-impl From<MeasurementRaw> for Measurement {
-    fn from(raw: MeasurementRaw) -> Measurement {
-        Measurement {
-            start: raw.0,
-            end: raw.1,
-            distance: raw.2.distance.1,
-        }
-    }
-}
-
-impl Into<MeasurementRaw> for Measurement {
-    fn into(self) -> MeasurementRaw {
-        MeasurementRaw(
-            self.start,
-            self.end,
-            MeasurementProperties {
-                distance: RbmfFloat::from(self.distance),
-            },
-        )
-    }
-}
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+pub struct Measurement(pub usize, pub usize, pub MeasurementProperties);
 
 impl Measurement {
     pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
@@ -52,12 +30,4 @@ impl Measurement {
             ..Default::default()
         }
     }
-}
-
-#[derive(Deserialize, Serialize)]
-struct MeasurementRaw(usize, usize, MeasurementProperties);
-
-#[derive(Deserialize, Serialize)]
-struct MeasurementProperties {
-    distance: RbmfFloat,
 }
