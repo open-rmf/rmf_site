@@ -1,11 +1,11 @@
+use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
-use crate::site_map::SiteMap;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
-use crate::AppState;
+use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
     app::AppExit,
@@ -115,7 +115,10 @@ impl Editable for Lane {
             ui.end_row();
 
             ui.label("Graph");
-            changed = ui.add(egui::DragValue::new(&mut self.2.graph_idx)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.graph_idx))
+                .changed()
+                || changed;
             ui.end_row();
 
             ui.label("Orientation");
@@ -339,6 +342,23 @@ impl<'w, 's> EditorPanel<'w, 's> {
     }
 }
 
+fn save_map(path: &std::path::Path, map: &BuildingMap) -> () {
+    let f = match std::fs::File::create(path) {
+        Ok(f) => f,
+        Err(e) => {
+            println!("ERROR: {}", e);
+            return;
+        }
+    };
+    match serde_yaml::to_writer(f, map) {
+        Ok(_) => (),
+        Err(e) => {
+            println!("ERROR: {}", e);
+            return;
+        }
+    }
+}
+
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut query: Query<&mut CameraControls>,
@@ -347,6 +367,8 @@ fn egui_ui(
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
+    opened_map_file: Option<Res<OpenedMapFile>>,
+    site_map: Res<BuildingMap>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -377,6 +399,14 @@ fn egui_ui(
                     controls.set_mode(ProjectionMode::Perspective);
                     active_camera_3d.set(controls.perspective_camera_entity);
                 }
+                if ui.button("Save").clicked() {
+                    if let Some(opened_file) = opened_map_file {
+                        println!("Saving to {}", opened_file.0.to_str().unwrap());
+                        save_map(&opened_file.0, &site_map);
+                    } else {
+                        // TODO: Save as
+                    }
+                }
             });
         });
     });
@@ -392,7 +422,7 @@ fn on_startup(mut commands: Commands) {
 }
 
 fn on_exit(mut commands: Commands) {
-    commands.remove_resource::<SiteMap>();
+    commands.remove_resource::<BuildingMap>();
     commands.init_resource::<Option<SelectedEditable>>();
 }
 

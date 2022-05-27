@@ -37,7 +37,7 @@ pub struct GoalSet;
 #[derive(Deserialize, Serialize, Clone)]
 pub struct ModelType;
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct ObstacleSet {
     pub class: usize,
     pub file_name: String,
@@ -58,7 +58,7 @@ pub struct State {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Transition;
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct CrowdSim {
     agent_groups: Vec<AgentGroup>,
     agent_profiles: Vec<AgentProfile>,

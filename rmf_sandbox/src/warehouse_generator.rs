@@ -1,7 +1,8 @@
+use crate::building_map::BuildingMap;
 use crate::despawn::*;
 use crate::level::Level;
 use crate::model::Model;
-use crate::site_map::{MaterialMap, SiteMap, SiteMapLabel};
+use crate::site_map::{MaterialMap, SiteMapLabel};
 use crate::vertex::Vertex;
 use crate::wall::{Wall, WallProperties};
 use crate::AppState;
@@ -243,9 +244,9 @@ fn add_racks(commands: &mut Commands, x: f64, y: f64, yaw: f64, num_racks: i32, 
 }
 
 fn on_enter(mut commands: Commands) {
-    let mut site_map = SiteMap::default();
-    site_map.site_name = "new site".to_string();
-    site_map.levels.push(Level::default());
+    let mut site_map = BuildingMap::default();
+    site_map.name = "new site".to_string();
+    site_map.levels.insert("L1".to_string(), Level::default());
     for i in 0..4 {
         commands
             .spawn()
@@ -260,7 +261,7 @@ fn on_enter(mut commands: Commands) {
 }
 
 fn on_exit(mut commands: Commands) {
-    commands.remove_resource::<SiteMap>();
+    commands.remove_resource::<BuildingMap>();
 }
 
 pub struct WarehouseGeneratorPlugin;
