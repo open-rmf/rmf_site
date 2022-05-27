@@ -5,17 +5,47 @@ use super::model::Model;
 use super::vertex::Vertex;
 use super::wall::Wall;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "LevelRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[serde(from = "LevelRaw", into = "LevelRaw")]
 pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
-    pub elevation: Option<f64>,
+    #[serde(skip)]
     pub transform: LevelTransform,
+}
+
+impl From<LevelRaw> for Level {
+    fn from(raw: LevelRaw) -> Self {
+        Level {
+            vertices: raw.vertices,
+            lanes: raw.lanes,
+            measurements: raw.measurements,
+            models: raw.models,
+            walls: raw.walls,
+            transform: LevelTransform {
+                yaw: 0.,
+                translation: [0., 0., raw.elevation],
+            },
+        }
+    }
+}
+
+impl Into<LevelRaw> for Level {
+    fn into(self) -> LevelRaw {
+        LevelRaw {
+            vertices: self.vertices,
+            lanes: self.lanes,
+            measurements: self.measurements,
+            models: self.models,
+            walls: self.walls,
+            elevation: self.transform.translation[2],
+        }
+    }
 }
 
 impl Level {
@@ -51,31 +81,13 @@ pub struct BoundingBox2D {
     pub max_y: f64,
 }
 
-impl From<LevelRaw> for Level {
-    fn from(raw: LevelRaw) -> Self {
-        let mut level = Level {
-            vertices: raw.vertices,
-            lanes: raw.lanes,
-            measurements: raw.measurements,
-            models: raw.models,
-            walls: raw.walls,
-            ..default()
-        };
-
-        level.transform.translation[2] = match raw.elevation {
-            Some(e) => e,
-            None => 0.,
-        };
-        level
-    }
-}
-
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct LevelRaw {
     vertices: Vec<Vertex>,
     lanes: Vec<Lane>,
     measurements: Vec<Measurement>,
     models: Vec<Model>,
     walls: Vec<Wall>,
-    elevation: Option<f64>,
+    #[serde(default)]
+    elevation: f64,
 }

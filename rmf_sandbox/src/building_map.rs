@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
 
 use crate::level::Level;
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 pub struct BuildingMap {
     pub name: String,
     pub levels: HashMap<String, Level>,
@@ -72,9 +73,12 @@ mod tests {
     use std::error::Error;
 
     #[test]
-    fn deserialize_building_map() -> Result<(), Box<dyn Error>> {
+    fn building_map_serialization() -> Result<(), Box<dyn Error>> {
         let data = std::fs::read("assets/demo_maps/office.building.yaml")?;
-        BuildingMap::from_bytes(&data)?;
+        let map = BuildingMap::from_bytes(&data)?;
+        std::fs::create_dir_all("test_output")?;
+        let out_file = std::fs::File::create("test_output/office.building.yaml")?;
+        serde_yaml::to_writer(out_file, &map)?;
         Ok(())
     }
 }
