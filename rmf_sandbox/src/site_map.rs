@@ -298,8 +298,8 @@ fn update_lanes(
 ) {
     // spawn new lanes
     for (e, lane, change, t) in lanes.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(lane.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(lane.end);
+        let (v1, v1_change) = vertices_mgr.get_vertex(lane.0);
+        let (v2, v2_change) = vertices_mgr.get_vertex(lane.1);
 
         if change.is_added() {
             commands
@@ -366,8 +366,8 @@ fn update_walls(
 ) {
     // spawn new walls
     for (e, wall, change, t) in walls.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(wall.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(wall.end);
+        let (v1, v1_change) = vertices_mgr.get_vertex(wall.0);
+        let (v2, v2_change) = vertices_mgr.get_vertex(wall.1);
 
         if change.is_added() {
             commands
@@ -380,8 +380,8 @@ fn update_walls(
                 })
                 .insert(wall.clone())
                 .insert(Parent(level_entity.0));
-            vertices_mgr.insert_used_by(wall.start, e);
-            vertices_mgr.insert_used_by(wall.end, e);
+            vertices_mgr.insert_used_by(wall.0, e);
+            vertices_mgr.insert_used_by(wall.1, e);
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = wall.transform(v1, v2);
         }

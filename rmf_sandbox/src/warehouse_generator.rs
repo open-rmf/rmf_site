@@ -3,7 +3,7 @@ use crate::level::Level;
 use crate::model::Model;
 use crate::site_map::{MaterialMap, SiteMap, SiteMapLabel};
 use crate::vertex::Vertex;
-use crate::wall::Wall;
+use crate::wall::{Wall, WallProperties};
 use crate::AppState;
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
@@ -95,14 +95,14 @@ fn warehouse_generator(
         return;
     }
 
-    vertices[0].x = -width / 2.;
-    vertices[0].y = -width / 2.;
-    vertices[1].x = width / 2.;
-    vertices[1].y = -width / 2.;
-    vertices[2].x = width / 2.;
-    vertices[2].y = width / 2.;
-    vertices[3].x = -width / 2.;
-    vertices[3].y = width / 2.;
+    vertices[0].0 = -width / 2.;
+    vertices[0].1 = -width / 2.;
+    vertices[1].0 = width / 2.;
+    vertices[1].1 = -width / 2.;
+    vertices[2].0 = width / 2.;
+    vertices[2].1 = width / 2.;
+    vertices[3].0 = -width / 2.;
+    vertices[3].1 = width / 2.;
 
     let rack_length = 2.3784;
     let num_racks = (width / rack_length - 1.) as i32;
@@ -253,11 +253,7 @@ fn on_enter(mut commands: Commands) {
             .insert(WarehouseTag);
         commands
             .spawn()
-            .insert(Wall {
-                start: i,
-                end: (i + 1) % 4,
-                ..default()
-            })
+            .insert(Wall(i, (i + 1) % 4, WallProperties::default()))
             .insert(WarehouseTag);
     }
     commands.insert_resource(site_map);

@@ -71,17 +71,17 @@ impl Level {
             max_y: -1e100,
         };
         for v in self.vertices.iter() {
-            if v.x < bb.min_x {
-                bb.min_x = v.x;
+            if v.0 < bb.min_x {
+                bb.min_x = v.0;
             }
-            if v.x > bb.max_x {
-                bb.max_x = v.x;
+            if v.0 > bb.max_x {
+                bb.max_x = v.0;
             }
-            if v.y < bb.min_y {
-                bb.min_y = v.y;
+            if v.1 < bb.min_y {
+                bb.min_y = v.1;
             }
-            if v.y > bb.max_y {
-                bb.max_y = v.y;
+            if v.1 > bb.max_y {
+                bb.max_y = v.1;
             }
         }
         bb

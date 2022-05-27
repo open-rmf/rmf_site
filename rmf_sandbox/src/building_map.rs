@@ -28,8 +28,8 @@ impl BuildingMap {
             let mut ofs_y = 0.0;
             let mut num_v = 0;
             for v in &level.vertices {
-                ofs_x += v.x;
-                ofs_y += -v.y;
+                ofs_x += v.0;
+                ofs_y += -v.1;
                 num_v += 1;
             }
             ofs_x /= num_v as f64;
@@ -39,8 +39,8 @@ impl BuildingMap {
             let mut n_dist = 0;
             let mut sum_dist = 0.;
             for meas in &level.measurements {
-                let dx_raw = level.vertices[meas.0].x - level.vertices[meas.1].x;
-                let dy_raw = level.vertices[meas.0].y - level.vertices[meas.1].y;
+                let dx_raw = level.vertices[meas.0].0 - level.vertices[meas.1].0;
+                let dy_raw = level.vertices[meas.0].1 - level.vertices[meas.1].1;
                 let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
                 let dist_meters = *meas.2.distance;
                 sum_dist += dist_meters / dist_raw;
@@ -54,8 +54,8 @@ impl BuildingMap {
 
             // convert to meters
             for v in level.vertices.iter_mut() {
-                v.x = (v.x - ofs_x) * scale;
-                v.y = (-v.y - ofs_y) * scale;
+                v.0 = (v.0 - ofs_x) * scale;
+                v.1 = (-v.1 - ofs_y) * scale;
             }
 
             for m in level.models.iter_mut() {

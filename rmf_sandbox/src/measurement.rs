@@ -15,13 +15,13 @@ pub struct Measurement(pub usize, pub usize, pub MeasurementProperties);
 
 impl Measurement {
     pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
-        let dx = v2.x - v1.x;
-        let dy = v2.y - v1.y;
+        let dx = v2.0 - v1.0;
+        let dy = v2.1 - v1.1;
         let length = Vec2::from([dx as f32, dy as f32]).length();
         let width = 0.25 as f32;
         let yaw = dy.atan2(dx) as f32;
-        let cx = ((v1.x + v2.x) / 2.) as f32;
-        let cy = ((v1.y + v2.y) / 2.) as f32;
+        let cx = ((v1.0 + v2.0) / 2.) as f32;
+        let cy = ((v1.1 + v2.1) / 2.) as f32;
 
         Transform {
             translation: Vec3::new(cx, cy, 0.01),
