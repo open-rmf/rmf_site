@@ -28,66 +28,66 @@ impl Editable for Vertex {
 
         egui::Grid::new("vertex").num_columns(2).show(ui, |ui| {
             ui.label("Name");
-            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            changed = ui.text_edit_singleline(&mut self.3).changed() || changed;
             ui.end_row();
 
             ui.label("X");
             changed = ui
-                .add(egui::DragValue::new(&mut self.x).speed(0.1))
+                .add(egui::DragValue::new(&mut self.0).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Y");
             changed = ui
-                .add(egui::DragValue::new(&mut self.y).speed(0.1))
+                .add(egui::DragValue::new(&mut self.1).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Z");
             changed = ui
-                .add(egui::DragValue::new(&mut self.z).speed(0.1))
+                .add(egui::DragValue::new(&mut self.2).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Charger");
-            changed = ui.checkbox(&mut self.is_charger, "").changed() || changed;
+            changed = ui.checkbox(&mut self.4.is_charger, "").changed() || changed;
             ui.end_row();
 
             ui.label("Holding Point");
-            changed = ui.checkbox(&mut self.is_holding_point, "").changed() || changed;
+            changed = ui.checkbox(&mut self.4.is_holding_point, "").changed() || changed;
             ui.end_row();
 
             ui.label("Parking Spot");
-            changed = ui.checkbox(&mut self.is_parking_spot, "").changed() || changed;
+            changed = ui.checkbox(&mut self.4.is_parking_spot, "").changed() || changed;
             ui.end_row();
 
             ui.label("Spawn Robot");
             changed = ui
-                .text_edit_singleline(&mut self.spawn_robot_name)
+                .text_edit_singleline(&mut *self.4.spawn_robot_name)
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Spawn Robot Type");
             changed = ui
-                .text_edit_singleline(&mut self.spawn_robot_type)
+                .text_edit_singleline(&mut *self.4.spawn_robot_type)
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Dropoff Ingestor");
             changed = ui
-                .text_edit_singleline(&mut self.dropoff_ingestor)
+                .text_edit_singleline(&mut *self.4.dropoff_ingestor)
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Pickup Dispenser");
             changed = ui
-                .text_edit_singleline(&mut self.pickup_dispenser)
+                .text_edit_singleline(&mut *self.4.pickup_dispenser)
                 .changed()
                 || changed;
             ui.end_row();
@@ -103,23 +103,23 @@ impl Editable for Lane {
 
         egui::Grid::new("lane").num_columns(2).show(ui, |ui| {
             ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
             ui.end_row();
 
             ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
             ui.end_row();
 
             ui.label("Bidirectional");
-            changed = ui.checkbox(&mut self.bidirectional, "").changed() || changed;
+            changed = ui.checkbox(&mut self.2.bidirectional, "").changed() || changed;
             ui.end_row();
 
             ui.label("Graph");
-            changed = ui.add(egui::DragValue::new(&mut self.graph_idx)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.2.graph_idx)).changed() || changed;
             ui.end_row();
 
             ui.label("Orientation");
-            changed = ui.text_edit_singleline(&mut self.orientation).changed() || changed;
+            changed = ui.text_edit_singleline(&mut *self.2.orientation).changed() || changed;
             ui.end_row();
         });
 
@@ -163,27 +163,27 @@ impl Editable for Wall {
 
         egui::Grid::new("wall").num_columns(2).show(ui, |ui| {
             ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
             ui.end_row();
 
             ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
             ui.end_row();
 
             ui.label("Height");
             changed = ui
-                .add(egui::DragValue::new(&mut self.height).speed(0.1))
+                .add(egui::DragValue::new(&mut self.2.texture_height).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Texture");
-            changed = ui.text_edit_singleline(&mut self.texture_name).changed() || changed;
+            changed = ui.text_edit_singleline(&mut *self.2.texture_name).changed() || changed;
             ui.end_row();
 
             ui.label("Alpha");
             changed = ui
-                .add(egui::DragValue::new(&mut self.alpha).speed(0.01))
+                .add(egui::DragValue::new(&mut self.2.alpha).speed(0.01))
                 .changed()
                 || changed;
             ui.end_row();

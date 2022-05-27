@@ -1,5 +1,7 @@
+// RBMF stands for "RMF Building Map Format"
+
 use bevy_egui::egui::emath::Numeric;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
 
@@ -34,6 +36,12 @@ impl Deref for RbmfString {
     type Target = String;
     fn deref(&self) -> &String {
         &self.1
+    }
+}
+
+impl DerefMut for RbmfString {
+    fn deref_mut(&mut self) -> &mut String {
+        &mut self.1
     }
 }
 
@@ -74,6 +82,12 @@ impl Deref for RbmfInt {
     type Target = i64;
     fn deref(&self) -> &i64 {
         &self.1
+    }
+}
+
+impl DerefMut for RbmfInt {
+    fn deref_mut(&mut self) -> &mut i64 {
+        &mut self.1
     }
 }
 
@@ -131,6 +145,12 @@ impl Deref for RbmfFloat {
     }
 }
 
+impl DerefMut for RbmfFloat {
+    fn deref_mut(&mut self) -> &mut f64 {
+        &mut self.1
+    }
+}
+
 impl Numeric for RbmfFloat {
     const INTEGRAL: bool = false;
     const MIN: Self = Self(3, f64::MIN);
@@ -176,5 +196,11 @@ impl Deref for RbmfBool {
     type Target = bool;
     fn deref(&self) -> &bool {
         &self.1
+    }
+}
+
+impl DerefMut for RbmfBool {
+    fn deref_mut(&mut self) -> &mut bool {
+        &mut self.1
     }
 }
