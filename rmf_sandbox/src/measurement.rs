@@ -1,8 +1,10 @@
 use super::vertex::Vertex;
+use crate::rbmf::*;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "MeasurementRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[serde(from = "MeasurementRaw", into = "MeasurementRaw")]
 pub struct Measurement {
     pub start: usize,
     pub end: usize,
@@ -14,10 +16,22 @@ pub struct Measurement {
 impl From<MeasurementRaw> for Measurement {
     fn from(raw: MeasurementRaw) -> Measurement {
         Measurement {
-            start: raw.data.0,
-            end: raw.data.1,
-            distance: raw.data.2.distance.1,
+            start: raw.0,
+            end: raw.1,
+            distance: raw.2.distance.1,
         }
+    }
+}
+
+impl Into<MeasurementRaw> for Measurement {
+    fn into(self) -> MeasurementRaw {
+        MeasurementRaw(
+            self.start,
+            self.end,
+            MeasurementProperties {
+                distance: RbmfFloat::from(self.distance),
+            },
+        )
     }
 }
 
@@ -40,13 +54,10 @@ impl Measurement {
     }
 }
 
-#[derive(serde::Deserialize)]
-#[serde(transparent)]
-struct MeasurementRaw {
-    data: (usize, usize, MeasurementProperties),
-}
+#[derive(Deserialize, Serialize)]
+struct MeasurementRaw(usize, usize, MeasurementProperties);
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct MeasurementProperties {
-    distance: (f64, f64),
+    distance: RbmfFloat,
 }

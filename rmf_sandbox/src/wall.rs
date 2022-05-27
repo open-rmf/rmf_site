@@ -1,15 +1,17 @@
 use super::vertex::Vertex;
+use crate::rbmf::*;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "WallRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[serde(from = "WallRaw", into = "WallRaw")]
 pub struct Wall {
     pub start: usize,
     pub end: usize,
     pub texture_name: String,
-    pub height: f32,
-    pub alpha: f32,
+    pub height: f64,
+    pub alpha: f64,
 }
 
 impl From<WallRaw> for Wall {
@@ -17,13 +19,24 @@ impl From<WallRaw> for Wall {
         Wall {
             start: raw.0,
             end: raw.1,
-            height: match raw.2.texture_height {
-                Some(h) => h.1 as f32,
-                None => 2.0,
-            },
+            height: raw.2.texture_height.1,
             texture_name: raw.2.texture_name.1,
             alpha: raw.2.alpha.1,
         }
+    }
+}
+
+impl Into<WallRaw> for Wall {
+    fn into(self) -> WallRaw {
+        WallRaw(
+            self.start,
+            self.end,
+            WallProperties {
+                texture_height: RbmfFloat::from(self.height),
+                texture_name: RbmfString::from(self.texture_name),
+                alpha: RbmfFloat::from(self.alpha),
+            },
+        )
     }
 }
 
@@ -115,19 +128,24 @@ impl Wall {
         Transform {
             translation: Vec3::new(cx, cy, 0.),
             // base height is 3
-            scale: Vec3::new(1., 1., self.height / 3.),
+            scale: Vec3::new(1., 1., (self.height / 3.) as f32),
             rotation: Quat::from_rotation_z(yaw),
             ..Default::default()
         }
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct WallRaw(usize, usize, WallProperties);
 
-#[derive(serde::Deserialize)]
+fn default_height() -> RbmfFloat {
+    RbmfFloat::from(2.)
+}
+
+#[derive(Deserialize, Serialize)]
 struct WallProperties {
-    alpha: (usize, f32),
-    texture_name: (usize, String),
-    texture_height: Option<(usize, f64)>,
+    alpha: RbmfFloat,
+    texture_name: RbmfString,
+    #[serde(default = "default_height")]
+    texture_height: RbmfFloat,
 }

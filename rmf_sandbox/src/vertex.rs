@@ -1,7 +1,10 @@
+use crate::rbmf::*;
+use crate::utils::is_option_default;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(try_from = "VertexRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[serde(try_from = "VertexRaw", into = "VertexRaw")]
 pub struct Vertex {
     pub name: String,
     pub x: f64,
@@ -39,6 +42,26 @@ impl TryFrom<VertexRaw> for Vertex {
     }
 }
 
+impl Into<VertexRaw> for Vertex {
+    fn into(self) -> VertexRaw {
+        VertexRaw(
+            self.x,
+            self.y,
+            self.z,
+            self.name,
+            VertexProperties {
+                is_charger: Some(RbmfBool::from(self.is_charger)),
+                is_holding_point: Some(RbmfBool::from(self.is_holding_point)),
+                is_parking_spot: Some(RbmfBool::from(self.is_parking_spot)),
+                spawn_robot_name: Some(RbmfString::from(self.spawn_robot_name)),
+                spawn_robot_type: Some(RbmfString::from(self.spawn_robot_type)),
+                dropoff_ingestor: Some(RbmfString::from(self.dropoff_ingestor)),
+                pickup_dispenser: Some(RbmfString::from(self.pickup_dispenser)),
+            },
+        )
+    }
+}
+
 impl Vertex {
     pub fn transform(&self) -> Transform {
         Transform {
@@ -48,22 +71,23 @@ impl Vertex {
     }
 }
 
-#[derive(serde::Deserialize, Default)]
+#[derive(Deserialize, Serialize, Default)]
 struct VertexProperties {
-    is_charger: Option<(usize, bool)>,
-    is_parking_spot: Option<(usize, bool)>,
-    is_holding_point: Option<(usize, bool)>,
-    spawn_robot_name: Option<(usize, String)>,
-    spawn_robot_type: Option<(usize, String)>,
-    dropoff_ingestor: Option<(usize, String)>,
-    pickup_dispenser: Option<(usize, String)>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    is_charger: Option<RbmfBool>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    is_parking_spot: Option<RbmfBool>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    is_holding_point: Option<RbmfBool>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    spawn_robot_name: Option<RbmfString>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    spawn_robot_type: Option<RbmfString>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    dropoff_ingestor: Option<RbmfString>,
+    #[serde(skip_serializing_if = "is_option_default")]
+    pickup_dispenser: Option<RbmfString>,
 }
 
-#[derive(serde::Deserialize)]
-struct VertexRaw(
-    f64,
-    f64,
-    f64,
-    String,
-    #[serde(default)] VertexProperties,
-);
+#[derive(Deserialize, Serialize)]
+struct VertexRaw(f64, f64, f64, String, #[serde(default)] VertexProperties);

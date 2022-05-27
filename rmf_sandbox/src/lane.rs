@@ -1,13 +1,15 @@
 use super::vertex::Vertex;
+use crate::rbmf::*;
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "LaneRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[serde(from = "LaneRaw", into = "LaneRaw")]
 pub struct Lane {
     pub start: usize,
     pub end: usize,
-    pub bidirection: bool,
-    pub graph_idx: usize,
+    pub bidirectional: bool,
+    pub graph_idx: i64,
     pub orientation: String,
 }
 
@@ -16,10 +18,24 @@ impl From<LaneRaw> for Lane {
         Lane {
             start: raw.0,
             end: raw.1,
-            bidirection: raw.2.bidirectional.1,
+            bidirectional: raw.2.bidirectional.1,
             graph_idx: raw.2.graph_idx.1,
             orientation: raw.2.orientation.1,
         }
+    }
+}
+
+impl Into<LaneRaw> for Lane {
+    fn into(self) -> LaneRaw {
+        LaneRaw(
+            self.start,
+            self.end,
+            LaneProperties {
+                bidirectional: RbmfBool::from(self.bidirectional),
+                graph_idx: RbmfInt::from(self.graph_idx),
+                orientation: RbmfString::from(self.orientation),
+            },
+        )
     }
 }
 
@@ -43,12 +59,12 @@ impl Lane {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct LaneRaw(usize, usize, LaneProperties);
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize)]
 struct LaneProperties {
-    bidirectional: (usize, bool),
-    graph_idx: (usize, usize),
-    orientation: (usize, String),
+    bidirectional: RbmfBool,
+    graph_idx: RbmfInt,
+    orientation: RbmfString,
 }

@@ -110,8 +110,8 @@ impl Editable for Lane {
             changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
             ui.end_row();
 
-            ui.label("Bidirection");
-            changed = ui.checkbox(&mut self.bidirection, "").changed() || changed;
+            ui.label("Bidirectional");
+            changed = ui.checkbox(&mut self.bidirectional, "").changed() || changed;
             ui.end_row();
 
             ui.label("Graph");

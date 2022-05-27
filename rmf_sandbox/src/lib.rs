@@ -25,7 +25,9 @@ mod level;
 mod level_transform;
 mod measurement;
 mod model;
+mod rbmf;
 mod sandbox_asset_io;
+mod utils;
 mod vertex;
 mod wall;
 
