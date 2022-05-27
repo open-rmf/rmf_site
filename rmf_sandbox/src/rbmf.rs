@@ -1,8 +1,9 @@
+use bevy_egui::egui::emath::Numeric;
 use std::ops::Deref;
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct RbmfString(usize, pub String);
 
 impl From<String> for RbmfString {
@@ -36,7 +37,7 @@ impl Deref for RbmfString {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Copy)]
 pub struct RbmfInt(usize, pub i64);
 
 impl From<i64> for RbmfInt {
@@ -57,6 +58,12 @@ impl PartialEq for RbmfInt {
     }
 }
 
+impl PartialOrd for RbmfInt {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.1.partial_cmp(&other.1)
+    }
+}
+
 impl From<RbmfInt> for i64 {
     fn from(i: RbmfInt) -> Self {
         i.1
@@ -70,7 +77,21 @@ impl Deref for RbmfInt {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+impl Numeric for RbmfInt {
+    const INTEGRAL: bool = true;
+    const MIN: Self = Self(2, i64::MIN);
+    const MAX: Self = Self(2, i64::MAX);
+
+    fn to_f64(self) -> f64 {
+        self.1 as f64
+    }
+
+    fn from_f64(num: f64) -> Self {
+        Self(2, num as i64)
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Copy)]
 pub struct RbmfFloat(usize, pub f64);
 
 impl From<f64> for RbmfFloat {
@@ -91,6 +112,12 @@ impl PartialEq for RbmfFloat {
     }
 }
 
+impl PartialOrd for RbmfFloat {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.1.partial_cmp(&other.1)
+    }
+}
+
 impl From<RbmfFloat> for f64 {
     fn from(f: RbmfFloat) -> Self {
         f.1
@@ -104,7 +131,21 @@ impl Deref for RbmfFloat {
     }
 }
 
-#[derive(Deserialize, Serialize)]
+impl Numeric for RbmfFloat {
+    const INTEGRAL: bool = false;
+    const MIN: Self = Self(3, f64::MIN);
+    const MAX: Self = Self(3, f64::MAX);
+
+    fn to_f64(self) -> f64 {
+        self.1
+    }
+
+    fn from_f64(num: f64) -> Self {
+        Self(3, num)
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone)]
 pub struct RbmfBool(usize, pub bool);
 
 impl From<bool> for RbmfBool {

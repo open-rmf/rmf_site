@@ -336,8 +336,8 @@ fn update_measurements(
 ) {
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(measurement.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(measurement.end);
+        let (v1, v1_change) = vertices_mgr.get_vertex(measurement.0);
+        let (v2, v2_change) = vertices_mgr.get_vertex(measurement.1);
 
         if change.is_added() {
             commands

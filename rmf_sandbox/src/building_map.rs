@@ -39,10 +39,10 @@ impl BuildingMap {
             let mut n_dist = 0;
             let mut sum_dist = 0.;
             for meas in &level.measurements {
-                let dx_raw = level.vertices[meas.start].x - level.vertices[meas.end].x;
-                let dy_raw = level.vertices[meas.start].y - level.vertices[meas.end].y;
+                let dx_raw = level.vertices[meas.0].x - level.vertices[meas.1].x;
+                let dy_raw = level.vertices[meas.0].y - level.vertices[meas.1].y;
                 let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
-                let dist_meters = meas.distance;
+                let dist_meters = *meas.2.distance;
                 sum_dist += dist_meters / dist_raw;
                 n_dist += 1;
             }

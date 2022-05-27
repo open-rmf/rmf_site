@@ -135,11 +135,11 @@ impl Editable for Measurement {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Start");
-                changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+                changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
                 ui.end_row();
 
                 ui.label("End");
-                changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+                changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
                 ui.end_row();
 
                 // TODO: Remove this field once we support new cartesian format. Doing so removes
@@ -147,7 +147,7 @@ impl Editable for Measurement {
                 // in the file.
                 ui.label("Distance");
                 changed = ui
-                    .add(egui::DragValue::new(&mut self.distance).speed(0.1))
+                    .add(egui::DragValue::new(&mut self.2.distance).speed(0.1))
                     .changed()
                     || changed;
                 ui.end_row();
