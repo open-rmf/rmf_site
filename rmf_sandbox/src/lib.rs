@@ -20,6 +20,7 @@ mod traffic_editor;
 mod warehouse_generator;
 
 mod building_map;
+mod crowd_sim;
 mod door;
 mod lane;
 mod level;

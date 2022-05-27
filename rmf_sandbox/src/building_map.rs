@@ -1,12 +1,14 @@
-use std::collections::HashMap;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
+use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
 
 #[derive(Deserialize, Serialize)]
 pub struct BuildingMap {
     pub name: String,
     pub levels: HashMap<String, Level>,
+    pub crowd_sim: CrowdSim,
 }
 
 impl BuildingMap {
