@@ -7,6 +7,11 @@ use super::wall::Wall;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
+#[derive(Deserialize, Serialize, Clone, Default)]
+pub struct LevelDrawing {
+    filename: String,
+}
+
 #[derive(Deserialize, Serialize, Component, Clone, Default)]
 #[serde(from = "LevelRaw", into = "LevelRaw")]
 pub struct Level {
@@ -15,6 +20,9 @@ pub struct Level {
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
+    pub drawing: LevelDrawing,
+    pub flattened_x_offset: f64,
+    pub flattened_y_offset: f64,
     #[serde(skip)]
     pub transform: LevelTransform,
 }
@@ -27,6 +35,9 @@ impl From<LevelRaw> for Level {
             measurements: raw.measurements,
             models: raw.models,
             walls: raw.walls,
+            drawing: raw.drawing,
+            flattened_x_offset: raw.flattened_x_offset,
+            flattened_y_offset: raw.flattened_y_offset,
             transform: LevelTransform {
                 yaw: 0.,
                 translation: [0., 0., raw.elevation],
@@ -43,7 +54,10 @@ impl Into<LevelRaw> for Level {
             measurements: self.measurements,
             models: self.models,
             walls: self.walls,
+            drawing: self.drawing,
             elevation: self.transform.translation[2],
+            flattened_x_offset: self.flattened_x_offset,
+            flattened_y_offset: self.flattened_y_offset,
         }
     }
 }
@@ -88,6 +102,8 @@ struct LevelRaw {
     measurements: Vec<Measurement>,
     models: Vec<Model>,
     walls: Vec<Wall>,
-    #[serde(default)]
+    drawing: LevelDrawing,
     elevation: f64,
+    flattened_x_offset: f64,
+    flattened_y_offset: f64,
 }

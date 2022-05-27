@@ -1,3 +1,5 @@
+use std::ops::Deref;
+
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -18,6 +20,19 @@ impl Default for RbmfString {
 impl PartialEq for RbmfString {
     fn eq(&self, other: &Self) -> bool {
         self.1 == other.1
+    }
+}
+
+impl From<RbmfString> for String {
+    fn from(s: RbmfString) -> Self {
+        s.1
+    }
+}
+
+impl Deref for RbmfString {
+    type Target = String;
+    fn deref(&self) -> &String {
+        &self.1
     }
 }
 
@@ -42,6 +57,19 @@ impl PartialEq for RbmfInt {
     }
 }
 
+impl From<RbmfInt> for i64 {
+    fn from(i: RbmfInt) -> Self {
+        i.1
+    }
+}
+
+impl Deref for RbmfInt {
+    type Target = i64;
+    fn deref(&self) -> &i64 {
+        &self.1
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RbmfFloat(usize, pub f64);
 
@@ -63,6 +91,19 @@ impl PartialEq for RbmfFloat {
     }
 }
 
+impl From<RbmfFloat> for f64 {
+    fn from(f: RbmfFloat) -> Self {
+        f.1
+    }
+}
+
+impl Deref for RbmfFloat {
+    type Target = f64;
+    fn deref(&self) -> &f64 {
+        &self.1
+    }
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct RbmfBool(usize, pub bool);
 
@@ -81,5 +122,18 @@ impl Default for RbmfBool {
 impl PartialEq for RbmfBool {
     fn eq(&self, other: &Self) -> bool {
         self.1 == other.1
+    }
+}
+
+impl From<RbmfBool> for bool {
+    fn from(b: RbmfBool) -> Self {
+        b.1
+    }
+}
+
+impl Deref for RbmfBool {
+    type Target = bool;
+    fn deref(&self) -> &bool {
+        &self.1
     }
 }
