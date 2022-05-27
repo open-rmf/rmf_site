@@ -8,7 +8,7 @@ use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
 use bevy::ecs::system::SystemParam;
-use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
+use bevy::{ecs::schedule::ShouldRun, prelude::*};
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
@@ -29,7 +29,7 @@ struct Handles {
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
-struct SiteMapLevel(Entity);
+struct SiteMapCurrentLevel(String);
 
 /// Used to keep track of entities created by the site map system.
 #[derive(Component)]
@@ -119,8 +119,6 @@ fn init_site_map(
 
     commands.init_resource::<VerticesManagerData>();
 
-    let mut level_entities: Vec<Entity> = Vec::new();
-    let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
     for level in sm.levels.values() {
         // spawn lights
         // todo: calculate bounding box of this level
@@ -168,36 +166,6 @@ fn init_site_map(
                 .insert(SiteMapTag);
         }
 
-        let vertices = &level.vertices;
-        level_vertices.push(vertices);
-        level_entities.push(
-            commands
-                .spawn()
-                .insert(SiteMapTag)
-                .insert_bundle(TransformBundle::from_transform(Transform {
-                    translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
-                    ..default()
-                }))
-                .with_children(|cb| {
-                    for v in vertices {
-                        cb.spawn().insert(v.clone());
-                    }
-                    for lane in &level.lanes {
-                        cb.spawn().insert(lane.clone());
-                    }
-                    for measurement in &level.measurements {
-                        cb.spawn().insert(measurement.clone());
-                    }
-                    for wall in &level.walls {
-                        cb.spawn().insert(wall.clone());
-                    }
-                    for model in &level.models {
-                        cb.spawn().insert(model.clone());
-                    }
-                })
-                .id(),
-        );
-
         // spawn the floor plane
         commands
             .spawn_bundle(PbrBundle {
@@ -211,12 +179,8 @@ fn init_site_map(
             })
             .insert(SiteMapTag);
     }
-    if level_entities.len() == 0 {
-        println!("No levels found in site map");
-        return;
-    }
-    commands.insert_resource(SiteMapLevel(level_entities[0]));
-    commands.insert_resource(level_vertices[0].clone());
+    let current_level = sm.levels.keys().next().unwrap();
+    commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
 
     commands.insert_resource(handles);
     commands.insert_resource(LoadingModels::default());
@@ -236,13 +200,12 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
     for entity in site_map_entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    commands.remove_resource::<SiteMapLevel>();
+    commands.remove_resource::<SiteMapCurrentLevel>();
     commands.remove_resource::<VerticesManagerData>();
 }
 
 fn update_vertices(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     handles: Res<Handles>,
     mut vertices_mgr: VerticesManager,
     added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
@@ -250,15 +213,12 @@ fn update_vertices(
 ) {
     // spawn new vertices
     for (e, v) in added_vertices.iter() {
-        commands
-            .entity(e)
-            .insert_bundle(PbrBundle {
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.vertex_material.clone(),
-                transform: v.transform(),
-                ..Default::default()
-            })
-            .insert(Parent(level_entity.0));
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: handles.vertex_mesh.clone(),
+            material: handles.vertex_material.clone(),
+            transform: v.transform(),
+            ..Default::default()
+        });
         vertices_mgr.push_vertex(e, &[]);
     }
     // update changed vertices
@@ -269,7 +229,6 @@ fn update_vertices(
 
 fn update_lanes(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
     vertices_mgr: VerticesManager,
@@ -289,8 +248,7 @@ fn update_lanes(
                     transform: lane.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(lane.clone())
-                .insert(Parent(level_entity.0));
+                .insert(lane.clone());
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = lane.transform(v1, v2);
         }
@@ -299,7 +257,6 @@ fn update_lanes(
 
 fn update_measurements(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
     vertices_mgr: VerticesManager,
@@ -327,8 +284,7 @@ fn update_measurements(
                     transform: measurement.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(measurement.clone())
-                .insert(Parent(level_entity.0));
+                .insert(measurement.clone());
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = measurement.transform(v1, v2);
         }
@@ -337,7 +293,6 @@ fn update_measurements(
 
 fn update_walls(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
     mut vertices_mgr: VerticesManager,
@@ -357,8 +312,7 @@ fn update_walls(
                     transform: wall.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(wall.clone())
-                .insert(Parent(level_entity.0));
+                .insert(wall.clone());
             vertices_mgr.insert_used_by(wall.0, e);
             vertices_mgr.insert_used_by(wall.1, e);
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
@@ -372,7 +326,6 @@ struct ModelCurrentScene(String);
 
 fn update_models(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     added_models: Query<(Entity, &Model), Added<Model>>,
     mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
@@ -416,8 +369,7 @@ fn update_models(
                 .insert_bundle((model.transform(), GlobalTransform::identity()))
                 .with_children(|parent| {
                     parent.spawn_scene(h.clone());
-                })
-                .insert(Parent(level_entity.0));
+                });
             spawned_models.0.push(*e);
         }
     }
@@ -464,7 +416,7 @@ fn should_despawn_site_map(sm: Option<Res<BuildingMap>>, mut sm_existed: Local<b
     return ShouldRun::No;
 }
 
-fn has_site_map(level_entity: Option<Res<SiteMapLevel>>) -> ShouldRun {
+fn has_site_map(level_entity: Option<Res<SiteMapCurrentLevel>>) -> ShouldRun {
     if level_entity.is_some() {
         return ShouldRun::Yes;
     }
