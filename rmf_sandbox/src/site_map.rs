@@ -8,7 +8,13 @@ use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
 use bevy::ecs::system::SystemParam;
-use bevy::{ecs::schedule::ShouldRun, prelude::*};
+use bevy::prelude::*;
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum SiteMapState {
+    Enabled,
+    Disabled,
+}
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
@@ -378,11 +384,7 @@ fn update_models(
     }
 
     for (e, model) in added_models.iter() {
-        let bundle_path =
-            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
-        let glb: Handle<Scene> = asset_server.load(&bundle_path);
-        commands.entity(e).insert(DespawnBlocker());
-        loading_models.0.insert(e, (model.clone(), glb.clone()));
+        spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
     }
     // update changed models
     for (e, model, mut t) in changed_models.iter_mut() {
@@ -398,50 +400,29 @@ fn update_models(
     }
 }
 
-fn should_init_site_map(sm: Option<Res<BuildingMap>>) -> ShouldRun {
-    if let Some(sm) = sm {
-        if sm.is_added() {
-            return ShouldRun::Yes;
-        }
-    }
-    ShouldRun::No
-}
-
-fn should_despawn_site_map(sm: Option<Res<BuildingMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
-    if sm.is_none() && *sm_existed {
-        *sm_existed = false;
-        return ShouldRun::Yes;
-    }
-    *sm_existed = sm.is_some();
-    return ShouldRun::No;
-}
-
-fn has_site_map(level_entity: Option<Res<SiteMapCurrentLevel>>) -> ShouldRun {
-    if level_entity.is_some() {
-        return ShouldRun::Yes;
-    }
-    ShouldRun::No
-}
-
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Vec<Vertex>>()
+        app.add_state(SiteMapState::Disabled)
+            .init_resource::<Vec<Vertex>>()
             .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
             .init_resource::<Handles>()
             .init_resource::<MaterialMap>()
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_enter(SiteMapState::Enabled)
                     .label(SiteMapLabel)
-                    .with_system(init_site_map.with_run_criteria(should_init_site_map))
-                    .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
+                    .with_system(init_site_map),
             )
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_exit(SiteMapState::Enabled)
                     .label(SiteMapLabel)
-                    .with_run_criteria(has_site_map)
+                    .with_system(despawn_site_map),
+            )
+            .add_system_set(
+                SystemSet::on_update(SiteMapState::Enabled)
+                    .label(SiteMapLabel)
                     .with_system(update_vertices.after(init_site_map))
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))

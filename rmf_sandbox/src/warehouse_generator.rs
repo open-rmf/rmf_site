@@ -2,7 +2,8 @@ use crate::building_map::BuildingMap;
 use crate::despawn::*;
 use crate::level::Level;
 use crate::model::Model;
-use crate::site_map::{MaterialMap, SiteMapLabel};
+use crate::site_map::{MaterialMap, SiteMapLabel, SiteMapState};
+use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::{Wall, WallProperties};
 use crate::AppState;
@@ -65,6 +66,7 @@ fn warehouse_ui(
 
 fn warehouse_generator(
     mut commands: Commands,
+    mut spawner: Spawner,
     warehouse: Res<Warehouse>,
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
     respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
@@ -118,7 +120,8 @@ fn warehouse_generator(
     for aisle_idx in 0..num_aisles {
         let y = (aisle_idx as f64 - (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
         add_racks(
-            &mut commands,
+            &mut spawner,
+            "L1",
             -width / 2. + 1.,
             y,
             0.,
@@ -159,7 +162,15 @@ fn warehouse_generator(
     });
 }
 
-fn add_racks(commands: &mut Commands, x: f64, y: f64, yaw: f64, num_racks: i32, num_stacks: i32) {
+fn add_racks(
+    spawner: &mut Spawner,
+    level: &str,
+    x: f64,
+    y: f64,
+    yaw: f64,
+    num_racks: i32,
+    num_stacks: i32,
+) {
     let rack_depth_spacing = 1.3;
     let rack_depth_offset = 0.5;
     let rack_length = 2.3784;
@@ -168,100 +179,125 @@ fn add_racks(commands: &mut Commands, x: f64, y: f64, yaw: f64, num_racks: i32, 
     for idx in 0..(num_racks + 1) {
         for vert_idx in 0..num_stacks {
             let z_offset = (vert_idx as f64) * rack_height;
-            commands
-                .spawn()
-                .insert(Model::from_xyz_yaw(
-                    "vert_beam1",
-                    "OpenRobotics/PalletRackVertBeams",
-                    x + (idx as f64) * rack_length,
-                    y - rack_depth_offset - rack_depth_spacing / 2.,
-                    z_offset,
-                    yaw,
-                ))
+            spawner
+                .spawn_in_level(
+                    level,
+                    Model::from_xyz_yaw(
+                        "vert_beam1",
+                        "OpenRobotics/PalletRackVertBeams",
+                        x + (idx as f64) * rack_length,
+                        y - rack_depth_offset - rack_depth_spacing / 2.,
+                        z_offset,
+                        yaw,
+                    ),
+                )
+                .unwrap()
                 .insert(WarehouseRespawnTag);
-            commands
-                .spawn()
-                .insert(Model::from_xyz_yaw(
-                    "vert_beam1",
-                    "OpenRobotics/PalletRackVertBeams",
-                    x + (idx as f64) * rack_length,
-                    y - rack_depth_offset + rack_depth_spacing / 2.,
-                    z_offset,
-                    yaw,
-                ))
+            spawner
+                .spawn_in_level(
+                    level,
+                    Model::from_xyz_yaw(
+                        "vert_beam1",
+                        "OpenRobotics/PalletRackVertBeams",
+                        x + (idx as f64) * rack_length,
+                        y - rack_depth_offset + rack_depth_spacing / 2.,
+                        z_offset,
+                        yaw,
+                    ),
+                )
+                .unwrap()
                 .insert(WarehouseRespawnTag);
 
             if idx < num_racks {
                 let rack_x = x + (idx as f64) * rack_length;
-                commands
-                    .spawn()
-                    .insert(Model::from_xyz_yaw(
-                        "horiz_beam1",
-                        "OpenRobotics/PalletRackHorBeams",
-                        rack_x,
-                        y - rack_depth_offset - rack_depth_spacing / 2.,
-                        z_offset,
-                        yaw,
-                    ))
+                spawner
+                    .spawn_in_level(
+                        level,
+                        Model::from_xyz_yaw(
+                            "horiz_beam1",
+                            "OpenRobotics/PalletRackHorBeams",
+                            rack_x,
+                            y - rack_depth_offset - rack_depth_spacing / 2.,
+                            z_offset,
+                            yaw,
+                        ),
+                    )
+                    .unwrap()
                     .insert(WarehouseRespawnTag);
-                commands
-                    .spawn()
-                    .insert(Model::from_xyz_yaw(
-                        "horiz_beam1",
-                        "OpenRobotics/PalletRackHorBeams",
-                        rack_x,
-                        y - rack_depth_offset + rack_depth_spacing / 2.,
-                        z_offset,
-                        yaw,
-                    ))
+                spawner
+                    .spawn_in_level(
+                        level,
+                        Model::from_xyz_yaw(
+                            "horiz_beam1",
+                            "OpenRobotics/PalletRackHorBeams",
+                            rack_x,
+                            y - rack_depth_offset + rack_depth_spacing / 2.,
+                            z_offset,
+                            yaw,
+                        ),
+                    )
+                    .unwrap()
                     .insert(WarehouseRespawnTag);
                 let second_shelf_z_offset = 1.0;
-                commands
-                    .spawn()
-                    .insert(Model::from_xyz_yaw(
-                        "horiz_beam1",
-                        "OpenRobotics/PalletRackHorBeams",
-                        rack_x,
-                        y - rack_depth_offset - rack_depth_spacing / 2.,
-                        z_offset + second_shelf_z_offset,
-                        yaw,
-                    ))
+                spawner
+                    .spawn_in_level(
+                        level,
+                        Model::from_xyz_yaw(
+                            "horiz_beam1",
+                            "OpenRobotics/PalletRackHorBeams",
+                            rack_x,
+                            y - rack_depth_offset - rack_depth_spacing / 2.,
+                            z_offset + second_shelf_z_offset,
+                            yaw,
+                        ),
+                    )
+                    .unwrap()
                     .insert(WarehouseRespawnTag);
-                commands
-                    .spawn()
-                    .insert(Model::from_xyz_yaw(
-                        "horiz_beam1",
-                        "OpenRobotics/PalletRackHorBeams",
-                        rack_x,
-                        y - rack_depth_offset + rack_depth_spacing / 2.,
-                        z_offset + second_shelf_z_offset,
-                        yaw,
-                    ))
+                spawner
+                    .spawn_in_level(
+                        level,
+                        Model::from_xyz_yaw(
+                            "horiz_beam1",
+                            "OpenRobotics/PalletRackHorBeams",
+                            rack_x,
+                            y - rack_depth_offset + rack_depth_spacing / 2.,
+                            z_offset + second_shelf_z_offset,
+                            yaw,
+                        ),
+                    )
+                    .unwrap()
                     .insert(WarehouseRespawnTag);
             }
         }
     }
 }
 
-fn on_enter(mut commands: Commands) {
+fn on_enter(
+    mut commands: Commands,
+    mut spawner: Spawner,
+    mut sitemap_state: ResMut<State<SiteMapState>>,
+) {
     let mut site_map = BuildingMap::default();
     site_map.name = "new site".to_string();
     site_map.levels.insert("L1".to_string(), Level::default());
+    spawner.spawn_map(&site_map);
     for i in 0..4 {
-        commands
-            .spawn()
-            .insert(Vertex::default())
+        spawner
+            .spawn_in_level("L1", Vertex::default())
+            .unwrap()
             .insert(WarehouseTag);
-        commands
-            .spawn()
-            .insert(Wall(i, (i + 1) % 4, WallProperties::default()))
+        spawner
+            .spawn_in_level("L1", Wall(i, (i + 1) % 4, WallProperties::default()))
+            .unwrap()
             .insert(WarehouseTag);
     }
     commands.insert_resource(site_map);
+    sitemap_state.set(SiteMapState::Enabled).unwrap();
 }
 
-fn on_exit(mut commands: Commands) {
+fn on_exit(mut commands: Commands, mut sitemap_state: ResMut<State<SiteMapState>>) {
     commands.remove_resource::<BuildingMap>();
+    sitemap_state.set(SiteMapState::Disabled).unwrap();
 }
 
 pub struct WarehouseGeneratorPlugin;
@@ -279,13 +315,13 @@ impl Plugin for WarehouseGeneratorPlugin {
             height: 2,
             aisle_width: 5.,
             ..Default::default()
-        }));
-        app.add_system_set(SystemSet::on_enter(AppState::WarehouseGenerator).with_system(on_enter));
-        app.add_system_set(
+        }))
+        .add_system_set(SystemSet::on_enter(AppState::WarehouseGenerator).with_system(on_enter))
+        .add_system_set(SystemSet::on_exit(AppState::WarehouseGenerator).with_system(on_exit))
+        .add_system_set(
             SystemSet::on_update(AppState::WarehouseGenerator)
                 .with_system(warehouse_ui.before(warehouse_generator))
                 .with_system(warehouse_generator.before(SiteMapLabel)),
         );
-        app.add_system_set(SystemSet::on_exit(AppState::WarehouseGenerator).with_system(on_exit));
     }
 }

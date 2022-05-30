@@ -13,7 +13,7 @@ extern crate web_sys;
 mod camera_controls;
 mod demo_world;
 mod despawn;
-mod spawn;
+mod spawner;
 
 mod main_menu;
 mod site_map;
@@ -37,7 +37,7 @@ mod wall;
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
-use spawn::SpawnerPlugin;
+use spawner::SpawnerPlugin;
 
 use site_map::SiteMapPlugin;
 
