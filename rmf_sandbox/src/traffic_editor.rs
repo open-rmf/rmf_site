@@ -3,6 +3,8 @@ use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::site_map::{SiteMapLabel, SiteMapState};
+use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::{AppState, OpenedMapFile};
@@ -421,9 +423,19 @@ fn on_startup(mut commands: Commands) {
         .insert(Interaction::default());
 }
 
-fn on_exit(mut commands: Commands) {
+fn on_enter(
+    mut spawner: Spawner,
+    building_map: Res<BuildingMap>,
+    mut sitemap_state: ResMut<State<SiteMapState>>,
+) {
+    spawner.spawn_map(&building_map);
+    sitemap_state.set(SiteMapState::Enabled).unwrap();
+}
+
+fn on_exit(mut commands: Commands, mut sitemap_state: ResMut<State<SiteMapState>>) {
     commands.remove_resource::<BuildingMap>();
     commands.init_resource::<Option<SelectedEditable>>();
+    sitemap_state.set(SiteMapState::Disabled).unwrap();
 }
 
 fn maintain_inspected_entities(
@@ -595,18 +607,16 @@ impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
             .init_resource::<Option<SelectedEditable>>()
-            // .add_plugin(InspectorPlugin::<Inspector>::new())
-            // .register_inspectable::<Lane>()
-            .add_startup_system(on_startup);
-
-        app.add_system_set(
-            SystemSet::on_update(AppState::TrafficEditor)
-                .with_system(egui_ui)
-                .with_system(update_picking_cam)
-                .with_system(enable_picking)
-                .with_system(maintain_inspected_entities),
-        );
-
-        app.add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit));
+            .add_startup_system(on_startup)
+            .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
+            .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
+            .add_system_set(
+                SystemSet::on_update(AppState::TrafficEditor)
+                    .before(SiteMapLabel)
+                    .with_system(egui_ui)
+                    .with_system(update_picking_cam)
+                    .with_system(enable_picking)
+                    .with_system(maintain_inspected_entities),
+            );
     }
 }

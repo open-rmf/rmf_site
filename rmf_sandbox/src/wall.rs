@@ -4,16 +4,22 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use serde::{Deserialize, Serialize};
 
-fn default_height() -> RbmfFloat {
-    RbmfFloat::from(2.)
-}
-
-#[derive(Deserialize, Serialize, Clone, Default)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct WallProperties {
     pub alpha: RbmfFloat,
     pub texture_name: RbmfString,
-    #[serde(default = "default_height")]
+    #[serde(default)]
     pub texture_height: RbmfFloat,
+}
+
+impl Default for WallProperties {
+    fn default() -> Self {
+        Self {
+            alpha: RbmfFloat::default(),
+            texture_name: RbmfString::default(),
+            texture_height: RbmfFloat::from(2.),
+        }
+    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Component)]
