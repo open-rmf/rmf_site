@@ -1,8 +1,11 @@
+use std::path::PathBuf;
+
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::save_load::SaveMap;
 use crate::site_map::{SiteMapLabel, SiteMapState};
 use crate::spawner::Spawner;
 use crate::vertex::Vertex;
@@ -263,6 +266,9 @@ enum EditorData {
 
 struct SelectedEditable(Entity, EditorData);
 
+#[derive(Default)]
+struct HasChanges(bool);
+
 #[derive(SystemParam)]
 struct EditorPanel<'w, 's> {
     selected: ResMut<'w, Option<SelectedEditable>>,
@@ -274,7 +280,7 @@ struct EditorPanel<'w, 's> {
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
-    fn draw(&mut self, egui_ctx: &mut EguiContext) {
+    fn draw(&mut self, egui_ctx: &mut EguiContext, has_changes: &mut bool) {
         fn commit_changes<E: Editable + Component>(
             q: &mut Query<&mut E>,
             target_entity: Entity,
@@ -317,47 +323,35 @@ impl<'w, 's> EditorPanel<'w, 's> {
                     EditorData::Lane(lane) => {
                         if lane.draw(ui) {
                             commit_changes(&mut self.q_lane, selected.0, lane);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Vertex(vertex) => {
                         if vertex.draw(ui) {
                             commit_changes(&mut self.q_vertex, selected.0, vertex);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Measurement(measurement) => {
                         if measurement.draw(ui) {
                             commit_changes(&mut self.q_measurement, selected.0, measurement);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Wall(wall) => {
                         if wall.draw(ui) {
                             commit_changes(&mut self.q_wall, selected.0, wall);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Model(model) => {
                         if model.draw(ui) {
                             commit_changes(&mut self.q_model, selected.0, model);
+                            *has_changes = true;
                         }
                     }
                 };
             });
-    }
-}
-
-fn save_map(path: &std::path::Path, map: &BuildingMap) -> () {
-    let f = match std::fs::File::create(path) {
-        Ok(f) => f,
-        Err(e) => {
-            println!("ERROR: {}", e);
-            return;
-        }
-    };
-    match serde_yaml::to_writer(f, map) {
-        Ok(_) => (),
-        Err(e) => {
-            println!("ERROR: {}", e);
-            return;
-        }
     }
 }
 
@@ -370,7 +364,8 @@ fn egui_ui(
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
-    site_map: Res<BuildingMap>,
+    mut save_map: EventWriter<SaveMap>,
+    mut has_changes: ResMut<HasChanges>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -401,19 +396,22 @@ fn egui_ui(
                     controls.set_mode(ProjectionMode::Perspective);
                     active_camera_3d.set(controls.perspective_camera_entity);
                 }
-                if ui.button("Save").clicked() {
+                if ui
+                    .add(egui::SelectableLabel::new(has_changes.0, "Save"))
+                    .clicked()
+                {
                     if let Some(opened_file) = opened_map_file {
-                        println!("Saving to {}", opened_file.0.to_str().unwrap());
-                        save_map(&opened_file.0, &site_map);
+                        save_map.send(SaveMap(opened_file.0.clone()));
                     } else {
                         // TODO: Save as
+                        save_map.send(SaveMap(PathBuf::from("test.yaml")));
                     }
                 }
             });
         });
     });
 
-    editor.draw(&mut egui_context);
+    editor.draw(&mut egui_context, &mut has_changes.0);
 }
 
 fn on_startup(mut commands: Commands) {
@@ -424,10 +422,12 @@ fn on_startup(mut commands: Commands) {
 }
 
 fn on_enter(
+    mut commands: Commands,
     mut spawner: Spawner,
     building_map: Res<BuildingMap>,
     mut sitemap_state: ResMut<State<SiteMapState>>,
 ) {
+    commands.insert_resource(HasChanges(false));
     spawner.spawn_map(&building_map);
     sitemap_state.set(SiteMapState::Enabled).unwrap();
 }
@@ -607,6 +607,7 @@ impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
             .init_resource::<Option<SelectedEditable>>()
+            .init_resource::<HasChanges>()
             .add_startup_system(on_startup)
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))

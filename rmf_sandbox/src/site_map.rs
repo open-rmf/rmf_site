@@ -302,14 +302,18 @@ fn update_walls(
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
     mut vertices_mgr: VerticesManager,
-    mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>, Option<&mut Transform>)>,
+    mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>)>,
 ) {
     // spawn new walls
-    for (e, wall, change, t) in walls.iter_mut() {
+    for (e, wall, change) in walls.iter_mut() {
         let (v1, v1_change) = vertices_mgr.get_vertex(wall.0);
         let (v2, v2_change) = vertices_mgr.get_vertex(wall.1);
 
-        if change.is_added() {
+        if change.is_added()
+            || change.is_changed()
+            || v1_change.is_changed()
+            || v2_change.is_changed()
+        {
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
@@ -321,8 +325,6 @@ fn update_walls(
                 .insert(wall.clone());
             vertices_mgr.insert_used_by(wall.0, e);
             vertices_mgr.insert_used_by(wall.1, e);
-        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-            *t.unwrap() = wall.transform(v1, v2);
         }
     }
 }

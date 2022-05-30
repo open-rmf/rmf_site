@@ -1,3 +1,4 @@
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -58,7 +59,7 @@ pub struct State {
 #[derive(Deserialize, Serialize, Clone)]
 pub struct Transition;
 
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct CrowdSim {
     agent_groups: Vec<AgentGroup>,
     agent_profiles: Vec<AgentProfile>,
