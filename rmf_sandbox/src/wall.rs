@@ -4,11 +4,15 @@ use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
 use serde::{Deserialize, Serialize};
 
+fn default_height() -> RbmfFloat {
+    RbmfFloat::from(2.)
+}
+
 #[derive(Deserialize, Serialize, Clone)]
 pub struct WallProperties {
     pub alpha: RbmfFloat,
     pub texture_name: RbmfString,
-    #[serde(default)]
+    #[serde(default = "default_height")]
     pub texture_height: RbmfFloat,
 }
 
@@ -17,7 +21,7 @@ impl Default for WallProperties {
         Self {
             alpha: RbmfFloat::default(),
             texture_name: RbmfString::default(),
-            texture_height: RbmfFloat::from(2.),
+            texture_height: default_height(),
         }
     }
 }
@@ -109,14 +113,11 @@ impl Wall {
         let yaw = dy.atan2(dx) as f32;
         let cx = ((v1.0 + v2.0) / 2.) as f32;
         let cy = ((v1.1 + v2.1) / 2.) as f32;
-        let bv1 = Vec2::from([v1.0 as f32, v1.1 as f32]);
-        let bv2 = Vec2::from([v2.0 as f32, v2.1 as f32]);
-        let dist = bv1.distance(bv2);
 
         Transform {
             translation: Vec3::new(cx, cy, 0.),
             // base length is 20, base height is 3
-            scale: Vec3::new(dist / 20., 1., (*self.2.texture_height / 3.) as f32),
+            scale: Vec3::new(1., 1., (*self.2.texture_height / 3.) as f32),
             rotation: Quat::from_rotation_z(yaw),
             ..Default::default()
         }
