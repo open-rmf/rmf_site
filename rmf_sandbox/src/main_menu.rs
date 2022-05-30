@@ -97,10 +97,6 @@ fn egui_ui(
                                 map,
                             ))
                         });
-
-                        // FIXME: This is from the bevy example, but not sure if this will leak entites.
-                        // The task completion handler only removes the task component from the
-                        // entity but never removes the entity itself.
                         _commands.spawn().insert(future);
                     }
                 }
@@ -135,8 +131,7 @@ fn map_load_complete(
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut *task)) {
             println!("Site map loaded");
-            // FIXME: Do we need to remove this entity and not just the component to avoid leaks?
-            commands.entity(entity).remove::<Task<Option<BuildingMap>>>();
+            commands.entity(entity).despawn();
 
             match result {
                 Some(result) => {

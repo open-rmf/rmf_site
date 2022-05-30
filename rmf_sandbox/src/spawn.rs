@@ -16,8 +16,8 @@ pub struct SpawnInLevel<T> {
     obj: T,
 }
 
-#[derive(Component)]
-struct LevelTag(String);
+#[derive(Default)]
+struct MapLevels(HashMap<String, Entity>);
 
 pub struct SiteMapRoot(Entity);
 
@@ -38,6 +38,7 @@ fn spawn_in_level<T: Component + Clone>(
 fn building_map_spawner(
     mut commands: Commands,
     map_root: Res<SiteMapRoot>,
+    mut map_levels: ResMut<MapLevels>,
     building_map: Option<Res<BuildingMap>>,
     mut vertices: EventWriter<SpawnInLevel<Vertex>>,
     mut lanes: EventWriter<SpawnInLevel<Lane>>,
@@ -57,15 +58,18 @@ fn building_map_spawner(
     };
 
     commands.entity(map_root.0).despawn_descendants();
+    map_levels.0.clear();
     for (name, level) in &building_map.levels {
-        commands
+        let level_entity = commands
             .spawn()
-            .insert(LevelTag(name.clone()))
             .insert_bundle(TransformBundle::from_transform(Transform {
                 translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
                 ..default()
             }))
-            .insert(Parent(map_root.0));
+            .insert(Parent(map_root.0))
+            .id();
+        map_levels.0.insert(name.clone(), level_entity);
+
         for vertex in &level.vertices {
             vertices.send(SpawnInLevel {
                 level: name.clone(),
@@ -101,23 +105,18 @@ fn building_map_spawner(
 
 fn spawner(
     mut commands: Commands,
-    levels: Query<(Entity, &LevelTag)>,
+    levels: Res<MapLevels>,
     mut vertices: EventReader<SpawnInLevel<Vertex>>,
     mut lanes: EventReader<SpawnInLevel<Lane>>,
     mut measurements: EventReader<SpawnInLevel<Measurement>>,
     mut walls: EventReader<SpawnInLevel<Wall>>,
     mut models: EventReader<SpawnInLevel<Model>>,
 ) {
-    let levels: HashMap<String, Entity> = levels
-        .iter()
-        .map(|(entity, tag)| (tag.0.clone(), entity))
-        .collect();
-
-    spawn_in_level(&mut commands, &mut vertices, &levels);
-    spawn_in_level(&mut commands, &mut lanes, &levels);
-    spawn_in_level(&mut commands, &mut measurements, &levels);
-    spawn_in_level(&mut commands, &mut walls, &levels);
-    spawn_in_level(&mut commands, &mut models, &levels);
+    spawn_in_level(&mut commands, &mut vertices, &levels.0);
+    spawn_in_level(&mut commands, &mut lanes, &levels.0);
+    spawn_in_level(&mut commands, &mut measurements, &levels.0);
+    spawn_in_level(&mut commands, &mut walls, &levels.0);
+    spawn_in_level(&mut commands, &mut models, &levels.0);
 }
 
 fn init_spawner(mut commands: Commands) {
@@ -137,8 +136,9 @@ impl Plugin for SpawnerPlugin {
             .add_event::<SpawnInLevel<Measurement>>()
             .add_event::<SpawnInLevel<Wall>>()
             .add_event::<SpawnInLevel<Model>>()
+            .init_resource::<MapLevels>()
             .add_startup_system(init_spawner)
             .add_system(building_map_spawner)
-            .add_system(spawner);
+            .add_system(spawner.after(building_map_spawner));
     }
 }
