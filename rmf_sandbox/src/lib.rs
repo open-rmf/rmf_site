@@ -13,6 +13,7 @@ extern crate web_sys;
 mod camera_controls;
 mod demo_world;
 mod despawn;
+mod save_load;
 mod spawner;
 
 mod main_menu;
@@ -37,6 +38,7 @@ mod wall;
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
+use save_load::SaveLoadPlugin;
 use spawner::SpawnerPlugin;
 
 use site_map::SiteMapPlugin;
@@ -119,5 +121,6 @@ pub fn run() {
         .add_plugin(WarehouseGeneratorPlugin)
         .add_plugin(DespawnPlugin)
         .add_plugin(SpawnerPlugin)
+        .add_plugin(SaveLoadPlugin)
         .run();
 }

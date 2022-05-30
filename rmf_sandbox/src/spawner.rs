@@ -14,7 +14,7 @@ use crate::{
     wall::Wall,
 };
 
-pub struct SiteMapRoot(Entity);
+pub struct SiteMapRoot(pub Entity);
 
 #[derive(Default)]
 pub struct MapLevels(HashMap<String, Entity>);
@@ -52,7 +52,10 @@ impl<'w, 's> Spawner<'w, 's> {
 
     /// Spawns a building map and all the spawnables inside it.
     pub fn spawn_map(&mut self, building_map: &BuildingMap) {
-        self.commands.entity(self.map_root.0).despawn_descendants();
+        self.commands
+            .entity(self.map_root.0)
+            .insert(building_map.crowd_sim.clone())
+            .despawn_descendants();
         self.levels.0.clear();
         for (name, level) in &building_map.levels {
             let level_entity = self
