@@ -83,9 +83,9 @@ fn save(world: &mut World) {
 
     let map = BuildingMap {
         name: root_entity.get::<Name>().unwrap().0.clone(),
+        version: Some(2),
         crowd_sim: crowd_sim.clone(),
         levels,
-        ..default()
     };
     let f = std::fs::File::create(path).unwrap();
     serde_yaml::to_writer(f, &map).unwrap();

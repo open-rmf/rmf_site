@@ -364,6 +364,7 @@ fn egui_ui(
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
+    map: Res<BuildingMap>,
     mut save_map: EventWriter<SaveMap>,
     mut has_changes: ResMut<HasChanges>,
 ) {
@@ -403,8 +404,12 @@ fn egui_ui(
                     if let Some(opened_file) = opened_map_file {
                         save_map.send(SaveMap(opened_file.0.clone()));
                     } else {
-                        // TODO: Save as
-                        save_map.send(SaveMap(PathBuf::from("test.yaml")));
+                        let path = rfd::FileDialog::new()
+                            .set_file_name(&format!("{}.yaml", map.name))
+                            .save_file();
+                        if let Some(path) = path {
+                            save_map.send(SaveMap(PathBuf::from(path)));
+                        }
                     }
                 }
             });
