@@ -283,7 +283,7 @@ fn on_enter(
     spawner.spawn_map(&site_map);
     for i in 0..4 {
         spawner
-            .spawn_in_level("L1", Vertex::default())
+            .spawn_vertex("L1", Vertex::default())
             .unwrap()
             .insert(WarehouseTag);
         spawner
