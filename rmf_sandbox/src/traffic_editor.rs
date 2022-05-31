@@ -397,18 +397,21 @@ fn egui_ui(
                     controls.set_mode(ProjectionMode::Perspective);
                     active_camera_3d.set(controls.perspective_camera_entity);
                 }
-                if ui
-                    .add(egui::SelectableLabel::new(has_changes.0, "Save"))
-                    .clicked()
+                #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if let Some(opened_file) = opened_map_file {
-                        save_map.send(SaveMap(opened_file.0.clone()));
-                    } else {
-                        let path = rfd::FileDialog::new()
-                            .set_file_name(&format!("{}.yaml", map.name))
-                            .save_file();
-                        if let Some(path) = path {
-                            save_map.send(SaveMap(PathBuf::from(path)));
+                    if ui
+                        .add(egui::SelectableLabel::new(has_changes.0, "Save"))
+                        .clicked()
+                    {
+                        if let Some(opened_file) = opened_map_file {
+                            save_map.send(SaveMap(opened_file.0.clone()));
+                        } else {
+                            let path = rfd::FileDialog::new()
+                                .set_file_name(&format!("{}.yaml", map.name))
+                                .save_file();
+                            if let Some(path) = path {
+                                save_map.send(SaveMap(PathBuf::from(path)));
+                            }
                         }
                     }
                 }
