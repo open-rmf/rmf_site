@@ -1,5 +1,5 @@
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::BTreeMap;
 
 use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
@@ -7,23 +7,27 @@ use crate::level::Level;
 #[derive(Deserialize, Serialize, Default)]
 pub struct BuildingMap {
     pub name: String,
-    pub levels: HashMap<String, Level>,
+    pub version: Option<i32>,
+    pub levels: BTreeMap<String, Level>,
     pub crowd_sim: CrowdSim,
 }
 
 impl BuildingMap {
     pub fn from_bytes(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        // TODO: detect if file is old pixel coordinates or new cartesian format.
-        BuildingMap::from_bytes_legacy(data)
+        let map: BuildingMap = serde_yaml::from_slice(data)?;
+        let mut map_version = 1;
+        if let Some(version) = map.version {
+            map_version = version;
+        }
+        if map_version == 1 {
+            Ok(BuildingMap::from_v1(map))
+        } else {
+            Ok(map)
+        }
     }
 
-    fn from_bytes_cartesian(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        serde_yaml::from_slice(data)
-    }
-
-    /// Loads a legacy building map which uses pixel coordinates.
-    fn from_bytes_legacy(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        let mut map = BuildingMap::from_bytes_cartesian(data)?;
+    /// Converts a map from the legacy format, which uses pixel coordinates.
+    fn from_v1(mut map: BuildingMap) -> BuildingMap {
         for (_, level) in map.levels.iter_mut() {
             // todo: calculate scale and inter-level alignment
             let mut ofs_x = 0.0;
@@ -65,7 +69,8 @@ impl BuildingMap {
                 m.y = (-m.y - ofs_y) * scale;
             }
         }
-        Ok(map)
+        map.version = Some(2);
+        map
     }
 }
 

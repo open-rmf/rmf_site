@@ -2,6 +2,7 @@
 // must have ordered correctly in the hierarchy. Using the spawner ensures that the
 // entities are spawned correctly.
 
+use crate::{basic_components::Name, level::LevelDrawing};
 use std::collections::HashMap;
 
 use bevy::{
@@ -24,6 +25,14 @@ pub struct Spawner<'w, 's> {
     commands: Commands<'w, 's>,
     levels: ResMut<'w, MapLevels>,
     map_root: ResMut<'w, SiteMapRoot>,
+}
+
+#[derive(Component)]
+pub struct LevelExtra {
+    pub drawing: LevelDrawing,
+    pub elevation: f64,
+    pub flattened_x_offset: f64,
+    pub flattened_y_offset: f64,
 }
 
 pub trait Spawnable: Component {}
@@ -54,6 +63,7 @@ impl<'w, 's> Spawner<'w, 's> {
     pub fn spawn_map(&mut self, building_map: &BuildingMap) {
         self.commands
             .entity(self.map_root.0)
+            .insert(Name(building_map.name.clone()))
             .insert(building_map.crowd_sim.clone())
             .despawn_descendants();
         self.levels.0.clear();
@@ -61,10 +71,17 @@ impl<'w, 's> Spawner<'w, 's> {
             let level_entity = self
                 .commands
                 .spawn()
+                .insert(Name(name.clone()))
                 .insert_bundle(TransformBundle::from_transform(Transform {
-                    translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
+                    translation: Vec3::new(0., 0., level.elevation as f32),
                     ..default()
                 }))
+                .insert(LevelExtra {
+                    drawing: level.drawing.clone(),
+                    elevation: level.elevation,
+                    flattened_x_offset: level.flattened_x_offset,
+                    flattened_y_offset: level.flattened_y_offset,
+                })
                 .insert(Parent(self.map_root.0))
                 .id();
             self.levels.0.insert(name.clone(), level_entity);
