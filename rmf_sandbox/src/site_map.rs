@@ -1,13 +1,13 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::despawn::DespawnBlocker;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::spawner::VerticesManagers;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
-use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -40,42 +40,6 @@ struct SiteMapCurrentLevel(String);
 /// Used to keep track of entities created by the site map system.
 #[derive(Component)]
 struct SiteMapTag;
-
-/// Keeps track of the entities of vertices.
-#[derive(SystemParam)]
-struct VerticesManager<'w, 's> {
-    data: ResMut<'w, VerticesManagerData>,
-    query: Query<'w, 's, (&'static Vertex, ChangeTrackers<Vertex>)>,
-}
-
-#[derive(Default)]
-struct VerticesManagerData {
-    entities: Vec<Entity>,
-    used_by_entites: Vec<HashSet<Entity>>,
-}
-
-impl<'w, 's> VerticesManager<'w, 's> {
-    fn push_vertex(&mut self, e: Entity, used_by: &[Entity]) {
-        self.data.entities.push(e);
-        self.data
-            .used_by_entites
-            .push(HashSet::from_iter(used_by.into_iter().cloned()));
-    }
-
-    fn insert_used_by(&mut self, vertex_id: usize, used_entity: Entity) {
-        self.data.used_by_entites[vertex_id].insert(used_entity);
-    }
-
-    fn get_vertex(&self, vertex_id: usize) -> (&Vertex, ChangeTrackers<Vertex>) {
-        self.query.get(self.data.entities[vertex_id]).unwrap()
-    }
-}
-
-#[derive(Component, Default)]
-struct VertexUsedBy(Vec<Entity>);
-
-#[derive(Component, Default)]
-struct VertexChanged(usize);
 
 #[derive(Default)]
 struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
@@ -122,8 +86,6 @@ fn init_site_map(
         color: Color::WHITE,
         brightness: 0.001,
     });
-
-    commands.init_resource::<VerticesManagerData>();
 
     for level in sm.levels.values() {
         // spawn lights
@@ -207,13 +169,11 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
         commands.entity(entity).despawn_recursive();
     }
     commands.remove_resource::<SiteMapCurrentLevel>();
-    commands.remove_resource::<VerticesManagerData>();
 }
 
 fn update_vertices(
     mut commands: Commands,
     handles: Res<Handles>,
-    mut vertices_mgr: VerticesManager,
     added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
     mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
 ) {
@@ -225,7 +185,6 @@ fn update_vertices(
             transform: v.transform(),
             ..Default::default()
         });
-        vertices_mgr.push_vertex(e, &[]);
     }
     // update changed vertices
     for (v, mut t) in changed_vertices.iter_mut() {
@@ -237,13 +196,17 @@ fn update_lanes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    vertices_mgr: VerticesManager,
+    vertices_mgrs: Res<VerticesManagers>,
+    level: Res<SiteMapCurrentLevel>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&mut Transform>)>,
 ) {
     // spawn new lanes
     for (e, lane, change, t) in lanes.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(lane.0);
-        let (v2, v2_change) = vertices_mgr.get_vertex(lane.1);
+        let v1_entity = vertices_mgrs.0[&level.0].get(lane.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(lane.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
             commands
@@ -265,7 +228,9 @@ fn update_measurements(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    vertices_mgr: VerticesManager,
+    level: Res<SiteMapCurrentLevel>,
+    vertices_mgrs: Res<VerticesManagers>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut measurements: Query<
         (
             Entity,
@@ -278,8 +243,10 @@ fn update_measurements(
 ) {
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(measurement.0);
-        let (v2, v2_change) = vertices_mgr.get_vertex(measurement.1);
+        let v1_entity = vertices_mgrs.0[&level.0].get(measurement.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(measurement.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
             commands
@@ -301,13 +268,17 @@ fn update_walls(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    mut vertices_mgr: VerticesManager,
+    level: Res<SiteMapCurrentLevel>,
+    vertices_mgrs: Res<VerticesManagers>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>)>,
 ) {
     // spawn new walls
     for (e, wall, change) in walls.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(wall.0);
-        let (v2, v2_change) = vertices_mgr.get_vertex(wall.1);
+        let v1_entity = vertices_mgrs.0[&level.0].get(wall.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(wall.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added()
             || change.is_changed()
@@ -323,8 +294,6 @@ fn update_walls(
                     ..Default::default()
                 })
                 .insert(wall.clone());
-            vertices_mgr.insert_used_by(wall.0, e);
-            vertices_mgr.insert_used_by(wall.1, e);
         }
     }
 }

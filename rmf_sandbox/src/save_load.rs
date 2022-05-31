@@ -1,16 +1,22 @@
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, HashMap},
+    path::PathBuf,
+};
 
-use bevy::{ecs::event::Events, prelude::*};
+use bevy::{
+    ecs::{event::Events, system::SystemState},
+    prelude::*,
+};
 
 use crate::{
-    basic_components::Name,
+    basic_components::{Id, Name},
     building_map::BuildingMap,
     crowd_sim::CrowdSim,
     lane::Lane,
     level::Level,
     measurement::Measurement,
     model::Model,
-    spawner::{LevelExtra, SiteMapRoot},
+    spawner::{LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
     vertex::Vertex,
     wall::Wall,
 };
@@ -30,38 +36,81 @@ fn save(world: &mut World) {
 
     println!("Saving to {}", path.to_str().unwrap());
 
-    let mut q_vertices = world.query::<&Vertex>();
-    let mut q_lanes = world.query::<&Lane>();
-    let mut q_measurements = world.query::<&Measurement>();
-    let mut q_walls = world.query::<&Wall>();
-    let mut q_models = world.query::<&Model>();
+    let mut state: SystemState<(
+        Res<SiteMapRoot>,
+        Query<&Children>,
+        Query<&CrowdSim>,
+        Query<&LevelExtra>,
+        Query<&Name>,
+        Query<&Id>,
+        ResMut<VerticesManagers>,
+        Query<&Vertex>,
+        Query<&mut Lane>,
+        Query<&mut Measurement>,
+        Query<&mut Wall>,
+        Query<&Model>,
+    )> = SystemState::new(world);
+    let (
+        root_entity,
+        q_children,
+        q_crowd_sim,
+        q_level_extra,
+        q_name,
+        q_id,
+        mut vms,
+        q_vertices,
+        mut q_lanes,
+        mut q_measurements,
+        mut q_walls,
+        q_models,
+    ) = state.get_mut(world);
 
-    let root_entity = world.entity(world.resource::<SiteMapRoot>().0);
-    let crowd_sim = root_entity.get::<CrowdSim>().unwrap();
+    let crowd_sim = q_crowd_sim.get(root_entity.0).unwrap().clone();
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
-    for level in root_entity.get::<Children>().unwrap().iter() {
+    for level in q_children.get(root_entity.0).unwrap().into_iter() {
         let mut vertices: Vec<Vertex> = Vec::new();
         let mut lanes: Vec<Lane> = Vec::new();
         let mut measurements: Vec<Measurement> = Vec::new();
         let mut walls: Vec<Wall> = Vec::new();
         let mut models: Vec<Model> = Vec::new();
-        let extra = world.entity(*level).get::<LevelExtra>().unwrap();
-        let name = world.get::<Name>(*level).unwrap().0.clone();
-        for c in world.entity(*level).get::<Children>().unwrap().into_iter() {
-            if let Ok(vertex) = q_vertices.get(world, *c) {
+        let extra = q_level_extra.get(*level).unwrap();
+        let name = q_name.get(*level).unwrap().0.clone();
+        let vm = vms.0.get_mut(&name).unwrap();
+        let mut new_vm = LevelVerticesManager::default();
+        let mut vertices_reid: HashMap<usize, usize> = HashMap::new();
+
+        for c in q_children.get(*level).unwrap().into_iter() {
+            // Because the building format stores vertices as an array, with the id as the index,
+            // all ids must have sequential numbers. During the cause of traffic editing, it is
+            // possible for ids to be skipped if there are deletion operations so we need to
+            // re-key all vertices when saving.
+            if let Ok(vertex) = q_vertices.get(*c) {
+                let id = q_id.get(*c).unwrap().0;
+                let new_id = new_vm.add(vm.get(id).unwrap());
+                vertices_reid.insert(id, new_id);
                 vertices.push(vertex.clone());
             }
-            if let Ok(lane) = q_lanes.get(world, *c) {
+        }
+        *vm = new_vm.clone();
+
+        for c in q_children.get(*level).unwrap().into_iter() {
+            if let Ok(mut lane) = q_lanes.get_mut(*c) {
+                lane.0 = vertices_reid[&lane.0];
+                lane.1 = vertices_reid[&lane.1];
                 lanes.push(lane.clone());
             }
-            if let Ok(measurement) = q_measurements.get(world, *c) {
+            if let Ok(mut measurement) = q_measurements.get_mut(*c) {
+                measurement.0 = vertices_reid[&measurement.0];
+                measurement.1 = vertices_reid[&measurement.1];
                 measurements.push(measurement.clone());
             }
-            if let Ok(wall) = q_walls.get(world, *c) {
+            if let Ok(mut wall) = q_walls.get_mut(*c) {
+                wall.0 = vertices_reid[&wall.0];
+                wall.1 = vertices_reid[&wall.1];
                 walls.push(wall.clone());
             }
-            if let Ok(model) = q_models.get(world, *c) {
+            if let Ok(model) = q_models.get(*c) {
                 models.push(model.clone());
             }
         }
@@ -82,7 +131,7 @@ fn save(world: &mut World) {
     }
 
     let map = BuildingMap {
-        name: root_entity.get::<Name>().unwrap().0.clone(),
+        name: q_name.get(root_entity.0).unwrap().0.clone(),
         version: Some(2),
         crowd_sim: crowd_sim.clone(),
         levels,
