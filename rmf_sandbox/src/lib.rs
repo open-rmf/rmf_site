@@ -21,6 +21,7 @@ mod site_map;
 mod traffic_editor;
 mod warehouse_generator;
 
+mod basic_components;
 mod building_map;
 mod crowd_sim;
 mod door;
