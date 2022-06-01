@@ -168,8 +168,7 @@ pub struct SpawnerPlugin;
 
 impl Plugin for SpawnerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Option<SiteMapRoot>>()
-            .init_resource::<MapLevels>()
+        app.init_resource::<MapLevels>()
             .init_resource::<VerticesManagers>();
     }
 }
