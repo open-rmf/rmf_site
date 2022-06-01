@@ -1,3 +1,4 @@
+use crate::settings::*;
 use bevy::{
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
@@ -205,13 +206,25 @@ fn handle_keyboard(
     }
 }
 
-fn camera_controls_setup(mut commands: Commands) {
-    let proj_entity = commands
-        .spawn_bundle(PerspectiveCameraBundle {
-            transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
-            ..default()
-        })
-        .id();
+fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
+    let mut builder = commands.spawn_bundle(PerspectiveCameraBundle {
+        transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
+        ..default()
+    });
+    // When graphics is low, use a directional light that follows the camera.
+    if settings.graphics_quality == GraphicsQuality::Low {
+        builder.with_children(|parent| {
+            parent.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 15000.,
+                    ..default()
+                },
+                ..default()
+            });
+        });
+    }
+    let proj_entity = builder.id();
 
     let ortho_entity = commands
         .spawn_bundle(OrthographicCameraBundle {

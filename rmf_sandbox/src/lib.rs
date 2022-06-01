@@ -10,6 +10,9 @@ use bevy::{core::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
+mod settings;
+use settings::*;
+
 mod camera_controls;
 mod demo_world;
 mod despawn;
@@ -70,42 +73,35 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
 
 #[wasm_bindgen]
 pub fn run() {
+    let mut app = App::new();
+
     #[cfg(target_arch = "wasm32")]
-    App::new()
-        .insert_resource(WindowDescriptor {
+    {
+        app.insert_resource(WindowDescriptor {
             title: "RMF Sandbox".to_string(),
             canvas: Some(String::from("#rmf_sandbox_canvas")),
             //vsync: false,
             ..Default::default()
         })
-        .add_state(AppState::MainMenu)
-        .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
-        })
-        .insert_resource(DirectionalLightShadowMap { size: 1024 })
-        .add_plugin(bevy_egui::EguiPlugin)
-        .add_plugin(MainMenuPlugin)
-        .add_plugin(SiteMapPlugin)
-        .add_plugin(CameraControlsPlugin)
-        .add_plugin(TrafficEditorPlugin)
-        .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(DespawnPlugin)
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
                 .with_system(check_browser_window_size),
-        )
-        .run();
+        );
+    }
 
     #[cfg(not(target_arch = "wasm32"))]
-    App::new()
-        .insert_resource(WindowDescriptor {
+    {
+        app.insert_resource(WindowDescriptor {
             title: "RMF Sandbox".to_string(),
             width: 1600.,
             height: 900.,
             //vsync: false,
             ..Default::default()
-        })
+        });
+    }
+
+    app.init_resource::<Settings>()
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
