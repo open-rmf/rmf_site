@@ -4,6 +4,7 @@
 
 use crate::{
     basic_components::{Id, Name},
+    despawn::PendingDespawn,
     level::LevelDrawing,
 };
 use std::collections::HashMap;
@@ -18,7 +19,8 @@ use crate::{
     wall::Wall,
 };
 
-pub struct SiteMapRoot(pub Entity);
+#[derive(Component)]
+pub struct SiteMapRoot;
 
 #[derive(Default)]
 pub struct MapLevels(HashMap<String, Entity>);
@@ -63,7 +65,7 @@ impl Spawnable for Model {}
 pub struct Spawner<'w, 's> {
     commands: Commands<'w, 's>,
     levels: ResMut<'w, MapLevels>,
-    map_root: ResMut<'w, Option<SiteMapRoot>>,
+    map_root: Query<'w, 's, Entity, With<SiteMapRoot>>,
     vertex_mgrs: ResMut<'w, VerticesManagers>,
 }
 
@@ -103,18 +105,16 @@ impl<'w, 's> Spawner<'w, 's> {
 
     /// Spawns a building map and all the spawnables inside it.
     pub fn spawn_map(&mut self, building_map: &BuildingMap) {
-        if let Some(prev_root) = &*self.map_root {
-            // FIXME: Cannot use `Despawn` event because bevy does not allow same resource
-            // in multiple system params. Consider combining the spawner and despawner into
-            // 1 system param.
-            self.commands.entity(prev_root.0).despawn_recursive();
+        for e in self.map_root.iter() {
+            self.commands.entity(e).insert(PendingDespawn);
         }
+
         let map_root = self
             .commands
             .spawn()
+            .insert(SiteMapRoot)
             .insert_bundle(TransformBundle::default())
             .id();
-        *self.map_root = Some(SiteMapRoot(map_root));
 
         self.commands
             .entity(map_root)

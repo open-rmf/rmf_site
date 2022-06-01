@@ -37,7 +37,7 @@ fn save(world: &mut World) {
     println!("Saving to {}", path.to_str().unwrap());
 
     let mut state: SystemState<(
-        Res<Option<SiteMapRoot>>,
+        Query<Entity, With<SiteMapRoot>>,
         Query<&Children>,
         Query<&CrowdSim>,
         Query<&LevelExtra>,
@@ -64,10 +64,10 @@ fn save(world: &mut World) {
         mut q_walls,
         q_models,
     ) = state.get_mut(world);
-    let root_entity = match &*root_entity {
-        Some(root_entity) => root_entity.0,
-        None => {
-            println!("ERROR: Cannot save map (no map found)");
+    let root_entity = match root_entity.get_single() {
+        Ok(root_entity) => root_entity,
+        Err(err) => {
+            println!("ERROR: Cannot save map ({})", err);
             return;
         }
     };
