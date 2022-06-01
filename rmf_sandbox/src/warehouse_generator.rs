@@ -116,7 +116,6 @@ fn warehouse_generator(
 
     let aisle_width = warehouse.aisle_width;
     let rack_depth = 1.1;
-    let rack_depth_spacing = 0.1;
     let aisle_spacing = aisle_width + 2. * rack_depth;
     let num_aisles = (width / aisle_spacing).floor() as i32;
     let rack_depth_spacing = 1.3;
