@@ -63,7 +63,7 @@ impl Spawnable for Model {}
 pub struct Spawner<'w, 's> {
     commands: Commands<'w, 's>,
     levels: ResMut<'w, MapLevels>,
-    map_root: ResMut<'w, SiteMapRoot>,
+    map_root: ResMut<'w, Option<SiteMapRoot>>,
     vertex_mgrs: ResMut<'w, VerticesManagers>,
 }
 
@@ -103,11 +103,24 @@ impl<'w, 's> Spawner<'w, 's> {
 
     /// Spawns a building map and all the spawnables inside it.
     pub fn spawn_map(&mut self, building_map: &BuildingMap) {
+        if let Some(prev_root) = &*self.map_root {
+            // FIXME: Cannot use `Despawn` event because bevy does not allow same resource
+            // in multiple system params. Consider combining the spawner and despawner into
+            // 1 system param.
+            self.commands.entity(prev_root.0).despawn_recursive();
+        }
+        let map_root = self
+            .commands
+            .spawn()
+            .insert_bundle(TransformBundle::default())
+            .id();
+        *self.map_root = Some(SiteMapRoot(map_root));
+
         self.commands
-            .entity(self.map_root.0)
+            .entity(map_root)
             .insert(Name(building_map.name.clone()))
             .insert(building_map.crowd_sim.clone())
-            .despawn_descendants();
+            .with_children(|_| {});
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
         for (name, level) in &building_map.levels {
@@ -125,7 +138,7 @@ impl<'w, 's> Spawner<'w, 's> {
                     flattened_x_offset: level.flattened_x_offset,
                     flattened_y_offset: level.flattened_y_offset,
                 })
-                .insert(Parent(self.map_root.0))
+                .insert(Parent(map_root))
                 .id();
             self.vertex_mgrs
                 .0
@@ -151,20 +164,12 @@ impl<'w, 's> Spawner<'w, 's> {
     }
 }
 
-fn init_spawner(mut commands: Commands) {
-    let map_root = commands
-        .spawn()
-        .insert_bundle(TransformBundle::default())
-        .id();
-    commands.insert_resource(SiteMapRoot(map_root));
-}
-
 pub struct SpawnerPlugin;
 
 impl Plugin for SpawnerPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<MapLevels>()
-            .init_resource::<VerticesManagers>()
-            .add_startup_system(init_spawner);
+        app.init_resource::<Option<SiteMapRoot>>()
+            .init_resource::<MapLevels>()
+            .init_resource::<VerticesManagers>();
     }
 }
