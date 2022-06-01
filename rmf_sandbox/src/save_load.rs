@@ -162,7 +162,8 @@ mod test {
     #[test]
     fn test_save() -> Result<(), Box<dyn std::error::Error>> {
         let mut app = App::new();
-        app.add_plugin(SaveLoadPlugin)
+        app.add_plugin(HierarchyPlugin)
+            .add_plugin(SaveLoadPlugin)
             .add_plugin(SpawnerPlugin)
             .add_plugin(crate::despawn::DespawnPlugin);
 
@@ -183,7 +184,7 @@ mod test {
             .send(SaveMap(PathBuf::from("test_output/save_map.yaml")));
         app.update();
 
-        let buffer = std::fs::read("assets/demo_maps/office.building.yaml").unwrap();
+        let buffer = std::fs::read("test_output/save_map.yaml").unwrap();
         let new_map = BuildingMap::from_bytes(&buffer).unwrap();
 
         assert!(new_map.levels.len() == map.levels.len());
