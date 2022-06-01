@@ -69,9 +69,9 @@ fn warehouse_generator(
     mut spawner: Spawner,
     warehouse: Res<Warehouse>,
     mut vertices: Query<&mut Vertex, With<WarehouseTag>>,
-    respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
-    mut despawner: Despawner,
-    mut despawn_handle: Local<usize>,
+    mut despawn: EventWriter<Despawn>,
+    q_respawn_entities: Query<Entity, With<WarehouseRespawnTag>>,
+    q_pending_despawns: Query<Entity, (With<PendingDespawn>, With<WarehouseRespawnTag>)>,
     mut need_respawn: Local<bool>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -80,12 +80,17 @@ fn warehouse_generator(
 ) {
     // despawn previous instance
     if warehouse.is_changed() {
-        *despawn_handle = despawner.despawn(respawn_entities.iter());
+        for e in q_respawn_entities.iter() {
+            despawn.send(Despawn(e));
+        }
         *need_respawn = true;
+        // despawns happen at end of frame, so we need to exit now and wait for the next frame.
+        return;
     }
 
+    let pending_despawns = q_pending_despawns.iter().next().is_some();
     // don't spawn new entities if previous ones are still despawning.
-    if !*need_respawn || despawner.is_pending(*despawn_handle) {
+    if !*need_respawn || pending_despawns {
         return;
     }
 
