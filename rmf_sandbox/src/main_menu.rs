@@ -54,7 +54,7 @@ fn egui_ui(
                         let data = yaml.as_bytes();
                         match BuildingMap::from_bytes(&data) {
                             Ok(map) => {
-                                _commands.insert_resource(SiteMap::from_building_map(map));
+                                _commands.insert_resource(map);
                                 match app_state.set(AppState::TrafficEditor) {
                                     Ok(_) => {}
                                     Err(err) => {
