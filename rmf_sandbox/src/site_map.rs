@@ -4,6 +4,7 @@ use crate::despawn::DespawnBlocker;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::settings::*;
 use crate::spawner::VerticesManagers;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
@@ -53,6 +54,7 @@ fn init_site_map(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    settings: Res<Settings>,
 ) {
     println!("Loading assets");
     let mut handles = Handles::default();
@@ -91,8 +93,7 @@ fn init_site_map(
         // spawn lights
         // todo: calculate bounding box of this level
         let bb = level.calc_bb();
-        let make_light_grid = false; // todo: select based on WASM and GPU (or not)
-        if make_light_grid {
+        if settings.graphics_quality == GraphicsQuality::Ultra {
             // spawn a grid of lights for this level
             let light_spacing = 10.;
             let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
@@ -115,23 +116,6 @@ fn init_site_map(
                         .insert(SiteMapTag);
                 }
             }
-        } else {
-            // create a single directional light (for machines without GPU)
-            commands
-                .spawn_bundle(DirectionalLightBundle {
-                    directional_light: DirectionalLight {
-                        shadows_enabled: false,
-                        illuminance: 20000.,
-                        ..Default::default()
-                    },
-                    transform: Transform {
-                        translation: Vec3::new(0., 0., 50.),
-                        rotation: Quat::from_rotation_x(0.4),
-                        ..Default::default()
-                    },
-                    ..Default::default()
-                })
-                .insert(SiteMapTag);
         }
 
         // spawn the floor plane
