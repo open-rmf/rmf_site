@@ -1,11 +1,16 @@
+use std::path::PathBuf;
+
+use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
-use crate::site_map::SiteMap;
+use crate::save_load::SaveMap;
+use crate::site_map::{SiteMapLabel, SiteMapState};
+use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
-use crate::AppState;
+use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
     app::AppExit,
@@ -28,19 +33,66 @@ impl Editable for Vertex {
 
         egui::Grid::new("vertex").num_columns(2).show(ui, |ui| {
             ui.label("Name");
-            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            changed = ui.text_edit_singleline(&mut self.3).changed() || changed;
             ui.end_row();
 
             ui.label("X");
             changed = ui
-                .add(egui::DragValue::new(&mut self.x).speed(0.1))
+                .add(egui::DragValue::new(&mut self.0).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Y");
             changed = ui
-                .add(egui::DragValue::new(&mut self.y).speed(0.1))
+                .add(egui::DragValue::new(&mut self.1).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Z");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Charger");
+            changed = ui.checkbox(&mut self.4.is_charger, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Holding Point");
+            changed = ui.checkbox(&mut self.4.is_holding_point, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Parking Spot");
+            changed = ui.checkbox(&mut self.4.is_parking_spot, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Spawn Robot");
+            changed = ui
+                .text_edit_singleline(&mut *self.4.spawn_robot_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Spawn Robot Type");
+            changed = ui
+                .text_edit_singleline(&mut *self.4.spawn_robot_type)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Dropoff Ingestor");
+            changed = ui
+                .text_edit_singleline(&mut *self.4.dropoff_ingestor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Pickup Dispenser");
+            changed = ui
+                .text_edit_singleline(&mut *self.4.pickup_dispenser)
                 .changed()
                 || changed;
             ui.end_row();
@@ -56,11 +108,26 @@ impl Editable for Lane {
 
         egui::Grid::new("lane").num_columns(2).show(ui, |ui| {
             ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
             ui.end_row();
 
             ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
+            ui.end_row();
+
+            ui.label("Bidirectional");
+            changed = ui.checkbox(&mut self.2.bidirectional, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Graph");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.graph_idx))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Orientation");
+            changed = ui.text_edit_singleline(&mut *self.2.orientation).changed() || changed;
             ui.end_row();
         });
 
@@ -76,11 +143,11 @@ impl Editable for Measurement {
             .num_columns(2)
             .show(ui, |ui| {
                 ui.label("Start");
-                changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+                changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
                 ui.end_row();
 
                 ui.label("End");
-                changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+                changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
                 ui.end_row();
 
                 // TODO: Remove this field once we support new cartesian format. Doing so removes
@@ -88,7 +155,7 @@ impl Editable for Measurement {
                 // in the file.
                 ui.label("Distance");
                 changed = ui
-                    .add(egui::DragValue::new(&mut self.distance).speed(0.1))
+                    .add(egui::DragValue::new(&mut self.2.distance).speed(0.1))
                     .changed()
                     || changed;
                 ui.end_row();
@@ -104,22 +171,29 @@ impl Editable for Wall {
 
         egui::Grid::new("wall").num_columns(2).show(ui, |ui| {
             ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.start)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
             ui.end_row();
 
             ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.end)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
             ui.end_row();
 
             ui.label("Height");
             changed = ui
-                .add(egui::DragValue::new(&mut self.height).speed(0.1))
+                .add(egui::DragValue::new(&mut self.2.texture_height).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
             ui.label("Texture");
-            changed = ui.text_edit_singleline(&mut self.texture_name).changed() || changed;
+            changed = ui.text_edit_singleline(&mut *self.2.texture_name).changed() || changed;
+            ui.end_row();
+
+            ui.label("Alpha");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.alpha).speed(0.01))
+                .changed()
+                || changed;
             ui.end_row();
         });
 
@@ -160,6 +234,10 @@ impl Editable for Model {
                 || changed;
             ui.end_row();
 
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.instance_name).changed() || changed;
+            ui.end_row();
+
             ui.label("Model");
             changed = ui.text_edit_singleline(&mut self.model_name).lost_focus() || changed;
             ui.end_row();
@@ -188,6 +266,9 @@ enum EditorData {
 
 struct SelectedEditable(Entity, EditorData);
 
+#[derive(Default)]
+struct HasChanges(bool);
+
 #[derive(SystemParam)]
 struct EditorPanel<'w, 's> {
     selected: ResMut<'w, Option<SelectedEditable>>,
@@ -199,7 +280,7 @@ struct EditorPanel<'w, 's> {
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
-    fn draw(&mut self, egui_ctx: &mut EguiContext) {
+    fn draw(&mut self, egui_ctx: &mut EguiContext, has_changes: &mut bool) {
         fn commit_changes<E: Editable + Component>(
             q: &mut Query<&mut E>,
             target_entity: Entity,
@@ -242,26 +323,31 @@ impl<'w, 's> EditorPanel<'w, 's> {
                     EditorData::Lane(lane) => {
                         if lane.draw(ui) {
                             commit_changes(&mut self.q_lane, selected.0, lane);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Vertex(vertex) => {
                         if vertex.draw(ui) {
                             commit_changes(&mut self.q_vertex, selected.0, vertex);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Measurement(measurement) => {
                         if measurement.draw(ui) {
                             commit_changes(&mut self.q_measurement, selected.0, measurement);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Wall(wall) => {
                         if wall.draw(ui) {
                             commit_changes(&mut self.q_wall, selected.0, wall);
+                            *has_changes = true;
                         }
                     }
                     EditorData::Model(model) => {
                         if model.draw(ui) {
                             commit_changes(&mut self.q_model, selected.0, model);
+                            *has_changes = true;
                         }
                     }
                 };
@@ -277,6 +363,10 @@ fn egui_ui(
     _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
+    opened_map_file: Option<Res<OpenedMapFile>>,
+    map: Res<BuildingMap>,
+    mut save_map: EventWriter<SaveMap>,
+    mut has_changes: ResMut<HasChanges>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -307,11 +397,29 @@ fn egui_ui(
                     controls.set_mode(ProjectionMode::Perspective);
                     active_camera_3d.set(controls.perspective_camera_entity);
                 }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui
+                        .add(egui::SelectableLabel::new(has_changes.0, "Save"))
+                        .clicked()
+                    {
+                        if let Some(opened_file) = opened_map_file {
+                            save_map.send(SaveMap(opened_file.0.clone()));
+                        } else {
+                            let path = rfd::FileDialog::new()
+                                .set_file_name(&format!("{}.yaml", map.name))
+                                .save_file();
+                            if let Some(path) = path {
+                                save_map.send(SaveMap(PathBuf::from(path)));
+                            }
+                        }
+                    }
+                }
             });
         });
     });
 
-    editor.draw(&mut egui_context);
+    editor.draw(&mut egui_context, &mut has_changes.0);
 }
 
 fn on_startup(mut commands: Commands) {
@@ -321,9 +429,21 @@ fn on_startup(mut commands: Commands) {
         .insert(Interaction::default());
 }
 
-fn on_exit(mut commands: Commands) {
-    commands.remove_resource::<SiteMap>();
+fn on_enter(
+    mut commands: Commands,
+    mut spawner: Spawner,
+    building_map: Res<BuildingMap>,
+    mut sitemap_state: ResMut<State<SiteMapState>>,
+) {
+    commands.insert_resource(HasChanges(false));
+    spawner.spawn_map(&building_map);
+    sitemap_state.set(SiteMapState::Enabled).unwrap();
+}
+
+fn on_exit(mut commands: Commands, mut sitemap_state: ResMut<State<SiteMapState>>) {
+    commands.remove_resource::<BuildingMap>();
     commands.init_resource::<Option<SelectedEditable>>();
+    sitemap_state.set(SiteMapState::Disabled).unwrap();
 }
 
 fn maintain_inspected_entities(
@@ -495,18 +615,17 @@ impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
             .init_resource::<Option<SelectedEditable>>()
-            // .add_plugin(InspectorPlugin::<Inspector>::new())
-            // .register_inspectable::<Lane>()
-            .add_startup_system(on_startup);
-
-        app.add_system_set(
-            SystemSet::on_update(AppState::TrafficEditor)
-                .with_system(egui_ui)
-                .with_system(update_picking_cam)
-                .with_system(enable_picking)
-                .with_system(maintain_inspected_entities),
-        );
-
-        app.add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit));
+            .init_resource::<HasChanges>()
+            .add_startup_system(on_startup)
+            .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
+            .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
+            .add_system_set(
+                SystemSet::on_update(AppState::TrafficEditor)
+                    .before(SiteMapLabel)
+                    .with_system(egui_ui)
+                    .with_system(update_picking_cam)
+                    .with_system(enable_picking)
+                    .with_system(maintain_inspected_entities),
+            );
     }
 }

@@ -1,28 +1,18 @@
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "ModelRaw")]
+#[derive(Deserialize, Serialize, Component, Clone, Default)]
 pub struct Model {
+    pub model_name: String,
+    #[serde(rename = "name")]
+    pub instance_name: String,
+    #[serde(rename = "static")]
+    pub static_: bool,
     pub x: f64,
     pub y: f64,
-    pub yaw: f64,
-    pub instance_name: String,
-    pub model_name: String,
+    #[serde(rename = "z")]
     pub z_offset: f64,
-}
-
-impl From<ModelRaw> for Model {
-    fn from(raw: ModelRaw) -> Model {
-        Model {
-            x: raw.x,
-            y: raw.y,
-            yaw: raw.yaw,
-            instance_name: raw.name,
-            model_name: raw.model_name,
-            // TODO: implement
-            z_offset: 0.,
-        }
-    }
+    pub yaw: f64,
 }
 
 impl Model {
@@ -49,19 +39,7 @@ impl Model {
             y,
             yaw: yaw,
             z_offset: z,
+            static_: true,
         };
     }
-}
-
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
-struct ModelRaw {
-    model_name: String,
-    name: String,
-    #[serde(rename = "static")]
-    static_: bool,
-    x: f64,
-    y: f64,
-    z: f64,
-    yaw: f64,
 }

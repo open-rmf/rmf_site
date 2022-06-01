@@ -64,6 +64,9 @@ cargo run
 
 # Build and Run (WebAssembly)
 
+TODO: The web assembly version is highly experimental, currently it lacks important features like
+saving/loading of map files.
+
 ```
 scripts/build-web.sh
 scripts/serve-web.sh

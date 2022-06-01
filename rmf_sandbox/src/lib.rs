@@ -16,25 +16,34 @@ use settings::*;
 mod camera_controls;
 mod demo_world;
 mod despawn;
+mod save_load;
+mod spawner;
 
 mod main_menu;
 mod site_map;
 mod traffic_editor;
 mod warehouse_generator;
 
+mod basic_components;
 mod building_map;
+mod crowd_sim;
+mod door;
 mod lane;
 mod level;
 mod level_transform;
 mod measurement;
 mod model;
+mod rbmf;
 mod sandbox_asset_io;
+mod utils;
 mod vertex;
 mod wall;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
+use save_load::SaveLoadPlugin;
+use spawner::SpawnerPlugin;
 
 use site_map::SiteMapPlugin;
 
@@ -44,6 +53,8 @@ pub enum AppState {
     TrafficEditor,
     WarehouseGenerator,
 }
+
+pub struct OpenedMapFile(std::path::PathBuf);
 
 #[cfg(target_arch = "wasm32")]
 fn check_browser_window_size(mut windows: ResMut<Windows>) {
@@ -106,5 +117,7 @@ pub fn run() {
         .add_plugin(TrafficEditorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
         .add_plugin(DespawnPlugin)
+        .add_plugin(SpawnerPlugin)
+        .add_plugin(SaveLoadPlugin)
         .run();
 }

@@ -1,37 +1,38 @@
 use super::vertex::Vertex;
+use crate::rbmf::*;
 use bevy::prelude::*;
 use bevy::render::mesh::{Indices, PrimitiveTopology};
+use serde::{Deserialize, Serialize};
 
-#[derive(serde::Deserialize, Component, Clone, Default)]
-#[serde(from = "WallRaw")]
-pub struct Wall {
-    pub start: usize,
-    pub end: usize,
-    pub texture_name: String,
-    pub height: f32,
+fn default_height() -> RbmfFloat {
+    RbmfFloat::from(2.)
 }
 
-impl From<WallRaw> for Wall {
-    fn from(raw: WallRaw) -> Wall {
-        Wall {
-            start: raw.data.0,
-            end: raw.data.1,
-            height: match raw.data.2.texture_height {
-                Some(h) => h.1 as f32,
-                None => 2.0,
-            },
-            texture_name: match raw.data.2.texture_name {
-                Some(name) => name.1.to_string(),
-                None => "".to_string(),
-            },
+#[derive(Deserialize, Serialize, Clone)]
+pub struct WallProperties {
+    pub alpha: RbmfFloat,
+    pub texture_name: RbmfString,
+    #[serde(default = "default_height")]
+    pub texture_height: RbmfFloat,
+}
+
+impl Default for WallProperties {
+    fn default() -> Self {
+        Self {
+            alpha: RbmfFloat::default(),
+            texture_name: RbmfString::default(),
+            texture_height: default_height(),
         }
     }
 }
 
+#[derive(Deserialize, Serialize, Clone, Component)]
+pub struct Wall(pub usize, pub usize, pub WallProperties);
+
 impl Wall {
     pub fn mesh(&self, v1: &Vertex, v2: &Vertex) -> Mesh {
-        let dx = (v2.x - v1.x) as f32;
-        let dy = (v2.y - v1.y) as f32;
+        let dx = (v2.0 - v1.0) as f32;
+        let dy = (v2.1 - v1.1) as f32;
         let length = Vec2::from([dx, dy]).length();
         let width = 0.1 as f32;
         let height = 3.0 as f32;
@@ -107,32 +108,18 @@ impl Wall {
     }
 
     pub fn transform(&self, v1: &Vertex, v2: &Vertex) -> Transform {
-        let dx = (v2.x - v1.x) as f32;
-        let dy = (v2.y - v1.y) as f32;
+        let dx = (v2.0 - v1.0) as f32;
+        let dy = (v2.1 - v1.1) as f32;
         let yaw = dy.atan2(dx) as f32;
-        let cx = ((v1.x + v2.x) / 2.) as f32;
-        let cy = ((v1.y + v2.y) / 2.) as f32;
+        let cx = ((v1.0 + v2.0) / 2.) as f32;
+        let cy = ((v1.1 + v2.1) / 2.) as f32;
 
         Transform {
             translation: Vec3::new(cx, cy, 0.),
-            // base height is 3
-            scale: Vec3::new(1., 1., self.height / 3.),
+            // base length is 20, base height is 3
+            scale: Vec3::new(1., 1., (*self.2.texture_height / 3.) as f32),
             rotation: Quat::from_rotation_z(yaw),
             ..Default::default()
         }
     }
-}
-
-#[derive(serde::Deserialize)]
-#[serde(transparent)]
-struct WallRaw {
-    data: (usize, usize, WallProperties),
-}
-
-#[derive(serde::Deserialize)]
-#[allow(dead_code)]
-struct WallProperties {
-    alpha: (usize, usize),
-    texture_name: Option<(usize, String)>,
-    texture_height: Option<(usize, f64)>,
 }
