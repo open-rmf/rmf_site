@@ -1,7 +1,9 @@
 use crate::building_map::BuildingMap;
 use crate::despawn::*;
 use crate::level::Level;
+use crate::light::Light;
 use crate::model::Model;
+use crate::settings::*;
 use crate::site_map::{MaterialMap, SiteMapLabel, SiteMapState};
 use crate::spawner::Spawner;
 use crate::vertex::Vertex;
@@ -77,6 +79,7 @@ fn warehouse_generator(
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut material_map: ResMut<MaterialMap>,
     asset_server: Res<AssetServer>,
+    settings: Res<Settings>,
 ) {
     // despawn previous instance
     if warehouse.is_changed() {
@@ -108,26 +111,65 @@ fn warehouse_generator(
     vertices[3].1 = width / 2.;
 
     let rack_length = 2.3784;
-    let num_racks = (width / rack_length - 1.) as i32;
+    let roadway_width = 2.0;
+    let num_racks = ((width - 2. * roadway_width) / rack_length - 1.) as i32;
 
     let aisle_width = warehouse.aisle_width;
-    let rack_depth = 1.3;
+    let rack_depth = 1.1;
+    let rack_depth_spacing = 0.1;
     let aisle_spacing = aisle_width + 2. * rack_depth;
     let num_aisles = (width / aisle_spacing).floor() as i32;
+    let rack_depth_spacing = 1.3;
+    //let rack_depth_offset = 0.5;
 
     let vert_stacks = warehouse.height / 2;
 
     for aisle_idx in 0..num_aisles {
-        let y = (aisle_idx as f64 - (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
+        let aisle_y = (aisle_idx as f64 - (num_aisles as f64 - 1.) / 2.) * aisle_spacing;
+        let rack_1_y = aisle_y - aisle_width / 2. + 2. * rack_depth / 2. - rack_depth_spacing;
+        let rack_2_y = aisle_y + aisle_width / 2. + 0. * rack_depth / 2. + rack_depth_spacing;
+        let rack_start_x = -(width - 2. * roadway_width) / 2. + 1.;
         add_racks(
             &mut spawner,
             "L1",
-            -width / 2. + 1.,
-            y,
+            rack_start_x,
+            rack_1_y,
             0.,
             num_racks,
             vert_stacks,
         );
+        add_racks(
+            &mut spawner,
+            "L1",
+            rack_start_x,
+            rack_2_y,
+            0.,
+            num_racks,
+            vert_stacks,
+        );
+        if settings.graphics_quality == GraphicsQuality::Ultra {
+            // for now we're a square
+            let num_lights_x = num_aisles;
+            let light_x_spacing = aisle_spacing;
+
+            for x_idx in 0..num_lights_x {
+                let light_x = (x_idx as f64 - (num_lights_x as f64 - 1.) / 2.) * light_x_spacing;
+                // spawn some lights
+                spawner
+                    .spawn_in_level(
+                        "L1",
+                        Light {
+                            x: light_x,
+                            y: aisle_y,
+                            z_offset: 1.0 + 2.4 * (vert_stacks as f64),
+                            intensity: 300.0,
+                            range: 10.0,
+                        }
+                    )
+                    .unwrap()
+                    .insert(WarehouseRespawnTag);
+            }
+        }
     }
 
     // create the floor material if necessary
@@ -160,6 +202,7 @@ fn warehouse_generator(
         },
         ..Default::default()
     });
+
 }
 
 fn add_racks(
@@ -171,8 +214,6 @@ fn add_racks(
     num_racks: i32,
     num_stacks: i32,
 ) {
-    let rack_depth_spacing = 1.3;
-    let rack_depth_offset = 0.5;
     let rack_length = 2.3784;
     let rack_height = 2.4;
 
@@ -186,21 +227,7 @@ fn add_racks(
                         "vert_beam1",
                         "OpenRobotics/PalletRackVertBeams",
                         x + (idx as f64) * rack_length,
-                        y - rack_depth_offset - rack_depth_spacing / 2.,
-                        z_offset,
-                        yaw,
-                    ),
-                )
-                .unwrap()
-                .insert(WarehouseRespawnTag);
-            spawner
-                .spawn_in_level(
-                    level,
-                    Model::from_xyz_yaw(
-                        "vert_beam1",
-                        "OpenRobotics/PalletRackVertBeams",
-                        x + (idx as f64) * rack_length,
-                        y - rack_depth_offset + rack_depth_spacing / 2.,
+                        y,
                         z_offset,
                         yaw,
                     ),
@@ -217,21 +244,7 @@ fn add_racks(
                             "horiz_beam1",
                             "OpenRobotics/PalletRackHorBeams",
                             rack_x,
-                            y - rack_depth_offset - rack_depth_spacing / 2.,
-                            z_offset,
-                            yaw,
-                        ),
-                    )
-                    .unwrap()
-                    .insert(WarehouseRespawnTag);
-                spawner
-                    .spawn_in_level(
-                        level,
-                        Model::from_xyz_yaw(
-                            "horiz_beam1",
-                            "OpenRobotics/PalletRackHorBeams",
-                            rack_x,
-                            y - rack_depth_offset + rack_depth_spacing / 2.,
+                            y,
                             z_offset,
                             yaw,
                         ),
@@ -246,21 +259,7 @@ fn add_racks(
                             "horiz_beam1",
                             "OpenRobotics/PalletRackHorBeams",
                             rack_x,
-                            y - rack_depth_offset - rack_depth_spacing / 2.,
-                            z_offset + second_shelf_z_offset,
-                            yaw,
-                        ),
-                    )
-                    .unwrap()
-                    .insert(WarehouseRespawnTag);
-                spawner
-                    .spawn_in_level(
-                        level,
-                        Model::from_xyz_yaw(
-                            "horiz_beam1",
-                            "OpenRobotics/PalletRackHorBeams",
-                            rack_x,
-                            y - rack_depth_offset + rack_depth_spacing / 2.,
+                            y,
                             z_offset + second_shelf_z_offset,
                             yaw,
                         ),

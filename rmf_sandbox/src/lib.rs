@@ -1,4 +1,4 @@
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*};
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use main_menu::MainMenuPlugin;
 use traffic_editor::TrafficEditorPlugin;
 use warehouse_generator::WarehouseGeneratorPlugin;
@@ -31,6 +31,7 @@ mod door;
 mod lane;
 mod level;
 mod level_transform;
+mod light;
 mod measurement;
 mod model;
 mod rbmf;
@@ -71,6 +72,17 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
     }
 }
 
+fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterInfo>) {
+    // todo: be more sophisticated
+    let is_elite = adapter_info.name.contains("NVIDIA");
+    if is_elite {
+        settings.graphics_quality = GraphicsQuality::Ultra;
+    }
+    else {
+        settings.graphics_quality = GraphicsQuality::Low;
+    }
+}
+
 #[wasm_bindgen]
 pub fn run() {
     let mut app = App::new();
@@ -102,6 +114,7 @@ pub fn run() {
     }
 
     app.init_resource::<Settings>()
+        .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
