@@ -1,13 +1,14 @@
 use super::demo_world::demo_office;
-use super::site_map::SiteMap;
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
 
-use crate::building_map::BuildingMap;
 use crate::AppState;
+use crate::{building_map::BuildingMap, OpenedMapFile};
 
 #[cfg(not(target_arch = "wasm32"))]
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
+
+struct LoadMapTask(Option<OpenedMapFile>, BuildingMap);
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
@@ -33,13 +34,14 @@ fn egui_ui(
                         let future = _thread_pool.spawn(async move {
                             let yaml = demo_office();
                             let data = yaml.as_bytes();
-                            match BuildingMap::from_bytes(&data) {
-                                Ok(map) => Some(SiteMap::from_building_map(map)),
+                            let map = match BuildingMap::from_bytes(&data) {
+                                Ok(map) => map,
                                 Err(err) => {
                                     println!("{:?}", err);
                                     return None;
                                 }
-                            }
+                            };
+                            Some(LoadMapTask(None, map))
                         });
                         _commands.spawn().insert(future);
                     }
@@ -52,7 +54,7 @@ fn egui_ui(
                         let data = yaml.as_bytes();
                         match BuildingMap::from_bytes(&data) {
                             Ok(map) => {
-                                _commands.insert_resource(SiteMap::from_building_map(map));
+                                _commands.insert_resource(map);
                                 match app_state.set(AppState::TrafficEditor) {
                                     Ok(_) => {}
                                     Err(err) => {
@@ -83,18 +85,18 @@ fn egui_ui(
                             };
                             println!("Loading site map");
                             let data = file.read().await;
-                            match BuildingMap::from_bytes(&data) {
-                                Ok(map) => Some(SiteMap::from_building_map(map)),
+                            let map = match BuildingMap::from_bytes(&data) {
+                                Ok(map) => map,
                                 Err(err) => {
                                     println!("{:?}", err);
                                     return None;
                                 }
-                            }
+                            };
+                            Some(LoadMapTask(
+                                Some(OpenedMapFile(file.path().to_path_buf())),
+                                map,
+                            ))
                         });
-
-                        // FIXME: This is from the bevy example, but not sure if this will leak entites.
-                        // The task completion handler only removes the task component from the
-                        // entity but never removes the entity itself.
                         _commands.spawn().insert(future);
                     }
                 }
@@ -123,19 +125,19 @@ fn egui_ui(
 #[cfg(not(target_arch = "wasm32"))]
 fn map_load_complete(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &mut Task<Option<SiteMap>>)>,
+    mut tasks: Query<(Entity, &mut Task<Option<LoadMapTask>>)>,
     mut app_state: ResMut<State<AppState>>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut *task)) {
             println!("Site map loaded");
-            // FIXME: Do we need to remove this entity and not just the component to avoid leaks?
-            commands.entity(entity).remove::<Task<Option<SiteMap>>>();
+            commands.entity(entity).despawn();
 
             match result {
                 Some(result) => {
                     println!("Entering traffic editor");
-                    commands.insert_resource(result);
+                    commands.insert_resource(result.0);
+                    commands.insert_resource(result.1);
                     match app_state.set(AppState::TrafficEditor) {
                         Ok(_) => {}
                         Err(err) => {

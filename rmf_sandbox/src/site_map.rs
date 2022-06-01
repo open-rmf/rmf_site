@@ -1,16 +1,21 @@
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::despawn::DespawnBlocker;
 use crate::lane::Lane;
-use crate::level::Level;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::settings::*;
+use crate::spawner::VerticesManagers;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
-use bevy::ecs::system::SystemParam;
-use bevy::{ecs::schedule::ShouldRun, prelude::*, transform::TransformBundle};
+use bevy::prelude::*;
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum SiteMapState {
+    Enabled,
+    Disabled,
+}
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
@@ -30,68 +35,12 @@ struct Handles {
     pub wall_material: Handle<StandardMaterial>,
 }
 
-#[derive(Default, Component)]
-pub struct SiteMap {
-    pub site_name: String,
-    pub levels: Vec<Level>,
-}
-
-impl SiteMap {
-    pub fn from_building_map(building_map: BuildingMap) -> SiteMap {
-        let sm = SiteMap {
-            site_name: building_map.name,
-            levels: building_map.levels.into_values().collect(),
-            ..Default::default()
-        };
-
-        // todo: global alignment via fiducials
-
-        return sm;
-    }
-}
-
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
-struct SiteMapLevel(Entity);
+struct SiteMapCurrentLevel(String);
 
 /// Used to keep track of entities created by the site map system.
 #[derive(Component)]
 struct SiteMapTag;
-
-/// Keeps track of the entities of vertices.
-#[derive(SystemParam)]
-struct VerticesManager<'w, 's> {
-    data: ResMut<'w, VerticesManagerData>,
-    query: Query<'w, 's, (&'static Vertex, ChangeTrackers<Vertex>)>,
-}
-
-#[derive(Default)]
-struct VerticesManagerData {
-    entities: Vec<Entity>,
-    used_by_entites: Vec<HashSet<Entity>>,
-}
-
-impl<'w, 's> VerticesManager<'w, 's> {
-    fn push_vertex(&mut self, e: Entity, used_by: &[Entity]) {
-        self.data.entities.push(e);
-        self.data
-            .used_by_entites
-            .push(HashSet::from_iter(used_by.into_iter().cloned()));
-    }
-
-    fn insert_used_by(&mut self, vertex_id: usize, used_entity: Entity) {
-        self.data.used_by_entites[vertex_id].insert(used_entity);
-    }
-
-    fn get_vertex(&self, vertex_id: usize) -> (&Vertex, ChangeTrackers<Vertex>) {
-        self.query.get(self.data.entities[vertex_id]).unwrap()
-    }
-}
-
-#[derive(Component, Default)]
-struct VertexUsedBy(Vec<Entity>);
-
-#[derive(Component, Default)]
-struct VertexChanged(usize);
 
 #[derive(Default)]
 struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
@@ -100,7 +49,7 @@ struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
 struct SpawnedModels(Vec<Entity>);
 
 fn init_site_map(
-    sm: Res<SiteMap>,
+    sm: Res<BuildingMap>,
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -134,17 +83,13 @@ fn init_site_map(
         ..default()
     });
 
-    println!("Initializing site map: {}", sm.site_name);
+    println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
     });
 
-    commands.init_resource::<VerticesManagerData>();
-
-    let mut level_entities: Vec<Entity> = Vec::new();
-    let mut level_vertices: Vec<&Vec<Vertex>> = Vec::new();
-    for level in &sm.levels {
+    for level in sm.levels.values() {
         // spawn lights
         // todo: calculate bounding box of this level
         let bb = level.calc_bb();
@@ -173,36 +118,6 @@ fn init_site_map(
             }
         }
 
-        let vertices = &level.vertices;
-        level_vertices.push(vertices);
-        level_entities.push(
-            commands
-                .spawn()
-                .insert(SiteMapTag)
-                .insert_bundle(TransformBundle::from_transform(Transform {
-                    translation: Vec3::new(0., 0., level.transform.translation[2] as f32),
-                    ..default()
-                }))
-                .with_children(|cb| {
-                    for v in vertices {
-                        cb.spawn().insert(v.clone());
-                    }
-                    for lane in &level.lanes {
-                        cb.spawn().insert(lane.clone());
-                    }
-                    for measurement in &level.measurements {
-                        cb.spawn().insert(measurement.clone());
-                    }
-                    for wall in &level.walls {
-                        cb.spawn().insert(wall.clone());
-                    }
-                    for model in &level.models {
-                        cb.spawn().insert(model.clone());
-                    }
-                })
-                .id(),
-        );
-
         // spawn the floor plane
         commands
             .spawn_bundle(PbrBundle {
@@ -216,12 +131,8 @@ fn init_site_map(
             })
             .insert(SiteMapTag);
     }
-    if level_entities.len() == 0 {
-        println!("No levels found in site map");
-        return;
-    }
-    commands.insert_resource(SiteMapLevel(level_entities[0]));
-    commands.insert_resource(level_vertices[0].clone());
+    let current_level = sm.levels.keys().next().unwrap();
+    commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
 
     commands.insert_resource(handles);
     commands.insert_resource(LoadingModels::default());
@@ -241,30 +152,23 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
     for entity in site_map_entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    commands.remove_resource::<SiteMapLevel>();
-    commands.remove_resource::<VerticesManagerData>();
+    commands.remove_resource::<SiteMapCurrentLevel>();
 }
 
 fn update_vertices(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     handles: Res<Handles>,
-    mut vertices_mgr: VerticesManager,
     added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
     mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
 ) {
     // spawn new vertices
     for (e, v) in added_vertices.iter() {
-        commands
-            .entity(e)
-            .insert_bundle(PbrBundle {
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.vertex_material.clone(),
-                transform: v.transform(),
-                ..Default::default()
-            })
-            .insert(Parent(level_entity.0));
-        vertices_mgr.push_vertex(e, &[]);
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: handles.vertex_mesh.clone(),
+            material: handles.vertex_material.clone(),
+            transform: v.transform(),
+            ..Default::default()
+        });
     }
     // update changed vertices
     for (v, mut t) in changed_vertices.iter_mut() {
@@ -274,16 +178,19 @@ fn update_vertices(
 
 fn update_lanes(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    vertices_mgr: VerticesManager,
+    vertices_mgrs: Res<VerticesManagers>,
+    level: Res<SiteMapCurrentLevel>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&mut Transform>)>,
 ) {
     // spawn new lanes
     for (e, lane, change, t) in lanes.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(lane.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(lane.end);
+        let v1_entity = vertices_mgrs.0[&level.0].get(lane.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(lane.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
             commands
@@ -294,8 +201,7 @@ fn update_lanes(
                     transform: lane.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(lane.clone())
-                .insert(Parent(level_entity.0));
+                .insert(lane.clone());
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = lane.transform(v1, v2);
         }
@@ -304,10 +210,11 @@ fn update_lanes(
 
 fn update_measurements(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    vertices_mgr: VerticesManager,
+    level: Res<SiteMapCurrentLevel>,
+    vertices_mgrs: Res<VerticesManagers>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut measurements: Query<
         (
             Entity,
@@ -320,8 +227,10 @@ fn update_measurements(
 ) {
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(measurement.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(measurement.end);
+        let v1_entity = vertices_mgrs.0[&level.0].get(measurement.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(measurement.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
             commands
@@ -332,8 +241,7 @@ fn update_measurements(
                     transform: measurement.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(measurement.clone())
-                .insert(Parent(level_entity.0));
+                .insert(measurement.clone());
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = measurement.transform(v1, v2);
         }
@@ -342,18 +250,25 @@ fn update_measurements(
 
 fn update_walls(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    mut vertices_mgr: VerticesManager,
-    mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>, Option<&mut Transform>)>,
+    level: Res<SiteMapCurrentLevel>,
+    vertices_mgrs: Res<VerticesManagers>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
+    mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>)>,
 ) {
     // spawn new walls
-    for (e, wall, change, t) in walls.iter_mut() {
-        let (v1, v1_change) = vertices_mgr.get_vertex(wall.start);
-        let (v2, v2_change) = vertices_mgr.get_vertex(wall.end);
+    for (e, wall, change) in walls.iter_mut() {
+        let v1_entity = vertices_mgrs.0[&level.0].get(wall.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(wall.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
-        if change.is_added() {
+        if change.is_added()
+            || change.is_changed()
+            || v1_change.is_changed()
+            || v2_change.is_changed()
+        {
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
@@ -362,12 +277,7 @@ fn update_walls(
                     transform: wall.transform(v1, v2),
                     ..Default::default()
                 })
-                .insert(wall.clone())
-                .insert(Parent(level_entity.0));
-            vertices_mgr.insert_used_by(wall.start, e);
-            vertices_mgr.insert_used_by(wall.end, e);
-        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-            *t.unwrap() = wall.transform(v1, v2);
+                .insert(wall.clone());
         }
     }
 }
@@ -377,7 +287,6 @@ struct ModelCurrentScene(String);
 
 fn update_models(
     mut commands: Commands,
-    level_entity: Res<SiteMapLevel>,
     added_models: Query<(Entity, &Model), Added<Model>>,
     mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
     asset_server: Res<AssetServer>,
@@ -421,8 +330,7 @@ fn update_models(
                 .insert_bundle((model.transform(), GlobalTransform::identity()))
                 .with_children(|parent| {
                     parent.spawn_scene(h.clone());
-                })
-                .insert(Parent(level_entity.0));
+                });
             spawned_models.0.push(*e);
         }
     }
@@ -431,11 +339,7 @@ fn update_models(
     }
 
     for (e, model) in added_models.iter() {
-        let bundle_path =
-            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
-        let glb: Handle<Scene> = asset_server.load(&bundle_path);
-        commands.entity(e).insert(DespawnBlocker());
-        loading_models.0.insert(e, (model.clone(), glb.clone()));
+        spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
     }
     // update changed models
     for (e, model, mut t) in changed_models.iter_mut() {
@@ -451,50 +355,29 @@ fn update_models(
     }
 }
 
-fn should_init_site_map(sm: Option<Res<SiteMap>>) -> ShouldRun {
-    if let Some(sm) = sm {
-        if sm.is_added() {
-            return ShouldRun::Yes;
-        }
-    }
-    ShouldRun::No
-}
-
-fn should_despawn_site_map(sm: Option<Res<SiteMap>>, mut sm_existed: Local<bool>) -> ShouldRun {
-    if sm.is_none() && *sm_existed {
-        *sm_existed = false;
-        return ShouldRun::Yes;
-    }
-    *sm_existed = sm.is_some();
-    return ShouldRun::No;
-}
-
-fn has_site_map(level_entity: Option<Res<SiteMapLevel>>) -> ShouldRun {
-    if level_entity.is_some() {
-        return ShouldRun::Yes;
-    }
-    ShouldRun::No
-}
-
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
 impl Plugin for SiteMapPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<Vec<Vertex>>()
+        app.add_state(SiteMapState::Disabled)
+            .init_resource::<Vec<Vertex>>()
             .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
             .init_resource::<Handles>()
             .init_resource::<MaterialMap>()
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_enter(SiteMapState::Enabled)
                     .label(SiteMapLabel)
-                    .with_system(init_site_map.with_run_criteria(should_init_site_map))
-                    .with_system(despawn_site_map.with_run_criteria(should_despawn_site_map)),
+                    .with_system(init_site_map),
             )
             .add_system_set(
-                SystemSet::new()
+                SystemSet::on_exit(SiteMapState::Enabled)
                     .label(SiteMapLabel)
-                    .with_run_criteria(has_site_map)
+                    .with_system(despawn_site_map),
+            )
+            .add_system_set(
+                SystemSet::on_update(SiteMapState::Enabled)
+                    .label(SiteMapLabel)
                     .with_system(update_vertices.after(init_site_map))
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))

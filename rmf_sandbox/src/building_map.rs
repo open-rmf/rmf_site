@@ -1,34 +1,41 @@
-use std::collections::HashMap;
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
+use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
 
-#[derive(serde::Deserialize)]
+#[derive(Deserialize, Serialize, Default)]
 pub struct BuildingMap {
     pub name: String,
-    pub levels: HashMap<String, Level>,
+    pub version: Option<i32>,
+    pub levels: BTreeMap<String, Level>,
+    pub crowd_sim: CrowdSim,
 }
 
 impl BuildingMap {
     pub fn from_bytes(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        // TODO: detect if file is old pixel coordinates or new cartesian format.
-        BuildingMap::from_bytes_legacy(data)
+        let map: BuildingMap = serde_yaml::from_slice(data)?;
+        let mut map_version = 1;
+        if let Some(version) = map.version {
+            map_version = version;
+        }
+        if map_version == 1 {
+            Ok(BuildingMap::from_v1(map))
+        } else {
+            Ok(map)
+        }
     }
 
-    fn from_bytes_cartesian(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        serde_yaml::from_slice(data)
-    }
-
-    /// Loads a legacy building map which uses pixel coordinates.
-    fn from_bytes_legacy(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
-        let mut map = BuildingMap::from_bytes_cartesian(data)?;
+    /// Converts a map from the legacy format, which uses pixel coordinates.
+    fn from_v1(mut map: BuildingMap) -> BuildingMap {
         for (_, level) in map.levels.iter_mut() {
             // todo: calculate scale and inter-level alignment
             let mut ofs_x = 0.0;
             let mut ofs_y = 0.0;
             let mut num_v = 0;
             for v in &level.vertices {
-                ofs_x += v.x;
-                ofs_y += -v.y;
+                ofs_x += v.0;
+                ofs_y += -v.1;
                 num_v += 1;
             }
             ofs_x /= num_v as f64;
@@ -38,10 +45,10 @@ impl BuildingMap {
             let mut n_dist = 0;
             let mut sum_dist = 0.;
             for meas in &level.measurements {
-                let dx_raw = level.vertices[meas.start].x - level.vertices[meas.end].x;
-                let dy_raw = level.vertices[meas.start].y - level.vertices[meas.end].y;
+                let dx_raw = level.vertices[meas.0].0 - level.vertices[meas.1].0;
+                let dy_raw = level.vertices[meas.0].1 - level.vertices[meas.1].1;
                 let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
-                let dist_meters = meas.distance;
+                let dist_meters = *meas.2.distance;
                 sum_dist += dist_meters / dist_raw;
                 n_dist += 1;
             }
@@ -53,8 +60,8 @@ impl BuildingMap {
 
             // convert to meters
             for v in level.vertices.iter_mut() {
-                v.x = (v.x - ofs_x) * scale;
-                v.y = (-v.y - ofs_y) * scale;
+                v.0 = (v.0 - ofs_x) * scale;
+                v.1 = (-v.1 - ofs_y) * scale;
             }
 
             for m in level.models.iter_mut() {
@@ -62,7 +69,8 @@ impl BuildingMap {
                 m.y = (-m.y - ofs_y) * scale;
             }
         }
-        Ok(map)
+        map.version = Some(2);
+        map
     }
 }
 
@@ -72,9 +80,12 @@ mod tests {
     use std::error::Error;
 
     #[test]
-    fn deserialize_building_map() -> Result<(), Box<dyn Error>> {
+    fn building_map_serialization() -> Result<(), Box<dyn Error>> {
         let data = std::fs::read("assets/demo_maps/office.building.yaml")?;
-        BuildingMap::from_bytes(&data)?;
+        let map = BuildingMap::from_bytes(&data)?;
+        std::fs::create_dir_all("test_output")?;
+        let out_file = std::fs::File::create("test_output/office.building.yaml")?;
+        serde_yaml::to_writer(out_file, &map)?;
         Ok(())
     }
 }
