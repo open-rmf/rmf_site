@@ -12,6 +12,7 @@ use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
     crowd_sim::CrowdSim,
+    floor::Floor,
     lane::Lane,
     level::Level,
     measurement::Measurement,
@@ -43,6 +44,7 @@ fn save(world: &mut World) {
         Query<&LevelExtra>,
         Query<&Name>,
         Query<&Id>,
+        Query<&Floor>,
         ResMut<VerticesManagers>,
         Query<&Vertex>,
         Query<&mut Lane>,
@@ -57,6 +59,7 @@ fn save(world: &mut World) {
         q_level_extra,
         q_name,
         q_id,
+        q_floors,
         mut vms,
         q_vertices,
         mut q_lanes,
@@ -69,6 +72,7 @@ fn save(world: &mut World) {
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
     for level in q_children.get(root_entity.0).unwrap().into_iter() {
+        let mut floors: Vec<Floor> = Vec::new();
         let mut vertices: Vec<Vertex> = Vec::new();
         let mut lanes: Vec<Lane> = Vec::new();
         let mut measurements: Vec<Measurement> = Vec::new();
@@ -81,6 +85,10 @@ fn save(world: &mut World) {
         let mut vertices_reid: HashMap<usize, usize> = HashMap::new();
 
         for c in q_children.get(*level).unwrap().into_iter() {
+            if let Ok(floor) = q_floors.get(*c) {
+                floors.push(floor.clone());
+            }
+
             // Because the building format stores vertices as an array, with the id as the index,
             // all ids must have sequential numbers. During the cause of traffic editing, it is
             // possible for ids to be skipped if there are deletion operations so we need to
@@ -117,6 +125,7 @@ fn save(world: &mut World) {
         levels.insert(
             name,
             Level {
+                floors,
                 vertices,
                 lanes,
                 measurements,

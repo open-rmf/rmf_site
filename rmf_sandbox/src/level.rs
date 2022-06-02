@@ -1,8 +1,9 @@
-use super::lane::Lane;
-use super::measurement::Measurement;
-use super::model::Model;
-use super::vertex::Vertex;
-use super::wall::Wall;
+use crate::lane::Lane;
+use crate::measurement::Measurement;
+use crate::model::Model;
+use crate::vertex::Vertex;
+use crate::wall::Wall;
+use crate::floor::Floor;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -22,6 +23,7 @@ pub struct Level {
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+    pub floors: Vec<Floor>,
 }
 
 impl Level {
