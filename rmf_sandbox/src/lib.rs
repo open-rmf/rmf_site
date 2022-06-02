@@ -28,6 +28,7 @@ mod basic_components;
 mod building_map;
 mod crowd_sim;
 mod door;
+mod floor;
 mod lane;
 mod level;
 mod level_transform;

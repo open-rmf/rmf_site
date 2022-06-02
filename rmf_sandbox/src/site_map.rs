@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use crate::despawn::DespawnBlocker;
+use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
@@ -117,19 +118,6 @@ fn init_site_map(
                 }
             }
         }
-
-        // spawn the floor plane
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-                material: handles.default_floor_material.clone(),
-                transform: Transform {
-                    rotation: Quat::from_rotation_x(1.57),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(SiteMapTag);
     }
     let current_level = sm.levels.keys().next().unwrap();
     commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
@@ -153,6 +141,26 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
         commands.entity(entity).despawn_recursive();
     }
     commands.remove_resource::<SiteMapCurrentLevel>();
+}
+
+fn update_floor(
+    mut commands: Commands,
+    q_floors: Query<Entity, Added<Floor>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+) {
+    for e in q_floors.iter() {
+        // spawn the floor plane
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+            material: handles.default_floor_material.clone(),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
+                ..default()
+            },
+            ..default()
+        });
+    }
 }
 
 fn update_vertices(
@@ -378,6 +386,7 @@ impl Plugin for SiteMapPlugin {
             .add_system_set(
                 SystemSet::on_update(SiteMapState::Enabled)
                     .label(SiteMapLabel)
+                    .with_system(update_floor)
                     .with_system(update_vertices.after(init_site_map))
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))

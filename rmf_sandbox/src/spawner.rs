@@ -4,6 +4,7 @@
 
 use crate::{
     basic_components::{Id, Name},
+    floor::Floor,
     level::LevelDrawing,
 };
 use std::collections::HashMap;
@@ -54,6 +55,7 @@ pub struct LevelExtra {
 
 pub trait Spawnable: Component {}
 
+impl Spawnable for Floor {}
 impl Spawnable for Lane {}
 impl Spawnable for Measurement {}
 impl Spawnable for Wall {}
@@ -127,11 +129,15 @@ impl<'w, 's> Spawner<'w, 's> {
                 })
                 .insert(Parent(self.map_root.0))
                 .id();
+
             self.vertex_mgrs
                 .0
                 .insert(name.clone(), LevelVerticesManager::default());
             self.levels.0.insert(name.clone(), level_entity);
 
+            for f in &level.floors {
+                self.spawn_in_level(name, f.clone()).unwrap();
+            }
             for vertex in &level.vertices {
                 self.spawn_vertex(name, vertex.clone());
             }
