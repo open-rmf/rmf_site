@@ -32,6 +32,7 @@ mod floor;
 mod lane;
 mod level;
 mod level_transform;
+mod lift;
 mod measurement;
 mod model;
 mod rbmf;

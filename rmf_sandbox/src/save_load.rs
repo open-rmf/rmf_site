@@ -11,13 +11,12 @@ use bevy::{
 use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
-    crowd_sim::CrowdSim,
     floor::Floor,
     lane::Lane,
     level::Level,
     measurement::Measurement,
     model::Model,
-    spawner::{LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
+    spawner::{BuildingMapExtra, LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
     vertex::Vertex,
     wall::Wall,
 };
@@ -40,7 +39,7 @@ fn save(world: &mut World) {
     let mut state: SystemState<(
         Res<SiteMapRoot>,
         Query<&Children>,
-        Query<&CrowdSim>,
+        Query<&BuildingMapExtra>,
         Query<&LevelExtra>,
         Query<&Name>,
         Query<&Id>,
@@ -55,7 +54,7 @@ fn save(world: &mut World) {
     let (
         root_entity,
         q_children,
-        q_crowd_sim,
+        q_building_map_extra,
         q_level_extra,
         q_name,
         q_id,
@@ -68,7 +67,6 @@ fn save(world: &mut World) {
         q_models,
     ) = state.get_mut(world);
 
-    let crowd_sim = q_crowd_sim.get(root_entity.0).unwrap().clone();
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
     for level in q_children.get(root_entity.0).unwrap().into_iter() {
@@ -140,10 +138,12 @@ fn save(world: &mut World) {
         );
     }
 
+    let building_map_extra = q_building_map_extra.single();
     let map = BuildingMap {
         name: q_name.get(root_entity.0).unwrap().0.clone(),
         version: Some(2),
-        crowd_sim: crowd_sim.clone(),
+        lifts: building_map_extra.lifts.clone(),
+        crowd_sim: building_map_extra.crowd_sim.clone(),
         levels,
     };
     let f = std::fs::File::create(path).unwrap();
