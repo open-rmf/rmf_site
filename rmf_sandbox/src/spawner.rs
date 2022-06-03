@@ -4,6 +4,7 @@
 
 use crate::{
     basic_components::{Id, Name},
+    door::Door,
     floor::Floor,
     level::LevelDrawing,
 };
@@ -47,6 +48,7 @@ impl LevelVerticesManager {
 
 #[derive(Component)]
 pub struct LevelExtra {
+    pub doors: Vec<Door>,
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,
@@ -122,6 +124,7 @@ impl<'w, 's> Spawner<'w, 's> {
                     ..default()
                 }))
                 .insert(LevelExtra {
+                    doors: level.doors.clone(),
                     drawing: level.drawing.clone(),
                     elevation: level.elevation,
                     flattened_x_offset: level.flattened_x_offset,

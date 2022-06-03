@@ -131,6 +131,7 @@ fn save(world: &mut World) {
                 measurements,
                 walls,
                 models,
+                doors: extra.doors.clone(),
                 drawing: extra.drawing.clone(),
                 elevation: extra.elevation,
                 flattened_x_offset: extra.flattened_x_offset,
