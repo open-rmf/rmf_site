@@ -163,7 +163,7 @@ fn warehouse_generator(
                             z_offset: 1.0 + 2.4 * (vert_stacks as f64),
                             intensity: 300.0,
                             range: 10.0,
-                        }
+                        },
                     )
                     .unwrap()
                     .insert(WarehouseRespawnTag);
@@ -201,7 +201,6 @@ fn warehouse_generator(
         },
         ..Default::default()
     });
-
 }
 
 fn add_racks(
