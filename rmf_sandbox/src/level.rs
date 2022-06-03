@@ -1,3 +1,4 @@
+use crate::fiducial::Fiducial;
 use crate::floor::Floor;
 use crate::measurement::Measurement;
 use crate::model::Model;
@@ -25,6 +26,8 @@ pub struct Level {
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
     pub floors: Vec<Floor>,
+    #[serde(default)]
+    pub fiducials: Vec<Fiducial>,
 }
 
 impl Level {

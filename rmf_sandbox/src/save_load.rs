@@ -134,6 +134,7 @@ fn save(world: &mut World) {
                 elevation: extra.elevation,
                 flattened_x_offset: extra.flattened_x_offset,
                 flattened_y_offset: extra.flattened_y_offset,
+                fiducials: extra.fiducials.clone(),
             },
         );
     }
