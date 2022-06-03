@@ -77,8 +77,7 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterIn
     let is_elite = adapter_info.name.contains("NVIDIA");
     if is_elite {
         settings.graphics_quality = GraphicsQuality::Ultra;
-    }
-    else {
+    } else {
         settings.graphics_quality = GraphicsQuality::Low;
     }
 }

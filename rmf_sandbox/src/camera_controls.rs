@@ -1,5 +1,5 @@
-use crate::settings::*;
 use crate::init_settings;
+use crate::settings::*;
 use bevy::{
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
