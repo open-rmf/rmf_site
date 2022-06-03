@@ -20,13 +20,13 @@ impl Default for WallProperties {
     fn default() -> Self {
         Self {
             alpha: RbmfFloat::default(),
-            texture_name: RbmfString::default(),
+            texture_name: RbmfString::from("default".to_string()),
             texture_height: default_height(),
         }
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Component)]
+#[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct Wall(pub usize, pub usize, pub WallProperties);
 
 impl Wall {

@@ -37,7 +37,7 @@ struct Handles {
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
-struct SiteMapCurrentLevel(String);
+pub struct SiteMapCurrentLevel(pub String);
 
 /// Used to keep track of entities created by the site map system.
 #[derive(Component)]
