@@ -1,3 +1,4 @@
+use crate::init_settings;
 use crate::settings::*;
 use bevy::{
     input::mouse::{MouseButton, MouseWheel},
@@ -255,7 +256,7 @@ pub struct CameraControlsPlugin;
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MouseLocation::default())
-            .add_startup_system(camera_controls_setup)
+            .add_startup_system(camera_controls_setup.after(init_settings))
             .add_system(handle_keyboard)
             .add_system(camera_controls);
     }
