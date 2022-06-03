@@ -3,6 +3,7 @@ use std::collections::BTreeMap;
 
 use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
+use crate::lift::Lift;
 
 #[derive(Deserialize, Serialize, Default)]
 pub struct BuildingMap {
@@ -10,6 +11,7 @@ pub struct BuildingMap {
     pub version: Option<i32>,
     pub levels: BTreeMap<String, Level>,
     pub crowd_sim: CrowdSim,
+    pub lifts: BTreeMap<String, Lift>,
 }
 
 impl BuildingMap {

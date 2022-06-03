@@ -4,11 +4,13 @@
 
 use crate::{
     basic_components::{Id, Name},
+    crowd_sim::CrowdSim,
     door::Door,
     floor::Floor,
     level::LevelDrawing,
+    lift::Lift,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bevy::{
     ecs::system::{EntityCommands, SystemParam},
@@ -53,6 +55,12 @@ pub struct LevelExtra {
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+}
+
+#[derive(Component)]
+pub struct BuildingMapExtra {
+    pub lifts: BTreeMap<String, Lift>,
+    pub crowd_sim: CrowdSim,
 }
 
 pub trait Spawnable: Component {}
@@ -110,7 +118,10 @@ impl<'w, 's> Spawner<'w, 's> {
         self.commands
             .entity(self.map_root.0)
             .insert(Name(building_map.name.clone()))
-            .insert(building_map.crowd_sim.clone())
+            .insert(BuildingMapExtra {
+                lifts: building_map.lifts.clone(),
+                crowd_sim: building_map.crowd_sim.clone(),
+            })
             .despawn_descendants();
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
