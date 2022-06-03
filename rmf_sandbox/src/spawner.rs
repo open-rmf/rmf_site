@@ -6,6 +6,7 @@ use crate::{
     basic_components::{Id, Name},
     crowd_sim::CrowdSim,
     door::Door,
+    fiducial::Fiducial,
     floor::Floor,
     level::LevelDrawing,
     lift::Lift,
@@ -55,6 +56,7 @@ pub struct LevelExtra {
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+    pub fiducials: Vec<Fiducial>,
 }
 
 #[derive(Component)]
@@ -140,6 +142,7 @@ impl<'w, 's> Spawner<'w, 's> {
                     elevation: level.elevation,
                     flattened_x_offset: level.flattened_x_offset,
                     flattened_y_offset: level.flattened_y_offset,
+                    fiducials: level.fiducials.clone(),
                 })
                 .insert(Parent(self.map_root.0))
                 .id();
