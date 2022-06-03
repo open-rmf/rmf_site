@@ -1,9 +1,9 @@
-use crate::lane::Lane;
+use crate::floor::Floor;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
-use crate::floor::Floor;
+use crate::{door::Door, lane::Lane};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -19,6 +19,7 @@ pub struct Level {
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
+    pub doors: Vec<Door>,
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,

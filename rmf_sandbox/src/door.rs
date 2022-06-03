@@ -1,7 +1,7 @@
 use crate::rbmf::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct DoorProperties {
     right_left_ratio: RbmfFloat,
     motion_axis: RbmfString,
@@ -13,5 +13,5 @@ pub struct DoorProperties {
     type_: RbmfString,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Door(usize, usize, DoorProperties);
