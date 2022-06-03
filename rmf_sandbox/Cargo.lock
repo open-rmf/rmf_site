@@ -3637,7 +3637,6 @@ dependencies = [
  "bevy",
  "bevy_egui",
  "bevy_mod_picking",
- "bevy_mod_raycast",
  "dirs",
  "futures-lite",
  "rfd",
