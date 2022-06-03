@@ -4,13 +4,13 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct FloorParameters {
-    texture_name: RbmfString,
-    texture_rotation: RbmfFloat,
-    texture_scale: RbmfFloat,
+    pub texture_name: RbmfString,
+    pub texture_rotation: RbmfFloat,
+    pub texture_scale: RbmfFloat,
 }
 
 #[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct Floor {
-    parameters: FloorParameters,
-    vertices: Vec<usize>,
+    pub parameters: FloorParameters,
+    pub vertices: Vec<usize>,
 }
