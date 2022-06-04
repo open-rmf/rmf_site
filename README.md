@@ -1,6 +1,6 @@
-[![](https://github.com/osrf/rmf_sandbox/workflows/style/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/style.yaml)
-[![](https://github.com/osrf/rmf_sandbox/workflows/ci_linux/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/ci_linux.yaml)
-[![](https://github.com/osrf/rmf_sandbox/workflows/ci_web/badge.svg)](https://github.com/osrf/rmf_sandbox/actions/workflows/ci_web.yaml)
+[![](https://github.com/open-rmf/rmf_sandbox/workflows/style/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/style.yaml)
+[![](https://github.com/open-rmf/rmf_sandbox/workflows/ci_linux/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/ci_linux.yaml)
+[![](https://github.com/open-rmf/rmf_sandbox/workflows/ci_web/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/ci_web.yaml)
 
 # The RMF Sandbox
 
@@ -11,7 +11,7 @@ Rust and Bevy allow The RMF Sandbox to target both desktop (Windows/Linux/Mac) a
  * Web build: the browser sandbox provides maximum convenience, since there is nothing to build or install.
  * Desktop build: maximum performance, thanks to multithreading and lower-level GPU integration.
 
-[Click here to use the web build in your browser](https://osrf.github.io/rmf_sandbox/).
+[Click here to use the web build in your browser](https://open-rmf.github.io/rmf_sandbox/).
 
 # Helpful Links
 

@@ -3,6 +3,7 @@ use std::collections::HashMap;
 use crate::despawn::DespawnBlocker;
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::settings::*;
@@ -92,11 +93,11 @@ fn init_site_map(
 
     for level in sm.levels.values() {
         // spawn lights
-        // todo: calculate bounding box of this level
         let bb = level.calc_bb();
         if settings.graphics_quality == GraphicsQuality::Ultra {
             // spawn a grid of lights for this level
-            let light_spacing = 10.;
+            // todo: make UI controls for light spacing, intensity, range, shadows
+            let light_spacing = 5.;
             let num_x_lights = ((bb.max_x - bb.min_x) / light_spacing).ceil() as i32;
             let num_y_lights = ((bb.max_y - bb.min_y) / light_spacing).ceil() as i32;
             for x_idx in 0..num_x_lights {
@@ -107,8 +108,8 @@ fn init_site_map(
                         .spawn_bundle(PointLightBundle {
                             transform: Transform::from_xyz(x as f32, y as f32, 3.0),
                             point_light: PointLight {
-                                intensity: 500.,
-                                range: 10.,
+                                intensity: 300.,
+                                range: 7.,
                                 //shadows_enabled: true,
                                 ..default()
                             },
@@ -181,6 +182,29 @@ fn update_vertices(
     // update changed vertices
     for (v, mut t) in changed_vertices.iter_mut() {
         *t = v.transform();
+    }
+}
+
+fn update_lights(
+    mut commands: Commands,
+    added_lights: Query<(Entity, &Light), Added<Light>>,
+    mut changed_lights: Query<(&Light, &mut Transform), Changed<Light>>,
+) {
+    // spawn new lights
+    for (e, light) in added_lights.iter() {
+        commands.entity(e).insert_bundle(PointLightBundle {
+            transform: light.transform(),
+            point_light: PointLight {
+                intensity: light.intensity as f32,
+                range: light.range as f32,
+                ..default()
+            },
+            ..default()
+        });
+    }
+    // update changed lights
+    for (light, mut t) in changed_lights.iter_mut() {
+        *t = light.transform();
     }
 }
 
@@ -391,6 +415,7 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))
                     .with_system(update_measurements.after(update_vertices))
+                    .with_system(update_lights.after(init_site_map))
                     .with_system(update_models.after(init_site_map)),
             );
     }

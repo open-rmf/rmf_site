@@ -19,8 +19,8 @@ use bevy::{
 };
 
 use crate::{
-    building_map::BuildingMap, lane::Lane, measurement::Measurement, model::Model, vertex::Vertex,
-    wall::Wall,
+    building_map::BuildingMap, lane::Lane, light::Light, measurement::Measurement, model::Model,
+    vertex::Vertex, wall::Wall,
 };
 
 pub struct SiteMapRoot(pub Entity);
@@ -69,6 +69,7 @@ pub trait Spawnable: Component {}
 
 impl Spawnable for Floor {}
 impl Spawnable for Lane {}
+impl Spawnable for Light {}
 impl Spawnable for Measurement {}
 impl Spawnable for Wall {}
 impl Spawnable for Model {}
