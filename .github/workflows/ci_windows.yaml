@@ -1,0 +1,41 @@
+name: windows
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+
+jobs:
+  test:
+    runs-on: windows-latest
+    name: (${{ matrix.target }}, ${{ matrix.cfg_release_channel }})
+    env:
+      CFG_RELEASE_CHANNEL: ${{ matrix.cfg_release_channel }} 
+    steps:
+    - name: checkout
+      uses: actions/checkout@v3
+
+      # Run build
+    - name: Install Rustup using win.rustup.rs
+      run: |
+        # Disable the download progress bar which can cause perf issues
+        $ProgressPreference = "SilentlyContinue"
+        Invoke-WebRequest https://win.rustup.rs/ -OutFile rustup-init.exe
+        .\rustup-init.exe -y --default-host=x86_64-pc-windows-msvc --default-toolchain=none
+        del rustup-init.exe
+        rustup target add x86_64-pc-windows-msvc
+      shell: powershell 
+
+    - name: build
+      run: |
+        cd rmf_sandbox
+        rustc -Vv
+        cargo -V
+        cargo build
+      shell: cmd
+
+    - name: test
+      run: |
+        cd rmf_sandbox
+        cargo test
+      shell: cmd
