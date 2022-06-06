@@ -1,4 +1,4 @@
-name: windows
+name: ci_windows
 on:
   push:
     branches:
@@ -6,11 +6,9 @@ on:
   pull_request:
 
 jobs:
-  test:
-    runs-on: windows-latest
-    name: (${{ matrix.target }}, ${{ matrix.cfg_release_channel }})
-    env:
-      CFG_RELEASE_CHANNEL: ${{ matrix.cfg_release_channel }} 
+  build:
+    runs-on: windows-latest 
+    
     steps:
     - name: checkout
       uses: actions/checkout@v3
