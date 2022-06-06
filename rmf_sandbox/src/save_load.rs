@@ -37,7 +37,7 @@ fn save(world: &mut World) {
     println!("Saving to {}", path.to_str().unwrap());
 
     let mut state: SystemState<(
-        Res<SiteMapRoot>,
+        Query<Entity, With<SiteMapRoot>>,
         Query<&Children>,
         Query<&BuildingMapExtra>,
         Query<&LevelExtra>,
@@ -66,10 +66,17 @@ fn save(world: &mut World) {
         mut q_walls,
         q_models,
     ) = state.get_mut(world);
+    let root_entity = match root_entity.get_single() {
+        Ok(root_entity) => root_entity,
+        Err(err) => {
+            println!("ERROR: Cannot save map ({})", err);
+            return;
+        }
+    };
 
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
-    for level in q_children.get(root_entity.0).unwrap().into_iter() {
+    for level in q_children.get(root_entity).unwrap().into_iter() {
         let mut floors: Vec<Floor> = Vec::new();
         let mut vertices: Vec<Vertex> = Vec::new();
         let mut lanes: Vec<Lane> = Vec::new();
@@ -141,7 +148,7 @@ fn save(world: &mut World) {
 
     let building_map_extra = q_building_map_extra.single();
     let map = BuildingMap {
-        name: q_name.get(root_entity.0).unwrap().0.clone(),
+        name: q_name.get(root_entity).unwrap().0.clone(),
         version: Some(2),
         lifts: building_map_extra.lifts.clone(),
         crowd_sim: building_map_extra.crowd_sim.clone(),
@@ -155,5 +162,54 @@ impl Plugin for SaveLoadPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveMap>()
             .add_system(save.exclusive_system());
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+    use crate::spawner::*;
+
+    #[test]
+    fn test_save() -> Result<(), Box<dyn std::error::Error>> {
+        let mut app = App::new();
+        app.add_plugin(HierarchyPlugin)
+            .add_plugin(SaveLoadPlugin)
+            .add_plugin(SpawnerPlugin)
+            .add_plugin(crate::despawn::DespawnPlugin);
+
+        let buffer = std::fs::read("assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&buffer).unwrap();
+        let cap_map = map.clone();
+        app.add_system(move |mut spawner: Spawner, mut ran: Local<bool>| {
+            if *ran {
+                return;
+            }
+            spawner.spawn_map(&cap_map);
+            *ran = true;
+        });
+        app.update();
+
+        app.world
+            .resource_mut::<Events<SaveMap>>()
+            .send(SaveMap(PathBuf::from("test_output/save_map.yaml")));
+        app.update();
+
+        let buffer = std::fs::read("test_output/save_map.yaml").unwrap();
+        let new_map = BuildingMap::from_bytes(&buffer).unwrap();
+
+        assert!(new_map.levels.len() == map.levels.len());
+        for (new_map, original_map) in new_map.levels.into_iter().zip(map.levels.into_iter()) {
+            // good enough to check that nothing is missing, checking if all values are correct
+            // would be quite complicated as units will be converted and items may be re-keyed.
+            assert!(new_map.0 == original_map.0);
+            assert!(new_map.1.vertices.len() == original_map.1.vertices.len());
+            assert!(new_map.1.lanes.len() == original_map.1.lanes.len());
+            assert!(new_map.1.measurements.len() == original_map.1.measurements.len());
+            assert!(new_map.1.walls.len() == original_map.1.walls.len());
+            assert!(new_map.1.models.len() == original_map.1.models.len());
+        }
+
+        Ok(())
     }
 }

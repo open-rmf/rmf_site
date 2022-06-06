@@ -5,7 +5,7 @@ use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
 use crate::lift::Lift;
 
-#[derive(Deserialize, Serialize, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct BuildingMap {
     pub name: String,
     pub version: Option<i32>,

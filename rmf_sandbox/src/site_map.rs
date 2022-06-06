@@ -1,13 +1,14 @@
 use std::collections::HashMap;
 
 use crate::despawn::DespawnBlocker;
+use crate::despawn::PendingDespawn;
 use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::settings::*;
-use crate::spawner::VerticesManagers;
+use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use bevy::asset::LoadState;
@@ -130,7 +131,11 @@ fn init_site_map(
     println!("Finished initializing site map");
 }
 
-fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, With<SiteMapTag>>) {
+fn despawn_site_map(
+    mut commands: Commands,
+    site_map_entities: Query<Entity, With<SiteMapTag>>,
+    map_root: Query<Entity, With<SiteMapRoot>>,
+) {
     println!("Unloading assets");
     // removing all the strong handles should automatically unload the assets.
     commands.remove_resource::<Handles>();
@@ -142,6 +147,9 @@ fn despawn_site_map(mut commands: Commands, site_map_entities: Query<Entity, Wit
         commands.entity(entity).despawn_recursive();
     }
     commands.remove_resource::<SiteMapCurrentLevel>();
+    for e in map_root.iter() {
+        commands.entity(e).insert(PendingDespawn);
+    }
 }
 
 fn update_floor(
@@ -338,7 +346,7 @@ fn update_models(
         let glb: Handle<Scene> = asset_server.load(&bundle_path);
         commands
             .entity(e)
-            .insert(DespawnBlocker())
+            .insert(DespawnBlocker)
             .insert(ModelCurrentScene(model.model_name.clone()));
         loading_models.0.insert(e, (model.clone(), glb.clone()));
     }
