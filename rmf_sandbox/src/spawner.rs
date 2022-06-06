@@ -8,6 +8,7 @@ use crate::{
     door::Door,
     fiducial::Fiducial,
     floor::Floor,
+    despawn::PendingDespawn,
     level::LevelDrawing,
     lift::Lift,
 };
@@ -23,7 +24,8 @@ use crate::{
     vertex::Vertex, wall::Wall,
 };
 
-pub struct SiteMapRoot(pub Entity);
+#[derive(Component)]
+pub struct SiteMapRoot;
 
 #[derive(Default)]
 pub struct MapLevels(HashMap<String, Entity>);
@@ -78,7 +80,7 @@ impl Spawnable for Model {}
 pub struct Spawner<'w, 's> {
     commands: Commands<'w, 's>,
     levels: ResMut<'w, MapLevels>,
-    map_root: ResMut<'w, SiteMapRoot>,
+    map_root: Query<'w, 's, Entity, With<SiteMapRoot>>,
     vertex_mgrs: ResMut<'w, VerticesManagers>,
 }
 
@@ -118,14 +120,25 @@ impl<'w, 's> Spawner<'w, 's> {
 
     /// Spawns a building map and all the spawnables inside it.
     pub fn spawn_map(&mut self, building_map: &BuildingMap) {
+        for e in self.map_root.iter() {
+            self.commands.entity(e).insert(PendingDespawn);
+        }
+
+        let map_root = self
+            .commands
+            .spawn()
+            .insert(SiteMapRoot)
+            .insert_bundle(TransformBundle::default())
+            .id();
+
         self.commands
-            .entity(self.map_root.0)
+            .entity(map_root)
             .insert(Name(building_map.name.clone()))
             .insert(BuildingMapExtra {
                 lifts: building_map.lifts.clone(),
                 crowd_sim: building_map.crowd_sim.clone(),
             })
-            .despawn_descendants();
+            .with_children(|_| {});
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
         for (name, level) in &building_map.levels {
@@ -145,7 +158,7 @@ impl<'w, 's> Spawner<'w, 's> {
                     flattened_y_offset: level.flattened_y_offset,
                     fiducials: level.fiducials.clone(),
                 })
-                .insert(Parent(self.map_root.0))
+                .insert(Parent(map_root))
                 .id();
 
             self.vertex_mgrs
@@ -175,20 +188,11 @@ impl<'w, 's> Spawner<'w, 's> {
     }
 }
 
-fn init_spawner(mut commands: Commands) {
-    let map_root = commands
-        .spawn()
-        .insert_bundle(TransformBundle::default())
-        .id();
-    commands.insert_resource(SiteMapRoot(map_root));
-}
-
 pub struct SpawnerPlugin;
 
 impl Plugin for SpawnerPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MapLevels>()
-            .init_resource::<VerticesManagers>()
-            .add_startup_system(init_spawner);
+            .init_resource::<VerticesManagers>();
     }
 }

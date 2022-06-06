@@ -42,6 +42,10 @@ Finally, we need some library packages:
 sudo apt install libgtk-3-dev
 ```
 
+# Install dependencies (Windows 11)
+
+Make sure you install rust from the main rust website. Cargo should take care of the rest of the magic for you.
+
 # Install extra dependencies for WebAssembly
 
 These are only needed if you're going to build a WebAssembly binary:
@@ -53,7 +57,7 @@ rustup target add wasm32-unknown-unknown
 
 # Build and Run (Desktop)
 
-Currently only tested on Ubuntu 20.04.4 LTS.
+Currently tested on Ubuntu 20.04.4 LTS and windows 11.
 
 From the `rmf_sandbox` subdirectory:
 

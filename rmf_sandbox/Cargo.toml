@@ -24,9 +24,14 @@ futures-lite = "1.12.0"
 bevy = { version = "0.7" }
 dirs = "4.0"
 
-# only enable the 'dynamic' feature if we're not building for web
-[target.'cfg(not(target_arch = "wasm32"))'.dependencies]
+# only enable the 'dynamic' feature if we're not building for web or windows
+[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
 bevy = { version = "0.7", features = ["dynamic"] }
+surf = { version = "2.3" }
+
+# windows doesnt work well with dynamic feature yet
+[target.'cfg(target_os = "windows")'.dependencies]
+bevy = { version = "0.7" }
 surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
