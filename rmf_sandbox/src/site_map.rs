@@ -224,15 +224,12 @@ fn update_lanes(
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
-            commands
-                .entity(e)
-                .insert_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
-                    material: handles.lane_material.clone(),
-                    transform: lane.transform(v1, v2),
-                    ..Default::default()
-                })
-                .insert(lane.clone());
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
+                material: handles.lane_material.clone(),
+                transform: lane.transform(v1, v2),
+                ..Default::default()
+            });
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = lane.transform(v1, v2);
         }
