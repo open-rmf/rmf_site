@@ -5,10 +5,10 @@
 use crate::{
     basic_components::{Id, Name},
     crowd_sim::CrowdSim,
+    despawn::PendingDespawn,
     door::Door,
     fiducial::Fiducial,
     floor::Floor,
-    despawn::PendingDespawn,
     level::LevelDrawing,
     lift::Lift,
 };
