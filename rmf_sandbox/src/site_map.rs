@@ -295,20 +295,13 @@ fn update_walls(
         let v2_entity = vertices_mgrs.0[&level.0].get(wall.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
-        if change.is_added()
-            || change.is_changed()
-            || v1_change.is_changed()
-            || v2_change.is_changed()
-        {
-            commands
-                .entity(e)
-                .insert_bundle(PbrBundle {
-                    mesh: meshes.add(wall.mesh(v1, v2)),
-                    material: handles.wall_material.clone(),
-                    transform: wall.transform(v1, v2),
-                    ..Default::default()
-                })
-                .insert(wall.clone());
+        if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(wall.mesh(v1, v2)),
+                material: handles.wall_material.clone(),
+                transform: wall.transform(v1, v2),
+                ..default()
+            });
         }
     }
 }
