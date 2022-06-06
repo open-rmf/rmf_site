@@ -75,6 +75,7 @@ impl Spawnable for Light {}
 impl Spawnable for Measurement {}
 impl Spawnable for Wall {}
 impl Spawnable for Model {}
+impl Spawnable for Door {}
 
 #[derive(SystemParam)]
 pub struct Spawner<'w, 's> {
@@ -183,6 +184,9 @@ impl<'w, 's> Spawner<'w, 's> {
             }
             for model in &level.models {
                 self.spawn_in_level(name, model.clone());
+            }
+            for door in &level.doors {
+                self.spawn_in_level(name, door.clone());
             }
         }
     }
