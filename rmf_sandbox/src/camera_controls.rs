@@ -218,7 +218,7 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
             parent.spawn_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
-                    illuminance: 15000.,
+                    illuminance: 20000.,
                     ..default()
                 },
                 ..default()
