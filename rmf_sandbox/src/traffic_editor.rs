@@ -21,7 +21,8 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
-    DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera, PickingCameraBundle,
+    DefaultHighlighting, DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera,
+    PickingCameraBundle, StandardMaterialHighlight,
 };
 
 trait Editable: Sync + Send + Clone {
@@ -561,7 +562,18 @@ fn egui_ui(
         });
 }
 
-fn on_startup(mut commands: Commands) {
+fn on_startup(
+    mut commands: Commands,
+    highlighting: Res<DefaultHighlighting<StandardMaterialHighlight>>,
+    mut mats: ResMut<Assets<StandardMaterial>>,
+) {
+    let mut hovered = mats.get_mut(&highlighting.hovered).unwrap();
+    hovered.base_color = Color::rgb(0.35, 0.75, 0.35);
+    let mut pressed = mats.get_mut(&highlighting.pressed).unwrap();
+    pressed.base_color = Color::rgb(0.35, 0.35, 0.75);
+    let mut selected = mats.get_mut(&highlighting.pressed).unwrap();
+    selected.base_color = Color::rgb(0.35, 0.35, 0.75);
+
     commands
         .spawn()
         .insert(PickingBlocker)
@@ -683,10 +695,10 @@ fn update_picking_cam(
 
 fn enable_picking(
     mut commands: Commands,
-    lanes: Query<Entity, Added<Lane>>,
-    vertices: Query<Entity, Added<Vertex>>,
-    measurements: Query<Entity, Added<Measurement>>,
-    walls: Query<Entity, Added<Wall>>,
+    lanes: Query<Entity, With<Lane>>,
+    vertices: Query<Entity, With<Vertex>>,
+    measurements: Query<Entity, With<Measurement>>,
+    walls: Query<Entity, With<Wall>>,
     models: Query<Entity, With<Model>>,
     floors: Query<Entity, With<Floor>>,
     meshes: Query<Entity, Added<Handle<Mesh>>>,
@@ -694,55 +706,60 @@ fn enable_picking(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
-    // Go through all the entities spawned by site map and make them response to
-    // the inspector window.
-    for entity in lanes.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Lane);
-    }
-    for entity in vertices.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Vertex);
-    }
-    for entity in walls.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Wall);
-    }
-    for entity in measurements.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Measurement);
-    }
-    for entity in floors.iter() {
-        commands
-            .entity(entity)
-            .insert_bundle(PickableBundle::default())
-            .insert(EditableTag::Floor);
-    }
-
     // bevy_mod_picking only works on entities with meshes, the models are spawned with
     // child scenes so making the model entity pickable will not work. We need to check
     // all meshes added and go up the hierarchy to find if the mesh is part of a model.
+    //
+    // As of bevy_mod_picking 0.7, highlighting no longer works if an entity is made pickable
+    // before it has a mesh (likely for performance reasons), so we loop through added meshes
+    // instead of added lanes/vertices etc.
     for mesh_entity in meshes.iter() {
         // go up the hierarchy tree until the root, trying to find if a mesh is part of a model.
-        let mut pe = parent.get(mesh_entity);
-        while let Ok(Parent(e)) = pe {
+        let mut e = Some(mesh_entity);
+        while let Some(cur) = e {
+            if let Ok(lane_entity) = lanes.get(cur) {
+                commands
+                    .entity(lane_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Lane);
+            }
+            if let Ok(vertex_entity) = vertices.get(cur) {
+                commands
+                    .entity(vertex_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Vertex);
+            }
+            if let Ok(wall_entity) = walls.get(cur) {
+                commands
+                    .entity(wall_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Wall);
+            }
+            if let Ok(measurement_entity) = measurements.get(cur) {
+                commands
+                    .entity(measurement_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Measurement);
+            }
+            if let Ok(floor_entity) = floors.get(cur) {
+                commands
+                    .entity(floor_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Floor);
+            }
+
             // check if this entity is a model, if so, make it pickable.
-            if let Ok(model_entity) = models.get(*e) {
+            if let Ok(model_entity) = models.get(cur) {
                 commands
                     .entity(mesh_entity)
                     .insert_bundle(PickableBundle::default())
                     .insert(EditableTag::Model(model_entity));
                 break;
             }
-            pe = parent.get(*e);
+            e = match parent.get(cur) {
+                Ok(parent) => Some(parent.0),
+                Err(_) => None,
+            };
         }
     }
 

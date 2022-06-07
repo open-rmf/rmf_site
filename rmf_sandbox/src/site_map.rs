@@ -4,7 +4,6 @@ use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
 use crate::lane::Lane;
-use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
@@ -306,16 +305,12 @@ fn update_walls(
         let v2_entity = vertices_mgrs.0[&level.0].get(wall.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
-        if change.is_added()
-            || change.is_changed()
-            || v1_change.is_changed()
-            || v2_change.is_changed()
-        {
+        if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             commands.entity(e).insert_bundle(PbrBundle {
                 mesh: meshes.add(wall.mesh(v1, v2)),
                 material: handles.wall_material.clone(),
                 transform: wall.transform(v1, v2),
-                ..Default::default()
+                ..default()
             });
         }
     }
