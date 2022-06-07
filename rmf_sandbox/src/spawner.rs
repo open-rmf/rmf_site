@@ -4,10 +4,15 @@
 
 use crate::{
     basic_components::{Id, Name},
+    crowd_sim::CrowdSim,
     despawn::PendingDespawn,
+    door::Door,
+    fiducial::Fiducial,
+    floor::Floor,
     level::LevelDrawing,
+    lift::Lift,
 };
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
 use bevy::{
     ecs::system::{EntityCommands, SystemParam},
@@ -48,14 +53,23 @@ impl LevelVerticesManager {
 
 #[derive(Component)]
 pub struct LevelExtra {
+    pub doors: Vec<Door>,
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+    pub fiducials: Vec<Fiducial>,
+}
+
+#[derive(Component)]
+pub struct BuildingMapExtra {
+    pub lifts: BTreeMap<String, Lift>,
+    pub crowd_sim: CrowdSim,
 }
 
 pub trait Spawnable: Component {}
 
+impl Spawnable for Floor {}
 impl Spawnable for Lane {}
 impl Spawnable for Light {}
 impl Spawnable for Measurement {}
@@ -120,7 +134,10 @@ impl<'w, 's> Spawner<'w, 's> {
         self.commands
             .entity(map_root)
             .insert(Name(building_map.name.clone()))
-            .insert(building_map.crowd_sim.clone())
+            .insert(BuildingMapExtra {
+                lifts: building_map.lifts.clone(),
+                crowd_sim: building_map.crowd_sim.clone(),
+            })
             .with_children(|_| {});
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
@@ -134,18 +151,24 @@ impl<'w, 's> Spawner<'w, 's> {
                     ..default()
                 }))
                 .insert(LevelExtra {
+                    doors: level.doors.clone(),
                     drawing: level.drawing.clone(),
                     elevation: level.elevation,
                     flattened_x_offset: level.flattened_x_offset,
                     flattened_y_offset: level.flattened_y_offset,
+                    fiducials: level.fiducials.clone(),
                 })
                 .insert(Parent(map_root))
                 .id();
+
             self.vertex_mgrs
                 .0
                 .insert(name.clone(), LevelVerticesManager::default());
             self.levels.0.insert(name.clone(), level_entity);
 
+            for f in &level.floors {
+                self.spawn_in_level(name, f.clone()).unwrap();
+            }
             for vertex in &level.vertices {
                 self.spawn_vertex(name, vertex.clone());
             }

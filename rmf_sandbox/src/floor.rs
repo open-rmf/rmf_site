@@ -1,15 +1,16 @@
 use crate::rbmf::*;
+use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct FloorParameters {
-    texture_name: RbmfString,
-    texture_rotation: RbmfFloat,
-    texture_scale: RbmfFloat,
-    vertices: Vec<usize>,
+    pub texture_name: RbmfString,
+    pub texture_rotation: RbmfFloat,
+    pub texture_scale: RbmfFloat,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct Floor {
-    parameters: FloorParameters,
+    pub parameters: FloorParameters,
+    pub vertices: Vec<usize>,
 }

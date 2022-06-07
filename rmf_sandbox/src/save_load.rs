@@ -11,12 +11,12 @@ use bevy::{
 use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
-    crowd_sim::CrowdSim,
+    floor::Floor,
     lane::Lane,
     level::Level,
     measurement::Measurement,
     model::Model,
-    spawner::{LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
+    spawner::{BuildingMapExtra, LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
     vertex::Vertex,
     wall::Wall,
 };
@@ -39,10 +39,11 @@ fn save(world: &mut World) {
     let mut state: SystemState<(
         Query<Entity, With<SiteMapRoot>>,
         Query<&Children>,
-        Query<&CrowdSim>,
+        Query<&BuildingMapExtra>,
         Query<&LevelExtra>,
         Query<&Name>,
         Query<&Id>,
+        Query<&Floor>,
         ResMut<VerticesManagers>,
         Query<&Vertex>,
         Query<&mut Lane>,
@@ -53,10 +54,11 @@ fn save(world: &mut World) {
     let (
         root_entity,
         q_children,
-        q_crowd_sim,
+        q_building_map_extra,
         q_level_extra,
         q_name,
         q_id,
+        q_floors,
         mut vms,
         q_vertices,
         mut q_lanes,
@@ -72,10 +74,10 @@ fn save(world: &mut World) {
         }
     };
 
-    let crowd_sim = q_crowd_sim.get(root_entity).unwrap().clone();
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
     for level in q_children.get(root_entity).unwrap().into_iter() {
+        let mut floors: Vec<Floor> = Vec::new();
         let mut vertices: Vec<Vertex> = Vec::new();
         let mut lanes: Vec<Lane> = Vec::new();
         let mut measurements: Vec<Measurement> = Vec::new();
@@ -88,6 +90,10 @@ fn save(world: &mut World) {
         let mut vertices_reid: HashMap<usize, usize> = HashMap::new();
 
         for c in q_children.get(*level).unwrap().into_iter() {
+            if let Ok(floor) = q_floors.get(*c) {
+                floors.push(floor.clone());
+            }
+
             // Because the building format stores vertices as an array, with the id as the index,
             // all ids must have sequential numbers. During the cause of traffic editing, it is
             // possible for ids to be skipped if there are deletion operations so we need to
@@ -124,23 +130,28 @@ fn save(world: &mut World) {
         levels.insert(
             name,
             Level {
+                floors,
                 vertices,
                 lanes,
                 measurements,
                 walls,
                 models,
+                doors: extra.doors.clone(),
                 drawing: extra.drawing.clone(),
                 elevation: extra.elevation,
                 flattened_x_offset: extra.flattened_x_offset,
                 flattened_y_offset: extra.flattened_y_offset,
+                fiducials: extra.fiducials.clone(),
             },
         );
     }
 
+    let building_map_extra = q_building_map_extra.single();
     let map = BuildingMap {
         name: q_name.get(root_entity).unwrap().0.clone(),
         version: Some(2),
-        crowd_sim: crowd_sim.clone(),
+        lifts: building_map_extra.lifts.clone(),
+        crowd_sim: building_map_extra.crowd_sim.clone(),
         levels,
     };
     let f = std::fs::File::create(path).unwrap();
