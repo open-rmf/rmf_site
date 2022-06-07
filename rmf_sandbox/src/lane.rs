@@ -3,14 +3,14 @@ use crate::rbmf::*;
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct LaneProperties {
     pub bidirectional: RbmfBool,
     pub graph_idx: RbmfInt,
     pub orientation: RbmfString,
 }
 
-#[derive(Deserialize, Serialize, Clone, Component)]
+#[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct Lane(pub usize, pub usize, pub LaneProperties);
 
 impl Lane {
