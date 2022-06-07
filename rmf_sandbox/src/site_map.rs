@@ -4,11 +4,12 @@ use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::settings::*;
-use crate::spawner::{SiteMapRoot, VerticesManagers};
+use crate::spawner::{BuildingMapExtra, SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 
@@ -400,7 +401,7 @@ fn update_doors(
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    added_doors: Query<(Entity, &Door), Added<Door>>,
+    added_doors: Query<(Entity, &Door), Changed<Door>>,
 ) {
     for (e, door) in added_doors.iter() {
         let v1_entity = vertices_mgrs.0[&level.0].get(door.0).unwrap();
@@ -413,7 +414,6 @@ fn update_doors(
         let dist = p1.distance(p2);
         let mid = (p1 + p2) / 2.;
         let rot = f32::atan2(p2.y - p1.y, p2.x - p1.x);
-        println!("{} {:?} {:?} {}", *door.2.name, p1, p2, rot);
         // width and height is not available from the building file so we use a fixed height.
         let width = 0.1 as f32;
         let height = 4. as f32;
@@ -426,6 +426,43 @@ fn update_doors(
                 rotation: Quat::from_rotation_z(rot),
                 scale: Vec3::new(dist, width, height),
                 ..default()
+            },
+            ..default()
+        });
+    }
+}
+
+fn update_lifts(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    q_map: Query<(Entity, &BuildingMapExtra), Changed<BuildingMapExtra>>,
+    cur_level: Res<SiteMapCurrentLevel>,
+) {
+    let (e, map_extra) = match q_map.iter().last() {
+        Some((e, map_extra)) => (e, map_extra),
+        None => return,
+    };
+
+    // The floor names do not have ordering, so we can't use them to determine the levels.
+    // So we only render lift on the reference level.
+    let lifts_in_level = map_extra
+        .lifts
+        .iter()
+        .filter(|(_, lift)| lift.reference_floor_name == cur_level.0);
+
+    for (name, lift) in lifts_in_level {
+        let center = Vec3::new(lift.x as f32, lift.y as f32, 0.);
+        // height is not available from the building file so we use a fixed height.
+        let height = 4. as f32;
+
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+            material: handles.door_material.clone(),
+            transform: Transform {
+                translation: center,
+                rotation: Quat::from_rotation_z(lift.yaw as f32),
+                scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
             },
             ..default()
         });
@@ -462,7 +499,8 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_measurements.after(update_vertices))
                     .with_system(update_lights.after(init_site_map))
                     .with_system(update_models.after(init_site_map))
-                    .with_system(update_doors.after(update_vertices)),
+                    .with_system(update_doors.after(update_vertices))
+                    .with_system(update_lifts.after(update_vertices)),
             );
     }
 }
