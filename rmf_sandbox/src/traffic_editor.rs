@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
+use crate::door::{Door, DOOR_TYPES};
 use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
@@ -315,6 +316,76 @@ impl Editable for EditableFloor {
     }
 }
 
+impl Editable for Door {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("door").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut *self.2.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("X");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.0).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.1).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Type");
+            egui::ComboBox::from_label("")
+                .selected_text(&*self.2.type_)
+                .show_ui(ui, |ui| {
+                    for t in DOOR_TYPES {
+                        changed = ui
+                            .selectable_value(&mut *self.2.type_, t.to_string(), t.to_string())
+                            .changed()
+                            || changed;
+                    }
+                });
+            ui.end_row();
+
+            ui.label("Right Left Ratio");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.right_left_ratio).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Motion Axis");
+            changed = ui.text_edit_singleline(&mut *self.2.motion_axis).changed() || changed;
+            ui.end_row();
+
+            ui.label("Motion Degrees");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.motion_degrees))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Motion Direction");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.motion_direction))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Plugin");
+            changed = ui.text_edit_singleline(&mut *self.2.plugin).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
 #[derive(Component)]
 enum EditableTag {
     Lane,
@@ -323,6 +394,7 @@ enum EditableTag {
     Wall,
     Model(Entity),
     Floor,
+    Door,
 }
 
 enum EditorData {
@@ -332,6 +404,7 @@ enum EditorData {
     Wall(Wall),
     Model(Model),
     Floor(EditableFloor),
+    Door(Door),
 }
 
 struct SelectedEditable(Entity, EditorData);
@@ -347,6 +420,7 @@ struct EditorPanel<'w, 's> {
     q_wall: Query<'w, 's, &'static mut Wall>,
     q_model: Query<'w, 's, &'static mut Model>,
     q_floor: Query<'w, 's, &'static mut Floor>,
+    q_door: Query<'w, 's, &'static mut Door>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
@@ -386,6 +460,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Wall(_) => "Wall",
             EditorData::Model(_) => "Model",
             EditorData::Floor(_) => "Floor",
+            EditorData::Door(_) => "Door",
         };
 
         ui.heading(title);
@@ -425,6 +500,12 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Floor(floor) => {
                 if floor.draw(ui) {
                     commit_changes(&mut self.q_floor, selected.0, &floor.floor);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Door(door) => {
+                if door.draw(ui) {
+                    commit_changes(&mut self.q_door, selected.0, door);
                     *has_changes = true;
                 }
             }
@@ -502,7 +583,8 @@ fn egui_ui(
 
     egui::SidePanel::right("editor_panel")
         .resizable(false)
-        .max_width(200.)
+        .default_width(250.)
+        .max_width(250.)
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.group(|ui| {
@@ -606,6 +688,7 @@ fn maintain_inspected_entities(
     q_wall: Query<&Wall>,
     q_model: Query<&Model>,
     q_floor: Query<&Floor>,
+    q_door: Query<&Door>,
 ) {
     let clicked = editables.iter().find(|(_, i, _)| match i {
         Interaction::Clicked => true,
@@ -657,6 +740,10 @@ fn maintain_inspected_entities(
             )),
             Err(err) => Err(err),
         },
+        EditableTag::Door => match q_door.get(e) {
+            Ok(door) => Ok(SelectedEditable(e, EditorData::Door(door.clone()))),
+            Err(err) => Err(err),
+        },
     };
 
     *selected = match try_selected {
@@ -701,6 +788,7 @@ fn enable_picking(
     walls: Query<Entity, With<Wall>>,
     models: Query<Entity, With<Model>>,
     floors: Query<Entity, With<Floor>>,
+    doors: Query<Entity, With<Door>>,
     meshes: Query<Entity, Added<Handle<Mesh>>>,
     parent: Query<&Parent>,
     mut egui_context: ResMut<EguiContext>,
@@ -746,6 +834,12 @@ fn enable_picking(
                     .entity(floor_entity)
                     .insert_bundle(PickableBundle::default())
                     .insert(EditableTag::Floor);
+            }
+            if let Ok(door_entity) = doors.get(cur) {
+                commands
+                    .entity(door_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Door);
             }
 
             // check if this entity is a model, if so, make it pickable.
@@ -795,7 +889,8 @@ impl Plugin for TrafficEditorPlugin {
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(update_picking_cam)
-                    .with_system(enable_picking)
+                    // must be after egui_ui so that the picking blocker knows about all the ui elements
+                    .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities),
             );
     }
