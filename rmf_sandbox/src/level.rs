@@ -1,8 +1,10 @@
-use super::lane::Lane;
-use super::measurement::Measurement;
-use super::model::Model;
-use super::vertex::Vertex;
-use super::wall::Wall;
+use crate::fiducial::Fiducial;
+use crate::floor::Floor;
+use crate::measurement::Measurement;
+use crate::model::Model;
+use crate::vertex::Vertex;
+use crate::wall::Wall;
+use crate::{door::Door, lane::Lane};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
@@ -18,10 +20,14 @@ pub struct Level {
     pub measurements: Vec<Measurement>,
     pub models: Vec<Model>,
     pub walls: Vec<Wall>,
+    pub doors: Vec<Door>,
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+    pub floors: Vec<Floor>,
+    #[serde(default)]
+    pub fiducials: Vec<Fiducial>,
 }
 
 impl Level {

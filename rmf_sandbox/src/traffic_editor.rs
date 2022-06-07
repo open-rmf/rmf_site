@@ -2,11 +2,12 @@ use std::path::PathBuf;
 
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
+use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
-use crate::site_map::{SiteMapLabel, SiteMapState};
+use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
@@ -248,6 +249,72 @@ impl Editable for Model {
     }
 }
 
+#[derive(Clone)]
+struct EditableFloor {
+    floor: Floor,
+    vertices_str: String,
+}
+
+impl From<Floor> for EditableFloor {
+    fn from(floor: Floor) -> Self {
+        let vertices_str = floor
+            .vertices
+            .iter()
+            .map(|v| v.to_string())
+            .collect::<Vec<_>>()
+            .join(",");
+        Self {
+            floor,
+            vertices_str,
+        }
+    }
+}
+
+impl Editable for EditableFloor {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("floor").num_columns(2).show(ui, |ui| {
+            ui.label("Texture");
+            changed = ui
+                .text_edit_singleline(&mut *self.floor.parameters.texture_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Texture Rotation");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.floor.parameters.texture_rotation).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Texture Scale");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.floor.parameters.texture_scale).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Vertices");
+            if ui.text_edit_singleline(&mut self.vertices_str).lost_focus() {
+                let mut parts = self.vertices_str.split(',');
+                let vertices: Vec<usize> = parts
+                    .by_ref()
+                    .map_while(|s| s.parse::<usize>().ok())
+                    .collect();
+                if parts.next().is_none() {
+                    self.floor.vertices = vertices;
+                    changed = true;
+                }
+            }
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
 #[derive(Component)]
 enum EditableTag {
     Lane,
@@ -255,6 +322,7 @@ enum EditableTag {
     Measurement,
     Wall,
     Model(Entity),
+    Floor,
 }
 
 enum EditorData {
@@ -263,6 +331,7 @@ enum EditorData {
     Measurement(Measurement),
     Wall(Wall),
     Model(Model),
+    Floor(EditableFloor),
 }
 
 struct SelectedEditable(Entity, EditorData);
@@ -272,17 +341,22 @@ struct HasChanges(bool);
 
 #[derive(SystemParam)]
 struct EditorPanel<'w, 's> {
-    selected: ResMut<'w, Option<SelectedEditable>>,
     q_lane: Query<'w, 's, &'static mut Lane>,
     q_vertex: Query<'w, 's, &'static mut Vertex>,
     q_measurement: Query<'w, 's, &'static mut Measurement>,
     q_wall: Query<'w, 's, &'static mut Wall>,
     q_model: Query<'w, 's, &'static mut Model>,
+    q_floor: Query<'w, 's, &'static mut Floor>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
-    fn draw(&mut self, egui_ctx: &mut EguiContext, has_changes: &mut bool) {
-        fn commit_changes<E: Editable + Component>(
+    fn draw(
+        &mut self,
+        ui: &mut egui::Ui,
+        has_changes: &mut bool,
+        mut selected: ResMut<Option<SelectedEditable>>,
+    ) {
+        fn commit_changes<E: Component + Clone>(
             q: &mut Query<&mut E>,
             target_entity: Entity,
             updated: &E,
@@ -297,62 +371,64 @@ impl<'w, 's> EditorPanel<'w, 's> {
             }
         }
 
-        egui::SidePanel::right("editor_panel")
-            .resizable(false)
-            .min_width(200.)
-            .show(egui_ctx.ctx_mut(), |ui| {
-                let selected = match *self.selected {
-                    Some(ref mut selected) => selected,
-                    None => {
-                        ui.add_sized(ui.available_size(), egui::Label::new("No object selected"));
-                        return;
-                    }
-                };
+        let selected = match *selected {
+            Some(ref mut selected) => selected,
+            None => {
+                ui.add_sized(ui.available_size(), egui::Label::new("No object selected"));
+                return;
+            }
+        };
 
-                let title = match &selected.1 {
-                    EditorData::Lane(_) => "Lane",
-                    EditorData::Vertex(_) => "Vertex",
-                    EditorData::Measurement(_) => "Measurement",
-                    EditorData::Wall(_) => "Wall",
-                    EditorData::Model(_) => "Model",
-                };
+        let title = match &selected.1 {
+            EditorData::Lane(_) => "Lane",
+            EditorData::Vertex(_) => "Vertex",
+            EditorData::Measurement(_) => "Measurement",
+            EditorData::Wall(_) => "Wall",
+            EditorData::Model(_) => "Model",
+            EditorData::Floor(_) => "Floor",
+        };
 
-                ui.heading(title);
-                ui.separator();
+        ui.heading(title);
+        ui.separator();
 
-                match &mut selected.1 {
-                    EditorData::Lane(lane) => {
-                        if lane.draw(ui) {
-                            commit_changes(&mut self.q_lane, selected.0, lane);
-                            *has_changes = true;
-                        }
-                    }
-                    EditorData::Vertex(vertex) => {
-                        if vertex.draw(ui) {
-                            commit_changes(&mut self.q_vertex, selected.0, vertex);
-                            *has_changes = true;
-                        }
-                    }
-                    EditorData::Measurement(measurement) => {
-                        if measurement.draw(ui) {
-                            commit_changes(&mut self.q_measurement, selected.0, measurement);
-                            *has_changes = true;
-                        }
-                    }
-                    EditorData::Wall(wall) => {
-                        if wall.draw(ui) {
-                            commit_changes(&mut self.q_wall, selected.0, wall);
-                            *has_changes = true;
-                        }
-                    }
-                    EditorData::Model(model) => {
-                        if model.draw(ui) {
-                            commit_changes(&mut self.q_model, selected.0, model);
-                            *has_changes = true;
-                        }
-                    }
-                };
-            });
+        match &mut selected.1 {
+            EditorData::Lane(lane) => {
+                if lane.draw(ui) {
+                    commit_changes(&mut self.q_lane, selected.0, lane);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Vertex(vertex) => {
+                if vertex.draw(ui) {
+                    commit_changes(&mut self.q_vertex, selected.0, vertex);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Measurement(measurement) => {
+                if measurement.draw(ui) {
+                    commit_changes(&mut self.q_measurement, selected.0, measurement);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Wall(wall) => {
+                if wall.draw(ui) {
+                    commit_changes(&mut self.q_wall, selected.0, wall);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Model(model) => {
+                if model.draw(ui) {
+                    commit_changes(&mut self.q_model, selected.0, model);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Floor(floor) => {
+                if floor.draw(ui) {
+                    commit_changes(&mut self.q_floor, selected.0, &floor.floor);
+                    *has_changes = true;
+                }
+            }
+        };
     }
 }
 
@@ -368,6 +444,9 @@ fn egui_ui(
     map: Res<BuildingMap>,
     mut save_map: EventWriter<SaveMap>,
     mut has_changes: ResMut<HasChanges>,
+    mut spawner: Spawner,
+    current_level: Option<Res<SiteMapCurrentLevel>>,
+    mut selected: ResMut<Option<SelectedEditable>>,
 ) {
     let mut controls = query.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -414,13 +493,73 @@ fn egui_ui(
                                 save_map.send(SaveMap(PathBuf::from(path)));
                             }
                         }
+                        has_changes.0 = false;
                     }
                 }
             });
         });
     });
 
-    editor.draw(&mut egui_context, &mut has_changes.0);
+    egui::SidePanel::right("editor_panel")
+        .resizable(false)
+        .max_width(200.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.vertical_centered_justified(|ui| {
+                ui.group(|ui| {
+                    if ui.button("Add Vertex").clicked() {
+                        let new_vertex = Vertex::default();
+                        let new_entity = spawner
+                            .spawn_vertex(&current_level.as_ref().unwrap().0, new_vertex.clone())
+                            .unwrap()
+                            .id();
+                        *selected =
+                            Some(SelectedEditable(new_entity, EditorData::Vertex(new_vertex)));
+                    }
+                    if ui.button("Add Lane").clicked() {
+                        let new_lane = Lane::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_lane.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(new_entity, EditorData::Lane(new_lane)));
+                    }
+                    if ui.button("Add Measurement").clicked() {
+                        let new_measurement = Measurement::default();
+                        let new_entity = spawner
+                            .spawn_in_level(
+                                &current_level.as_ref().unwrap().0,
+                                new_measurement.clone(),
+                            )
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(
+                            new_entity,
+                            EditorData::Measurement(new_measurement),
+                        ));
+                    }
+                    if ui.button("Add Wall").clicked() {
+                        let new_wall = Wall::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_wall.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(new_entity, EditorData::Wall(new_wall)));
+                    }
+                    if ui.button("Add Model").clicked() {
+                        let new_model = Model::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_model.clone())
+                            .unwrap()
+                            .id();
+                        *selected =
+                            Some(SelectedEditable(new_entity, EditorData::Model(new_model)));
+                    }
+                });
+                ui.group(|ui| {
+                    editor.draw(ui, &mut has_changes.0, selected);
+                });
+            });
+        });
 }
 
 fn on_startup(
@@ -466,6 +605,7 @@ fn maintain_inspected_entities(
     q_measurement: Query<&Measurement>,
     q_wall: Query<&Wall>,
     q_model: Query<&Model>,
+    q_floor: Query<&Floor>,
 ) {
     let clicked = editables.iter().find(|(_, i, _)| match i {
         Interaction::Clicked => true,
@@ -507,6 +647,13 @@ fn maintain_inspected_entities(
             Ok(model) => Ok(SelectedEditable(
                 *model_entity,
                 EditorData::Model(model.clone()),
+            )),
+            Err(err) => Err(err),
+        },
+        EditableTag::Floor => match q_floor.get(e) {
+            Ok(floor) => Ok(SelectedEditable(
+                e,
+                EditorData::Floor(EditableFloor::from(floor.clone())),
             )),
             Err(err) => Err(err),
         },
@@ -553,6 +700,7 @@ fn enable_picking(
     measurements: Query<Entity, With<Measurement>>,
     walls: Query<Entity, With<Wall>>,
     models: Query<Entity, With<Model>>,
+    floors: Query<Entity, With<Floor>>,
     meshes: Query<Entity, Added<Handle<Mesh>>>,
     parent: Query<&Parent>,
     mut egui_context: ResMut<EguiContext>,
@@ -592,6 +740,12 @@ fn enable_picking(
                     .entity(measurement_entity)
                     .insert_bundle(PickableBundle::default())
                     .insert(EditableTag::Measurement);
+            }
+            if let Ok(floor_entity) = floors.get(cur) {
+                commands
+                    .entity(floor_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Floor);
             }
 
             // check if this entity is a model, if so, make it pickable.
