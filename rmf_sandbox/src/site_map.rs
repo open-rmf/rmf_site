@@ -1,6 +1,8 @@
 use std::collections::HashMap;
 
-use crate::despawn::{DespawnBlocker, PendingDespawn};
+use crate::despawn::DespawnBlocker;
+use crate::despawn::PendingDespawn;
+use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::light::Light;
 use crate::measurement::Measurement;
@@ -37,7 +39,7 @@ struct Handles {
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
-struct SiteMapCurrentLevel(String);
+pub struct SiteMapCurrentLevel(pub String);
 
 /// Used to keep track of entities created by the site map system.
 #[derive(Component)]
@@ -118,19 +120,6 @@ fn init_site_map(
                 }
             }
         }
-
-        // spawn the floor plane
-        commands
-            .spawn_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-                material: handles.default_floor_material.clone(),
-                transform: Transform {
-                    rotation: Quat::from_rotation_x(1.57),
-                    ..Default::default()
-                },
-                ..Default::default()
-            })
-            .insert(SiteMapTag);
     }
     let current_level = sm.levels.keys().next().unwrap();
     commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
@@ -160,6 +149,26 @@ fn despawn_site_map(
     commands.remove_resource::<SiteMapCurrentLevel>();
     for e in map_root.iter() {
         commands.entity(e).insert(PendingDespawn);
+    }
+}
+
+fn update_floor(
+    mut commands: Commands,
+    q_floors: Query<Entity, Added<Floor>>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+) {
+    for e in q_floors.iter() {
+        // spawn the floor plane
+        commands.entity(e).insert_bundle(PbrBundle {
+            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+            material: handles.default_floor_material.clone(),
+            transform: Transform {
+                rotation: Quat::from_rotation_x(1.57),
+                ..default()
+            },
+            ..default()
+        });
     }
 }
 
@@ -399,6 +408,7 @@ impl Plugin for SiteMapPlugin {
             .add_system_set(
                 SystemSet::on_update(SiteMapState::Enabled)
                     .label(SiteMapLabel)
+                    .with_system(update_floor)
                     .with_system(update_vertices.after(init_site_map))
                     .with_system(update_lanes.after(update_vertices))
                     .with_system(update_walls.after(update_vertices))

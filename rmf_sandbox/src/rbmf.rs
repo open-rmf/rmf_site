@@ -14,6 +14,12 @@ impl From<String> for RbmfString {
     }
 }
 
+impl From<&str> for RbmfString {
+    fn from(s: &str) -> Self {
+        RbmfString(1, s.to_string())
+    }
+}
+
 impl Default for RbmfString {
     fn default() -> Self {
         Self(1, "".to_string())
