@@ -130,16 +130,13 @@ impl<'w, 's> Spawner<'w, 's> {
             .spawn()
             .insert(SiteMapRoot)
             .insert_bundle(TransformBundle::default())
-            .id();
-
-        self.commands
-            .entity(map_root)
             .insert(Name(building_map.name.clone()))
             .insert(BuildingMapExtra {
                 lifts: building_map.lifts.clone(),
                 crowd_sim: building_map.crowd_sim.clone(),
             })
-            .with_children(|_| {});
+            .id();
+
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
         for (name, level) in &building_map.levels {
