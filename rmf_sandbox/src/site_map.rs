@@ -396,13 +396,17 @@ fn update_doors(
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    added_doors: Query<(Entity, &Door), Changed<Door>>,
+    q_doors: Query<(Entity, &Door, ChangeTrackers<Door>)>,
 ) {
-    for (e, door) in added_doors.iter() {
+    for (e, door, door_changed) in q_doors.iter() {
         let v1_entity = vertices_mgrs.0[&level.0].get(door.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
         let v2_entity = vertices_mgrs.0[&level.0].get(door.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
+
+        if !door_changed.is_changed() && !v1_change.is_changed() && !v2_change.is_changed() {
+            continue;
+        }
 
         let p1 = Vec3::new(v1.0 as f32, v1.1 as f32, 0.);
         let p2 = Vec3::new(v2.0 as f32, v2.1 as f32, 0.);
