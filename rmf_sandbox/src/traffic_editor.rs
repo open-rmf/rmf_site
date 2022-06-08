@@ -14,6 +14,7 @@ use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::{BuildingMapExtra, Spawner};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
+use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
@@ -392,6 +393,23 @@ impl Editable for Door {
 struct EditableLift {
     name: String,
     lift: Lift,
+    doors_json: String,
+    valid_doors: bool,
+    level_doors_json: String,
+    valid_level_doors: bool,
+}
+
+impl EditableLift {
+    pub fn from_lift(name: &str, lift: &Lift) -> serde_json::Result<Self> {
+        Ok(Self {
+            name: name.to_string(),
+            lift: lift.clone(),
+            doors_json: serde_json::to_string_pretty(&lift.doors)?,
+            valid_doors: true,
+            level_doors_json: serde_json::to_string_pretty(&lift.level_doors)?,
+            valid_level_doors: true,
+        })
+    }
 }
 
 impl Editable for EditableLift {
@@ -438,8 +456,6 @@ impl Editable for EditableLift {
                 || changed;
             ui.end_row();
 
-            // TODO: Doors
-
             ui.label("Lowest Floor");
             changed = ui
                 .text_edit_singleline(&mut self.lift.lowest_floor)
@@ -470,6 +486,28 @@ impl Editable for EditableLift {
 
             ui.label("Plugins");
             changed = ui.checkbox(&mut self.lift.plugins, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Doors");
+            changed = ui
+                .add(TextEditJson::new(
+                    &mut self.lift.doors,
+                    &mut self.doors_json,
+                    &mut self.valid_doors,
+                ))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Level Doors");
+            changed = ui
+                .add(TextEditJson::new(
+                    &mut self.lift.level_doors,
+                    &mut self.level_doors_json,
+                    &mut self.valid_level_doors,
+                ))
+                .changed()
+                || changed;
             ui.end_row();
         });
 
@@ -857,10 +895,7 @@ fn maintain_inspected_entities(
         EditableTag::Lift => match q_lift.get(e) {
             Ok(lift) => Ok(SelectedEditable(
                 e,
-                EditorData::Lift(EditableLift {
-                    name: q_name.get(e).unwrap().0.clone(),
-                    lift: lift.clone(),
-                }),
+                EditorData::Lift(EditableLift::from_lift(&q_name.get(e).unwrap().0, lift).unwrap()),
             )),
             Err(err) => Err(err),
         },
