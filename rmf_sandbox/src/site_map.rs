@@ -7,9 +7,9 @@ use crate::lane::Lane;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
-use crate::settings::*;
 use crate::spawner::{BuildingMapExtra, SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
+use crate::{basic_components, settings::*};
 use crate::{building_map::BuildingMap, wall::Wall};
 
 use bevy::asset::LoadState;
@@ -435,11 +435,11 @@ fn update_lifts(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    q_map: Query<(Entity, &BuildingMapExtra), Changed<BuildingMapExtra>>,
+    q_map: Query<&BuildingMapExtra, Changed<BuildingMapExtra>>,
     cur_level: Res<SiteMapCurrentLevel>,
 ) {
-    let (e, map_extra) = match q_map.iter().last() {
-        Some((e, map_extra)) => (e, map_extra),
+    let map_extra = match q_map.iter().last() {
+        Some(map_extra) => map_extra,
         None => return,
     };
 
@@ -450,21 +450,25 @@ fn update_lifts(
         .iter()
         .filter(|(_, lift)| lift.reference_floor_name == cur_level.0);
 
-    for (_, lift) in lifts_in_level {
+    for (name, lift) in lifts_in_level {
         let center = Vec3::new(lift.x as f32, lift.y as f32, 0.);
         // height is not available from the building file so we use a fixed height.
         let height = 4. as f32;
 
-        commands.spawn().insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-            material: handles.door_material.clone(),
-            transform: Transform {
-                translation: center,
-                rotation: Quat::from_rotation_z(lift.yaw as f32),
-                scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
-            },
-            ..default()
-        });
+        commands
+            .spawn()
+            .insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                material: handles.door_material.clone(),
+                transform: Transform {
+                    translation: center,
+                    rotation: Quat::from_rotation_z(lift.yaw as f32),
+                    scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
+                },
+                ..default()
+            })
+            .insert(basic_components::Name(name.clone()))
+            .insert(lift.clone());
     }
 }
 
