@@ -13,6 +13,8 @@ extern crate web_sys;
 mod settings;
 use settings::*;
 
+mod widgets;
+
 mod camera_controls;
 mod demo_world;
 mod despawn;
