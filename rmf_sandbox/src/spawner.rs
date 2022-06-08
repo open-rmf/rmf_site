@@ -124,7 +124,6 @@ impl<'w, 's> Spawner<'w, 's> {
         for e in self.map_root.iter() {
             self.commands.entity(e).insert(PendingDespawn);
         }
-        println!("{}", building_map.lifts.len());
 
         let map_root = self
             .commands
