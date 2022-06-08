@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
-use crate::door::{Door, DOOR_TYPES};
+use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
 use crate::lane::Lane;
 use crate::measurement::Measurement;
@@ -341,11 +341,11 @@ impl Editable for Door {
 
             ui.label("Type");
             egui::ComboBox::from_label("")
-                .selected_text(&*self.2.type_)
+                .selected_text(DoorType::from(self.2.type_.as_str()).to_string())
                 .show_ui(ui, |ui| {
                     for t in DOOR_TYPES {
                         changed = ui
-                            .selectable_value(&mut *self.2.type_, t.to_string(), t.to_string())
+                            .selectable_value(&mut *self.2.type_, t.to_value(), t.to_string())
                             .changed()
                             || changed;
                     }
@@ -863,7 +863,9 @@ fn enable_picking(
     // Normally bevy_mod_picking automatically stops when
     // a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
     let egui_ctx = egui_context.ctx_mut();
-    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
+    let enable = !egui_ctx.wants_pointer_input()
+        && !egui_ctx.wants_keyboard_input()
+        && !egui_ctx.is_pointer_over_area();
 
     let mut blocker = picking_blocker.single_mut();
     if enable {
