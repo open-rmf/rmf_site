@@ -26,7 +26,7 @@ use bevy::{
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
     DefaultHighlighting, DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera,
-    PickingCameraBundle, StandardMaterialHighlight,
+    PickingCameraBundle, Selection, StandardMaterialHighlight,
 };
 
 trait Editable: Sync + Send + Clone {
@@ -938,8 +938,9 @@ fn enable_picking(
     floors: Query<Entity, With<Floor>>,
     doors: Query<Entity, With<Door>>,
     lifts: Query<Entity, With<Lift>>,
-    meshes: Query<Entity, Added<Handle<Mesh>>>,
+    meshes: Query<Entity, Changed<Handle<Mesh>>>,
     parent: Query<&Parent>,
+    selected: Res<Option<SelectedEditable>>,
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
@@ -953,58 +954,60 @@ fn enable_picking(
     for mesh_entity in meshes.iter() {
         // go up the hierarchy tree until the root, trying to find if a mesh is part of a model.
         let mut e = Some(mesh_entity);
+        let mut tag: Option<EditableTag> = None;
         while let Some(cur) = e {
-            if let Ok(lane_entity) = lanes.get(cur) {
-                commands
-                    .entity(lane_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Lane);
+            if lanes.contains(cur) {
+                tag = Some(EditableTag::Lane);
             }
-            if let Ok(vertex_entity) = vertices.get(cur) {
-                commands
-                    .entity(vertex_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Vertex);
+            if vertices.contains(cur) {
+                tag = Some(EditableTag::Vertex);
             }
-            if let Ok(wall_entity) = walls.get(cur) {
-                commands
-                    .entity(wall_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Wall);
+            if walls.contains(cur) {
+                tag = Some(EditableTag::Wall);
             }
-            if let Ok(measurement_entity) = measurements.get(cur) {
-                commands
-                    .entity(measurement_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Measurement);
+            if measurements.contains(cur) {
+                tag = Some(EditableTag::Measurement);
             }
-            if let Ok(floor_entity) = floors.get(cur) {
-                commands
-                    .entity(floor_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Floor);
+            if floors.contains(cur) {
+                tag = Some(EditableTag::Floor);
             }
-            if let Ok(door_entity) = doors.get(cur) {
-                commands
-                    .entity(door_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Door);
+            if doors.contains(cur) {
+                tag = Some(EditableTag::Door);
             }
-            if let Ok(lift_entity) = lifts.get(cur) {
-                commands
-                    .entity(lift_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Lift);
+            if lifts.contains(cur) {
+                tag = Some(EditableTag::Lift);
             }
 
             // check if this entity is a model, if so, make it pickable.
             if let Ok(model_entity) = models.get(cur) {
+                tag = Some(EditableTag::Model(model_entity));
+            }
+
+            if let Some(tag) = tag {
+                // Some objects may respawn their mesh they are changed, causing `bevy_mod_picking`
+                // to forget that the mesh is selected. Workaround that by forcing the selected state.
+                //
+                // FIXME: This still creates a one-frame lag where the mesh is not highlighted.
+                // This is because we only know of meshes added in the next frame since commands
+                // are ran at the end of a stage. The bevy stageless RFC may fix this, but for now
+                // we need to move this into a custom stage to fix this.
+                let mut selection = Selection::default();
+                if let Some(selected) = &*selected {
+                    if selected.0 == cur {
+                        selection.set_selected(true);
+                    }
+                }
+
                 commands
                     .entity(mesh_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Model(model_entity));
+                    .insert_bundle(PickableBundle {
+                        selection,
+                        ..default()
+                    })
+                    .insert(tag);
                 break;
             }
+
             e = match parent.get(cur) {
                 Ok(parent) => Some(parent.0),
                 Err(_) => None,
