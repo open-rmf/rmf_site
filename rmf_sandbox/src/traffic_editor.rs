@@ -1,15 +1,17 @@
 use std::path::PathBuf;
 
+use crate::basic_components;
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::lift::Lift;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
 use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
-use crate::spawner::Spawner;
+use crate::spawner::{BuildingMapExtra, Spawner};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::{AppState, OpenedMapFile};
@@ -386,6 +388,95 @@ impl Editable for Door {
     }
 }
 
+#[derive(Clone)]
+struct EditableLift {
+    name: String,
+    lift: Lift,
+}
+
+impl Editable for EditableLift {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("lift").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("X");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.x).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.y).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Yaw");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.yaw).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Width");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.width).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Depth");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.depth).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            // TODO: Doors
+
+            ui.label("Lowest Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.lowest_floor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Highest Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.highest_floor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Initial Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.initial_floor_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Reference Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.reference_floor_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Plugins");
+            changed = ui.checkbox(&mut self.lift.plugins, "").changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
 #[derive(Component)]
 enum EditableTag {
     Lane,
@@ -395,6 +486,7 @@ enum EditableTag {
     Model(Entity),
     Floor,
     Door,
+    Lift,
 }
 
 enum EditorData {
@@ -405,6 +497,7 @@ enum EditorData {
     Model(Model),
     Floor(EditableFloor),
     Door(Door),
+    Lift(EditableLift),
 }
 
 struct SelectedEditable(Entity, EditorData);
@@ -421,6 +514,7 @@ struct EditorPanel<'w, 's> {
     q_model: Query<'w, 's, &'static mut Model>,
     q_floor: Query<'w, 's, &'static mut Floor>,
     q_door: Query<'w, 's, &'static mut Door>,
+    q_map_extra: Query<'w, 's, &'static mut BuildingMapExtra>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
@@ -461,6 +555,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Model(_) => "Model",
             EditorData::Floor(_) => "Floor",
             EditorData::Door(_) => "Door",
+            EditorData::Lift(_) => "Lift",
         };
 
         ui.heading(title);
@@ -506,6 +601,19 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Door(door) => {
                 if door.draw(ui) {
                     commit_changes(&mut self.q_door, selected.0, door);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Lift(editable_lift) => {
+                if editable_lift.draw(ui) {
+                    if let Some(lift) = self
+                        .q_map_extra
+                        .single_mut()
+                        .lifts
+                        .get_mut(&editable_lift.name)
+                    {
+                        *lift = editable_lift.lift.clone();
+                    }
                     *has_changes = true;
                 }
             }
@@ -689,6 +797,8 @@ fn maintain_inspected_entities(
     q_model: Query<&Model>,
     q_floor: Query<&Floor>,
     q_door: Query<&Door>,
+    q_lift: Query<&Lift>,
+    q_name: Query<&basic_components::Name>,
 ) {
     let clicked = editables.iter().find(|(_, i, _)| match i {
         Interaction::Clicked => true,
@@ -744,6 +854,16 @@ fn maintain_inspected_entities(
             Ok(door) => Ok(SelectedEditable(e, EditorData::Door(door.clone()))),
             Err(err) => Err(err),
         },
+        EditableTag::Lift => match q_lift.get(e) {
+            Ok(lift) => Ok(SelectedEditable(
+                e,
+                EditorData::Lift(EditableLift {
+                    name: q_name.get(e).unwrap().0.clone(),
+                    lift: lift.clone(),
+                }),
+            )),
+            Err(err) => Err(err),
+        },
     };
 
     *selected = match try_selected {
@@ -789,6 +909,7 @@ fn enable_picking(
     models: Query<Entity, With<Model>>,
     floors: Query<Entity, With<Floor>>,
     doors: Query<Entity, With<Door>>,
+    lifts: Query<Entity, With<Lift>>,
     meshes: Query<Entity, Added<Handle<Mesh>>>,
     parent: Query<&Parent>,
     mut egui_context: ResMut<EguiContext>,
@@ -840,6 +961,12 @@ fn enable_picking(
                     .entity(door_entity)
                     .insert_bundle(PickableBundle::default())
                     .insert(EditableTag::Door);
+            }
+            if let Ok(lift_entity) = lifts.get(cur) {
+                commands
+                    .entity(lift_entity)
+                    .insert_bundle(PickableBundle::default())
+                    .insert(EditableTag::Lift);
             }
 
             // check if this entity is a model, if so, make it pickable.
