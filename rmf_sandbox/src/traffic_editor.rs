@@ -775,6 +775,31 @@ fn egui_ui(
                         *selected =
                             Some(SelectedEditable(new_entity, EditorData::Model(new_model)));
                     }
+                    if ui.button("Add Door").clicked() {
+                        let new_door = Door::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_door.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(new_entity, EditorData::Door(new_door)));
+                    }
+                    if ui.button("Add Lift").clicked() {
+                        let cur_level = &current_level.as_ref().unwrap().0;
+                        let new_lift = Lift {
+                            initial_floor_name: cur_level.clone(),
+                            ..default()
+                        };
+                        let new_entity = spawner
+                            .spawn_in_level(&cur_level, new_lift.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(
+                            new_entity,
+                            EditorData::Lift(
+                                EditableLift::from_lift("new_lift", &new_lift).unwrap(),
+                            ),
+                        ));
+                    }
                 });
                 ui.group(|ui| {
                     editor.draw(ui, &mut has_changes.0, selected);

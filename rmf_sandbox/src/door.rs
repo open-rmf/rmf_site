@@ -16,7 +16,21 @@ pub struct DoorProperties {
     pub type_: RbmfString,
 }
 
-#[derive(Deserialize, Serialize, Clone, Component)]
+impl Default for DoorProperties {
+    fn default() -> Self {
+        Self {
+            right_left_ratio: RbmfFloat::from(1.),
+            motion_axis: RbmfString::from("start"),
+            motion_degrees: RbmfFloat::from(90.),
+            motion_direction: RbmfInt::from(1),
+            name: RbmfString::from("new_door"),
+            plugin: RbmfString::from("normal"),
+            type_: RbmfString::from("hinged"),
+        }
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Component, Default)]
 pub struct Door(pub usize, pub usize, pub DoorProperties);
 
 pub enum DoorType {
