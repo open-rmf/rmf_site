@@ -11,9 +11,11 @@ use bevy::{
 use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
+    door::Door,
     floor::Floor,
     lane::Lane,
     level::Level,
+    lift::Lift,
     measurement::Measurement,
     model::Model,
     spawner::{BuildingMapExtra, LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
@@ -50,6 +52,8 @@ fn save(world: &mut World) {
         Query<&mut Measurement>,
         Query<&mut Wall>,
         Query<&Model>,
+        Query<&Door>,
+        Query<(&Name, &Lift)>,
     )> = SystemState::new(world);
     let (
         root_entity,
@@ -65,6 +69,8 @@ fn save(world: &mut World) {
         mut q_measurements,
         mut q_walls,
         q_models,
+        q_doors,
+        q_lifts,
     ) = state.get_mut(world);
     let root_entity = match root_entity.get_single() {
         Ok(root_entity) => root_entity,
@@ -76,6 +82,11 @@ fn save(world: &mut World) {
 
     let mut levels: BTreeMap<String, Level> = BTreeMap::new();
 
+    let mut lifts: BTreeMap<String, Lift> = BTreeMap::new();
+    for (lift_name, lift) in q_lifts.iter() {
+        lifts.insert(lift_name.0.clone(), lift.clone());
+    }
+
     for level in q_children.get(root_entity).unwrap().into_iter() {
         let mut floors: Vec<Floor> = Vec::new();
         let mut vertices: Vec<Vertex> = Vec::new();
@@ -83,6 +94,7 @@ fn save(world: &mut World) {
         let mut measurements: Vec<Measurement> = Vec::new();
         let mut walls: Vec<Wall> = Vec::new();
         let mut models: Vec<Model> = Vec::new();
+        let mut doors: Vec<Door> = Vec::new();
         let extra = q_level_extra.get(*level).unwrap();
         let name = q_name.get(*level).unwrap().0.clone();
         let vm = vms.0.get_mut(&name).unwrap();
@@ -126,6 +138,9 @@ fn save(world: &mut World) {
             if let Ok(model) = q_models.get(*c) {
                 models.push(model.clone());
             }
+            if let Ok(door) = q_doors.get(*c) {
+                doors.push(door.clone());
+            }
         }
         levels.insert(
             name,
@@ -136,7 +151,7 @@ fn save(world: &mut World) {
                 measurements,
                 walls,
                 models,
-                doors: extra.doors.clone(),
+                doors,
                 drawing: extra.drawing.clone(),
                 elevation: extra.elevation,
                 flattened_x_offset: extra.flattened_x_offset,
@@ -150,7 +165,7 @@ fn save(world: &mut World) {
     let map = BuildingMap {
         name: q_name.get(root_entity).unwrap().0.clone(),
         version: Some(2),
-        lifts: building_map_extra.lifts.clone(),
+        lifts,
         crowd_sim: building_map_extra.crowd_sim.clone(),
         levels,
     };

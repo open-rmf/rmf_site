@@ -11,7 +11,7 @@ use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
 use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
-use crate::spawner::{BuildingMapExtra, Spawner};
+use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
@@ -552,7 +552,7 @@ struct EditorPanel<'w, 's> {
     q_model: Query<'w, 's, &'static mut Model>,
     q_floor: Query<'w, 's, &'static mut Floor>,
     q_door: Query<'w, 's, &'static mut Door>,
-    q_map_extra: Query<'w, 's, &'static mut BuildingMapExtra>,
+    q_lift: Query<'w, 's, &'static mut Lift>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
@@ -644,14 +644,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
             }
             EditorData::Lift(editable_lift) => {
                 if editable_lift.draw(ui) {
-                    if let Some(lift) = self
-                        .q_map_extra
-                        .single_mut()
-                        .lifts
-                        .get_mut(&editable_lift.name)
-                    {
-                        *lift = editable_lift.lift.clone();
-                    }
+                    commit_changes(&mut self.q_lift, selected.0, &editable_lift.lift);
                     *has_changes = true;
                 }
             }
