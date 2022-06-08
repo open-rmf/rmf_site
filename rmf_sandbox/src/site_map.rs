@@ -4,12 +4,13 @@ use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
-use crate::spawner::{BuildingMapExtra, SiteMapRoot, VerticesManagers};
+use crate::settings::*;
+use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
-use crate::{basic_components, settings::*};
 use crate::{building_map::BuildingMap, wall::Wall};
 
 use bevy::asset::LoadState;
@@ -396,9 +397,9 @@ fn update_doors(
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    q_doors: Query<(Entity, &Door, ChangeTrackers<Door>)>,
+    mut q_doors: Query<(Entity, &Door, Option<&mut Transform>, ChangeTrackers<Door>)>,
 ) {
-    for (e, door, door_changed) in q_doors.iter() {
+    for (e, door, t, door_changed) in q_doors.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].get(door.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
         let v2_entity = vertices_mgrs.0[&level.0].get(door.1).unwrap();
@@ -417,17 +418,26 @@ fn update_doors(
         let width = 0.1 as f32;
         let height = 4. as f32;
 
-        commands.entity(e).insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-            material: handles.door_material.clone(),
-            transform: Transform {
-                translation: mid,
-                rotation: Quat::from_rotation_z(rot),
-                scale: Vec3::new(dist, width, height),
+        let transform = Transform {
+            translation: mid,
+            rotation: Quat::from_rotation_z(rot),
+            scale: Vec3::new(dist, width, height),
+        };
+
+        if door_changed.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                material: handles.door_material.clone(),
+                transform,
                 ..default()
-            },
-            ..default()
-        });
+            });
+        }
+
+        if door_changed.is_changed() {
+            if let Some(mut t) = t {
+                *t = transform;
+            }
+        }
     }
 }
 
@@ -435,40 +445,36 @@ fn update_lifts(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    q_map: Query<&BuildingMapExtra, Changed<BuildingMapExtra>>,
-    cur_level: Res<SiteMapCurrentLevel>,
+    mut q_lifts: Query<
+        (Entity, &Lift, Option<&mut Transform>, ChangeTrackers<Lift>),
+        Changed<Lift>,
+    >,
 ) {
-    let map_extra = match q_map.iter().last() {
-        Some(map_extra) => map_extra,
-        None => return,
-    };
-
-    // The floor names do not have ordering, so we can't use them to determine the levels.
-    // So we only render lift on the reference level.
-    let lifts_in_level = map_extra
-        .lifts
-        .iter()
-        .filter(|(_, lift)| lift.reference_floor_name == cur_level.0);
-
-    for (name, lift) in lifts_in_level {
+    for (e, lift, t, lift_changes) in q_lifts.iter_mut() {
         let center = Vec3::new(lift.x as f32, lift.y as f32, 0.);
         // height is not available from the building file so we use a fixed height.
         let height = 4. as f32;
 
-        commands
-            .spawn()
-            .insert_bundle(PbrBundle {
+        let transform = Transform {
+            translation: center,
+            rotation: Quat::from_rotation_z(lift.yaw as f32),
+            scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
+        };
+
+        if lift_changes.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
                 material: handles.door_material.clone(),
-                transform: Transform {
-                    translation: center,
-                    rotation: Quat::from_rotation_z(lift.yaw as f32),
-                    scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
-                },
+                transform,
                 ..default()
-            })
-            .insert(basic_components::Name(name.clone()))
-            .insert(lift.clone());
+            });
+        }
+
+        if lift_changes.is_changed() {
+            if let Some(mut t) = t {
+                *t = transform;
+            }
+        }
     }
 }
 
