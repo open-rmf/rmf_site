@@ -450,12 +450,12 @@ fn update_lifts(
         .iter()
         .filter(|(_, lift)| lift.reference_floor_name == cur_level.0);
 
-    for (name, lift) in lifts_in_level {
+    for (_, lift) in lifts_in_level {
         let center = Vec3::new(lift.x as f32, lift.y as f32, 0.);
         // height is not available from the building file so we use a fixed height.
         let height = 4. as f32;
 
-        commands.entity(e).insert_bundle(PbrBundle {
+        commands.spawn().insert_bundle(PbrBundle {
             mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
             material: handles.door_material.clone(),
             transform: Transform {
@@ -499,7 +499,7 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_lights.after(init_site_map))
                     .with_system(update_models.after(init_site_map))
                     .with_system(update_doors.after(update_vertices))
-                    .with_system(update_lifts.after(update_vertices)),
+                    .with_system(update_lifts.after(init_site_map)),
             );
     }
 }
