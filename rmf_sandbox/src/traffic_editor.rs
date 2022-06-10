@@ -18,10 +18,8 @@ use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
-    app::AppExit,
     prelude::*,
     render::camera::{ActiveCamera, Camera3d},
-    tasks::AsyncComputeTaskPool,
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
@@ -29,7 +27,7 @@ use bevy_mod_picking::{
     PickingCameraBundle, Selection, StandardMaterialHighlight,
 };
 
-trait Editable: Sync + Send + Clone {
+trait Editable {
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
 }
 
@@ -654,10 +652,8 @@ impl<'w, 's> EditorPanel<'w, 's> {
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
-    mut query: Query<&mut CameraControls>,
+    mut q_camera_controls: Query<&mut CameraControls>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
-    mut _exit: EventWriter<AppExit>,
-    _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
@@ -668,7 +664,7 @@ fn egui_ui(
     current_level: Option<Res<SiteMapCurrentLevel>>,
     mut selected: ResMut<Option<SelectedEditable>>,
 ) {
-    let mut controls = query.single_mut();
+    let mut controls = q_camera_controls.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
