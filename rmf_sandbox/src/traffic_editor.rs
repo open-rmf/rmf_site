@@ -769,7 +769,9 @@ fn enable_picking(
     // Normally bevy_mod_picking automatically stops when
     // a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
     let egui_ctx = egui_context.ctx_mut();
-    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input() && !egui_ctx.is_pointer_over_area();
+    let enable = !egui_ctx.wants_pointer_input()
+        && !egui_ctx.wants_keyboard_input()
+        && !egui_ctx.is_pointer_over_area();
 
     let mut blocker = picking_blocker.single_mut();
     if enable {
