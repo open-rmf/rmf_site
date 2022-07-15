@@ -606,7 +606,6 @@ fn check_and_delete_vertex(
 ) -> bool {
     // Find its vertex id from the vertices_mgrs
     for mgr in vertices_mgrs.0.iter_mut() {
-        // 
         match mgr.1.get_entity(entity) {
             Some(id) => {
                 // Now go through all edges
@@ -632,7 +631,7 @@ fn check_and_delete_vertex(
                 mgr.1.remove(id);
                 return true;
             }
-            None => {},
+            None => {}
         }
     }
     // This should never happen
@@ -658,9 +657,9 @@ fn handle_keyboard_events(
                 let entity = sel.0;
                 let mut safe_to_delete = true;
                 // We can't delete vertices that are still in use
-                if vertices.get(entity).is_ok(){
-                    safe_to_delete = check_and_delete_vertex(
-                        entity, lanes, walls, measurements, vertices_mgrs);
+                if vertices.get(entity).is_ok() {
+                    safe_to_delete =
+                        check_and_delete_vertex(entity, lanes, walls, measurements, vertices_mgrs);
                 }
                 if safe_to_delete {
                     commands.entity(entity).despawn_recursive();
@@ -669,14 +668,11 @@ fn handle_keyboard_events(
             }
             None => println!("Nothing selected"),
         }
-    }
-    else if keys.just_pressed(KeyCode::Escape)
-    {
+    } else if keys.just_pressed(KeyCode::Escape) {
         // TODO Picking highlighting is not cleared, fix
         *selected = None;
     }
 }
-
 
 fn maintain_inspected_entities(
     editables: Query<(Entity, &Interaction, &EditableTag), Changed<Interaction>>,

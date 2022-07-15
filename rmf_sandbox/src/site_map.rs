@@ -252,14 +252,12 @@ fn update_measurements(
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    mut measurements: Query<
-        (
-            Entity,
-            &Measurement,
-            ChangeTrackers<Measurement>,
-            Option<&mut Transform>,
-        ),
-    >,
+    mut measurements: Query<(
+        Entity,
+        &Measurement,
+        ChangeTrackers<Measurement>,
+        Option<&mut Transform>,
+    )>,
 ) {
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
