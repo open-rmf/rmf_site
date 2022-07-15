@@ -648,6 +648,7 @@ fn handle_keyboard_events(
     vertices: Query<Entity, With<Vertex>>,
     vertices_mgrs: ResMut<VerticesManagers>,
     keys: Res<Input<KeyCode>>,
+    mut has_changes: ResMut<HasChanges>,
 ) {
     // Delete model if selected and delete was pressed
     if keys.just_pressed(KeyCode::Delete) {
@@ -664,6 +665,7 @@ fn handle_keyboard_events(
                 if safe_to_delete {
                     commands.entity(entity).despawn_recursive();
                     *selected = None;
+                    has_changes.0 = true;
                 }
             }
             None => println!("Nothing selected"),
