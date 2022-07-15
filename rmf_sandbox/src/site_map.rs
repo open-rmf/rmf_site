@@ -259,7 +259,6 @@ fn update_measurements(
             ChangeTrackers<Measurement>,
             Option<&mut Transform>,
         ),
-        Changed<Measurement>,
     >,
 ) {
     // spawn new measurements
