@@ -1149,7 +1149,7 @@ impl Plugin for TrafficEditorPlugin {
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(update_picking_cam)
-                    .with_system(handle_keyboard_events),
+                    .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities),
