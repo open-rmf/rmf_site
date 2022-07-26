@@ -194,7 +194,12 @@ fn handle_keyboard(
     keyboard_input: Res<Input<KeyCode>>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
     mut query: Query<&mut CameraControls>,
+    mut egui_ctx: ResMut<EguiContext>,
 ) {
+    if egui_ctx.ctx_mut().wants_pointer_input() {
+        return;
+    }
+
     let mut controls = query.single_mut();
     if keyboard_input.just_pressed(KeyCode::Key2) {
         controls.set_mode(ProjectionMode::Orthographic);

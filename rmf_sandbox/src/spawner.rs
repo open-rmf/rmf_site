@@ -12,7 +12,7 @@ use crate::{
     level::LevelDrawing,
     lift::Lift,
 };
-use std::collections::{BTreeMap, HashMap};
+use std::collections::HashMap;
 
 use bevy::{
     ecs::system::{EntityCommands, SystemParam},
@@ -71,7 +71,6 @@ impl LevelVerticesManager {
 
 #[derive(Component)]
 pub struct LevelExtra {
-    pub doors: Vec<Door>,
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,
@@ -81,7 +80,6 @@ pub struct LevelExtra {
 
 #[derive(Component)]
 pub struct BuildingMapExtra {
-    pub lifts: BTreeMap<String, Lift>,
     pub crowd_sim: CrowdSim,
 }
 
@@ -93,6 +91,8 @@ impl Spawnable for Light {}
 impl Spawnable for Measurement {}
 impl Spawnable for Wall {}
 impl Spawnable for Model {}
+impl Spawnable for Door {}
+impl Spawnable for Lift {}
 
 #[derive(SystemParam)]
 pub struct Spawner<'w, 's> {
@@ -147,16 +147,12 @@ impl<'w, 's> Spawner<'w, 's> {
             .spawn()
             .insert(SiteMapRoot)
             .insert_bundle(TransformBundle::default())
-            .id();
-
-        self.commands
-            .entity(map_root)
             .insert(Name(building_map.name.clone()))
             .insert(BuildingMapExtra {
-                lifts: building_map.lifts.clone(),
                 crowd_sim: building_map.crowd_sim.clone(),
             })
-            .with_children(|_| {});
+            .id();
+
         self.vertex_mgrs.0.clear();
         self.levels.0.clear();
         for (name, level) in &building_map.levels {
@@ -169,7 +165,6 @@ impl<'w, 's> Spawner<'w, 's> {
                     ..default()
                 }))
                 .insert(LevelExtra {
-                    doors: level.doors.clone(),
                     drawing: level.drawing.clone(),
                     elevation: level.elevation,
                     flattened_x_offset: level.flattened_x_offset,
@@ -201,6 +196,17 @@ impl<'w, 's> Spawner<'w, 's> {
             }
             for model in &level.models {
                 self.spawn_in_level(name, model.clone());
+            }
+            for door in &level.doors {
+                self.spawn_in_level(name, door.clone());
+            }
+
+            for (lift_name, lift) in &building_map.lifts {
+                if lift.initial_floor_name == *name {
+                    self.spawn_in_level(name, lift.clone())
+                        .unwrap()
+                        .insert(Name(lift_name.clone()));
+                }
             }
         }
     }

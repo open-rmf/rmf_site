@@ -27,3 +27,22 @@ pub struct Lift {
     pub y: f64,
     pub yaw: f64,
 }
+
+impl Default for Lift {
+    fn default() -> Self {
+        Self {
+            depth: 1.0,
+            doors: BTreeMap::new(),
+            lowest_floor: "L1".to_string(),
+            highest_floor: "L1".to_string(),
+            initial_floor_name: "L1".to_string(),
+            level_doors: BTreeMap::new(),
+            plugins: false,
+            reference_floor_name: "L1".to_string(),
+            width: 1.0,
+            x: 0.0,
+            y: 0.0,
+            yaw: 0.0,
+        }
+    }
+}
