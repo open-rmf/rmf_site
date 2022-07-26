@@ -99,7 +99,7 @@ fn save(world: &mut World) {
         let name = q_name.get(*level).unwrap().0.clone();
         let vm = vms.0.get_mut(&name).unwrap();
         let mut new_vm = LevelVerticesManager::default();
-        let mut vertices_reid: HashMap<usize, usize> = HashMap::new();
+        let mut vertex_file_id: HashMap<usize, usize> = HashMap::new();
 
         for c in q_children.get(*level).unwrap().into_iter() {
             if let Ok(floor) = q_floors.get(*c) {
@@ -113,7 +113,7 @@ fn save(world: &mut World) {
             if let Ok(vertex) = q_vertices.get(*c) {
                 let id = q_id.get(*c).unwrap().0;
                 let new_id = new_vm.add(vm.get(id).unwrap());
-                vertices_reid.insert(id, new_id);
+                vertex_file_id.insert(id, new_id);
                 vertices.push(vertex.clone());
             }
         }
@@ -121,18 +121,18 @@ fn save(world: &mut World) {
 
         for c in q_children.get(*level).unwrap().into_iter() {
             if let Ok(mut lane) = q_lanes.get_mut(*c) {
-                lane.0 = vertices_reid[&lane.0];
-                lane.1 = vertices_reid[&lane.1];
+                lane.0 = vertex_file_id[&lane.0];
+                lane.1 = vertex_file_id[&lane.1];
                 lanes.push(lane.clone());
             }
             if let Ok(mut measurement) = q_measurements.get_mut(*c) {
-                measurement.0 = vertices_reid[&measurement.0];
-                measurement.1 = vertices_reid[&measurement.1];
+                measurement.0 = vertex_file_id[&measurement.0];
+                measurement.1 = vertex_file_id[&measurement.1];
                 measurements.push(measurement.clone());
             }
             if let Ok(mut wall) = q_walls.get_mut(*c) {
-                wall.0 = vertices_reid[&wall.0];
-                wall.1 = vertices_reid[&wall.1];
+                wall.0 = vertex_file_id[&wall.0];
+                wall.1 = vertex_file_id[&wall.1];
                 walls.push(wall.clone());
             }
             if let Ok(model) = q_models.get(*c) {
