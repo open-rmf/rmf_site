@@ -65,7 +65,6 @@ impl LevelVerticesManager {
             }
             None => {}
         }
-        //self.id_to_entity.
     }
 }
 
