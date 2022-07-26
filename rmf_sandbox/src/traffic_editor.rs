@@ -14,6 +14,7 @@ use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::{Spawner, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
+use crate::camera::Camera;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
@@ -513,6 +514,43 @@ impl Editable for EditableLift {
     }
 }
 
+impl Editable for Camera {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("camera").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("x");
+            changed = ui.add(egui::DragValue::new(&mut self.x)).changed() || changed;
+            ui.end_row();
+
+            ui.label("y");
+            changed = ui.add(egui::DragValue::new(&mut self.y)).changed() || changed;
+            ui.end_row();
+
+            ui.label("z");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.z).speed(0.1)).changed() || changed;
+            ui.end_row();
+
+            ui.label("pitch");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.pitch).speed(0.1)).changed() || changed;
+            ui.end_row();
+
+            ui.label("yaw");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.yaw).speed(0.1)).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
 #[derive(Component)]
 enum EditableTag {
     Lane,
@@ -523,6 +561,7 @@ enum EditableTag {
     Floor,
     Door,
     Lift,
+    Camera,
 }
 
 enum EditorData {
@@ -534,6 +573,7 @@ enum EditorData {
     Floor(EditableFloor),
     Door(Door),
     Lift(EditableLift),
+    Camera(Camera),
 }
 
 struct SelectedEditable(Entity, EditorData);
@@ -551,6 +591,7 @@ struct EditorPanel<'w, 's> {
     q_floor: Query<'w, 's, &'static mut Floor>,
     q_door: Query<'w, 's, &'static mut Door>,
     q_lift: Query<'w, 's, &'static mut Lift>,
+    q_camera: Query<'w, 's, &'static mut Camera>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
@@ -592,6 +633,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Floor(_) => "Floor",
             EditorData::Door(_) => "Door",
             EditorData::Lift(_) => "Lift",
+            EditorData::Camera(_) => "Camera",
         };
 
         ui.heading(title);
@@ -643,6 +685,12 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Lift(editable_lift) => {
                 if editable_lift.draw(ui) {
                     commit_changes(&mut self.q_lift, selected.0, &editable_lift.lift);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Camera(camera) => {
+                if camera.draw(ui) {
+                    commit_changes(&mut self.q_camera, selected.0, camera);
                     *has_changes = true;
                 }
             }
@@ -796,6 +844,15 @@ fn egui_ui(
                             ),
                         ));
                     }
+                    if ui.button("Add Camera").clicked() {
+                        let new_camera = Camera::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_camera.clone())
+                            .unwrap()
+                            .id();
+                        *selected =
+                            Some(SelectedEditable(new_entity, EditorData::Camera(new_camera)));
+                    }
                 });
                 ui.group(|ui| {
                     editor.draw(ui, &mut has_changes.0, selected);
@@ -929,6 +986,7 @@ fn maintain_inspected_entities(
     q_floor: Query<&Floor>,
     q_door: Query<&Door>,
     q_lift: Query<&Lift>,
+    q_camera: Query<&Camera>,
     q_name: Query<&basic_components::Name>,
 ) {
     let clicked = editables.iter().find(|(_, i, _)| match i {
@@ -992,6 +1050,10 @@ fn maintain_inspected_entities(
             )),
             Err(err) => Err(err),
         },
+        EditableTag::Camera => match q_camera.get(e) {
+            Ok(camera) => Ok(SelectedEditable(e, EditorData::Camera(camera.clone()))),
+            Err(err) => Err(err),
+        },
     };
 
     *selected = match try_selected {
@@ -1038,6 +1100,7 @@ fn enable_picking(
     floors: Query<Entity, With<Floor>>,
     doors: Query<Entity, With<Door>>,
     lifts: Query<Entity, With<Lift>>,
+    cameras: Query<Entity, With<Camera>>,
     meshes: Query<Entity, Changed<Handle<Mesh>>>,
     parent: Query<&Parent>,
     selected: Res<Option<SelectedEditable>>,
@@ -1076,6 +1139,9 @@ fn enable_picking(
             }
             if lifts.contains(cur) {
                 tag = Some(EditableTag::Lift);
+            }
+            if cameras.contains(cur) {
+                tag = Some(EditableTag::Camera);
             }
 
             // check if this entity is a model, if so, make it pickable.

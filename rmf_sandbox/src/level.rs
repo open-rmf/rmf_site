@@ -4,6 +4,7 @@ use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
+use crate::camera::Camera;
 use crate::{door::Door, lane::Lane};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -26,6 +27,7 @@ pub struct Level {
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
     pub floors: Vec<Floor>,
+    pub cameras: Vec<Camera>,
     #[serde(default)]
     pub fiducials: Vec<Fiducial>,
 }

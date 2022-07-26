@@ -11,6 +11,7 @@ use crate::{
     floor::Floor,
     level::LevelDrawing,
     lift::Lift,
+    camera::Camera,
 };
 use std::collections::HashMap;
 
@@ -92,6 +93,7 @@ impl Spawnable for Wall {}
 impl Spawnable for Model {}
 impl Spawnable for Door {}
 impl Spawnable for Lift {}
+impl Spawnable for Camera {}
 
 #[derive(SystemParam)]
 pub struct Spawner<'w, 's> {
@@ -198,6 +200,9 @@ impl<'w, 's> Spawner<'w, 's> {
             }
             for door in &level.doors {
                 self.spawn_in_level(name, door.clone());
+            }
+            for camera in &level.cameras {
+                self.spawn_in_level(name, camera.clone());
             }
 
             for (lift_name, lift) in &building_map.lifts {

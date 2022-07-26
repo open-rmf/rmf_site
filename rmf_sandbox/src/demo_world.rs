@@ -22,6 +22,8 @@ levels:
       - [31, 13, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, main_door], plugin: [1, normal], type: [1, double_hinged]}]
       - [35, 37, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, coe_door], plugin: [1, normal], type: [1, hinged]}]
       - [18, 17, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, hardware_door], plugin: [1, normal], type: [1, hinged]}]
+    cameras:
+      - [test_name, 0, 0, 0, 0, 0]
     drawing:
       filename: office.png
     elevation: 0
