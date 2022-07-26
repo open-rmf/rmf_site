@@ -11,7 +11,7 @@ use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
 use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
-use crate::spawner::Spawner;
+use crate::spawner::{Spawner, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
@@ -839,6 +839,85 @@ fn on_exit(mut commands: Commands, mut sitemap_state: ResMut<State<SiteMapState>
     sitemap_state.set(SiteMapState::Disabled).unwrap();
 }
 
+fn check_and_delete_vertex(
+    entity: Entity,
+    lanes: Query<&Lane>,
+    walls: Query<&Wall>,
+    measurements: Query<&Measurement>,
+    mut vertices_mgrs: ResMut<VerticesManagers>,
+) -> bool {
+    // Find its vertex id from the vertices_mgrs
+    for mgr in vertices_mgrs.0.iter_mut() {
+        match mgr.1.get_entity(entity) {
+            Some(id) => {
+                // Now go through all edges
+                for lane in lanes.iter() {
+                    if lane.0 == id || lane.1 == id {
+                        println!("Cannot delete vertex, used in a lane");
+                        return false;
+                    }
+                }
+                for wall in walls.iter() {
+                    if wall.0 == id || wall.1 == id {
+                        println!("Cannot delete vertex, used in a wall");
+                        return false;
+                    }
+                }
+                for meas in measurements.iter() {
+                    if meas.0 == id || meas.1 == id {
+                        println!("Cannot delete vertex, used in a measurement");
+                        return false;
+                    }
+                }
+                // Bookkeeping with the vertices manager
+                mgr.1.remove(id);
+                return true;
+            }
+            None => {}
+        }
+    }
+    // This should never happen
+    println!("Vertex not found in manager, please report this bug");
+    return false;
+}
+
+fn handle_keyboard_events(
+    mut selected: ResMut<Option<SelectedEditable>>,
+    mut commands: Commands,
+    lanes: Query<&Lane>,
+    walls: Query<&Wall>,
+    measurements: Query<&Measurement>,
+    vertices: Query<Entity, With<Vertex>>,
+    vertices_mgrs: ResMut<VerticesManagers>,
+    keys: Res<Input<KeyCode>>,
+    mut has_changes: ResMut<HasChanges>,
+) {
+    // Delete model if selected and delete was pressed
+    if keys.just_pressed(KeyCode::Delete) {
+        // We need to clear selection regardless, hence take the option
+        match &*selected {
+            Some(sel) => {
+                let entity = sel.0;
+                let mut safe_to_delete = true;
+                // We can't delete vertices that are still in use
+                if vertices.get(entity).is_ok() {
+                    safe_to_delete =
+                        check_and_delete_vertex(entity, lanes, walls, measurements, vertices_mgrs);
+                }
+                if safe_to_delete {
+                    commands.entity(entity).despawn_recursive();
+                    *selected = None;
+                    has_changes.0 = true;
+                }
+            }
+            None => println!("Nothing selected"),
+        }
+    } else if keys.just_pressed(KeyCode::Escape) {
+        // TODO Picking highlighting is not cleared, fix
+        *selected = None;
+    }
+}
+
 fn maintain_inspected_entities(
     editables: Query<(Entity, &Interaction, &EditableTag), Changed<Interaction>>,
     mut selected: ResMut<Option<SelectedEditable>>,
@@ -1070,6 +1149,7 @@ impl Plugin for TrafficEditorPlugin {
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(update_picking_cam)
+                    .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities),

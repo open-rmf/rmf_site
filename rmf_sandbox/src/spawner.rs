@@ -35,19 +35,36 @@ pub struct VerticesManagers(pub HashMap<String, LevelVerticesManager>);
 
 #[derive(Clone, Default)]
 pub struct LevelVerticesManager {
-    vertices: HashMap<usize, Entity>,
+    id_to_entity: HashMap<usize, Entity>,
+    entity_to_id: HashMap<Entity, usize>,
     next_id: usize,
 }
 
 impl LevelVerticesManager {
     pub fn add(&mut self, entity: Entity) -> usize {
-        self.vertices.insert(self.next_id, entity);
+        self.id_to_entity.insert(self.next_id, entity);
+        self.entity_to_id.insert(entity, self.next_id);
         self.next_id += 1;
         self.next_id - 1
     }
 
     pub fn get(&self, id: usize) -> Option<Entity> {
-        self.vertices.get(&id).cloned()
+        self.id_to_entity.get(&id).cloned()
+    }
+
+    pub fn get_entity(&self, entity: Entity) -> Option<usize> {
+        self.entity_to_id.get(&entity).cloned()
+    }
+
+    pub fn remove(&mut self, id: usize) {
+        match self.id_to_entity.get(&id) {
+            Some(entity) => {
+                // Delete
+                self.entity_to_id.remove(entity);
+                self.id_to_entity.remove(&id);
+            }
+            None => {}
+        }
     }
 }
 
