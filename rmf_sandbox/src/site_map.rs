@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 
-use crate::despawn::DespawnBlocker;
-use crate::despawn::PendingDespawn;
+use crate::despawn::{DespawnBlocker, PendingDespawn};
+use crate::door::Door;
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
@@ -11,6 +12,7 @@ use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
+
 use bevy::asset::LoadState;
 use bevy::prelude::*;
 
@@ -36,6 +38,7 @@ struct Handles {
     pub vertex_mesh: Handle<Mesh>,
     pub vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
+    pub door_material: Handle<StandardMaterial>,
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
@@ -83,6 +86,11 @@ fn init_site_map(
     handles.wall_material = materials.add(StandardMaterial {
         base_color_texture: Some(default_wall_material_texture.clone()),
         unlit: false,
+        ..default()
+    });
+    handles.door_material = materials.add(StandardMaterial {
+        base_color: Color::rgba(1., 1., 1., 0.8),
+        alpha_mode: AlphaMode::Blend,
         ..default()
     });
 
@@ -270,15 +278,12 @@ fn update_measurements(
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
-            commands
-                .entity(e)
-                .insert_bundle(PbrBundle {
-                    mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
-                    material: handles.measurement_material.clone(),
-                    transform: measurement.transform(v1, v2),
-                    ..Default::default()
-                })
-                .insert(measurement.clone());
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
+                material: handles.measurement_material.clone(),
+                transform: measurement.transform(v1, v2),
+                ..Default::default()
+            });
         } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             *t.unwrap() = measurement.transform(v1, v2);
         }
@@ -385,6 +390,94 @@ fn update_models(
     }
 }
 
+fn update_doors(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    level: Res<SiteMapCurrentLevel>,
+    vertices_mgrs: Res<VerticesManagers>,
+    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
+    mut q_doors: Query<(Entity, &Door, Option<&mut Transform>, ChangeTrackers<Door>)>,
+) {
+    for (e, door, t, door_changed) in q_doors.iter_mut() {
+        let v1_entity = vertices_mgrs.0[&level.0].get(door.0).unwrap();
+        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].get(door.1).unwrap();
+        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
+
+        if !door_changed.is_changed() && !v1_change.is_changed() && !v2_change.is_changed() {
+            continue;
+        }
+
+        let p1 = Vec3::new(v1.0 as f32, v1.1 as f32, 0.);
+        let p2 = Vec3::new(v2.0 as f32, v2.1 as f32, 0.);
+        let dist = p1.distance(p2);
+        let mid = (p1 + p2) / 2.;
+        let rot = f32::atan2(p2.y - p1.y, p2.x - p1.x);
+        // width and height is not available from the building file so we use a fixed height.
+        let width = 0.1 as f32;
+        let height = 4. as f32;
+
+        let transform = Transform {
+            translation: mid,
+            rotation: Quat::from_rotation_z(rot),
+            scale: Vec3::new(dist, width, height),
+        };
+
+        if door_changed.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                material: handles.door_material.clone(),
+                transform,
+                ..default()
+            });
+        }
+
+        if door_changed.is_changed() {
+            if let Some(mut t) = t {
+                *t = transform;
+            }
+        }
+    }
+}
+
+fn update_lifts(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    mut q_lifts: Query<
+        (Entity, &Lift, Option<&mut Transform>, ChangeTrackers<Lift>),
+        Changed<Lift>,
+    >,
+) {
+    for (e, lift, t, lift_changes) in q_lifts.iter_mut() {
+        let center = Vec3::new(lift.x as f32, lift.y as f32, 0.);
+        // height is not available from the building file so we use a fixed height.
+        let height = 4. as f32;
+
+        let transform = Transform {
+            translation: center,
+            rotation: Quat::from_rotation_z(lift.yaw as f32),
+            scale: Vec3::new(lift.width as f32, lift.depth as f32, height),
+        };
+
+        if lift_changes.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                material: handles.door_material.clone(),
+                transform,
+                ..default()
+            });
+        }
+
+        if lift_changes.is_changed() {
+            if let Some(mut t) = t {
+                *t = transform;
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
@@ -414,7 +507,9 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_walls.after(update_vertices))
                     .with_system(update_measurements.after(update_vertices))
                     .with_system(update_lights.after(init_site_map))
-                    .with_system(update_models.after(init_site_map)),
+                    .with_system(update_models.after(init_site_map))
+                    .with_system(update_doors.after(update_vertices))
+                    .with_system(update_lifts.after(init_site_map)),
             );
     }
 }

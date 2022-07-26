@@ -3648,11 +3648,11 @@ dependencies = [
  "futures-lite",
  "rfd",
  "serde",
+ "serde_json",
  "serde_yaml",
  "surf",
  "wasm-bindgen",
  "web-sys",
- "yaml-rust",
 ]
 
 [[package]]
