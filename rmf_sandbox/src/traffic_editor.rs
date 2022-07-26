@@ -1,9 +1,12 @@
 use std::path::PathBuf;
 
+use crate::basic_components;
 use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
+use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
 use crate::lane::Lane;
+use crate::lift::Lift;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
@@ -11,21 +14,20 @@ use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
+use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
-    app::AppExit,
     prelude::*,
     render::camera::{ActiveCamera, Camera3d},
-    tasks::AsyncComputeTaskPool,
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
     DefaultHighlighting, DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera,
-    PickingCameraBundle, StandardMaterialHighlight,
+    PickingCameraBundle, Selection, StandardMaterialHighlight,
 };
 
-trait Editable: Sync + Send + Clone {
+trait Editable {
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
 }
 
@@ -315,6 +317,202 @@ impl Editable for EditableFloor {
     }
 }
 
+impl Editable for Door {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("door").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut *self.2.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("X");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.0).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.1).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Type");
+            egui::ComboBox::from_label("")
+                .selected_text(DoorType::from(self.2.type_.as_str()).to_string())
+                .show_ui(ui, |ui| {
+                    for t in DOOR_TYPES {
+                        changed = ui
+                            .selectable_value(&mut *self.2.type_, t.to_value(), t.to_string())
+                            .changed()
+                            || changed;
+                    }
+                });
+            ui.end_row();
+
+            ui.label("Right Left Ratio");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.right_left_ratio).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Motion Axis");
+            changed = ui.text_edit_singleline(&mut *self.2.motion_axis).changed() || changed;
+            ui.end_row();
+
+            ui.label("Motion Degrees");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.motion_degrees))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Motion Direction");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.2.motion_direction))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Plugin");
+            changed = ui.text_edit_singleline(&mut *self.2.plugin).changed() || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
+#[derive(Clone)]
+struct EditableLift {
+    name: String,
+    lift: Lift,
+    doors_json: String,
+    valid_doors: bool,
+    level_doors_json: String,
+    valid_level_doors: bool,
+}
+
+impl EditableLift {
+    pub fn from_lift(name: &str, lift: &Lift) -> serde_json::Result<Self> {
+        Ok(Self {
+            name: name.to_string(),
+            lift: lift.clone(),
+            doors_json: serde_json::to_string_pretty(&lift.doors)?,
+            valid_doors: true,
+            level_doors_json: serde_json::to_string_pretty(&lift.level_doors)?,
+            valid_level_doors: true,
+        })
+    }
+}
+
+impl Editable for EditableLift {
+    fn draw(&mut self, ui: &mut egui::Ui) -> bool {
+        let mut changed = false;
+
+        egui::Grid::new("lift").num_columns(2).show(ui, |ui| {
+            ui.label("Name");
+            changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
+            ui.end_row();
+
+            ui.label("X");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.x).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Y");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.y).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Yaw");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.yaw).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Width");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.width).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Depth");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.lift.depth).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Lowest Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.lowest_floor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Highest Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.highest_floor)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Initial Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.initial_floor_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Reference Floor");
+            changed = ui
+                .text_edit_singleline(&mut self.lift.reference_floor_name)
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Plugins");
+            changed = ui.checkbox(&mut self.lift.plugins, "").changed() || changed;
+            ui.end_row();
+
+            ui.label("Doors");
+            changed = ui
+                .add(TextEditJson::new(
+                    &mut self.lift.doors,
+                    &mut self.doors_json,
+                    &mut self.valid_doors,
+                ))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Level Doors");
+            changed = ui
+                .add(TextEditJson::new(
+                    &mut self.lift.level_doors,
+                    &mut self.level_doors_json,
+                    &mut self.valid_level_doors,
+                ))
+                .changed()
+                || changed;
+            ui.end_row();
+        });
+
+        changed
+    }
+}
+
 #[derive(Component)]
 enum EditableTag {
     Lane,
@@ -323,6 +521,8 @@ enum EditableTag {
     Wall,
     Model(Entity),
     Floor,
+    Door,
+    Lift,
 }
 
 enum EditorData {
@@ -332,6 +532,8 @@ enum EditorData {
     Wall(Wall),
     Model(Model),
     Floor(EditableFloor),
+    Door(Door),
+    Lift(EditableLift),
 }
 
 struct SelectedEditable(Entity, EditorData);
@@ -347,6 +549,8 @@ struct EditorPanel<'w, 's> {
     q_wall: Query<'w, 's, &'static mut Wall>,
     q_model: Query<'w, 's, &'static mut Model>,
     q_floor: Query<'w, 's, &'static mut Floor>,
+    q_door: Query<'w, 's, &'static mut Door>,
+    q_lift: Query<'w, 's, &'static mut Lift>,
 }
 
 impl<'w, 's> EditorPanel<'w, 's> {
@@ -386,6 +590,8 @@ impl<'w, 's> EditorPanel<'w, 's> {
             EditorData::Wall(_) => "Wall",
             EditorData::Model(_) => "Model",
             EditorData::Floor(_) => "Floor",
+            EditorData::Door(_) => "Door",
+            EditorData::Lift(_) => "Lift",
         };
 
         ui.heading(title);
@@ -428,16 +634,26 @@ impl<'w, 's> EditorPanel<'w, 's> {
                     *has_changes = true;
                 }
             }
+            EditorData::Door(door) => {
+                if door.draw(ui) {
+                    commit_changes(&mut self.q_door, selected.0, door);
+                    *has_changes = true;
+                }
+            }
+            EditorData::Lift(editable_lift) => {
+                if editable_lift.draw(ui) {
+                    commit_changes(&mut self.q_lift, selected.0, &editable_lift.lift);
+                    *has_changes = true;
+                }
+            }
         };
     }
 }
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
-    mut query: Query<&mut CameraControls>,
+    mut q_camera_controls: Query<&mut CameraControls>,
     mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
-    mut _exit: EventWriter<AppExit>,
-    _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
@@ -448,7 +664,7 @@ fn egui_ui(
     current_level: Option<Res<SiteMapCurrentLevel>>,
     mut selected: ResMut<Option<SelectedEditable>>,
 ) {
-    let mut controls = query.single_mut();
+    let mut controls = q_camera_controls.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
@@ -502,7 +718,8 @@ fn egui_ui(
 
     egui::SidePanel::right("editor_panel")
         .resizable(false)
-        .max_width(200.)
+        .default_width(250.)
+        .max_width(250.)
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical_centered_justified(|ui| {
                 ui.group(|ui| {
@@ -553,6 +770,31 @@ fn egui_ui(
                             .id();
                         *selected =
                             Some(SelectedEditable(new_entity, EditorData::Model(new_model)));
+                    }
+                    if ui.button("Add Door").clicked() {
+                        let new_door = Door::default();
+                        let new_entity = spawner
+                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_door.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(new_entity, EditorData::Door(new_door)));
+                    }
+                    if ui.button("Add Lift").clicked() {
+                        let cur_level = &current_level.as_ref().unwrap().0;
+                        let new_lift = Lift {
+                            initial_floor_name: cur_level.clone(),
+                            ..default()
+                        };
+                        let new_entity = spawner
+                            .spawn_in_level(&cur_level, new_lift.clone())
+                            .unwrap()
+                            .id();
+                        *selected = Some(SelectedEditable(
+                            new_entity,
+                            EditorData::Lift(
+                                EditableLift::from_lift("new_lift", &new_lift).unwrap(),
+                            ),
+                        ));
                     }
                 });
                 ui.group(|ui| {
@@ -606,6 +848,9 @@ fn maintain_inspected_entities(
     q_wall: Query<&Wall>,
     q_model: Query<&Model>,
     q_floor: Query<&Floor>,
+    q_door: Query<&Door>,
+    q_lift: Query<&Lift>,
+    q_name: Query<&basic_components::Name>,
 ) {
     let clicked = editables.iter().find(|(_, i, _)| match i {
         Interaction::Clicked => true,
@@ -657,6 +902,17 @@ fn maintain_inspected_entities(
             )),
             Err(err) => Err(err),
         },
+        EditableTag::Door => match q_door.get(e) {
+            Ok(door) => Ok(SelectedEditable(e, EditorData::Door(door.clone()))),
+            Err(err) => Err(err),
+        },
+        EditableTag::Lift => match q_lift.get(e) {
+            Ok(lift) => Ok(SelectedEditable(
+                e,
+                EditorData::Lift(EditableLift::from_lift(&q_name.get(e).unwrap().0, lift).unwrap()),
+            )),
+            Err(err) => Err(err),
+        },
     };
 
     *selected = match try_selected {
@@ -701,8 +957,11 @@ fn enable_picking(
     walls: Query<Entity, With<Wall>>,
     models: Query<Entity, With<Model>>,
     floors: Query<Entity, With<Floor>>,
-    meshes: Query<Entity, Added<Handle<Mesh>>>,
+    doors: Query<Entity, With<Door>>,
+    lifts: Query<Entity, With<Lift>>,
+    meshes: Query<Entity, Changed<Handle<Mesh>>>,
     parent: Query<&Parent>,
+    selected: Res<Option<SelectedEditable>>,
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Query<&mut Interaction, With<PickingBlocker>>,
 ) {
@@ -716,46 +975,60 @@ fn enable_picking(
     for mesh_entity in meshes.iter() {
         // go up the hierarchy tree until the root, trying to find if a mesh is part of a model.
         let mut e = Some(mesh_entity);
+        let mut tag: Option<EditableTag> = None;
         while let Some(cur) = e {
-            if let Ok(lane_entity) = lanes.get(cur) {
-                commands
-                    .entity(lane_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Lane);
+            if lanes.contains(cur) {
+                tag = Some(EditableTag::Lane);
             }
-            if let Ok(vertex_entity) = vertices.get(cur) {
-                commands
-                    .entity(vertex_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Vertex);
+            if vertices.contains(cur) {
+                tag = Some(EditableTag::Vertex);
             }
-            if let Ok(wall_entity) = walls.get(cur) {
-                commands
-                    .entity(wall_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Wall);
+            if walls.contains(cur) {
+                tag = Some(EditableTag::Wall);
             }
-            if let Ok(measurement_entity) = measurements.get(cur) {
-                commands
-                    .entity(measurement_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Measurement);
+            if measurements.contains(cur) {
+                tag = Some(EditableTag::Measurement);
             }
-            if let Ok(floor_entity) = floors.get(cur) {
-                commands
-                    .entity(floor_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Floor);
+            if floors.contains(cur) {
+                tag = Some(EditableTag::Floor);
+            }
+            if doors.contains(cur) {
+                tag = Some(EditableTag::Door);
+            }
+            if lifts.contains(cur) {
+                tag = Some(EditableTag::Lift);
             }
 
             // check if this entity is a model, if so, make it pickable.
             if let Ok(model_entity) = models.get(cur) {
+                tag = Some(EditableTag::Model(model_entity));
+            }
+
+            if let Some(tag) = tag {
+                // Some objects may respawn their mesh they are changed, causing `bevy_mod_picking`
+                // to forget that the mesh is selected. Workaround that by forcing the selected state.
+                //
+                // FIXME: This still creates a one-frame lag where the mesh is not highlighted.
+                // This is because we only know of meshes added in the next frame since commands
+                // are ran at the end of a stage. The bevy stageless RFC may fix this, but for now
+                // we need to move this into a custom stage to fix this.
+                let mut selection = Selection::default();
+                if let Some(selected) = &*selected {
+                    if selected.0 == cur {
+                        selection.set_selected(true);
+                    }
+                }
+
                 commands
                     .entity(mesh_entity)
-                    .insert_bundle(PickableBundle::default())
-                    .insert(EditableTag::Model(model_entity));
+                    .insert_bundle(PickableBundle {
+                        selection,
+                        ..default()
+                    })
+                    .insert(tag);
                 break;
             }
+
             e = match parent.get(cur) {
                 Ok(parent) => Some(parent.0),
                 Err(_) => None,
@@ -769,7 +1042,9 @@ fn enable_picking(
     // Normally bevy_mod_picking automatically stops when
     // a bevy ui node is in focus, but bevy_egui does not use bevy ui node.
     let egui_ctx = egui_context.ctx_mut();
-    let enable = !egui_ctx.wants_pointer_input() && !egui_ctx.wants_keyboard_input();
+    let enable = !egui_ctx.wants_pointer_input()
+        && !egui_ctx.wants_keyboard_input()
+        && !egui_ctx.is_pointer_over_area();
 
     let mut blocker = picking_blocker.single_mut();
     if enable {
@@ -795,7 +1070,8 @@ impl Plugin for TrafficEditorPlugin {
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(update_picking_cam)
-                    .with_system(enable_picking)
+                    // must be after egui_ui so that the picking blocker knows about all the ui elements
+                    .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities),
             );
     }
