@@ -16,7 +16,12 @@ impl Camera {
         Transform {
             translation: Vec3::new(self.x as f32, self.y as f32, self.z as f32),
             //EulerRot::ZYX means apply yaw, pitch, roll in that order
-            rotation: Quat::from_euler(EulerRot::ZYX, self.yaw as f32, self.pitch as f32, 0.0 as f32),
+            rotation: Quat::from_euler(
+                EulerRot::ZYX,
+                self.yaw as f32,
+                self.pitch as f32,
+                0.0 as f32,
+            ),
             scale: Vec3::new(0.1, 0.1, 0.1),
             ..Default::default()
         }

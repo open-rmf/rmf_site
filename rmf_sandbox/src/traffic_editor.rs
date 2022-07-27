@@ -2,6 +2,7 @@ use std::path::PathBuf;
 
 use crate::basic_components;
 use crate::building_map::BuildingMap;
+use crate::camera::Camera;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
@@ -14,7 +15,6 @@ use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::{Spawner, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
-use crate::camera::Camera;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
@@ -524,23 +524,38 @@ impl Editable for Camera {
             ui.end_row();
 
             ui.label("x");
-            changed = ui.add(egui::DragValue::new(&mut self.x).speed(0.1)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.x).speed(0.1))
+                .changed()
+                || changed;
             ui.end_row();
 
             ui.label("y");
-            changed = ui.add(egui::DragValue::new(&mut self.y).speed(0.1)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.y).speed(0.1))
+                .changed()
+                || changed;
             ui.end_row();
 
             ui.label("z");
-            changed = ui.add(egui::DragValue::new(&mut self.z).speed(0.1)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.z).speed(0.1))
+                .changed()
+                || changed;
             ui.end_row();
 
             ui.label("pitch");
-            changed = ui.add(egui::DragValue::new(&mut self.pitch).speed(0.1)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.pitch).speed(0.05))
+                .changed()
+                || changed;
             ui.end_row();
 
             ui.label("yaw");
-            changed = ui.add(egui::DragValue::new(&mut self.yaw).speed(0.1)).changed() || changed;
+            changed = ui
+                .add(egui::DragValue::new(&mut self.yaw).speed(0.1))
+                .changed()
+                || changed;
             ui.end_row();
         });
 

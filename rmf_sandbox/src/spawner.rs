@@ -4,6 +4,7 @@
 
 use crate::{
     basic_components::{Id, Name},
+    camera::Camera,
     crowd_sim::CrowdSim,
     despawn::PendingDespawn,
     door::Door,
@@ -11,7 +12,6 @@ use crate::{
     floor::Floor,
     level::LevelDrawing,
     lift::Lift,
-    camera::Camera,
 };
 use std::collections::HashMap;
 

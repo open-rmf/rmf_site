@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use crate::camera::Camera;
 use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
@@ -12,7 +13,6 @@ use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
-use crate::camera::Camera;
 
 use bevy::asset::LoadState;
 use bevy::prelude::*;
@@ -483,7 +483,12 @@ fn update_cameras(
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
     mut q_cameras: Query<
-        (Entity, &Camera, Option<&mut Transform>, ChangeTrackers<Camera>),
+        (
+            Entity,
+            &Camera,
+            Option<&mut Transform>,
+            ChangeTrackers<Camera>,
+        ),
         Changed<Camera>,
     >,
 ) {

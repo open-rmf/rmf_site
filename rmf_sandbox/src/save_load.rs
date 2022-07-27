@@ -11,6 +11,7 @@ use bevy::{
 use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
+    camera::Camera,
     door::Door,
     floor::Floor,
     lane::Lane,
@@ -21,7 +22,6 @@ use crate::{
     spawner::{BuildingMapExtra, LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
     vertex::Vertex,
     wall::Wall,
-    camera::Camera,
 };
 
 pub struct SaveLoadPlugin;

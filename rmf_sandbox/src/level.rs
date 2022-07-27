@@ -1,10 +1,10 @@
+use crate::camera::Camera;
 use crate::fiducial::Fiducial;
 use crate::floor::Floor;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
-use crate::camera::Camera;
 use crate::{door::Door, lane::Lane};
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
