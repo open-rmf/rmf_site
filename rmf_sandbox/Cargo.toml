@@ -13,7 +13,8 @@ name = "rmf_sandbox"
 
 [dependencies]
 bevy_egui = "0.13"
-bevy_mod_picking = "0.7"
+# bevy_mod_picking = "0.7"
+bevy_mod_picking = { path = "../../bevy_mod_picking" }
 rfd = "0.8.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"

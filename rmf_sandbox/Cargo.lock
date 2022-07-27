@@ -714,8 +714,6 @@ dependencies = [
 [[package]]
 name = "bevy_mod_picking"
 version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ee28e69e9bcd2990273c0d2a976ea0d5b499d154a15c6990864f85fbb6bbee9e"
 dependencies = [
  "bevy",
  "bevy_mod_raycast",

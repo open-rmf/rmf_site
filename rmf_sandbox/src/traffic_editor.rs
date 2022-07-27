@@ -23,8 +23,8 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
-    DefaultHighlighting, DefaultPickingPlugins, PickableBundle, PickingBlocker, PickingCamera,
-    PickingCameraBundle, Selection, StandardMaterialHighlight,
+    DefaultHighlighting, DefaultPickingPlugins, PickingBlocker, PickingCamera,
+    PickingCameraBundle, Selection, StandardMaterialHighlight, PickableBundle,
 };
 
 trait Editable {
@@ -806,14 +806,13 @@ fn egui_ui(
 
 fn on_startup(
     mut commands: Commands,
-    highlighting: Res<DefaultHighlighting<StandardMaterialHighlight>>,
+    mut highlighting: ResMut<DefaultHighlighting<StandardMaterialHighlight>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    let mut hovered = mats.get_mut(&highlighting.hovered).unwrap();
-    hovered.base_color = Color::rgb(0.35, 0.75, 0.35);
-    let mut pressed = mats.get_mut(&highlighting.pressed).unwrap();
-    pressed.base_color = Color::rgb(0.35, 0.35, 0.75);
-    let mut selected = mats.get_mut(&highlighting.pressed).unwrap();
+    highlighting.hovered = None;
+    let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
+    pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
+    let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
     selected.base_color = Color::rgb(0.35, 0.35, 0.75);
 
     commands
@@ -1152,7 +1151,7 @@ impl Plugin for TrafficEditorPlugin {
                     .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
-                    .with_system(maintain_inspected_entities),
+                    .with_system(maintain_inspected_entities)
             );
     }
 }
