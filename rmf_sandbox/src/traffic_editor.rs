@@ -524,26 +524,23 @@ impl Editable for Camera {
             ui.end_row();
 
             ui.label("x");
-            changed = ui.add(egui::DragValue::new(&mut self.x)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.x).speed(0.1)).changed() || changed;
             ui.end_row();
 
             ui.label("y");
-            changed = ui.add(egui::DragValue::new(&mut self.y)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.y).speed(0.1)).changed() || changed;
             ui.end_row();
 
             ui.label("z");
-            changed = ui
-                .add(egui::DragValue::new(&mut self.z).speed(0.1)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.z).speed(0.1)).changed() || changed;
             ui.end_row();
 
             ui.label("pitch");
-            changed = ui
-                .add(egui::DragValue::new(&mut self.pitch).speed(0.1)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.pitch).speed(0.1)).changed() || changed;
             ui.end_row();
 
             ui.label("yaw");
-            changed = ui
-                .add(egui::DragValue::new(&mut self.yaw).speed(0.1)).changed() || changed;
+            changed = ui.add(egui::DragValue::new(&mut self.yaw).speed(0.1)).changed() || changed;
             ui.end_row();
         });
 

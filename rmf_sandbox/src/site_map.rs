@@ -12,6 +12,7 @@ use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
+use crate::camera::Camera;
 
 use bevy::asset::LoadState;
 use bevy::prelude::*;
@@ -39,6 +40,7 @@ struct Handles {
     pub vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
+    pub camera_material: Handle<StandardMaterial>,
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
@@ -93,6 +95,7 @@ fn init_site_map(
         alpha_mode: AlphaMode::Blend,
         ..default()
     });
+    handles.camera_material = materials.add(Color::rgb(1.0, 1.0, 1.0).into());
 
     println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
@@ -475,6 +478,31 @@ fn update_lifts(
     }
 }
 
+fn update_cameras(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<Handles>,
+    mut q_cameras: Query<
+        (Entity, &Camera, Option<&mut Transform>, ChangeTrackers<Camera>),
+        Changed<Camera>,
+    >,
+) {
+    for (e, camera, t, changes) in q_cameras.iter_mut() {
+        if changes.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                material: handles.camera_material.clone(),
+                transform: camera.transform(),
+                ..default()
+            });
+        } else if changes.is_changed() {
+            if let Some(mut t) = t {
+                *t = camera.transform();
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
@@ -506,7 +534,8 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_lights.after(init_site_map))
                     .with_system(update_models.after(init_site_map))
                     .with_system(update_doors.after(update_vertices))
-                    .with_system(update_lifts.after(init_site_map)),
+                    .with_system(update_lifts.after(init_site_map))
+                    .with_system(update_cameras.after(init_site_map)),
             );
     }
 }
