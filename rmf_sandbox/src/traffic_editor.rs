@@ -653,7 +653,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut q_camera_controls: Query<&mut CameraControls>,
-    mut cameras: Query<&mut Camera>,
+    mut cameras: Query<(&mut Camera, &mut Visibility)>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
@@ -1137,6 +1137,22 @@ fn check_visibility(
     }
 }
 
+fn check_lights(
+    lights: Query<(Entity, &DirectionalLight, &GlobalTransform, &ComputedVisibility, &Parent)>,
+    tfs: Query<(Entity, &GlobalTransform, &Transform)>,
+) {
+    for (e, l, t, v, p) in &lights {
+        let v_h = v.is_visible_in_hierarchy();
+        let v_c = v.is_visible_in_view();
+        println!("{e:?} has visibility {v_h}, {v_c} with {t:?}");
+        if let Some((p, gtf, ltf)) = tfs.get(p.get()).ok() {
+            println!("parent {p:?} tf: {ltf:?} -> {gtf:?}");
+        } else {
+            println!("CANNOT FIND PARENT TF");
+        }
+    }
+}
+
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
@@ -1149,12 +1165,13 @@ impl Plugin for TrafficEditorPlugin {
                 SystemSet::on_update(AppState::TrafficEditor)
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
-                    .with_system(update_picking_cam)
+                    // .with_system(update_picking_cam)
                     .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
-                    .with_system(enable_picking.after(egui_ui))
+                    // .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities)
-                    .with_system(check_visibility)
+                    // .with_system(check_visibility)
+                    // .with_system(check_lights)
             );
     }
 }

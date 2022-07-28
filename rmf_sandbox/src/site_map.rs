@@ -106,8 +106,8 @@ fn init_site_map(
     for level in sm.levels.values() {
         // spawn lights
         let bb = level.calc_bb();
-        // if settings.graphics_quality == GraphicsQuality::Ultra {
-            {
+        if settings.graphics_quality == GraphicsQuality::Ultra {
+            // {
             // spawn a grid of lights for this level
             // todo: make UI controls for light spacing, intensity, range, shadows
             let light_spacing = 5.;

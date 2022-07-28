@@ -5,7 +5,6 @@ use bevy::{
     prelude::*,
     render::camera::{Camera, ScalingMode, WindowOrigin, Projection},
     core_pipeline::core_3d::Camera3dBundle,
-    render::view::VisibleEntities,
 };
 use bevy_egui::EguiContext;
 
@@ -30,7 +29,7 @@ pub enum ProjectionMode {
 pub struct CameraControls {
     mode: ProjectionMode,
     pub perspective_camera_entity: Entity,
-    // pub orthographic_camera_entity: Entity,
+    pub orthographic_camera_entity: Entity,
     pub orbit_center: Vec3,
     pub orbit_radius: f32,
     pub orbit_upside_down: bool,
@@ -40,21 +39,21 @@ impl CameraControls {
     pub fn use_perspective(
         &mut self,
         choice: bool,
-        cameras: &mut Query<&mut Camera>,
+        cameras: &mut Query<(&mut Camera, &mut Visibility)>,
     ) {
-        if let Some(mut perspective) = cameras.get_mut(self.perspective_camera_entity).ok() {
-            perspective.is_active = choice;
+        if let Some((mut camera, mut visibility)) = cameras.get_mut(self.perspective_camera_entity).ok() {
+            camera.is_active = choice;
+            visibility.is_visible = choice;
         }
 
-        // if let Some(mut orthographic) = cameras.get_mut(self.orthographic_camera_entity).ok() {
-        //     orthographic.is_active = !choice;
-        // }
+        if let Some((mut camera, mut visibility)) = cameras.get_mut(self.orthographic_camera_entity).ok() {
+            camera.is_active = !choice;
+            visibility.is_visible = !choice;
+        }
 
         if choice {
-            println!("setting perspective to active");
             self.mode = ProjectionMode::Perspective;
         } else {
-            println!("setting orthographic to active");
             self.mode = ProjectionMode::Orthographic;
         }
     }
@@ -62,7 +61,7 @@ impl CameraControls {
     pub fn use_orthographic(
         &mut self,
         choice: bool,
-        cameras: &mut Query<&mut Camera>,
+        cameras: &mut Query<(&mut Camera, &mut Visibility)>,
     ) {
         self.use_perspective(!choice, cameras);
     }
@@ -92,7 +91,7 @@ fn camera_controls(
     input_mouse: Res<Input<MouseButton>>,
     mut previous_mouse_location: ResMut<MouseLocation>,
     mut controls_query: Query<&mut CameraControls>,
-    mut cameras: Query<(&mut Projection, &mut Transform, &VisibleEntities)>,
+    mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut egui_context: ResMut<EguiContext>,
 ) {
     // give input priority to ui elements
@@ -133,29 +132,28 @@ fn camera_controls(
 
     let mut controls = controls_query.single_mut();
     if controls.mode() == ProjectionMode::Orthographic {
-        // let (mut ortho_proj, mut ortho_transform, visible) = cameras.get_mut(controls.orthographic_camera_entity).unwrap();
-        // println!("Ortho visible: {visible:?}");
-        // if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-        //     if let Some(window) = windows.get_primary() {
-        //         let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-        //         let aspect_ratio = window_size[0] / window_size[1];
+        let (mut ortho_proj, mut ortho_transform) = cameras.get_mut(controls.orthographic_camera_entity).unwrap();
+        if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
+            if let Some(window) = windows.get_primary() {
+                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+                let aspect_ratio = window_size[0] / window_size[1];
 
-        //         if cursor_motion.length_squared() > 0.0 {
-        //             cursor_motion *=
-        //                 2. / window_size * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
-        //             let right = -cursor_motion.x * Vec3::X;
-        //             let up = -cursor_motion.y * Vec3::Y;
-        //             ortho_transform.translation += right + up;
-        //         }
-        //         if scroll.abs() > 0.0 {
-        //             ortho_proj.scale -= scroll * ortho_proj.scale * 0.1;
-        //             ortho_proj.scale = f32::max(ortho_proj.scale, 0.02);
-        //         }
-        //     }
-        // }
+                if cursor_motion.length_squared() > 0.0 {
+                    cursor_motion *=
+                        2. / window_size * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
+                    let right = -cursor_motion.x * Vec3::X;
+                    let up = -cursor_motion.y * Vec3::Y;
+                    ortho_transform.translation += right + up;
+                }
+                if scroll.abs() > 0.0 {
+                    ortho_proj.scale -= scroll * ortho_proj.scale * 0.1;
+                    ortho_proj.scale = f32::max(ortho_proj.scale, 0.02);
+                }
+            }
+        }
     } else {
         // perspective mode
-        let (mut persp_proj, mut persp_transform, visible) = cameras.get_mut(controls.perspective_camera_entity).unwrap();
+        let (mut persp_proj, mut persp_transform) = cameras.get_mut(controls.perspective_camera_entity).unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
@@ -223,7 +221,7 @@ fn camera_controls(
 fn handle_keyboard(
     keyboard_input: Res<Input<KeyCode>>,
     mut controls_query: Query<&mut CameraControls>,
-    mut cameras: Query<&mut Camera>,
+    mut cameras: Query<(&mut Camera, &mut Visibility)>,
     mut egui_ctx: ResMut<EguiContext>,
 ) {
     if egui_ctx.ctx_mut().wants_pointer_input() {
@@ -241,23 +239,21 @@ fn handle_keyboard(
 }
 
 fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
-
     let mut perspective = commands.spawn_bundle(Camera3dBundle{
-        // camera: Camera{
-        //     priority: 0,
-        //     is_active: true,
-        //     ..default()
-        // },
         transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
         projection: Projection::Perspective(Default::default()),
         ..default()
     });
+    perspective
+        .insert(Visibility::visible())
+        .insert(ComputedVisibility::default());
 
     // When graphics is low, use a directional light that follows the camera.
     if settings.graphics_quality == GraphicsQuality::Low {
+        println!("Adding directional light bundle");
         perspective.with_children(|parent| {
             parent.spawn_bundle(DirectionalLightBundle {
-                directional_light: DirectionalLight {
+                directional_light: DirectionalLight{
                     shadows_enabled: false,
                     illuminance: 20000.,
                     ..default()
@@ -268,29 +264,45 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
     }
     let perspective_id = perspective.id();
 
-    // let ortho_id = commands
-    //     .spawn_bundle(Camera3dBundle {
-    //         camera: Camera{
-    //             priority: 0,
-    //             is_active: false,
-    //             ..default()
-    //         },
-    //         transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-    //         projection: Projection::Orthographic(OrthographicProjection {
-    //             window_origin: WindowOrigin::Center,
-    //             scaling_mode: ScalingMode::FixedVertical(1.0),
-    //             scale: 10.0,
-    //             ..default()
-    //         }),
-    //         ..default()
-    //     })
-    //     .id();
+    let mut ortho = commands
+        .spawn_bundle(Camera3dBundle {
+            camera: Camera{
+                is_active: false,
+                ..default()
+            },
+            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+            projection: Projection::Orthographic(OrthographicProjection {
+                window_origin: WindowOrigin::Center,
+                scaling_mode: ScalingMode::FixedVertical(1.0),
+                scale: 10.0,
+                ..default()
+            }),
+            ..default()
+        });
+    ortho
+        .insert(Visibility::visible())
+        .insert(ComputedVisibility::default());
+
+    if settings.graphics_quality == GraphicsQuality::Low {
+        ortho.with_children(|parent| {
+            parent.spawn_bundle(DirectionalLightBundle {
+                transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::new(1., 1., 0.).normalize(), 35_f32.to_radians())),
+                directional_light: DirectionalLight{
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..default()
+                },
+                ..default()
+            });
+        });
+    }
+    let ortho_id = ortho.id();
 
     commands.spawn_bundle(CameraControlsBundle {
         controls: CameraControls {
             mode: ProjectionMode::Perspective,
             perspective_camera_entity: perspective_id,
-            // orthographic_camera_entity: ortho_id,
+            orthographic_camera_entity: ortho_id,
             orbit_center: Vec3::ZERO,
             orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
             orbit_upside_down: false,
