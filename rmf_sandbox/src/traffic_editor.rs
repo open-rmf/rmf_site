@@ -523,37 +523,65 @@ impl Editable for Camera {
             changed = ui.text_edit_singleline(&mut self.name).changed() || changed;
             ui.end_row();
 
-            ui.label("x");
+            ui.label("X");
             changed = ui
                 .add(egui::DragValue::new(&mut self.x).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("y");
+            ui.label("Y");
             changed = ui
                 .add(egui::DragValue::new(&mut self.y).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("z");
+            ui.label("Z");
             changed = ui
                 .add(egui::DragValue::new(&mut self.z).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("pitch");
+            ui.label("Pitch");
             changed = ui
                 .add(egui::DragValue::new(&mut self.pitch).speed(0.05))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("yaw");
+            ui.label("Yaw");
             changed = ui
                 .add(egui::DragValue::new(&mut self.yaw).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Image Fov");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.image_fov).speed(0.1))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Image Width");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.image_width).speed(10))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Image Height");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.image_height).speed(10))
+                .changed()
+                || changed;
+            ui.end_row();
+
+            ui.label("Update Rate");
+            changed = ui
+                .add(egui::DragValue::new(&mut self.update_rate))
                 .changed()
                 || changed;
             ui.end_row();
