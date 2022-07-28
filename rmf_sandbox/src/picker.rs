@@ -22,12 +22,11 @@ use bevy::{
     }
 };
 
-
-#[derive(Component)]
-struct SelectCursor;
-
-#[derive(Component)]
-struct VertexCursor;
+#[derive(Debug)]
+pub struct Cursor {
+    select_cursor: Entity,
+    vertex_cursor: Entity,
+}
 
 fn select_cursor_mesh() -> Mesh {
     // TODO(MXG): Consider moving this to an asset file instead of hard-coding it
@@ -146,3 +145,4 @@ pub fn init_cursors(
 ) {
 
 }
+

@@ -700,6 +700,7 @@ dependencies = [
 [[package]]
 name = "bevy_mod_picking"
 version = "0.6.0"
+source = "git+https://github.com/mxgrey/bevy_mod_picking?branch=optional_highlights-main#ffcc0b080e87405849a61680c0bfe8fcacd80c44"
 dependencies = [
  "bevy",
  "bevy_mod_raycast",

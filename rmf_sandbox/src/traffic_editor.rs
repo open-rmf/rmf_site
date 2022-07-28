@@ -24,6 +24,7 @@ use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
     DefaultHighlighting, DefaultPickingPlugins, PickingBlocker, PickingCamera,
     PickingCameraBundle, Selection, StandardMaterialHighlight, PickableBundle,
+    DebugCursorPickingPlugin,
 };
 
 
@@ -807,11 +808,11 @@ fn on_startup(
     mut highlighting: ResMut<DefaultHighlighting<StandardMaterialHighlight>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    // highlighting.hovered = None;
-    // let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
-    // pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
-    // let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
-    // selected.base_color = Color::rgb(0.35, 0.35, 0.75);
+    highlighting.hovered = None;
+    let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
+    pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
+    let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
+    selected.base_color = Color::rgb(0.35, 0.35, 0.75);
 
     commands
         .spawn()
@@ -1002,15 +1003,20 @@ fn maintain_inspected_entities(
 
 fn update_picking_cam(
     mut commands: Commands,
-    camera_controls: Query<&CameraControls, ChangeTrackers<CameraControls>>,
+    camera_controls: Query<(&CameraControls, ChangeTrackers<CameraControls>)>,
     picking_cams: Query<Entity, With<PickingCamera>>,
 ) {
-    let controls = camera_controls.single();
-    for cam in picking_cams.iter() {
-        commands.entity(cam).remove_bundle::<PickingCameraBundle>();
-    }
+    let (controls, changed) = camera_controls.single();
+    if changed.is_changed() {
+        let active_camera = controls.active_camera();
+        if picking_cams.get_single().ok().filter(|current| *current == active_camera).is_none() {
+            for cam in picking_cams.iter() {
+                commands.entity(cam).remove_bundle::<PickingCameraBundle>();
+            }
 
-    commands.entity(controls.active_camera()).insert_bundle(PickingCameraBundle::default());
+            commands.entity(controls.active_camera()).insert_bundle(PickingCameraBundle::default());
+        }
+    }
 }
 
 fn enable_picking(
@@ -1121,41 +1127,10 @@ fn enable_picking(
 #[derive(Default)]
 pub struct TrafficEditorPlugin;
 
-fn check_visibility(
-    visibles: Query<(Entity, &Visibility)>,
-    parents: Query<&Parent>,
-) {
-    for (e, v) in &visibles {
-        if !v.is_visible {
-            println!("{e:?} is not visible!");
-            if let Some(parent) = parents.get(e).ok().map(|p| p) {
-                println!("Its parent is {parent:?}");
-            } else {
-                println!("It has no parent!");
-            }
-        }
-    }
-}
-
-fn check_lights(
-    lights: Query<(Entity, &DirectionalLight, &GlobalTransform, &ComputedVisibility, &Parent)>,
-    tfs: Query<(Entity, &GlobalTransform, &Transform)>,
-) {
-    for (e, l, t, v, p) in &lights {
-        let v_h = v.is_visible_in_hierarchy();
-        let v_c = v.is_visible_in_view();
-        println!("{e:?} has visibility {v_h}, {v_c} with {t:?}");
-        if let Some((p, gtf, ltf)) = tfs.get(p.get()).ok() {
-            println!("parent {p:?} tf: {ltf:?} -> {gtf:?}");
-        } else {
-            println!("CANNOT FIND PARENT TF");
-        }
-    }
-}
-
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(DefaultPickingPlugins)
+        app
+            .add_plugins(DefaultPickingPlugins)
             .init_resource::<Option<SelectedEditable>>()
             .init_resource::<HasChanges>()
             .add_startup_system(on_startup)
@@ -1165,13 +1140,11 @@ impl Plugin for TrafficEditorPlugin {
                 SystemSet::on_update(AppState::TrafficEditor)
                     .before(SiteMapLabel)
                     .with_system(egui_ui)
-                    // .with_system(update_picking_cam)
+                    .with_system(update_picking_cam)
                     .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
-                    // .with_system(enable_picking.after(egui_ui))
+                    .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities)
-                    // .with_system(check_visibility)
-                    // .with_system(check_lights)
             );
     }
 }

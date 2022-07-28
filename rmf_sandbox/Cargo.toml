@@ -16,7 +16,7 @@ name = "rmf_sandbox"
 # bevy_egui = { git = "https://github.com/mvlabat/bevy_egui", branch = "main" }
 bevy_egui = { path = "../../bevy_egui" }
 # bevy_mod_picking = "0.7"
-bevy_mod_picking = { path = "../../bevy_mod_picking" }
+bevy_mod_picking = { git = "https://github.com/mxgrey/bevy_mod_picking", branch = "optional_highlights-main" }
 rfd = "0.8.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"

@@ -33,6 +33,7 @@ pub struct CameraControls {
     pub orbit_center: Vec3,
     pub orbit_radius: f32,
     pub orbit_upside_down: bool,
+    pub was_oribiting: bool,
 }
 
 impl CameraControls {
@@ -73,8 +74,7 @@ impl CameraControls {
     pub fn active_camera(&self) -> Entity {
         match self.mode {
             ProjectionMode::Perspective => self.perspective_camera_entity,
-            // ProjectionMode::Orthographic => self.orthographic_camera_entity,
-            ProjectionMode::Orthographic => self.perspective_camera_entity,
+            ProjectionMode::Orthographic => self.orthographic_camera_entity,
         }
     }
 }
@@ -89,6 +89,7 @@ fn camera_controls(
     mut ev_cursor_moved: EventReader<CursorMoved>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
+    input_keyboard: Res<Input<KeyCode>>,
     mut previous_mouse_location: ResMut<MouseLocation>,
     mut controls_query: Query<&mut CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
@@ -99,8 +100,18 @@ fn camera_controls(
     if egui_ctx.wants_pointer_input() || egui_ctx.wants_keyboard_input() {
         return;
     }
-    let pan_button = MouseButton::Left;
-    let orbit_button = MouseButton::Right;
+
+    let mut controls = controls_query.single_mut();
+
+    let is_shifting = input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
+    let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
+
+    let is_orbiting = input_mouse.pressed(MouseButton::Middle) || (
+        input_mouse.pressed(MouseButton::Right) && is_shifting
+    );
+    let started_orbiting = !controls.was_oribiting && is_orbiting;
+    let released_orbiting = controls.was_oribiting && !is_orbiting;
+    controls.was_oribiting = is_orbiting;
 
     // spin through all mouse cursor-moved events to find the last one
     let mut last_pos = previous_mouse_location.previous;
@@ -110,7 +121,7 @@ fn camera_controls(
     }
 
     let mut cursor_motion = Vec2::ZERO;
-    if input_mouse.pressed(pan_button) || input_mouse.pressed(orbit_button) {
+    if is_panning || is_orbiting {
         cursor_motion.x = last_pos.x - previous_mouse_location.previous.x;
         cursor_motion.y = last_pos.y - previous_mouse_location.previous.y;
     }
@@ -130,7 +141,6 @@ fn camera_controls(
         }
     }
 
-    let mut controls = controls_query.single_mut();
     if controls.mode() == ProjectionMode::Orthographic {
         let (mut ortho_proj, mut ortho_transform) = cameras.get_mut(controls.orthographic_camera_entity).unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
@@ -157,14 +167,14 @@ fn camera_controls(
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
-            if input_mouse.just_released(orbit_button) || input_mouse.just_pressed(orbit_button) {
+            if started_orbiting || released_orbiting {
                 // only check for upside down when orbiting started or ended this frame
                 // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
                 let up = persp_transform.rotation * Vec3::Z;
                 controls.orbit_upside_down = up.z <= 0.0;
             }
 
-            if input_mouse.pressed(orbit_button) && cursor_motion.length_squared() > 0. {
+            if is_orbiting && cursor_motion.length_squared() > 0. {
                 changed = true;
                 if let Some(window) = windows.get_primary() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
@@ -182,7 +192,7 @@ fn camera_controls(
                     persp_transform.rotation = yaw * persp_transform.rotation; // global y
                     persp_transform.rotation = persp_transform.rotation * pitch; // local x
                 }
-            } else if input_mouse.pressed(MouseButton::Left) && cursor_motion.length_squared() > 0. {
+            } else if is_panning && cursor_motion.length_squared() > 0. {
                 changed = true;
                 // make panning distance independent of resolution and FOV,
                 if let Some(window) = windows.get_primary() {
@@ -306,6 +316,7 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
             orbit_center: Vec3::ZERO,
             orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
             orbit_upside_down: false,
+            was_oribiting: false,
         },
     });
 }
