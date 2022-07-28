@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError},
+    asset::{AssetIo, AssetIoError, Metadata, FileType},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -20,11 +20,13 @@ struct SandboxAssetIo {
     pub default_io: Box<dyn AssetIo>,
 }
 
+const SANDBOX_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
+
 impl AssetIo for SandboxAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         if path.starts_with("sandbox://") {
             let without_prefix = path.to_str().unwrap().strip_prefix("sandbox://").unwrap();
-            let uri = String::from("https://models.sandbox.open-rmf.org/models/") + without_prefix;
+            let uri = String::from(SANDBOX_MODELS_URI) + without_prefix;
 
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -71,6 +73,14 @@ impl AssetIo for SandboxAssetIo {
         }
     }
 
+    fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
+        if path.starts_with("sandbox://") {
+            return Ok(Metadata::new(FileType::File));
+        } else {
+            return self.default_io.get_metadata(path);
+        }
+    }
+
     fn read_directory(
         &self,
         path: &Path,
@@ -78,12 +88,12 @@ impl AssetIo for SandboxAssetIo {
         self.default_io.read_directory(path)
     }
 
-    fn is_directory(&self, path: &Path) -> bool {
+    fn is_dir(&self, path: &Path) -> bool {
         #[cfg(target_arch = "wasm32")]
         return false;
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.default_io.is_directory(path)
+        self.default_io.is_dir(path)
     }
 
     fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
@@ -108,17 +118,14 @@ pub struct SandboxAssetIoPlugin;
 
 impl Plugin for SandboxAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        // must get a hold of the task pool in order to create the asset server
-        let task_pool = app.world.resource::<bevy::tasks::IoTaskPool>().0.clone();
-
         let asset_io = {
             let default_io = bevy::asset::create_platform_default_asset_io(app);
             SandboxAssetIo {
-                default_io: default_io,
+                default_io,
             }
         };
 
         // the asset server is constructed and added the resource manager
-        app.insert_resource(AssetServer::new(asset_io, task_pool));
+        app.insert_resource(AssetServer::new(asset_io));
     }
 }

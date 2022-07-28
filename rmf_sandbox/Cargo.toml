@@ -12,7 +12,9 @@ path = "src/main.rs"
 name = "rmf_sandbox"
 
 [dependencies]
-bevy_egui = "0.13"
+# bevy_egui = "0.13"
+# bevy_egui = { git = "https://github.com/mvlabat/bevy_egui", branch = "main" }
+bevy_egui = { path = "../../bevy_egui" }
 # bevy_mod_picking = "0.7"
 bevy_mod_picking = { path = "../../bevy_mod_picking" }
 rfd = "0.8.2"
@@ -22,17 +24,19 @@ serde_json = "1.0"
 wasm-bindgen = "0.2"
 web-sys = { version = "0.3.56", features = ["console"] }
 futures-lite = "1.12.0"
-bevy = { version = "0.7" }
+# bevy = { version = "0.7" }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
 dirs = "4.0"
+thread_local = "*"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
-bevy = { version = "0.7", features = ["dynamic"] }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main", features = ["dynamic"] }
 surf = { version = "2.3" }
 
 # windows doesnt work well with dynamic feature yet
 [target.'cfg(target_os = "windows")'.dependencies]
-bevy = { version = "0.7" }
+bevy = { git = "https://github.com/bevyengine/bevy", branch = "main" }
 surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

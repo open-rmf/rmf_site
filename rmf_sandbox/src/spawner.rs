@@ -108,9 +108,10 @@ impl<'w, 's> Spawner<'w, 's> {
         obj: T,
     ) -> Option<EntityCommands<'w, 's, '_>> {
         if let Some(level_entity) = self.levels.0.get(level) {
-            let mut ec = self.commands.spawn();
-            ec.insert(obj).insert(Parent(*level_entity));
-            Some(ec)
+            let entity = self.commands.spawn().insert(obj).id();
+            self.commands.entity(*level_entity).add_child(entity);
+
+            Some(self.commands.entity(entity))
         } else {
             println!("ERROR: Level {} not found", level);
             None
@@ -123,8 +124,16 @@ impl<'w, 's> Spawner<'w, 's> {
         vertex: Vertex,
     ) -> Option<EntityCommands<'w, 's, '_>> {
         if let Some(level_entity) = self.levels.0.get(level) {
-            let mut ec = self.commands.spawn();
-            let vertex_entity = ec.insert(vertex).insert(Parent(*level_entity)).id();
+            let vertex_entity = self.commands.spawn().id();
+            self.commands.entity(*level_entity).add_child(vertex_entity);
+
+            // We need to drop the EntityCommands produced by self.commands.spawn()
+            // in order to regain mutable access to self.commands so we can add
+            // this vertex as a child of the level_entity. Then we need to pick
+            // the EntityCommands back up so we can ultimately return it to the
+            // caller.
+            let mut ec = self.commands.entity(vertex_entity);
+            ec.insert(vertex);
             let vm = self.vertex_mgrs.0.get_mut(level).unwrap();
             let id = vm.add(vertex_entity);
             ec.insert(Id(id));
@@ -145,7 +154,7 @@ impl<'w, 's> Spawner<'w, 's> {
             .commands
             .spawn()
             .insert(SiteMapRoot)
-            .insert_bundle(TransformBundle::default())
+            .insert_bundle(SpatialBundle::default())
             .insert(Name(building_map.name.clone()))
             .insert(BuildingMapExtra {
                 crowd_sim: building_map.crowd_sim.clone(),
@@ -159,7 +168,7 @@ impl<'w, 's> Spawner<'w, 's> {
                 .commands
                 .spawn()
                 .insert(Name(name.clone()))
-                .insert_bundle(TransformBundle::from_transform(Transform {
+                .insert_bundle(SpatialBundle::from_transform(Transform {
                     translation: Vec3::new(0., 0., level.elevation as f32),
                     ..default()
                 }))
@@ -170,8 +179,9 @@ impl<'w, 's> Spawner<'w, 's> {
                     flattened_y_offset: level.flattened_y_offset,
                     fiducials: level.fiducials.clone(),
                 })
-                .insert(Parent(map_root))
                 .id();
+
+            self.commands.entity(map_root).add_child(level_entity);
 
             self.vertex_mgrs
                 .0

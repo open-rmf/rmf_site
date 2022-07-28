@@ -19,13 +19,13 @@ use crate::{AppState, OpenedMapFile};
 use bevy::ecs::system::SystemParam;
 use bevy::{
     prelude::*,
-    render::camera::{ActiveCamera, Camera3d},
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
     DefaultHighlighting, DefaultPickingPlugins, PickingBlocker, PickingCamera,
     PickingCameraBundle, Selection, StandardMaterialHighlight, PickableBundle,
 };
+
 
 trait Editable {
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
@@ -653,7 +653,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut q_camera_controls: Query<&mut CameraControls>,
-    mut active_camera_3d: ResMut<ActiveCamera<Camera3d>>,
+    mut cameras: Query<&mut Camera>,
     mut app_state: ResMut<State<AppState>>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
@@ -675,23 +675,21 @@ fn egui_ui(
                 ui.separator();
                 if ui
                     .add(egui::SelectableLabel::new(
-                        controls.mode == ProjectionMode::Orthographic,
+                        controls.mode() == ProjectionMode::Orthographic,
                         "2D",
                     ))
                     .clicked()
                 {
-                    controls.set_mode(ProjectionMode::Orthographic);
-                    active_camera_3d.set(controls.orthographic_camera_entity);
+                    controls.use_orthographic(true, &mut cameras);
                 }
                 if ui
                     .add(egui::SelectableLabel::new(
-                        controls.mode == ProjectionMode::Perspective,
+                        controls.mode() == ProjectionMode::Perspective,
                         "3D",
                     ))
                     .clicked()
                 {
-                    controls.set_mode(ProjectionMode::Perspective);
-                    active_camera_3d.set(controls.perspective_camera_entity);
+                    controls.use_perspective(true, &mut cameras);
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -809,11 +807,11 @@ fn on_startup(
     mut highlighting: ResMut<DefaultHighlighting<StandardMaterialHighlight>>,
     mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    highlighting.hovered = None;
-    let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
-    pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
-    let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
-    selected.base_color = Color::rgb(0.35, 0.35, 0.75);
+    // highlighting.hovered = None;
+    // let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
+    // pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
+    // let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
+    // selected.base_color = Color::rgb(0.35, 0.35, 0.75);
 
     commands
         .spawn()
@@ -1004,27 +1002,15 @@ fn maintain_inspected_entities(
 
 fn update_picking_cam(
     mut commands: Commands,
-    opt_active_camera: Option<Res<ActiveCamera<Camera3d>>>,
+    camera_controls: Query<&CameraControls, ChangeTrackers<CameraControls>>,
     picking_cams: Query<Entity, With<PickingCamera>>,
 ) {
-    let active_camera = match opt_active_camera {
-        Some(cam) => cam,
-        None => return,
-    };
-    if active_camera.is_changed() {
-        match active_camera.get() {
-            Some(active_cam) => {
-                // remove all previous picking cameras
-                for cam in picking_cams.iter() {
-                    commands.entity(cam).remove_bundle::<PickingCameraBundle>();
-                }
-                commands
-                    .entity(active_cam)
-                    .insert_bundle(PickingCameraBundle::default());
-            }
-            None => (),
-        }
+    let controls = camera_controls.single();
+    for cam in picking_cams.iter() {
+        commands.entity(cam).remove_bundle::<PickingCameraBundle>();
     }
+
+    commands.entity(controls.active_camera()).insert_bundle(PickingCameraBundle::default());
 }
 
 fn enable_picking(
@@ -1108,7 +1094,7 @@ fn enable_picking(
             }
 
             e = match parent.get(cur) {
-                Ok(parent) => Some(parent.0),
+                Ok(parent) => Some(parent.get()),
                 Err(_) => None,
             };
         }
@@ -1135,6 +1121,22 @@ fn enable_picking(
 #[derive(Default)]
 pub struct TrafficEditorPlugin;
 
+fn check_visibility(
+    visibles: Query<(Entity, &Visibility)>,
+    parents: Query<&Parent>,
+) {
+    for (e, v) in &visibles {
+        if !v.is_visible {
+            println!("{e:?} is not visible!");
+            if let Some(parent) = parents.get(e).ok().map(|p| p) {
+                println!("Its parent is {parent:?}");
+            } else {
+                println!("It has no parent!");
+            }
+        }
+    }
+}
+
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugins(DefaultPickingPlugins)
@@ -1152,6 +1154,7 @@ impl Plugin for TrafficEditorPlugin {
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities)
+                    .with_system(check_visibility)
             );
     }
 }

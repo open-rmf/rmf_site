@@ -13,8 +13,10 @@ use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 
-use bevy::asset::LoadState;
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    asset::LoadState,
+};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum SiteMapState {
@@ -98,12 +100,14 @@ fn init_site_map(
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
         brightness: 0.001,
+        // brightness: 1.0,
     });
 
     for level in sm.levels.values() {
         // spawn lights
         let bb = level.calc_bb();
-        if settings.graphics_quality == GraphicsQuality::Ultra {
+        // if settings.graphics_quality == GraphicsQuality::Ultra {
+            {
             // spawn a grid of lights for this level
             // todo: make UI controls for light spacing, intensity, range, shadows
             let light_spacing = 5.;
@@ -113,6 +117,7 @@ fn init_site_map(
                 for y_idx in 0..num_y_lights {
                     let x = bb.min_x + (x_idx as f64) * light_spacing;
                     let y = bb.min_y + (y_idx as f64) * light_spacing;
+                    println!("Inserting light at {x}, {y}");
                     commands
                         .spawn_bundle(PointLightBundle {
                             transform: Transform::from_xyz(x as f32, y as f32, 3.0),
@@ -208,6 +213,7 @@ fn update_lights(
 ) {
     // spawn new lights
     for (e, light) in added_lights.iter() {
+        println!("Updating light {e:?}");
         commands.entity(e).insert_bundle(PointLightBundle {
             transform: light.transform(),
             point_light: PointLight {
@@ -361,7 +367,10 @@ fn update_models(
                 .entity(*e)
                 .insert_bundle((model.transform(), GlobalTransform::identity()))
                 .with_children(|parent| {
-                    parent.spawn_scene(h.clone());
+                    parent.spawn_bundle(SceneBundle{
+                        scene: h.clone(),
+                        ..default()
+                    });
                 });
             spawned_models.0.push(*e);
         }
