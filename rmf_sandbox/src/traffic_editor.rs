@@ -20,11 +20,14 @@ use crate::interaction::InteractionPlugin;
 use bevy::ecs::system::SystemParam;
 use bevy::{
     prelude::*,
+    ecs::schedule::ShouldRun,
 };
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
-    DefaultHighlighting, DefaultPickingPlugins, PickingBlocker, PickingCamera,
+    PickingBlocker, PickingCamera, PickingSystem,
     PickingCameraBundle, Selection, StandardMaterialHighlight, PickableBundle,
+    PickingPlugin, PickingPluginsState, pause_for_picking_blockers, mesh_focus,
+    PausedForBlockers,
 };
 
 trait Editable {
@@ -811,15 +814,7 @@ fn egui_ui(
 
 fn on_startup(
     mut commands: Commands,
-    mut highlighting: ResMut<DefaultHighlighting<StandardMaterialHighlight>>,
-    mut mats: ResMut<Assets<StandardMaterial>>,
 ) {
-    highlighting.hovered = None;
-    let mut pressed = mats.get_mut(highlighting.pressed.as_ref().unwrap()).unwrap();
-    pressed.base_color = Color::rgb(0.75, 0.35, 0.75);
-    let mut selected = mats.get_mut(highlighting.selected.as_ref().unwrap()).unwrap();
-    selected.base_color = Color::rgb(0.35, 0.35, 0.75);
-
     commands
         .spawn()
         .insert(PickingBlocker)
@@ -1122,11 +1117,32 @@ fn enable_picking(
         && !egui_ctx.wants_keyboard_input()
         && !egui_ctx.is_pointer_over_area();
 
-    let mut blocker = picking_blocker.single_mut();
     if enable {
-        *blocker = Interaction::None;
+        // Check if we need to actually change the state of the component before
+        // we do a mutable borrow. Otherwise it will needlessly trigger systems
+        // that are tracking changes for the component.
+        if *picking_blocker.single() != Interaction::None {
+            *picking_blocker.single_mut() = Interaction::None;
+        }
     } else {
-        *blocker = Interaction::Clicked;
+        if *picking_blocker.single() != Interaction::Clicked {
+            *picking_blocker.single_mut() = Interaction::Clicked;
+        }
+    }
+}
+
+fn picking_monitor(
+    paused: Option<Res<PausedForBlockers>>,
+    query_changed: Query<(Entity, &Interaction), Changed<Interaction>>,
+) {
+    if let Some(paused) = paused {
+        if paused.is_paused() {
+            return;
+        }
+    }
+
+    for (entity, interaction) in &query_changed {
+        println!("Entity {entity:?} was interacted with: {interaction:?}");
     }
 }
 
@@ -1136,7 +1152,7 @@ pub struct TrafficEditorPlugin;
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_plugins(DefaultPickingPlugins)
+            // .add_plugins(DefaultPickingPlugins)
             .init_resource::<Option<SelectedEditable>>()
             .init_resource::<HasChanges>()
             .add_startup_system(on_startup)
@@ -1150,6 +1166,34 @@ impl Plugin for TrafficEditorPlugin {
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities)
+            )
+            .add_plugin(PickingPlugin)
+            .init_resource::<PausedForBlockers>()
+            .add_system_set_to_stage(
+                CoreStage::First,
+                SystemSet::new()
+                    .with_run_criteria(|state: Res<PickingPluginsState>| {
+                        if state.enable_interacting {
+                            ShouldRun::Yes
+                        } else {
+                            ShouldRun::No
+                        }
+                    })
+                    .with_system(
+                        pause_for_picking_blockers
+                        .label(PickingSystem::PauseForBlockers)
+                        .after(PickingSystem::UpdateIntersections)
+                    )
+                    .with_system(
+                        mesh_focus
+                        .label(PickingSystem::Focus)
+                        .after(PickingSystem::PauseForBlockers)
+                    )
+                    .with_system(
+                        picking_monitor
+                        .label(PickingSystem::Selection)
+                        .after(PickingSystem::Focus)
+                    )
             )
             .add_plugin(InteractionPlugin::new(AppState::TrafficEditor));
     }

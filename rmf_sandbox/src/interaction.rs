@@ -21,7 +21,7 @@ use crate::{
 use bevy::{
     prelude::*,
     render::mesh::{
-        Mesh, PrimitiveTopology, Indices, shape::{Capsule}, VertexAttributeValues,
+        Mesh, PrimitiveTopology, Indices, VertexAttributeValues,
     }
 };
 use bevy_mod_picking::{
@@ -31,15 +31,13 @@ use bevy_mod_picking::{
 use bevy_mod_raycast::{
     Intersection,
 };
-use std::{
-    fmt::Debug, hash::Hash
-};
+use std::{fmt::Debug, hash::Hash};
 
 #[derive(Debug, Component)]
 pub struct Cursor {
-    selection_cursor: Entity,
-    dagger_cursor: Entity,
-    vertex_cursor: Entity,
+    halo: Entity,
+    dagger: Entity,
+    vertex: Entity,
 }
 
 pub struct InteractionAssets {
@@ -351,7 +349,7 @@ pub fn init_cursor(
         return (selection_cursor, dagger_cursor, vertex_cursor);
     });
 
-    cursor_builder.insert(Cursor{selection_cursor, dagger_cursor, vertex_cursor});
+    cursor_builder.insert(Cursor{halo: selection_cursor, dagger: dagger_cursor, vertex: vertex_cursor});
 }
 
 pub fn update_cursor_transform(
