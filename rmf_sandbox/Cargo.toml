@@ -17,6 +17,7 @@ name = "rmf_sandbox"
 bevy_egui = { path = "../../bevy_egui" }
 # bevy_mod_picking = "0.7"
 bevy_mod_picking = { git = "https://github.com/mxgrey/bevy_mod_picking", branch = "optional_highlights-main" }
+bevy_mod_raycast = { git = "https://github.com/aevyrie/bevy_mod_raycast", branch = "main" }
 rfd = "0.8.2"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
@@ -41,3 +42,6 @@ surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 surf = { version = "2.3", default-features = false, features = ["wasm-client", "encoding"] }
+
+[patch."https://github.com/aevyrie/bevy_mod_raycast"]
+bevy_mod_raycast = { path = "../../bevy_mod_raycast" }

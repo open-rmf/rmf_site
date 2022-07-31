@@ -16,6 +16,7 @@ use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
+use crate::interaction::InteractionPlugin;
 use bevy::ecs::system::SystemParam;
 use bevy::{
     prelude::*,
@@ -24,9 +25,7 @@ use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
     DefaultHighlighting, DefaultPickingPlugins, PickingBlocker, PickingCamera,
     PickingCameraBundle, Selection, StandardMaterialHighlight, PickableBundle,
-    DebugCursorPickingPlugin,
 };
-
 
 trait Editable {
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
@@ -41,21 +40,21 @@ impl Editable for Vertex {
             changed = ui.text_edit_singleline(&mut self.3).changed() || changed;
             ui.end_row();
 
-            ui.label("X");
+            ui.label("x");
             changed = ui
                 .add(egui::DragValue::new(&mut self.0).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("Y");
+            ui.label("y");
             changed = ui
                 .add(egui::DragValue::new(&mut self.1).speed(0.1))
                 .changed()
                 || changed;
             ui.end_row();
 
-            ui.label("Z");
+            ui.label("z");
             changed = ui
                 .add(egui::DragValue::new(&mut self.2).speed(0.1))
                 .changed()
@@ -112,12 +111,12 @@ impl Editable for Lane {
         let mut changed = false;
 
         egui::Grid::new("lane").num_columns(2).show(ui, |ui| {
-            ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
+            ui.label("Start Vertex");
+            ui.label(format!("{}", self.0));
             ui.end_row();
 
-            ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
+            ui.label("End Vertex");
+            ui.label(format!("{}", self.1));
             ui.end_row();
 
             ui.label("Bidirectional");
@@ -147,12 +146,12 @@ impl Editable for Measurement {
         egui::Grid::new("measurement")
             .num_columns(2)
             .show(ui, |ui| {
-                ui.label("Start");
-                changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
+                ui.label("Start Vertex");
+                ui.label(format!("{}", self.0));
                 ui.end_row();
 
-                ui.label("End");
-                changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
+                ui.label("End Vertex");
+                ui.label(format!("{}", self.1));
                 ui.end_row();
 
                 // TODO: Remove this field once we support new cartesian format. Doing so removes
@@ -175,12 +174,12 @@ impl Editable for Wall {
         let mut changed = false;
 
         egui::Grid::new("wall").num_columns(2).show(ui, |ui| {
-            ui.label("Start");
-            changed = ui.add(egui::DragValue::new(&mut self.0)).changed() || changed;
+            ui.label("Start Vertex");
+            ui.label(format!("{}", self.0));
             ui.end_row();
 
-            ui.label("End");
-            changed = ui.add(egui::DragValue::new(&mut self.1)).changed() || changed;
+            ui.label("End Vertex");
+            ui.label(format!("{}", self.1));
             ui.end_row();
 
             ui.label("Height");
@@ -327,18 +326,12 @@ impl Editable for Door {
             changed = ui.text_edit_singleline(&mut *self.2.name).changed() || changed;
             ui.end_row();
 
-            ui.label("X");
-            changed = ui
-                .add(egui::DragValue::new(&mut self.0).speed(0.1))
-                .changed()
-                || changed;
+            ui.label("Start Vertex");
+            ui.label(format!("{}", self.0));
             ui.end_row();
 
-            ui.label("Y");
-            changed = ui
-                .add(egui::DragValue::new(&mut self.1).speed(0.1))
-                .changed()
-                || changed;
+            ui.label("End Vertex");
+            ui.label(format!("{}", self.1));
             ui.end_row();
 
             ui.label("Type");
@@ -558,6 +551,8 @@ impl<'w, 's> EditorPanel<'w, 's> {
     fn draw(
         &mut self,
         ui: &mut egui::Ui,
+        vm: &VerticesManagers,
+        level: &SiteMapCurrentLevel,
         has_changes: &mut bool,
         mut selected: ResMut<Option<SelectedEditable>>,
     ) {
@@ -606,6 +601,15 @@ impl<'w, 's> EditorPanel<'w, 's> {
                 }
             }
             EditorData::Vertex(vertex) => {
+                if let Some(vm) = vm.0.get(&level.0) {
+                    if let Some(v_id) = vm.get_entity(selected.0) {
+                        ui.label(egui::RichText::new(format!("ID: {v_id}")).size(18.));
+                    } else {
+                        ui.label(format!("Unknown vertex entity: {:?}", selected.0));
+                    }
+                } else {
+                    ui.label(format!("Unknown level: {}", level.0));
+                }
                 if vertex.draw(ui) {
                     commit_changes(&mut self.q_vertex, selected.0, vertex);
                     *has_changes = true;
@@ -796,9 +800,11 @@ fn egui_ui(
                         ));
                     }
                 });
-                ui.group(|ui| {
-                    editor.draw(ui, &mut has_changes.0, selected);
-                });
+                if let Some(current_level) = current_level {
+                    ui.group(|ui| {
+                        editor.draw(ui, spawner.vertex_mgrs.as_ref(), current_level.as_ref(), &mut has_changes.0, selected);
+                    });
+                }
             });
         });
 }
@@ -1137,14 +1143,14 @@ impl Plugin for TrafficEditorPlugin {
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
             .add_system_set(
-                SystemSet::on_update(AppState::TrafficEditor)
-                    .before(SiteMapLabel)
+                SystemSet::on_update(AppState::TrafficEditor).before(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(update_picking_cam)
                     .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(enable_picking.after(egui_ui))
                     .with_system(maintain_inspected_entities)
-            );
+            )
+            .add_plugin(InteractionPlugin::new(AppState::TrafficEditor));
     }
 }

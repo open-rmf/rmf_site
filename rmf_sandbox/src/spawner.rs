@@ -98,7 +98,7 @@ pub struct Spawner<'w, 's> {
     commands: Commands<'w, 's>,
     levels: ResMut<'w, MapLevels>,
     map_root: Query<'w, 's, Entity, With<SiteMapRoot>>,
-    vertex_mgrs: ResMut<'w, VerticesManagers>,
+    pub vertex_mgrs: ResMut<'w, VerticesManagers>,
 }
 
 impl<'w, 's> Spawner<'w, 's> {

@@ -32,8 +32,7 @@ pub struct MaterialMap {
     pub materials: HashMap<String, Handle<StandardMaterial>>,
 }
 
-#[derive(Default)]
-struct Handles {
+pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
@@ -41,6 +40,53 @@ struct Handles {
     pub vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for SiteAssets {
+    fn from_world(world: &mut World) -> Self {
+        let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let wall_texture = asset_server.load("sandbox://textures/default.png");
+
+        let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
+        let lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+        let measurement_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+        let vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+        let wall_material = materials.add(StandardMaterial {
+            base_color_texture: Some(wall_texture),
+            unlit: false,
+            ..default()
+        });
+        let default_floor_material = materials.add(StandardMaterial {
+            base_color: Color::rgb(0.3, 0.3, 0.3).into(),
+            perceptual_roughness: 0.5,
+            ..default()
+        });
+        let door_material = materials.add(StandardMaterial {
+            base_color: Color::rgba(1., 1., 1., 0.8),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+
+        let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
+            radius: 0.15,
+            rings: 2,
+            depth: 0.05,
+            latitudes: 8,
+            longitudes: 16,
+            uv_profile: shape::CapsuleUvProfile::Fixed,
+        }));
+
+        Self {
+            vertex_mesh,
+            default_floor_material,
+            lane_material,
+            measurement_material,
+            vertex_material,
+            wall_material,
+            door_material,
+        }
+    }
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
@@ -56,46 +102,12 @@ struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
 #[derive(Default)]
 struct SpawnedModels(Vec<Entity>);
 
-fn init_site_map(
+
+pub fn init_site_map(
     sm: Res<BuildingMap>,
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
     settings: Res<Settings>,
 ) {
-    println!("Loading assets");
-    let mut handles = Handles::default();
-    handles.vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-        radius: 0.15,
-        rings: 2,
-        depth: 0.05,
-        latitudes: 8,
-        longitudes: 16,
-        uv_profile: shape::CapsuleUvProfile::Fixed,
-    }));
-    //handles.default_floor_material = materials.add(Color::rgb(0.3, 0.3, 0.3).into());
-    handles.default_floor_material = materials.add(StandardMaterial {
-        base_color: Color::rgb(0.3, 0.3, 0.3).into(),
-        perceptual_roughness: 0.5,
-        ..default()
-    });
-    handles.lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-    handles.measurement_material = materials.add(Color::rgb(1.0, 0.5, 1.0).into());
-    handles.vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-    let default_wall_material_texture = asset_server.load("sandbox://textures/default.png");
-    //handles.wall_material = materials.add(Color::rgb(0.5, 0.5, 1.0).into());
-    handles.wall_material = materials.add(StandardMaterial {
-        base_color_texture: Some(default_wall_material_texture.clone()),
-        unlit: false,
-        ..default()
-    });
-    handles.door_material = materials.add(StandardMaterial {
-        base_color: Color::rgba(1., 1., 1., 0.8),
-        alpha_mode: AlphaMode::Blend,
-        ..default()
-    });
-
     println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -135,12 +147,8 @@ fn init_site_map(
     }
     let current_level = sm.levels.keys().next().unwrap();
     commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
-
-    commands.insert_resource(handles);
     commands.insert_resource(LoadingModels::default());
     commands.insert_resource(SpawnedModels::default());
-
-    println!("Finished initializing site map");
 }
 
 fn despawn_site_map(
@@ -148,9 +156,6 @@ fn despawn_site_map(
     site_map_entities: Query<Entity, With<SiteMapTag>>,
     map_root: Query<Entity, With<SiteMapRoot>>,
 ) {
-    println!("Unloading assets");
-    // removing all the strong handles should automatically unload the assets.
-    commands.remove_resource::<Handles>();
     // removing this causes bevy to panic, instead just replace it with the default.
     commands.init_resource::<AmbientLight>();
 
@@ -168,7 +173,7 @@ fn update_floor(
     mut commands: Commands,
     q_floors: Query<Entity, Added<Floor>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
 ) {
     for e in q_floors.iter() {
         // spawn the floor plane
@@ -186,7 +191,7 @@ fn update_floor(
 
 fn update_vertices(
     mut commands: Commands,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
     mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
 ) {
@@ -232,7 +237,7 @@ fn update_lights(
 fn update_lanes(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     vertices_mgrs: Res<VerticesManagers>,
     level: Res<SiteMapCurrentLevel>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
@@ -261,7 +266,7 @@ fn update_lanes(
 fn update_measurements(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
@@ -295,7 +300,7 @@ fn update_measurements(
 fn update_walls(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
@@ -398,7 +403,7 @@ fn update_models(
 fn update_doors(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     level: Res<SiteMapCurrentLevel>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
@@ -449,7 +454,7 @@ fn update_doors(
 fn update_lifts(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<Handles>,
+    handles: Res<SiteAssets>,
     mut q_lifts: Query<
         (Entity, &Lift, Option<&mut Transform>, ChangeTrackers<Lift>),
         Changed<Lift>,
@@ -491,7 +496,7 @@ impl Plugin for SiteMapPlugin {
         app.add_state(SiteMapState::Disabled)
             .init_resource::<Vec<Vertex>>()
             .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
-            .init_resource::<Handles>()
+            .init_resource::<SiteAssets>()
             .init_resource::<MaterialMap>()
             .add_system_set(
                 SystemSet::on_enter(SiteMapState::Enabled)

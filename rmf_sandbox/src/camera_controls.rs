@@ -239,11 +239,11 @@ fn handle_keyboard(
     }
 
     let mut controls = controls_query.single_mut();
-    if keyboard_input.just_pressed(KeyCode::Key2) {
+    if keyboard_input.just_pressed(KeyCode::F2) {
         controls.use_orthographic(true, &mut cameras);
     }
 
-    if keyboard_input.just_pressed(KeyCode::Key3) {
+    if keyboard_input.just_pressed(KeyCode::F3) {
         controls.use_perspective(true, &mut cameras);
     }
 }

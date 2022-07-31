@@ -45,7 +45,7 @@ mod sandbox_asset_io;
 mod utils;
 mod vertex;
 mod wall;
-mod picker;
+mod interaction;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;
