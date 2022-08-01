@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
-use crate::lane::Lane;
+use crate::lane::{Lane, LANE_WIDTH, PASSIVE_LANE_HEIGHT};
 use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
@@ -34,6 +34,8 @@ pub struct MaterialMap {
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
+    pub lane_mid_mesh: Handle<Mesh>,
+    pub lane_end_mesh: Handle<Mesh>,
     pub passive_lane_material: Handle<StandardMaterial>,
     pub active_lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
@@ -78,10 +80,14 @@ impl FromWorld for SiteAssets {
             longitudes: 16,
             uv_profile: shape::CapsuleUvProfile::Fixed,
         }));
+        let lane_mid_mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.]))));
+        let lane_end_mesh = meshes.add(Mesh::from(shape::Circle::new(LANE_WIDTH/2.)));
 
         Self {
             vertex_mesh,
             default_floor_material,
+            lane_mid_mesh,
+            lane_end_mesh,
             passive_lane_material,
             active_lane_material,
             measurement_material,
@@ -242,31 +248,74 @@ fn update_lights(
     }
 }
 
+#[derive(Component, Debug, Clone, Copy)]
+struct LanePieces {
+    start: Entity,
+    mid: Entity,
+    end: Entity,
+}
+
 fn update_lanes(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<SiteAssets>,
     vertices_mgrs: Res<VerticesManagers>,
     level: Res<SiteMapCurrentLevel>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&mut Transform>)>,
+    mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&LanePieces>)>,
+    mut transforms: Query<&mut Transform>,
 ) {
     // spawn new lanes
-    for (e, lane, change, t) in lanes.iter_mut() {
+    for (e, lane, change, pieces) in lanes.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
         let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
-        if change.is_added() {
-            commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
-                material: handles.passive_lane_material.clone(),
-                transform: lane.transform(v1, v2),
-                ..Default::default()
+        if let Some(pieces) = pieces {
+            if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
+                if let Some(mut tf) = transforms.get_mut(pieces.start).ok() {
+                    *tf = v1.transform();
+                }
+                if let Some(mut tf) = transforms.get_mut(pieces.mid).ok() {
+                    *tf = lane.transform(v1, v2);
+                }
+                if let Some(mut tf) = transforms.get_mut(pieces.end).ok() {
+                    *tf = v2.transform();
+                }
+            }
+        } else {
+            let mut commands = commands.entity(e);
+            let (start, mid, end) = commands.add_children(|parent| {
+                let start = parent.spawn_bundle(PbrBundle {
+                    mesh: handles.lane_end_mesh.clone(),
+                    material: handles.passive_lane_material.clone(),
+                    transform: v1.transform(),
+                    ..default()
+                }).id();
+
+                let mid = parent.spawn_bundle(PbrBundle {
+                    mesh: handles.lane_mid_mesh.clone(),
+                    material: handles.passive_lane_material.clone(),
+                    transform: lane.transform(v1, v2),
+                    ..default()
+                }).id();
+
+                let end = parent.spawn_bundle(PbrBundle {
+                    mesh: handles.lane_end_mesh.clone(),
+                    material: handles.passive_lane_material.clone(),
+                    transform: v2.transform(),
+                    ..default()
+                }).id();
+
+                (start, mid, end)
             });
-        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-            *t.unwrap() = lane.transform(v1, v2);
+
+            commands
+                .insert(LanePieces{start, mid, end})
+                .insert_bundle(SpatialBundle{
+                    transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
+                    ..default()
+                });
         }
     }
 }
