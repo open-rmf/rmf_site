@@ -17,6 +17,7 @@
 
 use crate::{
     site_map::SiteAssets,
+    traffic_editor::EditableTag,
 };
 use bevy::{
     prelude::*,
@@ -33,16 +34,47 @@ use bevy_mod_raycast::{
 };
 use std::{fmt::Debug, hash::Hash};
 
+#[derive(Clone, Debug)]
+pub struct InteractionAssets {
+    pub dagger_mesh: Handle<Mesh>,
+    pub dagger_material: Handle<StandardMaterial>,
+    pub halo_mesh: Handle<Mesh>,
+    pub halo_material: Handle<StandardMaterial>,
+}
+
+impl FromWorld for InteractionAssets {
+    fn from_world(world: &mut World) -> Self {
+        let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
+        let dagger_mesh = meshes.add(make_dagger_mesh());
+        let halo_mesh = meshes.add(make_halo_mesh());
+
+        let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
+        let halo_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            alpha_mode: AlphaMode::Blend,
+            unlit: true,
+            depth_bias: -1.0,
+            ..default()
+        });
+        let dagger_material = materials.add(StandardMaterial{
+            base_color: Color::WHITE,
+            ..default()
+        });
+
+        Self{
+            dagger_mesh,
+            dagger_material,
+            halo_mesh,
+            halo_material,
+        }
+    }
+}
+
 #[derive(Debug, Component)]
 pub struct Cursor {
     halo: Entity,
     dagger: Entity,
     vertex: Entity,
-}
-
-pub struct InteractionAssets {
-    pub halo_mesh: Handle<Mesh>,
-    pub dagger_mesh: Handle<Mesh>,
 }
 
 /// Used to mark halo meshes so their rotations can be animated
@@ -60,12 +92,24 @@ impl Default for Spinning {
 #[derive(Debug, Component)]
 pub struct Bobbing {
     period: f32,
-    height: f32,
+    heights: (f32, f32),
+}
+
+impl Bobbing {
+    pub fn between(h_min: f32, h_max: f32) -> Self {
+        Self{heights: (h_min, h_max), ..default()}
+    }
 }
 
 impl Default for Bobbing {
     fn default() -> Self {
-        Self{period: 2., height: 0.2}
+        Self{period: 2., heights: (0., 0.2)}
+    }
+}
+
+impl From<(f32, f32)> for Bobbing {
+    fn from(heights: (f32, f32)) -> Self {
+        Self{heights, ..default()}
     }
 }
 
@@ -265,11 +309,22 @@ fn make_halo_mesh() -> Mesh {
                 cycle*segments + segment as u32 + s
             })
         })
-    }).take(6*2*segments as usize)
+    }).take(6*2*(segments as usize - 1))
     .chain(
         [0, 2*segments, segments, 3*segments-1, segments-1, 2*segments-1]
     )
     .collect());
+
+    if let Indices::U32(indices) = &indices {
+        dbg!(positions.len(), normals.len());
+        dbg!(indices.iter().max());
+        dbg!(indices.len());
+        for (i, index) in indices.iter().enumerate() {
+            if *index >= 300 {
+                println!("{i} => {index}");
+            }
+        }
+    }
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
@@ -293,6 +348,7 @@ impl<T> InteractionPlugin<T> {
 impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for InteractionPlugin<T> {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<InteractionAssets>()
             .add_startup_system(init_cursor)
             .add_system_set(
                 SystemSet::on_update(self.for_app_state.clone())
@@ -305,32 +361,22 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
 
 pub fn init_cursor(
     mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    handles: Res<SiteAssets>,
+    site_assets: Res<SiteAssets>,
+    interaction_assets: Res<InteractionAssets>,
 ) {
     let mut cursor_builder = commands.spawn_bundle(SpatialBundle::default());
     let (selection_cursor, dagger_cursor, vertex_cursor) = cursor_builder.add_children(|cursor| {
         let selection_cursor = cursor.spawn_bundle(PbrBundle{
-            // mesh: meshes.add(selection_cursor_mesh()),
             transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-            mesh: meshes.add(make_halo_mesh()),
-            material: materials.add(StandardMaterial {
-                base_color: Color::WHITE,
-                alpha_mode: AlphaMode::Blend,
-                unlit: true,
-                depth_bias: -1.0,
-                ..default()
-            }),
+            mesh: interaction_assets.halo_mesh.clone(),
+            material: interaction_assets.halo_material.clone(),
             ..default()
         }).insert(Spinning::default()).id();
 
         let dagger_cursor = cursor.spawn_bundle(PbrBundle{
-            mesh: meshes.add(make_dagger_mesh()),
-            material: materials.add(StandardMaterial{
-                base_color: Color::WHITE,
-                ..default()
-            }),
+            mesh: interaction_assets.dagger_mesh.clone(),
+            material: interaction_assets.dagger_material.clone(),
             ..default()
         }).insert(Spinning::default())
         .insert(Bobbing::default()).id();
@@ -340,7 +386,7 @@ pub fn init_cursor(
                 rotation: Quat::from_rotation_x(90_f32.to_radians()),
                 ..default()
             },
-            mesh: handles.vertex_mesh.clone(),
+            mesh: site_assets.vertex_mesh.clone(),
             material: materials.add(Color::rgba(0.98, 0.91, 0.28, 0.5).into()),
             visibility: Visibility{is_visible: false},
             ..default()
@@ -384,7 +430,8 @@ pub fn update_bobbing_animations(
     for (mut tf, bob, visibility) in &mut bobbers {
         if visibility.is_visible_in_view() {
             let theta = 2.*std::f32::consts::PI * now.seconds_since_startup() as f32 / bob.period;
-            tf.as_mut().translation[2] = bob.height*(1.-theta.cos())/2.0;
+            let dh = bob.heights.1 - bob.heights.0;
+            tf.as_mut().translation[2] = dh*(1.-theta.cos())/2.0 + bob.heights.0;
         }
     }
 }

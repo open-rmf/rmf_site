@@ -34,7 +34,8 @@ pub struct MaterialMap {
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
-    pub lane_material: Handle<StandardMaterial>,
+    pub passive_lane_material: Handle<StandardMaterial>,
+    pub active_lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
     pub vertex_mesh: Handle<Mesh>,
     pub vertex_material: Handle<StandardMaterial>,
@@ -48,7 +49,8 @@ impl FromWorld for SiteAssets {
         let wall_texture = asset_server.load("sandbox://textures/default.png");
 
         let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
-        let lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+        let passive_lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+        let active_lane_material = materials.add(Color::rgb(1., 0.3, 1.).into());
         let measurement_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
         let vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
         let wall_material = materials.add(StandardMaterial {
@@ -69,7 +71,7 @@ impl FromWorld for SiteAssets {
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
-            radius: 0.15,
+            radius: 0.15, // TODO(MXG): Make the vertex radius configurable
             rings: 2,
             depth: 0.05,
             latitudes: 8,
@@ -80,7 +82,8 @@ impl FromWorld for SiteAssets {
         Self {
             vertex_mesh,
             default_floor_material,
-            lane_material,
+            passive_lane_material,
+            active_lane_material,
             measurement_material,
             vertex_material,
             wall_material,
@@ -181,7 +184,7 @@ fn update_floor(
             mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
             material: handles.default_floor_material.clone(),
             transform: Transform {
-                rotation: Quat::from_rotation_x(1.57),
+                rotation: Quat::from_rotation_x(std::f32::consts::PI/2.),
                 ..default()
             },
             ..default()
@@ -197,11 +200,16 @@ fn update_vertices(
 ) {
     // spawn new vertices
     for (e, v) in added_vertices.iter() {
-        commands.entity(e).insert_bundle(PbrBundle {
-            mesh: handles.vertex_mesh.clone(),
-            material: handles.vertex_material.clone(),
+        commands.entity(e).insert_bundle(SpatialBundle{
             transform: v.transform(),
-            ..Default::default()
+            ..default()
+        }).with_children(|parent| {
+            parent.spawn_bundle(PbrBundle{
+                mesh: handles.vertex_mesh.clone(),
+                material: handles.vertex_material.clone(),
+                transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
+                ..default()
+            });
         });
     }
     // update changed vertices
@@ -245,15 +253,15 @@ fn update_lanes(
 ) {
     // spawn new lanes
     for (e, lane, change, t) in lanes.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].get(lane.0).unwrap();
+        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].get(lane.1).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
             commands.entity(e).insert_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
-                material: handles.lane_material.clone(),
+                material: handles.passive_lane_material.clone(),
                 transform: lane.transform(v1, v2),
                 ..Default::default()
             });
@@ -279,9 +287,9 @@ fn update_measurements(
 ) {
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].get(measurement.0).unwrap();
+        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(measurement.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].get(measurement.1).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(measurement.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
@@ -308,9 +316,9 @@ fn update_walls(
 ) {
     // spawn new walls
     for (e, wall, change) in walls.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].get(wall.0).unwrap();
+        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(wall.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].get(wall.1).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(wall.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
@@ -410,9 +418,9 @@ fn update_doors(
     mut q_doors: Query<(Entity, &Door, Option<&mut Transform>, ChangeTrackers<Door>)>,
 ) {
     for (e, door, t, door_changed) in q_doors.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].get(door.0).unwrap();
+        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(door.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].get(door.1).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(door.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if !door_changed.is_changed() && !v1_change.is_changed() && !v2_change.is_changed() {

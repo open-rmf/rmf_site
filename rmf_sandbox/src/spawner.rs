@@ -48,11 +48,11 @@ impl LevelVerticesManager {
         self.next_id - 1
     }
 
-    pub fn get(&self, id: usize) -> Option<Entity> {
+    pub fn id_to_entity(&self, id: usize) -> Option<Entity> {
         self.id_to_entity.get(&id).cloned()
     }
 
-    pub fn get_entity(&self, entity: Entity) -> Option<usize> {
+    pub fn entity_to_id(&self, entity: Entity) -> Option<usize> {
         self.entity_to_id.get(&entity).cloned()
     }
 

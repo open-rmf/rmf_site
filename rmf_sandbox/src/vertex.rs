@@ -34,8 +34,7 @@ impl Vertex {
     pub fn transform(&self) -> Transform {
         Transform {
             translation: Vec3::new(self.0 as f32, self.1 as f32, 0.),
-            rotation: Quat::from_rotation_x(90_f32.to_radians()),
-            ..Default::default()
+            ..default()
         }
     }
 }
