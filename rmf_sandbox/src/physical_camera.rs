@@ -1,7 +1,7 @@
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use bevy::render::mesh::Indices;
 use bevy::render::mesh::PrimitiveTopology;
+use serde::{Deserialize, Serialize};
 use std::f32::consts::FRAC_1_SQRT_2;
 
 #[derive(Deserialize, Serialize, Component, Clone, Default)]
@@ -105,21 +105,69 @@ impl From<DirectionalBox> for Mesh {
             ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
             //
             // Pyramid Top
-            ([sp.max_x, sp.max_y, sp.max_z], [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2], [1.0, 1.0]),
-            ([sp.max_x, sp.min_y, sp.max_z], [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2], [0., 1.0]),
-            ([sp.py_tip_x, 0.0, 0.0], [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2], [1.0, 0.]),
+            (
+                [sp.max_x, sp.max_y, sp.max_z],
+                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
+                [1.0, 1.0],
+            ),
+            (
+                [sp.max_x, sp.min_y, sp.max_z],
+                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
+                [0., 1.0],
+            ),
+            (
+                [sp.py_tip_x, 0.0, 0.0],
+                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
+                [1.0, 0.],
+            ),
             // Pyramid Bottom
-            ([sp.max_x, sp.min_y, sp.min_z], [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2], [0., 0.]),
-            ([sp.max_x, sp.max_y, sp.min_z], [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2], [1.0, 0.]),
-            ([sp.py_tip_x, 0.0, 0.0], [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2], [0., 1.0]),
+            (
+                [sp.max_x, sp.min_y, sp.min_z],
+                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
+                [0., 0.],
+            ),
+            (
+                [sp.max_x, sp.max_y, sp.min_z],
+                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
+                [1.0, 0.],
+            ),
+            (
+                [sp.py_tip_x, 0.0, 0.0],
+                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
+                [0., 1.0],
+            ),
             // Pyramid Front
-            ([sp.max_x, sp.max_y, sp.min_z], [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.], [1.0, 0.]),
-            ([sp.max_x, sp.max_y, sp.max_z], [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.], [1.0, 1.0]),
-            ([sp.py_tip_x, 0.0, 0.0], [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.], [0., 1.0]),
+            (
+                [sp.max_x, sp.max_y, sp.min_z],
+                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
+                [1.0, 0.],
+            ),
+            (
+                [sp.max_x, sp.max_y, sp.max_z],
+                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
+                [1.0, 1.0],
+            ),
+            (
+                [sp.py_tip_x, 0.0, 0.0],
+                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
+                [0., 1.0],
+            ),
             // Pyramid Back
-            ([sp.max_x, sp.min_y, sp.max_z], [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.], [0., 1.0]),
-            ([sp.max_x, sp.min_y, sp.min_z], [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.], [0., 0.]),
-            ([sp.py_tip_x, 0.0, 0.0], [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.], [1.0, 0.]),
+            (
+                [sp.max_x, sp.min_y, sp.max_z],
+                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
+                [0., 1.0],
+            ),
+            (
+                [sp.max_x, sp.min_y, sp.min_z],
+                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
+                [0., 0.],
+            ),
+            (
+                [sp.py_tip_x, 0.0, 0.0],
+                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
+                [1.0, 0.],
+            ),
         ];
 
         let mut positions = Vec::with_capacity(32);
