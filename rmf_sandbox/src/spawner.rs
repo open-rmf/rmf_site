@@ -4,7 +4,6 @@
 
 use crate::{
     basic_components::{Id, Name},
-    camera::Camera,
     crowd_sim::CrowdSim,
     despawn::PendingDespawn,
     door::Door,
@@ -12,6 +11,7 @@ use crate::{
     floor::Floor,
     level::LevelDrawing,
     lift::Lift,
+    physical_camera::PhysicalCamera,
 };
 use std::collections::HashMap;
 
@@ -93,7 +93,7 @@ impl Spawnable for Wall {}
 impl Spawnable for Model {}
 impl Spawnable for Door {}
 impl Spawnable for Lift {}
-impl Spawnable for Camera {}
+impl Spawnable for PhysicalCamera {}
 
 #[derive(SystemParam)]
 pub struct Spawner<'w, 's> {
@@ -201,8 +201,8 @@ impl<'w, 's> Spawner<'w, 's> {
             for door in &level.doors {
                 self.spawn_in_level(name, door.clone());
             }
-            for camera in &level.cameras {
-                self.spawn_in_level(name, camera.clone());
+            for physical_camera in &level.physical_cameras {
+                self.spawn_in_level(name, physical_camera.clone());
             }
 
             for (lift_name, lift) in &building_map.lifts {

@@ -2,7 +2,7 @@ use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Component, Clone, Default)]
-pub struct Camera {
+pub struct PhysicalCamera {
     // extrinsic properties
     pub name: String,
     pub x: f64,
@@ -17,7 +17,7 @@ pub struct Camera {
     pub update_rate: u32,
 }
 
-impl Camera {
+impl PhysicalCamera {
     pub fn transform(&self) -> Transform {
         Transform {
             translation: Vec3::new(self.x as f32, self.y as f32, self.z as f32),

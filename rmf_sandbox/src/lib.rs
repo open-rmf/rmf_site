@@ -39,12 +39,12 @@ mod lift;
 mod light;
 mod measurement;
 mod model;
+mod physical_camera;
 mod rbmf;
 mod sandbox_asset_io;
 mod utils;
 mod vertex;
 mod wall;
-mod camera;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;

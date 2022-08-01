@@ -11,7 +11,6 @@ use bevy::{
 use crate::{
     basic_components::{Id, Name},
     building_map::BuildingMap,
-    camera::Camera,
     door::Door,
     floor::Floor,
     lane::Lane,
@@ -19,6 +18,7 @@ use crate::{
     lift::Lift,
     measurement::Measurement,
     model::Model,
+    physical_camera::PhysicalCamera,
     spawner::{BuildingMapExtra, LevelExtra, LevelVerticesManager, SiteMapRoot, VerticesManagers},
     vertex::Vertex,
     wall::Wall,
@@ -54,7 +54,7 @@ fn save(world: &mut World) {
         Query<&mut Wall>,
         Query<&Model>,
         Query<&Door>,
-        Query<&Camera>,
+        Query<&PhysicalCamera>,
         Query<(&Name, &Lift)>,
     )> = SystemState::new(world);
     let (
@@ -72,7 +72,7 @@ fn save(world: &mut World) {
         mut q_walls,
         q_models,
         q_doors,
-        q_cameras,
+        q_physical_cameras,
         q_lifts,
     ) = state.get_mut(world);
     let root_entity = match root_entity.get_single() {
@@ -98,7 +98,7 @@ fn save(world: &mut World) {
         let mut walls: Vec<Wall> = Vec::new();
         let mut models: Vec<Model> = Vec::new();
         let mut doors: Vec<Door> = Vec::new();
-        let mut cameras: Vec<Camera> = Vec::new();
+        let mut physical_cameras: Vec<PhysicalCamera> = Vec::new();
         let extra = q_level_extra.get(*level).unwrap();
         let name = q_name.get(*level).unwrap().0.clone();
         let vm = vms.0.get_mut(&name).unwrap();
@@ -145,8 +145,8 @@ fn save(world: &mut World) {
             if let Ok(door) = q_doors.get(*c) {
                 doors.push(door.clone());
             }
-            if let Ok(camera) = q_cameras.get(*c) {
-                cameras.push(camera.clone());
+            if let Ok(camera) = q_physical_cameras.get(*c) {
+                physical_cameras.push(camera.clone());
             }
         }
         levels.insert(
@@ -159,7 +159,7 @@ fn save(world: &mut World) {
                 walls,
                 models,
                 doors,
-                cameras,
+                physical_cameras,
                 drawing: extra.drawing.clone(),
                 elevation: extra.elevation,
                 flattened_x_offset: extra.flattened_x_offset,

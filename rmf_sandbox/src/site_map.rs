@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-use crate::camera::Camera;
 use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
@@ -9,6 +8,7 @@ use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::physical_camera::PhysicalCamera;
 use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
@@ -40,7 +40,7 @@ struct Handles {
     pub vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
-    pub camera_material: Handle<StandardMaterial>,
+    pub physical_camera_material: Handle<StandardMaterial>,
 }
 
 /// Used to keep track of the entity that represents the current level being rendered by the plugin.
@@ -95,7 +95,7 @@ fn init_site_map(
         alpha_mode: AlphaMode::Blend,
         ..default()
     });
-    handles.camera_material = materials.add(Color::rgb(1.0, 1.0, 1.0).into());
+    handles.physical_camera_material = materials.add(Color::rgb(1.0, 1.0, 1.0).into());
 
     println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
@@ -482,27 +482,27 @@ fn update_cameras(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<Handles>,
-    mut q_cameras: Query<
+    mut q_physical_cameras: Query<
         (
             Entity,
-            &Camera,
+            &PhysicalCamera,
             Option<&mut Transform>,
-            ChangeTrackers<Camera>,
+            ChangeTrackers<PhysicalCamera>,
         ),
-        Changed<Camera>,
+        Changed<PhysicalCamera>,
     >,
 ) {
-    for (e, camera, t, changes) in q_cameras.iter_mut() {
+    for (e, physical_camera, t, changes) in q_physical_cameras.iter_mut() {
         if changes.is_added() {
             commands.entity(e).insert_bundle(PbrBundle {
                 mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-                material: handles.camera_material.clone(),
-                transform: camera.transform(),
+                material: handles.physical_camera_material.clone(),
+                transform: physical_camera.transform(),
                 ..default()
             });
         } else if changes.is_changed() {
             if let Some(mut t) = t {
-                *t = camera.transform();
+                *t = physical_camera.transform();
             }
         }
     }
