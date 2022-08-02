@@ -13,7 +13,8 @@ use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
 use crate::interaction::{
-    InteractionAssets, Bobbing, Spinning, VertexVisualCue, LaneVisualCue, FloorVisualCue, WallVisualCue,
+    InteractionAssets, Bobbing, Spinning,
+    VertexVisualCue, LaneVisualCue, FloorVisualCue, WallVisualCue, DefaultVisualCue,
     Hovering, Selected,
 };
 use crate::traffic_editor::EditableTag;
@@ -488,7 +489,10 @@ fn update_models(
         commands
             .entity(e)
             .insert(DespawnBlocker)
-            .insert(ModelCurrentScene(model.model_name.clone()));
+            .insert(ModelCurrentScene(model.model_name.clone()))
+            .insert(Hovering::default())
+            .insert(Selected::default())
+            .insert(DefaultVisualCue);
         loading_models.0.insert(e, (model.clone(), glb.clone()));
     }
 
@@ -583,7 +587,10 @@ fn update_doors(
                 material: handles.door_material.clone(),
                 transform,
                 ..default()
-            });
+            })
+            .insert(Hovering::default())
+            .insert(Selected::default())
+            .insert(DefaultVisualCue);
         }
 
         if door_changed.is_changed() {
@@ -620,7 +627,10 @@ fn update_lifts(
                 material: handles.door_material.clone(),
                 transform,
                 ..default()
-            });
+            })
+            .insert(Hovering::default())
+            .insert(Selected::default())
+            .insert(DefaultVisualCue);
         }
 
         if lift_changes.is_changed() {

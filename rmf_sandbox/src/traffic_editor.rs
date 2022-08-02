@@ -1008,7 +1008,6 @@ fn maintain_inspected_entities(
     mut selected: ResMut<Option<SelectedEditable>>,
     mut hovered: ResMut<Option<HoveredEditable>>,
 ) {
-    // dbg!();
     if let Some(paused) = paused {
         if paused.is_paused() {
             return;
@@ -1022,8 +1021,6 @@ fn maintain_inspected_entities(
     });
     if let Some((_, tag)) = clicked {
         *selected = editables.get_selected_data(tag);
-        dbg!(tag);
-
         let selected_tag = selected.as_ref().as_ref().map(|s| s.0.clone());
         if previous_selected != selected_tag {
             if let Some(previous) = previous_selected {
@@ -1097,7 +1094,6 @@ fn add_editable_tags(
     for e in &lanes {
         commands.entity(e).insert(EditableTag::Lane(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1105,7 +1101,6 @@ fn add_editable_tags(
     for e in &vertices {
         commands.entity(e).insert(EditableTag::Vertex(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1113,7 +1108,6 @@ fn add_editable_tags(
     for e in &measurements {
         commands.entity(e).insert(EditableTag::Measurement(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1121,7 +1115,6 @@ fn add_editable_tags(
     for e in &walls {
         commands.entity(e).insert(EditableTag::Wall(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1129,7 +1122,6 @@ fn add_editable_tags(
     for e in &models {
         commands.entity(e).insert(EditableTag::Model(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1137,7 +1129,6 @@ fn add_editable_tags(
     for e in &floors {
         commands.entity(e).insert(EditableTag::Floor(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1145,7 +1136,6 @@ fn add_editable_tags(
     for e in &doors {
         commands.entity(e).insert(EditableTag::Door(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }
@@ -1153,7 +1143,6 @@ fn add_editable_tags(
     for e in &lifts {
         commands.entity(e).insert(EditableTag::Lift(e));
         if meshes.contains(e) {
-            dbg!("Adding pickable");
             commands.entity(e).insert_bundle(PickableBundle::default());
         }
     }

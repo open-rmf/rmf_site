@@ -55,7 +55,6 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             alpha_mode: AlphaMode::Blend,
             unlit: true,
-            depth_bias: -1.0,
             ..default()
         });
         let dagger_material = materials.add(StandardMaterial{
@@ -317,17 +316,6 @@ fn make_halo_mesh() -> Mesh {
     )
     .collect());
 
-    if let Indices::U32(indices) = &indices {
-        dbg!(positions.len(), normals.len());
-        dbg!(indices.iter().max());
-        dbg!(indices.len());
-        for (i, index) in indices.iter().enumerate() {
-            if *index >= 300 {
-                println!("{i} => {index}");
-            }
-        }
-    }
-
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
@@ -392,7 +380,12 @@ pub fn init_cursor(
                 ..default()
             },
             mesh: site_assets.vertex_mesh.clone(),
-            material: materials.add(Color::rgba(0.98, 0.91, 0.28, 0.5).into()),
+            material: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
+                alpha_mode: AlphaMode::Blend,
+                depth_bias: 1.0,
+                ..default()
+            }),
             visibility: Visibility{is_visible: false},
             ..default()
         }).id();
@@ -564,13 +557,12 @@ pub fn update_vertex_visual_cues(
         let hover_changed = hover_changes.get(v).ok().filter(|h| h.is_changed()).is_some();
         let select_changed = select_changes.get(v).ok().filter(|s| s.is_changed()).is_some();
         if hover_changed || select_changed {
-            // dbg!(v, hovering, selected);
             if hovering.cue() || selected.cue() {
                 set_visibility(cue.dagger, &mut visibility, true);
                 set_visibility(cue.halo, &mut visibility, true);
             }
 
-            if hovering.cue() {
+            if hovering.is_hovering {
                 set_visibility(cursor.single(), &mut visibility, false);
             }
 
@@ -582,9 +574,13 @@ pub fn update_vertex_visual_cues(
             if hovering.cue() && selected.cue() {
                 set_material(cue.body, &site_assets.hover_select_vertex_material, &mut materials);
             } else if hovering.cue() {
+                // Hovering but not selected
                 set_material(cue.body, &site_assets.vertex_material, &mut materials);
                 set_bobbing(cue.dagger, vertex_height, vertex_height+0.2, &mut bobbing);
-            } else if !hovering.cue() && !selected.cue() {
+            } else if selected.cue() {
+                // Selected but not hovering
+                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+            } else {
                 set_material(cue.body, &site_assets.vertex_material, &mut materials);
                 set_visibility(cue.dagger, &mut visibility, false);
                 set_visibility(cue.halo, &mut visibility, false);
@@ -604,6 +600,8 @@ pub fn update_lane_visual_cues(
     mut lanes: Query<(Entity, &Hovering, &Selected, &Lane, &LanePieces, &mut LaneVisualCue, &mut Transform), (Without<VertexVisualCue>, ChangeTrackers<Hovering>, ChangeTrackers<Selected>, ChangeTrackers<Lane>)>,
     mut vertices: Query<(&mut Hovering, &mut Selected), With<VertexVisualCue>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
+    mut visibility: Query<&mut Visibility>,
+    cursor: Query<Entity, With<Cursor>>,
     site_assets: Res<SiteAssets>,
     vm: Res<VerticesManagers>,
     level: Res<Option<SiteMapCurrentLevel>>,
@@ -654,6 +652,10 @@ pub fn update_lane_visual_cues(
                     }
                 }
 
+                if hovering.is_hovering {
+                    set_visibility(cursor.single(), &mut visibility, false);
+                }
+
                 let (m, h) = if hovering.cue() && selected.cue() {
                     (&site_assets.hover_select_lane_material, HOVERED_LANE_HEIGHT)
                 } else if hovering.cue() {
@@ -680,13 +682,17 @@ pub struct FloorVisualCue;
 #[derive(Component)]
 pub struct WallVisualCue;
 
+#[derive(Component)]
+pub struct DefaultVisualCue;
+
 pub fn update_floor_and_wall_visual_cues(
     floors: Query<&Hovering, With<FloorVisualCue>>,
     walls: Query<&Hovering, With<WallVisualCue>>,
+    everything_else: Query<&Hovering, With<DefaultVisualCue>>,
     cursor: Query<Entity, With<Cursor>>,
     mut visibility: Query<&mut Visibility>,
 ) {
-    for hovering in floors.iter().chain(walls.iter()) {
+    for hovering in floors.iter().chain(walls.iter()).chain(everything_else.iter()) {
         if hovering.cue() {
             if let Some(mut v) = visibility.get_mut(cursor.single()).ok() {
                 v.is_visible = true;
