@@ -7,7 +7,7 @@ use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
-use bevy::{core::FixedTimestep, window::Windows};
+use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
