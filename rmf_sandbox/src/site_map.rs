@@ -509,7 +509,10 @@ fn update_models(
         if asset_server.get_load_state(h) == LoadState::Loaded {
             commands
                 .entity(*e)
-                .insert_bundle((model.transform(), GlobalTransform::identity()))
+                .insert_bundle(SpatialBundle{
+                    transform: model.transform(),
+                    ..default()
+                })
                 .with_children(|parent| {
                     parent.spawn_bundle(SceneBundle{
                         scene: h.clone(),
