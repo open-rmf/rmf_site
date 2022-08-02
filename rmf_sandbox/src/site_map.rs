@@ -12,6 +12,11 @@ use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
+use crate::interaction::{
+    InteractionAssets, Bobbing, Spinning, VertexVisualCue, LaneVisualCue, FloorVisualCue, WallVisualCue,
+    Hovering, Selected,
+};
+use crate::traffic_editor::EditableTag;
 
 use bevy::{
     prelude::*,
@@ -164,7 +169,7 @@ pub fn init_site_map(
         }
     }
     let current_level = sm.levels.keys().next().unwrap();
-    commands.insert_resource(SiteMapCurrentLevel(current_level.clone()));
+    commands.insert_resource(Some(SiteMapCurrentLevel(current_level.clone())));
     commands.insert_resource(LoadingModels::default());
     commands.insert_resource(SpawnedModels::default());
 }
@@ -173,6 +178,7 @@ fn despawn_site_map(
     mut commands: Commands,
     site_map_entities: Query<Entity, With<SiteMapTag>>,
     map_root: Query<Entity, With<SiteMapRoot>>,
+    mut level: ResMut<Option<SiteMapCurrentLevel>>,
 ) {
     // removing this causes bevy to panic, instead just replace it with the default.
     commands.init_resource::<AmbientLight>();
@@ -181,7 +187,8 @@ fn despawn_site_map(
     for entity in site_map_entities.iter() {
         commands.entity(entity).despawn_recursive();
     }
-    commands.remove_resource::<SiteMapCurrentLevel>();
+
+    *level = None;
     for e in map_root.iter() {
         commands.entity(e).insert(PendingDespawn);
     }
@@ -203,7 +210,10 @@ fn update_floor(
                 ..default()
             },
             ..default()
-        });
+        })
+        .insert(FloorVisualCue)
+        .insert(Hovering::default())
+        .insert(Selected::default());
     }
 }
 
@@ -212,20 +222,53 @@ fn update_vertices(
     handles: Res<SiteAssets>,
     added_vertices: Query<(Entity, &Vertex), Added<Vertex>>,
     mut changed_vertices: Query<(&Vertex, &mut Transform), Changed<Vertex>>,
+    interaction_assets: Res<InteractionAssets>,
 ) {
     // spawn new vertices
     for (e, v) in added_vertices.iter() {
-        commands.entity(e).insert_bundle(SpatialBundle{
+        let mut commands = commands.entity(e);
+        commands.insert_bundle(SpatialBundle{
             transform: v.transform(),
             ..default()
-        }).with_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
+        });
+
+        let (dagger, halo, body) = commands.add_children(|parent| {
+            let dagger = parent.spawn_bundle(PbrBundle{
+                material: interaction_assets.dagger_material.clone(),
+                mesh: interaction_assets.dagger_mesh.clone(),
+                visibility: Visibility{is_visible: false},
+                ..default()
+            })
+            .insert(Bobbing::default())
+            .insert(Spinning::default())
+            .insert(EditableTag::Ignore)
+            .id();
+
+            let halo = parent.spawn_bundle(PbrBundle{
+                // Have the halo fit nicely around a vertex
+                transform: Transform::from_scale([0.2, 0.2, 1.].into()),
+                material: interaction_assets.halo_material.clone(),
+                mesh: interaction_assets.halo_mesh.clone(),
+                visibility: Visibility{is_visible: false},
+                ..default()
+            })
+            .insert(Spinning::default())
+            .insert(EditableTag::Ignore)
+            .id();
+
+            let body = parent.spawn_bundle(PbrBundle{
                 mesh: handles.vertex_mesh.clone(),
                 material: handles.vertex_material.clone(),
                 transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
                 ..default()
-            });
+            }).id();
+
+            (dagger, halo, body)
         });
+
+        commands.insert(VertexVisualCue{dagger, halo, body})
+            .insert(Hovering::default())
+            .insert(Selected::default());
     }
     // update changed vertices
     for (v, mut t) in changed_vertices.iter_mut() {
@@ -258,21 +301,37 @@ fn update_lights(
 }
 
 #[derive(Component, Debug, Clone, Copy)]
-struct LanePieces {
-    start: Entity,
-    mid: Entity,
-    end: Entity,
+pub struct LanePieces {
+    pub segments: [Entity; 3],
+}
+
+impl LanePieces {
+    pub fn start(&self) -> Entity {
+        self.segments[0]
+    }
+
+    pub fn mid(&self) -> Entity {
+        self.segments[1]
+    }
+
+    pub fn end(&self) -> Entity {
+        self.segments[2]
+    }
 }
 
 fn update_lanes(
     mut commands: Commands,
     handles: Res<SiteAssets>,
     vertices_mgrs: Res<VerticesManagers>,
-    level: Res<SiteMapCurrentLevel>,
+    level: Res<Option<SiteMapCurrentLevel>>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&LanePieces>)>,
     mut transforms: Query<&mut Transform>,
 ) {
+    let level = match level.as_ref() {
+        Some(level) => level,
+        None => { return; }
+    };
     // spawn new lanes
     for (e, lane, change, pieces) in lanes.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.0).unwrap();
@@ -282,13 +341,13 @@ fn update_lanes(
 
         if let Some(pieces) = pieces {
             if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-                if let Some(mut tf) = transforms.get_mut(pieces.start).ok() {
+                if let Some(mut tf) = transforms.get_mut(pieces.start()).ok() {
                     *tf = v1.transform();
                 }
-                if let Some(mut tf) = transforms.get_mut(pieces.mid).ok() {
+                if let Some(mut tf) = transforms.get_mut(pieces.mid()).ok() {
                     *tf = lane.transform(v1, v2);
                 }
-                if let Some(mut tf) = transforms.get_mut(pieces.end).ok() {
+                if let Some(mut tf) = transforms.get_mut(pieces.end()).ok() {
                     *tf = v2.transform();
                 }
             }
@@ -320,7 +379,10 @@ fn update_lanes(
             });
 
             commands
-                .insert(LanePieces{start, mid, end})
+                .insert(LanePieces{segments: [start, mid, end]})
+                .insert(LaneVisualCue::default())
+                .insert(Hovering::default())
+                .insert(Selected::default())
                 .insert_bundle(SpatialBundle{
                     transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                     ..default()
@@ -333,7 +395,7 @@ fn update_measurements(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<SiteAssets>,
-    level: Res<SiteMapCurrentLevel>,
+    level: Res<Option<SiteMapCurrentLevel>>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut measurements: Query<(
@@ -343,6 +405,10 @@ fn update_measurements(
         Option<&mut Transform>,
     )>,
 ) {
+    let level = match level.as_ref() {
+        Some(level) => level,
+        None => { return; }
+    };
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(measurement.0).unwrap();
@@ -367,11 +433,15 @@ fn update_walls(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<SiteAssets>,
-    level: Res<SiteMapCurrentLevel>,
+    level: Res<Option<SiteMapCurrentLevel>>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut walls: Query<(Entity, &Wall, ChangeTrackers<Wall>)>,
 ) {
+    let level = match level.as_ref() {
+        Some(level) => level,
+        None => { return; }
+    };
     // spawn new walls
     for (e, wall, change) in walls.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(wall.0).unwrap();
@@ -385,7 +455,10 @@ fn update_walls(
                 material: handles.wall_material.clone(),
                 transform: wall.transform(v1, v2),
                 ..default()
-            });
+            })
+            .insert(WallVisualCue)
+            .insert(Hovering::default())
+            .insert(Selected::default());
         }
     }
 }
@@ -470,11 +543,15 @@ fn update_doors(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     handles: Res<SiteAssets>,
-    level: Res<SiteMapCurrentLevel>,
+    level: Res<Option<SiteMapCurrentLevel>>,
     vertices_mgrs: Res<VerticesManagers>,
     vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
     mut q_doors: Query<(Entity, &Door, Option<&mut Transform>, ChangeTrackers<Door>)>,
 ) {
+    let level = match level.as_ref() {
+        Some(level) => level,
+        None => { return; }
+    };
     for (e, door, t, door_changed) in q_doors.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(door.0).unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
@@ -563,6 +640,7 @@ impl Plugin for SiteMapPlugin {
             .init_resource::<Vec<Vertex>>()
             .insert_resource(ClearColor(Color::rgb(0.0, 0.0, 0.0)))
             .init_resource::<SiteAssets>()
+            .init_resource::<Option<SiteMapCurrentLevel>>()
             .init_resource::<MaterialMap>()
             .add_system_set(
                 SystemSet::on_enter(SiteMapState::Enabled)

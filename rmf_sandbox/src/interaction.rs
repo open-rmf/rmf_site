@@ -16,8 +16,10 @@
 */
 
 use crate::{
-    site_map::SiteAssets,
+    site_map::{SiteAssets, SiteMapCurrentLevel, LanePieces},
     traffic_editor::EditableTag,
+    lane::{Lane, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT, HOVERED_LANE_HEIGHT},
+    spawner::VerticesManagers,
 };
 use bevy::{
     prelude::*,
@@ -32,7 +34,7 @@ use bevy_mod_picking::{
 use bevy_mod_raycast::{
     Intersection,
 };
-use std::{fmt::Debug, hash::Hash};
+use std::{fmt::Debug, hash::Hash, collections::HashSet};
 
 #[derive(Clone, Debug)]
 pub struct InteractionAssets {
@@ -355,6 +357,9 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
                 .with_system(update_cursor_transform.after(PickingSystem::UpdateIntersections))
                 .with_system(update_spinning_animations)
                 .with_system(update_bobbing_animations)
+                .with_system(update_vertex_visual_cues)
+                .with_system(update_lane_visual_cues)
+                .with_system(update_floor_and_wall_visual_cues)
             );
     }
 }
@@ -432,6 +437,260 @@ pub fn update_bobbing_animations(
             let theta = 2.*std::f32::consts::PI * now.seconds_since_startup() as f32 / bob.period;
             let dh = bob.heights.1 - bob.heights.0;
             tf.as_mut().translation[2] = dh*(1.-theta.cos())/2.0 + bob.heights.0;
+        }
+    }
+}
+
+pub fn set_visibility(
+    entity: Entity,
+    q_visibility: &mut Query<&mut Visibility>,
+    visible: bool,
+) {
+    if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
+        visibility.is_visible = visible;
+    }
+}
+
+fn recursive_set_material(
+    parent: Entity,
+    to_material: &Handle<StandardMaterial>,
+    q_material: &mut Query<&mut Handle<StandardMaterial>>,
+    q_children: &Query<&Children>,
+    q_tags: &Query<&EditableTag>,
+) {
+    if let Some(mut material) = q_material.get_mut(parent).ok() {
+        *material = to_material.clone();
+    }
+
+    if let Some(children) = q_children.get(parent).ok() {
+        for child in children {
+            if q_tags.get(*child).ok().filter(|t| !t.ignore()).is_some() {
+                recursive_set_material(*child, to_material, q_material, q_children, q_tags);
+            }
+        }
+    }
+}
+
+fn set_height(
+    entity: Entity,
+    spatial: &mut Query<&mut Transform>,
+    height: f32,
+) {
+    if let Some(mut tf) = spatial.get_mut(entity).ok() {
+        tf.as_mut().translation[2] = height;
+    }
+}
+
+fn set_material(
+    entity: Entity,
+    to_material: &Handle<StandardMaterial>,
+    q_materials: &mut Query<&mut Handle<StandardMaterial>>,
+) {
+    if let Some(mut m) = q_materials.get_mut(entity).ok() {
+        *m = to_material.clone();
+    }
+}
+
+fn set_bobbing(
+    entity: Entity,
+    min_height: f32,
+    max_height: f32,
+    q_bobbing: &mut Query<&mut Bobbing>,
+) {
+    if let Some(mut b) = q_bobbing.get_mut(entity).ok() {
+        b.heights = (min_height, max_height);
+    }
+}
+
+#[derive(Component, Debug, PartialEq, Eq)]
+pub struct Hovering {
+    /// The cursor is hovering on this object specifically
+    pub is_hovering: bool,
+    /// The cursor is hovering on a different object which wants this vertex
+    /// to be highlighted.
+    pub support_hovering: HashSet<Entity>,
+}
+
+impl Hovering {
+    pub fn cue(&self) -> bool {
+        self.is_hovering || !self.support_hovering.is_empty()
+    }
+}
+
+impl Default for Hovering {
+    fn default() -> Self {
+        Self{is_hovering: false, support_hovering: Default::default()}
+    }
+}
+
+#[derive(Component, Debug, PartialEq, Eq)]
+pub struct Selected {
+    /// This object has been selected
+    pub is_selected: bool,
+    /// Another object is selected but wants this vertex to be highlighted
+    pub support_selected: HashSet<Entity>,
+}
+
+impl Selected {
+    pub fn cue(&self) -> bool {
+        self.is_selected || !self.support_selected.is_empty()
+    }
+}
+
+impl Default for Selected {
+    fn default() -> Self {
+        Self{is_selected: false, support_selected: Default::default()}
+    }
+}
+
+#[derive(Component)]
+pub struct VertexVisualCue {
+    pub dagger: Entity,
+    pub halo: Entity,
+    pub body: Entity,
+}
+
+pub fn update_vertex_visual_cues(
+    vertices: Query<(Entity, &Hovering, &Selected, &VertexVisualCue)>,
+    hover_changes: Query<ChangeTrackers<Hovering>>,
+    select_changes: Query<ChangeTrackers<Selected>>,
+    mut bobbing: Query<&mut Bobbing>,
+    mut visibility: Query<&mut Visibility>,
+    mut materials: Query<&mut Handle<StandardMaterial>>,
+    cursor: Query<Entity, With<Cursor>>,
+    site_assets: Res<SiteAssets>,
+) {
+    for (v, hovering, selected, cue) in &vertices {
+        let hover_changed = hover_changes.get(v).ok().filter(|h| h.is_changed()).is_some();
+        let select_changed = select_changes.get(v).ok().filter(|s| s.is_changed()).is_some();
+        if hover_changed || select_changed {
+            // dbg!(v, hovering, selected);
+            if hovering.cue() || selected.cue() {
+                set_visibility(cue.dagger, &mut visibility, true);
+                set_visibility(cue.halo, &mut visibility, true);
+            }
+
+            if hovering.cue() {
+                set_visibility(cursor.single(), &mut visibility, false);
+            }
+
+            let vertex_height = 0.15 + 0.05/2.;
+            if selected.cue() {
+                set_bobbing(cue.dagger, vertex_height, vertex_height, &mut bobbing);
+            }
+
+            if hovering.cue() && selected.cue() {
+                set_material(cue.body, &site_assets.hover_select_vertex_material, &mut materials);
+            } else if hovering.cue() {
+                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+                set_bobbing(cue.dagger, vertex_height, vertex_height+0.2, &mut bobbing);
+            } else if !hovering.cue() && !selected.cue() {
+                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+                set_visibility(cue.dagger, &mut visibility, false);
+                set_visibility(cue.halo, &mut visibility, false);
+            }
+        }
+    }
+}
+
+#[derive(Component, Default)]
+pub struct LaneVisualCue {
+    /// If the lane is using support from some vertices, the entities of those
+    /// vertices will be noted here
+    supporters: Option<(Entity, Entity)>,
+}
+
+pub fn update_lane_visual_cues(
+    mut lanes: Query<(Entity, &Hovering, &Selected, &Lane, &LanePieces, &mut LaneVisualCue, &mut Transform), (Without<VertexVisualCue>, ChangeTrackers<Hovering>, ChangeTrackers<Selected>, ChangeTrackers<Lane>)>,
+    mut vertices: Query<(&mut Hovering, &mut Selected), With<VertexVisualCue>>,
+    mut materials: Query<&mut Handle<StandardMaterial>>,
+    site_assets: Res<SiteAssets>,
+    vm: Res<VerticesManagers>,
+    level: Res<Option<SiteMapCurrentLevel>>,
+) {
+    let level = match level.as_ref() {
+        Some(level) => level,
+        None => { return; }
+    };
+    for (l, hovering, selected, lane, pieces, mut cue, mut tf) in &mut lanes {
+        // println!("Change in lane {l:?}");
+        if let Some(vm) = vm.0.get(&level.0) {
+            if let (Some(v0), Some(v1)) = (vm.id_to_entity(lane.0), vm.id_to_entity(lane.1)) {
+                if let Some((old_v0, old_v1)) = cue.supporters {
+                    // If we have supporters that are out of date, clear them out.
+                    // This can happen if a user changes the start or end vertices
+                    // of the lane.
+                    if (old_v0, old_v1) != (v0, v1) {
+                        for v in [old_v0, old_v1] {
+                            if let Some((mut hover, mut selected)) = vertices.get_mut(v).ok() {
+                                hover.support_hovering.remove(&l);
+                                selected.support_selected.remove(&l);
+                            }
+                        }
+                    }
+                }
+
+                if hovering.cue() || selected.cue() {
+                    cue.supporters = Some((v0, v1));
+                } else {
+                    cue.supporters = None;
+                }
+
+                if let Some([(mut hover_v0, mut selected_v0), (mut hover_v1, mut selected_v1)]) = vertices.get_many_mut([v0, v1]).ok() {
+                    if hovering.cue() {
+                        hover_v0.support_hovering.insert(l);
+                        hover_v1.support_hovering.insert(l);
+                    } else {
+                        hover_v0.support_hovering.remove(&l);
+                        hover_v1.support_hovering.remove(&l);
+                    }
+
+                    if selected.cue() {
+                        selected_v0.support_selected.insert(l);
+                        selected_v1.support_selected.insert(l);
+                    } else {
+                        selected_v0.support_selected.remove(&l);
+                        selected_v1.support_selected.remove(&l);
+                    }
+                }
+
+                let (m, h) = if hovering.cue() && selected.cue() {
+                    (&site_assets.hover_select_lane_material, HOVERED_LANE_HEIGHT)
+                } else if hovering.cue() {
+                    (&site_assets.hover_lane_material, HOVERED_LANE_HEIGHT)
+                } else if selected.cue() {
+                    (&site_assets.select_lane_material, SELECTED_LANE_HEIGHT)
+                } else {
+                    (&site_assets.passive_lane_material, PASSIVE_LANE_HEIGHT)
+                };
+
+                for e in pieces.segments {
+                    set_material(e, m, &mut materials);
+                }
+
+                tf.translation.z = h;
+            }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct FloorVisualCue;
+
+#[derive(Component)]
+pub struct WallVisualCue;
+
+pub fn update_floor_and_wall_visual_cues(
+    floors: Query<&Hovering, With<FloorVisualCue>>,
+    walls: Query<&Hovering, With<WallVisualCue>>,
+    cursor: Query<Entity, With<Cursor>>,
+    mut visibility: Query<&mut Visibility>,
+) {
+    for hovering in floors.iter().chain(walls.iter()) {
+        if hovering.cue() {
+            if let Some(mut v) = visibility.get_mut(cursor.single()).ok() {
+                v.is_visible = true;
+            }
         }
     }
 }

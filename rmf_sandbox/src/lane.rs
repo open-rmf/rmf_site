@@ -14,7 +14,8 @@ pub struct LaneProperties {
 pub struct Lane(pub usize, pub usize, pub LaneProperties);
 
 pub const PASSIVE_LANE_HEIGHT: f32 = 0.001;
-pub const ACTIVE_LANE_HEIGHT: f32 = 0.002;
+pub const SELECTED_LANE_HEIGHT: f32 = 0.002;
+pub const HOVERED_LANE_HEIGHT: f32 = 0.003;
 pub const LANE_WIDTH: f32 = 0.5;
 
 impl Lane {

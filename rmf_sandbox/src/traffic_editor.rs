@@ -5,7 +5,7 @@ use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
-use crate::lane::{Lane, PASSIVE_LANE_HEIGHT, ACTIVE_LANE_HEIGHT};
+use crate::lane::{Lane, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT};
 use crate::lift::Lift;
 use crate::measurement::Measurement;
 use crate::model::Model;
@@ -16,7 +16,7 @@ use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
-use crate::interaction::{InteractionPlugin, Cursor, InteractionAssets, Spinning, Bobbing};
+use crate::interaction::{InteractionPlugin, Cursor, InteractionAssets, Spinning, Bobbing, Hovering, Selected};
 use bevy::ecs::system::SystemParam;
 use bevy::{
     prelude::*,
@@ -527,20 +527,24 @@ pub enum EditableTag {
 
 impl EditableTag {
     fn unwrap_entity(&self) -> Entity {
+        self.entity().unwrap()
+    }
+
+    pub fn entity(&self) -> Option<Entity> {
         match self {
-            Self::Lane(e) => *e,
-            Self::Vertex(e) => *e,
-            Self::Measurement(e) => *e,
-            Self::Wall(e) => *e,
-            Self::Model(e) => *e,
-            Self::Floor(e) => *e,
-            Self::Door(e) => *e,
-            Self::Lift(e) => *e,
-            Self::Ignore => panic!("Could not unwrap an entity for an Ignore value!"),
+            Self::Lane(e) => Some(*e),
+            Self::Vertex(e) => Some(*e),
+            Self::Measurement(e) => Some(*e),
+            Self::Wall(e) => Some(*e),
+            Self::Model(e) => Some(*e),
+            Self::Floor(e) => Some(*e),
+            Self::Door(e) => Some(*e),
+            Self::Lift(e) => Some(*e),
+            Self::Ignore => None,
         }
     }
 
-    fn ignore(&self) -> bool {
+    pub fn ignore(&self) -> bool {
         match self {
             Self::Ignore => true,
             _ => false,
@@ -559,321 +563,10 @@ enum EditorData {
     Lift(EditableLift),
 }
 
-struct SelectedEditable(EditableTag, EditorData);
+struct SelectedEditable(pub EditableTag, pub EditorData);
 
-/// The element that is currently being hovered
-pub struct VisualCue {
-    current_hover: Option<EditableTag>,
-    current_select: Option<EditableTag>,
-    /// Currently we only use at most 2 vertex hovers at the same time, but
-    /// we can increase the size of this or make it a Vec<Entity> pool if we ever
-    /// need to.
-    vertex_hover: [Entity; 2],
-    /// Currently we only use at most 2 vertex selections at the same time, but
-    /// we can increase the size of this or make it a Vec<Entity> pool if we ever
-    /// need to.
-    vertex_select: [Entity; 2],
-}
-
-pub fn set_visibility(
-    entity: Entity,
-    spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-    visible: bool,
-) {
-    if let Some((_, mut visibility)) = spatial.get_mut(entity).ok() {
-        visibility.is_visible = visible;
-    }
-}
-
-fn recursive_set_material(
-    parent: Entity,
-    to_material: &Handle<StandardMaterial>,
-    q_material: &mut Query<&mut Handle<StandardMaterial>>,
-    q_children: &Query<&Children>,
-    q_tags: &Query<&EditableTag>,
-) {
-    if let Some(mut material) = q_material.get_mut(parent).ok() {
-        *material = to_material.clone();
-    }
-
-    if let Some(children) = q_children.get(parent).ok() {
-        for child in children {
-            if q_tags.get(*child).ok().filter(|t| !t.ignore()).is_some() {
-                recursive_set_material(*child, to_material, q_material, q_children, q_tags);
-            }
-        }
-    }
-}
-
-fn set_height(
-    entity: Entity,
-    spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-    height: f32,
-) {
-    if let Some((mut tf, _)) = spatial.get_mut(entity).ok() {
-        tf.as_mut().translation[2] = height;
-    }
-}
-
-fn clear_entity_cues(
-    tag: EditableTag,
-    spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-    material: &mut Query<&mut Handle<StandardMaterial>>,
-    children: &Query<&Children>,
-    tags: &Query<&EditableTag>,
-    site_assets: &Res<SiteAssets>,
-) {
-    match tag {
-        EditableTag::Vertex(v) => {
-            recursive_set_material(v, &site_assets.vertex_material, material, children, tags);
-        }
-        EditableTag::Lane(lane) => {
-            set_height(lane, spatial, PASSIVE_LANE_HEIGHT);
-            recursive_set_material(lane, &site_assets.passive_lane_material, material, children, tags);
-        },
-        EditableTag::Measurement(m) => {
-            set_height(m, spatial, PASSIVE_LANE_HEIGHT);
-            recursive_set_material(m, &site_assets.measurement_material, material, children, tags);
-        }
-        _ => {
-
-        }
-    }
-}
-
-impl VisualCue {
-
-    pub fn clear_hover(
-        &mut self,
-        spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-        material: &mut Query<&mut Handle<StandardMaterial>>,
-        children: &Query<&Children>,
-        tags: &Query<&EditableTag>,
-        site_assets: &Res<SiteAssets>,
-    ) -> Option<()> {
-        // We return an Option<()> for convenience to use ? here
-        let tag = self.current_hover?;
-        if Some(tag) != self.current_select {
-            clear_entity_cues(tag, spatial, material, children, tags, site_assets);
-        }
-
-        for vertex in self.vertex_hover {
-            set_visibility(vertex, spatial, false);
-        }
-
-        self.current_hover = None;
-        None
-    }
-
-    pub fn hover_on_editable(
-        &mut self,
-        current: EditableTag,
-        cursor: Entity,
-        command: &mut Commands,
-        spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-        material: &mut Query<&mut Handle<StandardMaterial>>,
-        children: &Query<&Children>,
-        site_assets: &Res<SiteAssets>,
-        q_editable: &EditableQuery,
-    ) {
-        if self.current_hover == Some(current) {
-            return;
-        }
-
-        self.clear_hover(spatial, material, children, &q_editable.q_tag, site_assets);
-
-        self.current_hover = Some(current);
-        match current {
-            EditableTag::Vertex(entity) => {
-                if self.current_hover == self.current_select {
-                    recursive_set_material(entity, &site_assets.hover_select_vertex_material, material, children, &q_editable.q_tag);
-                } else {
-                    let hud = &self.vertex_hover[0];
-                    command.entity(entity).add_child(*hud);
-
-                    // Turn the hud element on while hovering on a vertex
-                    set_visibility(*hud, spatial, true);
-                }
-
-                // Turn the cursor off while hovering on a vertex
-                set_visibility(cursor, spatial, false);
-            },
-            EditableTag::Lane(entity) | EditableTag::Measurement(entity) => {
-                // Turn off the cursor when hovering on a lane
-                set_visibility(cursor, spatial, false);
-                set_height(entity, spatial, ACTIVE_LANE_HEIGHT);
-                let m = if self.current_hover == self.current_select {
-                    &site_assets.hover_select_lane_material
-                } else {
-                    &site_assets.hover_lane_material
-                };
-                recursive_set_material(entity, m, material, children, &q_editable.q_tag);
-                if let Some(data) = q_editable.q_lane.get(entity).ok() {
-                    if let Some(vm) = q_editable.vm.0.get(&q_editable.level.0) {
-                        if let Some(v0) = vm.id_to_entity(data.0) {
-                            command.entity(v0).add_child(self.vertex_hover[0]);
-                        }
-
-                        if let Some(v1) = vm.id_to_entity(data.1) {
-                            command.entity(v1).add_child(self.vertex_hover[1]);
-                        }
-
-                        for v in self.vertex_hover {
-                            set_visibility(v, spatial, true);
-                        }
-                    }
-                }
-            }
-            _ => {
-                // Turn on the cursor when hovering on anything else
-                set_visibility(cursor, spatial, true);
-            }
-        }
-    }
-
-    pub fn clear_select(
-        &mut self,
-        spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-        material: &mut Query<&mut Handle<StandardMaterial>>,
-        children: &Query<&Children>,
-        tags: &Query<&EditableTag>,
-        site_assets: &Res<SiteAssets>,
-    ) -> Option<()> {
-        let tag = self.current_select?;
-        println!("selecting {tag:?}");
-        clear_entity_cues(tag, spatial, material, children, tags, site_assets);
-
-        for vertex in self.vertex_select {
-            set_visibility(vertex, spatial, false);
-        }
-
-        self.current_select = None;
-        None
-    }
-
-    pub fn select_editable(
-        &mut self,
-        current: Option<EditableTag>,
-        cursor: Entity,
-        command: &mut Commands,
-        spatial: &mut Query<(&mut Transform, &mut Visibility)>,
-        material: &mut Query<&mut Handle<StandardMaterial>>,
-        children: &Query<&Children>,
-        site_assets: &Res<SiteAssets>,
-        q_editable: &EditableQuery,
-    ) -> Option<()> {
-        if self.current_select == current {
-            return None;
-        }
-
-        self.clear_select(spatial, material, children, &q_editable.q_tag, site_assets);
-        self.current_select = current;
-        let selected = current?;
-        match selected {
-            EditableTag::Vertex(entity) => {
-                let hud = &self.vertex_select[0];
-                command.entity(entity).add_child(*hud);
-                set_visibility(*hud, spatial, true);
-            },
-            EditableTag::Lane(entity) | EditableTag::Measurement(entity) => {
-                set_height(entity, spatial, ACTIVE_LANE_HEIGHT);
-                recursive_set_material(entity, &site_assets.select_lane_material, material, children, &q_editable.q_tag);
-                if let Some(data) = q_editable.q_lane.get(entity).ok() {
-                    if let Some(vm) = q_editable.vm.0.get(&q_editable.level.0) {
-                        if let Some(v0) = vm.id_to_entity(data.0) {
-                            command.entity(v0).add_child(self.vertex_select[0]);
-                        }
-
-                        if let Some(v1) = vm.id_to_entity(data.1) {
-                            command.entity(v1).add_child(self.vertex_select[1]);
-                        }
-
-                        for v in self.vertex_select {
-                            set_visibility(v, spatial, true);
-                        }
-                    }
-                }
-            },
-            EditableTag::Floor(_) => {
-                // Do nothing
-            },
-            _ => {
-                // Change color here?
-            }
-        }
-
-        None
-    }
-}
-
-impl FromWorld for VisualCue {
-    fn from_world(world: &mut World) -> Self {
-        let interaction_assets = world.get_resource::<InteractionAssets>().unwrap().clone();
-
-        let vertex_height = 0.15 + 0.05/2.;
-        let mut make_vertex_hover = || {
-            world.spawn()
-                .insert_bundle(SpatialBundle{
-                    visibility: Visibility{is_visible: false},
-                    ..default()
-                })
-                .insert(EditableTag::Ignore)
-                .with_children(|parent| {
-                    parent.spawn_bundle(PbrBundle{
-                        // Have the halo fit nicely around a vertex
-                        transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                        material: interaction_assets.halo_material.clone(),
-                        mesh: interaction_assets.halo_mesh.clone(),
-                        ..default()
-                    })
-                    .insert(Spinning::default());
-
-                    parent.spawn_bundle(PbrBundle{
-                        // Have the dagger float just above a vertex head
-                        material: interaction_assets.dagger_material.clone(),
-                        mesh: interaction_assets.dagger_mesh.clone(),
-                        ..default()
-                    })
-                    .insert(Spinning::default())
-                    .insert(Bobbing::between(vertex_height, vertex_height+0.20));
-                })
-                .id()
-        };
-        let vertex_hover = [make_vertex_hover(), make_vertex_hover()];
-
-        let mut make_vertex_select = || {
-            // TODO(MXG): Instead of using the halo we should provide a widget
-            // that allows the vertex to be moved
-            world.spawn()
-                .insert_bundle(SpatialBundle{
-                    visibility: Visibility{is_visible: false},
-                    ..default()
-                })
-                .insert(EditableTag::Ignore)
-                .with_children(|parent| {
-                    parent.spawn_bundle(PbrBundle{
-                        transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                        material: interaction_assets.halo_material.clone(),
-                        mesh: interaction_assets.halo_mesh.clone(),
-                        ..default()
-                    })
-                    .insert(Spinning::default());
-
-                    parent.spawn_bundle(PbrBundle{
-                        transform: Transform::from_translation([0., 0., vertex_height].into()),
-                        material: interaction_assets.dagger_material.clone(),
-                        mesh: interaction_assets.dagger_mesh.clone(),
-                        ..default()
-                    })
-                    .insert(Spinning::default());
-                })
-                .id()
-        };
-        let vertex_select = [make_vertex_select(), make_vertex_select()];
-
-        Self{current_hover: None, current_select: None, vertex_hover, vertex_select}
-    }
-}
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+struct HoveredEditable(pub Entity);
 
 #[derive(Default)]
 struct HasChanges(bool);
@@ -1013,7 +706,7 @@ fn egui_ui(
     mut save_map: EventWriter<SaveMap>,
     mut has_changes: ResMut<HasChanges>,
     mut spawner: Spawner,
-    current_level: Option<Res<SiteMapCurrentLevel>>,
+    current_level: Res<Option<SiteMapCurrentLevel>>,
     mut selected: ResMut<Option<SelectedEditable>>,
 ) {
     let mut controls = q_camera_controls.single_mut();
@@ -1072,84 +765,84 @@ fn egui_ui(
         .max_width(250.)
         .show(egui_context.ctx_mut(), |ui| {
             ui.vertical_centered_justified(|ui| {
-                ui.group(|ui| {
-                    if ui.button("Add Vertex").clicked() {
-                        let new_vertex = Vertex::default();
-                        let new_entity = spawner
-                            .spawn_vertex(&current_level.as_ref().unwrap().0, new_vertex.clone())
-                            .unwrap()
-                            .id();
-                        *selected =
-                            Some(SelectedEditable(EditableTag::Vertex(new_entity), EditorData::Vertex(new_vertex)));
-                    }
-                    if ui.button("Add Lane").clicked() {
-                        let new_lane = Lane::default();
-                        let new_entity = spawner
-                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_lane.clone())
-                            .unwrap()
-                            .id();
-                        *selected = Some(SelectedEditable(EditableTag::Lane(new_entity), EditorData::Lane(new_lane)));
-                    }
-                    if ui.button("Add Measurement").clicked() {
-                        let new_measurement = Measurement::default();
-                        let new_entity = spawner
-                            .spawn_in_level(
-                                &current_level.as_ref().unwrap().0,
-                                new_measurement.clone(),
-                            )
-                            .unwrap()
-                            .id();
-                        *selected = Some(SelectedEditable(
-                            EditableTag::Measurement(new_entity),
-                            EditorData::Measurement(new_measurement),
-                        ));
-                    }
-                    if ui.button("Add Wall").clicked() {
-                        let new_wall = Wall::default();
-                        let new_entity = spawner
-                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_wall.clone())
-                            .unwrap()
-                            .id();
-                        *selected = Some(SelectedEditable(EditableTag::Wall(new_entity), EditorData::Wall(new_wall)));
-                    }
-                    if ui.button("Add Model").clicked() {
-                        let new_model = Model::default();
-                        let new_entity = spawner
-                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_model.clone())
-                            .unwrap()
-                            .id();
-                        *selected =
-                            Some(SelectedEditable(EditableTag::Model(new_entity), EditorData::Model(new_model)));
-                    }
-                    if ui.button("Add Door").clicked() {
-                        let new_door = Door::default();
-                        let new_entity = spawner
-                            .spawn_in_level(&current_level.as_ref().unwrap().0, new_door.clone())
-                            .unwrap()
-                            .id();
-                        *selected = Some(SelectedEditable(EditableTag::Door(new_entity), EditorData::Door(new_door)));
-                    }
-                    if ui.button("Add Lift").clicked() {
-                        let cur_level = &current_level.as_ref().unwrap().0;
-                        let new_lift = Lift {
-                            initial_floor_name: cur_level.clone(),
-                            ..default()
-                        };
-                        let new_entity = spawner
-                            .spawn_in_level(&cur_level, new_lift.clone())
-                            .unwrap()
-                            .id();
-                        *selected = Some(SelectedEditable(
-                            EditableTag::Lift(new_entity),
-                            EditorData::Lift(
-                                EditableLift::from_lift("new_lift", &new_lift).unwrap(),
-                            ),
-                        ));
-                    }
-                });
-                if let Some(current_level) = current_level {
+                if let Some(current_level) = current_level.as_ref() {
                     ui.group(|ui| {
-                        editor.draw(ui, spawner.vertex_mgrs.as_ref(), current_level.as_ref(), &mut has_changes.0, selected);
+                        if ui.button("Add Vertex").clicked() {
+                            let new_vertex = Vertex::default();
+                            let new_entity = spawner
+                                .spawn_vertex(&current_level.0, new_vertex.clone())
+                                .unwrap()
+                                .id();
+                            *selected =
+                                Some(SelectedEditable(EditableTag::Vertex(new_entity), EditorData::Vertex(new_vertex)));
+                        }
+                        if ui.button("Add Lane").clicked() {
+                            let new_lane = Lane::default();
+                            let new_entity = spawner
+                                .spawn_in_level(&current_level.0, new_lane.clone())
+                                .unwrap()
+                                .id();
+                            *selected = Some(SelectedEditable(EditableTag::Lane(new_entity), EditorData::Lane(new_lane)));
+                        }
+                        if ui.button("Add Measurement").clicked() {
+                            let new_measurement = Measurement::default();
+                            let new_entity = spawner
+                                .spawn_in_level(
+                                    &current_level.0,
+                                    new_measurement.clone(),
+                                )
+                                .unwrap()
+                                .id();
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Measurement(new_entity),
+                                EditorData::Measurement(new_measurement),
+                            ));
+                        }
+                        if ui.button("Add Wall").clicked() {
+                            let new_wall = Wall::default();
+                            let new_entity = spawner
+                                .spawn_in_level(&current_level.0, new_wall.clone())
+                                .unwrap()
+                                .id();
+                            *selected = Some(SelectedEditable(EditableTag::Wall(new_entity), EditorData::Wall(new_wall)));
+                        }
+                        if ui.button("Add Model").clicked() {
+                            let new_model = Model::default();
+                            let new_entity = spawner
+                                .spawn_in_level(&current_level.0, new_model.clone())
+                                .unwrap()
+                                .id();
+                            *selected =
+                                Some(SelectedEditable(EditableTag::Model(new_entity), EditorData::Model(new_model)));
+                        }
+                        if ui.button("Add Door").clicked() {
+                            let new_door = Door::default();
+                            let new_entity = spawner
+                                .spawn_in_level(&current_level.0, new_door.clone())
+                                .unwrap()
+                                .id();
+                            *selected = Some(SelectedEditable(EditableTag::Door(new_entity), EditorData::Door(new_door)));
+                        }
+                        if ui.button("Add Lift").clicked() {
+                            let cur_level = &current_level.0;
+                            let new_lift = Lift {
+                                initial_floor_name: cur_level.clone(),
+                                ..default()
+                            };
+                            let new_entity = spawner
+                                .spawn_in_level(&cur_level, new_lift.clone())
+                                .unwrap()
+                                .id();
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Lift(new_entity),
+                                EditorData::Lift(
+                                    EditableLift::from_lift("new_lift", &new_lift).unwrap(),
+                                ),
+                            ));
+                        }
+                    });
+                    ui.group(|ui| {
+                        editor.draw(ui, spawner.vertex_mgrs.as_ref(), current_level, &mut has_changes.0, selected);
                     });
                 }
             });
@@ -1308,43 +1001,63 @@ impl<'w, 's> EditableQuery<'w, 's> {
 }
 
 fn maintain_inspected_entities(
-    mut command: Commands,
     interactions: Query<(&Interaction, &EditableTag), Changed<Interaction>>,
     paused: Option<Res<PausedForBlockers>>,
     editables: EditableQuery,
-    mut spatial: Query<(&mut Transform, &mut Visibility)>,
-    mut material: Query<&mut Handle<StandardMaterial>>,
-    children: Query<&Children>,
-    cursor: Query<Entity, With<Cursor>>,
-    mut visual_cue: ResMut<VisualCue>,
-    site_assets: Res<SiteAssets>,
+    mut cues: Query<(&mut Hovering, &mut Selected)>,
     mut selected: ResMut<Option<SelectedEditable>>,
+    mut hovered: ResMut<Option<HoveredEditable>>,
 ) {
+    // dbg!();
     if let Some(paused) = paused {
         if paused.is_paused() {
             return;
         }
     }
 
+    let previous_selected = selected.as_ref().as_ref().map(|s| s.0.clone());
     let clicked = interactions.iter().find(|(i, _)| match i {
         Interaction::Clicked => true,
         _ => false,
     });
     if let Some((_, tag)) = clicked {
         *selected = editables.get_selected_data(tag);
-    }
-    let selected_tag = selected.as_ref().as_ref().map(|s| s.0.clone());
+        dbg!(tag);
 
-    if let Some(cursor) = cursor.get_single().ok() {
-        visual_cue.select_editable(selected_tag, cursor, &mut command, &mut spatial, &mut material, &children, &site_assets, &editables);
-        for (interaction, tag) in &interactions {
-            match interaction {
-                Interaction::Hovered => {
-                    visual_cue.hover_on_editable(*tag, cursor, &mut command, &mut spatial, &mut material, &children, &site_assets, &editables);
-                },
-                _ => {
-
+        let selected_tag = selected.as_ref().as_ref().map(|s| s.0.clone());
+        if previous_selected != selected_tag {
+            if let Some(previous) = previous_selected {
+                if let Some((_, mut selected)) = cues.get_mut(previous.unwrap_entity()).ok() {
+                    selected.is_selected = false;
                 }
+            }
+
+            if let Some(current) = selected_tag {
+                if let Some((_, mut selected)) = cues.get_mut(current.unwrap_entity()).ok() {
+                    selected.is_selected = true;
+                }
+            }
+        }
+    }
+
+    let previous_hovered = *hovered;
+    let new_hovered = interactions.iter().find(|(i, _)| match i {
+        Interaction::Hovered => true,
+        _ => false,
+    }).filter(|(_, tag)| {
+        !tag.ignore()
+    }).map(|(_, tag)| HoveredEditable(tag.unwrap_entity().clone()));
+    if let Some(current) = new_hovered {
+        if previous_hovered != Some(current) {
+            *hovered = Some(current);
+            if let Some(previous) = previous_hovered {
+                if let Some((mut hovered, _)) = cues.get_mut(previous.0).ok() {
+                    hovered.is_hovering = false;
+                }
+            }
+
+            if let Some((mut hovered, _)) = cues.get_mut(current.0).ok() {
+                hovered.is_hovering = true;
             }
         }
     }
@@ -1536,7 +1249,7 @@ pub struct EditableQuery<'w, 's> {
     q_name: Query<'w, 's, &'static basic_components::Name>,
     q_tag: Query<'w, 's, &'static EditableTag>,
     vm: Res<'w, VerticesManagers>,
-    level: Res<'w, SiteMapCurrentLevel>,
+    level: Res<'w, Option<SiteMapCurrentLevel>>,
 }
 
 #[derive(Default)]
@@ -1546,14 +1259,14 @@ impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_plugin(InteractionPlugin::new(AppState::TrafficEditor))
-            .init_resource::<VisualCue>()
             .init_resource::<Option<SelectedEditable>>()
+            .init_resource::<Option<HoveredEditable>>()
             .init_resource::<HasChanges>()
             .add_startup_system(on_startup)
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
             .add_system_set(
-                SystemSet::on_update(AppState::TrafficEditor).before(SiteMapLabel)
+                SystemSet::on_update(AppState::TrafficEditor).after(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(egui_picking_blocker.after(egui_ui))
                     .with_system(update_picking_cam)
@@ -1568,7 +1281,7 @@ impl Plugin for TrafficEditorPlugin {
             .add_system_set_to_stage(
                 CoreStage::First,
                 SystemSet::new()
-                    .with_run_criteria(|state: (Res<PickingPluginsState>, Option<Res<SiteMapCurrentLevel>>)| {
+                    .with_run_criteria(|state: (Res<PickingPluginsState>, Res<Option<SiteMapCurrentLevel>>)| {
                         if state.1.is_none() {
                             return ShouldRun::No;
                         }
