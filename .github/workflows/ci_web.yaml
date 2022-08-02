@@ -15,8 +15,6 @@ jobs:
 
     - name: rust-wasm-target
       run: |
-        rustup toolchain install nightly-2022-04-27
-        rustup default nightly-2022-04-27
         rustup target add wasm32-unknown-unknown
 
     - name: apt-deps

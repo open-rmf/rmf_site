@@ -17,8 +17,6 @@ jobs:
 
     - name: rustfmt
       run: |
-        rustup toolchain install nightly-2022-04-27
-        rustup default nightly-2022-04-27
         rustup component add rustfmt
 
     - name: style
