@@ -3,6 +3,10 @@ use std::collections::HashMap;
 use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
+use crate::interaction::{
+    Bobbing, DefaultVisualCue, FloorVisualCue, Hovering, InteractionAssets, LaneVisualCue,
+    Selected, Spinning, VertexVisualCue, WallVisualCue,
+};
 use crate::lane::{Lane, LANE_WIDTH, PASSIVE_LANE_HEIGHT};
 use crate::lift::Lift;
 use crate::light::Light;
@@ -10,19 +14,11 @@ use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
+use crate::traffic_editor::EditableTag;
 use crate::vertex::Vertex;
 use crate::{building_map::BuildingMap, wall::Wall};
-use crate::interaction::{
-    InteractionAssets, Bobbing, Spinning,
-    VertexVisualCue, LaneVisualCue, FloorVisualCue, WallVisualCue, DefaultVisualCue,
-    Hovering, Selected,
-};
-use crate::traffic_editor::EditableTag;
 
-use bevy::{
-    prelude::*,
-    asset::LoadState,
-};
+use bevy::{asset::LoadState, prelude::*};
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum SiteMapState {
@@ -58,7 +54,9 @@ impl FromWorld for SiteAssets {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let wall_texture = asset_server.load("sandbox://textures/default.png");
 
-        let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
+        let mut materials = world
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .unwrap();
         let passive_lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
         let select_material = materials.add(Color::rgb(1., 0.3, 1.).into());
         let hover_material = materials.add(Color::rgb(0.3, 1., 1.).into());
@@ -91,7 +89,7 @@ impl FromWorld for SiteAssets {
             uv_profile: shape::CapsuleUvProfile::Fixed,
         }));
         let lane_mid_mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.]))));
-        let lane_end_mesh = meshes.add(Mesh::from(shape::Circle::new(LANE_WIDTH/2.)));
+        let lane_end_mesh = meshes.add(Mesh::from(shape::Circle::new(LANE_WIDTH / 2.)));
 
         Self {
             vertex_mesh,
@@ -123,12 +121,7 @@ struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
 #[derive(Default)]
 struct SpawnedModels(Vec<Entity>);
 
-
-pub fn init_site_map(
-    sm: Res<BuildingMap>,
-    mut commands: Commands,
-    settings: Res<Settings>,
-) {
+pub fn init_site_map(sm: Res<BuildingMap>, mut commands: Commands, settings: Res<Settings>) {
     println!("Initializing site map: {}", sm.name);
     commands.insert_resource(AmbientLight {
         color: Color::WHITE,
@@ -200,18 +193,20 @@ fn update_floor(
 ) {
     for e in q_floors.iter() {
         // spawn the floor plane
-        commands.entity(e).insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
-            material: handles.default_floor_material.clone(),
-            transform: Transform {
-                rotation: Quat::from_rotation_x(std::f32::consts::PI/2.),
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Plane { size: 100.0 })),
+                material: handles.default_floor_material.clone(),
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(std::f32::consts::PI / 2.),
+                    ..default()
+                },
                 ..default()
-            },
-            ..default()
-        })
-        .insert(FloorVisualCue)
-        .insert(Hovering::default())
-        .insert(Selected::default());
+            })
+            .insert(FloorVisualCue)
+            .insert(Hovering::default())
+            .insert(Selected::default());
     }
 }
 
@@ -225,46 +220,51 @@ fn update_vertices(
     // spawn new vertices
     for (e, v) in added_vertices.iter() {
         let mut commands = commands.entity(e);
-        commands.insert_bundle(SpatialBundle{
+        commands.insert_bundle(SpatialBundle {
             transform: v.transform(),
             ..default()
         });
 
         let (dagger, halo, body) = commands.add_children(|parent| {
-            let dagger = parent.spawn_bundle(PbrBundle{
-                material: interaction_assets.dagger_material.clone(),
-                mesh: interaction_assets.dagger_mesh.clone(),
-                visibility: Visibility{is_visible: false},
-                ..default()
-            })
-            .insert(Bobbing::default())
-            .insert(Spinning::default())
-            .insert(EditableTag::Ignore)
-            .id();
+            let dagger = parent
+                .spawn_bundle(PbrBundle {
+                    material: interaction_assets.dagger_material.clone(),
+                    mesh: interaction_assets.dagger_mesh.clone(),
+                    visibility: Visibility { is_visible: false },
+                    ..default()
+                })
+                .insert(Bobbing::default())
+                .insert(Spinning::default())
+                .insert(EditableTag::Ignore)
+                .id();
 
-            let halo = parent.spawn_bundle(PbrBundle{
-                // Have the halo fit nicely around a vertex
-                transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                material: interaction_assets.halo_material.clone(),
-                mesh: interaction_assets.halo_mesh.clone(),
-                visibility: Visibility{is_visible: false},
-                ..default()
-            })
-            .insert(Spinning::default())
-            .insert(EditableTag::Ignore)
-            .id();
+            let halo = parent
+                .spawn_bundle(PbrBundle {
+                    // Have the halo fit nicely around a vertex
+                    transform: Transform::from_scale([0.2, 0.2, 1.].into()),
+                    material: interaction_assets.halo_material.clone(),
+                    mesh: interaction_assets.halo_mesh.clone(),
+                    visibility: Visibility { is_visible: false },
+                    ..default()
+                })
+                .insert(Spinning::default())
+                .insert(EditableTag::Ignore)
+                .id();
 
-            let body = parent.spawn_bundle(PbrBundle{
-                mesh: handles.vertex_mesh.clone(),
-                material: handles.passive_vertex_material.clone(),
-                transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
-                ..default()
-            }).id();
+            let body = parent
+                .spawn_bundle(PbrBundle {
+                    mesh: handles.vertex_mesh.clone(),
+                    material: handles.passive_vertex_material.clone(),
+                    transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
+                    ..default()
+                })
+                .id();
 
             (dagger, halo, body)
         });
 
-        commands.insert(VertexVisualCue{dagger, halo, body})
+        commands
+            .insert(VertexVisualCue { dagger, halo, body })
             .insert(Hovering::default())
             .insert(Selected::default());
     }
@@ -328,7 +328,9 @@ fn update_lanes(
 ) {
     let level = match level.as_ref() {
         Some(level) => level,
-        None => { return; }
+        None => {
+            return;
+        }
     };
     // spawn new lanes
     for (e, lane, change, pieces) in lanes.iter_mut() {
@@ -352,36 +354,44 @@ fn update_lanes(
         } else {
             let mut commands = commands.entity(e);
             let (start, mid, end) = commands.add_children(|parent| {
-                let start = parent.spawn_bundle(PbrBundle {
-                    mesh: handles.lane_end_mesh.clone(),
-                    material: handles.passive_lane_material.clone(),
-                    transform: v1.transform(),
-                    ..default()
-                }).id();
+                let start = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: handles.lane_end_mesh.clone(),
+                        material: handles.passive_lane_material.clone(),
+                        transform: v1.transform(),
+                        ..default()
+                    })
+                    .id();
 
-                let mid = parent.spawn_bundle(PbrBundle {
-                    mesh: handles.lane_mid_mesh.clone(),
-                    material: handles.passive_lane_material.clone(),
-                    transform: lane.transform(v1, v2),
-                    ..default()
-                }).id();
+                let mid = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: handles.lane_mid_mesh.clone(),
+                        material: handles.passive_lane_material.clone(),
+                        transform: lane.transform(v1, v2),
+                        ..default()
+                    })
+                    .id();
 
-                let end = parent.spawn_bundle(PbrBundle {
-                    mesh: handles.lane_end_mesh.clone(),
-                    material: handles.passive_lane_material.clone(),
-                    transform: v2.transform(),
-                    ..default()
-                }).id();
+                let end = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: handles.lane_end_mesh.clone(),
+                        material: handles.passive_lane_material.clone(),
+                        transform: v2.transform(),
+                        ..default()
+                    })
+                    .id();
 
                 (start, mid, end)
             });
 
             commands
-                .insert(LanePieces{segments: [start, mid, end]})
+                .insert(LanePieces {
+                    segments: [start, mid, end],
+                })
                 .insert(LaneVisualCue::default())
                 .insert(Hovering::default())
                 .insert(Selected::default())
-                .insert_bundle(SpatialBundle{
+                .insert_bundle(SpatialBundle {
                     transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                     ..default()
                 });
@@ -405,13 +415,19 @@ fn update_measurements(
 ) {
     let level = match level.as_ref() {
         Some(level) => level,
-        None => { return; }
+        None => {
+            return;
+        }
     };
     // spawn new measurements
     for (e, measurement, change, t) in measurements.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(measurement.0).unwrap();
+        let v1_entity = vertices_mgrs.0[&level.0]
+            .id_to_entity(measurement.0)
+            .unwrap();
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(measurement.1).unwrap();
+        let v2_entity = vertices_mgrs.0[&level.0]
+            .id_to_entity(measurement.1)
+            .unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_added() {
@@ -438,7 +454,9 @@ fn update_walls(
 ) {
     let level = match level.as_ref() {
         Some(level) => level,
-        None => { return; }
+        None => {
+            return;
+        }
     };
     // spawn new walls
     for (e, wall, change) in walls.iter_mut() {
@@ -448,15 +466,17 @@ fn update_walls(
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
 
         if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-            commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(wall.mesh(v1, v2)),
-                material: handles.wall_material.clone(),
-                transform: wall.transform(v1, v2),
-                ..default()
-            })
-            .insert(WallVisualCue)
-            .insert(Hovering::default())
-            .insert(Selected::default());
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(wall.mesh(v1, v2)),
+                    material: handles.wall_material.clone(),
+                    transform: wall.transform(v1, v2),
+                    ..default()
+                })
+                .insert(WallVisualCue)
+                .insert(Hovering::default())
+                .insert(Selected::default());
         }
     }
 }
@@ -509,12 +529,12 @@ fn update_models(
         if asset_server.get_load_state(h) == LoadState::Loaded {
             commands
                 .entity(*e)
-                .insert_bundle(SpatialBundle{
+                .insert_bundle(SpatialBundle {
                     transform: model.transform(),
                     ..default()
                 })
                 .with_children(|parent| {
-                    parent.spawn_bundle(SceneBundle{
+                    parent.spawn_bundle(SceneBundle {
                         scene: h.clone(),
                         ..default()
                     });
@@ -554,7 +574,9 @@ fn update_doors(
 ) {
     let level = match level.as_ref() {
         Some(level) => level,
-        None => { return; }
+        None => {
+            return;
+        }
     };
     for (e, door, t, door_changed) in q_doors.iter_mut() {
         let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(door.0).unwrap();
@@ -582,15 +604,17 @@ fn update_doors(
         };
 
         if door_changed.is_added() {
-            commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-                material: handles.door_material.clone(),
-                transform,
-                ..default()
-            })
-            .insert(Hovering::default())
-            .insert(Selected::default())
-            .insert(DefaultVisualCue);
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                    material: handles.door_material.clone(),
+                    transform,
+                    ..default()
+                })
+                .insert(Hovering::default())
+                .insert(Selected::default())
+                .insert(DefaultVisualCue);
         }
 
         if door_changed.is_changed() {
@@ -622,15 +646,17 @@ fn update_lifts(
         };
 
         if lift_changes.is_added() {
-            commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
-                material: handles.door_material.clone(),
-                transform,
-                ..default()
-            })
-            .insert(Hovering::default())
-            .insert(Selected::default())
-            .insert(DefaultVisualCue);
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
+                    mesh: meshes.add(Mesh::from(shape::Box::new(1., 1., 1.))),
+                    material: handles.door_material.clone(),
+                    transform,
+                    ..default()
+                })
+                .insert(Hovering::default())
+                .insert(Selected::default())
+                .insert(DefaultVisualCue);
         }
 
         if lift_changes.is_changed() {

@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError, Metadata, FileType},
+    asset::{AssetIo, AssetIoError, FileType, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -120,9 +120,7 @@ impl Plugin for SandboxAssetIoPlugin {
     fn build(&self, app: &mut App) {
         let asset_io = {
             let default_io = bevy::asset::create_platform_default_asset_io(app);
-            SandboxAssetIo {
-                default_io,
-            }
+            SandboxAssetIo { default_io }
         };
 
         // the asset server is constructed and added the resource manager

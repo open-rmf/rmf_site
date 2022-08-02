@@ -1,10 +1,10 @@
 use crate::init_settings;
 use crate::settings::*;
 use bevy::{
+    core_pipeline::core_3d::Camera3dBundle,
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
-    render::camera::{Camera, ScalingMode, WindowOrigin, Projection},
-    core_pipeline::core_3d::Camera3dBundle,
+    render::camera::{Camera, Projection, ScalingMode, WindowOrigin},
 };
 use bevy_egui::EguiContext;
 
@@ -42,12 +42,16 @@ impl CameraControls {
         choice: bool,
         cameras: &mut Query<(&mut Camera, &mut Visibility)>,
     ) {
-        if let Some((mut camera, mut visibility)) = cameras.get_mut(self.perspective_camera_entity).ok() {
+        if let Some((mut camera, mut visibility)) =
+            cameras.get_mut(self.perspective_camera_entity).ok()
+        {
             camera.is_active = choice;
             visibility.is_visible = choice;
         }
 
-        if let Some((mut camera, mut visibility)) = cameras.get_mut(self.orthographic_camera_entity).ok() {
+        if let Some((mut camera, mut visibility)) =
+            cameras.get_mut(self.orthographic_camera_entity).ok()
+        {
             camera.is_active = !choice;
             visibility.is_visible = !choice;
         }
@@ -103,12 +107,12 @@ fn camera_controls(
 
     let mut controls = controls_query.single_mut();
 
-    let is_shifting = input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
+    let is_shifting =
+        input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
     let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
 
-    let is_orbiting = input_mouse.pressed(MouseButton::Middle) || (
-        input_mouse.pressed(MouseButton::Right) && is_shifting
-    );
+    let is_orbiting = input_mouse.pressed(MouseButton::Middle)
+        || (input_mouse.pressed(MouseButton::Right) && is_shifting);
     let started_orbiting = !controls.was_oribiting && is_orbiting;
     let released_orbiting = controls.was_oribiting && !is_orbiting;
     controls.was_oribiting = is_orbiting;
@@ -142,15 +146,17 @@ fn camera_controls(
     }
 
     if controls.mode() == ProjectionMode::Orthographic {
-        let (mut ortho_proj, mut ortho_transform) = cameras.get_mut(controls.orthographic_camera_entity).unwrap();
+        let (mut ortho_proj, mut ortho_transform) = cameras
+            .get_mut(controls.orthographic_camera_entity)
+            .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
             if let Some(window) = windows.get_primary() {
                 let window_size = Vec2::new(window.width() as f32, window.height() as f32);
                 let aspect_ratio = window_size[0] / window_size[1];
 
                 if cursor_motion.length_squared() > 0.0 {
-                    cursor_motion *=
-                        2. / window_size * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
+                    cursor_motion *= 2. / window_size
+                        * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
                     let right = -cursor_motion.x * Vec3::X;
                     let up = -cursor_motion.y * Vec3::Y;
                     ortho_transform.translation += right + up;
@@ -163,7 +169,8 @@ fn camera_controls(
         }
     } else {
         // perspective mode
-        let (mut persp_proj, mut persp_transform) = cameras.get_mut(controls.perspective_camera_entity).unwrap();
+        let (mut persp_proj, mut persp_transform) =
+            cameras.get_mut(controls.perspective_camera_entity).unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
@@ -190,7 +197,8 @@ fn camera_controls(
                     let yaw = Quat::from_rotation_z(-delta_x);
                     let pitch = Quat::from_rotation_x(-delta_y);
                     persp_transform.rotation = yaw * persp_transform.rotation; // global y
-                    persp_transform.rotation = persp_transform.rotation * pitch; // local x
+                    persp_transform.rotation = persp_transform.rotation * pitch;
+                    // local x
                 }
             } else if is_panning && cursor_motion.length_squared() > 0. {
                 changed = true;
@@ -199,7 +207,8 @@ fn camera_controls(
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
 
                     cursor_motion *=
-                        Vec2::new(persp_proj.fov * persp_proj.aspect_ratio, persp_proj.fov) / window_size;
+                        Vec2::new(persp_proj.fov * persp_proj.aspect_ratio, persp_proj.fov)
+                            / window_size;
                     // translate by local axes
                     let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
                     let up = persp_transform.rotation * Vec3::Y * -cursor_motion.y;
@@ -249,7 +258,7 @@ fn handle_keyboard(
 }
 
 fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
-    let mut perspective = commands.spawn_bundle(Camera3dBundle{
+    let mut perspective = commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
         projection: Projection::Perspective(Default::default()),
         ..default()
@@ -263,7 +272,7 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
         println!("Adding directional light bundle");
         perspective.with_children(|parent| {
             parent.spawn_bundle(DirectionalLightBundle {
-                directional_light: DirectionalLight{
+                directional_light: DirectionalLight {
                     shadows_enabled: false,
                     illuminance: 20000.,
                     ..default()
@@ -274,21 +283,20 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
     }
     let perspective_id = perspective.id();
 
-    let mut ortho = commands
-        .spawn_bundle(Camera3dBundle {
-            camera: Camera{
-                is_active: false,
-                ..default()
-            },
-            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-            projection: Projection::Orthographic(OrthographicProjection {
-                window_origin: WindowOrigin::Center,
-                scaling_mode: ScalingMode::FixedVertical(1.0),
-                scale: 10.0,
-                ..default()
-            }),
+    let mut ortho = commands.spawn_bundle(Camera3dBundle {
+        camera: Camera {
+            is_active: false,
             ..default()
-        });
+        },
+        transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+        projection: Projection::Orthographic(OrthographicProjection {
+            window_origin: WindowOrigin::Center,
+            scaling_mode: ScalingMode::FixedVertical(1.0),
+            scale: 10.0,
+            ..default()
+        }),
+        ..default()
+    });
     ortho
         .insert(Visibility::visible())
         .insert(ComputedVisibility::default());
@@ -296,8 +304,11 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
     if settings.graphics_quality == GraphicsQuality::Low {
         ortho.with_children(|parent| {
             parent.spawn_bundle(DirectionalLightBundle {
-                transform: Transform::from_rotation(Quat::from_axis_angle(Vec3::new(1., 1., 0.).normalize(), 35_f32.to_radians())),
-                directional_light: DirectionalLight{
+                transform: Transform::from_rotation(Quat::from_axis_angle(
+                    Vec3::new(1., 1., 0.).normalize(),
+                    35_f32.to_radians(),
+                )),
+                directional_light: DirectionalLight {
                     shadows_enabled: false,
                     illuminance: 20000.,
                     ..default()

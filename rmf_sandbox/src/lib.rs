@@ -1,9 +1,9 @@
-use bevy::{prelude::*, pbr::DirectionalLightShadowMap, render::render_resource::WgpuAdapterInfo};
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
+use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 use traffic_editor::TrafficEditorPlugin;
 use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
-use bevy_egui::EguiPlugin;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
@@ -33,6 +33,7 @@ mod crowd_sim;
 mod door;
 mod fiducial;
 mod floor;
+mod interaction;
 mod lane;
 mod level;
 mod level_transform;
@@ -45,7 +46,6 @@ mod sandbox_asset_io;
 mod utils;
 mod vertex;
 mod wall;
-mod interaction;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;

@@ -16,25 +16,18 @@
 */
 
 use crate::{
-    site_map::{SiteAssets, SiteMapCurrentLevel, LanePieces},
-    traffic_editor::ElementDeleted,
-    lane::{Lane, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT, HOVERED_LANE_HEIGHT},
+    lane::{Lane, HOVERED_LANE_HEIGHT, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT},
+    site_map::{LanePieces, SiteAssets, SiteMapCurrentLevel},
     spawner::VerticesManagers,
+    traffic_editor::ElementDeleted,
 };
 use bevy::{
     prelude::*,
-    render::mesh::{
-        Mesh, PrimitiveTopology, Indices, VertexAttributeValues,
-    }
+    render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
 };
-use bevy_mod_picking::{
-    PickingRaycastSet,
-    PickingSystem,
-};
-use bevy_mod_raycast::{
-    Intersection,
-};
-use std::{fmt::Debug, hash::Hash, collections::HashSet};
+use bevy_mod_picking::{PickingRaycastSet, PickingSystem};
+use bevy_mod_raycast::Intersection;
+use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 #[derive(Clone, Debug)]
 pub struct InteractionAssets {
@@ -50,19 +43,21 @@ impl FromWorld for InteractionAssets {
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
 
-        let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
+        let mut materials = world
+            .get_resource_mut::<Assets<StandardMaterial>>()
+            .unwrap();
         let halo_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             alpha_mode: AlphaMode::Blend,
             unlit: true,
             ..default()
         });
-        let dagger_material = materials.add(StandardMaterial{
+        let dagger_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             ..default()
         });
 
-        Self{
+        Self {
             dagger_mesh,
             dagger_material,
             halo_mesh,
@@ -86,7 +81,7 @@ pub struct Spinning {
 
 impl Default for Spinning {
     fn default() -> Self {
-        Self{period: 2.}
+        Self { period: 2. }
     }
 }
 
@@ -98,19 +93,28 @@ pub struct Bobbing {
 
 impl Bobbing {
     pub fn between(h_min: f32, h_max: f32) -> Self {
-        Self{heights: (h_min, h_max), ..default()}
+        Self {
+            heights: (h_min, h_max),
+            ..default()
+        }
     }
 }
 
 impl Default for Bobbing {
     fn default() -> Self {
-        Self{period: 2., heights: (0., 0.2)}
+        Self {
+            period: 2.,
+            heights: (0., 0.2),
+        }
     }
 }
 
 impl From<(f32, f32)> for Bobbing {
     fn from(heights: (f32, f32)) -> Self {
-        Self{heights, ..default()}
+        Self {
+            heights,
+            ..default()
+        }
     }
 }
 
@@ -122,25 +126,28 @@ struct Circle {
 
 impl From<(f32, f32)> for Circle {
     fn from((radius, height): (f32, f32)) -> Self {
-        Self{radius, height}
+        Self { radius, height }
     }
 }
 
 fn make_circles(
-    circles: impl IntoIterator<Item=Circle>,
+    circles: impl IntoIterator<Item = Circle>,
     resolution: u32,
     gap: f32,
-) -> impl Iterator<Item=[f32; 3]> {
-    return [0..resolution].into_iter()
-        .cycle().zip(circles.into_iter())
+) -> impl Iterator<Item = [f32; 3]> {
+    return [0..resolution]
+        .into_iter()
+        .cycle()
+        .zip(circles.into_iter())
         .flat_map(move |(range, circle)| {
             range.into_iter().map(move |i| {
-                let theta = (i as f32)/(resolution as f32 - 1.) * (2.0*std::f32::consts::PI - gap);
+                let theta =
+                    (i as f32) / (resolution as f32 - 1.) * (2.0 * std::f32::consts::PI - gap);
                 let r = circle.radius;
                 let h = circle.height;
-                [r*theta.cos(), r*theta.sin(), h]
+                [r * theta.cos(), r * theta.sin(), h]
             })
-        })
+        });
 }
 
 pub(crate) struct PartialMesh {
@@ -156,13 +163,22 @@ impl PartialMesh {
             if let Some(Indices::U32(indices)) = mesh.indices_mut() {
                 indices.extend(self.indices.into_iter().map(|i| i + offset as u32));
             } else {
-                mesh.set_indices(Some(Indices::U32(self.indices.into_iter().map(|i| i + offset as u32).collect())));
+                mesh.set_indices(Some(Indices::U32(
+                    self.indices
+                        .into_iter()
+                        .map(|i| i + offset as u32)
+                        .collect(),
+                )));
             }
 
-            if let Some(VertexAttributeValues::Float32x3(current_positions)) = mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION) {
+            if let Some(VertexAttributeValues::Float32x3(current_positions)) =
+                mesh.attribute_mut(Mesh::ATTRIBUTE_POSITION)
+            {
                 current_positions.extend(self.positions.into_iter());
 
-                if let Some(VertexAttributeValues::Float32x3(current_normals)) = mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL) {
+                if let Some(VertexAttributeValues::Float32x3(current_normals)) =
+                    mesh.attribute_mut(Mesh::ATTRIBUTE_NORMAL)
+                {
                     current_normals.extend(self.normals.into_iter());
                 } else {
                     panic!("Mesh is missing normals attribute when it has positions attribute!");
@@ -170,7 +186,6 @@ impl PartialMesh {
             } else {
                 panic!("Unsupported position type while merging mesh");
             }
-
         } else {
             // The mesh currently has no positions in it (and should therefore have no normals or indices either)
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
@@ -180,10 +195,7 @@ impl PartialMesh {
     }
 }
 
-fn make_boxy_wrap(
-    circles: [Circle; 2],
-    segments: u32,
-) -> PartialMesh {
+fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> PartialMesh {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -192,25 +204,34 @@ fn make_boxy_wrap(
 
     let positions: Vec<[f32; 3]> = make_circles(
         [bottom_circle, bottom_circle, top_circle, top_circle],
-        segments+1,
+        segments + 1,
         0.,
-    ).collect();
+    )
+    .collect();
 
-    let indices = [
-        [0, 3*segments+4, 2*segments+2, 0, segments+2, 3*segments+4]
-    ].into_iter().cycle().enumerate()
-    .flat_map(|(i, values)| {
-        values.into_iter().map(move |s| { s + i as u32 })
-    }).take(6*segments as usize).collect();
+    let indices = [[
+        0,
+        3 * segments + 4,
+        2 * segments + 2,
+        0,
+        segments + 2,
+        3 * segments + 4,
+    ]]
+    .into_iter()
+    .cycle()
+    .enumerate()
+    .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
+    .take(6 * segments as usize)
+    .collect();
 
     positions.len();
     let mut normals = Vec::new();
     normals.resize(positions.len(), [0., 0., 0.]);
     for i in 0..segments {
-        let v0 = (i+0) as usize;
-        let v1 = (i + 3*segments+4) as usize;
-        let v2 = (i + 2*segments+2) as usize;
-        let v3 = (i + segments+2) as usize;
+        let v0 = (i + 0) as usize;
+        let v1 = (i + 3 * segments + 4) as usize;
+        let v2 = (i + 2 * segments + 2) as usize;
+        let v3 = (i + segments + 2) as usize;
         let p0: Vec3 = positions[v0].into();
         let p1: Vec3 = positions[v1].into();
         let p2: Vec3 = positions[v2].into();
@@ -220,34 +241,38 @@ fn make_boxy_wrap(
         });
     }
 
-    return PartialMesh{positions, normals, indices}
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    };
 }
 
-fn make_pyramid(
-    circle: Circle,
-    peak: [f32; 3],
-    segments: u32
-) -> PartialMesh {
-    let positions: Vec<[f32; 3]> = make_circles([circle, circle], segments+1, 0.)
-        .chain([peak].into_iter().cycle().take(segments as usize)).collect();
+fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> PartialMesh {
+    let positions: Vec<[f32; 3]> = make_circles([circle, circle], segments + 1, 0.)
+        .chain([peak].into_iter().cycle().take(segments as usize))
+        .collect();
 
-    let peak_start = 2*segments+2;
-    let complement_start = segments+2;
+    let peak_start = 2 * segments + 2;
+    let complement_start = segments + 2;
     let indices = if peak[2] < circle.height {
         [[0, peak_start, complement_start]]
     } else {
         [[0, complement_start, peak_start]]
-    }.into_iter().cycle().enumerate()
-    .flat_map(|(i, values)| {
-        values.into_iter().map(move |s| s + i as u32)
-    }).take(3*segments as usize).collect();
+    }
+    .into_iter()
+    .cycle()
+    .enumerate()
+    .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
+    .take(3 * segments as usize)
+    .collect();
 
     let mut normals = Vec::new();
     normals.resize(positions.len(), [0., 0., 0.]);
     for i in 0..segments {
-        let v0 = (i+0) as usize;
-        let v1 = (i+complement_start) as usize;
-        let vp = (i+peak_start) as usize;
+        let v0 = (i + 0) as usize;
+        let v1 = (i + complement_start) as usize;
+        let vp = (i + peak_start) as usize;
         let p0: Vec3 = positions[v0].into();
         let p1: Vec3 = positions[v1].into();
         let p2: Vec3 = positions[vp].into();
@@ -255,20 +280,30 @@ fn make_pyramid(
             (p2 - p0).cross(p1 - p0)
         } else {
             (p1 - p0).cross(p2 - p0)
-        }.normalize();
+        }
+        .normalize();
 
         [v0, v1, vp].into_iter().for_each(|v| {
             normals[v] = n.into();
         });
     }
 
-    return PartialMesh{positions, normals, indices};
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    };
 }
 
 fn make_dagger_mesh() -> Mesh {
-
-    let lower_ring = Circle{radius: 0.01, height: 0.1};
-    let upper_ring = Circle{radius: 0.02, height: 0.4};
+    let lower_ring = Circle {
+        radius: 0.01,
+        height: 0.1,
+    };
+    let upper_ring = Circle {
+        radius: 0.02,
+        height: 0.4,
+    };
     let top_height = 0.42;
     let segments = 4u32;
 
@@ -288,33 +323,60 @@ fn make_halo_mesh() -> Mesh {
     let gap = 60_f32.to_radians();
 
     let positions: Vec<[f32; 3]> = make_circles(
-        [(inner_ring, 0.).into(), (mid_ring, peak).into(), (outer_ring, 0.).into()],
+        [
+            (inner_ring, 0.).into(),
+            (mid_ring, peak).into(),
+            (outer_ring, 0.).into(),
+        ],
         segments,
-        gap
-    ).collect();
-
-    let colors: Vec<[f32; 4]> = [[1., 1., 1., 1.]].into_iter().cycle().take(2*segments as usize)
-        .chain(
-            [[1., 1., 1., 0.]].into_iter().cycle().take(segments as usize)
-        ).collect();
-
-    let normals: Vec<[f32; 3]> = [[0., 0., 1.]].into_iter().cycle().take(positions.len()).collect();
-
-    let indices = Indices::U32([
-        [0u32, segments, segments+1u32, 0u32, segments+1u32, 1u32]
-    ].into_iter().cycle().enumerate()
-    .flat_map(|(cycle, values)| {
-        [(cycle as u32, values)].into_iter().cycle().enumerate().take(segments as usize - 1)
-        .flat_map(|(segment, (cycle, values))| {
-            values.map(|s| {
-                cycle*segments + segment as u32 + s
-            })
-        })
-    }).take(6*2*(segments as usize - 1))
-    .chain(
-        [0, 2*segments, segments, 3*segments-1, segments-1, 2*segments-1]
+        gap,
     )
-    .collect());
+    .collect();
+
+    let colors: Vec<[f32; 4]> = [[1., 1., 1., 1.]]
+        .into_iter()
+        .cycle()
+        .take(2 * segments as usize)
+        .chain(
+            [[1., 1., 1., 0.]]
+                .into_iter()
+                .cycle()
+                .take(segments as usize),
+        )
+        .collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    let indices = Indices::U32(
+        [[0u32, segments, segments + 1u32, 0u32, segments + 1u32, 1u32]]
+            .into_iter()
+            .cycle()
+            .enumerate()
+            .flat_map(|(cycle, values)| {
+                [(cycle as u32, values)]
+                    .into_iter()
+                    .cycle()
+                    .enumerate()
+                    .take(segments as usize - 1)
+                    .flat_map(|(segment, (cycle, values))| {
+                        values.map(|s| cycle * segments + segment as u32 + s)
+                    })
+            })
+            .take(6 * 2 * (segments as usize - 1))
+            .chain([
+                0,
+                2 * segments,
+                segments,
+                3 * segments - 1,
+                segments - 1,
+                2 * segments - 1,
+            ])
+            .collect(),
+    );
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
@@ -330,26 +392,25 @@ pub struct InteractionPlugin<T> {
 }
 
 impl<T> InteractionPlugin<T> {
-    pub fn new(for_app_state: T ) -> Self {
-        Self{for_app_state}
+    pub fn new(for_app_state: T) -> Self {
+        Self { for_app_state }
     }
 }
 
 impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for InteractionPlugin<T> {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<InteractionAssets>()
+        app.init_resource::<InteractionAssets>()
             .add_event::<ElementDeleted>()
             .add_startup_system(init_cursor)
             .add_system_set(
                 SystemSet::on_update(self.for_app_state.clone())
-                .with_system(update_cursor_transform.after(PickingSystem::UpdateIntersections))
-                .with_system(update_spinning_animations)
-                .with_system(update_bobbing_animations)
-                .with_system(update_vertex_visual_cues)
-                .with_system(update_lane_visual_cues)
-                .with_system(update_floor_and_wall_visual_cues)
-                .with_system(remove_deleted_supports_from_interactions)
+                    .with_system(update_cursor_transform.after(PickingSystem::UpdateIntersections))
+                    .with_system(update_spinning_animations)
+                    .with_system(update_bobbing_animations)
+                    .with_system(update_vertex_visual_cues)
+                    .with_system(update_lane_visual_cues)
+                    .with_system(update_floor_and_wall_visual_cues)
+                    .with_system(remove_deleted_supports_from_interactions),
             );
     }
 }
@@ -362,40 +423,52 @@ pub fn init_cursor(
 ) {
     let mut cursor_builder = commands.spawn_bundle(SpatialBundle::default());
     let (selection_cursor, dagger_cursor, vertex_cursor) = cursor_builder.add_children(|cursor| {
-        let selection_cursor = cursor.spawn_bundle(PbrBundle{
-            transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-            mesh: interaction_assets.halo_mesh.clone(),
-            material: interaction_assets.halo_material.clone(),
-            ..default()
-        }).insert(Spinning::default()).id();
-
-        let dagger_cursor = cursor.spawn_bundle(PbrBundle{
-            mesh: interaction_assets.dagger_mesh.clone(),
-            material: interaction_assets.dagger_material.clone(),
-            ..default()
-        }).insert(Spinning::default())
-        .insert(Bobbing::default()).id();
-
-        let vertex_cursor = cursor.spawn_bundle(PbrBundle{
-            transform: Transform{
-                rotation: Quat::from_rotation_x(90_f32.to_radians()),
+        let selection_cursor = cursor
+            .spawn_bundle(PbrBundle {
+                transform: Transform::from_scale([0.2, 0.2, 1.].into()),
+                mesh: interaction_assets.halo_mesh.clone(),
+                material: interaction_assets.halo_material.clone(),
                 ..default()
-            },
-            mesh: site_assets.vertex_mesh.clone(),
-            material: materials.add(StandardMaterial {
-                base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
-                alpha_mode: AlphaMode::Blend,
-                depth_bias: 1.0,
+            })
+            .insert(Spinning::default())
+            .id();
+
+        let dagger_cursor = cursor
+            .spawn_bundle(PbrBundle {
+                mesh: interaction_assets.dagger_mesh.clone(),
+                material: interaction_assets.dagger_material.clone(),
                 ..default()
-            }),
-            visibility: Visibility{is_visible: false},
-            ..default()
-        }).id();
+            })
+            .insert(Spinning::default())
+            .insert(Bobbing::default())
+            .id();
+
+        let vertex_cursor = cursor
+            .spawn_bundle(PbrBundle {
+                transform: Transform {
+                    rotation: Quat::from_rotation_x(90_f32.to_radians()),
+                    ..default()
+                },
+                mesh: site_assets.vertex_mesh.clone(),
+                material: materials.add(StandardMaterial {
+                    base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
+                    alpha_mode: AlphaMode::Blend,
+                    depth_bias: 1.0,
+                    ..default()
+                }),
+                visibility: Visibility { is_visible: false },
+                ..default()
+            })
+            .id();
 
         return (selection_cursor, dagger_cursor, vertex_cursor);
     });
 
-    cursor_builder.insert(Cursor{halo: selection_cursor, dagger: dagger_cursor, vertex: vertex_cursor});
+    cursor_builder.insert(Cursor {
+        halo: selection_cursor,
+        dagger: dagger_cursor,
+        vertex: vertex_cursor,
+    });
 }
 
 pub fn update_cursor_transform(
@@ -417,7 +490,8 @@ pub fn update_spinning_animations(
 ) {
     for (mut tf, spin, visibility) in &mut spinners {
         if visibility.is_visible_in_view() {
-            let angle = 2.*std::f32::consts::PI * now.seconds_since_startup() as f32 / spin.period;
+            let angle =
+                2. * std::f32::consts::PI * now.seconds_since_startup() as f32 / spin.period;
             tf.as_mut().rotation = Quat::from_rotation_z(angle);
         }
     }
@@ -429,18 +503,14 @@ pub fn update_bobbing_animations(
 ) {
     for (mut tf, bob, visibility) in &mut bobbers {
         if visibility.is_visible_in_view() {
-            let theta = 2.*std::f32::consts::PI * now.seconds_since_startup() as f32 / bob.period;
+            let theta = 2. * std::f32::consts::PI * now.seconds_since_startup() as f32 / bob.period;
             let dh = bob.heights.1 - bob.heights.0;
-            tf.as_mut().translation[2] = dh*(1.-theta.cos())/2.0 + bob.heights.0;
+            tf.as_mut().translation[2] = dh * (1. - theta.cos()) / 2.0 + bob.heights.0;
         }
     }
 }
 
-pub fn set_visibility(
-    entity: Entity,
-    q_visibility: &mut Query<&mut Visibility>,
-    visible: bool,
-) {
+pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
     if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
         visibility.is_visible = visible;
     }
@@ -506,7 +576,10 @@ impl Hovering {
 
 impl Default for Hovering {
     fn default() -> Self {
-        Self{is_hovering: false, support_hovering: Default::default()}
+        Self {
+            is_hovering: false,
+            support_hovering: Default::default(),
+        }
     }
 }
 
@@ -526,7 +599,10 @@ impl Selected {
 
 impl Default for Selected {
     fn default() -> Self {
-        Self{is_selected: false, support_selected: Default::default()}
+        Self {
+            is_selected: false,
+            support_selected: Default::default(),
+        }
     }
 }
 
@@ -548,8 +624,16 @@ pub fn update_vertex_visual_cues(
     site_assets: Res<SiteAssets>,
 ) {
     for (v, hovering, selected, cue) in &vertices {
-        let hover_changed = hover_changes.get(v).ok().filter(|h| h.is_changed()).is_some();
-        let select_changed = select_changes.get(v).ok().filter(|s| s.is_changed()).is_some();
+        let hover_changed = hover_changes
+            .get(v)
+            .ok()
+            .filter(|h| h.is_changed())
+            .is_some();
+        let select_changed = select_changes
+            .get(v)
+            .ok()
+            .filter(|s| s.is_changed())
+            .is_some();
         if hover_changed || select_changed {
             if hovering.cue() || selected.cue() {
                 set_visibility(cue.dagger, &mut visibility, true);
@@ -560,7 +644,7 @@ pub fn update_vertex_visual_cues(
                 set_visibility(cursor.single(), &mut visibility, false);
             }
 
-            let vertex_height = 0.15 + 0.05/2.;
+            let vertex_height = 0.15 + 0.05 / 2.;
             if selected.cue() {
                 set_bobbing(cue.dagger, vertex_height, vertex_height, &mut bobbing);
             }
@@ -570,12 +654,16 @@ pub fn update_vertex_visual_cues(
             } else if hovering.cue() {
                 // Hovering but not selected
                 set_material(cue.body, &site_assets.hover_material, &mut materials);
-                set_bobbing(cue.dagger, vertex_height, vertex_height+0.2, &mut bobbing);
+                set_bobbing(cue.dagger, vertex_height, vertex_height + 0.2, &mut bobbing);
             } else if selected.cue() {
                 // Selected but not hovering
                 set_material(cue.body, &site_assets.select_material, &mut materials);
             } else {
-                set_material(cue.body, &site_assets.passive_vertex_material, &mut materials);
+                set_material(
+                    cue.body,
+                    &site_assets.passive_vertex_material,
+                    &mut materials,
+                );
                 set_visibility(cue.dagger, &mut visibility, false);
                 set_visibility(cue.halo, &mut visibility, false);
             }
@@ -610,7 +698,23 @@ pub struct LaneVisualCue {
 }
 
 pub fn update_lane_visual_cues(
-    mut lanes: Query<(Entity, &Hovering, &Selected, &Lane, &LanePieces, &mut LaneVisualCue, &mut Transform), (Without<VertexVisualCue>, ChangeTrackers<Hovering>, ChangeTrackers<Selected>, ChangeTrackers<Lane>)>,
+    mut lanes: Query<
+        (
+            Entity,
+            &Hovering,
+            &Selected,
+            &Lane,
+            &LanePieces,
+            &mut LaneVisualCue,
+            &mut Transform,
+        ),
+        (
+            Without<VertexVisualCue>,
+            ChangeTrackers<Hovering>,
+            ChangeTrackers<Selected>,
+            ChangeTrackers<Lane>,
+        ),
+    >,
     mut vertices: Query<(&mut Hovering, &mut Selected), With<VertexVisualCue>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
@@ -621,7 +725,9 @@ pub fn update_lane_visual_cues(
 ) {
     let level = match level.as_ref() {
         Some(level) => level,
-        None => { return; }
+        None => {
+            return;
+        }
     };
     for (l, hovering, selected, lane, pieces, mut cue, mut tf) in &mut lanes {
         // println!("Change in lane {l:?}");
@@ -647,7 +753,9 @@ pub fn update_lane_visual_cues(
                     cue.supporters = None;
                 }
 
-                if let Some([(mut hover_v0, mut selected_v0), (mut hover_v1, mut selected_v1)]) = vertices.get_many_mut([v0, v1]).ok() {
+                if let Some([(mut hover_v0, mut selected_v0), (mut hover_v1, mut selected_v1)]) =
+                    vertices.get_many_mut([v0, v1]).ok()
+                {
                     if hovering.cue() {
                         hover_v0.support_hovering.insert(l);
                         hover_v1.support_hovering.insert(l);
@@ -705,7 +813,11 @@ pub fn update_floor_and_wall_visual_cues(
     cursor: Query<Entity, With<Cursor>>,
     mut visibility: Query<&mut Visibility>,
 ) {
-    for hovering in floors.iter().chain(walls.iter()).chain(everything_else.iter()) {
+    for hovering in floors
+        .iter()
+        .chain(walls.iter())
+        .chain(everything_else.iter())
+    {
         if hovering.cue() {
             if let Some(mut v) = visibility.get_mut(cursor.single()).ok() {
                 v.is_visible = true;

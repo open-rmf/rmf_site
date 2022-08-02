@@ -5,6 +5,7 @@ use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
+use crate::interaction::{Hovering, InteractionPlugin, Selected};
 use crate::lane::Lane;
 use crate::lift::Lift;
 use crate::measurement::Measurement;
@@ -16,18 +17,13 @@ use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
-use crate::interaction::{InteractionPlugin, Hovering, Selected};
 use bevy::ecs::system::SystemParam;
-use bevy::{
-    prelude::*,
-    ecs::schedule::ShouldRun,
-};
+use bevy::{ecs::schedule::ShouldRun, prelude::*};
 use bevy_egui::{egui, EguiContext};
 use bevy_mod_picking::{
-    PickingBlocker, PickingCamera, PickingSystem,
-    PickingCameraBundle, PickableBundle, PickableMesh,
-    PickingPlugin, PickingPluginsState, pause_for_picking_blockers, mesh_focus,
-    PausedForBlockers,
+    mesh_focus, pause_for_picking_blockers, PausedForBlockers, PickableBundle, PickableMesh,
+    PickingBlocker, PickingCamera, PickingCameraBundle, PickingPlugin, PickingPluginsState,
+    PickingSystem,
 };
 
 #[derive(Debug)]
@@ -632,7 +628,7 @@ impl<'w, 's> EditorPanel<'w, 's> {
                 } else {
                     format!("Vertex <Unknown level: {}>", level.0)
                 }
-            },
+            }
             EditorData::Lane(_) => "Lane".to_string(),
             EditorData::Measurement(_) => "Measurement".to_string(),
             EditorData::Wall(_) => "Wall".to_string(),
@@ -776,8 +772,10 @@ fn egui_ui(
                                 .spawn_vertex(&current_level.0, new_vertex.clone())
                                 .unwrap()
                                 .id();
-                            *selected =
-                                Some(SelectedEditable(EditableTag::Vertex(new_entity), EditorData::Vertex(new_vertex)));
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Vertex(new_entity),
+                                EditorData::Vertex(new_vertex),
+                            ));
                         }
                         if ui.button("Add Lane").clicked() {
                             let new_lane = Lane::default();
@@ -785,15 +783,15 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_lane.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(EditableTag::Lane(new_entity), EditorData::Lane(new_lane)));
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Lane(new_entity),
+                                EditorData::Lane(new_lane),
+                            ));
                         }
                         if ui.button("Add Measurement").clicked() {
                             let new_measurement = Measurement::default();
                             let new_entity = spawner
-                                .spawn_in_level(
-                                    &current_level.0,
-                                    new_measurement.clone(),
-                                )
+                                .spawn_in_level(&current_level.0, new_measurement.clone())
                                 .unwrap()
                                 .id();
                             *selected = Some(SelectedEditable(
@@ -807,7 +805,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_wall.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(EditableTag::Wall(new_entity), EditorData::Wall(new_wall)));
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Wall(new_entity),
+                                EditorData::Wall(new_wall),
+                            ));
                         }
                         if ui.button("Add Model").clicked() {
                             let new_model = Model::default();
@@ -815,8 +816,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_model.clone())
                                 .unwrap()
                                 .id();
-                            *selected =
-                                Some(SelectedEditable(EditableTag::Model(new_entity), EditorData::Model(new_model)));
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Model(new_entity),
+                                EditorData::Model(new_model),
+                            ));
                         }
                         if ui.button("Add Door").clicked() {
                             let new_door = Door::default();
@@ -824,7 +827,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_door.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(EditableTag::Door(new_entity), EditorData::Door(new_door)));
+                            *selected = Some(SelectedEditable(
+                                EditableTag::Door(new_entity),
+                                EditorData::Door(new_door),
+                            ));
                         }
                         if ui.button("Add Lift").clicked() {
                             let cur_level = &current_level.0;
@@ -845,16 +851,20 @@ fn egui_ui(
                         }
                     });
                     ui.group(|ui| {
-                        editor.draw(ui, spawner.vertex_mgrs.as_ref(), current_level, &mut has_changes.0, selected);
+                        editor.draw(
+                            ui,
+                            spawner.vertex_mgrs.as_ref(),
+                            current_level,
+                            &mut has_changes.0,
+                            selected,
+                        );
                     });
                 }
             });
         });
 }
 
-fn on_startup(
-    mut commands: Commands,
-) {
+fn on_startup(mut commands: Commands) {
     commands
         .spawn()
         .insert(PickingBlocker)
@@ -970,14 +980,42 @@ impl<'w, 's> EditableQuery<'w, 's> {
             // as changed, this cause the change detection to trigger even if there are no writes to
             // it. Egui on the other hand requires data to be mutable, so passing a component directly
             // to egui will cause change detection to trigger every frame.
-            EditableTag::Lane(entity) => self.q_lane.get(*entity).map(|lane| Some(SelectedEditable(*tag, EditorData::Lane(lane.clone())))),
-            EditableTag::Vertex(entity) => self.q_vertex.get(*entity).map(|vertex| Some(SelectedEditable(*tag, EditorData::Vertex(vertex.clone())))),
-            EditableTag::Measurement(entity) => self.q_measurement.get(*entity).map(|m| Some(SelectedEditable(*tag, EditorData::Measurement(m.clone())))),
-            EditableTag::Wall(entity) => self.q_wall.get(*entity).map(|w| Some(SelectedEditable(*tag, EditorData::Wall(w.clone())))),
-            EditableTag::Model(entity) => self.q_model.get(*entity).map(|m| Some(SelectedEditable(*tag, EditorData::Model(m.clone())))),
-            EditableTag::Floor(entity) => self.q_floor.get(*entity).map(|f| Some(SelectedEditable(*tag, EditorData::Floor(f.clone().into())))),
-            EditableTag::Door(entity) => self.q_door.get(*entity).map(|d| Some(SelectedEditable(*tag, EditorData::Door(d.clone())))),
-            EditableTag::Lift(entity) => self.q_lift.get(*entity).map(|l| Some(SelectedEditable(*tag, EditorData::Lift(EditableLift::from_lift(&self.q_name.get(*entity).unwrap().0, l).unwrap())))),
+            EditableTag::Lane(entity) => self
+                .q_lane
+                .get(*entity)
+                .map(|lane| Some(SelectedEditable(*tag, EditorData::Lane(lane.clone())))),
+            EditableTag::Vertex(entity) => self
+                .q_vertex
+                .get(*entity)
+                .map(|vertex| Some(SelectedEditable(*tag, EditorData::Vertex(vertex.clone())))),
+            EditableTag::Measurement(entity) => self
+                .q_measurement
+                .get(*entity)
+                .map(|m| Some(SelectedEditable(*tag, EditorData::Measurement(m.clone())))),
+            EditableTag::Wall(entity) => self
+                .q_wall
+                .get(*entity)
+                .map(|w| Some(SelectedEditable(*tag, EditorData::Wall(w.clone())))),
+            EditableTag::Model(entity) => self
+                .q_model
+                .get(*entity)
+                .map(|m| Some(SelectedEditable(*tag, EditorData::Model(m.clone())))),
+            EditableTag::Floor(entity) => self
+                .q_floor
+                .get(*entity)
+                .map(|f| Some(SelectedEditable(*tag, EditorData::Floor(f.clone().into())))),
+            EditableTag::Door(entity) => self
+                .q_door
+                .get(*entity)
+                .map(|d| Some(SelectedEditable(*tag, EditorData::Door(d.clone())))),
+            EditableTag::Lift(entity) => self.q_lift.get(*entity).map(|l| {
+                Some(SelectedEditable(
+                    *tag,
+                    EditorData::Lift(
+                        EditableLift::from_lift(&self.q_name.get(*entity).unwrap().0, l).unwrap(),
+                    ),
+                ))
+            }),
             EditableTag::Ignore => Ok(None),
         };
 
@@ -1029,12 +1067,14 @@ fn maintain_inspected_entities(
     }
 
     let previous_hovered = *hovered;
-    let new_hovered = interactions.iter().find(|(i, _)| match i {
-        Interaction::Hovered => true,
-        _ => false,
-    }).filter(|(_, tag)| {
-        !tag.ignore()
-    }).map(|(_, tag)| HoveredEditable(tag.unwrap_entity().clone()));
+    let new_hovered = interactions
+        .iter()
+        .find(|(i, _)| match i {
+            Interaction::Hovered => true,
+            _ => false,
+        })
+        .filter(|(_, tag)| !tag.ignore())
+        .map(|(_, tag)| HoveredEditable(tag.unwrap_entity().clone()));
     if let Some(current) = new_hovered {
         if previous_hovered != Some(current) {
             *hovered = Some(current);
@@ -1059,12 +1099,19 @@ fn update_picking_cam(
     let (controls, changed) = camera_controls.single();
     if changed.is_changed() {
         let active_camera = controls.active_camera();
-        if picking_cams.get_single().ok().filter(|current| *current == active_camera).is_none() {
+        if picking_cams
+            .get_single()
+            .ok()
+            .filter(|current| *current == active_camera)
+            .is_none()
+        {
             for cam in picking_cams.iter() {
                 commands.entity(cam).remove_bundle::<PickingCameraBundle>();
             }
 
-            commands.entity(controls.active_camera()).insert_bundle(PickingCameraBundle::default());
+            commands
+                .entity(controls.active_camera())
+                .insert_bundle(PickingCameraBundle::default());
         }
     }
 }
@@ -1146,7 +1193,9 @@ fn enable_picking_editables(
     // If any editable item gets a new mesh, make it pickable
     for (entity, tag) in &editables {
         if *tag != EditableTag::Ignore {
-            commands.entity(entity).insert_bundle(PickableBundle::default());
+            commands
+                .entity(entity)
+                .insert_bundle(PickableBundle::default());
         }
     }
 }
@@ -1156,18 +1205,29 @@ fn propagate_editable_tags(
     // All entities with an editable tag whose children have changed
     needs_to_propagate_tag: Query<(&Children, &EditableTag), Changed<Children>>,
     // All entities that have a parent but do not currently have an editable tag
-    might_need_to_receive_tag: Query<(Entity, Option<&Children>), (With<Parent>, Without<EditableTag>)>,
+    might_need_to_receive_tag: Query<
+        (Entity, Option<&Children>),
+        (With<Parent>, Without<EditableTag>),
+    >,
     meshes: Query<Entity, With<Handle<Mesh>>>,
 ) {
     for parent in &needs_to_propagate_tag {
-        recursive_propagate_editable_tags(&mut commands, parent, &might_need_to_receive_tag, &meshes);
+        recursive_propagate_editable_tags(
+            &mut commands,
+            parent,
+            &might_need_to_receive_tag,
+            &meshes,
+        );
     }
 }
 
 fn recursive_propagate_editable_tags(
     commands: &mut Commands,
     (children, tag): (&Children, &EditableTag),
-    might_need_to_receive_tag: &Query<(Entity, Option<&Children>), (With<Parent>, Without<EditableTag>)>,
+    might_need_to_receive_tag: &Query<
+        (Entity, Option<&Children>),
+        (With<Parent>, Without<EditableTag>),
+    >,
     meshes: &Query<Entity, With<Handle<Mesh>>>,
 ) {
     if *tag == EditableTag::Ignore {
@@ -1178,11 +1238,18 @@ fn recursive_propagate_editable_tags(
         if let Some((child, grandchildren)) = might_need_to_receive_tag.get(*child).ok() {
             commands.entity(child).insert(*tag);
             if meshes.contains(child) {
-                commands.entity(child).insert_bundle(PickableBundle::default());
+                commands
+                    .entity(child)
+                    .insert_bundle(PickableBundle::default());
             }
 
             if let Some(grandchildren) = grandchildren {
-                recursive_propagate_editable_tags(commands, (grandchildren, tag), might_need_to_receive_tag, meshes);
+                recursive_propagate_editable_tags(
+                    commands,
+                    (grandchildren, tag),
+                    might_need_to_receive_tag,
+                    meshes,
+                );
             }
         }
     }
@@ -1234,8 +1301,7 @@ pub struct TrafficEditorPlugin;
 
 impl Plugin for TrafficEditorPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugin(InteractionPlugin::new(AppState::TrafficEditor))
+        app.add_plugin(InteractionPlugin::new(AppState::TrafficEditor))
             .init_resource::<Option<SelectedEditable>>()
             .init_resource::<Option<HoveredEditable>>()
             .init_resource::<HasChanges>()
@@ -1244,7 +1310,8 @@ impl Plugin for TrafficEditorPlugin {
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
             .add_system_set(
-                SystemSet::on_update(AppState::TrafficEditor).after(SiteMapLabel)
+                SystemSet::on_update(AppState::TrafficEditor)
+                    .after(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(egui_picking_blocker.after(egui_ui))
                     .with_system(update_picking_cam)
@@ -1252,39 +1319,41 @@ impl Plugin for TrafficEditorPlugin {
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(add_editable_tags.after(egui_ui))
                     .with_system(propagate_editable_tags.after(add_editable_tags))
-                    .with_system(enable_picking_editables)
+                    .with_system(enable_picking_editables),
             )
             .add_plugin(PickingPlugin)
             .init_resource::<PausedForBlockers>()
             .add_system_set_to_stage(
                 CoreStage::First,
                 SystemSet::new()
-                    .with_run_criteria(|state: (Res<PickingPluginsState>, Res<Option<SiteMapCurrentLevel>>)| {
-                        if state.1.is_none() {
-                            return ShouldRun::No;
-                        }
+                    .with_run_criteria(
+                        |state: (Res<PickingPluginsState>, Res<Option<SiteMapCurrentLevel>>)| {
+                            if state.1.is_none() {
+                                return ShouldRun::No;
+                            }
 
-                        if state.0.enable_interacting {
-                            ShouldRun::Yes
-                        } else {
-                            ShouldRun::No
-                        }
-                    })
+                            if state.0.enable_interacting {
+                                ShouldRun::Yes
+                            } else {
+                                ShouldRun::No
+                            }
+                        },
+                    )
                     .with_system(
                         pause_for_picking_blockers
-                        .label(PickingSystem::PauseForBlockers)
-                        .after(PickingSystem::UpdateIntersections)
+                            .label(PickingSystem::PauseForBlockers)
+                            .after(PickingSystem::UpdateIntersections),
                     )
                     .with_system(
                         mesh_focus
-                        .label(PickingSystem::Focus)
-                        .after(PickingSystem::PauseForBlockers)
+                            .label(PickingSystem::Focus)
+                            .after(PickingSystem::PauseForBlockers),
                     )
                     .with_system(
                         maintain_inspected_entities
-                        .label(PickingSystem::Selection)
-                        .after(PickingSystem::Focus)
-                    )
+                            .label(PickingSystem::Selection)
+                            .after(PickingSystem::Focus),
+                    ),
             );
     }
 }
