@@ -572,16 +572,16 @@ pub fn update_vertex_visual_cues(
             }
 
             if hovering.cue() && selected.cue() {
-                set_material(cue.body, &site_assets.hover_select_vertex_material, &mut materials);
+                set_material(cue.body, &site_assets.hover_select_material, &mut materials);
             } else if hovering.cue() {
                 // Hovering but not selected
-                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+                set_material(cue.body, &site_assets.hover_material, &mut materials);
                 set_bobbing(cue.dagger, vertex_height, vertex_height+0.2, &mut bobbing);
             } else if selected.cue() {
                 // Selected but not hovering
-                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+                set_material(cue.body, &site_assets.select_material, &mut materials);
             } else {
-                set_material(cue.body, &site_assets.vertex_material, &mut materials);
+                set_material(cue.body, &site_assets.passive_vertex_material, &mut materials);
                 set_visibility(cue.dagger, &mut visibility, false);
                 set_visibility(cue.halo, &mut visibility, false);
             }
@@ -657,11 +657,11 @@ pub fn update_lane_visual_cues(
                 }
 
                 let (m, h) = if hovering.cue() && selected.cue() {
-                    (&site_assets.hover_select_lane_material, HOVERED_LANE_HEIGHT)
+                    (&site_assets.hover_select_material, HOVERED_LANE_HEIGHT)
                 } else if hovering.cue() {
-                    (&site_assets.hover_lane_material, HOVERED_LANE_HEIGHT)
+                    (&site_assets.hover_material, HOVERED_LANE_HEIGHT)
                 } else if selected.cue() {
-                    (&site_assets.select_lane_material, SELECTED_LANE_HEIGHT)
+                    (&site_assets.select_material, SELECTED_LANE_HEIGHT)
                 } else {
                     (&site_assets.passive_lane_material, PASSIVE_LANE_HEIGHT)
                 };
