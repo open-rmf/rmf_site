@@ -5,18 +5,18 @@ use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
-use crate::lane::{Lane, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT};
+use crate::lane::Lane;
 use crate::lift::Lift;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
-use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState, SiteAssets};
+use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::{Spawner, VerticesManagers};
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::widgets::TextEditJson;
 use crate::{AppState, OpenedMapFile};
-use crate::interaction::{InteractionPlugin, Cursor, InteractionAssets, Spinning, Bobbing, Hovering, Selected};
+use crate::interaction::{InteractionPlugin, Hovering, Selected};
 use bevy::ecs::system::SystemParam;
 use bevy::{
     prelude::*,
@@ -29,6 +29,9 @@ use bevy_mod_picking::{
     PickingPlugin, PickingPluginsState, pause_for_picking_blockers, mesh_focus,
     PausedForBlockers,
 };
+
+#[derive(Debug)]
+pub struct ElementDeleted(pub Entity);
 
 trait Editable {
     fn draw(&mut self, ui: &mut egui::Ui) -> bool;
@@ -923,12 +926,11 @@ fn handle_keyboard_events(
     lanes: Query<&Lane>,
     walls: Query<&Wall>,
     measurements: Query<&Measurement>,
-    children: Query<&Children>,
-    tags: Query<&EditableTag>,
     vertices: Query<Entity, With<Vertex>>,
     vertices_mgrs: ResMut<VerticesManagers>,
     keys: Res<Input<KeyCode>>,
     mut has_changes: ResMut<HasChanges>,
+    mut delete_events: EventWriter<ElementDeleted>,
 ) {
     // Delete model if selected and delete was pressed
     if keys.just_pressed(KeyCode::Delete) {
@@ -943,19 +945,8 @@ fn handle_keyboard_events(
                         check_and_delete_vertex(entity, lanes, walls, measurements, vertices_mgrs);
                 }
                 if safe_to_delete {
-                    let mut commands = commands.entity(entity);
-                    if let Some(children) = children.get(entity).ok() {
-                        let ignore_children: Vec<Entity> = children.iter()
-                        .filter(|c| {
-                            tags.get(**c).ok()
-                            .filter(|tag| **tag == EditableTag::Ignore).is_some()
-                        }).copied().collect();
-
-                        if !ignore_children.is_empty() {
-                            commands.remove_children(ignore_children.as_slice());
-                        }
-                    }
-                    commands.despawn_recursive();
+                    delete_events.send(ElementDeleted(entity));
+                    commands.entity(entity).despawn_recursive();
                     *selected = None;
                     has_changes.0 = true;
                 }
@@ -1236,9 +1227,6 @@ pub struct EditableQuery<'w, 's> {
     q_door: Query<'w, 's, &'static Door>,
     q_lift: Query<'w, 's, &'static Lift>,
     q_name: Query<'w, 's, &'static basic_components::Name>,
-    q_tag: Query<'w, 's, &'static EditableTag>,
-    vm: Res<'w, VerticesManagers>,
-    level: Res<'w, Option<SiteMapCurrentLevel>>,
 }
 
 #[derive(Default)]
@@ -1251,6 +1239,7 @@ impl Plugin for TrafficEditorPlugin {
             .init_resource::<Option<SelectedEditable>>()
             .init_resource::<Option<HoveredEditable>>()
             .init_resource::<HasChanges>()
+            .add_event::<ElementDeleted>()
             .add_startup_system(on_startup)
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))

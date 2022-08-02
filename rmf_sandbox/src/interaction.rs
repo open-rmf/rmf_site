@@ -17,7 +17,7 @@
 
 use crate::{
     site_map::{SiteAssets, SiteMapCurrentLevel, LanePieces},
-    traffic_editor::EditableTag,
+    traffic_editor::ElementDeleted,
     lane::{Lane, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT, HOVERED_LANE_HEIGHT},
     spawner::VerticesManagers,
 };
@@ -339,6 +339,7 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
     fn build(&self, app: &mut App) {
         app
             .init_resource::<InteractionAssets>()
+            .add_event::<ElementDeleted>()
             .add_startup_system(init_cursor)
             .add_system_set(
                 SystemSet::on_update(self.for_app_state.clone())
@@ -348,6 +349,7 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
                 .with_system(update_vertex_visual_cues)
                 .with_system(update_lane_visual_cues)
                 .with_system(update_floor_and_wall_visual_cues)
+                .with_system(remove_deleted_supports_from_interactions)
             );
     }
 }
@@ -444,35 +446,27 @@ pub fn set_visibility(
     }
 }
 
-fn recursive_set_material(
-    parent: Entity,
-    to_material: &Handle<StandardMaterial>,
-    q_material: &mut Query<&mut Handle<StandardMaterial>>,
-    q_children: &Query<&Children>,
-    q_tags: &Query<&EditableTag>,
-) {
-    if let Some(mut material) = q_material.get_mut(parent).ok() {
-        *material = to_material.clone();
-    }
+// // I stopped using this function, but we might want it back if we decide that
+// // we want to highlight selected/hovered models
+// fn recursive_set_material(
+//     parent: Entity,
+//     to_material: &Handle<StandardMaterial>,
+//     q_material: &mut Query<&mut Handle<StandardMaterial>>,
+//     q_children: &Query<&Children>,
+//     q_tags: &Query<&EditableTag>,
+// ) {
+//     if let Some(mut material) = q_material.get_mut(parent).ok() {
+//         *material = to_material.clone();
+//     }
 
-    if let Some(children) = q_children.get(parent).ok() {
-        for child in children {
-            if q_tags.get(*child).ok().filter(|t| !t.ignore()).is_some() {
-                recursive_set_material(*child, to_material, q_material, q_children, q_tags);
-            }
-        }
-    }
-}
-
-fn set_height(
-    entity: Entity,
-    spatial: &mut Query<&mut Transform>,
-    height: f32,
-) {
-    if let Some(mut tf) = spatial.get_mut(entity).ok() {
-        tf.as_mut().translation[2] = height;
-    }
-}
+//     if let Some(children) = q_children.get(parent).ok() {
+//         for child in children {
+//             if q_tags.get(*child).ok().filter(|t| !t.ignore()).is_some() {
+//                 recursive_set_material(*child, to_material, q_material, q_children, q_tags);
+//             }
+//         }
+//     }
+// }
 
 fn set_material(
     entity: Entity,
@@ -585,6 +579,25 @@ pub fn update_vertex_visual_cues(
                 set_visibility(cue.dagger, &mut visibility, false);
                 set_visibility(cue.halo, &mut visibility, false);
             }
+        }
+    }
+}
+
+// NOTE(MXG): Currently only vertices ever have support cues, so we filter down
+// to entities with VertexVisualCues. We will need to broaden that if any other
+// visual cue types ever have a supporting role.
+pub fn remove_deleted_supports_from_interactions(
+    mut hover: Query<&mut Hovering, With<VertexVisualCue>>,
+    mut select: Query<&mut Selected, With<VertexVisualCue>>,
+    mut deleted_elements: EventReader<ElementDeleted>,
+) {
+    for deletion in deleted_elements.iter() {
+        for mut h in &mut hover {
+            h.support_hovering.remove(&deletion.0);
+        }
+
+        for mut s in &mut select {
+            s.support_selected.remove(&deletion.0);
         }
     }
 }
