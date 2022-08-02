@@ -37,10 +37,13 @@ pub struct SiteAssets {
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
     pub passive_lane_material: Handle<StandardMaterial>,
-    pub active_lane_material: Handle<StandardMaterial>,
+    pub hover_lane_material: Handle<StandardMaterial>,
+    pub select_lane_material: Handle<StandardMaterial>,
+    pub hover_select_lane_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
     pub vertex_mesh: Handle<Mesh>,
     pub vertex_material: Handle<StandardMaterial>,
+    pub hover_select_vertex_material: Handle<StandardMaterial>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
 }
@@ -52,9 +55,12 @@ impl FromWorld for SiteAssets {
 
         let mut materials = world.get_resource_mut::<Assets<StandardMaterial>>().unwrap();
         let passive_lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
-        let active_lane_material = materials.add(Color::rgb(1., 0.3, 1.).into());
+        let select_lane_material = materials.add(Color::rgb(1., 0.3, 1.).into());
+        let hover_lane_material = materials.add(Color::rgb(0.3, 1., 1.).into());
+        let hover_select_lane_material = materials.add(Color::rgb(1., 0.6, 1.).into());
         let measurement_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
         let vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+        let hover_select_vertex_material = hover_select_lane_material.clone();
         let wall_material = materials.add(StandardMaterial {
             base_color_texture: Some(wall_texture),
             unlit: false,
@@ -89,9 +95,12 @@ impl FromWorld for SiteAssets {
             lane_mid_mesh,
             lane_end_mesh,
             passive_lane_material,
-            active_lane_material,
+            hover_lane_material,
+            select_lane_material,
+            hover_select_lane_material,
             measurement_material,
             vertex_material,
+            hover_select_vertex_material,
             wall_material,
             door_material,
         }
