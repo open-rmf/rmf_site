@@ -1380,10 +1380,7 @@ impl Plugin for TrafficEditorPlugin {
                             .label(PickingSystem::Selection)
                             .after(PickingSystem::Focus),
                     )
-                    .with_system(
-                        maintain_inspected_entities
-                            .after(PickingSystem::Selection)
-                    ),
+                    .with_system(maintain_inspected_entities.after(PickingSystem::Selection)),
             );
     }
 }
