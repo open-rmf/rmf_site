@@ -5,7 +5,6 @@ use bevy_egui::{egui, EguiContext};
 use crate::AppState;
 use crate::{building_map::BuildingMap, OpenedMapFile};
 
-#[cfg(not(target_arch = "wasm32"))]
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
 struct LoadMapResult(Option<OpenedMapFile>, BuildingMap);
