@@ -19,14 +19,15 @@ use crate::{
     lane::{Lane, HOVERED_LANE_HEIGHT, PASSIVE_LANE_HEIGHT, SELECTED_LANE_HEIGHT},
     site_map::{LanePieces, SiteAssets, SiteMapCurrentLevel},
     spawner::VerticesManagers,
-    traffic_editor::ElementDeleted,
+    traffic_editor::{ElementDeleted, EditableTag},
+    camera_controls::CameraControls,
 };
 use bevy::{
     prelude::*,
     render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
 };
-use bevy_mod_picking::{PickingRaycastSet, PickingSystem};
-use bevy_mod_raycast::Intersection;
+use bevy_mod_picking::{PickingRaycastSet, PickingSystem, PickableBundle};
+use bevy_mod_raycast::{Intersection, Ray3d};
 use std::{collections::HashSet, fmt::Debug, hash::Hash};
 
 #[derive(Clone, Debug)]
@@ -116,6 +117,36 @@ impl From<(f32, f32)> for Bobbing {
             ..default()
         }
     }
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct InitialDragConditions {
+    click_point: Vec3,
+    entity_tf: Transform,
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Draggable {
+    for_entity: Entity,
+    initial: Option<InitialDragConditions>,
+}
+
+impl Draggable {
+    pub fn new(for_entity: Entity) -> Self {
+        Self{for_entity, initial: None}
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct DragAxis {
+    /// The gizmo can only be dragged along this axis
+    along: Vec3,
+}
+
+#[derive(Component, Debug, Clone, Copy)]
+pub struct DragPlane {
+    /// The gizmo can only be dragged in the plane orthogonal to this vector
+    in_plane: Vec3,
 }
 
 #[derive(Clone, Copy, Debug)]
@@ -410,7 +441,16 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
                     .with_system(update_vertex_visual_cues)
                     .with_system(update_lane_visual_cues)
                     .with_system(update_floor_and_wall_visual_cues)
-                    .with_system(remove_deleted_supports_from_interactions),
+                    .with_system(remove_deleted_supports_from_interactions)
+                    .with_system(make_gizmos_pickable)
+                    .with_system(update_drag_click_start)
+                    .with_system(update_drag_release)
+                    .with_system(
+                        update_drag_motions
+                        .after(update_drag_click_start)
+                        .after(update_drag_release)
+                    )
+                    .with_system(make_vertices_movable),
             );
     }
 }
@@ -479,6 +519,124 @@ pub fn update_cursor_transform(
         if let Some(mut transform) = cursor.get_single_mut().ok() {
             if let Some(ray) = intersection.normal_ray() {
                 *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()))
+            }
+        }
+    }
+}
+
+pub fn make_vertices_movable(
+    mut command: Commands,
+    new_vertices: Query<Entity, Added<VertexVisualCue>>,
+    assets: Res<InteractionAssets>,
+) {
+    for v in &new_vertices {
+        command.entity(v).add_children(|parent| {
+            parent.spawn_bundle(PbrBundle{
+                transform: Transform::from_rotation(Quat::from_rotation_y(90_f32.to_radians())),
+                mesh: assets.dagger_mesh.clone(),
+                material: assets.dagger_material.clone(),
+                ..default()
+            })
+            .insert(DragAxis{
+                along: [0., 0., 1.].into(),
+            })
+            .insert(Draggable::new(v))
+            .insert(EditableTag::Ignore);
+        });
+    }
+}
+
+pub fn make_gizmos_pickable(
+    mut command: Commands,
+    drag_axis: Query<Entity, Added<DragAxis>>,
+    drag_plane: Query<Entity, Added<DragPlane>>,
+) {
+    for e in drag_axis.iter().chain(drag_plane.iter()) {
+        command.entity(e).insert_bundle(PickableBundle::default());
+    }
+}
+
+pub fn update_drag_click_start(
+    mut draggables: Query<(&mut Draggable, &Interaction), Changed<Interaction>>,
+    transforms: Query<&GlobalTransform>,
+    intersections: Query<&Intersection<PickingRaycastSet>>,
+) {
+    for (mut drag, interaction) in &mut draggables {
+        if *interaction == Interaction::Clicked {
+            // My understanding is that bevy_mod_picking will only fill this
+            // with a single value when a click occurs.
+            if let Some(intersection) = intersections.get_single().ok().and_then(|i| i.position()) {
+                if let Some(tf) = transforms.get(drag.for_entity).ok() {
+                    drag.initial = Some(InitialDragConditions{
+                        click_point: intersection.clone(),
+                        entity_tf: tf.compute_transform(),
+                    });
+                }
+            }
+        }
+    }
+}
+
+pub fn update_drag_release(
+    mut draggables: Query<&mut Draggable>,
+    mouse_button_input: Res<Input<MouseButton>>,
+) {
+    if mouse_button_input.just_released(MouseButton::Left) {
+        for mut draggable in &mut draggables {
+            draggable.initial = None;
+        }
+    }
+}
+
+pub fn update_drag_motions(
+    drag_axis: Query<(&DragAxis, &Draggable, &GlobalTransform), Without<DragPlane>>,
+    drag_plane: Query<(&DragPlane, &Draggable, &GlobalTransform), Without<DragAxis>>,
+    mut transforms: Query<(&mut Transform, &GlobalTransform), Without<Draggable>>,
+    cameras: Query<&Camera>,
+    camera_controls: Query<&CameraControls>,
+    mut cursor_motion: EventReader<CursorMoved>,
+) {
+    let cursor_position = match cursor_motion.iter().last() {
+        Some(m) => m.position,
+        None => { return; }
+    };
+
+    let active_camera = camera_controls.single().active_camera();
+    let ray = if let Some(camera) = cameras.get(active_camera).ok() {
+        let camera_tf = match transforms.get(active_camera).ok() {
+            Some(tf) => tf.1.clone(),
+            None => { return; }
+        };
+
+        match Ray3d::from_screenspace(cursor_position, camera, &camera_tf) {
+            Some(ray) => ray,
+            None => { return; }
+        }
+    } else {
+        return;
+    };
+
+    for (axis, draggable, drag_tf) in &drag_axis {
+        if let Some(initial) = &draggable.initial {
+            if let Some((mut for_local_tf, for_global_tf)) = transforms.get_mut(draggable.for_entity).ok() {
+                let n = drag_tf.affine().transform_vector3(axis.along);
+                let dp = ray.origin() - initial.click_point;
+                let a = ray.direction().dot(n);
+                let b = ray.direction().dot(dp);
+                let c = n.dot(dp);
+
+                let denom = a.powi(2) - 1.;
+                if denom.abs() < 1e-3 {
+                    // The rays are nearly parallel, so we should not attempt moving
+                    // because the motion will be too extreme
+                    continue;
+                }
+
+                let t = (a*b - c)/denom;
+                let delta = t*n;
+                let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
+                let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                *for_local_tf = Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into());
             }
         }
     }
