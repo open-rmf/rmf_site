@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[derive(Deserialize, Serialize, Component, Clone, Default, Debug)]
 pub struct Model {
     pub model_name: String,
     #[serde(rename = "name")]

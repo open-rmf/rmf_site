@@ -1,4 +1,5 @@
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
+use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 use traffic_editor::TrafficEditorPlugin;
 use warehouse_generator::WarehouseGeneratorPlugin;
@@ -6,7 +7,7 @@ use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
-use bevy::{core::FixedTimestep, window::Windows};
+use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
@@ -32,6 +33,7 @@ mod crowd_sim;
 mod door;
 mod fiducial;
 mod floor;
+mod interaction;
 mod lane;
 mod level;
 mod level_transform;
@@ -123,7 +125,7 @@ pub fn run() {
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
-        .add_plugin(bevy_egui::EguiPlugin)
+        .add_plugin(EguiPlugin)
         .add_state(AppState::MainMenu)
         //.add_plugin(FrameTimeDiagnosticsPlugin::default())
         //.add_plugin(LogDiagnosticsPlugin::default())

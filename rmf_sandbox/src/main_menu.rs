@@ -5,16 +5,17 @@ use bevy_egui::{egui, EguiContext};
 use crate::AppState;
 use crate::{building_map::BuildingMap, OpenedMapFile};
 
-#[cfg(not(target_arch = "wasm32"))]
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
-struct LoadMapTask(Option<OpenedMapFile>, BuildingMap);
+struct LoadMapResult(Option<OpenedMapFile>, BuildingMap);
+
+#[derive(Component)]
+struct LoadMapTask(Task<Option<LoadMapResult>>);
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut _commands: Commands,
     mut _exit: EventWriter<AppExit>,
-    _thread_pool: Res<AsyncComputeTaskPool>,
     mut app_state: ResMut<State<AppState>>,
 ) {
     egui::Window::new("Welcome!")
@@ -31,7 +32,7 @@ fn egui_ui(
                     // load the office demo that is hard-coded in demo_world.rs
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        let future = _thread_pool.spawn(async move {
+                        let future = AsyncComputeTaskPool::get().spawn(async move {
                             let yaml = demo_office();
                             let data = yaml.as_bytes();
                             let map = match BuildingMap::from_bytes(&data) {
@@ -41,9 +42,9 @@ fn egui_ui(
                                     return None;
                                 }
                             };
-                            Some(LoadMapTask(None, map))
+                            Some(LoadMapResult(None, map))
                         });
-                        _commands.spawn().insert(future);
+                        _commands.spawn().insert(LoadMapTask(future));
                     }
 
                     // on web, we don't have a handy thread pool, so we'll
@@ -75,7 +76,7 @@ fn egui_ui(
                 {
                     if ui.button("Open a map file").clicked() {
                         // load the map in a thread pool
-                        let future = _thread_pool.spawn(async move {
+                        let future = AsyncComputeTaskPool::get().spawn(async move {
                             let file = match AsyncFileDialog::new().pick_file().await {
                                 Some(file) => file,
                                 None => {
@@ -92,12 +93,12 @@ fn egui_ui(
                                     return None;
                                 }
                             };
-                            Some(LoadMapTask(
+                            Some(LoadMapResult(
                                 Some(OpenedMapFile(file.path().to_path_buf())),
                                 map,
                             ))
                         });
-                        _commands.spawn().insert(future);
+                        _commands.spawn().insert(LoadMapTask(future));
                     }
                 }
 
@@ -125,11 +126,11 @@ fn egui_ui(
 #[cfg(not(target_arch = "wasm32"))]
 fn map_load_complete(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &mut Task<Option<LoadMapTask>>)>,
+    mut tasks: Query<(Entity, &mut LoadMapTask)>,
     mut app_state: ResMut<State<AppState>>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
-        if let Some(result) = future::block_on(future::poll_once(&mut *task)) {
+        if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
             println!("Site map loaded");
             commands.entity(entity).despawn();
 
