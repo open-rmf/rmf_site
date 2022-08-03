@@ -551,6 +551,7 @@ impl EditableTag {
     }
 }
 
+#[derive(Clone)]
 enum EditorData {
     Lane(Lane),
     Vertex(Vertex),
@@ -562,6 +563,7 @@ enum EditorData {
     Lift(EditableLift),
 }
 
+#[derive(Clone)]
 struct SelectedEditable(pub EditableTag, pub EditorData);
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -606,8 +608,8 @@ impl<'w, 's> EditorPanel<'w, 's> {
             }
         }
 
-        let selected = match *selected {
-            Some(ref mut selected) => selected,
+        let selected = match selected.as_mut() {
+            Some(selected) => selected,
             None => {
                 ui.add_sized(ui.available_size(), egui::Label::new("No object selected"));
                 return;
@@ -706,7 +708,8 @@ fn egui_ui(
     mut has_changes: ResMut<HasChanges>,
     mut spawner: Spawner,
     current_level: Res<Option<SiteMapCurrentLevel>>,
-    mut selected: ResMut<Option<SelectedEditable>>,
+    selected: ResMut<Option<SelectedEditable>>,
+    mut select: EventWriter<Option<SelectedEditable>>,
 ) {
     let mut controls = q_camera_controls.single_mut();
     egui::TopBottomPanel::top("top").show(egui_context.ctx_mut(), |ui| {
@@ -772,10 +775,10 @@ fn egui_ui(
                                 .spawn_vertex(&current_level.0, new_vertex.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Vertex(new_entity),
                                 EditorData::Vertex(new_vertex),
-                            ));
+                            )));
                         }
                         if ui.button("Add Lane").clicked() {
                             let new_lane = Lane::default();
@@ -783,10 +786,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_lane.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Lane(new_entity),
                                 EditorData::Lane(new_lane),
-                            ));
+                            )));
                         }
                         if ui.button("Add Measurement").clicked() {
                             let new_measurement = Measurement::default();
@@ -794,10 +797,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_measurement.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Measurement(new_entity),
                                 EditorData::Measurement(new_measurement),
-                            ));
+                            )));
                         }
                         if ui.button("Add Wall").clicked() {
                             let new_wall = Wall::default();
@@ -805,10 +808,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_wall.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Wall(new_entity),
                                 EditorData::Wall(new_wall),
-                            ));
+                            )));
                         }
                         if ui.button("Add Model").clicked() {
                             let new_model = Model::default();
@@ -816,10 +819,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_model.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Model(new_entity),
                                 EditorData::Model(new_model),
-                            ));
+                            )));
                         }
                         if ui.button("Add Door").clicked() {
                             let new_door = Door::default();
@@ -827,10 +830,10 @@ fn egui_ui(
                                 .spawn_in_level(&current_level.0, new_door.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Door(new_entity),
                                 EditorData::Door(new_door),
-                            ));
+                            )));
                         }
                         if ui.button("Add Lift").clicked() {
                             let cur_level = &current_level.0;
@@ -842,12 +845,12 @@ fn egui_ui(
                                 .spawn_in_level(&cur_level, new_lift.clone())
                                 .unwrap()
                                 .id();
-                            *selected = Some(SelectedEditable(
+                            select.send(Some(SelectedEditable(
                                 EditableTag::Lift(new_entity),
                                 EditorData::Lift(
                                     EditableLift::from_lift("new_lift", &new_lift).unwrap(),
                                 ),
-                            ));
+                            )));
                         }
                     });
                     ui.group(|ui| {
@@ -931,7 +934,6 @@ fn check_and_delete_vertex(
 }
 
 fn handle_keyboard_events(
-    mut selected: ResMut<Option<SelectedEditable>>,
     mut commands: Commands,
     lanes: Query<&Lane>,
     walls: Query<&Wall>,
@@ -941,11 +943,13 @@ fn handle_keyboard_events(
     keys: Res<Input<KeyCode>>,
     mut has_changes: ResMut<HasChanges>,
     mut delete_events: EventWriter<ElementDeleted>,
+    selected: Res<Option<SelectedEditable>>,
+    mut select: EventWriter<Option<SelectedEditable>>,
 ) {
     // Delete model if selected and delete was pressed
     if keys.just_pressed(KeyCode::Delete) {
         // We need to clear selection regardless, hence take the option
-        match &*selected {
+        match selected.as_ref() {
             Some(sel) => {
                 let entity = sel.0.unwrap_entity();
                 let mut safe_to_delete = true;
@@ -957,7 +961,7 @@ fn handle_keyboard_events(
                 if safe_to_delete {
                     delete_events.send(ElementDeleted(entity));
                     commands.entity(entity).despawn_recursive();
-                    *selected = None;
+                    select.send(None);
                     has_changes.0 = true;
                 }
             }
@@ -965,7 +969,7 @@ fn handle_keyboard_events(
         }
     } else if keys.just_pressed(KeyCode::Escape) {
         // TODO Picking highlighting is not cleared, fix
-        *selected = None;
+        select.send(None);
     }
 }
 
@@ -1029,13 +1033,12 @@ impl<'w, 's> EditableQuery<'w, 's> {
     }
 }
 
-fn maintain_inspected_entities(
+fn handle_interactions(
     interactions: Query<(&Interaction, &EditableTag), Changed<Interaction>>,
     paused: Option<Res<PausedForBlockers>>,
     editables: EditableQuery,
-    mut cues: Query<(&mut Hovering, &mut Selected)>,
-    mut selected: ResMut<Option<SelectedEditable>>,
-    mut hovered: ResMut<Option<HoveredEditable>>,
+    mut select: EventWriter<Option<SelectedEditable>>,
+    mut hover: EventWriter<Option<HoveredEditable>>,
 ) {
     if let Some(paused) = paused {
         if paused.is_paused() {
@@ -1043,30 +1046,14 @@ fn maintain_inspected_entities(
         }
     }
 
-    let previous_selected = selected.as_ref().as_ref().map(|s| s.0.clone());
     let clicked = interactions.iter().find(|(i, _)| match i {
         Interaction::Clicked => true,
         _ => false,
     });
     if let Some((_, tag)) = clicked {
-        *selected = editables.get_selected_data(tag);
-        let selected_tag = selected.as_ref().as_ref().map(|s| s.0.clone());
-        if previous_selected != selected_tag {
-            if let Some(previous) = previous_selected {
-                if let Some((_, mut selected)) = cues.get_mut(previous.unwrap_entity()).ok() {
-                    selected.is_selected = false;
-                }
-            }
-
-            if let Some(current) = selected_tag {
-                if let Some((_, mut selected)) = cues.get_mut(current.unwrap_entity()).ok() {
-                    selected.is_selected = true;
-                }
-            }
-        }
+        select.send(editables.get_selected_data(tag));
     }
 
-    let previous_hovered = *hovered;
     let new_hovered = interactions
         .iter()
         .find(|(i, _)| match i {
@@ -1076,16 +1063,53 @@ fn maintain_inspected_entities(
         .filter(|(_, tag)| !tag.ignore())
         .map(|(_, tag)| HoveredEditable(tag.unwrap_entity().clone()));
     if let Some(current) = new_hovered {
-        if previous_hovered != Some(current) {
-            *hovered = Some(current);
+        hover.send(Some(current));
+    }
+}
+
+fn maintain_inspected_entities(
+    mut hovering: Query<&mut Hovering>,
+    mut selection: Query<&mut Selected>,
+    mut selected: ResMut<Option<SelectedEditable>>,
+    mut hovered: ResMut<Option<HoveredEditable>>,
+    mut select: EventReader<Option<SelectedEditable>>,
+    mut hover: EventReader<Option<HoveredEditable>>,
+) {
+    let previous_selected = selected.as_ref().as_ref().map(|s| s.0.clone());
+    if let Some(newly_selected) = select.iter().last() {
+        if newly_selected.as_ref().map(|s| s.0) != previous_selected {
+            *selected = newly_selected.clone();
+            let selected_tag = selected.as_ref().as_ref().map(|s| s.0.clone());
+            if previous_selected != selected_tag {
+                if let Some(previous) = previous_selected {
+                    if let Some(mut selected) = selection.get_mut(previous.unwrap_entity()).ok() {
+                        selected.is_selected = false;
+                    }
+                }
+
+                if let Some(current) = selected_tag {
+                    if let Some(mut selected) = selection.get_mut(current.unwrap_entity()).ok() {
+                        selected.is_selected = true;
+                    }
+                }
+            }
+        }
+    }
+
+    let previous_hovered = *hovered;
+    if let Some(current) = hover.iter().last() {
+        if previous_hovered != *current {
+            *hovered = *current;
             if let Some(previous) = previous_hovered {
-                if let Some((mut hovered, _)) = cues.get_mut(previous.0).ok() {
+                if let Some(mut hovered) = hovering.get_mut(previous.0).ok() {
                     hovered.is_hovering = false;
                 }
             }
 
-            if let Some((mut hovered, _)) = cues.get_mut(current.0).ok() {
-                hovered.is_hovering = true;
+            if let Some(current) = current {
+                if let Some(mut hovered) = hovering.get_mut(current.0).ok() {
+                    hovered.is_hovering = true;
+                }
             }
         }
     }
@@ -1306,6 +1330,8 @@ impl Plugin for TrafficEditorPlugin {
             .init_resource::<Option<HoveredEditable>>()
             .init_resource::<HasChanges>()
             .add_event::<ElementDeleted>()
+            .add_event::<Option<SelectedEditable>>()
+            .add_event::<Option<HoveredEditable>>()
             .add_startup_system(on_startup)
             .add_system_set(SystemSet::on_enter(AppState::TrafficEditor).with_system(on_enter))
             .add_system_set(SystemSet::on_exit(AppState::TrafficEditor).with_system(on_exit))
@@ -1350,9 +1376,13 @@ impl Plugin for TrafficEditorPlugin {
                             .after(PickingSystem::PauseForBlockers),
                     )
                     .with_system(
-                        maintain_inspected_entities
+                        handle_interactions
                             .label(PickingSystem::Selection)
                             .after(PickingSystem::Focus),
+                    )
+                    .with_system(
+                        maintain_inspected_entities
+                            .after(PickingSystem::Selection)
                     ),
             );
     }
