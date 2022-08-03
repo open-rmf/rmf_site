@@ -2,7 +2,6 @@ use bevy::prelude::*;
 use bevy::render::mesh::Indices;
 use bevy::render::mesh::PrimitiveTopology;
 use serde::{Deserialize, Serialize};
-use std::f32::consts::FRAC_1_SQRT_2;
 
 #[derive(Deserialize, Serialize, Component, Clone, Default)]
 pub struct PhysicalCamera {
@@ -37,159 +36,73 @@ impl PhysicalCamera {
     }
 }
 
-/// An axis-aligned box with a pyramid on its right face.
-/// Defined by the box minimum and maximum point and the pyramid tip.
+/// An axis-aligned square-based pyramid defined by its minimum and maximum point.
 #[derive(Debug, Copy, Clone)]
-pub struct DirectionalBox {
-    pub min_x: f32,
-    pub max_x: f32,
+pub struct Pyramid {
+    pub ht: f32,
 
     pub min_y: f32,
     pub max_y: f32,
 
     pub min_z: f32,
     pub max_z: f32,
-
-    pub py_tip_x: f32,
 }
 
-impl DirectionalBox {
-    /// Creates a new box centered at the origin with the supplied side lengths.
-    /// Adds a pyramid on the box's right face.
-    pub fn new(x_length: f32, y_length: f32, z_length: f32) -> DirectionalBox {
-        DirectionalBox {
-            max_x: x_length / 2.0,
-            min_x: -x_length / 2.0,
-            max_y: y_length / 2.0,
-            min_y: -y_length / 2.0,
-            max_z: z_length / 2.0,
-            min_z: -z_length / 2.0,
-            py_tip_x: x_length,
+impl Pyramid {
+    /// Creates a new square-based pyramid with base centered at the origin with the supplied lengths.
+    pub fn new(base_length: f32, height: f32) -> Pyramid {
+        Pyramid {
+            ht: height,
+            max_y: base_length / 2.0,
+            min_y: -base_length / 2.0,
+            max_z: base_length / 2.0,
+            min_z: -base_length / 2.0,
         }
     }
 }
 
-impl Default for DirectionalBox {
+impl Default for Pyramid {
     fn default() -> Self {
-        DirectionalBox::new(2.0, 1.0, 1.0)
+        Pyramid::new(1.0, 1.0)
     }
 }
 
-impl From<DirectionalBox> for Mesh {
-    fn from(sp: DirectionalBox) -> Self {
+impl From<Pyramid> for Mesh {
+    fn from(sp: Pyramid) -> Self {
         let vertices = &[
-            // Top
-            ([sp.min_x, sp.min_y, sp.max_z], [0., 0., 1.0], [0., 0.]),
-            ([sp.max_x, sp.min_y, sp.max_z], [0., 0., 1.0], [1.0, 0.]),
-            ([sp.max_x, sp.max_y, sp.max_z], [0., 0., 1.0], [1.0, 1.0]),
-            ([sp.min_x, sp.max_y, sp.max_z], [0., 0., 1.0], [0., 1.0]),
-            // Bottom
-            ([sp.min_x, sp.max_y, sp.min_z], [0., 0., -1.0], [1.0, 0.]),
-            ([sp.max_x, sp.max_y, sp.min_z], [0., 0., -1.0], [0., 0.]),
-            ([sp.max_x, sp.min_y, sp.min_z], [0., 0., -1.0], [0., 1.0]),
-            ([sp.min_x, sp.min_y, sp.min_z], [0., 0., -1.0], [1.0, 1.0]),
-            // Left
-            ([sp.min_x, sp.min_y, sp.max_z], [-1.0, 0., 0.], [1.0, 0.]),
-            ([sp.min_x, sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
-            ([sp.min_x, sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
-            ([sp.min_x, sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
-            // Front
-            ([sp.max_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [1.0, 0.]),
-            ([sp.min_x, sp.max_y, sp.min_z], [0., 1.0, 0.], [0., 0.]),
-            ([sp.min_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [0., 1.0]),
-            ([sp.max_x, sp.max_y, sp.max_z], [0., 1.0, 0.], [1.0, 1.0]),
-            // Back
-            ([sp.max_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [0., 0.]),
-            ([sp.min_x, sp.min_y, sp.max_z], [0., -1.0, 0.], [1.0, 0.]),
-            ([sp.min_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [1.0, 1.0]),
-            ([sp.max_x, sp.min_y, sp.min_z], [0., -1.0, 0.], [0., 1.0]),
-            //
+            // Base (facing left)
+            ([0., sp.min_y, sp.max_z], [-1.0, 0., 0.], [1.0, 0.]),
+            ([0., sp.max_y, sp.max_z], [-1.0, 0., 0.], [0., 0.]),
+            ([0., sp.max_y, sp.min_z], [-1.0, 0., 0.], [0., 1.0]),
+            ([0., sp.min_y, sp.min_z], [-1.0, 0., 0.], [1.0, 1.0]),
             // Pyramid Top
-            (
-                [sp.max_x, sp.max_y, sp.max_z],
-                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
-                [1.0, 1.0],
-            ),
-            (
-                [sp.max_x, sp.min_y, sp.max_z],
-                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
-                [0., 1.0],
-            ),
-            (
-                [sp.py_tip_x, 0.0, 0.0],
-                [FRAC_1_SQRT_2, 0., FRAC_1_SQRT_2],
-                [1.0, 0.],
-            ),
+            ([0., sp.max_y, sp.max_z], [sp.max_z, 0., sp.ht], [1.0, 1.0]),
+            ([0., sp.min_y, sp.max_z], [sp.max_z, 0., sp.ht], [0., 1.0]),
+            ([sp.ht, 0., 0.], [sp.max_z, 0., sp.ht], [1.0, 0.]),
             // Pyramid Bottom
-            (
-                [sp.max_x, sp.min_y, sp.min_z],
-                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
-                [0., 0.],
-            ),
-            (
-                [sp.max_x, sp.max_y, sp.min_z],
-                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
-                [1.0, 0.],
-            ),
-            (
-                [sp.py_tip_x, 0.0, 0.0],
-                [FRAC_1_SQRT_2, 0., -FRAC_1_SQRT_2],
-                [0., 1.0],
-            ),
+            ([0., sp.min_y, sp.min_z], [sp.max_z, 0., -sp.ht], [0., 0.]),
+            ([0., sp.max_y, sp.min_z], [sp.max_z, 0., -sp.ht], [1.0, 0.]),
+            ([sp.ht, 0., 0.], [sp.max_z, 0., -sp.ht], [0., 1.0]),
             // Pyramid Front
-            (
-                [sp.max_x, sp.max_y, sp.min_z],
-                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
-                [1.0, 0.],
-            ),
-            (
-                [sp.max_x, sp.max_y, sp.max_z],
-                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
-                [1.0, 1.0],
-            ),
-            (
-                [sp.py_tip_x, 0.0, 0.0],
-                [FRAC_1_SQRT_2, FRAC_1_SQRT_2, 0.],
-                [0., 1.0],
-            ),
+            ([0., sp.max_y, sp.min_z], [sp.max_y, sp.ht, 0.], [1.0, 0.]),
+            ([0., sp.max_y, sp.max_z], [sp.max_y, sp.ht, 0.], [1.0, 1.0]),
+            ([sp.ht, 0., 0.], [sp.max_y, sp.ht, 0.], [0., 1.0]),
             // Pyramid Back
-            (
-                [sp.max_x, sp.min_y, sp.max_z],
-                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
-                [0., 1.0],
-            ),
-            (
-                [sp.max_x, sp.min_y, sp.min_z],
-                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
-                [0., 0.],
-            ),
-            (
-                [sp.py_tip_x, 0.0, 0.0],
-                [FRAC_1_SQRT_2, -FRAC_1_SQRT_2, 0.],
-                [1.0, 0.],
-            ),
+            ([0., sp.min_y, sp.max_z], [sp.max_y, -sp.ht, 0.], [0., 1.0]),
+            ([0., sp.min_y, sp.min_z], [sp.max_y, -sp.ht, 0.], [0., 0.]),
+            ([sp.ht, 0., 0.], [sp.max_y, -sp.ht, 0.], [1.0, 0.]),
         ];
 
-        let mut positions = Vec::with_capacity(32);
-        let mut normals = Vec::with_capacity(32);
-        let mut uvs = Vec::with_capacity(32);
-
-        for (position, normal, uv) in vertices.iter() {
-            positions.push(*position);
-            normals.push(*normal);
-            uvs.push(*uv);
-        }
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
 
         let indices = Indices::U32(vec![
-            0, 1, 2, 2, 3, 0, // top
-            4, 5, 6, 6, 7, 4, // bottom
-            8, 9, 10, 10, 11, 8, // left
-            12, 13, 14, 14, 15, 12, // front
-            16, 17, 18, 18, 19, 16, // back
-            20, 21, 22, // pyramid top
-            23, 24, 25, // pyramid bottom
-            26, 27, 28, // pyramid front
-            29, 30, 31, // pyramid back
+            0, 1, 2, 2, 3, 0, // base (facing left)
+            4, 5, 6, // pyramid top
+            7, 8, 9, // pyramid bottom
+            10, 11, 12, // pyramid front
+            13, 14, 15, // pyramid back
         ]);
 
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);

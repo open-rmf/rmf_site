@@ -495,7 +495,7 @@ fn update_cameras(
     for (e, physical_camera, t, changes) in q_physical_cameras.iter_mut() {
         if changes.is_added() {
             commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(DirectionalBox::new(1., 1., 1.))),
+                mesh: meshes.add(Mesh::from(Pyramid::new(1., 1.))),
                 material: handles.physical_camera_material.clone(),
                 transform: physical_camera.transform(),
                 ..default()
