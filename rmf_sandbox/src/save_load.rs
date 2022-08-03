@@ -112,7 +112,7 @@ fn save(world: &mut World) {
             // re-key all vertices when saving.
             if let Ok(vertex) = q_vertices.get(*c) {
                 let id = q_id.get(*c).unwrap().0;
-                let new_id = new_vm.add(vm.get(id).unwrap());
+                let new_id = new_vm.add(vm.id_to_entity(id).unwrap());
                 vertex_file_id.insert(id, new_id);
                 vertices.push(vertex.clone());
             }

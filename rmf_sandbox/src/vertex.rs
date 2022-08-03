@@ -32,9 +32,10 @@ pub struct Vertex(
 
 impl Vertex {
     pub fn transform(&self) -> Transform {
-        Transform {
-            translation: Vec3::new(self.0 as f32, self.1 as f32, 0.),
-            ..Default::default()
-        }
+        self.transform_at_height(0.)
+    }
+
+    pub fn transform_at_height(&self, height: f32) -> Transform {
+        Transform::from_translation([self.0 as f32, self.1 as f32, height].into())
     }
 }
