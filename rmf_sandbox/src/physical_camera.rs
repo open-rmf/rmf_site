@@ -3,7 +3,7 @@ use bevy::render::mesh::Indices;
 use bevy::render::mesh::PrimitiveTopology;
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[derive(Deserialize, Serialize, Component, Clone)]
 pub struct PhysicalCamera {
     // extrinsic properties
     pub name: String,
@@ -32,6 +32,23 @@ impl PhysicalCamera {
             ),
             scale: Vec3::new(0.1, 0.1, 0.1),
             ..Default::default()
+        }
+    }
+}
+
+impl Default for PhysicalCamera {
+    fn default() -> Self {
+        Self {
+            name: "default".to_string(),
+            x: 0.0,
+            y: 0.0,
+            z: 2.0,
+            pitch: 0.3,
+            yaw: 0.0,
+            image_fov: 2.0,
+            image_width: 640,
+            image_height: 320,
+            update_rate: 30,
         }
     }
 }
