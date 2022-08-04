@@ -1,5 +1,4 @@
 #[derive(Default)]
-pub struct SimulationState
-{
-    pub paused: bool
+pub struct SimulationState {
+    pub paused: bool,
 }
