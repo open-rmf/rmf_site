@@ -11,6 +11,7 @@ use crate::lift::Lift;
 use crate::measurement::Measurement;
 use crate::model::Model;
 use crate::save_load::SaveMap;
+use crate::simulation_state::SimulationState;
 use crate::site_map::{SiteMapCurrentLevel, SiteMapLabel, SiteMapState};
 use crate::spawner::{Spawner, VerticesManagers};
 use crate::vertex::Vertex;
@@ -701,6 +702,7 @@ fn egui_ui(
     mut q_camera_controls: Query<&mut CameraControls>,
     mut cameras: Query<(&mut Camera, &mut Visibility)>,
     mut app_state: ResMut<State<AppState>>,
+    mut sim_state: ResMut<SimulationState>,
     mut editor: EditorPanel,
     opened_map_file: Option<Res<OpenedMapFile>>,
     map: Res<BuildingMap>,
@@ -737,6 +739,15 @@ fn egui_ui(
                     .clicked()
                 {
                     controls.use_perspective(true, &mut cameras);
+                }
+                if ui
+                    .add(egui::SelectableLabel::new(
+                        sim_state.paused,
+                        "Preview Simulation",
+                    ))
+                    .clicked()
+                {
+                    sim_state.paused = !sim_state.paused;
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -1329,6 +1340,7 @@ impl Plugin for TrafficEditorPlugin {
             .init_resource::<Option<SelectedEditable>>()
             .init_resource::<Option<HoveredEditable>>()
             .init_resource::<HasChanges>()
+            .init_resource::<SimulationState>()
             .add_event::<ElementDeleted>()
             .add_event::<Option<SelectedEditable>>()
             .add_event::<Option<HoveredEditable>>()
