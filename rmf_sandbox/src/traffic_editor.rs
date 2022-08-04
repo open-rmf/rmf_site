@@ -1131,10 +1131,12 @@ impl<'w, 's> EditableQuery<'w, 's> {
                     ),
                 ))
             }),
-            EditableTag::PhysicalCamera(entity) => self
-                .q_physical_camera
-                .get(*entity)
-                .map(|c| Some(SelectedEditable(*tag, EditorData::PhysicalCamera(c.clone())))),
+            EditableTag::PhysicalCamera(entity) => self.q_physical_camera.get(*entity).map(|c| {
+                Some(SelectedEditable(
+                    *tag,
+                    EditorData::PhysicalCamera(c.clone()),
+                ))
+            }),
             EditableTag::Ignore => Ok(None),
         };
 

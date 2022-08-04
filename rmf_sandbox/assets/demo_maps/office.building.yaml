@@ -20,9 +20,6 @@ levels:
       - [31, 13, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, main_door], plugin: [1, normal], type: [1, double_hinged]}]
       - [35, 37, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, coe_door], plugin: [1, normal], type: [1, hinged]}]
       - [18, 17, {right_left_ratio: [3, 1], motion_axis: [1, start], motion_degrees: [3, 90], motion_direction: [2, 1], name: [1, hardware_door], plugin: [1, normal], type: [1, hinged]}]
-    physical_cameras:
-      - [camera1, 0.0, 2.4, 2.0, 0.3, 1.57, 2.0, 640, 480, 30]
-      - [camera2, -7.5, -3.8, 2.0, 0.3, 0.4, 2.0, 1600, 1280, 30]
     drawing:
       filename: office.png
     elevation: 0
@@ -134,6 +131,9 @@ levels:
       - {model_name: OpenRobotics/TeleportDispenser, name: coke_dispenser, static: true, x: 2091.359, y: 624.821, yaw: 1.5708, z: 0}
       - {model_name: OpenRobotics/Coke, name: Coke, static: false, x: 2091.359, y: 625.071, yaw: 1.5708, z: 0}
       - {model_name: OpenRobotics/TeleportIngestor, name: coke_ingestor, static: true, x: 2662.887, y: 898.996, yaw: 1.5708, z: 0.805}
+    physical_cameras:
+      - [camera1, 0.0, 2.4, 2.0, 0.3, 1.57, 2.0, 640, 480, 30]
+      - [camera2, -7.5, -3.8, 2.0, 0.3, 0.4, 2.0, 1600, 1280, 30]
     vertices:
       - [80.27, 1024.974, 0, ""]
       - [580.795, 43.396, 0, ""]
