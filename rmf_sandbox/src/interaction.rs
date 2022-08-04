@@ -25,6 +25,7 @@ use crate::{
 use bevy::{
     prelude::*,
     render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
+    math::Affine3A,
 };
 use bevy_mod_picking::{PickingRaycastSet, PickingSystem, PickableBundle};
 use bevy_mod_raycast::{Intersection, Ray3d};
@@ -36,6 +37,101 @@ pub struct InteractionAssets {
     pub dagger_material: Handle<StandardMaterial>,
     pub halo_mesh: Handle<Mesh>,
     pub halo_material: Handle<StandardMaterial>,
+    pub arrow_mesh: Handle<Mesh>,
+    pub flat_square_mesh: Handle<Mesh>,
+    pub x_axis_materials: DraggableMaterialSet,
+    pub y_axis_materials: DraggableMaterialSet,
+    pub z_plane_materials: DraggableMaterialSet,
+}
+
+impl InteractionAssets {
+
+    pub fn make_draggable_axis(
+        &self,
+        command: &mut Commands,
+        // What entity will be moved when this gizmo is dragged
+        for_entity: Entity,
+        // What entity should be the parent frame of this gizmo
+        parent: Entity,
+        material_set: DraggableMaterialSet,
+        offset: Vec3,
+        rotation: Quat,
+        scale: f32,
+    ) -> Entity {
+        return command.entity(parent).add_children(|parent| {
+            let id = parent.spawn_bundle(PbrBundle{
+                transform: Transform::from_rotation(
+                    rotation
+                ).with_translation(offset)
+                .with_scale(Vec3::splat(scale)),
+                mesh: self.arrow_mesh.clone(),
+                material: material_set.passive.clone(),
+                ..default()
+            })
+            .insert(DragAxis{
+                along: [0., 0., 1.].into(),
+            })
+            .insert(Draggable::new(for_entity, material_set))
+            .insert(EditableTag::Ignore).id();
+            id
+        });
+    }
+
+    pub fn make_vertex_draggable(
+        &self,
+        command: &mut Commands,
+        vertex: Entity,
+        cue: &mut VertexVisualCue,
+    ) {
+        let drag_parent = command.entity(vertex).add_children(|parent| {
+            parent.spawn_bundle(SpatialBundle::default()).id()
+        });
+
+        let height = 0.01;
+        let scale = 0.2;
+        let offset = 0.15;
+        for (m, p, r) in [
+            (
+                self.x_axis_materials.clone(),
+                Vec3::new(offset, 0., height),
+                Quat::from_rotation_y(90_f32.to_radians()),
+            ),
+            (
+                self.x_axis_materials.clone(),
+                Vec3::new(-offset, 0., height),
+                Quat::from_rotation_y(-90_f32.to_radians()),
+            ),
+            (
+                self.y_axis_materials.clone(),
+                Vec3::new(0., offset, height),
+                Quat::from_rotation_x(-90_f32.to_radians()),
+            ),
+            (
+                self.y_axis_materials.clone(),
+                Vec3::new(0., -offset, height),
+                Quat::from_rotation_x(90_f32.to_radians()),
+            )
+        ] {
+            self.make_draggable_axis(command, vertex, drag_parent, m, p, r, scale);
+        }
+
+        command.entity(drag_parent).add_children(|parent| {
+            parent.spawn_bundle(PbrBundle{
+                transform: Transform::from_translation([0., 0., height].into())
+                .with_scale(Vec3::splat(0.75*(scale+offset))),
+                mesh: self.flat_square_mesh.clone(),
+                material: self.z_plane_materials.passive.clone(),
+                ..default()
+            })
+            .insert(DragPlane{
+                in_plane: Vec3::new(0., 0., 1.),
+            })
+            .insert(Draggable::new(vertex, self.z_plane_materials.clone()))
+            .insert(EditableTag::Ignore);
+        });
+
+        cue.drag = Some(drag_parent);
+    }
 }
 
 impl FromWorld for InteractionAssets {
@@ -43,6 +139,8 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
+        let arrow_mesh = meshes.add(make_arrow_mesh());
+        let flat_square_mesh = meshes.add(make_flat_square_mesh());
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -57,12 +155,20 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             ..default()
         });
+        let x_axis_materials = DraggableMaterialSet::make_x_axis(&mut materials);
+        let y_axis_materials = DraggableMaterialSet::make_y_axis(&mut materials);
+        let z_plane_materials = DraggableMaterialSet::make_z_plane(&mut materials);
 
         Self {
             dagger_mesh,
             dagger_material,
             halo_mesh,
             halo_material,
+            arrow_mesh,
+            flat_square_mesh,
+            x_axis_materials,
+            y_axis_materials,
+            z_plane_materials,
         }
     }
 }
@@ -125,15 +231,52 @@ pub struct InitialDragConditions {
     entity_tf: Transform,
 }
 
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Debug, Clone)]
+pub struct DraggableMaterialSet {
+    passive: Handle<StandardMaterial>,
+    hover: Handle<StandardMaterial>,
+    drag: Handle<StandardMaterial>,
+}
+
+impl DraggableMaterialSet {
+    pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
+        Self{
+            passive: materials.add(Color::rgb(1., 0., 0.).into()),
+            hover: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
+            drag: materials.add(Color::rgb(0.7, 0., 0.).into()),
+        }
+    }
+
+    pub fn make_y_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
+        Self{
+            passive: materials.add(Color::rgb(0., 0.9, 0.).into()),
+            hover: materials.add(Color::rgb(0.5, 1.0, 0.5).into()),
+            drag: materials.add(Color::rgb(0., 0.6, 0.).into()),
+        }
+    }
+
+    pub fn make_z_plane(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
+        Self{
+            passive: materials.add(Color::rgba(0., 0., 1., 0.6).into()),
+            hover: materials.add(Color::rgba(0.3, 0.3, 1., 0.6).into()),
+            drag: materials.add(Color::rgba(0., 0., 0.7, 0.9).into()),
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone)]
 pub struct Draggable {
     for_entity: Entity,
+    materials: DraggableMaterialSet,
     initial: Option<InitialDragConditions>,
 }
 
 impl Draggable {
-    pub fn new(for_entity: Entity) -> Self {
-        Self{for_entity, initial: None}
+    pub fn new(
+        for_entity: Entity,
+        materials: DraggableMaterialSet,
+    ) -> Self {
+        Self{for_entity, materials, initial: None}
     }
 }
 
@@ -255,7 +398,6 @@ fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> PartialMesh {
     .take(6 * segments as usize)
     .collect();
 
-    positions.len();
     let mut normals = Vec::new();
     normals.resize(positions.len(), [0., 0., 0.]);
     for i in 0..segments {
@@ -277,6 +419,48 @@ fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> PartialMesh {
         normals,
         indices,
     };
+}
+
+fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> PartialMesh {
+    let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
+        (circles[0], circles[1])
+    } else {
+        (circles[1], circles[0])
+    };
+
+    let positions: Vec<[f32; 3]> = make_circles(
+        [bottom_circle, top_circle], resolution, 0.
+    )
+    .collect();
+
+    let top_start = resolution;
+    let indices = [[0, 1, top_start+1, 0, top_start+1, top_start]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
+        .take(6*(resolution-1) as usize)
+        .collect();
+
+    let mut normals = Vec::new();
+    normals.resize(positions.len(), [0., 0., 1.]);
+    for i in 0..resolution {
+        let theta = (i as f32)/(resolution as f32 - 1.) * 2.*std::f32::consts::PI;
+        let dr = top_circle.radius - bottom_circle.radius;
+        let dh = top_circle.height - bottom_circle.height;
+        let phi = dr.atan2(dh);
+        let r_y = Affine3A::from_rotation_y(phi);
+        let r_z = Affine3A::from_rotation_z(theta);
+        let n = (r_z*r_y).transform_vector3([1., 0., 0.,].into());
+        normals[i as usize] = n.into();
+        normals[(i+top_start) as usize] = n.into();
+    }
+
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    }
 }
 
 fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> PartialMesh {
@@ -326,6 +510,69 @@ fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> PartialMesh {
     };
 }
 
+fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
+    let positions: Vec<[f32; 3]> = make_circles([circle], resolution+1, 0.)
+        .take(resolution as usize) // skip the last vertex which would close the circle
+        .chain([peak].into_iter().cycle().take(resolution as usize))
+        .collect();
+
+    let peak_start = resolution;
+    let indices: Vec<u32> = [[0, 1, peak_start]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
+        .take(3*(resolution as usize - 1))
+        .chain([peak_start-1, 0, (positions.len()-1) as u32])
+        .collect();
+
+    let mut normals = Vec::<[f32; 3]>::new();
+    let base_p = Vec3::new(peak[0], peak[1], circle.height);
+    normals.resize(positions.len(), [0., 0., 1.]);
+    for i in 0..resolution {
+        // Normals around the ring
+        let calculate_normal = |theta: f32| -> [f32; 3] {
+            let p = circle.radius * Vec3::new(theta.cos(), theta.sin(), circle.height);
+            let r = (p - base_p).length();
+            let h = peak[2] - circle.height;
+            let phi = r.atan2(h);
+            let r_y = Affine3A::from_rotation_y(-phi);
+            let r_z = Affine3A::from_rotation_z(theta);
+            (r_z * r_y).transform_vector3(Vec3::new(1., 0., 0.)).into()
+        };
+
+        let theta = (i as f32)/(resolution as f32) * 2.0 * std::f32::consts::PI;
+        normals[i as usize] = calculate_normal(theta);
+
+        let mid_theta = (i as f32 + 0.5)/(resolution as f32) * 2.0 * std::f32::consts::PI;
+        normals[(i + peak_start) as usize] = calculate_normal(mid_theta);
+    }
+
+    return PartialMesh{positions, normals, indices};
+}
+
+fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh {
+    let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
+        .take(resolution as usize - 1) // skip the vertex which would close the circle
+        .chain([[0., 0., circle.height]].into_iter())
+        .collect();
+
+    let peak = positions.len() as u32 - 1;
+    let indices: Vec<u32> = (0..resolution-1)
+        .into_iter()
+        .flat_map(|i| [i, peak, i+1].into_iter())
+        .chain([resolution-1, peak, 0])
+        .collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., -1.]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    return PartialMesh{positions, normals, indices};
+}
+
 fn make_dagger_mesh() -> Mesh {
     let lower_ring = Circle {
         radius: 0.01,
@@ -342,6 +589,62 @@ fn make_dagger_mesh() -> Mesh {
     make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
     make_pyramid(lower_ring, [0., 0., 0.], segments).merge_into(&mut mesh);
+    return mesh;
+}
+
+fn make_arrow_mesh() -> Mesh {
+    let tip = [0., 0., 1.];
+    let l_head = 0.2;
+    let r_head = 0.15;
+    let r_base = 0.1;
+    let head_base = Circle {
+        radius: r_head,
+        height: 1. - l_head,
+    };
+    let cylinder_top = Circle {
+        radius: r_base,
+        height: 1. - l_head,
+    };
+    let cylinder_bottom = Circle {
+        radius: r_base,
+        height: 0.0,
+    };
+    let resolution = 32u32;
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    make_cone(head_base, tip, resolution).merge_into(&mut mesh);
+    make_smooth_wrap([cylinder_top, cylinder_bottom], resolution).merge_into(&mut mesh);
+    make_smooth_wrap([head_base, cylinder_top], resolution).merge_into(&mut mesh);
+    make_bottom_circle(cylinder_bottom, resolution).merge_into(&mut mesh);
+    return mesh;
+}
+
+fn make_flat_square_mesh() -> Mesh {
+    let positions: Vec<[f32; 3]> = [
+        [-1., -1., 0.],
+        [1., -1., 0.],
+        [1., 1., 0.],
+        [-1., 1., 0.],
+    ].into_iter().cycle().take(8).collect();
+
+    let indices = Indices::U32(
+        [
+            0, 1, 2, 0, 2, 3,
+            4, 6, 5, 4, 7, 6,
+        ].into_iter().collect()
+    );
+
+    let normals: Vec<[f32; 3]> = [
+        [0., 0., 1.]
+    ].into_iter().cycle().take(4)
+    .chain([
+        [0., 0., -1.]
+    ].into_iter().cycle().take(4)).collect();
+
+    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+    mesh.set_indices(Some(indices));
     return mesh;
 }
 
@@ -430,7 +733,9 @@ impl<T> InteractionPlugin<T> {
 
 impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for InteractionPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.init_resource::<InteractionAssets>()
+        app
+            .init_resource::<InteractionAssets>()
+            .init_resource::<Dragging>()
             .add_event::<ElementDeleted>()
             .add_startup_system(init_cursor)
             .add_system_set(
@@ -449,8 +754,7 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
                         update_drag_motions
                         .after(update_drag_click_start)
                         .after(update_drag_release)
-                    )
-                    .with_system(make_vertices_movable),
+                    ),
             );
     }
 }
@@ -524,28 +828,6 @@ pub fn update_cursor_transform(
     }
 }
 
-pub fn make_vertices_movable(
-    mut command: Commands,
-    new_vertices: Query<Entity, Added<VertexVisualCue>>,
-    assets: Res<InteractionAssets>,
-) {
-    for v in &new_vertices {
-        command.entity(v).add_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
-                transform: Transform::from_rotation(Quat::from_rotation_y(90_f32.to_radians())),
-                mesh: assets.dagger_mesh.clone(),
-                material: assets.dagger_material.clone(),
-                ..default()
-            })
-            .insert(DragAxis{
-                along: [0., 0., 1.].into(),
-            })
-            .insert(Draggable::new(v))
-            .insert(EditableTag::Ignore);
-        });
-    }
-}
-
 pub fn make_gizmos_pickable(
     mut command: Commands,
     drag_axis: Query<Entity, Added<DragAxis>>,
@@ -557,20 +839,36 @@ pub fn make_gizmos_pickable(
 }
 
 pub fn update_drag_click_start(
-    mut draggables: Query<(&mut Draggable, &Interaction), Changed<Interaction>>,
+    mut draggables: Query<(&mut Draggable, &Interaction, &mut Handle<StandardMaterial>), Changed<Interaction>>,
+    mut dragging: ResMut<Dragging>,
+    mut visibility: Query<&mut Visibility>,
+    cursor: Query<Entity, With<Cursor>>,
     transforms: Query<&GlobalTransform>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
 ) {
-    for (mut drag, interaction) in &mut draggables {
-        if *interaction == Interaction::Clicked {
-            // My understanding is that bevy_mod_picking will only fill this
-            // with a single value when a click occurs.
-            if let Some(intersection) = intersections.get_single().ok().and_then(|i| i.position()) {
-                if let Some(tf) = transforms.get(drag.for_entity).ok() {
-                    drag.initial = Some(InitialDragConditions{
-                        click_point: intersection.clone(),
-                        entity_tf: tf.compute_transform(),
-                    });
+    for (mut drag, interaction, mut material) in &mut draggables {
+        match *interaction {
+            Interaction::Clicked => {
+                if let Some(intersection) = intersections.get_single().ok().and_then(|i| i.position()) {
+                    if let Some(tf) = transforms.get(drag.for_entity).ok() {
+                        dragging.is_dragging = true;
+                        drag.initial = Some(InitialDragConditions{
+                            click_point: intersection.clone(),
+                            entity_tf: tf.compute_transform(),
+                        });
+                        *material = drag.materials.drag.clone();
+                    }
+                }
+            },
+            Interaction::Hovered => {
+                if drag.initial.is_none() {
+                    set_visibility(cursor.single(), &mut visibility, false);
+                    *material = drag.materials.hover.clone();
+                }
+            },
+            Interaction::None => {
+                if drag.initial.is_none() {
+                    *material = drag.materials.passive.clone();
                 }
             }
         }
@@ -578,13 +876,19 @@ pub fn update_drag_click_start(
 }
 
 pub fn update_drag_release(
-    mut draggables: Query<&mut Draggable>,
+    mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
+    mut dragging: ResMut<Dragging>,
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        for mut draggable in &mut draggables {
-            draggable.initial = None;
+        for (mut draggable, mut material) in &mut draggables {
+            if draggable.initial.is_some() {
+                draggable.initial = None;
+                *material = draggable.materials.passive.clone();
+            }
         }
+
+        dragging.is_dragging = false;
     }
 }
 
@@ -619,7 +923,7 @@ pub fn update_drag_motions(
     for (axis, draggable, drag_tf) in &drag_axis {
         if let Some(initial) = &draggable.initial {
             if let Some((mut for_local_tf, for_global_tf)) = transforms.get_mut(draggable.for_entity).ok() {
-                let n = drag_tf.affine().transform_vector3(axis.along);
+                let n = drag_tf.affine().transform_vector3(axis.along).normalize_or_zero();
                 let dp = ray.origin() - initial.click_point;
                 let a = ray.direction().dot(n);
                 let b = ray.direction().dot(dp);
@@ -634,6 +938,27 @@ pub fn update_drag_motions(
 
                 let t = (a*b - c)/denom;
                 let delta = t*n;
+                let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
+                let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                *for_local_tf = Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into());
+            }
+        }
+    }
+
+    for (plane, draggable, drag_tf) in &drag_plane {
+        if let Some(initial) = &draggable.initial {
+            if let Some((mut for_local_tf, for_global_tf)) = transforms.get_mut(draggable.for_entity).ok() {
+                let n_p = drag_tf.affine().transform_vector3(plane.in_plane).normalize_or_zero();
+                let n_r = ray.direction();
+                let denom = n_p.dot(n_r);
+                if denom.abs() < 1e-3 {
+                    // The rays are nearly parallel so we should not attempt moving
+                    // because the motion will be too extreme
+                    continue;
+                }
+
+                let t = (initial.click_point - ray.origin()).dot(n_p)/denom;
+                let delta = ray.position(t) - initial.click_point;
                 let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
                 let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
                 *for_local_tf = Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into());
@@ -764,66 +1089,83 @@ impl Default for Selected {
     }
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub struct Dragging {
+    pub is_dragging: bool,
+}
+
+impl Default for Dragging {
+    fn default() -> Self {
+        Self{is_dragging: false}
+    }
+}
+
 #[derive(Component)]
 pub struct VertexVisualCue {
     pub dagger: Entity,
     pub halo: Entity,
     pub body: Entity,
+    pub drag: Option<Entity>,
 }
 
 pub fn update_vertex_visual_cues(
-    vertices: Query<(Entity, &Hovering, &Selected, &VertexVisualCue)>,
-    hover_changes: Query<ChangeTrackers<Hovering>>,
-    select_changes: Query<ChangeTrackers<Selected>>,
+    mut command: Commands,
+    mut vertices: Query<(Entity, &Hovering, &Selected, &mut VertexVisualCue, ChangeTrackers<Selected>), Or<(Changed<Hovering>, Changed<Selected>)>>,
     mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     cursor: Query<Entity, With<Cursor>>,
     site_assets: Res<SiteAssets>,
+    interaction_assets: Res<InteractionAssets>,
 ) {
-    for (v, hovering, selected, cue) in &vertices {
-        let hover_changed = hover_changes
-            .get(v)
-            .ok()
-            .filter(|h| h.is_changed())
-            .is_some();
-        let select_changed = select_changes
-            .get(v)
-            .ok()
-            .filter(|s| s.is_changed())
-            .is_some();
-        if hover_changed || select_changed {
-            if hovering.cue() || selected.cue() {
-                set_visibility(cue.dagger, &mut visibility, true);
-                set_visibility(cue.halo, &mut visibility, true);
-            }
+    for (v, hovering, selected, mut cue, select_tracker) in &mut vertices {
+        if hovering.cue() || selected.cue() {
+            set_visibility(cue.dagger, &mut visibility, true);
+        }
 
-            if hovering.is_hovering {
-                set_visibility(cursor.single(), &mut visibility, false);
-            }
+        if hovering.is_hovering {
+            set_visibility(cursor.single(), &mut visibility, false);
+        }
 
-            let vertex_height = 0.15 + 0.05 / 2.;
+        if selected.cue() {
+            set_visibility(cue.halo, &mut visibility, false);
+        }
+
+        let vertex_height = 0.15 + 0.05 / 2.;
+        if selected.cue() {
+            set_bobbing(cue.dagger, vertex_height, vertex_height, &mut bobbing);
+        }
+
+        if hovering.cue() && selected.cue() {
+            set_material(cue.body, &site_assets.hover_select_material, &mut materials);
+        } else if hovering.cue() {
+            // Hovering but not selected
+            set_visibility(cue.halo, &mut visibility, true);
+            set_material(cue.body, &site_assets.hover_material, &mut materials);
+            set_bobbing(cue.dagger, vertex_height, vertex_height + 0.2, &mut bobbing);
+        } else if selected.cue() {
+            // Selected but not hovering
+            set_material(cue.body, &site_assets.select_material, &mut materials);
+        } else {
+            set_material(
+                cue.body,
+                &site_assets.passive_vertex_material,
+                &mut materials,
+            );
+            set_visibility(cue.dagger, &mut visibility, false);
+            set_visibility(cue.halo, &mut visibility, false);
+        }
+
+        if select_tracker.is_changed() {
             if selected.cue() {
-                set_bobbing(cue.dagger, vertex_height, vertex_height, &mut bobbing);
-            }
-
-            if hovering.cue() && selected.cue() {
-                set_material(cue.body, &site_assets.hover_select_material, &mut materials);
-            } else if hovering.cue() {
-                // Hovering but not selected
-                set_material(cue.body, &site_assets.hover_material, &mut materials);
-                set_bobbing(cue.dagger, vertex_height, vertex_height + 0.2, &mut bobbing);
-            } else if selected.cue() {
-                // Selected but not hovering
-                set_material(cue.body, &site_assets.select_material, &mut materials);
+                if cue.drag.is_none() {
+                    interaction_assets.make_vertex_draggable(&mut command, v, cue.as_mut());
+                }
             } else {
-                set_material(
-                    cue.body,
-                    &site_assets.passive_vertex_material,
-                    &mut materials,
-                );
-                set_visibility(cue.dagger, &mut visibility, false);
-                set_visibility(cue.halo, &mut visibility, false);
+                if let Some(drag) = cue.drag {
+                    command.entity(drag).despawn_recursive();
+                }
+                cue.drag = None;
             }
         }
     }
@@ -868,9 +1210,11 @@ pub fn update_lane_visual_cues(
         ),
         (
             Without<VertexVisualCue>,
-            ChangeTrackers<Hovering>,
-            ChangeTrackers<Selected>,
-            ChangeTrackers<Lane>,
+            Or<(
+                Changed<Hovering>,
+                Changed<Selected>,
+                Changed<Lane>,
+            )>,
         ),
     >,
     mut vertices: Query<(&mut Hovering, &mut Selected), With<VertexVisualCue>>,
@@ -888,7 +1232,6 @@ pub fn update_lane_visual_cues(
         }
     };
     for (l, hovering, selected, lane, pieces, mut cue, mut tf) in &mut lanes {
-        // println!("Change in lane {l:?}");
         if let Some(vm) = vm.0.get(&level.0) {
             if let (Some(v0), Some(v1)) = (vm.id_to_entity(lane.0), vm.id_to_entity(lane.1)) {
                 if let Some((old_v0, old_v1)) = cue.supporters {

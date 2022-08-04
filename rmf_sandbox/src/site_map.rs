@@ -264,7 +264,7 @@ fn update_vertices(
         });
 
         commands
-            .insert(VertexVisualCue { dagger, halo, body })
+            .insert(VertexVisualCue { dagger, halo, body, drag: None })
             .insert(Hovering::default())
             .insert(Selected::default());
     }
@@ -281,7 +281,6 @@ fn update_lights(
 ) {
     // spawn new lights
     for (e, light) in added_lights.iter() {
-        println!("Updating light {e:?}");
         commands.entity(e).insert_bundle(PointLightBundle {
             transform: light.transform(),
             point_light: PointLight {

@@ -5,7 +5,7 @@ use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
-use crate::interaction::{Hovering, InteractionPlugin, Selected};
+use crate::interaction::{Hovering, InteractionPlugin, Selected, Dragging};
 use crate::lane::Lane;
 use crate::lift::Lift;
 use crate::measurement::Measurement;
@@ -1036,7 +1036,9 @@ impl<'w, 's> EditableQuery<'w, 's> {
 fn handle_interactions(
     interactions: Query<(&Interaction, &EditableTag), Changed<Interaction>>,
     paused: Option<Res<PausedForBlockers>>,
+    dragging: Res<Dragging>,
     editables: EditableQuery,
+    hovered: Res<Option<HoveredEditable>>,
     mut select: EventWriter<Option<SelectedEditable>>,
     mut hover: EventWriter<Option<HoveredEditable>>,
 ) {
@@ -1046,12 +1048,29 @@ fn handle_interactions(
         }
     }
 
+    if dragging.is_dragging {
+        // Do not highlight or select while a gizmo is being dragged
+        return;
+    }
+
     let clicked = interactions.iter().find(|(i, _)| match i {
         Interaction::Clicked => true,
         _ => false,
     });
     if let Some((_, tag)) = clicked {
-        select.send(editables.get_selected_data(tag));
+        if let Some(editable_tag) = editables.get_selected_data(tag) {
+            select.send(Some(editable_tag));
+        }
+    }
+
+    for (interaction, tag) in &interactions {
+        if Interaction::None == *interaction {
+            if let Some(entity) = tag.entity() {
+                if Some(HoveredEditable(entity)) == *hovered {
+                    hover.send(None);
+                }
+            }
+        }
     }
 
     let new_hovered = interactions
