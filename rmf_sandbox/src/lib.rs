@@ -43,6 +43,7 @@ mod measurement;
 mod model;
 mod rbmf;
 mod sandbox_asset_io;
+mod simulation_state;
 mod utils;
 mod vertex;
 mod wall;
