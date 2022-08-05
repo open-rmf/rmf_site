@@ -2,6 +2,7 @@ use crate::fiducial::Fiducial;
 use crate::floor::Floor;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::physical_camera::PhysicalCamera;
 use crate::vertex::Vertex;
 use crate::wall::Wall;
 use crate::{door::Door, lane::Lane};
@@ -26,6 +27,7 @@ pub struct Level {
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
     pub floors: Vec<Floor>,
+    pub physical_cameras: Vec<PhysicalCamera>,
     #[serde(default)]
     pub fiducials: Vec<Fiducial>,
 }
