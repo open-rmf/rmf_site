@@ -12,6 +12,7 @@ use crate::lift::Lift;
 use crate::light::Light;
 use crate::measurement::Measurement;
 use crate::model::Model;
+use crate::physical_camera::*;
 use crate::settings::*;
 use crate::spawner::{SiteMapRoot, VerticesManagers};
 use crate::traffic_editor::EditableTag;
@@ -47,6 +48,7 @@ pub struct SiteAssets {
     pub vertex_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
+    pub physical_camera_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -78,6 +80,7 @@ impl FromWorld for SiteAssets {
             alpha_mode: AlphaMode::Blend,
             ..default()
         });
+        let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
@@ -104,6 +107,7 @@ impl FromWorld for SiteAssets {
             passive_vertex_material,
             wall_material,
             door_material,
+            physical_camera_material,
         }
     }
 }
@@ -667,6 +671,38 @@ fn update_lifts(
     }
 }
 
+fn update_cameras(
+    mut commands: Commands,
+    mut meshes: ResMut<Assets<Mesh>>,
+    handles: Res<SiteAssets>,
+    mut q_physical_cameras: Query<
+        (
+            Entity,
+            &PhysicalCamera,
+            Option<&mut Transform>,
+            ChangeTrackers<PhysicalCamera>,
+        ),
+        Changed<PhysicalCamera>,
+    >,
+) {
+    for (e, physical_camera, t, changes) in q_physical_cameras.iter_mut() {
+        if changes.is_added() {
+            commands.entity(e).insert_bundle(PbrBundle {
+                mesh: meshes.add(Mesh::from(Pyramid::new(1., 1.))),
+                material: handles.physical_camera_material.clone(),
+                transform: physical_camera.transform(),
+                ..default()
+            });
+        }
+
+        if changes.is_changed() {
+            if let Some(mut t) = t {
+                *t = physical_camera.transform();
+            }
+        }
+    }
+}
+
 #[derive(Default)]
 pub struct SiteMapPlugin;
 
@@ -699,7 +735,8 @@ impl Plugin for SiteMapPlugin {
                     .with_system(update_lights.after(init_site_map))
                     .with_system(update_models.after(init_site_map))
                     .with_system(update_doors.after(update_vertices))
-                    .with_system(update_lifts.after(init_site_map)),
+                    .with_system(update_lifts.after(init_site_map))
+                    .with_system(update_cameras.after(init_site_map)),
             );
     }
 }
