@@ -1,12 +1,14 @@
-use crate::fiducial::Fiducial;
-use crate::floor::Floor;
-use crate::measurement::Measurement;
-use crate::model::Model;
-use crate::physical_camera::PhysicalCamera;
-use crate::vertex::Vertex;
-use crate::wall::Wall;
-use crate::{door::Door, lane::Lane};
-use bevy::prelude::*;
+use super::{
+    fiducial::Fiducial,
+    floor::Floor,
+    measurement::Measurement,
+    model::Model,
+    physical_camera::PhysicalCamera,
+    vertex::Vertex,
+    wall::Wall,
+    door::Door,
+    lane::Lane
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -14,7 +16,7 @@ pub struct LevelDrawing {
     filename: String,
 }
 
-#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Level {
     pub vertices: Vec<Vertex>,
     pub lanes: Vec<Lane>,

@@ -1,6 +1,4 @@
 use std::collections::BTreeMap;
-
-use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -12,7 +10,7 @@ pub struct LiftDoor {
     pub y: f64,
 }
 
-#[derive(Deserialize, Serialize, Component, Clone)]
+#[derive(Deserialize, Serialize, Clone)]
 pub struct Lift {
     pub depth: f64,
     pub doors: BTreeMap<String, LiftDoor>,

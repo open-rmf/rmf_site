@@ -1,7 +1,6 @@
 use std::fmt::Display;
 
-use crate::rbmf::*;
-use bevy::prelude::Component;
+use super::rbmf::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -30,7 +29,7 @@ impl Default for DoorProperties {
     }
 }
 
-#[derive(Deserialize, Serialize, Clone, Component, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Door(pub usize, pub usize, pub DoorProperties);
 
 pub enum DoorType {

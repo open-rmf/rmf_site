@@ -29,7 +29,7 @@ pub struct AgentProfile {
     pub r: f64,
 }
 
-// TODO:
+// TODO:y
 #[derive(Deserialize, Serialize, Clone)]
 pub struct GoalSet;
 

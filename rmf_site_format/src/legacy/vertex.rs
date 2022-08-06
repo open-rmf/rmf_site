@@ -1,6 +1,5 @@
-use crate::rbmf::*;
-use crate::utils::is_default;
-use bevy::prelude::*;
+use super::rbmf::*;
+use crate::is_default;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -21,7 +20,7 @@ pub struct VertexProperties {
     pub pickup_dispenser: RbmfString,
 }
 
-#[derive(Deserialize, Serialize, Component, Clone, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Vertex(
     pub f64,
     pub f64,
@@ -29,13 +28,3 @@ pub struct Vertex(
     pub String,
     #[serde(default)] pub VertexProperties,
 );
-
-impl Vertex {
-    pub fn transform(&self) -> Transform {
-        self.transform_at_height(0.)
-    }
-
-    pub fn transform_at_height(&self, height: f32) -> Transform {
-        Transform::from_translation([self.0 as f32, self.1 as f32, height].into())
-    }
-}

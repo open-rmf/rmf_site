@@ -1,0 +1,13 @@
+[package]
+name = "rmf_site_format"
+version = "0.0.1"
+edition = "2021"
+authors = ["Grey <grey@openrobotics.org>"]
+
+[lib]
+crate-type = ["rlib"]
+
+[dependencies]
+serde = { version = "1.0", features = ["derive"] }
+serde_yaml = "0.8.23"
+serde_json = "1.0"

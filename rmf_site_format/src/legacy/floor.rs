@@ -1,5 +1,4 @@
-use crate::rbmf::*;
-use bevy::prelude::*;
+use super::rbmf::*;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -9,7 +8,7 @@ pub struct FloorParameters {
     pub texture_scale: RbmfFloat,
 }
 
-#[derive(Deserialize, Serialize, Clone, Component, Default)]
+#[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Floor {
     pub parameters: FloorParameters,
     pub vertices: Vec<usize>,

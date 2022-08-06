@@ -1,6 +1,5 @@
 // RBMF stands for "RMF Building Map Format"
 
-use bevy_egui::egui::emath::Numeric;
 use std::ops::{Deref, DerefMut};
 
 use serde::{Deserialize, Serialize};
@@ -97,20 +96,6 @@ impl DerefMut for RbmfInt {
     }
 }
 
-impl Numeric for RbmfInt {
-    const INTEGRAL: bool = true;
-    const MIN: Self = Self(2, i64::MIN);
-    const MAX: Self = Self(2, i64::MAX);
-
-    fn to_f64(self) -> f64 {
-        self.1 as f64
-    }
-
-    fn from_f64(num: f64) -> Self {
-        Self(2, num as i64)
-    }
-}
-
 #[derive(Deserialize, Serialize, Clone, Copy)]
 pub struct RbmfFloat(usize, pub f64);
 
@@ -154,20 +139,6 @@ impl Deref for RbmfFloat {
 impl DerefMut for RbmfFloat {
     fn deref_mut(&mut self) -> &mut f64 {
         &mut self.1
-    }
-}
-
-impl Numeric for RbmfFloat {
-    const INTEGRAL: bool = false;
-    const MIN: Self = Self(3, f64::MIN);
-    const MAX: Self = Self(3, f64::MAX);
-
-    fn to_f64(self) -> f64 {
-        self.1
-    }
-
-    fn from_f64(num: f64) -> Self {
-        Self(3, num)
     }
 }
 

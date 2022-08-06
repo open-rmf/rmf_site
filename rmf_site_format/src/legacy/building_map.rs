@@ -1,9 +1,6 @@
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
-
-use crate::crowd_sim::CrowdSim;
-use crate::level::Level;
-use crate::lift::Lift;
+use super::{crowd_sim::CrowdSim, level::Level, lift::Lift};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct BuildingMap {
