@@ -33,7 +33,7 @@ pub struct Site {
 
 fn default_style_config() -> Style {
     Style::new()
-    .depth_limit(3)
+    .depth_limit(4)
     .new_line("\n".to_string())
     .indentor("  ".to_string())
     .struct_names(true)

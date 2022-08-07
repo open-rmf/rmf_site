@@ -21,5 +21,6 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Floor<SiteID> {
     pub anchors: Vec<SiteID>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub texture: Option<Texture>,
 }

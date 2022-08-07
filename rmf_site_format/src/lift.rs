@@ -41,6 +41,7 @@ pub struct Lift<SiteID: Ord> {
     ///
     /// Finalized site files should not have this field because it should become
     /// unnecessary after levels have been scaled and aligned.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     pub corrections: BTreeMap<u32, (SiteID, SiteID)>,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
@@ -85,5 +86,6 @@ pub struct LiftCabinDoor {
     /// What kind of door is this
     pub kind: DoorType,
     /// Shift the door off-center to the left (positive) or right (negative)
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifted: Option<f32>,
 }

@@ -22,7 +22,7 @@ impl Model {
             kind: self.model_name.clone(),
             pose: Pose{
                 trans: (self.x as f32, self.y as f32, self.z_offset as f32),
-                rot: Rotation::Yaw(Angle::Deg(self.yaw as f32)),
+                rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
             },
             is_static: self.static_,
         }

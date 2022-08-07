@@ -69,7 +69,6 @@ impl BuildingMap {
                 0 => 1.0,
                 _ => sum_dist / n_dist as f64,
             };
-            println!("scale: {}", scale);
 
             // convert to meters
             for v in level.vertices.iter_mut() {
@@ -336,11 +335,18 @@ mod tests {
 
     #[test]
     fn building_map_serialization() -> std::result::Result<(), Box<dyn Error>> {
-        let data = std::fs::read("assets/demo_maps/office.building.yaml")?;
+        let data = std::fs::read("../rmf_sandbox/assets/demo_maps/office.building.yaml")?;
         let map = BuildingMap::from_bytes(&data)?;
         std::fs::create_dir_all("test_output")?;
         let out_file = std::fs::File::create("test_output/office.building.yaml")?;
         serde_yaml::to_writer(out_file, &map)?;
         Ok(())
+    }
+
+    #[test]
+    fn site_conversion() {
+        let data = std::fs::read("../rmf_sandbox/assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        println!("{}", map.to_site().unwrap().to_string().unwrap());
     }
 }

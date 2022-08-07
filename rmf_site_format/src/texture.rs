@@ -26,8 +26,12 @@ pub enum TextureSource {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Texture {
     pub source: TextureSource,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub alpha: Option<f32>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub rotation: Option<Angle>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub scale: Option<f32>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub offset: Option<(f32, f32)>,
 }

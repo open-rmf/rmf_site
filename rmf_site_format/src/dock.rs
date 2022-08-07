@@ -22,5 +22,6 @@ pub struct Dock {
     /// Name of the docking maneuver that is performed for this dock
     pub name: String,
     /// The duration (in seconds) that the docking maneuver requires
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub duration: Option<f32>,
 }

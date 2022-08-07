@@ -30,8 +30,11 @@ pub struct Lane<SiteID> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Motion {
+    #[serde(skip_serializing_if="Option::is_none")]
     pub orientation_constraint: Option<OrientationConstraint>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub speed_limit: Option<f32>,
+    #[serde(skip_serializing_if="Option::is_none")]
     pub dock: Option<Dock>,
 }
 

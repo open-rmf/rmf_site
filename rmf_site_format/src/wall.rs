@@ -21,5 +21,6 @@ use serde::{Serialize, Deserialize};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Wall<SiteID> {
     pub anchors: (SiteID, SiteID),
+    #[serde(skip_serializing_if="Option::is_none")]
     pub texture: Option<Texture>,
 }

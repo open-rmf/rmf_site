@@ -23,20 +23,20 @@ pub enum Side {
     Right,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Angle {
     Deg(f32),
     Rad(f32),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Rotation {
     Yaw(Angle),
     EulerExternalXYZ(Angle, Angle, Angle),
     Quat(f32, f32, f32, f32),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Pose {
     pub trans: (f32, f32, f32),
     pub rot: Rotation,
