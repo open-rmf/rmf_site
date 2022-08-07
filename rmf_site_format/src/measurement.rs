@@ -15,7 +15,11 @@
  *
 */
 
-pub struct Measurement<AnchorID> {
-    pub anchors: (AnchorID, AnchorID),
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Measurement<SiteID> {
+    pub anchors: (SiteID, SiteID),
     pub distance: f32,
+    pub label: String,
 }

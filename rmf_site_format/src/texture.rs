@@ -15,14 +15,19 @@
  *
 */
 
+use crate::*;
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum TextureSource {
     Filename(String),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Texture {
     pub source: TextureSource,
     pub alpha: Option<f32>,
-    pub rotation: Option<f32>,
+    pub rotation: Option<Angle>,
     pub scale: Option<f32>,
-    pub offset: Option<f32>,
+    pub offset: Option<(f32, f32)>,
 }

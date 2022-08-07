@@ -15,13 +15,16 @@
  *
 */
 
+use serde::{Serialize, Deserialize};
+
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
-pub struct Fiducial<AnchorID> {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Fiducial<SiteID> {
     /// Label of this fiducial. This label must be unique within the level that
     /// the fiducial is being defined on. To be used for aligning, there must
     /// be a fiducial with the same label on one or more other levels.
     pub label: String,
     /// The anchor that represents the position of this fiducial.
-    pub anchor: AnchorID,
+    pub anchor: SiteID,
 }

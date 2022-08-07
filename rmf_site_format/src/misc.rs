@@ -15,18 +15,38 @@
  *
 */
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Side {
     Left,
     Right,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Angle {
+    Deg(f32),
+    Rad(f32),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Rotation {
-    Yaw(f32),
-    EulerXYZ(f32, f32, f32),
+    Yaw(Angle),
+    EulerExternalXYZ(Angle, Angle, Angle),
     Quat(f32, f32, f32, f32),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Pose {
     pub trans: (f32, f32, f32),
     pub rot: Rotation,
+}
+
+impl Default for Pose {
+    fn default() -> Self {
+        Self{
+            trans: (0., 0., 0.),
+            rot: Rotation::Yaw(Angle::Deg(0.)),
+        }
+    }
 }

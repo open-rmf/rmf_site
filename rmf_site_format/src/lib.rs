@@ -60,6 +60,9 @@ pub use nav_graph::*;
 pub mod physical_camera;
 pub use physical_camera::*;
 
+pub mod semver;
+pub use semver::*;
+
 pub mod site;
 pub use site::*;
 
@@ -71,5 +74,8 @@ pub use wall::*;
 
 mod is_default;
 pub(crate) use is_default::is_default;
+
+pub const CURRENT_MAJOR_VERSION: u32 = 0;
+pub const CURRENT_MINOR_VERSION: u32 = 1;
 
 pub mod legacy;

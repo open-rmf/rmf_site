@@ -17,7 +17,9 @@
 
 use crate::*;
 use std::collections::BTreeMap;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct NavGraph {
     pub name: String,
     pub lanes: BTreeMap<u32, Lane<u32>>,

@@ -16,8 +16,10 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
-pub struct Floor<AnchorID> {
-    pub anchors: Vec<AnchorID>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Floor<SiteID> {
+    pub anchors: Vec<SiteID>,
     pub texture: Option<Texture>,
 }

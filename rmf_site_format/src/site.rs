@@ -16,15 +16,57 @@
 */
 
 use crate::*;
-use std::collections::BTreeMap;
+use std::{io, collections::BTreeMap};
+use serde::{Serialize, Deserialize};
 
-pub const CURRENT_VERSION: &str = "0.1";
+pub use ron::ser::PrettyConfig as Style;
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Site {
-    pub format_version: String,
+    pub format_version: SemVer,
     pub name: String,
     pub levels: BTreeMap<u32, Level>,
     pub lifts: BTreeMap<u32, Lift<u32>>,
     pub nav_graphs: BTreeMap<u32, NavGraph>,
     pub agents: BTreeMap<u32, Agent>,
+}
+
+fn default_style_config() -> Style {
+    Style::new()
+    .depth_limit(3)
+    .new_line("\n".to_string())
+    .indentor("  ".to_string())
+    .struct_names(true)
+}
+
+impl Site {
+    pub fn to_writer<W: io::Write>(&self, writer: W) -> ron::Result<()> {
+        ron::ser::to_writer_pretty(writer, self, default_style_config())
+    }
+
+    pub fn to_writer_custom<W: io::Write>(&self, writer: W, style: Style) -> ron::Result<()> {
+        ron::ser::to_writer_pretty(writer, self, style)
+    }
+
+    pub fn to_string(&self) -> ron::Result<String> {
+        ron::ser::to_string_pretty(self, default_style_config())
+    }
+
+    pub fn to_string_custom(&self, style: Style) -> ron::Result<String> {
+        ron::ser::to_string_pretty(self, style)
+    }
+
+    pub fn from_reader<R: io::Read>(reader: R) -> ron::Result<Self> {
+        // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
+        // belong to the same level.
+        ron::de::from_reader(reader)
+    }
+
+    pub fn from_str<'a>(s: &'a str) -> ron::Result<Self> {
+        ron::de::from_str(s)
+    }
+
+    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::Result<Self> {
+        ron::de::from_bytes(s)
+    }
 }

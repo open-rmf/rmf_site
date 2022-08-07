@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct LevelDrawing {
-    filename: String,
+    pub filename: String,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default)]

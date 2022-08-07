@@ -1,6 +1,9 @@
-use std::fmt::Display;
-
-use super::rbmf::*;
+use std::{
+    fmt::Display,
+    collections::HashMap,
+};
+use super::{rbmf::*, Result, PortingError};
+use crate::{Door as SiteDoor, Side, Swing, Angle};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -31,6 +34,60 @@ impl Default for DoorProperties {
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Door(pub usize, pub usize, pub DoorProperties);
+
+impl Door {
+
+    pub fn to_swing(&self) -> Swing {
+        if self.2.motion_direction.1 < 0 {
+            Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32))
+        } else {
+            Swing::Forward(Angle::Deg(self.2.motion_degrees.1 as f32))
+        }
+    }
+
+    pub fn to_site(&self, vertex_to_anchor_id: &HashMap<usize, u32>) -> Result<SiteDoor<u32>> {
+        let type_: DoorType = self.2.type_.1.as_str().into();
+        let kind = match type_ {
+            DoorType::SingleSliding => {
+                crate::DoorType::SingleSliding(Side::Right)
+            },
+            DoorType::DoubleSliding => {
+                crate::DoorType::DoubleSliding { left_right_ratio: 1./self.2.right_left_ratio.1 as f32 }
+            },
+            DoorType::SingleTelescope => {
+                return Err(PortingError::DeprecatedType("porting telescope door type is not supported".to_string()));
+            },
+            DoorType::DoubleTelescope => {
+                return Err(PortingError::DeprecatedType("porting double_telescope type is not supported".to_string()));
+            },
+            DoorType::SingleSwing | DoorType::SingleHinged => {
+                crate::DoorType::SingleSwing{
+                    pivot: Side::Right,
+                    swing: self.to_swing(),
+                }
+            },
+            DoorType::DoubleSwing | DoorType::DoubleHinged => {
+                crate::DoorType::DoubleSwing(self.to_swing())
+            },
+            DoorType::Unknown => {
+                return Err(PortingError::InvalidType(self.2.type_.1.clone()))
+            }
+        };
+
+        let left_anchor = vertex_to_anchor_id.get(&self.0).ok_or(
+            PortingError::InvalidVertex(self.0)
+        )?;
+        let right_anchor = vertex_to_anchor_id.get(&self.1).ok_or(
+            PortingError::InvalidVertex(self.1)
+        )?;
+
+        Ok(SiteDoor{
+            anchors: (*left_anchor, *right_anchor),
+            name: self.2.name.1.clone(),
+            kind,
+        })
+    }
+}
 
 pub enum DoorType {
     Unknown,
@@ -102,3 +159,4 @@ pub static DOOR_TYPES: &[DoorType] = &[
     DoorType::SingleHinged,
     DoorType::DoubleHinged,
 ];
+

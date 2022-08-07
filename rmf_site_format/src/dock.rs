@@ -15,6 +15,9 @@
  *
 */
 
+use serde::{Serialize, Deserialize};
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct Dock {
     /// Name of the docking maneuver that is performed for this dock
     pub name: String,

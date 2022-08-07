@@ -16,11 +16,14 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DrawingSource {
     Filename(String),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Drawing {
     pub source: DrawingSource,
     pub pose: Pose,

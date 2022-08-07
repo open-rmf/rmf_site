@@ -16,19 +16,22 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
 /// How the door swings relative to someone who is standing in the frame of door
 /// with the left and right sides of their body aligned with the left and right
 /// anchor points of the door.
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Swing {
-    /// Swing forwards by this many (positive) degrees
-    Forward(f32),
-    /// Swing backwards by this many (positive) degrees
-    Backward(f32),
+    /// Swing forwards up to this (positive) angle
+    Forward(Angle),
+    /// Swing backwards up to this (positive) angle
+    Backward(Angle),
     /// Swing each direction by (forward, backward) positive degrees.
-    Both(f32, f32),
+    Both(Angle, Angle),
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DoorType {
     /// A single door that slides to one side
     SingleSliding(Side),
@@ -54,9 +57,10 @@ pub enum DoorType {
     Model(Model),
 }
 
-pub struct Door<AnchorID> {
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Door<SiteID> {
     /// (left_anchor, right_anchor)
-    pub anchors: (AnchorID, AnchorID),
+    pub anchors: (SiteID, SiteID),
     /// Name of the door. RMF requires each door name to be unique among all
     /// doors in the site.
     pub name: String,

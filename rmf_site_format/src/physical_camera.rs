@@ -16,12 +16,15 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageProperties {
     pub width: u32,
     pub height: u32,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct PhysicalCamera {
     pub name: String,
     pub pose: Pose,

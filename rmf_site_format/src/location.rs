@@ -16,16 +16,20 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LocationTag {
     Charger,
     ParkingSpot,
     HoldingPoint,
     SpawnRobot(Model),
     Workcell(Model),
+    Name(String),
 }
 
-pub struct Location<AnchorID> {
-    pub anchor: AnchorID,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Location<SiteID> {
+    pub anchor: SiteID,
     pub tags: Vec<LocationTag>,
 }

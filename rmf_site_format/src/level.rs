@@ -15,10 +15,13 @@
  *
 */
 
-use std::collections::BTreeMap;
 use crate::*;
+use std::collections::BTreeMap;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Level {
+    pub name: String,
     pub anchors: BTreeMap<u32, (f32, f32)>,
     pub doors: BTreeMap<u32, Door<u32>>,
     pub drawings: BTreeMap<u32, Drawing>,

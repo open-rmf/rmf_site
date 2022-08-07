@@ -16,7 +16,9 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Model {
     /// Name of the model instance
     pub name: String,

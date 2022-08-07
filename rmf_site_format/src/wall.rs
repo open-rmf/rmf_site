@@ -16,8 +16,10 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
-pub struct Wall<AnchorID> {
-    pub anchors: (AnchorID, AnchorID),
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Wall<SiteID> {
+    pub anchors: (SiteID, SiteID),
     pub texture: Option<Texture>,
 }

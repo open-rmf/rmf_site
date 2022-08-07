@@ -29,3 +29,5 @@ pub mod physical_camera;
 pub mod rbmf;
 pub mod vertex;
 pub mod wall;
+pub mod error;
+pub use error::{PortingError, Result};

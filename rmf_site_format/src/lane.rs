@@ -16,7 +16,26 @@
 */
 
 use crate::*;
+use serde::{Serialize, Deserialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Lane<SiteID> {
+    /// The endpoints of the lane (start, end)
+    pub anchors: (SiteID, SiteID),
+    /// The properties of the lane when traveling forwards
+    pub forward: Motion,
+    /// The properties of the lane when traveling in reverse
+    pub reverse: ReverseLane,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Motion {
+    pub orientation_constraint: Option<OrientationConstraint>,
+    pub speed_limit: Option<f32>,
+    pub dock: Option<Dock>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum OrientationConstraint {
     Forward,
     Reverse,
@@ -24,23 +43,9 @@ pub enum OrientationConstraint {
     AbsoluteYaw(f32),
 }
 
-pub struct LaneProperties {
-    pub orientation_constraint: Option<OrientationConstraint>,
-    pub speed_limit: Option<f32>,
-    pub dock: Option<Dock>,
-}
-
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum ReverseLane {
     Same,
     Disable,
-    Different(LaneProperties),
-}
-
-pub struct Lane<AnchorID> {
-    /// The endpoints of the lane (start, end)
-    pub anchors: (AnchorID, AnchorID),
-    /// The properties of the lane when traveling forwards
-    pub forward: LaneProperties,
-    /// The properties of the lane when traveling in reverse
-    pub reverse: ReverseLane,
+    Different(Motion),
 }
