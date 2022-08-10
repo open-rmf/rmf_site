@@ -18,10 +18,13 @@
 use crate::*;
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
-const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
+pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Lift<SiteID: Ord> {
     /// Name of this lift. This must be unique within the site.
     pub name: String,

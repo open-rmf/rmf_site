@@ -23,31 +23,15 @@ mod save_load;
 mod spawner;
 
 mod main_menu;
+mod site;
 mod site_map;
 mod traffic_editor;
 mod warehouse_generator;
-
-mod basic_components;
-mod building_map;
-mod crowd_sim;
-mod door;
-mod fiducial;
-mod floor;
 mod interaction;
-mod lane;
-mod level;
-mod level_transform;
-mod lift;
-mod light;
-mod measurement;
-mod model;
-mod physical_camera;
-mod rbmf;
+
 mod sandbox_asset_io;
 mod simulation_state;
-mod utils;
-mod vertex;
-mod wall;
+mod save_load;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;

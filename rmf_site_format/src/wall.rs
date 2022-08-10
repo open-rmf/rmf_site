@@ -17,8 +17,11 @@
 
 use crate::*;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Wall<SiteID> {
     pub anchors: (SiteID, SiteID),
     #[serde(skip_serializing_if="Option::is_none")]

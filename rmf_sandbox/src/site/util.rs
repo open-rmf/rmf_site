@@ -15,24 +15,27 @@
  *
 */
 
-use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use crate::site::*;
+use bevy::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LocationTag {
-    Charger,
-    ParkingSpot,
-    HoldingPoint,
-    SpawnRobot(Model),
-    Workcell(Model),
-    Name(String),
+pub fn line_stroke_transform(
+    start: &Anchor,
+    end: &Anchor,
+) -> Transform {
+    let p_start = start.vec();
+    let p_end = end.vec();
+    let dp = p_end - p_start;
+    let length = dp.length();
+    let width = LANE_WIDTH;
+
+    let yaw = dp.y.atan2(dp.x);
+    let center = (p_start + p_end)/2.0;
+    Transform{
+        translation: Vec3::new(center.x, center.y, 0.),
+        rotation: Quat::from_rotation_z(yaw),
+        scale: Vec3::new(length, width, 1.),
+        ..default()
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct Location<SiteID> {
-    pub anchor: SiteID,
-    pub tags: Vec<LocationTag>,
-}
+pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;

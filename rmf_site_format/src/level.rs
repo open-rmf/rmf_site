@@ -18,14 +18,22 @@
 use crate::*;
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct LevelProperties {
+    pub name: String,
+    pub elevation: f32,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Level {
-    pub name: String,
+    pub properties: LevelProperties,
     pub anchors: BTreeMap<u32, (f32, f32)>,
     pub doors: BTreeMap<u32, Door<u32>>,
     pub drawings: BTreeMap<u32, Drawing>,
-    pub elevation: f32,
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     pub floors: BTreeMap<u32, Floor<u32>>,
     pub measurements: BTreeMap<u32, Measurement<u32>>,

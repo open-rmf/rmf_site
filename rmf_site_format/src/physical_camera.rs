@@ -17,6 +17,8 @@
 
 use crate::*;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct ImageProperties {
@@ -25,6 +27,7 @@ pub struct ImageProperties {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct PhysicalCamera {
     pub name: String,
     pub pose: Pose,

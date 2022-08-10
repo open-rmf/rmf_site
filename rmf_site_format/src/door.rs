@@ -17,6 +17,8 @@
 
 use crate::*;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 /// How the door swings relative to someone who is standing in the frame of door
 /// with the left and right sides of their body aligned with the left and right
@@ -58,6 +60,7 @@ pub enum DoorType {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Door<SiteID> {
     /// (left_anchor, right_anchor)
     pub anchors: (SiteID, SiteID),

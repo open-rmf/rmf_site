@@ -16,10 +16,13 @@
 */
 
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Fiducial<SiteID> {
     /// Label of this fiducial. This label must be unique within the level that
     /// the fiducial is being defined on. To be used for aligning, there must

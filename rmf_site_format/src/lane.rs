@@ -17,8 +17,11 @@
 
 use crate::*;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Lane<SiteID> {
     /// The endpoints of the lane (start, end)
     pub anchors: (SiteID, SiteID),

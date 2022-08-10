@@ -15,24 +15,19 @@
  *
 */
 
-use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::Component;
+mod lane;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LocationTag {
-    Charger,
-    ParkingSpot,
-    HoldingPoint,
-    SpawnRobot(Model),
-    Workcell(Model),
-    Name(String),
-}
+mod anchor;
+use anchor::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct Location<SiteID> {
-    pub anchor: SiteID,
-    pub tags: Vec<LocationTag>,
-}
+pub mod assets;
+pub use assets::*;
+
+pub mod util;
+pub use util::*;
+
+pub mod measurement;
+pub use measurement::*;
+
+pub mod wall;
+pub use wall::*;

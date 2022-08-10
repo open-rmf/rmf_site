@@ -17,6 +17,8 @@
 
 use crate::*;
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum DrawingSource {
@@ -24,6 +26,7 @@ pub enum DrawingSource {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Drawing {
     pub source: DrawingSource,
     pub pose: Pose,

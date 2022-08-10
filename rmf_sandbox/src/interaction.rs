@@ -44,6 +44,20 @@ pub struct InteractionAssets {
     pub z_plane_materials: DraggableMaterialSet,
 }
 
+#[derive(Component)]
+pub struct Selectable {
+    /// Toggle whether this entity is selectable
+    pub is_selectable: bool,
+    /// What element of the site is being selected when this entity is clicked
+    pub element: Entity,
+}
+
+impl Selectable {
+    fn new(element: Entity) -> Self {
+        Selectable{is_selectable: true, element}
+    }
+}
+
 impl InteractionAssets {
 
     pub fn make_draggable_axis(

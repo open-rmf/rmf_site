@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
@@ -29,6 +29,7 @@ pub enum SiteMapState {
 
 #[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
 pub struct SiteMapLabel;
+
 
 #[derive(Default)]
 pub struct MaterialMap {
@@ -317,132 +318,6 @@ impl LanePieces {
 
     pub fn end(&self) -> Entity {
         self.segments[2]
-    }
-}
-
-fn update_lanes(
-    mut commands: Commands,
-    handles: Res<SiteAssets>,
-    vertices_mgrs: Res<VerticesManagers>,
-    level: Res<Option<SiteMapCurrentLevel>>,
-    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    mut lanes: Query<(Entity, &Lane, ChangeTrackers<Lane>, Option<&LanePieces>)>,
-    mut transforms: Query<&mut Transform>,
-) {
-    let level = match level.as_ref() {
-        Some(level) => level,
-        None => {
-            return;
-        }
-    };
-    // spawn new lanes
-    for (e, lane, change, pieces) in lanes.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.0).unwrap();
-        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(lane.1).unwrap();
-        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
-
-        if let Some(pieces) = pieces {
-            if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-                if let Some(mut tf) = transforms.get_mut(pieces.start()).ok() {
-                    *tf = v1.transform();
-                }
-                if let Some(mut tf) = transforms.get_mut(pieces.mid()).ok() {
-                    *tf = lane.transform(v1, v2);
-                }
-                if let Some(mut tf) = transforms.get_mut(pieces.end()).ok() {
-                    *tf = v2.transform();
-                }
-            }
-        } else {
-            let mut commands = commands.entity(e);
-            let (start, mid, end) = commands.add_children(|parent| {
-                let start = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: handles.lane_end_mesh.clone(),
-                        material: handles.passive_lane_material.clone(),
-                        transform: v1.transform(),
-                        ..default()
-                    })
-                    .id();
-
-                let mid = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: handles.lane_mid_mesh.clone(),
-                        material: handles.passive_lane_material.clone(),
-                        transform: lane.transform(v1, v2),
-                        ..default()
-                    })
-                    .id();
-
-                let end = parent
-                    .spawn_bundle(PbrBundle {
-                        mesh: handles.lane_end_mesh.clone(),
-                        material: handles.passive_lane_material.clone(),
-                        transform: v2.transform(),
-                        ..default()
-                    })
-                    .id();
-
-                (start, mid, end)
-            });
-
-            commands
-                .insert(LanePieces {
-                    segments: [start, mid, end],
-                })
-                .insert(LaneVisualCue::default())
-                .insert(Hovering::default())
-                .insert(Selected::default())
-                .insert_bundle(SpatialBundle {
-                    transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
-                    ..default()
-                });
-        }
-    }
-}
-
-fn update_measurements(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    handles: Res<SiteAssets>,
-    level: Res<Option<SiteMapCurrentLevel>>,
-    vertices_mgrs: Res<VerticesManagers>,
-    vertices: Query<(&Vertex, ChangeTrackers<Vertex>)>,
-    mut measurements: Query<(
-        Entity,
-        &Measurement,
-        ChangeTrackers<Measurement>,
-        Option<&mut Transform>,
-    )>,
-) {
-    let level = match level.as_ref() {
-        Some(level) => level,
-        None => {
-            return;
-        }
-    };
-    // spawn new measurements
-    for (e, measurement, change, t) in measurements.iter_mut() {
-        let v1_entity = vertices_mgrs.0[&level.0]
-            .id_to_entity(measurement.0)
-            .unwrap();
-        let (v1, v1_change) = vertices.get(v1_entity).unwrap();
-        let v2_entity = vertices_mgrs.0[&level.0]
-            .id_to_entity(measurement.1)
-            .unwrap();
-        let (v2, v2_change) = vertices.get(v2_entity).unwrap();
-
-        if change.is_added() {
-            commands.entity(e).insert_bundle(PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.])))),
-                material: handles.measurement_material.clone(),
-                transform: measurement.transform(v1, v2),
-                ..Default::default()
-            });
-        } else if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
-            *t.unwrap() = measurement.transform(v1, v2);
-        }
     }
 }
 

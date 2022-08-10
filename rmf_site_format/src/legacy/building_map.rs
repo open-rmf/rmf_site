@@ -85,7 +85,7 @@ impl BuildingMap {
         map
     }
 
-    fn to_site(&self) -> Result<Site> {
+    pub fn to_site(&self) -> Result<Site> {
         let mut site_id = 0_u32..;
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
@@ -348,5 +348,12 @@ mod tests {
         let data = std::fs::read("../rmf_sandbox/assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         println!("{}", map.to_site().unwrap().to_string().unwrap());
+    }
+
+    #[test]
+    fn site_yaml() {
+        let data = std::fs::read("../rmf_sandbox/assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        println!("{}", serde_json::to_string_pretty(&map.to_site().unwrap()).unwrap());
     }
 }

@@ -15,24 +15,31 @@
  *
 */
 
-use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use std::collections::HashSet;
+use bevy::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum LocationTag {
-    Charger,
-    ParkingSpot,
-    HoldingPoint,
-    SpawnRobot(Model),
-    Workcell(Model),
-    Name(String),
+#[derive(Component)]
+pub struct Anchor(f32, f32);
+
+impl Anchor {
+    pub fn vec(&self) -> Vec2 {
+        Vec2::new(self.0, self.1)
+    }
+
+    pub fn x(&self) -> f32 {
+        self.0
+    }
+
+    pub fn y(&self) -> f32 {
+        self.1
+    }
+
+    pub fn transform(&self) -> Transform {
+        Transform::from_xyz(self.0, self.1, 0.0)
+    }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct Location<SiteID> {
-    pub anchor: SiteID,
-    pub tags: Vec<LocationTag>,
+#[derive(Component)]
+pub struct AnchorDependents {
+    pub dependents: HashSet<Entity>,
 }
