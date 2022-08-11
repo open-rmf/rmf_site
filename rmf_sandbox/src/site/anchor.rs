@@ -43,3 +43,22 @@ impl Anchor {
 pub struct AnchorDependents {
     pub dependents: HashSet<Entity>,
 }
+
+/// The PreviewAnchor component is held by exactly one Anchor entity that will
+/// follow the cursor when the interaction mode is to add a new Anchor.
+#[derive(Component)]
+pub struct PreviewAnchor {
+    /// If the preview anchor will be replacing an existing anchor, then this
+    /// field keeps track of which anchor is being replaced. This information
+    /// is helpful for sending dependents back to their original anchor if the
+    /// user cancels the add-anchor interaction mode.
+    replacing: Option<Entity>,
+}
+
+fn update_changed_anchor_visuals(
+    mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
+) {
+    for (anchor, mut tf) in &mut anchors {
+        tf.translation = Vec3::new(anchor.x(), anchor.y(), 0.);
+    }
+}

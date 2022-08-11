@@ -15,10 +15,13 @@
  *
 */
 
+use bevy::prelude::*;
+
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
+    pub box_mesh: Handle<Mesh>,
     pub passive_lane_material: Handle<StandardMaterial>,
     pub passive_vertex_material: Handle<StandardMaterial>,
     pub hover_material: Handle<StandardMaterial>,
@@ -71,14 +74,16 @@ impl FromWorld for SiteAssets {
             longitudes: 16,
             uv_profile: shape::CapsuleUvProfile::Fixed,
         }));
-        let lane_mid_mesh = meshes.add(Mesh::from(shape::Quad::new(Vec2::from([1., 1.]))));
-        let lane_end_mesh = meshes.add(Mesh::from(shape::Circle::new(LANE_WIDTH / 2.)));
+        let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
+        let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
+        let box_mesh = meshes.add(shape::Box::new(1., 1., 1.));
 
         Self {
             vertex_mesh,
             default_floor_material,
             lane_mid_mesh,
             lane_end_mesh,
+            box_mesh,
             passive_lane_material,
             hover_material,
             select_material,

@@ -22,6 +22,8 @@ use crate::{
     interaction::Selectable,
 };
 
+// TODO(MXG): Make these configurable, perhaps even a field in the Lane data
+// so users can customize the lane width per lane.
 pub const PASSIVE_LANE_HEIGHT: f32 = 0.001;
 pub const SELECTED_LANE_HEIGHT: f32 = 0.002;
 pub const HOVERED_LANE_HEIGHT: f32 = 0.003;
@@ -34,7 +36,7 @@ struct LaneSegments {
     pub end: Entity,
 }
 
-fn add_lane_mesh(
+fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
     anchors: Query<&Anchor>,

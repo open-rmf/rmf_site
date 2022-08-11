@@ -22,6 +22,7 @@ use serde::{Serialize, Deserialize};
 use bevy::prelude::Component;
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
+pub const DEFAULT_CABIN_GAP: f32 = 0.01;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]

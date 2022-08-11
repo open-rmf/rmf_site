@@ -15,19 +15,35 @@
  *
 */
 
-mod lane;
-
 mod anchor;
 use anchor::*;
 
 pub mod assets;
 pub use assets::*;
 
-pub mod util;
-pub use util::*;
+pub mod despawn;
+pub use despawn::*;
+
+pub mod door;
+pub use door::*;
+
+pub mod floor;
+pub use floor::*;
+
+pub mod lane;
+pub use lane::*;
+
+pub mod lift;
+pub use lift::*;
 
 pub mod measurement;
 pub use measurement::*;
+
+pub mod model;
+pub use model::*;
+
+pub mod util;
+pub use util::*;
 
 pub mod wall;
 pub use wall::*;

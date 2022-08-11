@@ -25,6 +25,7 @@ futures-lite = "1.12.0"
 bevy = "0.8"
 dirs = "4.0"
 thread_local = "*"
+lyon = "1"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 
 # only enable the 'dynamic' feature if we're not building for web or windows
