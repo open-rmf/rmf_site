@@ -1251,31 +1251,6 @@ fn maintain_inspected_entities(
     }
 }
 
-fn update_picking_cam(
-    mut commands: Commands,
-    camera_controls: Query<(&CameraControls, ChangeTrackers<CameraControls>)>,
-    picking_cams: Query<Entity, With<PickingCamera>>,
-) {
-    let (controls, changed) = camera_controls.single();
-    if changed.is_changed() {
-        let active_camera = controls.active_camera();
-        if picking_cams
-            .get_single()
-            .ok()
-            .filter(|current| *current == active_camera)
-            .is_none()
-        {
-            for cam in picking_cams.iter() {
-                commands.entity(cam).remove_bundle::<PickingCameraBundle>();
-            }
-
-            commands
-                .entity(controls.active_camera())
-                .insert_bundle(PickingCameraBundle::default());
-        }
-    }
-}
-
 fn add_editable_tags(
     mut commands: Commands,
     lanes: Query<Entity, Added<Lane>>,
@@ -1486,7 +1461,6 @@ impl Plugin for TrafficEditorPlugin {
                     .after(SiteMapLabel)
                     .with_system(egui_ui)
                     .with_system(egui_picking_blocker.after(egui_ui))
-                    .with_system(update_picking_cam)
                     .with_system(handle_keyboard_events)
                     // must be after egui_ui so that the picking blocker knows about all the ui elements
                     .with_system(add_editable_tags.after(egui_ui))

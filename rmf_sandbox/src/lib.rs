@@ -17,11 +17,8 @@ use settings::*;
 
 mod widgets;
 
-mod camera_controls;
 mod demo_world;
 mod shapes;
-mod save_load;
-mod spawner;
 
 mod main_menu;
 mod site;
@@ -32,7 +29,6 @@ mod interaction;
 
 mod sandbox_asset_io;
 mod simulation_state;
-mod save_load;
 
 use camera_controls::CameraControlsPlugin;
 use despawn::DespawnPlugin;

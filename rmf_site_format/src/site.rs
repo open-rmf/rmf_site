@@ -18,13 +18,21 @@
 use crate::*;
 use std::{io, collections::BTreeMap};
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::Component;
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct SiteProperties {
+    pub name: String,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Site {
     pub format_version: SemVer,
-    pub name: String,
+    pub properties: SiteProperties,
     pub levels: BTreeMap<u32, Level>,
     pub lifts: BTreeMap<u32, Lift<u32>>,
     pub nav_graphs: BTreeMap<u32, NavGraph>,

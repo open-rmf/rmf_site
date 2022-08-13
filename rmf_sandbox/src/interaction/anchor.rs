@@ -16,6 +16,7 @@
 */
 
 use crate::{
+    site::Anchor,
     interaction::*,
     animate::*,
 };
@@ -78,6 +79,14 @@ pub fn add_anchor_visual_cues(
         });
 
         commands.insert(AnchorVisualCue{dagger, halo, body, drag: None});
+    }
+}
+
+pub fn update_anchor_positions(
+    mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
+) {
+    for (anchor, mut tf) in &mut anchors {
+        *tf = anchor.transform();
     }
 }
 

@@ -237,27 +237,23 @@ fn camera_controls(
     }
 }
 
-fn handle_keyboard(
+pub fn handle_keyboard_camera_change(
     keyboard_input: Res<Input<KeyCode>>,
     mut controls_query: Query<&mut CameraControls>,
     mut cameras: Query<(&mut Camera, &mut Visibility)>,
-    mut egui_ctx: ResMut<EguiContext>,
 ) {
-    if egui_ctx.ctx_mut().wants_pointer_input() {
-        return;
-    }
-
-    let mut controls = controls_query.single_mut();
     if keyboard_input.just_pressed(KeyCode::F2) {
+        let mut controls = controls_query.single_mut();
         controls.use_orthographic(true, &mut cameras);
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
+        let mut controls = controls_query.single_mut();
         controls.use_perspective(true, &mut cameras);
     }
 }
 
-fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
+pub fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
     let mut perspective = commands.spawn_bundle(Camera3dBundle {
         transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
         projection: Projection::Perspective(Default::default()),
@@ -267,9 +263,8 @@ fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
         .insert(Visibility::visible())
         .insert(ComputedVisibility::default());
 
-    // When graphics is low, use a directional light that follows the camera.
+    // TODO(MXG): Change this to a user-controlled headlight on/off toggle.
     if settings.graphics_quality == GraphicsQuality::Low {
-        println!("Adding directional light bundle");
         perspective.with_children(|parent| {
             parent.spawn_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
@@ -338,7 +333,7 @@ impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(MouseLocation::default())
             .add_startup_system(camera_controls_setup.after(init_settings))
-            .add_system(handle_keyboard)
+            .add_system(handle_keyboard_camera_change)
             .add_system(camera_controls);
     }
 }

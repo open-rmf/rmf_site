@@ -21,6 +21,9 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
+pub mod camera_controls;
+pub use camera_controls::*;
+
 pub mod cursor;
 pub use cursor::*;
 
@@ -57,6 +60,7 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
             .init_resource::<Dragging>()
             .add_event::<ElementDeleted>()
             .add_startup_system(init_cursor)
+            .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(self.for_app_state.clone())
                     .with_system(update_cursor_transform.after(PickingSystem::UpdateIntersections))
