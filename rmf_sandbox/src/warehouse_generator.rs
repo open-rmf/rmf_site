@@ -4,7 +4,6 @@ use crate::level::Level;
 use crate::light::Light;
 use crate::model::Model;
 use crate::settings::*;
-use crate::site_map::{MaterialMap, SiteMapLabel, SiteMapState};
 use crate::spawner::Spawner;
 use crate::vertex::Vertex;
 use crate::wall::{Wall, WallProperties};
@@ -27,6 +26,20 @@ struct WarehouseTag;
 struct WarehouseRespawnTag;
 
 struct UiData(Warehouse);
+
+#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+pub enum SiteMapState {
+    Enabled,
+    Disabled,
+}
+
+#[derive(Clone, Hash, Debug, PartialEq, Eq, SystemLabel)]
+pub struct SiteMapLabel;
+
+#[derive(Default)]
+pub struct MaterialMap {
+    pub materials: HashMap<String, Handle<StandardMaterial>>,
+}
 
 fn warehouse_ui(
     mut egui_context: ResMut<EguiContext>,

@@ -30,7 +30,7 @@ pub const HOVERED_LANE_HEIGHT: f32 = 0.003;
 pub const LANE_WIDTH: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
-struct LaneSegments {
+pub struct LaneSegments {
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
@@ -45,7 +45,6 @@ fn add_lane_visuals(
     for (e, new_lane) in &lanes {
         let start_anchor = anchors.get(new_lane.anchors.0).unwrap();
         let end_anchor = anchors.get(new_lane.anchors.1).unwrap();
-        end_dependents.dependents.insert(e);
 
         let mut commands = commands.entity(e);
         let (start, mid, end) = commands.add_children(|parent| {

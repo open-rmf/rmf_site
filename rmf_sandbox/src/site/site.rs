@@ -15,45 +15,13 @@
  *
 */
 
-pub mod anchor;
-pub use anchor::*;
+use bevy::prelude::*;
 
-pub mod assets;
-pub use assets::*;
+/// Used as a resource that keeps track of the current site entity
+#[derive(Clone, Copy, Debug)]
+pub struct CurrentSite(pub Entity);
 
-pub mod despawn;
-pub use despawn::*;
-
-pub mod door;
-pub use door::*;
-
-pub mod floor;
-pub use floor::*;
-
-pub mod lane;
-pub use lane::*;
-
-pub mod lift;
-pub use lift::*;
-
-pub mod light;
-pub use light::*;
-
-pub mod measurement;
-pub use measurement::*;
-
-pub mod model;
-pub use model::*;
-
-pub mod physical_camera;
-pub use physical_camera::*;
-
-pub mod site;
-pub use site::*;
-
-pub mod util;
-pub use util::*;
-
-pub mod wall;
-pub use wall::*;
+/// Used as a resource that keeps track of the current level entity
+#[derive(Clone, Copy, Debug)]
+pub struct CurrentLevel(pub Entity);
 

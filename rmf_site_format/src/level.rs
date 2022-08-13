@@ -36,6 +36,7 @@ pub struct Level {
     pub drawings: BTreeMap<u32, Drawing>,
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     pub floors: BTreeMap<u32, Floor<u32>>,
+    pub lights: BTreeMap<u32, Light>,
     pub measurements: BTreeMap<u32, Measurement<u32>>,
     pub models: BTreeMap<u32, Model>,
     pub physical_cameras: BTreeMap<u32, PhysicalCamera>,

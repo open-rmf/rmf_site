@@ -15,45 +15,11 @@
  *
 */
 
-pub mod anchor;
-pub use anchor::*;
-
-pub mod assets;
-pub use assets::*;
-
-pub mod despawn;
-pub use despawn::*;
-
-pub mod door;
-pub use door::*;
-
-pub mod floor;
-pub use floor::*;
-
-pub mod lane;
-pub use lane::*;
-
-pub mod lift;
-pub use lift::*;
-
-pub mod light;
-pub use light::*;
-
-pub mod measurement;
-pub use measurement::*;
-
-pub mod model;
-pub use model::*;
-
-pub mod physical_camera;
-pub use physical_camera::*;
-
-pub mod site;
-pub use site::*;
-
-pub mod util;
-pub use util::*;
-
-pub mod wall;
-pub use wall::*;
+use crate::{
+    spawner::VerticesManagers,
+    camera_controls::CameraControls,
+    shapes::*,
+    site::*,
+};
+use std::{collections::HashSet, fmt::Debug, hash::Hash};
 

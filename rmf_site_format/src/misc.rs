@@ -16,6 +16,8 @@
 */
 
 use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::*;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Side {
@@ -29,11 +31,44 @@ pub enum Angle {
     Rad(f32),
 }
 
+impl Angle {
+    pub fn radians(&self) -> f32 {
+        match self {
+            Angle::Deg(v) => v.to_radians(),
+            Angle::Rad(v) => *v,
+        }
+    }
+
+    pub fn degrees(&self) -> f32 {
+        match self {
+            Angle::Deg(v) => *v,
+            Angle::Rad(v) => v.to_degrees(),
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum Rotation {
     Yaw(Angle),
-    EulerExternalXYZ(Angle, Angle, Angle),
+    EulerExtrinsicXYZ(Angle, Angle, Angle),
     Quat(f32, f32, f32, f32),
+}
+
+#[cfg(feature="bevy")]
+impl Rotation {
+    pub fn quat(&self) -> Quat {
+        match self {
+            Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
+            Self::EulerExtrinsicXYZ(x, y, z) => {
+                Quat::from_euler(
+                    EulerRot::ZYX, z.radians(), y.radians(), x.radians()
+                )
+            },
+            Self::Quat(x, y, z, w) => {
+                Quat::from_array([x, y, z, w])
+            }
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -47,6 +82,17 @@ impl Default for Pose {
         Self{
             trans: (0., 0., 0.),
             rot: Rotation::Yaw(Angle::Deg(0.)),
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Pose {
+    pub fn transform(&self) -> Transform {
+        Transform{
+            translation: self.trans.clone().into(),
+            rotation: self.rot.quat(),
+            ..default()
         }
     }
 }

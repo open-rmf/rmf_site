@@ -11,6 +11,7 @@ use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
+mod animate;
 mod settings;
 use settings::*;
 
@@ -18,7 +19,7 @@ mod widgets;
 
 mod camera_controls;
 mod demo_world;
-mod despawn;
+mod shapes;
 mod save_load;
 mod spawner;
 

@@ -16,19 +16,21 @@
 */
 
 use bevy::prelude::*;
+use crate::shapes::*;
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
     pub box_mesh: Handle<Mesh>,
+    pub physical_camera_mesh: Handle<Mesh>,
     pub passive_lane_material: Handle<StandardMaterial>,
-    pub passive_vertex_material: Handle<StandardMaterial>,
+    pub passive_anchor_material: Handle<StandardMaterial>,
     pub hover_material: Handle<StandardMaterial>,
     pub select_material: Handle<StandardMaterial>,
     pub hover_select_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
-    pub vertex_mesh: Handle<Mesh>,
+    pub anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_material: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
@@ -77,19 +79,21 @@ impl FromWorld for SiteAssets {
         let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.));
+        let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
-            vertex_mesh,
+            anchor_mesh: vertex_mesh,
             default_floor_material,
             lane_mid_mesh,
             lane_end_mesh,
             box_mesh,
+            physical_camera_mesh,
             passive_lane_material,
             hover_material,
             select_material,
             hover_select_material,
             measurement_material,
-            passive_vertex_material,
+            passive_anchor_material: passive_vertex_material,
             wall_material,
             door_material,
             physical_camera_material,

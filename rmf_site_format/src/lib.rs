@@ -45,6 +45,9 @@ pub use level::*;
 pub mod lift;
 pub use lift::*;
 
+pub mod light;
+pub use light::*;
+
 pub mod measurement;
 pub use measurement::*;
 

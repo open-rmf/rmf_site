@@ -15,45 +15,18 @@
  *
 */
 
-pub mod anchor;
-pub use anchor::*;
+use bevy::prelude::*;
+use rmf_site_format::Light;
+use crate::{
+    site::*
+};
 
-pub mod assets;
-pub use assets::*;
-
-pub mod despawn;
-pub use despawn::*;
-
-pub mod door;
-pub use door::*;
-
-pub mod floor;
-pub use floor::*;
-
-pub mod lane;
-pub use lane::*;
-
-pub mod lift;
-pub use lift::*;
-
-pub mod light;
-pub use light::*;
-
-pub mod measurement;
-pub use measurement::*;
-
-pub mod model;
-pub use model::*;
-
-pub mod physical_camera;
-pub use physical_camera::*;
-
-pub mod site;
-pub use site::*;
-
-pub mod util;
-pub use util::*;
-
-pub mod wall;
-pub use wall::*;
-
+// TODO(MXG): Give a way to interact with lights and change their properties
+fn add_physical_lights(
+    mut commands: Commands,
+    physical_lights: Query<(Entity, &Light), Added<Light>>,
+) {
+    for (e, light) in &physical_lights {
+        light.insert_into(&mut commands.entity(e));
+    }
+}
