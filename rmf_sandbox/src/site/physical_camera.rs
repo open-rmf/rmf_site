@@ -23,7 +23,7 @@ use crate::{
     interaction::Selectable,
 };
 
-fn add_physical_camera_visuals(
+pub fn add_physical_camera_visuals(
     mut commands: Commands,
     physical_cameras: Query<(Entity, &PhysicalCamera), Added<PhysicalCamera>>,
     assets: Res<SiteAssets>,
@@ -40,7 +40,7 @@ fn add_physical_camera_visuals(
     }
 }
 
-fn update_changed_physical_camera_visuals(
+pub fn update_changed_physical_camera_visuals(
     physical_cameras: Query<(&PhysicalCamera, &mut Transform), Changed<PhysicalCamera>>,
 ) {
     for (physical_camera, mut tf) in &mut physical_cameras {

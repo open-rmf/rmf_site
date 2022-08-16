@@ -31,3 +31,10 @@ pub struct Fiducial<SiteID> {
     /// The anchor that represents the position of this fiducial.
     pub anchor: SiteID,
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Fiducial<SiteID> {
+    pub fn to_u32(&self, anchor: u32) -> Fiducial<u32> {
+        Fiducial{label: self.label.clone(), anchor}
+    }
+}

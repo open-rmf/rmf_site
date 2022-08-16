@@ -5,7 +5,7 @@ use crate::building_map::BuildingMap;
 use crate::camera_controls::{CameraControls, ProjectionMode};
 use crate::door::{Door, DoorType, DOOR_TYPES};
 use crate::floor::Floor;
-use crate::interaction::{Hovering, InteractionPlugin, Selected, Dragging};
+use crate::interaction::{Hovered, InteractionPlugin, Selected, Dragging};
 use crate::lane::Lane;
 use crate::lift::Lift;
 use crate::measurement::Measurement;
@@ -1204,7 +1204,7 @@ fn handle_interactions(
 }
 
 fn maintain_inspected_entities(
-    mut hovering: Query<&mut Hovering>,
+    mut hovering: Query<&mut Hovered>,
     mut selection: Query<&mut Selected>,
     mut selected: ResMut<Option<SelectedEditable>>,
     mut hovered: ResMut<Option<HoveredEditable>>,

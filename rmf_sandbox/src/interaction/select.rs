@@ -29,7 +29,7 @@ pub struct Selectable {
 }
 
 impl Selectable {
-    fn new(element: Entity) -> Self {
+    pub fn new(element: Entity) -> Self {
         Selectable{is_selectable: true, element}
     }
 }
@@ -57,10 +57,10 @@ impl Default for Selected {
     }
 }
 
-/// Component to track whether an element should be viewed in the Hovering state
+/// Component to track whether an element should be viewed in the Hovered state
 /// for the selection tool.
 #[derive(Component, Debug, PartialEq, Eq)]
-pub struct Hovering {
+pub struct Hovered {
     /// The cursor is hovering on this object specifically
     pub is_hovering: bool,
     /// The cursor is hovering on a different object which wants this entity
@@ -68,13 +68,13 @@ pub struct Hovering {
     pub support_hovering: HashSet<Entity>,
 }
 
-impl Hovering {
+impl Hovered {
     pub fn cue(&self) -> bool {
         self.is_hovering || !self.support_hovering.is_empty()
     }
 }
 
-impl Default for Hovering {
+impl Default for Hovered {
     fn default() -> Self {
         Self {
             is_hovering: false,
@@ -88,12 +88,15 @@ impl Default for Hovering {
 pub struct Selection(Option<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
-pub struct Hovered(Option<Entity>);
+#[derive(Default, Debug, Clone, Copy)]
+pub struct Hovering(Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Select(Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
+#[derive(Default, Debug, Clone, Copy)]
 pub struct Hover(Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
@@ -121,7 +124,7 @@ pub fn make_selectable_entities_pickable(
 
         commands.entity(selectable.element)
             .insert(Selected::default())
-            .insert(Hovering::default());
+            .insert(Hovered::default());
     }
 }
 
@@ -155,12 +158,9 @@ pub fn handle_selection_picking(
 }
 
 pub fn maintain_selected_entities(
-    mut hovering: Query<&mut Hovering>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
-    mut hovered: ResMut<Hovered>,
     mut select: EventReader<Select>,
-    mut hover: EventReader<Hover>,
 ) {
     if let Some(new_selection) = select.iter().last() {
         if selection.0 != new_selection.0 {
@@ -179,8 +179,14 @@ pub fn maintain_selected_entities(
             selection.0 = new_selection.0;
         }
     }
+}
 
-    if let Some(new_hovered) = select.iter().last() {
+pub fn maintain_hovered_entities(
+    mut hovering: Query<&mut Hovered>,
+    mut hovered: ResMut<Hovering>,
+    mut hover: EventReader<Hover>,
+) {
+    if let Some(new_hovered) = hover.iter().last() {
         if hovered.0 != new_hovered.0 {
             if let Some(previous_hovered) = hovered.0 {
                 if let Ok(mut hovering) = hovering.get_mut(previous_hovered) {
@@ -196,14 +202,5 @@ pub fn maintain_selected_entities(
 
             hovered.0 = new_hovered.0;
         }
-    }
-}
-
-pub fn change_selection(
-    mut selection: ResMut<Selection>,
-    mut select: EventReader<Select>,
-) {
-    if select.0 != selection.0 {
-        *selection.0 = select.0;
     }
 }

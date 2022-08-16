@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::{
     prelude::{
-        Component, PointLight, SpotLight, DirectionalLight, AmbientLight,
+        Component, PointLight, SpotLight, DirectionalLight,
         PointLightBundle, SpotLightBundle, DirectionalLightBundle,
     },
     ecs::system::EntityCommands,
@@ -36,25 +36,21 @@ pub struct Light {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub enum LightType {
     PointLight{
-        pub color: [f32; 4],
-        pub intensity: f32,
-        pub range: f32,
-        pub radius: f32,
+        color: [f32; 4],
+        intensity: f32,
+        range: f32,
+        radius: f32,
     },
     SpotLight{
-        pub color: [f32; 4],
-        pub intensity: f32,
-        pub range: f32,
-        pub radius: f32,
+        color: [f32; 4],
+        intensity: f32,
+        range: f32,
+        radius: f32,
     },
     DirectionalLight{
-        pub color: [f32; 4],
-        pub illuminance: f32,
+        color: [f32; 4],
+        illuminance: f32,
     },
-    AmbientLight{
-        pub color: [f32; 4],
-        pub brightness: f32,
-    }
 }
 
 #[cfg(feature="bevy")]
@@ -69,9 +65,9 @@ impl Light {
                         intensity,
                         range,
                         radius,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
             },
             LightType::SpotLight{color, intensity, range, radius} => {
@@ -82,9 +78,9 @@ impl Light {
                         intensity,
                         range,
                         radius,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
             },
             LightType::DirectionalLight{color, illuminance} => {
@@ -93,17 +89,11 @@ impl Light {
                     directional_light: DirectionalLight{
                         color: color.into(),
                         illuminance,
-                        ..default()
+                        ..Default::default()
                     },
-                    ..default()
+                    ..Default::default()
                 });
             },
-            LightType::AmbientLight{color, brightness} => {
-                commands.insert(AmbientLight{
-                    color: color.into(),
-                    brightness,
-                });
-            }
         }
     }
 }

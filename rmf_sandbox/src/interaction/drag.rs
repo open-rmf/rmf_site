@@ -15,6 +15,9 @@
  *
 */
 
+use crate::{
+    interaction::*,
+};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
@@ -78,17 +81,6 @@ impl Draggable {
     }
 }
 
-#[derive(Debug, PartialEq, Eq)]
-pub struct Dragging {
-    pub is_dragging: bool,
-}
-
-impl Default for Dragging {
-    fn default() -> Self {
-        Self{is_dragging: false}
-    }
-}
-
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DragAxis {
     /// The gizmo can only be dragged along this axis
@@ -105,8 +97,8 @@ pub struct DragPlane {
 /// an EventReader<MoveTo>.
 #[derive(Debug, Clone, Copy)]
 pub struct MoveTo {
-    entity: Entity,
-    transform: Transform,
+    pub entity: Entity,
+    pub transform: Transform,
 }
 
 pub fn make_gizmos_pickable(
@@ -120,36 +112,46 @@ pub fn make_gizmos_pickable(
 }
 
 pub fn update_drag_click_start(
-    mut draggables: Query<(&mut Draggable, &Interaction, &mut Handle<StandardMaterial>), Changed<Interaction>>,
-    mut dragging: ResMut<Dragging>,
+    mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
+    mut selection_blocker: ResMut<SelectionBlockers>,
     mut visibility: Query<&mut Visibility>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    touch_input: Res<Touches>,
     transforms: Query<&GlobalTransform>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
-    cursor: Res<Cursor>
+    cursor: Res<Cursor>,
+    mut picks: EventReader<ChangePick>,
 ) {
-    for (mut drag, interaction, mut material) in &mut draggables {
-        match *interaction {
-            Interaction::Clicked => {
-                if let Some(intersection) = intersections.get_single().ok().and_then(|i| i.position()) {
-                    if let Some(tf) = transforms.get(drag.for_entity).ok() {
-                        dragging.is_dragging = true;
-                        drag.initial = Some(InitialDragConditions{
-                            click_point: intersection.clone(),
-                            entity_tf: tf.compute_transform(),
-                        });
-                        *material = drag.materials.drag.clone();
-                    }
-                }
-            },
-            Interaction::Hovered => {
-                if drag.initial.is_none() {
-                    set_visibility(cursor.frame, &mut visibility, false);
-                    *material = drag.materials.hover.clone();
-                }
-            },
-            Interaction::None => {
+    let clicked = mouse_button_input.just_pressed(MouseButton::Left)
+        || touch_input.iter_just_pressed().next().is_some();
+
+    for pick in picks.iter() {
+        if let Some(previous_pick) = pick.from {
+            if let Ok((mut drag, mut material)) = draggables.get_mut(previous_pick) {
                 if drag.initial.is_none() {
                     *material = drag.materials.passive.clone();
+                }
+            }
+        }
+
+        if let Some(new_pick) = pick.to {
+            if let Ok((mut drag, mut material)) = draggables.get_mut(new_pick) {
+                if clicked {
+                    if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
+                        if let Ok(tf) = transforms.get(drag.for_entity) {
+                            selection_blocker.dragging = true;
+                            drag.initial = Some(InitialDragConditions{
+                                click_point: intersection.clone(),
+                                entity_tf: tf.compute_transform(),
+                            });
+                            *material = drag.materials.drag.clone();
+                        }
+                    }
+                } else {
+                    if drag.initial.is_none() {
+                        set_visibility(cursor.frame, &mut visibility, false);
+                        *material = drag.materials.drag.clone();
+                    }
                 }
             }
         }
@@ -158,7 +160,7 @@ pub fn update_drag_click_start(
 
 pub fn update_drag_release(
     mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
-    mut dragging: ResMut<Dragging>,
+    mut selection_blockers: ResMut<SelectionBlockers>,
     mouse_button_input: Res<Input<MouseButton>>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
@@ -169,7 +171,7 @@ pub fn update_drag_release(
             }
         }
 
-        dragging.is_dragging = false;
+        selection_blockers.dragging = false;
     }
 }
 

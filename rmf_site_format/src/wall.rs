@@ -27,3 +27,13 @@ pub struct Wall<SiteID> {
     #[serde(skip_serializing_if="Option::is_none")]
     pub texture: Option<Texture>,
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Wall<SiteID> {
+    pub fn to_u32(&self, anchors: (u32, u32)) -> Wall<u32> {
+        Wall{
+            anchors,
+            texture: self.texture.clone(),
+        }
+    }
+}

@@ -65,7 +65,7 @@ impl Rotation {
                 )
             },
             Self::Quat(x, y, z, w) => {
-                Quat::from_array([x, y, z, w])
+                Quat::from_array([*x, *y, *z, *w])
             }
         }
     }

@@ -70,3 +70,15 @@ pub struct Door<SiteID> {
     /// What kind of door is it.
     pub kind: DoorType,
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Door<SiteID> {
+    pub fn to_u32(&self, anchors: (u32, u32)) -> Door<u32> {
+        Door{
+            anchors,
+            // name: self.name.clone(),
+            // kind: self.kind.clone(),
+            ..self.clone()
+        }
+    }
+}

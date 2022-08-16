@@ -95,7 +95,7 @@ fn make_floor_mesh(
     mesh
 }
 
-fn add_floor_visuals(
+pub fn add_floor_visuals(
     mut commands: Commands,
     floors: Query<(Entity, &Floor<Entity>), Added<Floor<Entity>>>,
     anchors: Query<&Anchor>,
@@ -114,7 +114,7 @@ fn add_floor_visuals(
     }
 }
 
-fn update_changed_floor(
+pub fn update_changed_floor(
     floors: Query<(&mut Handle<Mesh>, &Floor<Entity>), Changed<Floor<Entity>>>,
     anchors: Query<&Anchor>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -125,7 +125,7 @@ fn update_changed_floor(
     }
 }
 
-fn update_floor_for_changed_anchor(
+pub fn update_floor_for_changed_anchor(
     floors: Query<(&mut Handle<Mesh>, &Floor<Entity>)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,

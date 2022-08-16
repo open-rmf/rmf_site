@@ -22,7 +22,7 @@ use crate::{
     interaction::Selectable,
 };
 
-fn add_measurement_visuals(
+pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Measurement<Entity>), Added<Measurement<Entity>>>,
     mut anchors: Query<&Anchor>,
@@ -53,7 +53,7 @@ fn update_measurement_visual(
     *transform = line_stroke_transform(start_anchor, end_anchor);
 }
 
-fn update_changed_measurement(
+pub fn update_changed_measurement(
     mut measurements: Query<(&Measurement<Entity>, &mut Transform), Changed<Measurement<Entity>>>,
     anchors: Query<&Anchor>,
 ) {
@@ -62,7 +62,7 @@ fn update_changed_measurement(
     }
 }
 
-fn update_measurement_for_changed_anchor(
+pub fn update_measurement_for_changed_anchor(
     mut measurements: Query<(&Measurement<Entity>, &mut Transform)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,

@@ -34,7 +34,7 @@ pub fn update_lane_visual_cues(
     mut lanes: Query<
         (
             Entity,
-            &Hovering,
+            &Hovered,
             &Selected,
             &Lane<Entity>,
             &LaneSegments,
@@ -44,13 +44,13 @@ pub fn update_lane_visual_cues(
         (
             Without<AnchorVisualCue>,
             Or<(
-                Changed<Hovering>,
+                Changed<Hovered>,
                 Changed<Selected>,
                 Changed<Lane<Entity>>,
             )>,
         ),
     >,
-    mut vertices: Query<(&mut Hovering, &mut Selected), With<AnchorVisualCue>>,
+    mut vertices: Query<(&mut Hovered, &mut Selected), With<AnchorVisualCue>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,

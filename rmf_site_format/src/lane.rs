@@ -55,3 +55,13 @@ pub enum ReverseLane {
     Disable,
     Different(Motion),
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Lane<SiteID> {
+    pub fn to_u32(&self, anchors: (u32, u32)) -> Lane<u32> {
+        Lane{
+            anchors,
+            ..self.clone()
+        }
+    }
+}

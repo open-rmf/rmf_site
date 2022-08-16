@@ -36,3 +36,13 @@ pub struct Location<SiteID> {
     pub anchor: SiteID,
     pub tags: Vec<LocationTag>,
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Location<SiteID> {
+    pub fn to_u32(&self, anchor: u32) -> Location<u32> {
+        Location{
+            anchor,
+            ..self.clone()
+        }
+    }
+}

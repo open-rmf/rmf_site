@@ -23,7 +23,7 @@ impl PhysicalCamera {
             name: self.name.clone(),
             pose: Pose{
                 trans: (self.x as f32, self.y as f32, self.z as f32),
-                rot: Rotation::EulerExternalXYZ(
+                rot: Rotation::EulerExtrinsicXYZ(
                     Angle::Deg(0.),
                     Angle::Deg(self.pitch.to_degrees() as f32),
                     Angle::Deg(self.yaw.to_degrees() as f32)

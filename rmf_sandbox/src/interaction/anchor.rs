@@ -19,6 +19,7 @@ use crate::{
     site::Anchor,
     interaction::*,
     animate::*,
+    deletion::DeleteElement,
 };
 use bevy::prelude::*;
 
@@ -82,21 +83,25 @@ pub fn add_anchor_visual_cues(
     }
 }
 
-pub fn update_anchor_positions(
-    mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
+pub fn move_anchor(
+    mut anchors: Query<&mut Anchor>,
+    mut move_to: EventReader<MoveTo>,
 ) {
-    for (anchor, mut tf) in &mut anchors {
-        *tf = anchor.transform();
+    for move_to in move_to.iter() {
+        if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
+            anchor.0 = move_to.transform.translation.x;
+            anchor.1 = move_to.transform.translation.y;
+        }
     }
 }
 
 pub fn update_anchor_visual_cues(
     mut command: Commands,
-    mut anchors: Query<(Entity, &Hovering, &Selected, &mut AnchorVisualCue, ChangeTrackers<Selected>), Or<(Changed<Hovering>, Changed<Selected>)>>,
+    mut anchors: Query<(Entity, &Hovered, &Selected, &mut AnchorVisualCue, ChangeTrackers<Selected>), Or<(Changed<Hovered>, Changed<Selected>)>>,
     mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
-    cursor: Query<Entity, With<Cursor>>,
+    cursor: Res<Cursor>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
@@ -106,7 +111,7 @@ pub fn update_anchor_visual_cues(
         }
 
         if hovering.is_hovering {
-            set_visibility(cursor.single(), &mut visibility, false);
+            set_visibility(cursor.frame, &mut visibility, false);
         }
 
         if selected.cue() {
@@ -156,17 +161,17 @@ pub fn update_anchor_visual_cues(
 // NOTE(MXG): Currently only anchors ever have support cues, so we filter down
 // to entities with AnchorVisualCues. We will need to broaden that if any other
 // visual cue types ever have a supporting role.
-pub fn remove_deleted_supports_from_interactions(
-    mut hover: Query<&mut Hovering, With<AnchorVisualCue>>,
-    mut select: Query<&mut Selected, With<AnchorVisualCue>>,
-    mut deleted_elements: EventReader<ElementDeleted>,
+pub fn remove_deleted_supports_from_visual_cues(
+    mut hovered: Query<&mut Hovered, With<AnchorVisualCue>>,
+    mut selected: Query<&mut Selected, With<AnchorVisualCue>>,
+    mut deleted_elements: EventReader<DeleteElement>,
 ) {
     for deletion in deleted_elements.iter() {
-        for mut h in &mut hover {
+        for mut h in &mut hovered {
             h.support_hovering.remove(&deletion.0);
         }
 
-        for mut s in &mut select {
+        for mut s in &mut selected {
             s.support_selected.remove(&deletion.0);
         }
     }

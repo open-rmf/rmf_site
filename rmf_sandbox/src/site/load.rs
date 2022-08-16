@@ -15,21 +15,20 @@
  *
 */
 
-use crate::*;
-use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use crate::{
+    site::*,
+};
+use bevy::prelude::*;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct NavGraphProperties {
-    pub name: String,
-}
+/// This component is applied to each site element that gets loaded in order to
+/// remember what its original ID within the Site file was.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SiteID(pub u32);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct NavGraph {
-    pub properties: NavGraphProperties,
-    pub lanes: BTreeMap<u32, Lane<u32>>,
-    pub locations: BTreeMap<u32, Location<u32>>,
+pub struct LoadSite(rmf_site_format::Site);
+
+pub fn load_site(
+    new_site: Res<LoadSite>
+) {
+    // TODO(MXG) Construct entities from the new_site
 }

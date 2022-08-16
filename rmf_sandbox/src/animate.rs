@@ -15,6 +15,7 @@
  *
 */
 
+use bevy::prelude::*;
 
 /// Used to mark halo meshes so their rotations can be animated
 #[derive(Debug, Component)]

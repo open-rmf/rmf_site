@@ -21,9 +21,6 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
-pub mod despawn;
-pub use despawn::*;
-
 pub mod door;
 pub use door::*;
 
@@ -39,6 +36,9 @@ pub use lift::*;
 pub mod light;
 pub use light::*;
 
+pub mod load;
+pub use load::*;
+
 pub mod measurement;
 pub use measurement::*;
 
@@ -48,8 +48,8 @@ pub use model::*;
 pub mod physical_camera;
 pub use physical_camera::*;
 
-pub mod save_load;
-pub use save_load::*;
+pub mod save;
+pub use save::*;
 
 pub mod site;
 pub use site::*;
@@ -60,3 +60,50 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+use bevy::prelude::*;
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum SiteState {
+    Off,
+    Display,
+}
+
+pub struct SitePlugin;
+
+impl Plugin for SitePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_state(SiteState::Off)
+            .init_resource::<SiteAssets>()
+            .init_resource::<SpawnedModels>()
+            .init_resource::<LoadingModels>()
+            .add_system_set(
+                SystemSet::on_enter(SiteState::Display)
+                    .with_system(load_site)
+            )
+            .add_system_set(
+                SystemSet::on_update(SiteState::Display)
+                    .with_system(save.exclusive_system())
+                    .with_system(update_changed_anchor_visuals)
+                    .with_system(add_door_visuals)
+                    .with_system(update_changed_door)
+                    .with_system(update_door_for_changed_anchor)
+                    .with_system(add_floor_visuals)
+                    .with_system(update_changed_floor)
+                    .with_system(update_floor_for_changed_anchor)
+                    .with_system(add_lane_visuals)
+                    .with_system(update_changed_lane)
+                    .with_system(update_lane_for_changed_anchor)
+                    .with_system(add_lift_visuals)
+                    .with_system(update_changed_lift)
+                    .with_system(update_lift_for_changed_anchor)
+                    .with_system(add_physical_lights)
+                    .with_system(add_measurement_visuals)
+                    .with_system(update_changed_measurement)
+                    .with_system(update_measurement_for_changed_anchor)
+                    .with_system(update_models)
+                    .with_system(add_physical_camera_visuals)
+                    .with_system(update_changed_physical_camera_visuals)
+            )
+    }
+}

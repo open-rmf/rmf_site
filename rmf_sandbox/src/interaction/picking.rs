@@ -34,18 +34,6 @@ impl PickingBlockers {
     }
 }
 
-// /// Keep track of whether the entity had been hovered on
-// #[derive(Debug, Clone, Copy, PartialEq, Eq, Component)]
-// pub struct Hovered {
-//     pub was_hovered: bool,
-// }
-
-// impl Default for Hovered {
-//     fn default() -> Self {
-//         Self{was_hovered: false}
-//     }
-// }
-
 /// Keep track of what entity is currently picked by the cursor
 pub struct Picked(Option<Entity>);
 
@@ -57,8 +45,6 @@ pub struct ChangePick {
 #[derive(Bundle, Default)]
 pub struct PickableBundle {
     pub pickable_mesh: PickableMesh,
-    // pub interaction: Interaction,
-    // pub hovered: Hovered,
 }
 
 pub fn update_picking_cam(
@@ -116,80 +102,3 @@ pub fn update_picked(
         picked.as_mut().0 = current_picked;
     }
 }
-
-// pub fn update_picking_interactions(
-//     blockers: Option<Res<PickingBlockers>>,
-//     mouse_button_input: Res<Input<MouseButton>>,
-//     touch_input: Res<Touches>,
-//     pick_source_query: Query<&PickingCamera>,
-//     mut interactions: Query<
-//         (
-//             Entity,
-//             &mut Interaction,
-//             Option<&mut Hovered>,
-//         ),
-//         With<PickableMesh>,
-//     >,
-// ) {
-//     if let Some(blockers) = blockers {
-//         if blockers.blocking() {
-//             // If picking is masked, then eliminate all hovers
-//             for (_, mut interaction, hovered) in &mut interactions {
-//                 if *interaction != Interaction::None {
-//                     *interaction = Interaction::None;
-//                 }
-
-//                 if let Some(mut hovered) = hovered {
-//                     if hovered.was_hovered {
-//                         hovered.was_hovered = false;
-//                     }
-//                 }
-//             }
-
-//             // Return early since all picking is masked
-//             return;
-//         }
-//     }
-
-//     // TODO(MXG): Consider allowing this to support other button types. We would
-//     // need to use an alternative to [`Interaction`] that accepts a button type
-//     // for the Clicked variant.
-//     if mouse_button_input.just_released(MouseButton::Left)
-//         || touch_input.iter_just_released().next().is_some()
-//     {
-//         for (_, mut interaction, _) in &mut interactions.iter_mut() {
-//             // When the mouse button is released, any interactions that were
-//             // set to Clicked should be reset to the default value of None. If
-//             // the cursor is still hovering on the entity that this None will
-//             // be overwritten later in this function.
-//             if *interaction == Interaction::Clicked {
-//                 *interaction = Interaction::None;
-//             }
-//         }
-//     }
-
-//     let mouse_clicked = mouse_button_input.just_pressed(MouseButton::Left)
-//         || touch_input.iter_just_pressed().next().is_some();
-
-//     let mut hovered_entity = None;
-//     for pick_source in &pick_source_query {
-//         if let Some(picks) = pick_source.intersect_list() {
-//             for (topmost_entity, _) in picks.iter() {
-//                 if let Ok((_, mut interaction, _)) = interactions.get_mut(*topmost_entity) {
-//                     if mouse_clicked {
-//                         if *interaction != Interaction::Clicked {
-//                             *interaction = Interaction::Clicked;
-//                         }
-//                     } else if *interaction == Interaction::None {
-//                         *interaction = Interaction::Hovered;
-//                     }
-
-//                     hovered_entity = Some(*topmost_entity);
-//                     break;
-//                 }
-//             }
-//         }
-
-
-//     }
-// }

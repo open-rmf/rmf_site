@@ -59,7 +59,7 @@ fn make_door_transforms(
     )
 }
 
-fn add_door_visuals(
+pub fn add_door_visuals(
     mut commands: Commands,
     doors: Query<(Entity, &Door<Entity>), Added<Door<Entity>>>,
     anchors: Query<&Anchor>,
@@ -102,7 +102,7 @@ fn update_door_visuals(
     *shape_transform = shape_tf;
 }
 
-fn update_changed_door(
+pub fn update_changed_door(
     doors: Query<(Entity, &Door<Entity>, &DoorSegments), Changed<Door<Entity>>>,
     anchors: Query<&Anchor>,
     mut transforms: Query<&mut Transform>,
@@ -112,7 +112,7 @@ fn update_changed_door(
     }
 }
 
-fn update_door_for_changed_anchor(
+pub fn update_door_for_changed_anchor(
     doors: Query<(Entity, &Door<Entity>, &DoorSegments)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,

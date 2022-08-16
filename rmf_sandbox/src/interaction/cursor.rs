@@ -27,10 +27,10 @@ use bevy_mod_picking::PickingRaycastSet;
 /// displaying the 3D cursor
 #[derive(Debug, Clone)]
 pub struct Cursor {
-    frame: Entity,
-    halo: Entity,
-    dagger: Entity,
-    anchor_placement: Entity,
+    pub frame: Entity,
+    pub halo: Entity,
+    pub dagger: Entity,
+    pub anchor_placement: Entity,
 }
 
 impl FromWorld for Cursor {
@@ -102,4 +102,11 @@ pub fn update_cursor_transform(
             }
         }
     }
+}
+
+pub fn hide_cursor(
+    mut visibility: Query<&mut Visibility>,
+    cursor: Res<Cursor>,
+) {
+    set_visibility(cursor.frame, &mut visibility, false);
 }

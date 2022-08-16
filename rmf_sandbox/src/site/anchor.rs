@@ -19,7 +19,7 @@ use std::collections::HashSet;
 use bevy::prelude::*;
 
 #[derive(Component)]
-pub struct Anchor(f32, f32);
+pub struct Anchor(pub f32, pub f32);
 
 impl Anchor {
     pub fn vec(&self) -> Vec2 {
@@ -39,6 +39,12 @@ impl Anchor {
     }
 }
 
+impl From<Anchor> for (f32, f32) {
+    fn from(anchor: Anchor) -> Self {
+        (anchor.0, anchor.1)
+    }
+}
+
 #[derive(Component)]
 pub struct AnchorDependents {
     pub dependents: HashSet<Entity>,
@@ -55,10 +61,10 @@ pub struct PreviewAnchor {
     replacing: Option<Entity>,
 }
 
-fn update_changed_anchor_visuals(
+pub fn update_changed_anchor_visuals(
     mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
 ) {
     for (anchor, mut tf) in &mut anchors {
-        tf.translation = Vec3::new(anchor.x(), anchor.y(), 0.);
+        tf.translation = anchor.transform();
     }
 }

@@ -36,7 +36,7 @@ pub struct LaneSegments {
     pub end: Entity,
 }
 
-fn add_lane_visuals(
+pub fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
     anchors: Query<&Anchor>,
@@ -110,7 +110,7 @@ fn update_lane_visuals(
     }
 }
 
-fn update_changed_lane(
+pub fn update_changed_lane(
     lanes: Query<(&Lane<Entity>, &LaneSegments), Changed<Lane<Entity>>>,
     anchors: Query<&Anchor>,
     mut transforms: Query<&mut Transform>,
@@ -120,7 +120,7 @@ fn update_changed_lane(
     }
 }
 
-fn update_lane_for_changed_anchor(
+pub fn update_lane_for_changed_anchor(
     lanes: Query<(&Lane<Entity>, &LaneSegments)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,

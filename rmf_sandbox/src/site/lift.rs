@@ -31,8 +31,8 @@ fn make_lift_transforms(
     lift: &Lift<Entity>,
     anchors: &Query<&Anchor>,
 ) {
-    let start_anchor = anchors.get(lift.anchors.0).unwrap();
-    let end_anchor = anchors.get(lift.anchors.1).unwrap();
+    let start_anchor = anchors.get(lift.reference_anchors.0).unwrap();
+    let end_anchor = anchors.get(lift.reference_anchors.1).unwrap();
 
     let p_start = start_anchor.vec();
     let p_end = end_anchor.vec();
@@ -68,7 +68,7 @@ fn make_lift_transforms(
     (lift_tf, cabin_tf)
 }
 
-fn add_lift_visuals(
+pub fn add_lift_visuals(
     mut commands: Commands,
     lifts: Query<(Entity, &Lift<Entity>), Added<Lift<Entity>>>,
     anchors: Query<&Anchor>,
@@ -111,7 +111,7 @@ fn update_lift_visuals(
     *cabin_transform = shape_tf;
 }
 
-fn update_changed_lift(
+pub fn update_changed_lift(
     lifts: Query<(Entity, &Lift<Entity>, &LiftSegments), Changed<Lift<Entity>>>,
     anchors: Query<&Anchor>,
     mut transforms: Query<&mut Transform>,
@@ -121,7 +121,7 @@ fn update_changed_lift(
     }
 }
 
-fn update_lift_for_changed_anchor(
+pub fn update_lift_for_changed_anchor(
     lifts: Query<(Entity, &Lift<Entity>, &LiftSegments)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,

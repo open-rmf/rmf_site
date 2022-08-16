@@ -18,6 +18,7 @@ use settings::*;
 mod widgets;
 
 mod demo_world;
+mod deletion;
 mod shapes;
 
 mod main_menu;
@@ -30,7 +31,7 @@ mod interaction;
 mod sandbox_asset_io;
 mod simulation_state;
 
-use camera_controls::CameraControlsPlugin;
+use interaction::InteractionPlugin;
 use despawn::DespawnPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
 use save_load::SaveLoadPlugin;
@@ -102,7 +103,9 @@ pub fn run() {
         });
     }
 
-    app.init_resource::<Settings>()
+    app
+        .init_resource::<Settings>()
+        .add_event::<deletion::DeleteElement>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {

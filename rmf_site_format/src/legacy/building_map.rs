@@ -3,13 +3,16 @@ use std::collections::{BTreeMap, HashMap};
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
     Site,
+    SiteProperties,
     Level as SiteLevel,
+    LevelProperties as SiteLevelProperties,
     Drawing as SiteDrawing, DrawingSource,
     Fiducial as SiteFiducial,
     Lift as SiteLift,
     Lane as SiteLane,
     Dock as SiteDock,
     NavGraph,
+    NavGraphProperties,
     ReverseLane,
     Motion,
     Pose,
@@ -171,13 +174,16 @@ impl BuildingMap {
             levels.insert(
                 level_id,
                 SiteLevel{
-                    name: name.clone(),
+                    properties: SiteLevelProperties{
+                        name: name.clone(),
+                        elevation,
+                    },
                     anchors,
                     doors,
                     drawings,
-                    elevation,
                     fiducials,
                     floors,
+                    lights: Default::default(),
                     measurements,
                     models,
                     physical_cameras,
@@ -252,7 +258,7 @@ impl BuildingMap {
             nav_graphs.insert(
                 site_id.next().unwrap(),
                 NavGraph{
-                    name: idx.to_string(),
+                    properties: NavGraphProperties {name: idx.to_string()},
                     lanes,
                     locations: locations.clone(),
                 }
@@ -308,7 +314,7 @@ impl BuildingMap {
                 site_id.next().unwrap(),
                 SiteLift{
                     name: name.clone(),
-                    anchors,
+                    reference_anchors: anchors,
                     cabin,
                     level_doors,
                     corrections: Default::default(),
@@ -319,7 +325,7 @@ impl BuildingMap {
 
         Ok(Site{
             format_version: Default::default(),
-            name: self.name.clone(),
+            properties: SiteProperties{name: self.name.clone()},
             levels,
             lifts,
             nav_graphs,

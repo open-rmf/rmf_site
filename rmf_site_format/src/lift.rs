@@ -31,9 +31,12 @@ pub struct Lift<SiteID: Ord> {
     pub name: String,
     /// These anchors define the canonical reference frame of the lift. Both
     /// anchors must belong to the same level.
-    pub anchors: (SiteID, SiteID),
+    pub reference_anchors: (SiteID, SiteID),
     /// Description of the cabin for the lift.
     pub cabin: LiftCabin,
+    /// Anchors that are inside the cabin of the lift and exist in the map of
+    /// the cabin's interior.
+    pub cabin_anchors: BTreeMap<SiteID, (f32, f32)>,
     /// A map from the ID of a level that this lift can visit to the door that
     /// the lift opens on that level. key: level, value: door. The lift can only
     /// visit levels that are included in this map.
@@ -46,7 +49,7 @@ pub struct Lift<SiteID: Ord> {
     /// Finalized site files should not have this field because it should become
     /// unnecessary after levels have been scaled and aligned.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub corrections: BTreeMap<u32, (SiteID, SiteID)>,
+    pub corrections: BTreeMap<SiteID, (SiteID, SiteID)>,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
     pub is_static: bool,
@@ -92,4 +95,21 @@ pub struct LiftCabinDoor {
     /// Shift the door off-center to the left (positive) or right (negative)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifted: Option<f32>,
+}
+
+#[cfg(feature="bevy")]
+impl<SiteID> Lift<SiteID> {
+    pub fn to_u32(
+        &self,
+        reference_anchors: (u32, u32),
+        cabin_anchors: BTreeMap<u32, (f32, f32)>,
+        corrections: BTreeMap<u32, (u32, u32)>,
+    ) -> Lift<u32> {
+        Lift{
+            reference_anchors,
+            cabin_anchors,
+            corrections,
+            ..self.clone()
+        }
+    }
 }

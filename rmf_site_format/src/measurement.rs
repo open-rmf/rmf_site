@@ -26,3 +26,14 @@ pub struct Measurement<SiteID> {
     pub distance: f32,
     pub label: String,
 }
+
+#[cfg(feature="bevy")]
+impl<SiteID> Measurement<SiteID> {
+    pub fn to_u32(&self, anchors: (u32, u32)) -> Measurement<u32> {
+        Measurement{
+            anchors,
+            distance: self.distance,
+            label: self.label.clone()
+        }
+    }
+}

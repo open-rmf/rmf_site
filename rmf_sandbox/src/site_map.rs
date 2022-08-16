@@ -4,7 +4,7 @@ use crate::despawn::{DespawnBlocker, PendingDespawn};
 use crate::door::Door;
 use crate::floor::Floor;
 use crate::interaction::{
-    Bobbing, DefaultVisualCue, FloorVisualCue, Hovering, InteractionAssets, LaneVisualCue,
+    Bobbing, DefaultVisualCue, FloorVisualCue, Hovered, InteractionAssets, LaneVisualCue,
     Selected, Spinning, AnchorVisualCue, WallVisualCue,
 };
 use crate::lane::{Lane, LANE_WIDTH, PASSIVE_LANE_HEIGHT};

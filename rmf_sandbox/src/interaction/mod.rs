@@ -40,35 +40,49 @@ pub mod select;
 pub use select::*;
 
 use bevy::prelude::*;
-use bevy_mod_picking::PickingSystem;
+use bevy_mod_picking::{PickingSystem, PickingPlugin};
 
 #[derive(Default)]
-pub struct InteractionPlugin<T> {
-    for_app_state: T,
+pub struct InteractionPlugin;
+
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+pub enum InteractionState {
+    Enable,
+    Disable,
 }
 
-impl<T> InteractionPlugin<T> {
-    pub fn new(for_app_state: T) -> Self {
-        Self { for_app_state }
-    }
-}
-
-impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for InteractionPlugin<T> {
+impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app
+            .add_state(InteractionState::Disable)
             .init_resource::<InteractionAssets>()
-            .init_resource::<Dragging>()
-            .add_event::<ElementDeleted>()
-            .add_startup_system(init_cursor)
+            .init_resource::<Cursor>()
+            .init_resource::<CameraControls>()
+            .init_resource::<Picked>()
+            .init_resource::<PickingBlockers>()
+            .init_resource::<SelectionBlockers>()
+            .init_resource::<Selection>()
+            .init_resource::<Hovering>()
+            .add_event::<ChangePick>()
+            .add_event::<Select>()
+            .add_event::<Hover>()
+            .add_event::<MoveTo>()
+            .add_plugin(PickingPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
-                SystemSet::on_update(self.for_app_state.clone())
-                    .with_system(update_cursor_transform.after(PickingSystem::UpdateIntersections))
+                SystemSet::on_update(InteractionState::Enable)
+                    .with_system(update_cursor_transform)
+                    .with_system(update_picking_cam)
                     .with_system(make_selectable_entities_pickable)
+                    .with_system(handle_selection_picking)
+                    .with_system(maintain_selected_entities)
+                    .with_system(maintain_hovered_entities)
+                    .with_system(add_anchor_visual_cues)
+                    .with_system(move_anchor)
                     .with_system(update_anchor_visual_cues)
+                    .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues)
                     .with_system(update_floor_and_wall_visual_cues)
-                    .with_system(remove_deleted_supports_from_interactions)
                     .with_system(make_gizmos_pickable)
                     .with_system(update_drag_click_start)
                     .with_system(update_drag_release)
@@ -77,6 +91,20 @@ impl<T: Send + Sync + Clone + Hash + Eq + Debug + 'static> Plugin for Interactio
                         .after(update_drag_click_start)
                         .after(update_drag_release)
                     ),
+            )
+            .add_system_set(
+                SystemSet::on_exit(InteractionState::Enable)
+                    .with_system(hide_cursor)
+            )
+            .add_system_set_to_stage(
+                CoreStage::First,
+                // TODO(MXG): See if this works as expected. I have read that
+                // states do not work correctly across multiple stages?
+                // SystemSet::on_update(InteractionState::Enable)
+                SystemSet::new()
+                    .with_system(
+                        update_picked.after(PickingSystem::UpdateIntersections)
+                    )
             );
     }
 }
@@ -108,10 +136,10 @@ pub struct WallVisualCue;
 pub struct DefaultVisualCue;
 
 pub fn update_floor_and_wall_visual_cues(
-    floors: Query<&Hovering, With<FloorVisualCue>>,
-    walls: Query<&Hovering, With<WallVisualCue>>,
-    everything_else: Query<&Hovering, With<DefaultVisualCue>>,
-    cursor: Query<Entity, With<Cursor>>,
+    floors: Query<&Hovered, With<FloorVisualCue>>,
+    walls: Query<&Hovered, With<WallVisualCue>>,
+    everything_else: Query<&Hovered, With<DefaultVisualCue>>,
+    cursor: Res<Cursor>,
     mut visibility: Query<&mut Visibility>,
 ) {
     for hovering in floors
@@ -120,7 +148,7 @@ pub fn update_floor_and_wall_visual_cues(
         .chain(everything_else.iter())
     {
         if hovering.cue() {
-            if let Some(mut v) = visibility.get_mut(cursor.single()).ok() {
+            if let Some(mut v) = visibility.get_mut(cursor.frame).ok() {
                 v.is_visible = true;
             }
         }

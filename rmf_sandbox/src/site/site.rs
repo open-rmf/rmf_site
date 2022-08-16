@@ -25,3 +25,7 @@ pub struct CurrentSite(pub Entity);
 #[derive(Clone, Copy, Debug)]
 pub struct CurrentLevel(pub Entity);
 
+/// This component is placed on the Site entity to keep track of what the next
+/// SiteID should be when saving.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct NextSiteID(pub u32);

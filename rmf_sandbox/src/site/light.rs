@@ -22,7 +22,7 @@ use crate::{
 };
 
 // TODO(MXG): Give a way to interact with lights and change their properties
-fn add_physical_lights(
+pub fn add_physical_lights(
     mut commands: Commands,
     physical_lights: Query<(Entity, &Light), Added<Light>>,
 ) {

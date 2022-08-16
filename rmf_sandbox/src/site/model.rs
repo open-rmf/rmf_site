@@ -23,19 +23,19 @@ use crate::{
 };
 
 
-#[derive(Default)]
-struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
+#[derive(Default, Debug, Clone)]
+pub struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
 
-#[derive(Default)]
-struct SpawnedModels(Vec<Entity>);
+#[derive(Default, Debug, Clone)]
+pub struct SpawnedModels(Vec<Entity>);
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone)]
 struct ModelScene {
     name: String,
     scene_entity: Option<Entity>,
 }
 
-fn update_models(
+pub fn update_models(
     mut commands: Commands,
     added_models: Query<(Entity, &Model), Added<Model>>,
     mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
