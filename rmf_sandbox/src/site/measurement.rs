@@ -25,7 +25,7 @@ use crate::{
 pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Measurement<Entity>), Added<Measurement<Entity>>>,
-    mut anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, new_measurement) in &measurements {
@@ -45,7 +45,7 @@ pub fn add_measurement_visuals(
 
 fn update_measurement_visual(
     measurement: &Measurement<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
     transform: &mut Transform,
 ) {
     let start_anchor = anchors.get(measurement.anchors.0).unwrap();
@@ -55,7 +55,7 @@ fn update_measurement_visual(
 
 pub fn update_changed_measurement(
     mut measurements: Query<(&Measurement<Entity>, &mut Transform), Changed<Measurement<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
 ) {
     for (measurement, mut tf) in &mut measurements {
         update_measurement_visual(measurement, &anchors, tf.as_mut());
@@ -64,8 +64,8 @@ pub fn update_changed_measurement(
 
 pub fn update_measurement_for_changed_anchor(
     mut measurements: Query<(&Measurement<Entity>, &mut Transform)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {

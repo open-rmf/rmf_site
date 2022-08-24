@@ -18,7 +18,7 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 /// How the door swings relative to someone who is standing in the frame of door
 /// with the left and right sides of their body aligned with the left and right
@@ -72,12 +72,25 @@ pub struct Door<SiteID> {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Door<SiteID> {
+impl Door<Entity> {
     pub fn to_u32(&self, anchors: (u32, u32)) -> Door<u32> {
         Door{
             anchors,
             // name: self.name.clone(),
             // kind: self.kind.clone(),
+            ..self.clone()
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Door<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Door<Entity> {
+        Door{
+            anchors: (
+                id_to_entity.get(&self.anchors.0).unwrap(),
+                id_to_entity.get(&self.anchors.1).unwrap(),
+            ),
             ..self.clone()
         }
     }

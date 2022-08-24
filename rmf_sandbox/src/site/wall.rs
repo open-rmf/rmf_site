@@ -29,13 +29,13 @@ pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
 fn make_wall_components(
     wall: &Wall<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Mesh, Transform) {
     let start_anchor = anchors.get(new_wall.anchors.0).unwrap();
     let end_anchor = anchors.get(new_wall.anchors.1).unwrap();
 
-    let p_start = start_anchor.vec();
-    let p_end = end_anchor.vec();
+    let p_start = start_anchor.translation();
+    let p_end = end_anchor.translation();
     let dp = p_end - p_start;
     let length = dp.length();
     let yaw = dp.y.atan2(dp.x);
@@ -53,7 +53,7 @@ fn make_wall_components(
 fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -72,7 +72,7 @@ fn add_wall_visual(
 
 fn update_wall_visuals(
     wall: &Wall<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
     transform: &mut Transform,
     mesh: &mut Handle<Mesh>,
     meshes: &mut Assets<Mesh>,
@@ -84,7 +84,7 @@ fn update_wall_visuals(
 
 fn update_changed_wall(
     mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>), Changed<Wall<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (wall, mut tf, mut mesh) in &mut walls {
@@ -94,8 +94,8 @@ fn update_changed_wall(
 
 fn update_wall_for_changed_anchor(
     mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut meshes: ReMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {

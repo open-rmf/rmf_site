@@ -18,7 +18,7 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]
@@ -29,11 +29,21 @@ pub struct Floor<SiteID> {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Floor<SiteID> {
+impl Floor<Entity> {
     pub fn to_u32(&self, anchors: Vec<u32>) -> Floor<u32> {
         Floor{
             anchors,
             texture: self.texture.clone(),
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Floor<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Floor<Entity> {
+        Floor{
+            anchors: self.anchors.iter().map(|a| id_to_entity.get(a).unwrap()).collect(),
+            ..self.clone()
         }
     }
 }

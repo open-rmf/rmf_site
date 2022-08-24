@@ -17,7 +17,7 @@
 
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
@@ -33,8 +33,18 @@ pub struct Fiducial<SiteID> {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Fiducial<SiteID> {
+impl Fiducial<Entity> {
     pub fn to_u32(&self, anchor: u32) -> Fiducial<u32> {
         Fiducial{label: self.label.clone(), anchor}
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Fiducial<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Fiducial<Entity> {
+        Fiducial{
+            anchor: id_to_entity.get(&self.anchor).unwrap(),
+            ..self.clone()
+        }
     }
 }

@@ -50,7 +50,7 @@ pub fn update_lane_visual_cues(
             )>,
         ),
     >,
-    mut vertices: Query<(&mut Hovered, &mut Selected), With<AnchorVisualCue>>,
+    mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualCue>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,
@@ -64,7 +64,7 @@ pub fn update_lane_visual_cues(
             // of the lane.
             if (old_v0, old_v1) != (v0, v1) {
                 for v in [old_v0, old_v1] {
-                    if let Some((mut hover, mut selected)) = vertices.get_mut(v).ok() {
+                    if let Some((mut hover, mut selected)) = anchors.get_mut(v).ok() {
                         hover.support_hovering.remove(&l);
                         selected.support_selected.remove(&l);
                     }
@@ -79,7 +79,7 @@ pub fn update_lane_visual_cues(
         }
 
         if let Some([(mut hover_v0, mut selected_v0), (mut hover_v1, mut selected_v1)]) =
-            vertices.get_many_mut([v0, v1]).ok()
+            anchors.get_many_mut([v0, v1]).ok()
         {
             if hovering.cue() {
                 hover_v0.support_hovering.insert(l);

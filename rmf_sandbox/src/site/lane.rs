@@ -36,15 +36,35 @@ pub struct LaneSegments {
     pub end: Entity,
 }
 
+fn should_display_lane(
+    lane: &Lane<Entity>,
+    parents: &Query<&Parent, With<Anchor>>,
+    current_level: &CurrentLevel,
+) -> bool {
+    for anchor in [lane.anchors.0, lane.anchors.1] {
+        if let Ok(level) = parents.get(anchor) {
+            if level.get() == current_level.0 {
+                return true;
+            }
+        }
+    }
+
+    return false;
+}
+
 pub fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependencies: Query<&mut AnchorDependents>,
+    parents: Query<&Parent, With<Anchor>>,
     assets: Res<SiteAssets>,
+    current_level: Res<CurrentLevel>,
 ) {
     for (e, new_lane) in &lanes {
         let start_anchor = anchors.get(new_lane.anchors.0).unwrap();
         let end_anchor = anchors.get(new_lane.anchors.1).unwrap();
+        let is_visible = should_display_lane(new_lane, &parents, current_level.as_ref());
 
         let mut commands = commands.entity(e);
         let (start, mid, end) = commands.add_children(|parent| {
@@ -85,6 +105,7 @@ pub fn add_lane_visuals(
             .insert(LaneSegments{start, mid, end})
             .insert_bundle(SpatialBundle{
                 transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
+                visibility: Visibility{is_visible},
                 ..default()
             });
     }
@@ -93,7 +114,7 @@ pub fn add_lane_visuals(
 fn update_lane_visuals(
     lane: &Lane<Entity>,
     segments: &LaneSegments,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
     mut transforms: &mut Query<&mut Transform>,
 ) {
     let start_anchor = anchors.get(lane.anchors.0).unwrap();
@@ -111,25 +132,47 @@ fn update_lane_visuals(
 }
 
 pub fn update_changed_lane(
-    lanes: Query<(&Lane<Entity>, &LaneSegments), Changed<Lane<Entity>>>,
-    anchors: Query<&Anchor>,
+    mut lanes: Query<(&Lane<Entity>, &LaneSegments, &mut Visibility), Changed<Lane<Entity>>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
+    parents: Query<&Parent, With<Anchor>>,
+    current_level: Res<CurrentLevel>,
 ) {
-    for (lane, segments) in &lanes {
+    for (lane, segments, mut visibility) in &mut lanes {
         update_lane_visuals(lane, segments, &anchors, &mut transforms);
+
+        let is_visible = should_display_lane(lane, &parents, current_level.as_ref());
+        if visibility.is_visible != is_visible {
+            visibility.is_visible = is_visible;
+        }
     }
 }
 
 pub fn update_lane_for_changed_anchor(
     lanes: Query<(&Lane<Entity>, &LaneSegments)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
             if let Some((lane, segments)) = lanes.get(*dependent).ok() {
                 update_lane_visuals(lane, segments, &anchors, &mut transforms);
+            }
+        }
+    }
+}
+
+pub fn update_lanes_for_changed_level(
+    mut lanes: Query<(&Lane<Entity>, &mut Visibility), With<Lane<Entity>>>,
+    parents: Query<&Parent, With<Anchor>>,
+    current_level: Res<CurrentLevel>,
+) {
+    if current_level.is_changed() {
+        for (lane, mut visibility) in &mut lanes {
+            let is_visible = should_display_lane(lane, &parents, current_level.as_ref());
+            if visibility.is_visible != is_visible {
+                visibility.is_visible = is_visible;
             }
         }
     }

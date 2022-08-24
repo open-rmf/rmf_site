@@ -65,10 +65,14 @@ pub enum SiteGenerationError {
     BrokenAnchorReference(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
+    #[error("an object has a reference to a door that does not exist")]
+    BrokenDoorReference(Entity),
     #[error("level {level} is being referenced by an object in site {site} but does not belong to that site")]
     InvalidLevelReference{site: Entity, level: Entity},
     #[error("anchor {anchor} is being referenced for level {level} but does not belong to that level")]
     InvalidAnchorReference{level: Entity, anchor: Entity},
+    #[error("door {door} is being referenced for level {level} but does not belong to that level")]
+    InvalidDoorReference{level: Entity, door: Entity}
 }
 
 /// Look through all the elements that we will be saving and assign a SiteID
@@ -344,6 +348,7 @@ fn generate_lifts(
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Anchor, &SiteID)>,
+        Query<&SiteID, With<Door<Entity>>>,
         Query<&SiteID, With<LevelProperties>>,
         Query<(Entity, &Lift<Entity>, &SiteID, &Parent)>,
         Query<&Parent>,
@@ -352,6 +357,7 @@ fn generate_lifts(
 
     let (
         q_anchors,
+        q_doors,
         q_levels,
         q_lifts,
         q_parents,
@@ -374,17 +380,41 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
+    let get_door_id = |entity| {
+        let site_id = q_doors.get(entity).map_err(
+            |_| SiteGenerationError::BrokenDoorReference(entity)
+        )?;
+        Ok(site_id.0)
+    };
+
     let get_anchor_id_pair = |(left_entity, right_entity)| {
         let left = get_anchor_id(left_entity)?;
         let right = get_anchor_id(right_entity)?;
         Ok((left, right))
     };
 
-    let confirm_anchor_level = |level, anchor| {
-        if let Ok(parent) = q_parents.get(anchor) {
+    let confirm_entity_level = |level, child| {
+        if let Ok(parent) = q_parents.get(child) {
             if parent.get() == level {
-                return Ok(())
+                return true;
             }
+        }
+
+        return false;
+    };
+
+    let confirm_level_on_site = |level| {
+        if let Ok(parent) = q_parents.get(level) {
+            if parent.get() == site {
+                Ok(())
+            }
+        }
+        Err(SiteGenerationError::InvalidLevelReference{site, level})
+    };
+
+    let confirm_anchor_level = |level, anchor| {
+        if confirm_entity_level(level, anchor) {
+            Ok(())
         }
 
         Err(SiteGenerationError::InvalidAnchorReference{level, anchor})
@@ -393,12 +423,16 @@ fn generate_lifts(
     let confirm_anchors_level = |level, (left, right)| {
         confirm_anchor_level(level, left)?;
         confirm_anchor_level(level, right)?;
-        if let Ok(parent) = q_parents.get(level) {
-            if parent.get() == site {
-                Ok(())
-            }
+        confirm_level_on_site(level)?;
+    };
+
+    let confirm_door_level = |level, door| {
+        if confirm_entity_level(level, door) {
+            confirm_level_on_site(level)?;
+            Ok(())
         }
-        Err(SiteGenerationError::InvalidLevelReference{site, level})
+
+        Err(SiteGenerationError::InvalidDoorReference{level, door})
     };
 
     let get_corrections_map = |entity_map: &BTreeMap<Entity, (Entity, Entity)>| {
@@ -432,10 +466,18 @@ fn generate_lifts(
             }
         }
 
+        let mut level_doors = BTreeMap::new();
+        for (level, door) in &lift.level_doors {
+            confirm_door_level(*level, *door)?;
+            let level_id = get_level_id(*level)?;
+            let door_id = get_door_id(*door)?;
+            level_doors.insert(level_id, door_id);
+        }
+
         let reference_anchors = get_anchor_id_pair(lift.reference_anchors)?;
         let corrections = get_corrections_map(&lift.corrections)?;
-
-        lifts.insert(id.0, lift.to_u32(reference_anchors, corrections, cabin_anchors));
+        let lift = lift.to_u32(reference_anchors, corrections, level_doors, cabin_anchors);
+        lifts.insert(id.0, lift);
     }
 
     return Ok(lifts);
@@ -534,7 +576,7 @@ pub fn generate_site(
     });
 }
 
-pub fn save(world: &mut World) {
+pub fn save_site(world: &mut World) {
     let mut save_events = world.resource_mut::<Events<SaveSite>>();
     for save_event in save_events.drain() {
         println!("Saving to {}", save_event.to_file.to_str().unwrap());
@@ -570,6 +612,6 @@ pub struct SavePlugin;
 impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveSite>()
-            .add_system(save.exclusive_system());
+            .add_system(save_site.exclusive_system());
     }
 }

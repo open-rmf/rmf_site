@@ -19,7 +19,7 @@ use crate::*;
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
 pub const DEFAULT_CABIN_GAP: f32 = 0.01;
@@ -98,17 +98,50 @@ pub struct LiftCabinDoor {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Lift<SiteID> {
+impl Lift<Entity> {
     pub fn to_u32(
         &self,
         reference_anchors: (u32, u32),
         cabin_anchors: BTreeMap<u32, (f32, f32)>,
+        level_doors: BTreeMap<u32, u32>,
         corrections: BTreeMap<u32, (u32, u32)>,
     ) -> Lift<u32> {
         Lift{
             reference_anchors,
             cabin_anchors,
+            level_doors,
             corrections,
+            ..self.clone()
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Lift<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lift<Entity> {
+        Lift{
+            reference_anchors: (
+                id_to_entity.get(&self.reference_anchors.0).unwrap(),
+                id_to_entity.get(&self.reference_anchors.1).unwrap(),
+            ),
+            corrections: self.corrections.iter().map(|(level, (a0, a1))| {
+                (
+                    id_to_entity.get(level).unwrap(),
+                    (
+                        id_to_entity.get(a0).unwrap(),
+                        id_to_entity.get(a1).unwrap(),
+                    )
+                )
+            }).collect(),
+            level_doors: self.level_doors.iter().map(|(level, door)| {
+                (
+                    id_to_entity.get(level).unwrap(),
+                    id_to_entity.get(door).unwrap(),
+                )
+            }).collect(),
+            // These fields will be loaded as child entities so we can leave them
+            // blank here
+            cabin_anchors: Default::default(),
             ..self.clone()
         }
     }

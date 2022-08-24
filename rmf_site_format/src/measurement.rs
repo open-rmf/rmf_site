@@ -17,7 +17,7 @@
 
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]
@@ -28,12 +28,25 @@ pub struct Measurement<SiteID> {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Measurement<SiteID> {
+impl Measurement<Entity> {
     pub fn to_u32(&self, anchors: (u32, u32)) -> Measurement<u32> {
         Measurement{
             anchors,
             distance: self.distance,
             label: self.label.clone()
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Measurement<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Measurement<Entity> {
+        Measurement{
+            anchors: (
+                id_to_entity.get(&self.anchors.0).unwrap(),
+                id_to_entity.get(&self.anchors.1).unwrap(),
+            ),
+            ..self.clone()
         }
     }
 }
