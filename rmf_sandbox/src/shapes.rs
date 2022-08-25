@@ -31,11 +31,11 @@ impl PartialMesh {
 
     pub(crate) fn transform_by(mut self, tf: Affine3A) -> Self {
         for p in &mut self.positions {
-            p = tf.transform_point3(p.into());
+            *p = tf.transform_point3((*p).into()).into();
         }
 
         for n in &mut self.normals {
-            n = tf.transform_vector3(n.into());
+            *n = tf.transform_vector3((*n).into()).into();
         }
 
         self
@@ -367,7 +367,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     // Outside of the lens hood
     make_pyramid(Circle{radius: scale, height: 0.}, [0., 0., scale], 4)
         .transform_by(
-            Affine3A::from_translation([lens_hood_protrusion*scale, 0., 0.])
+            Affine3A::from_translation([lens_hood_protrusion*scale, 0., 0.].into())
             * Affine3A::from_rotation_y(-90_f32.to_radians())
             * Affine3A::from_rotation_z(45_f32.to_radians())
         ).merge_into(&mut mesh);
@@ -375,7 +375,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     // Inside of the lens hood
     make_pyramid(Circle{radius: scale, height: scale}, [0., 0., 0.], 4)
         .transform_by(
-            Affine3A::from_translation([(1.-lens_hood_protrusion)*scale, 0., 0.])
+            Affine3A::from_translation([(1.-lens_hood_protrusion)*scale, 0., 0.].into())
             * Affine3A::from_rotation_y(90_f32.to_radians())
             * Affine3A::from_rotation_z(45_f32.to_radians())
         ).merge_into(&mut mesh);

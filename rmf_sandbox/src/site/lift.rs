@@ -30,7 +30,7 @@ pub struct LiftSegments {
 fn make_lift_transforms(
     lift: &Lift<Entity>,
     anchors: &Query<&Anchor>,
-) {
+) -> (Transform, Transform) {
     let start_anchor = anchors.get(lift.reference_anchors.0).unwrap();
     let end_anchor = anchors.get(lift.reference_anchors.1).unwrap();
 

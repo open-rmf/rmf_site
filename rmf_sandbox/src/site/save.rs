@@ -67,7 +67,7 @@ pub enum SiteGenerationError {
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a door that does not exist")]
     BrokenDoorReference(Entity),
-    #[error("level {level} is being referenced by an object in site {site} but does not belong to that site")]
+    #[error("level {level:?} is being referenced by an object in site {site:?} but does not belong to that site")]
     InvalidLevelReference{site: Entity, level: Entity},
     #[error("anchor {anchor} is being referenced for level {level} but does not belong to that level")]
     InvalidAnchorReference{level: Entity, anchor: Entity},
@@ -224,10 +224,7 @@ fn generate_levels(
     let mut levels = BTreeMap::new();
     for (properties, level_id, parent) in &q_levels {
         if parent.get() == site {
-            levels.insert(level_id.0, Level{
-                properties: properties.clone(),
-                ..default()
-            });
+            levels.insert(level_id.0, Level::new(properties.clone()));
         }
     }
 
@@ -308,7 +305,7 @@ fn generate_levels(
     for (measurement, id, parent) in &q_measurements {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_pair(&measurement.anchors)?;
+                let anchors = get_anchor_id_pair(measurement.anchors)?;
                 level.measurements.insert(id.0, measurement.to_u32(anchors));
             }
         }
@@ -331,7 +328,7 @@ fn generate_levels(
     }
 
     for (wall, id, parent) in &q_walls {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.id()) {
+        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_pair(wall.anchors)?;
                 level.walls.insert(id.0, wall.to_u32(anchors));
@@ -424,6 +421,7 @@ fn generate_lifts(
         confirm_anchor_level(level, left)?;
         confirm_anchor_level(level, right)?;
         confirm_level_on_site(level)?;
+        Ok(())
     };
 
     let confirm_door_level = |level, door| {

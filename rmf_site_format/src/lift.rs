@@ -111,7 +111,9 @@ impl Lift<Entity> {
             cabin_anchors,
             level_doors,
             corrections,
-            ..self.clone()
+            name: self.name.clone(),
+            cabin: self.cabin.clone(),
+            is_static: self.is_static,
         }
     }
 }
@@ -121,28 +123,30 @@ impl Lift<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lift<Entity> {
         Lift{
             reference_anchors: (
-                id_to_entity.get(&self.reference_anchors.0).unwrap(),
-                id_to_entity.get(&self.reference_anchors.1).unwrap(),
+                *id_to_entity.get(&self.reference_anchors.0).unwrap(),
+                *id_to_entity.get(&self.reference_anchors.1).unwrap(),
             ),
             corrections: self.corrections.iter().map(|(level, (a0, a1))| {
                 (
-                    id_to_entity.get(level).unwrap(),
+                    *id_to_entity.get(level).unwrap(),
                     (
-                        id_to_entity.get(a0).unwrap(),
-                        id_to_entity.get(a1).unwrap(),
+                        *id_to_entity.get(a0).unwrap(),
+                        *id_to_entity.get(a1).unwrap(),
                     )
                 )
             }).collect(),
             level_doors: self.level_doors.iter().map(|(level, door)| {
                 (
-                    id_to_entity.get(level).unwrap(),
-                    id_to_entity.get(door).unwrap(),
+                    *id_to_entity.get(level).unwrap(),
+                    *id_to_entity.get(door).unwrap(),
                 )
             }).collect(),
             // These fields will be loaded as child entities so we can leave them
             // blank here
             cabin_anchors: Default::default(),
-            ..self.clone()
+            name: self.name.clone(),
+            cabin: self.cabin.clone(),
+            is_static: self.is_static,
         }
     }
 }

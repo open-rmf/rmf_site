@@ -44,7 +44,7 @@ pub struct CurrentLevel(pub Option<Entity>);
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
 
 /// Used as a resource to keep track of all currently opened sites
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 pub struct OpenSites(pub Vec<Entity>);
 
 /// This component is placed on the Site entity to keep track of what the next

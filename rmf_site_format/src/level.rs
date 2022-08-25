@@ -42,3 +42,21 @@ pub struct Level {
     pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
     pub walls: BTreeMap<u32, Wall<u32>>,
 }
+
+impl Level {
+    pub fn new(properties: LevelProperties) -> Level {
+        Level{
+            properties,
+            anchors: Default::default(),
+            doors: Default::default(),
+            drawings: Default::default(),
+            fiducials: Default::default(),
+            floors: Default::default(),
+            lights: Default::default(),
+            measurements: Default::default(),
+            models: Default::default(),
+            physical_cameras: Default::default(),
+            walls: Default::default(),
+        }
+    }
+}

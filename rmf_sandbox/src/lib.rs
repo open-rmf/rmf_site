@@ -23,8 +23,6 @@ mod shapes;
 
 mod main_menu;
 mod site;
-mod site_map;
-mod traffic_editor;
 mod warehouse_generator;
 mod interaction;
 
@@ -32,10 +30,9 @@ mod sandbox_asset_io;
 mod simulation_state;
 
 use interaction::InteractionPlugin;
-use despawn::DespawnPlugin;
+use deletion::DeletionPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
-use save_load::SaveLoadPlugin;
-use spawner::SpawnerPlugin;
+use site::SitePlugin;
 
 use site_map::SiteMapPlugin;
 
@@ -113,16 +110,10 @@ pub fn run() {
         })
         .add_plugin(EguiPlugin)
         .add_state(AppState::MainMenu)
-        //.add_plugin(FrameTimeDiagnosticsPlugin::default())
-        //.add_plugin(LogDiagnosticsPlugin::default())
-        //.insert_resource(Msaa { samples: 4})
         .add_plugin(MainMenuPlugin)
-        .add_plugin(SiteMapPlugin)
-        .add_plugin(CameraControlsPlugin)
-        .add_plugin(TrafficEditorPlugin)
         .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(DespawnPlugin)
-        .add_plugin(SpawnerPlugin)
-        .add_plugin(SaveLoadPlugin)
+        .add_plugin(DeletionPlugin)
+        .add_plugin(SitePlugin)
+        .add_plugin(InteractionPlugin)
         .run();
 }

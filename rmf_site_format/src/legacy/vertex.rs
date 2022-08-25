@@ -20,6 +20,8 @@ pub struct VertexProperties {
     pub pickup_dispenser: RbmfString,
     #[serde(default, skip_serializing_if = "is_default")]
     pub dock_name: RbmfString,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub lift_cabin: RbmfString,
 }
 
 #[derive(Deserialize, Serialize, Clone, Default)]

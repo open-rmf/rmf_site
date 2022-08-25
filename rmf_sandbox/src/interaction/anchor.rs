@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::Anchor,
+    site::{Anchor, SiteAssets},
     interaction::*,
     animate::*,
     deletion::DeleteElement,

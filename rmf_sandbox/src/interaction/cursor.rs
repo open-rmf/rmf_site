@@ -22,6 +22,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_mod_picking::PickingRaycastSet;
+use bevy_mod_raycast::Intersection;
 
 /// A resource that keeps track of the unique entities that play a role in
 /// displaying the 3D cursor

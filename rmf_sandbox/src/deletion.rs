@@ -69,11 +69,13 @@ fn despawn_system(
     }
 }
 
-pub struct DespawnPlugin;
+pub struct DeletionPlugin;
 
-impl Plugin for DespawnPlugin {
+impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<Despawn>()
+        app
+            .add_event::<DeleteElement>()
+            .add_event::<Despawn>()
             .add_system_to_stage(CoreStage::PostUpdate, despawn_system);
     }
 }

@@ -74,6 +74,7 @@ impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state(SiteState::Off)
+            .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()

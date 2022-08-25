@@ -83,9 +83,74 @@ impl CameraControls {
     }
 }
 
-#[derive(Bundle)]
-pub struct CameraControlsBundle {
-    pub controls: CameraControls,
+impl FromWorld for CameraControls {
+    fn from_world(world: &mut World) -> Self {
+        let mut perspective = world.spawn().insert_bundle(Camera3dBundle {
+            transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
+            projection: Projection::Perspective(Default::default()),
+            ..default()
+        });
+        perspective
+            .insert(Visibility::visible())
+            .insert(ComputedVisibility::default());
+
+        // TODO(MXG): Change this to a user-controlled headlight on/off toggle.
+        perspective.with_children(|parent| {
+            parent.spawn_bundle(DirectionalLightBundle {
+                directional_light: DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..default()
+                },
+                ..default()
+            });
+        });
+        let perspective_id = perspective.id();
+
+        let mut ortho = commands.spawn_bundle(Camera3dBundle {
+            camera: Camera {
+                is_active: false,
+                ..default()
+            },
+            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+            projection: Projection::Orthographic(OrthographicProjection {
+                window_origin: WindowOrigin::Center,
+                scaling_mode: ScalingMode::FixedVertical(1.0),
+                scale: 10.0,
+                ..default()
+            }),
+            ..default()
+        });
+        ortho
+            .insert(Visibility::visible())
+            .insert(ComputedVisibility::default());
+
+        ortho.with_children(|parent| {
+            parent.spawn_bundle(DirectionalLightBundle {
+                transform: Transform::from_rotation(Quat::from_axis_angle(
+                    Vec3::new(1., 1., 0.).normalize(),
+                    35_f32.to_radians(),
+                )),
+                directional_light: DirectionalLight {
+                    shadows_enabled: false,
+                    illuminance: 20000.,
+                    ..default()
+                },
+                ..default()
+            });
+        });
+        let ortho_id = ortho.id();
+
+        CameraControls {
+            mode: ProjectionMode::Perspective,
+            perspective_camera_entity: perspective_id,
+            orthographic_camera_entity: ortho_id,
+            orbit_center: Vec3::ZERO,
+            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
+            orbit_upside_down: false,
+            was_oribiting: false,
+        }
+    }
 }
 
 fn camera_controls(
@@ -95,7 +160,7 @@ fn camera_controls(
     input_mouse: Res<Input<MouseButton>>,
     input_keyboard: Res<Input<KeyCode>>,
     mut previous_mouse_location: ResMut<MouseLocation>,
-    mut controls_query: Query<&mut CameraControls>,
+    mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut egui_context: ResMut<EguiContext>,
 ) {
@@ -104,8 +169,6 @@ fn camera_controls(
     if egui_ctx.wants_pointer_input() || egui_ctx.wants_keyboard_input() {
         return;
     }
-
-    let mut controls = controls_query.single_mut();
 
     let is_shifting =
         input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
@@ -253,86 +316,13 @@ pub fn handle_keyboard_camera_change(
     }
 }
 
-pub fn camera_controls_setup(mut commands: Commands, settings: Res<Settings>) {
-    let mut perspective = commands.spawn_bundle(Camera3dBundle {
-        transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
-        projection: Projection::Perspective(Default::default()),
-        ..default()
-    });
-    perspective
-        .insert(Visibility::visible())
-        .insert(ComputedVisibility::default());
-
-    // TODO(MXG): Change this to a user-controlled headlight on/off toggle.
-    if settings.graphics_quality == GraphicsQuality::Low {
-        perspective.with_children(|parent| {
-            parent.spawn_bundle(DirectionalLightBundle {
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 20000.,
-                    ..default()
-                },
-                ..default()
-            });
-        });
-    }
-    let perspective_id = perspective.id();
-
-    let mut ortho = commands.spawn_bundle(Camera3dBundle {
-        camera: Camera {
-            is_active: false,
-            ..default()
-        },
-        transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-        projection: Projection::Orthographic(OrthographicProjection {
-            window_origin: WindowOrigin::Center,
-            scaling_mode: ScalingMode::FixedVertical(1.0),
-            scale: 10.0,
-            ..default()
-        }),
-        ..default()
-    });
-    ortho
-        .insert(Visibility::visible())
-        .insert(ComputedVisibility::default());
-
-    if settings.graphics_quality == GraphicsQuality::Low {
-        ortho.with_children(|parent| {
-            parent.spawn_bundle(DirectionalLightBundle {
-                transform: Transform::from_rotation(Quat::from_axis_angle(
-                    Vec3::new(1., 1., 0.).normalize(),
-                    35_f32.to_radians(),
-                )),
-                directional_light: DirectionalLight {
-                    shadows_enabled: false,
-                    illuminance: 20000.,
-                    ..default()
-                },
-                ..default()
-            });
-        });
-    }
-    let ortho_id = ortho.id();
-
-    commands.spawn_bundle(CameraControlsBundle {
-        controls: CameraControls {
-            mode: ProjectionMode::Perspective,
-            perspective_camera_entity: perspective_id,
-            orthographic_camera_entity: ortho_id,
-            orbit_center: Vec3::ZERO,
-            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
-            orbit_upside_down: false,
-            was_oribiting: false,
-        },
-    });
-}
-
 pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MouseLocation::default())
-            .add_startup_system(camera_controls_setup.after(init_settings))
+        app
+            .insert_resource(MouseLocation::default())
+            .init_resource::<CameraControls>()
             .add_system(handle_keyboard_camera_change)
             .add_system(camera_controls);
     }

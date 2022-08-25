@@ -42,8 +42,8 @@ impl Floor<Entity> {
 impl Floor<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Floor<Entity> {
         Floor{
-            anchors: self.anchors.iter().map(|a| id_to_entity.get(a).unwrap()).collect(),
-            ..self.clone()
+            anchors: self.anchors.iter().map(|a| *id_to_entity.get(a).unwrap()).collect(),
+            texture: self.texture.clone(),
         }
     }
 }

@@ -65,6 +65,6 @@ pub fn update_changed_anchor_visuals(
     mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
 ) {
     for (anchor, mut tf) in &mut anchors {
-        tf.translation = anchor.transform();
+        *tf = anchor.transform();
     }
 }

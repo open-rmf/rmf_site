@@ -34,9 +34,9 @@ pub struct InitialDragConditions {
 
 #[derive(Debug, Clone)]
 pub struct DraggableMaterialSet {
-    passive: Handle<StandardMaterial>,
-    hover: Handle<StandardMaterial>,
-    drag: Handle<StandardMaterial>,
+    pub passive: Handle<StandardMaterial>,
+    pub hover: Handle<StandardMaterial>,
+    pub drag: Handle<StandardMaterial>,
 }
 
 impl DraggableMaterialSet {

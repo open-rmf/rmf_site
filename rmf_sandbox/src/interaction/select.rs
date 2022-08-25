@@ -17,6 +17,7 @@
 
 use crate::interaction::*;
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
@@ -85,19 +86,19 @@ impl Default for Hovered {
 
 /// Used as a resource to keep track of which entity is currently selected.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct Selection(Option<Entity>);
+pub struct Selection(pub Option<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct Hovering(Option<Entity>);
+pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct Select(Option<Entity>);
+pub struct Select(pub Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
 #[derive(Default, Debug, Clone, Copy)]
-pub struct Hover(Option<Entity>);
+pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
 /// behavior from being active
@@ -111,6 +112,12 @@ pub struct SelectionBlockers {
 impl SelectionBlockers {
     pub fn blocking(&self) -> bool {
         self.dragging || self.placing
+    }
+}
+
+impl Default for SelectionBlockers {
+    fn default() -> Self {
+        SelectionBlockers { dragging: false, placing: false }
     }
 }
 
@@ -139,7 +146,7 @@ pub fn handle_selection_picking(
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
-            hover.send(None);
+            hover.send(Hover(None));
         }
     }
 
@@ -147,12 +154,14 @@ pub fn handle_selection_picking(
         || touch_input.iter_just_pressed().next().is_some();
 
     for pick in picks.iter() {
-        if let Ok(selectable) = selectables.get(pick.to) {
-            if clicked {
-                select.send(selectable.element);
-            }
+        if let Some(change_pick_to) = pick.to {
+            if let Ok(selectable) = selectables.get(change_pick_to) {
+                if clicked {
+                    select.send(Select(Some(selectable.element)));
+                }
 
-            hover.send(selectable.element);
+                hover.send(Hover(Some(selectable.element)));
+            }
         }
     }
 }

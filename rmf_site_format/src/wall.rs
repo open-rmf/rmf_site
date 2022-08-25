@@ -43,10 +43,10 @@ impl Wall<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Wall<Entity> {
         Wall{
             anchors: (
-                id_to_entity.get(&self.anchors.0),
-                id_to_entity.get(&self.anchors.1),
+                *id_to_entity.get(&self.anchors.0).unwrap(),
+                *id_to_entity.get(&self.anchors.1).unwrap(),
             ),
-            ..self.clone()
+            texture: self.texture.clone(),
         }
     }
 }

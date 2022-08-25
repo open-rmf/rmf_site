@@ -34,8 +34,15 @@ impl PickingBlockers {
     }
 }
 
+impl Default for PickingBlockers {
+    fn default() -> Self {
+        PickingBlockers { masked: false }
+    }
+}
+
 /// Keep track of what entity is currently picked by the cursor
-pub struct Picked(Option<Entity>);
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Picked(pub Option<Entity>);
 
 pub struct ChangePick {
     pub from: Option<Entity>,
@@ -91,7 +98,7 @@ pub fn update_picked(
     for pick_source in &pick_source_query {
         if let Some(picks) = pick_source.intersect_list() {
             for (topmost_entity, _) in picks.iter() {
-                current_picked = Some(topmost_entity);
+                current_picked = Some(*topmost_entity);
                 break;
             }
         }

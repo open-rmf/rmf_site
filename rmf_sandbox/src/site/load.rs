@@ -152,7 +152,7 @@ fn generate_site_entities(
             for (lift_id, lift_data) in &site_data.lifts {
                 site.spawn_bundle(SpatialBundle::default())
                     .insert(lift_data.to_ecs(&id_to_entity))
-                    .insert(SiteID(lift_id))
+                    .insert(SiteID(*lift_id))
                     .with_children(|lift| {
                         for (anchor_id, anchor) in &lift_data.cabin_anchors {
                             let anchor_entity = lift
@@ -171,7 +171,7 @@ fn generate_site_entities(
             for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
                 site.spawn_bundle(SpatialBundle::default())
                     .insert(nav_graph_data.properties)
-                    .insert(SiteID(nav_graph_id))
+                    .insert(SiteID(*nav_graph_id))
                     .with_children(|nav_graph| {
                         for (lane_id, lane) in &nav_graph_data.lanes {
                             nav_graph
@@ -202,7 +202,7 @@ pub fn load_site(
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite{site, level: None});
 
-            if site_display_state.current() == SiteState::Off {
+            if *site_display_state.current() == SiteState::Off {
                 site_display_state.set(SiteState::Display);
             }
         }

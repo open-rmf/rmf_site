@@ -61,7 +61,8 @@ impl Lane<Entity> {
     pub fn to_u32(&self, anchors: (u32, u32)) -> Lane<u32> {
         Lane{
             anchors,
-            ..self.clone()
+            forward: self.forward.clone(),
+            reverse: self.reverse.clone(),
         }
     }
 }
@@ -71,10 +72,11 @@ impl Lane<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
         Lane{
             anchors: (
-                id_to_entity.get(&self.anchors.0).unwrap(),
-                id_to_entity.get(&self.anchors.1).unwrap(),
+                *id_to_entity.get(&self.anchors.0).unwrap(),
+                *id_to_entity.get(&self.anchors.1).unwrap(),
             ),
-            ..self.clone()
+            forward: self.forward.clone(),
+            reverse: self.reverse.clone(),
         }
     }
 }

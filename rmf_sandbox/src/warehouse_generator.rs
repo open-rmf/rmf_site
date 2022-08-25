@@ -331,6 +331,7 @@ impl Plugin for WarehouseGeneratorPlugin {
             aisle_width: 5.,
             ..Default::default()
         }))
+        .init_resource::<MaterialMap>()
         .add_system_set(SystemSet::on_enter(AppState::WarehouseGenerator).with_system(on_enter))
         .add_system_set(SystemSet::on_exit(AppState::WarehouseGenerator).with_system(on_exit))
         .add_system_set(

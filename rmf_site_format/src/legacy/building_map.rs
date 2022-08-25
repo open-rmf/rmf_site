@@ -98,15 +98,42 @@ impl BuildingMap {
         // out at RMF runtime.
         let mut locations = BTreeMap::new();
 
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, (f32, f32))>> = BTreeMap::new();
+
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
             let mut anchors = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
-                let anchor_id = site_id.next().unwrap();
-                let anchor = (v.0 as f32, v.1 as f32);
-                vertex_to_anchor_id.insert(i, anchor_id);
-                anchors.insert(anchor_id, anchor);
+                let anchor_id = if v.4.lift_cabin.is_empty() {
+                    // This is a regular level anchor, not inside a lift cabin
+                    let anchor_id = site_id.next().unwrap();
+                    let anchor = (v.0 as f32, v.1 as f32);
+                    anchors.insert(anchor_id, anchor);
+                    anchor_id
+                } else {
+                    let mut lift_cabin_anchors = lift_cabin_anchors
+                        .entry(v.4.lift_cabin.1.clone())
+                        .or_default();
+                    if let Some(duplicate) = lift_cabin_anchors.iter().find(
+                        |(id, (x, y))| {
+                            let dx = v.0 as f32 - *x;
+                            let dy = v.1 as f32 - *y;
+                            (dx*dx + dy*dy).sqrt() < 1e-3
+                        }
+                    ) {
+                        // This is a duplicate cabin anchor so we return its
+                        // existing ID
+                        duplicate.0
+                    } else {
+                        // This is a new cabin anchor so we need to create an
+                        // ID for it
+                        let anchor_id = site_id.next().unwrap();
+                        lift_cabin_anchors.push((anchor_id, (v.0 as f32, v.1 as f32)));
+                        anchor_id
+                    }
+                };
 
+                vertex_to_anchor_id.insert(i, anchor_id);
                 if let Some(location) = v.make_location(anchor_id) {
                     locations.insert(site_id.next().unwrap(), location);
                 }
@@ -310,12 +337,20 @@ impl BuildingMap {
                 level_doors.insert(*level_id, *door_id);
             }
 
+            let cabin_anchors: BTreeMap<u32, (f32, f32)> = [lift_cabin_anchors.get(name)]
+                .into_iter()
+                .filter_map(|x| x)
+                .flat_map(|x| x)
+                .copied()
+                .collect();
+
             lifts.insert(
                 site_id.next().unwrap(),
                 SiteLift{
                     name: name.clone(),
                     reference_anchors: anchors,
                     cabin,
+                    cabin_anchors,
                     level_doors,
                     corrections: Default::default(),
                     is_static: lift.plugins,

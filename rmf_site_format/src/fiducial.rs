@@ -43,8 +43,8 @@ impl Fiducial<Entity> {
 impl Fiducial<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Fiducial<Entity> {
         Fiducial{
-            anchor: id_to_entity.get(&self.anchor).unwrap(),
-            ..self.clone()
+            anchor: *id_to_entity.get(&self.anchor).unwrap(),
+            label: self.label.clone(),
         }
     }
 }

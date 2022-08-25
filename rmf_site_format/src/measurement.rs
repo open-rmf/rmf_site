@@ -43,10 +43,11 @@ impl Measurement<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Measurement<Entity> {
         Measurement{
             anchors: (
-                id_to_entity.get(&self.anchors.0).unwrap(),
-                id_to_entity.get(&self.anchors.1).unwrap(),
+                *id_to_entity.get(&self.anchors.0).unwrap(),
+                *id_to_entity.get(&self.anchors.1).unwrap(),
             ),
-            ..self.clone()
+            distance: self.distance,
+            label: self.label.clone(),
         }
     }
 }

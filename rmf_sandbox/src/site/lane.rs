@@ -72,7 +72,7 @@ pub fn add_lane_visuals(
                 .spawn_bundle(PbrBundle {
                     mesh: assets.lane_end_mesh.clone(),
                     material: assets.passive_lane_material.clone(),
-                    transform: start_anchor.transform(),
+                    transform: start_anchor.compute_transform(),
                     ..default()
                 })
                 .insert(Selectable::new(e))
@@ -92,7 +92,7 @@ pub fn add_lane_visuals(
                 .spawn_bundle(PbrBundle {
                     mesh: assets.lane_end_mesh.clone(),
                     material: assets.passive_lane_material.clone(),
-                    transform: end_anchor.transform(),
+                    transform: end_anchor.compute_transform(),
                     ..default()
                 })
                 .insert(Selectable::new(e))
@@ -121,13 +121,13 @@ fn update_lane_visuals(
     let end_anchor = anchors.get(lane.anchors.1).unwrap();
 
     if let Some(mut tf) = transforms.get_mut(segments.start).ok() {
-        *tf = start_anchor.transform();
+        *tf = start_anchor.compute_transform();
     }
     if let Some(mut tf) = transforms.get_mut(segments.mid).ok() {
         *tf = line_stroke_transform(start_anchor, end_anchor);
     }
     if let Some(mut tf) = transforms.get_mut(segments.end).ok() {
-        *tf = end_anchor.transform();
+        *tf = end_anchor.compute_transform();
     }
 }
 

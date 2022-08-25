@@ -42,7 +42,7 @@ impl<SiteID> Location<SiteID> {
     pub fn to_u32(&self, anchor: u32) -> Location<u32> {
         Location{
             anchor,
-            ..self.clone()
+            tags: self.tags.clone(),
         }
     }
 }
