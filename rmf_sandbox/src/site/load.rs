@@ -26,15 +26,25 @@ use std::collections::HashMap;
 #[derive(Component, Clone, Copy, Debug)]
 pub struct SiteID(pub u32);
 
-pub struct LoadSite(pub rmf_site_format::Site);
-
-pub struct LoadedSites(pub Vec<Entity>);
+pub struct LoadSite {
+    /// The site data to load
+    pub site: rmf_site_format::Site,
+    /// Should the application switch focus to this new site
+    pub focus: bool,
+}
 
 fn generate_site_entities(
     commands: &mut Commands,
     site_data: &rmf_site_format::Site,
 ) -> Entity {
     let mut id_to_entity = HashMap::new();
+    let mut highest_id = 0_u32;
+    let consider_id = |consider| {
+        if consider > highest_id {
+            highest_id = consider;
+        }
+    };
+
     let site = commands
         .spawn_bundle(SpatialBundle{
             visibility: Visibility { is_visible: false },
@@ -58,6 +68,7 @@ fn generate_site_entities(
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
+                        consider_id(*anchor_id);
                     }
 
                     for (door_id, door) in &level_data.doors {
@@ -67,6 +78,7 @@ fn generate_site_entities(
                             .insert(SiteID(*door_id))
                             .id();
                         id_to_entity.insert(*door_id, door_entity);
+                        consider_id(*door_id);
                     }
 
                     for (drawing_id, drawing) in &level_data.drawings {
@@ -74,6 +86,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(drawing.clone())
                             .insert(SiteID(*drawing_id));
+                        consider_id(*drawing_id);
                     }
 
                     for (fiducial_id, fiducial) in &level_data.fiducials {
@@ -81,6 +94,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(fiducial.to_ecs(&id_to_entity))
                             .insert(SiteID(*fiducial_id));
+                        consider_id(*fiducial_id);
                     }
 
                     for (floor_id, floor) in &level_data.floors {
@@ -88,6 +102,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(floor.to_ecs(&id_to_entity))
                             .insert(SiteID(*floor_id));
+                        consider_id(*floor_id);
                     }
 
                     for (light_id, light) in &level_data.lights {
@@ -95,6 +110,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(light.clone())
                             .insert(SiteID(*light_id));
+                        consider_id(*light_id);
                     }
 
                     for (measurement_id, measurement) in &level_data.measurements {
@@ -102,6 +118,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(measurement.to_ecs(&id_to_entity))
                             .insert(SiteID(*measurement_id));
+                        consider_id(*measurement_id);
                     }
 
                     for (model_id, model) in &level_data.models {
@@ -109,6 +126,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(model.clone())
                             .insert(SiteID(*model_id));
+                        consider_id(*model_id);
                     }
 
                     for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
@@ -116,6 +134,7 @@ fn generate_site_entities(
                             .spawn()
                             .insert(physical_camera.clone())
                             .insert(SiteID(*physical_camera_id));
+                        consider_id(*physical_camera_id);
                     }
 
                     for (wall_id, wall) in &level_data.walls {
@@ -123,9 +142,11 @@ fn generate_site_entities(
                             .spawn()
                             .insert(wall.to_ecs(&id_to_entity))
                             .insert(SiteID(*wall_id));
+                        consider_id(*wall_id);
                     }
                 }).id();
                 id_to_entity.insert(*level_id, level_entity);
+                consider_id(*level_id);
             }
 
             for (lift_id, lift_data) in &site_data.lifts {
@@ -141,20 +162,49 @@ fn generate_site_entities(
                                 .insert(SiteID(*anchor_id))
                                 .id();
                             id_to_entity.insert(*anchor_id, anchor_entity);
+                            consider_id(*anchor_id);
+                        }
+                    });
+                consider_id(*lift_id);
+            }
+
+            for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
+                site.spawn_bundle(SpatialBundle::default())
+                    .insert(nav_graph_data.properties)
+                    .insert(SiteID(nav_graph_id))
+                    .with_children(|nav_graph| {
+                        for (lane_id, lane) in &nav_graph_data.lanes {
+                            nav_graph
+                                .spawn()
+                                .insert(lane.to_ecs(&id_to_entity))
+                                .insert(SiteID(*lane_id));
+                            consider_id(*lane_id);
                         }
                     });
             }
-        }).id();
+        });
 
-    return site;
+    site.insert(NextSiteID(highest_id + 1));
+    return site.id();
 }
 
 pub fn load_site(
     mut commands: Commands,
-    mut loaded_sites: ResMut<LoadedSites>,
-    mut loading_sites: EventReader<LoadSite>,
+    mut opened_sites: ResMut<OpenSites>,
+    mut load_sites: EventReader<LoadSite>,
+    mut change_current_site: EventWriter<ChangeCurrentSite>,
+    mut site_display_state: ResMut<State<SiteState>>,
 ) {
-    for site_to_load in loading_sites.iter() {
-        loaded_sites.0.push(generate_site_entities(&mut commands, &site_to_load.0));
+    for cmd in load_sites.iter() {
+        let site = generate_site_entities(&mut commands, &cmd.site);
+        opened_sites.0.push(site);
+
+        if cmd.focus {
+            change_current_site.send(ChangeCurrentSite{site, level: None});
+
+            if site_display_state.current() == SiteState::Off {
+                site_display_state.set(SiteState::Display);
+            }
+        }
     }
 }

@@ -45,7 +45,7 @@ impl From<Anchor> for (f32, f32) {
     }
 }
 
-#[derive(Component)]
+#[derive(Component, Debug, Default, Clone)]
 pub struct AnchorDependents {
     pub dependents: HashSet<Entity>,
 }

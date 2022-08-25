@@ -18,7 +18,7 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]
@@ -57,10 +57,23 @@ pub enum ReverseLane {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Lane<SiteID> {
+impl Lane<Entity> {
     pub fn to_u32(&self, anchors: (u32, u32)) -> Lane<u32> {
         Lane{
             anchors,
+            ..self.clone()
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Lane<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
+        Lane{
+            anchors: (
+                id_to_entity.get(&self.anchors.0).unwrap(),
+                id_to_entity.get(&self.anchors.1).unwrap(),
+            ),
             ..self.clone()
         }
     }

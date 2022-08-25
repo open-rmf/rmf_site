@@ -43,7 +43,7 @@ fn should_display_lane(
 ) -> bool {
     for anchor in [lane.anchors.0, lane.anchors.1] {
         if let Ok(level) = parents.get(anchor) {
-            if level.get() == current_level.0 {
+            if Some(level.get()) == current_level.0 {
                 return true;
             }
         }
