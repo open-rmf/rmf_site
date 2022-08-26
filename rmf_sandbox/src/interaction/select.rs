@@ -203,7 +203,7 @@ pub fn maintain_hovered_entities(
                 }
             }
 
-            if let Some(mut new_hovered) = new_hovered.0 {
+            if let Some(new_hovered) = new_hovered.0 {
                 if let Ok(mut hovering) = hovering.get_mut(new_hovered) {
                     hovering.is_hovering = true;
                 }

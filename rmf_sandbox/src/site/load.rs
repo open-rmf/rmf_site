@@ -19,18 +19,28 @@ use crate::{
     site::*,
 };
 use bevy::prelude::*;
-use std::collections::HashMap;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+};
 
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
 #[derive(Component, Clone, Copy, Debug)]
 pub struct SiteID(pub u32);
 
+/// This component is given to the site to kee ptrack of what file it should be
+/// saved to by default.
+#[derive(Component, Clone, Debug)]
+pub struct DefaultFile(pub PathBuf);
+
 pub struct LoadSite {
     /// The site data to load
     pub site: rmf_site_format::Site,
     /// Should the application switch focus to this new site
     pub focus: bool,
+    /// The default file path that should be assigned to the site
+    pub default_file: Option<PathBuf>,
 }
 
 fn generate_site_entities(
@@ -39,25 +49,25 @@ fn generate_site_entities(
 ) -> Entity {
     let mut id_to_entity = HashMap::new();
     let mut highest_id = 0_u32;
-    let consider_id = |consider| {
+    let mut consider_id = |consider| {
         if consider > highest_id {
             highest_id = consider;
         }
     };
 
-    let site = commands
-        .spawn_bundle(SpatialBundle{
+    let mut site = commands.spawn();
+    site.insert_bundle(SpatialBundle{
             visibility: Visibility { is_visible: false },
             ..default()
         })
-        .insert(site_data.properties)
+        .insert(site_data.properties.clone())
         .with_children(|site| {
             for (level_id, level_data) in &site_data.levels {
                 let level_entity = site.spawn_bundle(SpatialBundle{
                     visibility: Visibility { is_visible: false },
                     ..default()
                 })
-                .insert(level_data.properties)
+                .insert(level_data.properties.clone())
                 .insert(SiteID(*level_id))
                 .with_children(|level| {
                     for (anchor_id, anchor) in &level_data.anchors {
@@ -170,7 +180,7 @@ fn generate_site_entities(
 
             for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
                 site.spawn_bundle(SpatialBundle::default())
-                    .insert(nav_graph_data.properties)
+                    .insert(nav_graph_data.properties.clone())
                     .insert(SiteID(*nav_graph_id))
                     .with_children(|nav_graph| {
                         for (lane_id, lane) in &nav_graph_data.lanes {
@@ -197,13 +207,17 @@ pub fn load_site(
 ) {
     for cmd in load_sites.iter() {
         let site = generate_site_entities(&mut commands, &cmd.site);
+        if let Some(path) = &cmd.default_file {
+            commands.entity(site)
+                .insert(DefaultFile(path.clone()));
+        }
         opened_sites.0.push(site);
 
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite{site, level: None});
 
             if *site_display_state.current() == SiteState::Off {
-                site_display_state.set(SiteState::Display);
+                site_display_state.set(SiteState::Display).ok();
             }
         }
     }

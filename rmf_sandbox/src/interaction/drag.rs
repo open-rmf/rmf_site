@@ -15,15 +15,9 @@
  *
 */
 
-use crate::{
-    interaction::*,
-};
-use bevy::{
-    prelude::*,
-    render::mesh::{Indices, Mesh, PrimitiveTopology, VertexAttributeValues},
-    math::Affine3A,
-};
-use bevy_mod_picking::{PickingRaycastSet, PickingSystem, PickableBundle};
+use crate::interaction::*;
+use bevy::prelude::*;
+use bevy_mod_picking::{PickingRaycastSet, PickableBundle};
 use bevy_mod_raycast::{Intersection, Ray3d};
 
 #[derive(Debug, Clone, Copy)]
@@ -67,9 +61,9 @@ impl DraggableMaterialSet {
 
 #[derive(Component, Debug, Clone)]
 pub struct Draggable {
-    for_entity: Entity,
-    materials: DraggableMaterialSet,
-    initial: Option<InitialDragConditions>,
+    pub for_entity: Entity,
+    pub materials: DraggableMaterialSet,
+    pub initial: Option<InitialDragConditions>,
 }
 
 impl Draggable {
@@ -84,13 +78,13 @@ impl Draggable {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DragAxis {
     /// The gizmo can only be dragged along this axis
-    along: Vec3,
+    pub along: Vec3,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DragPlane {
     /// The gizmo can only be dragged in the plane orthogonal to this vector
-    in_plane: Vec3,
+    pub in_plane: Vec3,
 }
 
 /// Instruction to move an entity to a new transform. This should be caught with
@@ -127,7 +121,7 @@ pub fn update_drag_click_start(
 
     for pick in picks.iter() {
         if let Some(previous_pick) = pick.from {
-            if let Ok((mut drag, mut material)) = draggables.get_mut(previous_pick) {
+            if let Ok((drag, mut material)) = draggables.get_mut(previous_pick) {
                 if drag.initial.is_none() {
                     *material = drag.materials.passive.clone();
                 }

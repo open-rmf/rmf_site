@@ -19,7 +19,6 @@ use bevy::prelude::*;
 use rmf_site_format::PhysicalCamera;
 use crate::{
     site::*,
-    shapes::*,
     interaction::Selectable,
 };
 
@@ -41,7 +40,7 @@ pub fn add_physical_camera_visuals(
 }
 
 pub fn update_changed_physical_camera_visuals(
-    physical_cameras: Query<(&PhysicalCamera, &mut Transform), Changed<PhysicalCamera>>,
+    mut physical_cameras: Query<(&PhysicalCamera, &mut Transform), Changed<PhysicalCamera>>,
 ) {
     for (physical_camera, mut tf) in &mut physical_cameras {
         *tf = physical_camera.pose.transform();

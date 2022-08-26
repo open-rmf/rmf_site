@@ -23,10 +23,7 @@ use bevy::{
 };
 use lyon::{
     math::point,
-    path::{
-        Path,
-        builder::*,
-    },
+    path::Path,
     tessellation::{
         *, geometry_builder::simple_builder,
     }
@@ -55,12 +52,13 @@ fn make_floor_mesh(
     builder.close();
     let path = builder.build();
 
-    let mut buffers: VertexBuffers<FillVertex, u32> = VertexBuffers::new();
+    // let mut buffers: VertexBuffers<FillVertex, u32> = VertexBuffers::new();
+    let mut buffers = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
         let mut tessellator = FillTessellator::new();
         let result = tessellator.tessellate_path(
-            path.iter(),
+            path.as_slice(),
             &FillOptions::default(),
             &mut vertex_builder
         );
@@ -75,19 +73,20 @@ fn make_floor_mesh(
     }
 
     let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(
-        |v| (v.position().x, v.position().y, 0.)
+        |v| [v.x, v.y, 0.]
     ).collect();
 
     let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(
-        |_| (0., 0., 1.)
+        |_| [0., 0., 1.]
     ).collect();
 
     let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(
-        |v| (v.position().x, v.position().y)
+        |v| [v.x, v.y]
     ).collect();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.set_indices(Some(Indices::U32(buffers.indices)));
+    let indices = buffers.indices.drain(..).map(|v| v as u32).collect();
+    mesh.set_indices(Some(Indices::U32(indices)));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
     mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
     mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
@@ -115,7 +114,7 @@ pub fn add_floor_visuals(
 }
 
 pub fn update_changed_floor(
-    floors: Query<(&mut Handle<Mesh>, &Floor<Entity>), Changed<Floor<Entity>>>,
+    mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>), Changed<Floor<Entity>>>,
     anchors: Query<&Anchor>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -126,14 +125,14 @@ pub fn update_changed_floor(
 }
 
 pub fn update_floor_for_changed_anchor(
-    floors: Query<(&mut Handle<Mesh>, &Floor<Entity>)>,
+    mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>)>,
     anchors: Query<&Anchor>,
     changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((mut mesh, floor)) = floors.get(*dependent).ok() {
+            if let Some((mut mesh, floor)) = floors.get_mut(*dependent).ok() {
                 *mesh = meshes.add(make_floor_mesh(floor, &anchors));
             }
         }

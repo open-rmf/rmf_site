@@ -1,13 +1,32 @@
+/*
+ * Copyright (C) 2022 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
 use super::demo_world::demo_office;
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
-
-use crate::AppState;
-use crate::{building_map::BuildingMap, OpenedMapFile};
+use crate::{AppState, OpenedMapFile, site::LoadSite};
+use rmf_site_format::{
+    Site,
+    legacy::building_map::BuildingMap,
+};
 
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
-struct LoadMapResult(Option<OpenedMapFile>, BuildingMap);
+struct LoadMapResult(Option<OpenedMapFile>, Site);
 
 #[derive(Component)]
 struct LoadMapTask(Task<Option<LoadMapResult>>);
@@ -35,14 +54,22 @@ fn egui_ui(
                         let future = AsyncComputeTaskPool::get().spawn(async move {
                             let yaml = demo_office();
                             let data = yaml.as_bytes();
-                            let map = match BuildingMap::from_bytes(&data) {
-                                Ok(map) => map,
+                            let site = match BuildingMap::from_bytes(&data) {
+                                Ok(building) => {
+                                    match building.to_site() {
+                                        Ok(site) => site,
+                                        Err(err) => {
+                                            println!("{err:?}");
+                                            return None;
+                                        }
+                                    }
+                                },
                                 Err(err) => {
                                     println!("{:?}", err);
                                     return None;
                                 }
                             };
-                            Some(LoadMapResult(None, map))
+                            Some(LoadMapResult(None, site))
                         });
                         _commands.spawn().insert(LoadMapTask(future));
                     }
@@ -56,7 +83,7 @@ fn egui_ui(
                         match BuildingMap::from_bytes(&data) {
                             Ok(map) => {
                                 _commands.insert_resource(map);
-                                match app_state.set(AppState::TrafficEditor) {
+                                match app_state.set(AppState::SiteEditor) {
                                     Ok(_) => {}
                                     Err(err) => {
                                         println!("Failed to enter traffic editor: {:?}", err);
@@ -85,17 +112,37 @@ fn egui_ui(
                                 }
                             };
                             println!("Loading site map");
+                            let is_legacy = file.file_name().ends_with(".building.yaml");
                             let data = file.read().await;
-                            let map = match BuildingMap::from_bytes(&data) {
-                                Ok(map) => map,
-                                Err(err) => {
-                                    println!("{:?}", err);
-                                    return None;
+                            let site = if is_legacy {
+                                match BuildingMap::from_bytes(&data) {
+                                    Ok(building) => {
+                                        match building.to_site() {
+                                            Ok(site) => site,
+                                            Err(err) => {
+                                                println!("{:?}", err);
+                                                return None;
+                                            }
+                                        }
+                                    }
+                                    Err(err) => {
+                                        println!("{:?}", err);
+                                        return None;
+                                    }
+                                }
+                            } else {
+                                match Site::from_bytes(&data) {
+                                    Ok(site) => site,
+                                    Err(err) => {
+                                        println!("{:?}", err);
+                                        return None;
+                                    }
                                 }
                             };
+
                             Some(LoadMapResult(
                                 Some(OpenedMapFile(file.path().to_path_buf())),
-                                map,
+                                site,
                             ))
                         });
                         _commands.spawn().insert(LoadMapTask(future));
@@ -128,6 +175,7 @@ fn map_load_complete(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut LoadMapTask)>,
     mut app_state: ResMut<State<AppState>>,
+    mut load_site: EventWriter<LoadSite>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
@@ -137,10 +185,15 @@ fn map_load_complete(
             match result {
                 Some(result) => {
                     println!("Entering traffic editor");
-                    commands.insert_resource(result.0);
-                    commands.insert_resource(result.1);
-                    match app_state.set(AppState::TrafficEditor) {
-                        Ok(_) => {}
+                    match app_state.set(AppState::SiteEditor) {
+                        Ok(_) => {
+                            let LoadMapResult(file, site) = result;
+                            load_site.send(LoadSite{
+                                site,
+                                focus: true,
+                                default_file: file.map(|f| f.0),
+                            });
+                        }
                         Err(err) => {
                             println!("Failed to enter traffic editor: {:?}", err);
                         }

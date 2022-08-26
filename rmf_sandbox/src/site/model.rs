@@ -15,22 +15,25 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    asset::LoadState,
+};
 use rmf_site_format::Model;
 use crate::{
-    site::*,
     interaction::Selectable,
+    deletion::DespawnBlocker,
 };
-
+use std::collections::HashMap;
 
 #[derive(Default, Debug, Clone)]
-pub struct LoadingModels(HashMap<Entity, (Model, Handle<Scene>)>);
+pub struct LoadingModels(pub HashMap<Entity, (Model, Handle<Scene>)>);
 
 #[derive(Default, Debug, Clone)]
 pub struct SpawnedModels(Vec<Entity>);
 
 #[derive(Component, Debug, Clone)]
-struct ModelScene {
+pub struct ModelScene {
     name: String,
     scene_entity: Option<Entity>,
 }
@@ -52,12 +55,12 @@ pub fn update_models(
         loading_models: &mut LoadingModels,
     ) {
         let bundle_path =
-            String::from("sandbox://") + &model.model_name + &String::from(".glb#Scene0");
+            String::from("sandbox://") + &model.name + &String::from(".glb#Scene0");
         let glb: Handle<Scene> = asset_server.load(&bundle_path);
         commands
             .entity(e)
             .insert(DespawnBlocker)
-            .insert(ModelScene{name: model.model_name.clone(), scene_entity: None});
+            .insert(ModelScene{name: model.name.clone(), scene_entity: None});
         loading_models.0.insert(e, (model.clone(), glb.clone()));
     }
 
@@ -79,7 +82,7 @@ pub fn update_models(
             let model_scene_id = commands
                 .entity(*e)
                 .insert_bundle(SpatialBundle {
-                    transform: model.transform(),
+                    transform: model.pose.transform(),
                     ..default()
                 })
                 .add_children(|parent| {
@@ -91,7 +94,7 @@ pub fn update_models(
                     .id()
                 });
 
-            q_current_scene.get(*e).unwrap().scene_entity = Some(model_scene_id);
+            q_current_scene.get_mut(*e).unwrap().scene_entity = Some(model_scene_id);
             spawned_models.0.push(*e);
         }
     }
@@ -109,12 +112,12 @@ pub fn update_models(
 
     // update changed models
     for (e, model, mut t) in changed_models.iter_mut() {
-        *t = model.transform();
+        *t = model.pose.transform();
         if let Ok(mut current_scene) = q_current_scene.get_mut(e) {
-            if current_scene.name != model.model_name {
-                // is this safe since we are also doing the spawning?
-                // aside from possibly despawning children created by other plugins.
-                commands.entity(current_scene.scene_entity).despawn_recursive();
+            if current_scene.name != model.name {
+                if let Some(scene_entity) = current_scene.scene_entity {
+                    commands.entity(scene_entity).despawn_recursive();
+                }
                 current_scene.scene_entity = None;
                 spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
             }

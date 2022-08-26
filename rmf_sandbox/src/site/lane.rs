@@ -36,6 +36,12 @@ pub struct LaneSegments {
     pub end: Entity,
 }
 
+impl LaneSegments {
+    pub fn iter(&self) -> impl Iterator<Item=Entity> {
+        [self.start, self.mid, self.end].into_iter()
+    }
+}
+
 fn should_display_lane(
     lane: &Lane<Entity>,
     parents: &Query<&Parent, With<Anchor>>,
@@ -115,7 +121,7 @@ fn update_lane_visuals(
     lane: &Lane<Entity>,
     segments: &LaneSegments,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
-    mut transforms: &mut Query<&mut Transform>,
+    transforms: &mut Query<&mut Transform>,
 ) {
     let start_anchor = anchors.get(lane.anchors.0).unwrap();
     let end_anchor = anchors.get(lane.anchors.1).unwrap();

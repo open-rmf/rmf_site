@@ -45,6 +45,12 @@ impl From<Anchor> for (f32, f32) {
     }
 }
 
+impl From<&Anchor> for (f32, f32) {
+    fn from(anchor: &Anchor) -> Self {
+        (anchor.0, anchor.1)
+    }
+}
+
 #[derive(Component, Debug, Default, Clone)]
 pub struct AnchorDependents {
     pub dependents: HashSet<Entity>,

@@ -80,9 +80,9 @@ impl PartialMesh {
 }
 
 #[derive(Clone, Copy, Debug)]
-struct Circle {
-    radius: f32,
-    height: f32,
+pub struct Circle {
+    pub radius: f32,
+    pub height: f32,
 }
 
 impl From<(f32, f32)> for Circle {

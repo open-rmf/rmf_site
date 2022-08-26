@@ -41,6 +41,7 @@ pub struct CurrentLevel(pub Option<Entity>);
 
 /// Used as a resource that maps from the site entity to the level entity which
 /// was most recently selected for it.
+#[derive(Clone, Debug, Default)]
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
 
 /// Used as a resource to keep track of all currently opened sites
@@ -64,7 +65,7 @@ pub fn change_site(
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
 ) {
-    let set_visibility = |entity, value| {
+    let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
             v.is_visible = value;
         }
@@ -72,7 +73,7 @@ pub fn change_site(
 
     if let Some(cmd) = change_current_site.iter().last() {
         if open_sites.0.iter().find(|s| **s == cmd.site).is_none() {
-            println!("Requested site change to an entity that is not an open site: {}", cmd.site);
+            println!("Requested site change to an entity that is not an open site: {:?}", cmd.site);
             return;
         }
 
@@ -81,7 +82,7 @@ pub fn change_site(
                 |parent| parent.get() == cmd.site
             ).is_none() {
                 println!(
-                    "Requested level change to an entity {} that is not a level of the requested site {}",
+                    "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
                     chosen_level,
                     cmd.site,
                 );
@@ -94,6 +95,7 @@ pub fn change_site(
                 set_visibility(previous_site, false);
             }
             set_visibility(cmd.site, true);
+            current_site.0 = Some(cmd.site);
         }
 
         if let Some(new_level) = cmd.level {
@@ -145,7 +147,7 @@ pub fn change_site(
 
 pub fn site_display_on(
     current_site: Res<CurrentSite>,
-    visibility: Query<&mut Visibility, With<SiteProperties>>,
+    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
     if let Some(current_site) = current_site.0 {
         if let Ok(mut v) = visibility.get_mut(current_site) {
@@ -156,7 +158,7 @@ pub fn site_display_on(
 
 pub fn site_display_off(
     current_site: Res<CurrentSite>,
-    visibility: Query<&mut Visibility, With<SiteProperties>>,
+    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
     if let Some(current_site) = current_site.0 {
         if let Ok(mut v) = visibility.get_mut(current_site) {

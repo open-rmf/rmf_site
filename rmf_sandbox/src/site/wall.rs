@@ -31,8 +31,8 @@ fn make_wall_components(
     wall: &Wall<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Mesh, Transform) {
-    let start_anchor = anchors.get(new_wall.anchors.0).unwrap();
-    let end_anchor = anchors.get(new_wall.anchors.1).unwrap();
+    let start_anchor = anchors.get(wall.anchors.0).unwrap();
+    let end_anchor = anchors.get(wall.anchors.1).unwrap();
 
     let p_start = start_anchor.translation();
     let p_end = end_anchor.translation();
@@ -47,10 +47,10 @@ fn make_wall_components(
         rotation: Quat::from_rotation_z(yaw),
         ..default()
     };
-    (mesh, tf)
+    (mesh.into(), tf)
 }
 
-fn add_wall_visual(
+pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
@@ -82,21 +82,21 @@ fn update_wall_visuals(
     *transform = new_tf;
 }
 
-fn update_changed_wall(
+pub fn update_changed_wall(
     mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>), Changed<Wall<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (wall, mut tf, mut mesh) in &mut walls {
-        update_wall_visuals(wall, &anchors, transform.as_mut(), mesh.as_mut(), meshes.as_mut());
+        update_wall_visuals(wall, &anchors, tf.as_mut(), mesh.as_mut(), meshes.as_mut());
     }
 }
 
-fn update_wall_for_changed_anchor(
+pub fn update_wall_for_changed_anchor(
     mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
-    mut meshes: ReMut<Assets<Mesh>>,
+    mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {

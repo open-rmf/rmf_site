@@ -19,8 +19,7 @@ use crate::{
     interaction::*,
 };
 use bevy::prelude::*;
-use bevy_mod_picking::{PickableMesh, PickingCamera};
-use std::collections::HashSet;
+use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 
 /// A resource to track what kind of picking blockers are currently active
 pub struct PickingBlockers {

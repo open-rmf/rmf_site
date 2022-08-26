@@ -62,7 +62,7 @@ impl From<(f32, f32)> for Bobbing {
     }
 }
 
-fn set_bobbing(
+pub fn set_bobbing(
     entity: Entity,
     min_height: f32,
     max_height: f32,
@@ -99,3 +99,12 @@ pub fn update_bobbing_animations(
     }
 }
 
+pub struct AnimationPlugin;
+
+impl Plugin for AnimationPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .add_system(update_spinning_animations)
+            .add_system(update_bobbing_animations);
+    }
+}

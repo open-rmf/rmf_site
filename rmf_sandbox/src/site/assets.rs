@@ -16,7 +16,10 @@
 */
 
 use bevy::prelude::*;
-use crate::shapes::*;
+use crate::{
+    site::*,
+    shapes::*,
+};
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
@@ -26,6 +29,7 @@ pub struct SiteAssets {
     pub physical_camera_mesh: Handle<Mesh>,
     pub passive_lane_material: Handle<StandardMaterial>,
     pub passive_anchor_material: Handle<StandardMaterial>,
+    pub preview_anchor_material: Handle<StandardMaterial>,
     pub hover_material: Handle<StandardMaterial>,
     pub select_material: Handle<StandardMaterial>,
     pub hover_select_material: Handle<StandardMaterial>,
@@ -49,7 +53,13 @@ impl FromWorld for SiteAssets {
         let hover_material = materials.add(Color::rgb(0.3, 1., 1.).into());
         let hover_select_material = materials.add(Color::rgb(1., 0.6, 1.).into());
         let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
-        let passive_vertex_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+        let passive_anchor_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+        let preview_anchor_material = materials.add(StandardMaterial{
+            base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
+            alpha_mode: AlphaMode::Blend,
+            depth_bias: 1.0,
+            ..default()
+        });
         let wall_material = materials.add(StandardMaterial {
             base_color_texture: Some(wall_texture),
             unlit: false,
@@ -78,7 +88,7 @@ impl FromWorld for SiteAssets {
         }));
         let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
-        let box_mesh = meshes.add(shape::Box::new(1., 1., 1.));
+        let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
@@ -93,7 +103,8 @@ impl FromWorld for SiteAssets {
             select_material,
             hover_select_material,
             measurement_material,
-            passive_anchor_material: passive_vertex_material,
+            passive_anchor_material,
+            preview_anchor_material,
             wall_material,
             door_material,
             physical_camera_material,

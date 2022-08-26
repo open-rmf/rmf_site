@@ -1,8 +1,7 @@
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
-use traffic_editor::TrafficEditorPlugin;
-use warehouse_generator::WarehouseGeneratorPlugin;
+// use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -23,23 +22,22 @@ mod shapes;
 
 mod main_menu;
 mod site;
-mod warehouse_generator;
+// mod warehouse_generator;
 mod interaction;
 
 mod sandbox_asset_io;
 mod simulation_state;
 
+use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
 use deletion::DeletionPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
 use site::SitePlugin;
 
-use site_map::SiteMapPlugin;
-
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
     MainMenu,
-    TrafficEditor,
+    SiteEditor,
     WarehouseGenerator,
 }
 
@@ -111,9 +109,10 @@ pub fn run() {
         .add_plugin(EguiPlugin)
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
-        .add_plugin(WarehouseGeneratorPlugin)
+        // .add_plugin(WarehouseGeneratorPlugin)
         .add_plugin(DeletionPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
+        .add_plugin(AnimationPlugin)
         .run();
 }

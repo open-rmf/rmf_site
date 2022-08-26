@@ -115,10 +115,10 @@ impl BuildingMap {
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
                     if let Some(duplicate) = lift_cabin_anchors.iter().find(
-                        |(id, (x, y))| {
+                        |(_, (x, y))| {
                             let dx = v.0 as f32 - *x;
                             let dy = v.1 as f32 - *y;
-                            (dx*dx + dy*dy).sqrt() < 1e-3
+                            (dx*dx + dy*dy).sqrt() < 0.01
                         }
                     ) {
                         // This is a duplicate cabin anchor so we return its

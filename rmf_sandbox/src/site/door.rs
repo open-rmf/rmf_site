@@ -96,9 +96,9 @@ fn update_door_visuals(
     transforms: &mut Query<&mut Transform>,
 ) {
     let (pose_tf, shape_tf) = make_door_transforms(door, anchors);
-    let door_transform = transforms.get_mut(entity).unwrap();
+    let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
-    let shape_transform = transforms.get_mut(segments.entity).unwrap();
+    let mut shape_transform = transforms.get_mut(segments.entity).unwrap();
     *shape_transform = shape_tf;
 }
 

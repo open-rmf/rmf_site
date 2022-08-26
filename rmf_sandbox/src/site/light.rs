@@ -17,9 +17,6 @@
 
 use bevy::prelude::*;
 use rmf_site_format::Light;
-use crate::{
-    site::*
-};
 
 // TODO(MXG): Give a way to interact with lights and change their properties
 pub fn add_physical_lights(

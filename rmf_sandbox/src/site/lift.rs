@@ -56,7 +56,7 @@ fn make_lift_transforms(
 
             Transform{
                 translation: Vec3::new(x, y, DEFAULT_LEVEL_HEIGHT/2.0),
-                scale: Vec3::new(depth, width, DEFAULT_LEVEL_HEIGHT),
+                scale: Vec3::new(*depth, *width, DEFAULT_LEVEL_HEIGHT),
                 ..default()
             }
         },
@@ -105,9 +105,9 @@ fn update_lift_visuals(
     transforms: &mut Query<&mut Transform>,
 ) {
     let (pose_tf, shape_tf) = make_lift_transforms(lift, anchors);
-    let lift_transform = transforms.get_mut(entity).unwrap();
+    let mut lift_transform = transforms.get_mut(entity).unwrap();
     *lift_transform = pose_tf;
-    let cabin_transform = transforms.get_mut(segments.cabin).unwrap();
+    let mut cabin_transform = transforms.get_mut(segments.cabin).unwrap();
     *cabin_transform = shape_tf;
 }
 

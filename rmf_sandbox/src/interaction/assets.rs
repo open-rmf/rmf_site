@@ -17,6 +17,7 @@
 
 use crate::{
     interaction::*,
+    shapes::*,
 };
 use bevy::prelude::*;
 
@@ -48,7 +49,7 @@ impl InteractionAssets {
         scale: f32,
     ) -> Entity {
         return command.entity(parent).add_children(|parent| {
-            let id = parent.spawn_bundle(PbrBundle{
+            parent.spawn_bundle(PbrBundle{
                 transform: Transform::from_rotation(
                     rotation
                 ).with_translation(offset)
@@ -61,8 +62,7 @@ impl InteractionAssets {
                 along: [0., 0., 1.].into(),
             })
             .insert(Draggable::new(for_entity, material_set))
-            .insert(EditableTag::Ignore).id();
-            id
+            .id()
         });
     }
 
@@ -115,8 +115,7 @@ impl InteractionAssets {
             .insert(DragPlane{
                 in_plane: Vec3::new(0., 0., 1.),
             })
-            .insert(Draggable::new(vertex, self.z_plane_materials.clone()))
-            .insert(EditableTag::Ignore);
+            .insert(Draggable::new(vertex, self.z_plane_materials.clone()));
         });
 
         cue.drag = Some(drag_parent);

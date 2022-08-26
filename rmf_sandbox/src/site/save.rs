@@ -16,7 +16,7 @@
 */
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::PathBuf,
 };
 use bevy::{
@@ -28,7 +28,6 @@ use thiserror::Error as ThisError;
 use rmf_site_format::{
     Site,
     SiteProperties,
-    Dock,
     Door,
     Drawing,
     Fiducial,
@@ -51,7 +50,7 @@ use crate::site::*;
 
 pub struct SaveSite {
     pub site: Entity,
-    pub to_file: PathBuf
+    pub to_file: Option<PathBuf>,
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -69,9 +68,9 @@ pub enum SiteGenerationError {
     BrokenDoorReference(Entity),
     #[error("level {level:?} is being referenced by an object in site {site:?} but does not belong to that site")]
     InvalidLevelReference{site: Entity, level: Entity},
-    #[error("anchor {anchor} is being referenced for level {level} but does not belong to that level")]
+    #[error("anchor {anchor:?} is being referenced for level {level:?} but does not belong to that level")]
     InvalidAnchorReference{level: Entity, anchor: Entity},
-    #[error("door {door} is being referenced for level {level} but does not belong to that level")]
+    #[error("door {door:?} is being referenced for level {level:?} but does not belong to that level")]
     InvalidDoorReference{level: Entity, door: Entity}
 }
 
@@ -82,6 +81,7 @@ fn assign_site_ids(
     site: Entity,
 ) -> Result<(), SiteGenerationError> {
     let mut state: SystemState<(
+        Commands,
         Query<Entity, Or<(
             With<Anchor>,
             With<Door<Entity>>,
@@ -107,6 +107,7 @@ fn assign_site_ids(
     )> = SystemState::new(world);
 
     let (
+        mut commands,
         level_children,
         nav_graph_children,
         levels,
@@ -117,7 +118,7 @@ fn assign_site_ids(
         children,
     ) = state.get_mut(world);
 
-    let next_site_id = sites.get_mut(site)
+    let mut next_site_id = sites.get_mut(site)
         .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?;
 
     let site_children = match children.get(site) {
@@ -130,23 +131,23 @@ fn assign_site_ids(
         }
     };
 
-    let next_id = move || {
+    let mut next_id = move || {
         let next = next_site_id.0;
-        next_site_id.0 += 1;
+        next_site_id.as_mut().0 += 1;
         return next;
     };
 
     for site_child in site_children {
         if let Ok(level) = levels.get(*site_child) {
             if !site_ids.contains(level) {
-                world.entity_mut(level).insert(SiteID(next_id()));
+                commands.entity(level).insert(SiteID(next_id()));
             }
 
             if let Ok(children) = children.get(level) {
                 for child in children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            world.entity_mut(*child).insert(SiteID(next_id()));
+                            commands.entity(*child).insert(SiteID(next_id()));
                         }
                     }
                 }
@@ -154,15 +155,15 @@ fn assign_site_ids(
         }
 
         if let Ok(nav_graph) = nav_graphs.get(*site_child) {
-            if !site_id.contains(nav_graph) {
-                world.entity_mut(nav_graph).insert(SiteID(next_id()));
+            if !site_ids.contains(nav_graph) {
+                commands.entity(nav_graph).insert(SiteID(next_id()));
             }
 
             if let Ok(children) = children.get(nav_graph) {
                 for child in children {
                     if nav_graph_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            world.entity_mut(*child).insert(SiteID(next_id()));
+                            commands.entity(*child).insert(SiteID(next_id()));
                         }
                     }
                 }
@@ -170,15 +171,15 @@ fn assign_site_ids(
         }
 
         if let Ok(lift) = lifts.get(*site_child) {
-            if !site_id.contains(lift) {
-                world.entity_mut(lift).insert(SiteID(next_id()));
+            if !site_ids.contains(lift) {
+                commands.entity(lift).insert(SiteID(next_id()));
             }
 
             if let Ok(children) = children.get(lift) {
                 for child in children {
                     if level_children.contains(*child) {
-                        if !site_ids.contain(*child) {
-                            world.entity_mut(*child).insert(SiteID(next_id()));
+                        if !site_ids.contains(*child) {
+                            commands.entity(*child).insert(SiteID(next_id()));
                         }
                     }
                 }
@@ -245,7 +246,7 @@ fn generate_levels(
         let mut anchor_ids = Vec::new();
         anchor_ids.reserve(entities.len());
         for entity in entities {
-            let id = get_anchor_id(entity)?;
+            let id = get_anchor_id(*entity)?;
             anchor_ids.push(id);
         }
         Ok(anchor_ids)
@@ -270,7 +271,7 @@ fn generate_levels(
 
     for (drawing, id, parent) in &q_drawings {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level.id.0) {
+            if let Some(level) = levels.get_mut(&level_id.0) {
                 level.drawings.insert(id.0, drawing.clone());
             }
         }
@@ -364,7 +365,7 @@ fn generate_lifts(
     let mut lifts = BTreeMap::new();
 
     let get_anchor_id = |entity| {
-        let site_id = q_anchors.get(entity).map_err(
+        let (_, site_id) = q_anchors.get(entity).map_err(
             |_| SiteGenerationError::BrokenAnchorReference(entity)
         )?;
         Ok(site_id.0)
@@ -403,7 +404,7 @@ fn generate_lifts(
     let confirm_level_on_site = |level| {
         if let Ok(parent) = q_parents.get(level) {
             if parent.get() == site {
-                Ok(())
+                return Ok(());
             }
         }
         Err(SiteGenerationError::InvalidLevelReference{site, level})
@@ -411,7 +412,7 @@ fn generate_lifts(
 
     let confirm_anchor_level = |level, anchor| {
         if confirm_entity_level(level, anchor) {
-            Ok(())
+            return Ok(());
         }
 
         Err(SiteGenerationError::InvalidAnchorReference{level, anchor})
@@ -427,7 +428,7 @@ fn generate_lifts(
     let confirm_door_level = |level, door| {
         if confirm_entity_level(level, door) {
             confirm_level_on_site(level)?;
-            Ok(())
+            return Ok(());
         }
 
         Err(SiteGenerationError::InvalidDoorReference{level, door})
@@ -450,7 +451,7 @@ fn generate_lifts(
         }
 
         if let Ok(canon_level) = q_parents.get(lift.reference_anchors.0) {
-            confirm_anchor_level(*canon_level, lift.reference_anchors)?;
+            confirm_anchors_level(canon_level.get(), lift.reference_anchors)?;
         } else {
             return Err(SiteGenerationError::BrokenAnchorReference(lift.reference_anchors.0));
         }
@@ -474,7 +475,7 @@ fn generate_lifts(
 
         let reference_anchors = get_anchor_id_pair(lift.reference_anchors)?;
         let corrections = get_corrections_map(&lift.corrections)?;
-        let lift = lift.to_u32(reference_anchors, corrections, level_doors, cabin_anchors);
+        let lift = lift.to_u32(reference_anchors, cabin_anchors, level_doors, corrections);
         lifts.insert(id.0, lift);
     }
 
@@ -523,7 +524,7 @@ fn generate_nav_graphs(
         if let Some(children) = children {
             for child in children {
                 if let Ok((lane, lane_id)) = q_lanes.get(*child) {
-                    let anchors = get_anchor_id_pair(lane.anchors);
+                    let anchors = get_anchor_id_pair(lane.anchors)?;
                     lanes.insert(lane_id.0, lane.to_u32(anchors));
                 }
 
@@ -575,9 +576,25 @@ pub fn generate_site(
 }
 
 pub fn save_site(world: &mut World) {
-    let mut save_events = world.resource_mut::<Events<SaveSite>>();
-    for save_event in save_events.drain() {
-        println!("Saving to {}", save_event.to_file.to_str().unwrap());
+    let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
+    for save_event in save_events {
+        let path = {
+            if let Some(to_file) = save_event.to_file {
+                to_file
+            } else {
+                if let Some(to_file) = world.entity(save_event.site).get::<DefaultFile>() {
+                    to_file.0.clone()
+                } else {
+                    let name = world.entity(save_event.site).get::<SiteProperties>()
+                        .map(|site| site.name.clone())
+                        .unwrap_or("<invalid site>".to_string());
+                    println!("No default save file for {name}, please use [Save As]");
+                    continue;
+                }
+            }
+        };
+
+        println!("Saving to {}", path.to_str().unwrap());
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {

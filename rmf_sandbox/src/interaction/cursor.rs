@@ -40,10 +40,16 @@ impl FromWorld for Cursor {
             .expect("make sure that the InteractionAssets resource is initialized before the Cursor resource");
         let site_assets = world.get_resource::<SiteAssets>()
             .expect("make sure that the SiteAssets resource is initialized before the Cursor resource");
+        let halo_mesh = interaction_assets.halo_mesh.clone();
+        let dagger_mesh = interaction_assets.dagger_mesh.clone();
+        let dagger_material = interaction_assets.dagger_material.clone();
+        let anchor_mesh = site_assets.anchor_mesh.clone();
+        let preview_anchor_material = site_assets.preview_anchor_material.clone();
+
         let halo = world.spawn()
             .insert_bundle(PbrBundle{
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                mesh: interaction_assets.halo_mesh.clone(),
+                mesh: halo_mesh,
                 visibility: Visibility { is_visible: false },
                 ..default()
             })
@@ -51,8 +57,8 @@ impl FromWorld for Cursor {
 
         let dagger = world.spawn()
             .insert_bundle(PbrBundle{
-                mesh: interaction_assets.dagger_mesh.clone(),
-                material: interaction_assets.dagger_material.clone(),
+                mesh: dagger_mesh,
+                material: dagger_material,
                 visibility: Visibility { is_visible: false },
                 ..default()
             })
@@ -66,21 +72,17 @@ impl FromWorld for Cursor {
                     rotation: Quat::from_rotation_x(90_f32.to_radians()),
                     ..default()
                 },
-                mesh: site_assets.anchor_mesh.clone(),
-                material: materials.add(StandardMaterial{
-                    base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
-                    alpha_mode: AlphaMode::Blend,
-                    depth_bias: 1.0,
-                    ..default()
-                }),
+                mesh: anchor_mesh,
+                material: preview_anchor_material,
                 visibility: Visibility { is_visible: false },
                 ..default()
             })
             .id();
 
         let cursor = world.spawn()
-            .push_children(&[selection_cursor, dagger_cursor, anchor_cursor])
-            .insert_bundle(SpatialBundle::default());
+            .push_children(&[halo, dagger, anchor_placement])
+            .insert_bundle(SpatialBundle::default())
+            .id();
 
         Self {
             frame: cursor,

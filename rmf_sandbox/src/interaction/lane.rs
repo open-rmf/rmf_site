@@ -112,7 +112,7 @@ pub fn update_lane_visual_cues(
             (&site_assets.passive_lane_material, PASSIVE_LANE_HEIGHT)
         };
 
-        for e in pieces.segments {
+        for e in pieces.iter() {
             set_material(e, m, &mut materials);
         }
 
