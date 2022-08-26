@@ -30,43 +30,58 @@ pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 fn make_wall_components(
     wall: &Wall<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
-) -> (Mesh, Transform) {
-    let start_anchor = anchors.get(wall.anchors.0).unwrap();
-    let end_anchor = anchors.get(wall.anchors.1).unwrap();
+) -> Option<(Mesh, Transform)> {
+    if let (Ok(start_anchor), Ok(end_anchor)) = (
+        anchors.get(wall.anchors.0),
+        anchors.get(wall.anchors.1),
+    ) {
+        let p_start = start_anchor.translation();
+        let p_end = end_anchor.translation();
+        let dp = p_end - p_start;
+        let length = dp.length();
+        let yaw = dp.y.atan2(dp.x);
+        let center = (p_start + p_end)/2.0;
 
-    let p_start = start_anchor.translation();
-    let p_end = end_anchor.translation();
-    let dp = p_end - p_start;
-    let length = dp.length();
-    let yaw = dp.y.atan2(dp.x);
-    let center = (p_start + p_end)/2.0;
+        let mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT);
+        let tf = Transform{
+            translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT/2.0),
+            rotation: Quat::from_rotation_z(yaw),
+            ..default()
+        };
+        return Some((mesh.into(), tf));
+    }
 
-    let mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT);
-    let tf = Transform{
-        translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT/2.0),
-        rotation: Quat::from_rotation_z(yaw),
-        ..default()
-    };
-    (mesh.into(), tf)
+    None
+}
+
+pub fn init_walls(
+    mut commands: Commands,
+    walls: Query<Entity, Added<Wall<Entity>>>,
+) {
+    for e in &walls {
+        commands.entity(e).insert(Pending);
+    }
 }
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
+    walls: Query<(Entity, &Wall<Entity>), With<Pending>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, new_wall) in &walls {
-        let (mesh, tf) = make_wall_components(new_wall, &anchors);
-        commands.entity(e)
-            .insert_bundle(PbrBundle{
-                mesh: meshes.add(mesh),
-                material: assets.wall_material.clone(), // TODO(MXG): load the user-specified texture when one is given
-                transform: tf,
-                ..default()
-            })
-            .insert(Selectable::new(e));
+        if let Some((mesh, tf)) = make_wall_components(new_wall, &anchors) {
+            commands.entity(e)
+                .insert_bundle(PbrBundle{
+                    mesh: meshes.add(mesh),
+                    material: assets.wall_material.clone(), // TODO(MXG): load the user-specified texture when one is given
+                    transform: tf,
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .remove::<Pending>();
+        }
     }
 }
 
@@ -77,7 +92,7 @@ fn update_wall_visuals(
     mesh: &mut Handle<Mesh>,
     meshes: &mut Assets<Mesh>,
 ) {
-    let (new_mesh, new_tf) = make_wall_components(wall, anchors);
+    let (new_mesh, new_tf) = make_wall_components(wall, anchors).unwrap();
     *mesh = meshes.add(new_mesh);
     *transform = new_tf;
 }

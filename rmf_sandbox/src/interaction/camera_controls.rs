@@ -40,7 +40,7 @@ pub enum ProjectionMode {
     Orthographic,
 }
 
-#[derive(Component, Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect)]
 pub struct CameraControls {
     mode: ProjectionMode,
     pub perspective_camera_entity: Entity,
@@ -319,17 +319,15 @@ fn camera_controls(
 
 pub fn handle_keyboard_camera_change(
     keyboard_input: Res<Input<KeyCode>>,
-    mut controls_query: Query<&mut CameraControls>,
+    mut camera_controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Camera, &mut Visibility)>,
 ) {
     if keyboard_input.just_pressed(KeyCode::F2) {
-        let mut controls = controls_query.single_mut();
-        controls.use_orthographic(true, &mut cameras);
+        camera_controls.use_orthographic(true, &mut cameras);
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        let mut controls = controls_query.single_mut();
-        controls.use_perspective(true, &mut cameras);
+        camera_controls.use_perspective(true, &mut cameras);
     }
 }
 

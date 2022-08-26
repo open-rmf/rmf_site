@@ -621,12 +621,3 @@ pub fn save_site(world: &mut World) {
         }
     }
 }
-
-pub struct SavePlugin;
-
-impl Plugin for SavePlugin {
-    fn build(&self, app: &mut App) {
-        app.add_event::<SaveSite>()
-            .add_system(save_site.exclusive_system());
-    }
-}

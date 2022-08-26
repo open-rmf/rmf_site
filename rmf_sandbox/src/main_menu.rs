@@ -18,7 +18,7 @@
 use super::demo_world::demo_office;
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
-use crate::{AppState, OpenedMapFile, site::LoadSite};
+use crate::{AppState, OpenedMapFile, site::LoadSite, interaction::InteractionState};
 use rmf_site_format::{
     Site,
     legacy::building_map::BuildingMap,
@@ -175,6 +175,7 @@ fn site_file_load_complete(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut LoadSiteFileTask)>,
     mut app_state: ResMut<State<AppState>>,
+    mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
 ) {
     for (entity, mut task) in tasks.iter_mut() {
@@ -193,6 +194,7 @@ fn site_file_load_complete(
                                 focus: true,
                                 default_file: file.map(|f| f.0),
                             });
+                            interaction_state.set(InteractionState::Enable);
                         }
                         Err(err) => {
                             println!("Failed to enter traffic editor: {:?}", err);

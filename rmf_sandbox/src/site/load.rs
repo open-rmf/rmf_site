@@ -74,11 +74,11 @@ fn generate_site_entities(
                         let anchor_entity = level
                             .spawn()
                             .insert(Anchor(anchor.0, anchor.1))
-                            .insert(AnchorDependents::default())
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
                         consider_id(*anchor_id);
+                        println!("anchor: {anchor_id} -> {anchor_entity:?}");
                     }
 
                     for (door_id, door) in &level_data.doors {

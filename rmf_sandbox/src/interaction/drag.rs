@@ -174,7 +174,7 @@ pub fn update_drag_motions(
     drag_plane: Query<(&DragPlane, &Draggable, &GlobalTransform), Without<DragAxis>>,
     transforms: Query<(&Transform, &GlobalTransform), Without<Draggable>>,
     cameras: Query<&Camera>,
-    camera_controls: Query<&CameraControls>,
+    camera_controls: Res<CameraControls>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
 ) {
@@ -183,7 +183,7 @@ pub fn update_drag_motions(
         None => { return; }
     };
 
-    let active_camera = camera_controls.single().active_camera();
+    let active_camera = camera_controls.active_camera();
     let ray = if let Some(camera) = cameras.get(active_camera).ok() {
         let camera_tf = match transforms.get(active_camera).ok() {
             Some(tf) => tf.1.clone(),

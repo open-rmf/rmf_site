@@ -22,24 +22,36 @@ use crate::{
     interaction::Selectable,
 };
 
+pub fn init_measurements(
+    mut commands: Commands,
+    measurements: Query<Entity, Added<Measurement<Entity>>>,
+) {
+    for e in &measurements {
+        commands.entity(e).insert(Pending);
+    }
+}
+
 pub fn add_measurement_visuals(
     mut commands: Commands,
-    measurements: Query<(Entity, &Measurement<Entity>), Added<Measurement<Entity>>>,
+    measurements: Query<(Entity, &Measurement<Entity>), With<Pending>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, new_measurement) in &measurements {
-        let start_anchor = anchors.get(new_measurement.anchors.0).unwrap();
-        let end_anchor = anchors.get(new_measurement.anchors.1).unwrap();
-
-        commands.entity(e)
-            .insert_bundle(PbrBundle{
-                mesh: assets.lane_mid_mesh.clone(),
-                material: assets.measurement_material.clone(),
-                transform: line_stroke_transform(start_anchor, end_anchor),
-                ..default()
-            })
-            .insert(Selectable::new(e));
+        if let (Ok(start_anchor), Ok(end_anchor)) = (
+            anchors.get(new_measurement.anchors.0),
+            anchors.get(new_measurement.anchors.1),
+        ) {
+            commands.entity(e)
+                .insert_bundle(PbrBundle{
+                    mesh: assets.lane_mid_mesh.clone(),
+                    material: assets.measurement_material.clone(),
+                    transform: line_stroke_transform(start_anchor, end_anchor),
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .remove::<Pending>();
+        }
     }
 }
 

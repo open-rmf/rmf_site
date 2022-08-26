@@ -39,11 +39,6 @@ pub fn add_anchor_visual_cues(
 ) {
     for (e, anchor) in &new_anchors {
         let mut commands = commands.entity(e);
-        commands.insert_bundle(SpatialBundle{
-            transform: anchor.transform(),
-            ..default()
-        });
-
         let (dagger, halo, body) = commands.add_children(|parent| {
             let dagger = parent
                 .spawn_bundle(PbrBundle{

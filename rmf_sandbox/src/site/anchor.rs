@@ -15,6 +15,7 @@
  *
 */
 
+use crate::site::*;
 use std::collections::HashSet;
 use bevy::prelude::*;
 
@@ -65,6 +66,21 @@ pub struct PreviewAnchor {
     /// is helpful for sending dependents back to their original anchor if the
     /// user cancels the add-anchor interaction mode.
     replacing: Option<Entity>,
+}
+
+pub fn init_anchor(
+    mut commands: Commands,
+    new_anchors: Query<(Entity, &Anchor), Added<Anchor>>,
+    site_assets: Res<SiteAssets>,
+) {
+    for (e, anchor) in &new_anchors {
+        let mut commands = commands.entity(e);
+        commands.insert_bundle(SpatialBundle{
+            transform: anchor.transform(),
+            ..default()
+        })
+        .insert(AnchorDependents::default());
+    }
 }
 
 pub fn update_changed_anchor_visuals(

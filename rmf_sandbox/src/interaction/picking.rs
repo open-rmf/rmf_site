@@ -55,11 +55,11 @@ pub struct PickableBundle {
 
 pub fn update_picking_cam(
     mut commands: Commands,
-    camera_controls: Query<&CameraControls, Changed<CameraControls>>,
+    camera_controls: Res<CameraControls>,
     picking_cams: Query<Entity, With<PickingCamera>>,
 ) {
-    for controls in &camera_controls {
-        let active_camera = controls.active_camera();
+    if camera_controls.is_changed() {
+        let active_camera = camera_controls.active_camera();
         if picking_cams
             .get_single()
             .ok()
@@ -71,7 +71,7 @@ pub fn update_picking_cam(
             }
 
             commands
-                .entity(controls.active_camera())
+                .entity(camera_controls.active_camera())
                 .insert_bundle(PickingCameraBundle::default());
         }
     }

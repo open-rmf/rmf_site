@@ -60,7 +60,7 @@ fn make_floor_mesh(
         let result = tessellator.tessellate_path(
             path.as_slice(),
             &FillOptions::default(),
-            &mut vertex_builder
+            &mut vertex_builder,
         );
 
         match result {
@@ -85,6 +85,11 @@ fn make_floor_mesh(
     ).collect();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+    for i in 0..buffers.indices.len()/3 {
+        let i1 = 3*i+1;
+        let i2 = 3*i+2;
+        buffers.indices.swap(i1, i2);
+    }
     let indices = buffers.indices.drain(..).map(|v| v as u32).collect();
     mesh.set_indices(Some(Indices::U32(indices)));
     mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);

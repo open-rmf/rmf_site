@@ -58,9 +58,18 @@ fn should_display_lane(
     return false;
 }
 
+pub fn init_lanes(
+    mut commands: Commands,
+    lanes: Query<Entity, Added<Lane<Entity>>>,
+) {
+    for e in &lanes {
+        commands.entity(e).insert(Pending);
+    }
+}
+
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
+    lanes: Query<(Entity, &Lane<Entity>), With<Pending>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependencies: Query<&mut AnchorDependents>,
     parents: Query<&Parent, With<Anchor>>,
@@ -68,52 +77,56 @@ pub fn add_lane_visuals(
     current_level: Res<CurrentLevel>,
 ) {
     for (e, new_lane) in &lanes {
-        let start_anchor = anchors.get(new_lane.anchors.0).unwrap();
-        let end_anchor = anchors.get(new_lane.anchors.1).unwrap();
-        let is_visible = should_display_lane(new_lane, &parents, current_level.as_ref());
+        if let (Ok(start_anchor), Ok(end_anchor)) = (
+            anchors.get(new_lane.anchors.0),
+            anchors.get(new_lane.anchors.1),
+        ) {
+            let is_visible = should_display_lane(new_lane, &parents, current_level.as_ref());
 
-        let mut commands = commands.entity(e);
-        let (start, mid, end) = commands.add_children(|parent| {
-            let start = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
-                    transform: start_anchor.compute_transform(),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .id();
+            let mut commands = commands.entity(e);
+            let (start, mid, end) = commands.add_children(|parent| {
+                let start = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: assets.lane_end_mesh.clone(),
+                        material: assets.passive_lane_material.clone(),
+                        transform: start_anchor.compute_transform(),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .id();
 
-            let mid = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
-                    transform: line_stroke_transform(start_anchor, end_anchor),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .id();
+                let mid = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: assets.lane_mid_mesh.clone(),
+                        material: assets.passive_lane_material.clone(),
+                        transform: line_stroke_transform(start_anchor, end_anchor),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .id();
 
-            let end = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
-                    transform: end_anchor.compute_transform(),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .id();
+                let end = parent
+                    .spawn_bundle(PbrBundle {
+                        mesh: assets.lane_end_mesh.clone(),
+                        material: assets.passive_lane_material.clone(),
+                        transform: end_anchor.compute_transform(),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .id();
 
-            (start, mid, end)
-        });
-
-        commands
-            .insert(LaneSegments{start, mid, end})
-            .insert_bundle(SpatialBundle{
-                transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
-                visibility: Visibility{is_visible},
-                ..default()
+                (start, mid, end)
             });
+
+            commands
+                .insert(LaneSegments{start, mid, end})
+                .insert_bundle(SpatialBundle{
+                    transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
+                    visibility: Visibility{is_visible},
+                    ..default()
+                })
+                .remove::<Pending>();
+        }
     }
 }
 
