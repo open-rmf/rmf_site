@@ -363,6 +363,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
 
     // Main body
     let mut mesh: Mesh = shape::Box::new(scale, scale, scale).into();
+    mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0);
 
     // Outside of the lens hood
     make_pyramid(Circle{radius: scale, height: 0.}, [0., 0., scale], 4)

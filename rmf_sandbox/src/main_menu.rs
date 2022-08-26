@@ -26,10 +26,10 @@ use rmf_site_format::{
 
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
-struct LoadMapResult(Option<OpenedMapFile>, Site);
+struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
 #[derive(Component)]
-struct LoadMapTask(Task<Option<LoadMapResult>>);
+struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
@@ -69,9 +69,9 @@ fn egui_ui(
                                     return None;
                                 }
                             };
-                            Some(LoadMapResult(None, site))
+                            Some(LoadSiteFileResult(None, site))
                         });
-                        _commands.spawn().insert(LoadMapTask(future));
+                        _commands.spawn().insert(LoadSiteFileTask(future));
                     }
 
                     // on web, we don't have a handy thread pool, so we'll
@@ -140,12 +140,12 @@ fn egui_ui(
                                 }
                             };
 
-                            Some(LoadMapResult(
+                            Some(LoadSiteFileResult(
                                 Some(OpenedMapFile(file.path().to_path_buf())),
                                 site,
                             ))
                         });
-                        _commands.spawn().insert(LoadMapTask(future));
+                        _commands.spawn().insert(LoadSiteFileTask(future));
                     }
                 }
 
@@ -171,9 +171,9 @@ fn egui_ui(
 
 /// Handles the file opening events
 #[cfg(not(target_arch = "wasm32"))]
-fn map_load_complete(
+fn site_file_load_complete(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &mut LoadMapTask)>,
+    mut tasks: Query<(Entity, &mut LoadSiteFileTask)>,
     mut app_state: ResMut<State<AppState>>,
     mut load_site: EventWriter<LoadSite>,
 ) {
@@ -187,7 +187,7 @@ fn map_load_complete(
                     println!("Entering traffic editor");
                     match app_state.set(AppState::SiteEditor) {
                         Ok(_) => {
-                            let LoadMapResult(file, site) = result;
+                            let LoadSiteFileResult(file, site) = result;
                             load_site.send(LoadSite{
                                 site,
                                 focus: true,
@@ -212,6 +212,6 @@ impl Plugin for MainMenuPlugin {
         app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(egui_ui));
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(map_load_complete));
+        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(site_file_load_complete));
     }
 }
