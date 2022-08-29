@@ -34,16 +34,29 @@ impl AnchorBundle {
         Self{
             anchor,
             transform: anchor.transform(),
+            global_transform: anchor.transform().into(),
             dependents: Default::default(),
             visibility: Default::default(),
             computed: Default::default(),
-            global_transform: Default::default(),
         }
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
         Self{
             visibility: Visibility{is_visible},
+            ..self
+        }
+    }
+
+    /// When the parent's GlobalTransform is not an identity matrix, this can
+    /// be used to make sure the initial GlobalTransform of the anchor entity
+    /// is immediately correct. Bevy's builtin transform propagation system will
+    /// make sure it is correct after one update cycle, but that could mean that
+    /// the anchor and its dependents have the wrong values until that cycle is
+    /// finished.
+    pub fn parent_transform(self, parent_tf: &GlobalTransform) -> Self {
+        Self{
+            global_transform: parent_tf.mul_transform(self.transform),
             ..self
         }
     }

@@ -10,6 +10,7 @@ use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
+mod aabb;
 mod animate;
 mod settings;
 use settings::*;
@@ -28,6 +29,7 @@ mod interaction;
 mod sandbox_asset_io;
 mod simulation_state;
 
+use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
 use deletion::DeletionPlugin;
@@ -106,6 +108,7 @@ pub fn run() {
         .add_plugins_with(DefaultPlugins, |group| {
             group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
         })
+        .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)

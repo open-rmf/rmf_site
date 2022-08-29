@@ -45,7 +45,6 @@ fn make_door_transforms(
     let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start+p_end)/2.0;
 
-    println!("Door yaw: {}", yaw.to_degrees());
     (
         Transform{
             translation: Vec3::new(center.x, center.y, 0.),
