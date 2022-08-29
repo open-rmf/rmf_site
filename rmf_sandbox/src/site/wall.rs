@@ -42,7 +42,43 @@ fn make_wall_components(
         let yaw = dp.y.atan2(dp.x);
         let center = (p_start + p_end)/2.0;
 
-        let mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT);
+        let mut mesh: Mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT).into();
+        // The default UV coordinates made by bevy do not work well for walls,
+        // so we customize them here
+        let uv = vec![
+            // Top
+            [0., 0.], // 0
+            [0., 0.], // 1
+            [0., 0.], // 2
+            [0., 0.], // 3
+            // Bottom
+            [0., 1.], // 4
+            [0., 1.], // 5
+            [0., 1.], // 6
+            [0., 1.], // 7
+            // right
+            [length, 1.], // 8
+            [0., 1.], // 9
+            [0., 0.], // 10
+            [length, 0.], // 11
+            // left
+            [0., 0.], // 12
+            [length, 0.], // 13
+            [length, 1.], // 14
+            [0., 1.], // 15
+            // front
+            [0., 1.], // 16
+            [length, 1.], // 17
+            [length, 0.], // 18
+            [0., 0.], // 19
+            // back
+            [length, 0.], // 20
+            [0., 0.], // 21
+            [0., 1.], // 22
+            [length, 1.], // 23
+        ];
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+
         let tf = Transform{
             translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT/2.0),
             rotation: Quat::from_rotation_z(yaw),

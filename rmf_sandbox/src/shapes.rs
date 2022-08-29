@@ -85,6 +85,13 @@ pub struct Circle {
     pub height: f32,
 }
 
+impl Circle {
+    fn flip_height(mut self) -> Self {
+        self.height = -self.height;
+        self
+    }
+}
+
 impl From<(f32, f32)> for Circle {
     fn from((radius, height): (f32, f32)) -> Self {
         Self { radius, height }
@@ -326,7 +333,9 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
-    make_pyramid(lower_ring, [0., 0., 0.], segments).merge_into(&mut mesh);
+    make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
+        .transform_by(Affine3A::from_quat(Quat::from_rotation_y(180_f32.to_radians())))
+        .merge_into(&mut mesh);
     return mesh;
 }
 
