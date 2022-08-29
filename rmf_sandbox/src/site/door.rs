@@ -33,18 +33,19 @@ pub struct DoorSegments {
 
 fn make_door_transforms(
     door: &Door<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
     let start_anchor = anchors.get(door.anchors.0).unwrap();
     let end_anchor = anchors.get(door.anchors.1).unwrap();
 
-    let p_start = start_anchor.vec();
-    let p_end = end_anchor.vec();
+    let p_start = start_anchor.translation();
+    let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
-    let yaw = dp.x.atan2(dp.y);
+    let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start+p_end)/2.0;
 
+    println!("Door yaw: {}", yaw.to_degrees());
     (
         Transform{
             translation: Vec3::new(center.x, center.y, 0.),
@@ -62,7 +63,8 @@ fn make_door_transforms(
 pub fn add_door_visuals(
     mut commands: Commands,
     doors: Query<(Entity, &Door<Entity>), Added<Door<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
 ) {
     for (e, new_door) in &doors {
@@ -85,6 +87,12 @@ pub fn add_door_visuals(
             ..default()
         })
         .insert(DoorSegments{entity: child});
+
+        for mut dep in dependents.get_many_mut(
+            [new_door.anchors.0, new_door.anchors.1]
+        ).unwrap() {
+            dep.dependents.insert(e);
+        }
     }
 }
 
@@ -92,7 +100,7 @@ fn update_door_visuals(
     entity: Entity,
     door: &Door<Entity>,
     segments: &DoorSegments,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
 ) {
     let (pose_tf, shape_tf) = make_door_transforms(door, anchors);
@@ -104,7 +112,7 @@ fn update_door_visuals(
 
 pub fn update_changed_door(
     doors: Query<(Entity, &Door<Entity>, &DoorSegments), Changed<Door<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
 ) {
     for (entity, door, segments) in &doors {
@@ -114,8 +122,8 @@ pub fn update_changed_door(
 
 pub fn update_door_for_changed_anchor(
     doors: Query<(Entity, &Door<Entity>, &DoorSegments)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
 ) {
     for changed_anchor in &changed_anchors {

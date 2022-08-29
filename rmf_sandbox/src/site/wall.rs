@@ -94,7 +94,7 @@ pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependencies: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -112,7 +112,9 @@ pub fn add_wall_visual(
             panic!("Anchor was not initialized correctly");
         }
 
-        for mut dep in dependencies.get_many_mut([new_wall.anchors.0, new_wall.anchors.1]).unwrap() {
+        for mut dep in dependents.get_many_mut(
+            [new_wall.anchors.0, new_wall.anchors.1]
+        ).unwrap() {
             dep.dependents.insert(e);
         }
     }
