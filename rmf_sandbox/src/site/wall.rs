@@ -54,19 +54,11 @@ fn make_wall_components(
     None
 }
 
-pub fn init_walls(
-    mut commands: Commands,
-    walls: Query<Entity, Added<Wall<Entity>>>,
-) {
-    for e in &walls {
-        commands.entity(e).insert(Pending);
-    }
-}
-
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Wall<Entity>), With<Pending>>,
+    walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependencies: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -79,8 +71,13 @@ pub fn add_wall_visual(
                     transform: tf,
                     ..default()
                 })
-                .insert(Selectable::new(e))
-                .remove::<Pending>();
+                .insert(Selectable::new(e));
+        } else {
+            panic!("Anchor was not initialized correctly");
+        }
+
+        for mut dep in dependencies.get_many_mut([new_wall.anchors.0, new_wall.anchors.1]).unwrap() {
+            dep.dependents.insert(e);
         }
     }
 }

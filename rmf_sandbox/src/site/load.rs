@@ -73,7 +73,7 @@ fn generate_site_entities(
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level
                             .spawn()
-                            .insert(Anchor(anchor.0, anchor.1))
+                            .insert_bundle(AnchorBundle::new(Anchor(anchor.0, anchor.1)))
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);

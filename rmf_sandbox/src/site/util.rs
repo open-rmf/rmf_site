@@ -40,7 +40,3 @@ pub fn line_stroke_transform(
 }
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
-
-/// This is a unit component given to entities with pending dependencies
-#[derive(Debug, Default, Clone, Copy, Component)]
-pub struct Pending;

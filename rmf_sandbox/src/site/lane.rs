@@ -58,29 +58,23 @@ fn should_display_lane(
     return false;
 }
 
-pub fn init_lanes(
-    mut commands: Commands,
-    lanes: Query<Entity, Added<Lane<Entity>>>,
-) {
-    for e in &lanes {
-        commands.entity(e).insert(Pending);
-    }
-}
-
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Lane<Entity>), With<Pending>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependencies: Query<&mut AnchorDependents>,
+    lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
+    mut anchors: Query<(&GlobalTransform, &mut AnchorDependents), With<Anchor>>,
     parents: Query<&Parent, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, new_lane) in &lanes {
-        if let (Ok(start_anchor), Ok(end_anchor)) = (
-            anchors.get(new_lane.anchors.0),
-            anchors.get(new_lane.anchors.1),
+        if let Ok([
+            (start_anchor, mut start_dep),
+            (end_anchor, mut end_dep)
+        ]) = anchors.get_many_mut(
+            [new_lane.anchors.0, new_lane.anchors.1]
         ) {
+            start_dep.dependents.insert(e);
+            end_dep.dependents.insert(e);
             let is_visible = should_display_lane(new_lane, &parents, current_level.as_ref());
 
             let mut commands = commands.entity(e);
@@ -124,8 +118,9 @@ pub fn add_lane_visuals(
                     transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                     visibility: Visibility{is_visible},
                     ..default()
-                })
-                .remove::<Pending>();
+                });
+        } else {
+            panic!("Anchor was not initialized correctly");
         }
     }
 }
