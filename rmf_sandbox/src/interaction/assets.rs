@@ -61,18 +61,18 @@ impl InteractionAssets {
             .insert(DragAxis{
                 along: [0., 0., 1.].into(),
             })
-            .insert(Draggable::new(for_entity, material_set))
+            .insert(Draggable::new(for_entity, Some(material_set)))
             .id()
         });
     }
 
-    pub fn make_vertex_draggable(
+    pub fn add_anchor_draggable_arrows(
         &self,
         command: &mut Commands,
-        vertex: Entity,
+        anchor: Entity,
         cue: &mut AnchorVisualCue,
     ) {
-        let drag_parent = command.entity(vertex).add_children(|parent| {
+        let drag_parent = command.entity(anchor).add_children(|parent| {
             parent.spawn_bundle(SpatialBundle::default()).id()
         });
 
@@ -101,22 +101,8 @@ impl InteractionAssets {
                 Quat::from_rotation_x(90_f32.to_radians()),
             )
         ] {
-            self.make_draggable_axis(command, vertex, drag_parent, m, p, r, scale);
+            self.make_draggable_axis(command, anchor, drag_parent, m, p, r, scale);
         }
-
-        command.entity(drag_parent).add_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
-                transform: Transform::from_translation([0., 0., height].into())
-                .with_scale(Vec3::splat(0.75*(scale+offset))),
-                mesh: self.flat_square_mesh.clone(),
-                material: self.z_plane_materials.passive.clone(),
-                ..default()
-            })
-            .insert(DragPlane{
-                in_plane: Vec3::new(0., 0., 1.),
-            })
-            .insert(Draggable::new(vertex, self.z_plane_materials.clone()));
-        });
 
         cue.drag = Some(drag_parent);
     }

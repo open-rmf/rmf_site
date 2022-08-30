@@ -62,14 +62,16 @@ impl DraggableMaterialSet {
 #[derive(Component, Debug, Clone)]
 pub struct Draggable {
     pub for_entity: Entity,
-    pub materials: DraggableMaterialSet,
+    /// If the material of the draggable entity should change when interacted
+    /// with, this field can be given the desired material set.
+    pub materials: Option<DraggableMaterialSet>,
     pub initial: Option<InitialDragConditions>,
 }
 
 impl Draggable {
     pub fn new(
         for_entity: Entity,
-        materials: DraggableMaterialSet,
+        materials: Option<DraggableMaterialSet>,
     ) -> Self {
         Self{for_entity, materials, initial: None}
     }
@@ -141,7 +143,9 @@ pub fn update_drag_click_start(
         if let Some(previous_pick) = pick.from {
             if *drag_state == DragState::Hovering(previous_pick) {
                 if let Ok((drag, mut material)) = draggables.get_mut(previous_pick) {
-                    *material = drag.materials.passive.clone();
+                    if let Some(drag_materials) = &drag.materials {
+                        *material = drag_materials.passive.clone();
+                    }
                 }
 
                 *drag_state = DragState::None;
@@ -153,7 +157,9 @@ pub fn update_drag_click_start(
                 if let Ok((mut drag, mut material)) = draggables.get_mut(new_pick) {
                     if drag.initial.is_none() {
                         set_visibility(cursor.frame, &mut visibility, false);
-                        *material = drag.materials.hover.clone();
+                        if let Some(drag_materials) = &drag.materials {
+                            *material = drag_materials.hover.clone();
+                        }
                     }
 
                     *drag_state = DragState::Hovering(new_pick);
@@ -175,7 +181,9 @@ pub fn update_drag_click_start(
                             click_point: intersection.clone(),
                             entity_tf: tf.compute_transform(),
                         });
-                        *material = drag.materials.drag.clone();
+                        if let Some(drag_materials) = &drag.materials {
+                            *material = drag_materials.drag.clone();
+                        }
                         *drag_state = DragState::Dragging(e);
                     }
                 } else {
@@ -200,7 +208,9 @@ pub fn update_drag_release(
         if let DragState::Dragging(e) = *drag_state {
             if let Ok((mut draggable, mut material)) = draggables.get_mut(e) {
                 draggable.initial = None;
-                *material = draggable.materials.passive.clone();
+                if let Some(drag_materials) = &draggable.materials {
+                    *material = drag_materials.passive.clone();
+                }
             }
 
             *drag_state = DragState::None;

@@ -76,8 +76,14 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_picking_cam)
                     .with_system(make_selectable_entities_pickable)
                     .with_system(handle_selection_picking)
-                    .with_system(maintain_selected_entities)
-                    .with_system(maintain_hovered_entities)
+                    .with_system(
+                        maintain_hovered_entities
+                        .after(handle_selection_picking)
+                    )
+                    .with_system(
+                        maintain_selected_entities
+                        .after(maintain_hovered_entities)
+                    )
                     .with_system(add_anchor_visual_cues)
                     .with_system(update_anchor_visual_cues)
                     .with_system(remove_deleted_supports_from_visual_cues)
@@ -85,7 +91,10 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_lane_visual_cues)
                     .with_system(update_floor_and_wall_visual_cues)
                     .with_system(make_gizmos_pickable)
-                    .with_system(update_drag_click_start)
+                    .with_system(
+                        update_drag_click_start
+                        .after(maintain_selected_entities)
+                    )
                     .with_system(update_drag_release)
                     .with_system(
                         update_drag_motions

@@ -70,6 +70,10 @@ pub fn add_anchor_visual_cues(
                     ..default()
                 })
                 .insert(Selectable::new(e))
+                .insert(DragPlane{
+                    in_plane: Vec3::new(0., 1., 0.),
+                })
+                .insert(Draggable::new(e, None))
                 .id();
 
             (dagger, halo, body)
@@ -143,7 +147,7 @@ pub fn update_anchor_visual_cues(
         if select_tracker.is_changed() {
             if selected.cue() {
                 if cue.drag.is_none() {
-                    interaction_assets.make_vertex_draggable(&mut command, v, cue.as_mut());
+                    interaction_assets.add_anchor_draggable_arrows(&mut command, v, cue.as_mut());
                 }
             } else {
                 if let Some(drag) = cue.drag {
