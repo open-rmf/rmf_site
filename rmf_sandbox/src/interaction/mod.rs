@@ -33,6 +33,9 @@ pub use drag::*;
 pub mod lane;
 pub use lane::*;
 
+pub mod misc;
+pub use misc::*;
+
 pub mod picking;
 pub use picking::*;
 
@@ -89,7 +92,8 @@ impl Plugin for InteractionPlugin {
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(add_lane_visual_cues)
                     .with_system(update_lane_visual_cues)
-                    .with_system(update_floor_and_wall_visual_cues)
+                    .with_system(add_misc_visual_cues)
+                    .with_system(update_misc_visual_cues)
                     .with_system(make_gizmos_pickable)
                     .with_system(
                         update_drag_click_start
@@ -112,9 +116,6 @@ impl Plugin for InteractionPlugin {
             )
             .add_system_set_to_stage(
                 CoreStage::First,
-                // TODO(MXG): See if this works as expected. I have read that
-                // states do not work correctly across multiple stages?
-                // SystemSet::on_update(InteractionState::Enable)
                 SystemSet::new()
                     .with_system(
                         update_picked.after(PickingSystem::UpdateIntersections)
@@ -136,35 +137,5 @@ fn set_material(
 ) {
     if let Some(mut m) = q_materials.get_mut(entity).ok() {
         *m = to_material.clone();
-    }
-}
-
-// TODO(MXG): Customize the behavior of floor, wall, and model visual cues
-#[derive(Component)]
-pub struct FloorVisualCue;
-
-#[derive(Component)]
-pub struct WallVisualCue;
-
-#[derive(Component)]
-pub struct DefaultVisualCue;
-
-pub fn update_floor_and_wall_visual_cues(
-    floors: Query<&Hovered, With<FloorVisualCue>>,
-    walls: Query<&Hovered, With<WallVisualCue>>,
-    everything_else: Query<&Hovered, With<DefaultVisualCue>>,
-    cursor: Res<Cursor>,
-    mut visibility: Query<&mut Visibility>,
-) {
-    for hovering in floors
-        .iter()
-        .chain(walls.iter())
-        .chain(everything_else.iter())
-    {
-        if hovering.cue() {
-            if let Some(mut v) = visibility.get_mut(cursor.frame).ok() {
-                v.is_visible = true;
-            }
-        }
     }
 }

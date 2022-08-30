@@ -23,6 +23,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::Intersection;
+use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
 /// displaying the 3D cursor
@@ -32,6 +33,37 @@ pub struct Cursor {
     pub halo: Entity,
     pub dagger: Entity,
     pub anchor_placement: Entity,
+    dependents: HashSet<Entity>,
+}
+
+impl Cursor {
+    pub fn add_dependent(
+        &mut self,
+        dependent: Entity,
+        visibility: &mut Query<&mut Visibility>,
+    ) {
+        if self.dependents.insert(dependent) {
+            if self.dependents.len() == 1 {
+                if let Ok(mut v) = visibility.get_mut(self.frame) {
+                    v.is_visible = true;
+                }
+            }
+        }
+    }
+
+    pub fn remove_dependent(
+        &mut self,
+        dependent: Entity,
+        visibility: &mut Query<&mut Visibility>,
+    ) {
+        if self.dependents.remove(&dependent) {
+            if self.dependents.is_empty() {
+                if let Ok(mut v) = visibility.get_mut(self.frame) {
+                    v.is_visible = false;
+                }
+            }
+        }
+    }
 }
 
 impl FromWorld for Cursor {
@@ -41,6 +73,7 @@ impl FromWorld for Cursor {
         let site_assets = world.get_resource::<SiteAssets>()
             .expect("make sure that the SiteAssets resource is initialized before the Cursor resource");
         let halo_mesh = interaction_assets.halo_mesh.clone();
+        let halo_material = interaction_assets.halo_material.clone();
         let dagger_mesh = interaction_assets.dagger_mesh.clone();
         let dagger_material = interaction_assets.dagger_material.clone();
         let anchor_mesh = site_assets.anchor_mesh.clone();
@@ -50,16 +83,18 @@ impl FromWorld for Cursor {
             .insert_bundle(PbrBundle{
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                 mesh: halo_mesh,
-                visibility: Visibility { is_visible: false },
+                material: halo_material,
+                visibility: Visibility { is_visible: true },
                 ..default()
             })
+            .insert(Spinning::default())
             .id();
 
         let dagger = world.spawn()
             .insert_bundle(PbrBundle{
                 mesh: dagger_mesh,
                 material: dagger_material,
-                visibility: Visibility { is_visible: false },
+                visibility: Visibility { is_visible: true },
                 ..default()
             })
             .insert(Spinning::default())
@@ -89,6 +124,7 @@ impl FromWorld for Cursor {
             halo,
             dagger,
             anchor_placement,
+            dependents: Default::default(),
         }
     }
 }
