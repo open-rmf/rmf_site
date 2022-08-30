@@ -36,12 +36,12 @@ use crate::{
 
 fn make_floor_mesh(
     floor: &Floor<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> Mesh {
     let mut builder = Path::builder();
     let mut first = true;
     for anchor in &floor.anchors {
-        let p = anchors.get(*anchor).unwrap().vec();
+        let p = anchors.get(*anchor).unwrap().translation();
         if first {
             first = false;
             builder.begin(point(p.x, p.y));
@@ -102,7 +102,8 @@ fn make_floor_mesh(
 pub fn add_floor_visuals(
     mut commands: Commands,
     floors: Query<(Entity, &Floor<Entity>), Added<Floor<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -115,12 +116,17 @@ pub fn add_floor_visuals(
                 ..default()
             })
             .insert(Selectable::new(e));
+
+        for anchor in &new_floor.anchors {
+            let mut dep = dependents.get_mut(*anchor).unwrap();
+            dep.dependents.insert(e);
+        }
     }
 }
 
 pub fn update_changed_floor(
     mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>), Changed<Floor<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (mut mesh, floor) in &mut floors {
@@ -131,8 +137,8 @@ pub fn update_changed_floor(
 
 pub fn update_floor_for_changed_anchor(
     mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {
