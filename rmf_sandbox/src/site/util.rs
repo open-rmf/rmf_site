@@ -29,7 +29,7 @@ pub fn line_stroke_transform(
     let width = LANE_WIDTH;
 
     let yaw = dp.y.atan2(dp.x);
-    let tilt = dp.z.atan2(dp.x);
+    let tilt = dp.z.atan2(dp.x.abs());
     let center = (p_start + p_end)/2.0;
     Transform{
         translation: Vec3::new(center.x, center.y, 0.),
