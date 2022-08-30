@@ -53,8 +53,9 @@ pub fn add_anchor_visual_cues(
 
             let halo = parent
                 .spawn_bundle(PbrBundle{
-                    transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                     material: interaction_assets.halo_material.clone(),
+                    mesh: interaction_assets.halo_mesh.clone(),
+                    transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                     visibility: Visibility { is_visible: false },
                     ..default()
                 })
@@ -79,13 +80,14 @@ pub fn add_anchor_visual_cues(
 }
 
 pub fn move_anchor(
-    mut anchors: Query<&mut Anchor>,
+    mut anchors: Query<(&mut Anchor, &mut Transform)>,
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
-        if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
+        if let Ok((mut anchor, mut tf)) = anchors.get_mut(move_to.entity) {
             anchor.0 = move_to.transform.translation.x;
             anchor.1 = move_to.transform.translation.y;
+            *tf = anchor.transform();
         }
     }
 }

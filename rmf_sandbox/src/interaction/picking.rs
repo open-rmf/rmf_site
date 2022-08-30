@@ -104,6 +104,7 @@ pub fn update_picked(
     }
 
     if picked.0 != current_picked {
+        // dbg!(current_picked);
         change_pick.send(ChangePick{from: picked.0, to: current_picked});
         picked.as_mut().0 = current_picked;
     }

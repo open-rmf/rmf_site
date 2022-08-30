@@ -63,6 +63,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<SelectionBlockers>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()
+            .init_resource::<DragState>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -78,9 +79,9 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_selected_entities)
                     .with_system(maintain_hovered_entities)
                     .with_system(add_anchor_visual_cues)
-                    .with_system(move_anchor)
                     .with_system(update_anchor_visual_cues)
                     .with_system(remove_deleted_supports_from_visual_cues)
+                    .with_system(add_lane_visual_cues)
                     .with_system(update_lane_visual_cues)
                     .with_system(update_floor_and_wall_visual_cues)
                     .with_system(make_gizmos_pickable)
@@ -95,6 +96,10 @@ impl Plugin for InteractionPlugin {
             .add_system_set(
                 SystemSet::on_exit(InteractionState::Enable)
                     .with_system(hide_cursor)
+            )
+            .add_system_to_stage(
+                CoreStage::PostUpdate,
+                move_anchor,
             )
             .add_system_set_to_stage(
                 CoreStage::First,

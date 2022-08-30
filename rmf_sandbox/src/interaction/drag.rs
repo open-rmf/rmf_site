@@ -87,6 +87,26 @@ pub struct DragPlane {
     pub in_plane: Vec3,
 }
 
+/// Used as a resource to keep track of which draggable is currently hovered
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DragState {
+    Dragging(Entity),
+    Hovering(Entity),
+    None,
+}
+
+impl DragState {
+    pub fn is_dragging(&self) -> bool {
+        return matches!(self, DragState::Dragging(_));
+    }
+}
+
+impl Default for DragState {
+    fn default() -> Self {
+        DragState::None
+    }
+}
+
 /// Instruction to move an entity to a new transform. This should be caught with
 /// an EventReader<MoveTo>.
 #[derive(Debug, Clone, Copy)]
@@ -114,38 +134,54 @@ pub fn update_drag_click_start(
     transforms: Query<&GlobalTransform>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
     cursor: Res<Cursor>,
+    mut drag_state: ResMut<DragState>,
     mut picks: EventReader<ChangePick>,
 ) {
-    let clicked = mouse_button_input.just_pressed(MouseButton::Left)
-        || touch_input.iter_just_pressed().next().is_some();
-
     for pick in picks.iter() {
         if let Some(previous_pick) = pick.from {
-            if let Ok((drag, mut material)) = draggables.get_mut(previous_pick) {
-                if drag.initial.is_none() {
+            if *drag_state == DragState::Hovering(previous_pick) {
+                if let Ok((drag, mut material)) = draggables.get_mut(previous_pick) {
                     *material = drag.materials.passive.clone();
                 }
+
+                *drag_state = DragState::None;
             }
         }
 
-        if let Some(new_pick) = pick.to {
-            if let Ok((mut drag, mut material)) = draggables.get_mut(new_pick) {
-                if clicked {
-                    if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
-                        if let Ok(tf) = transforms.get(drag.for_entity) {
-                            selection_blocker.dragging = true;
-                            drag.initial = Some(InitialDragConditions{
-                                click_point: intersection.clone(),
-                                entity_tf: tf.compute_transform(),
-                            });
-                            *material = drag.materials.drag.clone();
-                        }
-                    }
-                } else {
+        if !drag_state.is_dragging() {
+            if let Some(new_pick) = pick.to {
+                if let Ok((mut drag, mut material)) = draggables.get_mut(new_pick) {
                     if drag.initial.is_none() {
                         set_visibility(cursor.frame, &mut visibility, false);
-                        *material = drag.materials.drag.clone();
+                        *material = drag.materials.hover.clone();
                     }
+
+                    *drag_state = DragState::Hovering(new_pick);
+                }
+            }
+        }
+    }
+
+    let clicked = mouse_button_input.just_pressed(MouseButton::Left)
+        || touch_input.iter_just_pressed().next().is_some();
+
+    if clicked {
+        if let DragState::Hovering(e) = *drag_state {
+            if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
+                if let Ok((mut drag, mut material)) = draggables.get_mut(e) {
+                    if let Ok(tf) = transforms.get(drag.for_entity) {
+                        selection_blocker.dragging = true;
+                        drag.initial = Some(InitialDragConditions{
+                            click_point: intersection.clone(),
+                            entity_tf: tf.compute_transform(),
+                        });
+                        *material = drag.materials.drag.clone();
+                        *drag_state = DragState::Dragging(e);
+                    }
+                } else {
+                    // The hovered draggable is no longer draggable, so change the
+                    // drag state to none
+                    *drag_state = DragState::None;
                 }
             }
         }
@@ -155,97 +191,110 @@ pub fn update_drag_click_start(
 pub fn update_drag_release(
     mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
     mut selection_blockers: ResMut<SelectionBlockers>,
+    mut drag_state: ResMut<DragState>,
     mouse_button_input: Res<Input<MouseButton>>,
+    picked: Res<Picked>,
+    mut change_pick: EventWriter<ChangePick>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        for (mut draggable, mut material) in &mut draggables {
-            if draggable.initial.is_some() {
+        if let DragState::Dragging(e) = *drag_state {
+            if let Ok((mut draggable, mut material)) = draggables.get_mut(e) {
                 draggable.initial = None;
                 *material = draggable.materials.passive.clone();
             }
-        }
 
-        selection_blockers.dragging = false;
+            *drag_state = DragState::None;
+            selection_blockers.dragging = false;
+            // Refresh the latest pick since some pick responders were blocked
+            // during the dragging activity. Without this event, users will have
+            // to move the cursor off of whatever object it happens to be
+            // hovering over after the drag is finished before interactions like
+            // selecting or dragging can resume.
+            change_pick.send(ChangePick{from: None, to: picked.0});
+        }
     }
 }
 
 pub fn update_drag_motions(
     drag_axis: Query<(&DragAxis, &Draggable, &GlobalTransform), Without<DragPlane>>,
     drag_plane: Query<(&DragPlane, &Draggable, &GlobalTransform), Without<DragAxis>>,
-    transforms: Query<(&Transform, &GlobalTransform), Without<Draggable>>,
+    transforms: Query<(&Transform, &GlobalTransform)>,
     cameras: Query<&Camera>,
     camera_controls: Res<CameraControls>,
+    drag_state: Res<DragState>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
 ) {
-    let cursor_position = match cursor_motion.iter().last() {
-        Some(m) => m.position,
-        None => { return; }
-    };
-
-    let active_camera = camera_controls.active_camera();
-    let ray = if let Some(camera) = cameras.get(active_camera).ok() {
-        let camera_tf = match transforms.get(active_camera).ok() {
-            Some(tf) => tf.1.clone(),
+    if let DragState::Dragging(dragging) = *drag_state {
+        let cursor_position = match cursor_motion.iter().last() {
+            Some(m) => m.position,
             None => { return; }
         };
 
-        match Ray3d::from_screenspace(cursor_position, camera, &camera_tf) {
-            Some(ray) => ray,
-            None => { return; }
-        }
-    } else {
-        return;
-    };
+        let active_camera = camera_controls.active_camera();
+        let ray = if let Some(camera) = cameras.get(active_camera).ok() {
+            let camera_tf = match transforms.get(active_camera).ok() {
+                Some(tf) => tf.1.clone(),
+                None => { return; }
+            };
 
-    for (axis, draggable, drag_tf) in &drag_axis {
-        if let Some(initial) = &draggable.initial {
-            if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
-                let n = drag_tf.affine().transform_vector3(axis.along).normalize_or_zero();
-                let dp = ray.origin() - initial.click_point;
-                let a = ray.direction().dot(n);
-                let b = ray.direction().dot(dp);
-                let c = n.dot(dp);
+            match Ray3d::from_screenspace(cursor_position, camera, &camera_tf) {
+                Some(ray) => ray,
+                None => { return; }
+            }
+        } else {
+            return;
+        };
 
-                let denom = a.powi(2) - 1.;
-                if denom.abs() < 1e-3 {
-                    // The rays are nearly parallel, so we should not attempt moving
-                    // because the motion will be too extreme
-                    continue;
+        if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging) {
+            if let Some(initial) = &draggable.initial {
+                if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
+                    let n = drag_tf.affine().transform_vector3(axis.along).normalize_or_zero();
+                    let dp = ray.origin() - initial.click_point;
+                    let a = ray.direction().dot(n);
+                    let b = ray.direction().dot(dp);
+                    let c = n.dot(dp);
+
+                    let denom = a.powi(2) - 1.;
+                    if denom.abs() < 1e-3 {
+                        // The rays are nearly parallel, so we should not attempt moving
+                        // because the motion will be too extreme
+                        return;
+                    }
+
+                    let t = (a*b - c)/denom;
+                    let delta = t*n;
+                    let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
+                    let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                    move_to.send(MoveTo{
+                        entity: draggable.for_entity,
+                        transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into()),
+                    });
                 }
-
-                let t = (a*b - c)/denom;
-                let delta = t*n;
-                let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
-                let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                move_to.send(MoveTo{
-                    entity: draggable.for_entity,
-                    transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into()),
-                });
             }
         }
-    }
 
-    for (plane, draggable, drag_tf) in &drag_plane {
-        if let Some(initial) = &draggable.initial {
-            if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
-                let n_p = drag_tf.affine().transform_vector3(plane.in_plane).normalize_or_zero();
-                let n_r = ray.direction();
-                let denom = n_p.dot(n_r);
-                if denom.abs() < 1e-3 {
-                    // The rays are nearly parallel so we should not attempt moving
-                    // because the motion will be too extreme
-                    continue;
+        if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging) {
+            if let Some(initial) = &draggable.initial {
+                if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
+                    let n_p = drag_tf.affine().transform_vector3(plane.in_plane).normalize_or_zero();
+                    let n_r = ray.direction();
+                    let denom = n_p.dot(n_r);
+                    if denom.abs() < 1e-3 {
+                        // The rays are nearly parallel so we should not attempt moving
+                        // because the motion will be too extreme
+                        return;
+                    }
+
+                    let t = (initial.click_point - ray.origin()).dot(n_p)/denom;
+                    let delta = ray.position(t) - initial.click_point;
+                    let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
+                    let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                    move_to.send(MoveTo{
+                        entity: draggable.for_entity,
+                        transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into())
+                    });
                 }
-
-                let t = (initial.click_point - ray.origin()).dot(n_p)/denom;
-                let delta = ray.position(t) - initial.click_point;
-                let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
-                let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                move_to.send(MoveTo{
-                    entity: draggable.for_entity,
-                    transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into())
-                });
             }
         }
     }

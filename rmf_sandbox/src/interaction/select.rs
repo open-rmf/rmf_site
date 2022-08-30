@@ -137,31 +137,62 @@ pub fn make_selectable_entities_pickable(
 
 pub fn handle_selection_picking(
     blockers: Option<Res<SelectionBlockers>>,
-    mouse_button_input: Res<Input<MouseButton>>,
-    touch_input: Res<Touches>,
     selectables: Query<&Selectable>,
     mut picks: EventReader<ChangePick>,
-    mut select: EventWriter<Select>,
     mut hover: EventWriter<Hover>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
             hover.send(Hover(None));
+            return;
+        }
+    }
+
+    for pick in picks.iter() {
+        hover.send(Hover(
+            pick.to.and_then(|change_pick_to| {
+                selectables.get(change_pick_to).ok().map(
+                    |selectable| {
+                        selectable.element
+                    }
+                )
+            })
+        ));
+    }
+}
+
+pub fn maintain_hovered_entities(
+    mut hovering: Query<&mut Hovered>,
+    mut hovered: ResMut<Hovering>,
+    mut hover: EventReader<Hover>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    touch_input: Res<Touches>,
+    mut select: EventWriter<Select>,
+) {
+    if let Some(new_hovered) = hover.iter().last() {
+        if hovered.0 != new_hovered.0 {
+            if let Some(previous_hovered) = hovered.0 {
+                if let Ok(mut hovering) = hovering.get_mut(previous_hovered) {
+                    hovering.is_hovering = false;
+                }
+            }
+
+            if let Some(new_hovered) = new_hovered.0 {
+                if let Ok(mut hovering) = hovering.get_mut(new_hovered) {
+                    hovering.is_hovering = true;
+                }
+            }
+
+            hovered.0 = new_hovered.0;
         }
     }
 
     let clicked = mouse_button_input.just_pressed(MouseButton::Left)
         || touch_input.iter_just_pressed().next().is_some();
 
-    for pick in picks.iter() {
-        if let Some(change_pick_to) = pick.to {
-            if let Ok(selectable) = selectables.get(change_pick_to) {
-                if clicked {
-                    select.send(Select(Some(selectable.element)));
-                }
-
-                hover.send(Hover(Some(selectable.element)));
-            }
+    if clicked {
+        if let Some(current_hovered) = hovered.0 {
+            select.send(Select(Some(current_hovered)));
         }
     }
 }
@@ -186,30 +217,6 @@ pub fn maintain_selected_entities(
             }
 
             selection.0 = new_selection.0;
-        }
-    }
-}
-
-pub fn maintain_hovered_entities(
-    mut hovering: Query<&mut Hovered>,
-    mut hovered: ResMut<Hovering>,
-    mut hover: EventReader<Hover>,
-) {
-    if let Some(new_hovered) = hover.iter().last() {
-        if hovered.0 != new_hovered.0 {
-            if let Some(previous_hovered) = hovered.0 {
-                if let Ok(mut hovering) = hovering.get_mut(previous_hovered) {
-                    hovering.is_hovering = false;
-                }
-            }
-
-            if let Some(new_hovered) = new_hovered.0 {
-                if let Ok(mut hovering) = hovering.get_mut(new_hovered) {
-                    hovering.is_hovering = true;
-                }
-            }
-
-            hovered.0 = new_hovered.0;
         }
     }
 }

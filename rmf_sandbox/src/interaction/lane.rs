@@ -30,6 +30,17 @@ pub struct LaneVisualCue {
     supporters: Option<(Entity, Entity)>,
 }
 
+pub fn add_lane_visual_cues(
+    mut commands: Commands,
+    new_lanes: Query<(Entity, &Lane<Entity>), Without<LaneVisualCue>>,
+) {
+    for (e, lane) in &new_lanes {
+        commands.entity(e).insert(LaneVisualCue{
+            supporters: Some((lane.anchors.0, lane.anchors.1))
+        });
+    }
+}
+
 pub fn update_lane_visual_cues(
     mut lanes: Query<
         (
