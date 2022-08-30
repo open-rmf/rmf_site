@@ -86,7 +86,6 @@ pub fn add_lane_visuals(
                         transform: start_anchor.compute_transform(),
                         ..default()
                     })
-                    .insert(Selectable::new(e))
                     .id();
 
                 let mid = parent
@@ -106,7 +105,6 @@ pub fn add_lane_visuals(
                         transform: end_anchor.compute_transform(),
                         ..default()
                     })
-                    .insert(Selectable::new(e))
                     .id();
 
                 (start, mid, end)

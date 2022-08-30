@@ -29,13 +29,13 @@ pub struct LiftSegments {
 
 fn make_lift_transforms(
     lift: &Lift<Entity>,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
     let start_anchor = anchors.get(lift.reference_anchors.0).unwrap();
     let end_anchor = anchors.get(lift.reference_anchors.1).unwrap();
 
-    let p_start = start_anchor.vec();
-    let p_end = end_anchor.vec();
+    let p_start = start_anchor.translation();
+    let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = dp.x.atan2(dp.y);
@@ -71,7 +71,7 @@ fn make_lift_transforms(
 pub fn add_lift_visuals(
     mut commands: Commands,
     lifts: Query<(Entity, &Lift<Entity>), Added<Lift<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, lift) in &lifts {
@@ -101,7 +101,7 @@ fn update_lift_visuals(
     entity: Entity,
     lift: &Lift<Entity>,
     segments: &LiftSegments,
-    anchors: &Query<&Anchor>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
 ) {
     let (pose_tf, shape_tf) = make_lift_transforms(lift, anchors);
@@ -113,7 +113,7 @@ fn update_lift_visuals(
 
 pub fn update_changed_lift(
     lifts: Query<(Entity, &Lift<Entity>, &LiftSegments), Changed<Lift<Entity>>>,
-    anchors: Query<&Anchor>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
 ) {
     for (entity, lift, segments) in &lifts {
@@ -123,8 +123,8 @@ pub fn update_changed_lift(
 
 pub fn update_lift_for_changed_anchor(
     lifts: Query<(Entity, &Lift<Entity>, &LiftSegments)>,
-    anchors: Query<&Anchor>,
-    changed_anchors: Query<&AnchorDependents, Changed<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
     mut transforms: Query<&mut Transform>
 ) {
     for changed_anchor in &changed_anchors {

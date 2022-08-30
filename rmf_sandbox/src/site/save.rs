@@ -195,7 +195,7 @@ fn generate_levels(
     site: Entity,
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID, &Parent)>,
+        Query<(&Transform, &SiteID, &Parent), With<Anchor>>,
         Query<(&Door<Entity>, &SiteID, &Parent)>,
         Query<(&Drawing, &SiteID, &Parent)>,
         Query<(&Fiducial<Entity>, &SiteID, &Parent)>,
@@ -252,10 +252,11 @@ fn generate_levels(
         Ok(anchor_ids)
     };
 
-    for (anchor, id, parent) in &q_anchors {
+    for (anchor_tf, id, parent) in &q_anchors {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.anchors.insert(id.0, anchor.into());
+                let p = anchor_tf.translation;
+                level.anchors.insert(id.0, (p.x, p.y));
             }
         }
     }
@@ -345,7 +346,7 @@ fn generate_lifts(
     site: Entity,
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID)>,
+        Query<(&Transform, &SiteID), With<Anchor>>,
         Query<&SiteID, With<Door<Entity>>>,
         Query<&SiteID, With<LevelProperties>>,
         Query<(Entity, &Lift<Entity>, &SiteID, &Parent)>,
@@ -459,8 +460,9 @@ fn generate_lifts(
         let mut cabin_anchors = BTreeMap::new();
         if let Ok(children) = q_children.get(entity) {
             for child in children {
-                if let Ok((anchor, site_id)) = q_anchors.get(*child) {
-                    cabin_anchors.insert(site_id.0, anchor.into());
+                if let Ok((anchor_tf, site_id)) = q_anchors.get(*child) {
+                    let p = anchor_tf.translation;
+                    cabin_anchors.insert(site_id.0, (p.x, p.y));
                 }
             }
         }

@@ -88,12 +88,21 @@ impl Plugin for InteractionPlugin {
                         .after(maintain_hovered_entities)
                     )
                     .with_system(add_anchor_visual_cues)
-                    .with_system(update_anchor_visual_cues)
+                    .with_system(
+                        update_anchor_visual_cues
+                        .after(maintain_selected_entities)
+                    )
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(add_lane_visual_cues)
-                    .with_system(update_lane_visual_cues)
+                    .with_system(
+                        update_lane_visual_cues
+                        .after(maintain_selected_entities)
+                    )
                     .with_system(add_misc_visual_cues)
-                    .with_system(update_misc_visual_cues)
+                    .with_system(
+                        update_misc_visual_cues
+                        .after(maintain_selected_entities)
+                    )
                     .with_system(make_gizmos_pickable)
                     .with_system(
                         update_drag_click_start

@@ -84,14 +84,13 @@ pub fn add_anchor_visual_cues(
 }
 
 pub fn move_anchor(
-    mut anchors: Query<(&mut Anchor, &mut Transform)>,
+    mut anchors: Query<&mut Transform, With<Anchor>>,
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
-        if let Ok((mut anchor, mut tf)) = anchors.get_mut(move_to.entity) {
-            anchor.0 = move_to.transform.translation.x;
-            anchor.1 = move_to.transform.translation.y;
-            *tf = anchor.transform();
+        if let Ok(mut tf) = anchors.get_mut(move_to.entity) {
+            tf.translation.x = move_to.transform.translation.x;
+            tf.translation.y = move_to.transform.translation.y;
         }
     }
 }

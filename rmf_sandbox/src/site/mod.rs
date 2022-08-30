@@ -98,7 +98,6 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site)
-                    .with_system(update_changed_anchor_visuals)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
                     .with_system(update_door_for_changed_anchor)

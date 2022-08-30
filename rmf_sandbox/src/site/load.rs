@@ -73,12 +73,11 @@ fn generate_site_entities(
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level
                             .spawn()
-                            .insert_bundle(AnchorBundle::new(Anchor(anchor.0, anchor.1)))
+                            .insert_bundle(AnchorBundle::new(*anchor))
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
                         consider_id(*anchor_id);
-                        println!("anchor: {anchor_id} -> {anchor_entity:?}");
                     }
 
                     for (door_id, door) in &level_data.doors {
@@ -167,8 +166,7 @@ fn generate_site_entities(
                         for (anchor_id, anchor) in &lift_data.cabin_anchors {
                             let anchor_entity = lift
                                 .spawn()
-                                .insert(Anchor(anchor.0, anchor.1))
-                                .insert(AnchorDependents::default())
+                                .insert_bundle(AnchorBundle::new(*anchor))
                                 .insert(SiteID(*anchor_id))
                                 .id();
                             id_to_entity.insert(*anchor_id, anchor_entity);

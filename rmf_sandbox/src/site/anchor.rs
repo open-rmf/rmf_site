@@ -30,11 +30,12 @@ pub struct AnchorBundle {
 }
 
 impl AnchorBundle {
-    pub fn new(anchor: Anchor) -> Self {
+    pub fn new(anchor: (f32, f32)) -> Self {
+        let transform = Transform::from_translation([anchor.0, anchor.1, 0.].into());
         Self{
-            anchor,
-            transform: anchor.transform(),
-            global_transform: anchor.transform().into(),
+            transform,
+            global_transform: transform.into(),
+            anchor: Default::default(),
             dependents: Default::default(),
             visibility: Default::default(),
             computed: Default::default(),
@@ -62,38 +63,8 @@ impl AnchorBundle {
     }
 }
 
-#[derive(Component, Clone, Copy, Debug)]
-pub struct Anchor(pub f32, pub f32);
-
-impl Anchor {
-    pub fn vec(&self) -> Vec2 {
-        Vec2::new(self.0, self.1)
-    }
-
-    pub fn x(&self) -> f32 {
-        self.0
-    }
-
-    pub fn y(&self) -> f32 {
-        self.1
-    }
-
-    pub fn transform(&self) -> Transform {
-        Transform::from_xyz(self.0, self.1, 0.0)
-    }
-}
-
-impl From<Anchor> for (f32, f32) {
-    fn from(anchor: Anchor) -> Self {
-        (anchor.0, anchor.1)
-    }
-}
-
-impl From<&Anchor> for (f32, f32) {
-    fn from(anchor: &Anchor) -> Self {
-        (anchor.0, anchor.1)
-    }
-}
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct Anchor;
 
 #[derive(Component, Debug, Default, Clone)]
 pub struct AnchorDependents {
@@ -109,12 +80,4 @@ pub struct PreviewAnchor {
     /// is helpful for sending dependents back to their original anchor if the
     /// user cancels the add-anchor interaction mode.
     replacing: Option<Entity>,
-}
-
-pub fn update_changed_anchor_visuals(
-    mut anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
-) {
-    for (anchor, mut tf) in &mut anchors {
-        *tf = anchor.transform();
-    }
 }
