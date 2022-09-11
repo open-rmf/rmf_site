@@ -38,7 +38,7 @@ fn make_lift_transforms(
     let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
-    let yaw = dp.x.atan2(dp.y);
+    let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start+p_end)/2.0;
 
     let lift_tf = Transform{
@@ -72,6 +72,7 @@ pub fn add_lift_visuals(
     mut commands: Commands,
     lifts: Query<(Entity, &Lift<Entity>), Added<Lift<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
 ) {
     for (e, lift) in &lifts {
@@ -94,6 +95,12 @@ pub fn add_lift_visuals(
             ..default()
         })
         .insert(LiftSegments{cabin: child});
+
+        for mut dep in dependents.get_many_mut(
+            [lift.reference_anchors.0, lift.reference_anchors.1]
+        ).unwrap() {
+            dep.dependents.insert(e);
+        }
     }
 }
 
