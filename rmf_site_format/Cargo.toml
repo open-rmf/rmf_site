@@ -11,7 +11,7 @@ crate-type = ["rlib"]
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "*"
-ron = "*"
+ron = "0.7"
 thiserror = "*"
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { version = "0.8", optional = true }

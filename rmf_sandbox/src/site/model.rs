@@ -55,7 +55,7 @@ pub fn update_models(
         loading_models: &mut LoadingModels,
     ) {
         let bundle_path =
-            String::from("sandbox://") + &model.name + &String::from(".glb#Scene0");
+            String::from("sandbox://") + &model.kind + &String::from(".glb#Scene0");
         let glb: Handle<Scene> = asset_server.load(&bundle_path);
         commands
             .entity(e)

@@ -239,7 +239,7 @@ lifts:
   main_lift:
     x: -0.185
     y: 5.511
-    yaw: 0.021
+    yaw: -1.57079
     depth: 1.895
     width: 1.895
     doors: {}
