@@ -25,6 +25,7 @@ use crate::{
     deletion::DespawnBlocker,
 };
 use std::collections::HashMap;
+use smallvec::SmallVec;
 
 #[derive(Default, Debug, Clone)]
 pub struct LoadingModels(pub HashMap<Entity, (Model, Handle<Scene>)>);
@@ -37,6 +38,10 @@ pub struct ModelScene {
     name: String,
     scene_entity: Option<Entity>,
 }
+
+/// A unit component to mark where a scene begins
+#[derive(Component, Debug, Clone, Copy)]
+pub struct ModelSceneRoot;
 
 pub fn update_models(
     mut commands: Commands,
@@ -56,12 +61,12 @@ pub fn update_models(
     ) {
         let bundle_path =
             String::from("sandbox://") + &model.kind + &String::from(".glb#Scene0");
-        let glb: Handle<Scene> = asset_server.load(&bundle_path);
+        let scene: Handle<Scene> = asset_server.load(&bundle_path);
         commands
             .entity(e)
             .insert(DespawnBlocker)
             .insert(ModelScene{name: model.name.clone(), scene_entity: None});
-        loading_models.0.insert(e, (model.clone(), glb.clone()));
+        loading_models.0.insert(e, (model.clone(), scene.clone()));
     }
 
     // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -90,6 +95,7 @@ pub fn update_models(
                         scene: h.clone(),
                         ..default()
                     })
+                    .insert(ModelSceneRoot)
                     .insert(Selectable::new(*e))
                     .id()
                 });
@@ -120,6 +126,34 @@ pub fn update_models(
                 }
                 current_scene.scene_entity = None;
                 spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
+            }
+        }
+    }
+}
+
+pub fn make_models_selectable(
+    mut commands: Commands,
+    model_scene_roots: Query<(Entity, &Selectable), (With<ModelSceneRoot>, Changed<Children>)>,
+    all_children: Query<&Children>,
+) {
+    // If the children of a model scene root changed, then we assume that the
+    // scene was just populated with its meshes and that all its children should
+    // recursively be made selectable. This might be a fragile assumption if
+    // another plugin happens to modify the children of the ModelSceneRoot, so
+    // we may want to reconsider this in the future.
+    for (model_scene_root, selectable) in &model_scene_roots {
+        // Use a small vec here to try to dodge heap allocation if possible.
+        // TODO(MXG): Run some tests to see if an allocation of 32 is typically
+        // sufficient.
+        let mut queue: SmallVec<[Entity; 32]> = SmallVec::new();
+        queue.push(model_scene_root);
+
+        while let Some(e) = queue.pop() {
+            commands.entity(e).insert(selectable.clone());
+            if let Ok(children) = all_children.get(e) {
+                for child in children {
+                    queue.push(*child);
+                }
             }
         }
     }

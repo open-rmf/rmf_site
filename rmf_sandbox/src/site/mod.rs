@@ -116,6 +116,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_changed_anchor)
                     .with_system(update_models)
+                    .with_system(make_models_selectable)
                     .with_system(add_physical_camera_visuals)
                     .with_system(update_changed_physical_camera_visuals)
                     .with_system(add_wall_visual)

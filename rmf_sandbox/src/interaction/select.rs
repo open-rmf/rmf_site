@@ -21,7 +21,7 @@ use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
-#[derive(Component)]
+#[derive(Component, Clone, Copy, Debug)]
 pub struct Selectable {
     /// Toggle whether this entity is selectable
     pub is_selectable: bool,
