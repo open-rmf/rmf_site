@@ -17,9 +17,12 @@
 
 use crate::{
     site::SiteID,
-    widgets::inspector::{
-        InspectAnchorDependencyParams,
-        InspectAnchorDependencyWidget,
+    widgets::{
+        AppEvents,
+        inspector::{
+            InspectAnchorParams,
+            InspectAnchorWidget,
+        },
     },
 };
 use rmf_site_format::{
@@ -28,42 +31,51 @@ use rmf_site_format::{
 use bevy::prelude::*;
 use bevy_egui::{
     egui::{
-        Widget, Grid,
+        Widget, Grid, Ui,
     },
 };
 
-pub struct InspectLaneWidget<'a, 'w, 's> {
+pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub lane: &'a Lane<Entity>,
     pub site_id: Option<&'a SiteID>,
-    pub anchor_params: &'a mut InspectAnchorDependencyParams<'w, 's>,
+    pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
-impl<'a, 'w, 's> InspectLaneWidget<'a, 'w, 's> {
+impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         lane: &'a Lane<Entity>,
         site_id: Option<&'a SiteID>,
-        anchor_params: &'a mut InspectAnchorDependencyParams<'w, 's>,
+        anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{lane, site_id, anchor_params}
+        Self{lane, site_id, anchor_params, events}
     }
-}
 
-impl<'a, 'w, 's> Widget for InspectLaneWidget<'a, 'w, 's> {
-    fn ui(self, ui: &mut bevy_egui::egui::Ui) -> bevy_egui::egui::Response {
+    pub fn show(self, ui: &mut Ui) {
         Grid::new("inspect_lane").show(ui, |ui| {
+            ui.label("");
+            ui.label("ID");
+            ui.label("");
+            ui.label("x");
+            ui.label("y");
+            ui.end_row();
+
             ui.label("Start");
-            InspectAnchorDependencyWidget::new(
+            InspectAnchorWidget::new(
                 self.lane.anchors.0,
                 self.anchor_params,
-            ).show(ui);
+                self.events,
+            ).as_dependency().show(ui);
             ui.end_row();
 
             ui.label("End");
-            InspectAnchorDependencyWidget::new(
+            InspectAnchorWidget::new(
                 self.lane.anchors.1,
                 self.anchor_params,
-            ).show(ui);
+                self.events
+            ).as_dependency().show(ui);
             ui.end_row();
-        }).response
+        });
     }
 }

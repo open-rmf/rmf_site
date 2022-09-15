@@ -17,6 +17,8 @@
 
 use crate::{
     site::{Anchor, SiteID},
+    widgets::{Icons, AppEvents},
+    interaction::{Hover, Select, MoveTo},
 };
 use bevy::{
     prelude::*,
@@ -24,39 +26,85 @@ use bevy::{
 };
 use bevy_egui::{
     egui::{
-        Widget, Label
+        self, Widget, Label, Ui, DragValue, ImageButton,
     },
 };
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, Option<&'static SiteID>, With<Anchor>>,
+    pub transforms: Query<'w, 's, &'static Transform, With<Anchor>>,
+    pub icons: Res<'w, Icons>,
+    pub site_id: Query<'w, 's, &'static SiteID>,
 }
 
-pub struct InspectAnchorWidget<'a, 'w, 's> {
+pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub anchor: Entity,
-    pub params: &'a mut InspectAnchorParams<'w, 's>,
+    pub params: &'a mut InspectAnchorParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
+    pub is_dependency: bool,
 }
 
-impl<'a, 'w, 's> InspectAnchorWidget<'a, 'w, 's> {
+impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         anchor: Entity,
-        params: &'a mut InspectAnchorParams<'w, 's>,
+        params: &'a mut InspectAnchorParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{anchor, params}
+        Self{anchor, params, events, is_dependency: false}
     }
-}
 
-impl<'a, 'w, 's> Widget for InspectAnchorWidget<'a, 'w, 's> {
-    fn ui(self, ui: &mut bevy_egui::egui::Ui) -> bevy_egui::egui::Response {
-        if let Ok(site_id) = self.params.anchors.get(self.anchor) {
-            if let Some(site_id) = site_id {
-                ui.label(format!("Site ID: {}", site_id.0))
+    pub fn as_dependency(self) -> Self {
+        Self{
+            is_dependency: true,
+            ..self
+        }
+    }
+
+    pub fn show(self, ui: &mut Ui) {
+        if self.is_dependency {
+            if let Ok(site_id) = self.params.site_id.get(self.anchor) {
+                ui.label(format!("#{}", site_id.0));
             } else {
-                ui.label("No Site ID")
+                // The star symbol means the anchor is unsaved
+                ui.label("*");
             }
-        } else {
-            ui.label("Not an anchor??")
+
+            let select_response = ui.add(
+                ImageButton::new(
+                    self.params.icons.egui_select,
+                    [18., 18.],
+                )
+            );
+
+            if select_response.clicked() {
+                self.events.select.send(Select(Some(self.anchor)));
+            } else if select_response.hovered() {
+                self.events.hover.send(Hover(Some(self.anchor)));
+            }
+
+            select_response.on_hover_text("Select");
+        }
+
+        if let Ok(tf) = self.params.transforms.get(self.anchor) {
+            if !self.is_dependency {
+                ui.label("x");
+            }
+            let mut x = tf.translation.x;
+            ui.add(DragValue::new(&mut x).speed(0.01));
+            // TODO(MXG): Make the drag speed a user-defined setting
+
+            if !self.is_dependency {
+                ui.label("y");
+            }
+            let mut y = tf.translation.y;
+            ui.add(DragValue::new(&mut y).speed(0.01));
+
+            if x != tf.translation.x || y != tf.translation.y {
+                self.events.move_to.send(MoveTo{
+                    entity: self.anchor,
+                    transform: Transform::from_translation([x, y, 0.0].into()),
+                });
+            }
         }
     }
 }

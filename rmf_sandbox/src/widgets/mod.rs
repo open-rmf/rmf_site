@@ -17,13 +17,15 @@
 
 use crate::{
     site::{SiteState, SiteUpdateLabel},
-    interaction::PickingBlockers,
+    interaction::{PickingBlockers, Hover, Select, MoveTo},
 };
 use bevy::{
     prelude::*,
+    ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui, EguiContext,
+    EguiContext,
+    egui::{self, CollapsingHeader},
 };
 
 pub mod inspector;
@@ -35,7 +37,6 @@ pub use icons::*;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
-    BlockPicking,
 }
 
 #[derive(Default)]
@@ -51,40 +52,60 @@ impl Plugin for StandardUiLayout {
                     .with_system(
                         standard_ui_layout.label(UiUpdateLabel::DrawUi)
                     )
-                    .with_system(
-                        ui_picking_blocker
-                        .after(UiUpdateLabel::DrawUi)
-                        .label(UiUpdateLabel::BlockPicking)
-                    )
             );
     }
 }
 
+/// We collect all the events into its own SystemParam because we are not
+/// allowed to receive more than one EventWriter of a given type per system call
+/// (for borrow-checker reasons). Bundling them all up into an AppEvents
+/// parameter at least makes the EventWriters easy to pass around.
+#[derive(SystemParam)]
+pub struct AppEvents<'w, 's> {
+    pub hover: ResMut<'w, Events<Hover>>,
+    pub select: ResMut<'w, Events<Select>>,
+    pub move_to: ResMut<'w, Events<MoveTo>>,
+    _ignore: Query<'w, 's, ()>,
+}
+
 fn standard_ui_layout(
     mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
     mut inspector_params: InspectorParams,
+    mut events: AppEvents,
 ) {
-    egui::SidePanel::right("inspector_panel")
+    egui::SidePanel::right("right_panel")
         .resizable(true)
         .show(egui_context.ctx_mut(), |ui| {
             let r = egui::ScrollArea::both()
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    InspectorWidget{params: &mut inspector_params}.show(ui);
-                })
+                    CollapsingHeader::new("Selection")
+                    .default_open(true)
+                    .show(ui, |ui| {
+                        InspectorWidget::new(
+                            &mut inspector_params, &mut events
+                        ).show(ui);
+                    });
+                });
             });
         });
-}
 
-fn ui_picking_blocker(
-    mut egui_context: ResMut<EguiContext>,
-    mut picking_blocker: Option<ResMut<PickingBlockers>>,
-) {
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
     if let Some(picking_blocker) = &mut picking_blocker {
-        let egui_context = egui_context.ctx_mut();
-        picking_blocker.ui = egui_context.wants_pointer_input()
-            || egui_context.wants_keyboard_input()
-            || egui_context.is_pointer_over_area();
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.hover.is_empty() {
+            events.hover.send(Hover(None));
+        }
     }
 }

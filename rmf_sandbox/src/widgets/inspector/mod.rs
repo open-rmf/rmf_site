@@ -18,15 +18,13 @@
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
-pub mod inspect_anchor_dependency;
-pub use inspect_anchor_dependency::*;
-
 pub mod inspect_lane;
 pub use inspect_lane::*;
 
 use crate::{
     site::SiteID,
     interaction::Selection,
+    widgets::AppEvents,
 };
 use rmf_site_format::{
     Lane,
@@ -36,7 +34,7 @@ use bevy::{
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::{Widget, Label},
+    egui::{Widget, Label, Ui},
 };
 
 #[derive(SystemParam)]
@@ -44,27 +42,52 @@ pub struct InspectorParams<'w, 's> {
     pub selection: Res<'w, Selection>,
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
-    pub anchor_dependency_params: InspectAnchorDependencyParams<'w, 's>,
+    pub anchor_dependency_params: InspectAnchorParams<'w, 's>,
     pub lanes: Query<'w, 's, &'static Lane<Entity>>,
-
 }
 
-pub struct InspectorWidget<'a, 'w, 's> {
-    pub params: &'a mut InspectorParams<'w, 's>,
+pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub params: &'a mut InspectorParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
-impl<'a, 'w, 's> InspectorWidget<'a, 'w, 's> {
-    pub fn show(self, ui: &mut bevy_egui::egui::Ui) {
+impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn new(
+        params: &'a mut InspectorParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
+    ) -> Self {
+        Self{params, events}
+    }
+
+    fn heading(label: &str, site_id: Option<&SiteID>, ui: &mut Ui) {
+        if let Some(site_id) = site_id {
+            ui.heading(format!("{} #{}", label, site_id.0));
+        } else {
+            ui.heading(format!("{} (unsaved)", label));
+        }
+    }
+}
+
+impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn show(self, ui: &mut Ui) {
         if let Some(selection) =  self.params.selection.0 {
             let site_id = self.params.site_id.get(selection).ok().flatten();
-            if self.params.anchor_params.anchors.contains(selection) {
-                ui.add(InspectAnchorWidget::new(
-                    selection, &mut self.params.anchor_params,
-                ));
+            if self.params.anchor_params.transforms.contains(selection) {
+                Self::heading("Anchor", site_id, ui);
+                ui.horizontal(|ui| {
+                    InspectAnchorWidget::new(
+                        selection,
+                        &mut self.params.anchor_params,
+                        self.events,
+                    ).show(ui);
+                });
             } else if let Ok(lane) = self.params.lanes.get(selection) {
-                ui.add(InspectLaneWidget::new(
-                    lane, site_id, &mut self.params.anchor_dependency_params,
-                ));
+                Self::heading("Lane", site_id, ui);
+                InspectLaneWidget::new(
+                    lane, site_id,
+                    &mut self.params.anchor_dependency_params,
+                    self.events,
+                ).show(ui);
             } else {
                 ui.add(
                     Label::new("Unsupported selection type")
