@@ -65,8 +65,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(site_id) = self.params.site_id.get(self.anchor) {
                 ui.label(format!("#{}", site_id.0));
             } else {
-                // The star symbol means the anchor is unsaved
-                ui.label("*");
+                // The star symbol means the anchor is unsaved and therefore
+                // has no ID assigned yet.
+                ui.label("*").on_hover_text("Unsaved");
             }
 
             let select_response = ui.add(
@@ -83,6 +84,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             select_response.on_hover_text("Select");
+
+            let assign_response = ui.add(
+                ImageButton::new(
+                    self.params.icons.egui_edit,
+                    [18., 18.],
+                )
+            );
+
+            // TODO(MXG): React to assign being clicked
+            assign_response.on_hover_text("Reassign");
         }
 
         if let Ok(tf) = self.params.transforms.get(self.anchor) {
