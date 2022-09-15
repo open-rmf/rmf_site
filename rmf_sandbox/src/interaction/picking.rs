@@ -25,17 +25,19 @@ use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 pub struct PickingBlockers {
     /// An InteractionMask entity is being hovered over
     pub masked: bool,
+    /// The UI is being hovered over
+    pub ui: bool,
 }
 
 impl PickingBlockers {
     pub fn blocking(&self) -> bool {
-        self.masked
+        self.masked || self.ui
     }
 }
 
 impl Default for PickingBlockers {
     fn default() -> Self {
-        PickingBlockers { masked: false }
+        PickingBlockers { masked: false, ui: false }
     }
 }
 
@@ -43,6 +45,7 @@ impl Default for PickingBlockers {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct Picked(pub Option<Entity>);
 
+#[derive(Debug, Clone, Copy, Default)]
 pub struct ChangePick {
     pub from: Option<Entity>,
     pub to: Option<Entity>,
@@ -90,6 +93,8 @@ pub fn update_picked(
                 change_pick.send(ChangePick{from: picked.0, to: None});
                 picked.as_mut().0 = None;
             }
+
+            return;
         }
     }
 

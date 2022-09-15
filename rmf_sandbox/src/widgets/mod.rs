@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateLabel};
+use crate::{
+    site::{SiteState, SiteUpdateLabel},
+    interaction::PickingBlockers,
+};
 use bevy::{
     prelude::*,
 };
@@ -26,6 +29,12 @@ use bevy_egui::{
 pub mod inspector;
 use inspector::{InspectorWidget, InspectorParams};
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum UiUpdateLabel {
+    DrawUi,
+    BlockPicking,
+}
+
 #[derive(Default)]
 pub struct StandardUiLayout;
 
@@ -35,7 +44,14 @@ impl Plugin for StandardUiLayout {
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::AllSystems)
-                    .with_system(standard_ui_layout)
+                    .with_system(
+                        standard_ui_layout.label(UiUpdateLabel::DrawUi)
+                    )
+                    .with_system(
+                        ui_picking_blocker
+                        .after(UiUpdateLabel::DrawUi)
+                        .label(UiUpdateLabel::BlockPicking)
+                    )
             );
     }
 }
@@ -52,4 +68,16 @@ fn standard_ui_layout(
                 ui.add(InspectorWidget{params: &mut inspector_params})
             })
         });
+}
+
+fn ui_picking_blocker(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+) {
+    if let Some(picking_blocker) = &mut picking_blocker {
+        let egui_context = egui_context.ctx_mut();
+        picking_blocker.ui = egui_context.wants_pointer_input()
+            || egui_context.wants_keyboard_input()
+            || egui_context.is_pointer_over_area();
+    }
 }

@@ -18,17 +18,19 @@
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
+use crate::interaction::Selection;
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::Widget,
+    egui::{Widget, Label},
 };
 
 #[derive(SystemParam)]
 pub struct InspectorParams<'w, 's> {
     pub anchor_params: InspectAnchorParams<'w, 's>,
+    pub selection: Res<'w, Selection>,
 }
 
 pub struct InspectorWidget<'a, 'w, 's> {
@@ -37,9 +39,23 @@ pub struct InspectorWidget<'a, 'w, 's> {
 
 impl<'a, 'w, 's> Widget for InspectorWidget<'a, 'w, 's> {
     fn ui(self, ui: &mut bevy_egui::egui::Ui) -> bevy_egui::egui::Response {
-        let anchors = InspectAnchorWidget{
-            params: &mut self.params.anchor_params
-        };
-        anchors.ui(ui)
+        if let Some(selection) =  self.params.selection.0 {
+            if self.params.anchor_params.anchors.contains(selection) {
+                let anchors = InspectAnchorWidget::new(
+                    selection, &mut self.params.anchor_params,
+                );
+                anchors.ui(ui)
+            } else {
+                ui.add(
+                    Label::new("Unsupported selection type")
+                    .wrap(false)
+                )
+            }
+        } else {
+            ui.add(
+                Label::new("Nothing selected")
+                .wrap(false)
+            )
+        }
     }
 }

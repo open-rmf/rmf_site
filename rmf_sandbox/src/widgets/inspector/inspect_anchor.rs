@@ -15,6 +15,9 @@
  *
 */
 
+use crate::{
+    site::{Anchor, SiteID},
+};
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
@@ -24,23 +27,36 @@ use bevy_egui::{
         Widget, Label
     },
 };
-use crate::{
-    site::Anchor,
-};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, Entity, With<Anchor>>,
+    pub anchors: Query<'w, 's, Option<&'static SiteID>, With<Anchor>>,
 }
 
 pub struct InspectAnchorWidget<'a, 'w, 's> {
+    pub anchor: Entity,
     pub params: &'a mut InspectAnchorParams<'w, 's>,
+}
+
+impl<'a, 'w, 's> InspectAnchorWidget<'a, 'w, 's> {
+    pub fn new(
+        anchor: Entity,
+        params: &'a mut InspectAnchorParams<'w, 's>,
+    ) -> Self {
+        Self{anchor, params}
+    }
 }
 
 impl<'a, 'w, 's> Widget for InspectAnchorWidget<'a, 'w, 's> {
     fn ui(self, ui: &mut bevy_egui::egui::Ui) -> bevy_egui::egui::Response {
-        ui.add(Label::new(format!(
-            "Are there any anchors? {:?}", !self.params.anchors.is_empty()
-        )))
+        if let Ok(site_id) = self.params.anchors.get(self.anchor) {
+            if let Some(site_id) = site_id {
+                ui.label(format!("Site ID: {}", site_id.0))
+            } else {
+                ui.label("No Site ID")
+            }
+        } else {
+            ui.label("Not an anchor??")
+        }
     }
 }
