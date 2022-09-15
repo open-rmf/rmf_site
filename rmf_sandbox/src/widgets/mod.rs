@@ -29,6 +29,9 @@ use bevy_egui::{
 pub mod inspector;
 use inspector::{InspectorWidget, InspectorParams};
 
+pub mod icons;
+pub use icons::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
@@ -41,6 +44,7 @@ pub struct StandardUiLayout;
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app
+            .init_resource::<Icons>()
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::AllSystems)
@@ -62,11 +66,14 @@ fn standard_ui_layout(
 ) {
     egui::SidePanel::right("inspector_panel")
         .resizable(true)
-        .default_width(250.)
         .show(egui_context.ctx_mut(), |ui| {
-            ui.vertical(|ui| {
-                ui.add(InspectorWidget{params: &mut inspector_params})
-            })
+            let r = egui::ScrollArea::both()
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                ui.vertical(|ui| {
+                    InspectorWidget{params: &mut inspector_params}.show(ui);
+                })
+            });
         });
 }
 
