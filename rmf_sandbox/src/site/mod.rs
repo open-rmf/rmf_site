@@ -68,6 +68,11 @@ pub enum SiteState {
     Display,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
+pub enum SiteUpdateLabel {
+    AllSystems
+}
+
 pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
@@ -122,6 +127,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_wall_visual)
                     .with_system(update_changed_wall)
                     .with_system(update_wall_for_changed_anchor)
+                    .label(SiteUpdateLabel::AllSystems)
             );
     }
 }

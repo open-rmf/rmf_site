@@ -154,7 +154,7 @@ pub fn update_drag_click_start(
 
         if !drag_state.is_dragging() {
             if let Some(new_pick) = pick.to {
-                if let Ok((mut drag, mut material)) = draggables.get_mut(new_pick) {
+                if let Ok((drag, mut material)) = draggables.get_mut(new_pick) {
                     if drag.initial.is_none() {
                         set_visibility(cursor.frame, &mut visibility, false);
                         if let Some(drag_materials) = &drag.materials {

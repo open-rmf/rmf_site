@@ -33,11 +33,11 @@ pub struct AnchorVisualCue {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<(Entity, &Anchor), Added<Anchor>>,
+    new_anchors: Query<Entity, Added<Anchor>>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (e, anchor) in &new_anchors {
+    for e in &new_anchors {
         let mut commands = commands.entity(e);
         let (dagger, halo, body) = commands.add_children(|parent| {
             let dagger = parent

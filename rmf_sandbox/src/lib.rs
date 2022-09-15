@@ -16,6 +16,7 @@ mod settings;
 use settings::*;
 
 mod widgets;
+use widgets::*;
 
 mod demo_world;
 mod deletion;
@@ -116,6 +117,7 @@ pub fn run() {
         .add_plugin(DeletionPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
+        .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
         .run();
 }
