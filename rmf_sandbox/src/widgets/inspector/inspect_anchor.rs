@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    site::{Anchor, SiteID},
-    widgets::{Icons, AppEvents},
+    site::{Anchor, AnchorDependents, SiteID, Category},
+    widgets::{Icons, AppEvents, inspector::SelectionWidget},
     interaction::{Hover, Select, MoveTo},
 };
 use bevy::{
@@ -29,6 +29,7 @@ use bevy_egui::{
         self, Widget, Label, Ui, DragValue, ImageButton,
     },
 };
+use std::collections::{HashSet, BTreeMap};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
@@ -67,23 +68,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             } else {
                 // The star symbol means the anchor is unsaved and therefore
                 // has no ID assigned yet.
-                ui.label("*").on_hover_text("Unsaved");
+                ui.label("*").on_hover_text("unsaved");
             }
 
-            let select_response = ui.add(
-                ImageButton::new(
-                    self.params.icons.egui_select,
-                    [18., 18.],
-                )
-            );
-
-            if select_response.clicked() {
-                self.events.select.send(Select(Some(self.anchor)));
-            } else if select_response.hovered() {
-                self.events.hover.send(Hover(Some(self.anchor)));
-            }
-
-            select_response.on_hover_text("Select");
+            SelectionWidget::new(
+                self.anchor,
+                self.params.icons.as_ref(),
+                self.events,
+            ).show(ui);
 
             let assign_response = ui.add(
                 ImageButton::new(
@@ -117,5 +109,87 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 });
             }
         }
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectAnchorDependentsParams<'w, 's> {
+    pub dependents: Query<'w, 's, &'static AnchorDependents>,
+    pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
+    pub icons: Res<'w, Icons>,
+}
+
+pub struct InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub anchor: Entity,
+    pub params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
+}
+
+impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn new(
+        anchor: Entity,
+        params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
+    ) -> Self {
+        Self{anchor, params, events}
+    }
+
+    fn show_dependents(
+        dependents: &HashSet<Entity>,
+        params: &InspectAnchorDependentsParams<'w1, 's1>,
+        events: &mut AppEvents<'w2, 's2>,
+        ui: &mut Ui
+    ) {
+        ui.heading("Dependents");
+        let mut category_map: BTreeMap<String, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
+        for e in dependents {
+            if let Ok((category, site_id)) = params.info.get(*e) {
+                category_map.entry(category.0.clone()).or_default()
+                    .insert(*e, site_id.map(|s| s.0));
+            } else {
+                ui.label(format!("ERROR: Broken reference to entity {e:?}"));
+            }
+        }
+
+        for (category, entities) in &category_map {
+            ui.label(category);
+
+            for (e, site_id) in entities {
+                ui.horizontal(|ui| {
+                    if let Some(site_id) = site_id {
+                        ui.label(format!("#{}", site_id));
+                    } else {
+                        ui.label("*").on_hover_text("unsaved");
+                    }
+
+                    SelectionWidget::new(
+                        *e,
+                        params.icons.as_ref(),
+                        events
+                    ).show(ui);
+                });
+            }
+        }
+    }
+
+    pub fn show(mut self, ui: &mut Ui) {
+        ui.vertical(|ui| {
+            if let Ok(d) = self.params.dependents.get(self.anchor) {
+                if d.dependents.is_empty() {
+                    ui.label("No dependents");
+                } else {
+                    Self::show_dependents(
+                        &d.dependents,
+                        &self.params,
+                        &mut self.events,
+                        ui
+                    );
+                }
+            } else {
+                ui.label(
+                    "ERROR: Unable to find dependents info for this anchor"
+                );
+            }
+        });
     }
 }

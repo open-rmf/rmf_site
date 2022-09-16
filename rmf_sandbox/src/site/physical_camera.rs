@@ -35,7 +35,8 @@ pub fn add_physical_camera_visuals(
                 transform: new_physical_camera.pose.transform(),
                 ..default()
             })
-            .insert(Selectable::new(e));
+            .insert(Selectable::new(e))
+            .insert(Category("Camera".to_string()));
     }
 }
 

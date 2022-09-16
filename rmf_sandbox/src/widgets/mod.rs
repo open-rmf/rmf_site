@@ -47,6 +47,10 @@ impl Plugin for StandardUiLayout {
         app
             .init_resource::<Icons>()
             .add_system_set(
+                SystemSet::on_enter(SiteState::Display)
+                .with_system(init_ui_style)
+            )
+            .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::AllSystems)
                     .with_system(
@@ -108,4 +112,14 @@ fn standard_ui_layout(
             events.hover.send(Hover(None));
         }
     }
+}
+
+fn init_ui_style(
+    mut egui_context: ResMut<EguiContext>,
+) {
+    // I think the default egui dark mode text color is too dim, so this changes
+    // it to a brighter white.
+    let mut visuals = egui::Visuals::dark();
+    visuals.override_text_color = Some(egui::Color32::from_rgb(250, 250, 250));
+    egui_context.ctx_mut().set_visuals(visuals);
 }

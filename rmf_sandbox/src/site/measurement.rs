@@ -44,7 +44,8 @@ pub fn add_measurement_visuals(
                     transform: line_stroke_transform(start_anchor, end_anchor),
                     ..default()
                 })
-                .insert(Selectable::new(e));
+                .insert(Selectable::new(e))
+                .insert(Category("Measurement".to_string()));
         } else {
             panic!("Anchor was not initialized correctly");
         }

@@ -23,6 +23,7 @@ use rmf_site_format::Model;
 use crate::{
     interaction::Selectable,
     deletion::DespawnBlocker,
+    site::Category,
 };
 use std::collections::HashMap;
 use smallvec::SmallVec;
@@ -65,7 +66,8 @@ pub fn update_models(
         commands
             .entity(e)
             .insert(DespawnBlocker)
-            .insert(ModelScene{name: model.name.clone(), scene_entity: None});
+            .insert(ModelScene{name: model.name.clone(), scene_entity: None})
+            .insert(Category("Model".to_string()));
         loading_models.0.insert(e, (model.clone(), scene.clone()));
     }
 

@@ -94,7 +94,8 @@ pub fn add_lift_visuals(
             transform: pose_tf,
             ..default()
         })
-        .insert(LiftSegments{cabin: child});
+        .insert(LiftSegments{cabin: child})
+        .insert(Category("Lift".to_string()));
 
         for mut dep in dependents.get_many_mut(
             [lift.reference_anchors.0, lift.reference_anchors.1]

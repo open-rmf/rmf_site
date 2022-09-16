@@ -116,7 +116,8 @@ pub fn add_lane_visuals(
                     transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                     visibility: Visibility{is_visible},
                     ..default()
-                });
+                })
+                .insert(Category("Lane".to_string()));
         } else {
             panic!("Anchor was not initialized correctly");
         }

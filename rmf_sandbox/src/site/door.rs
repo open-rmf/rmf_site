@@ -85,7 +85,8 @@ pub fn add_door_visuals(
             transform: pose_tf,
             ..default()
         })
-        .insert(DoorSegments{entity: child});
+        .insert(DoorSegments{entity: child})
+        .insert(Category("Door".to_string()));
 
         for mut dep in dependents.get_many_mut(
             [new_door.anchors.0, new_door.anchors.1]

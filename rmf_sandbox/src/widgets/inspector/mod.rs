@@ -21,6 +21,9 @@ pub use inspect_anchor::*;
 pub mod inspect_lane;
 pub use inspect_lane::*;
 
+pub mod selection_widget;
+pub use selection_widget::*;
+
 use crate::{
     site::SiteID,
     interaction::Selection,
@@ -42,7 +45,7 @@ pub struct InspectorParams<'w, 's> {
     pub selection: Res<'w, Selection>,
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
-    pub anchor_dependency_params: InspectAnchorParams<'w, 's>,
+    pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub lanes: Query<'w, 's, &'static Lane<Entity>>,
 }
 
@@ -81,11 +84,17 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         self.events,
                     ).show(ui);
                 });
+                ui.separator();
+                InspectAnchorDependentsWidget::new(
+                    selection,
+                    &mut self.params.anchor_dependents_params,
+                    self.events,
+                ).show(ui);
             } else if let Ok(lane) = self.params.lanes.get(selection) {
                 Self::heading("Lane", site_id, ui);
                 InspectLaneWidget::new(
                     lane, site_id,
-                    &mut self.params.anchor_dependency_params,
+                    &mut self.params.anchor_params,
                     self.events,
                 ).show(ui);
             } else {

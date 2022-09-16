@@ -115,7 +115,8 @@ pub fn add_floor_visuals(
                 material: assets.default_floor_material.clone(), // TODO(MXG): load the user-specified texture when one is given
                 ..default()
             })
-            .insert(Selectable::new(e));
+            .insert(Selectable::new(e))
+            .insert(Category("Floor".to_string()));
 
         for anchor in &new_floor.anchors {
             let mut dep = dependents.get_mut(*anchor).unwrap();

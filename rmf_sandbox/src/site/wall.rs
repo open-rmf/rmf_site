@@ -107,7 +107,8 @@ pub fn add_wall_visual(
                     transform: tf,
                     ..default()
                 })
-                .insert(Selectable::new(e));
+                .insert(Selectable::new(e))
+                .insert(Category("Wall".to_string()));
         } else {
             panic!("Anchor was not initialized correctly");
         }

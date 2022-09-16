@@ -27,6 +27,7 @@ pub struct AnchorBundle {
     computed: ComputedVisibility,
     transform: Transform,
     global_transform: GlobalTransform,
+    category: Category,
 }
 
 impl AnchorBundle {
@@ -39,6 +40,7 @@ impl AnchorBundle {
             dependents: Default::default(),
             visibility: Default::default(),
             computed: Default::default(),
+            category: Category("Anchor".to_string()),
         }
     }
 
