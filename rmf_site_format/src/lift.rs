@@ -150,3 +150,13 @@ impl Lift<u32> {
         }
     }
 }
+
+impl<SiteID: Copy + Ord> Edge<SiteID> for Lift<SiteID> {
+    fn endpoints(&self) -> (SiteID, SiteID) {
+        self.reference_anchors
+    }
+
+    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
+        (&mut self.reference_anchors.0, &mut self.reference_anchors.1)
+    }
+}

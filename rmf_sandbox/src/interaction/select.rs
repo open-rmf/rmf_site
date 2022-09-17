@@ -15,7 +15,11 @@
  *
 */
 
-use crate::interaction::*;
+use crate::{
+    interaction::*,
+    site::Anchor,
+};
+use rmf_site_format::Side;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -137,7 +141,9 @@ pub fn make_selectable_entities_pickable(
 
 pub fn handle_selection_picking(
     blockers: Option<Res<SelectionBlockers>>,
+    mode: Res<InteractionMode>,
     selectables: Query<&Selectable>,
+    anchors: Query<(), With<Anchor>>,
     mut picks: EventReader<ChangePick>,
     mut hover: EventWriter<Hover>,
 ) {
@@ -148,6 +154,11 @@ pub fn handle_selection_picking(
         }
     }
 
+    if !mode.selecting() {
+        hover.send(Hover(None));
+        return;
+    }
+
     for pick in picks.iter() {
         hover.send(Hover(
             pick.to.and_then(|change_pick_to| {
@@ -156,34 +167,44 @@ pub fn handle_selection_picking(
                         selectable.element
                     }
                 )
+            }).and_then(|change_pick_to| {
+                if let InteractionMode::SelectAnchor(_) = *mode {
+                    if anchors.contains(change_pick_to) {
+                        Some(change_pick_to)
+                    } else {
+                        None
+                    }
+                } else {
+                    Some(change_pick_to)
+                }
             })
         ));
     }
 }
 
 pub fn maintain_hovered_entities(
-    mut hovering: Query<&mut Hovered>,
-    mut hovered: ResMut<Hovering>,
+    mut hovered: Query<&mut Hovered>,
+    mut hovering: ResMut<Hovering>,
     mut hover: EventReader<Hover>,
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
 ) {
     if let Some(new_hovered) = hover.iter().last() {
-        if hovered.0 != new_hovered.0 {
-            if let Some(previous_hovered) = hovered.0 {
-                if let Ok(mut hovering) = hovering.get_mut(previous_hovered) {
+        if hovering.0 != new_hovered.0 {
+            if let Some(previous_hovered) = hovering.0 {
+                if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
                     hovering.is_hovering = false;
                 }
             }
 
             if let Some(new_hovered) = new_hovered.0 {
-                if let Ok(mut hovering) = hovering.get_mut(new_hovered) {
+                if let Ok(mut hovering) = hovered.get_mut(new_hovered) {
                     hovering.is_hovering = true;
                 }
             }
 
-            hovered.0 = new_hovered.0;
+            hovering.0 = new_hovered.0;
         }
     }
 
@@ -191,17 +212,27 @@ pub fn maintain_hovered_entities(
         || touch_input.iter_just_pressed().next().is_some();
 
     if clicked {
-        if let Some(current_hovered) = hovered.0 {
+        if let Some(current_hovered) = hovering.0 {
             select.send(Select(Some(current_hovered)));
         }
     }
 }
 
 pub fn maintain_selected_entities(
+    mode: Res<InteractionMode>,
+    anchors: Query<(), With<Anchor>>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
     mut select: EventReader<Select>,
 ) {
+    if InteractionMode::Inspect != *mode {
+        // We only maintain the "selected" entity when we are in Inspect mode.
+        // Other "selecting" modes, like SelectAnchor, take in the selection as
+        // an event and do not change the current selection that is being
+        // inspected.
+        return;
+    }
+
     if let Some(new_selection) = select.iter().last() {
         if selection.0 != new_selection.0 {
             if let Some(previous_selection) = selection.0 {

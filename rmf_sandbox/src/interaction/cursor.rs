@@ -20,9 +20,12 @@ use crate::{
     animate::*,
     site::SiteAssets,
 };
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ecs::system::SystemParam,
+};
 use bevy_mod_picking::PickingRaycastSet;
-use bevy_mod_raycast::Intersection;
+use bevy_mod_raycast::{Intersection, Ray3d};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -129,16 +132,93 @@ impl FromWorld for Cursor {
     }
 }
 
+#[derive(SystemParam)]
+struct IntersectGroundPlaneParams {
+    cursor: Res<Cursor>,
+    windows: Res<Windows>,
+    camera_controls: Res<CameraControls>,
+    cameras: Query<&Camera>,
+    global_transforms: Query<&GlobalTransform>,
+}
+
+fn intersect_ground_plane(
+    params: &IntersectGroundPlaneParams,
+) -> Option<Vec3> {
+    let window = match windows.get_primary() {
+        Some(window) => window,
+        None => { return; }
+    };
+
+    let cursor_position = match window.cursor_position() {
+        Some(cursor_position) => cursor_position,
+        None => { return; }
+    };
+
+    let active_camera = match cameras.get(camera_controls.active_camera()) {
+        Ok(camera) => camera,
+        Err(_) => { return; }
+    };
+
+    let camera_tf = match global_transforms.get(active_camera) {
+        Ok(tf) => tf,
+        Err(_) => { return; }
+    };
+
+    let ray = match Ray3d::from_screenspace(cursor_position, camera, camera_tf) {
+        Some(ray) => ray,
+        None => { return; }
+    };
+
+    let n_p = Vec3::Z;
+    let n_r = ray.direction();
+    let denom = n_p.dot(n_r);
+    if denom.abs() < 1e-3 {
+        // Too close to parallel
+        return None;
+    }
+
+    Some(n_r * ray.origin().dot(n_p) / denom)
+}
+
 pub fn update_cursor_transform(
+    mode: Res<InteractionMode>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
     mut transforms: Query<&mut Transform>,
-    cursor: Res<Cursor>,
+    select_anchor_params: IntersectGroundPlaneParams,
 ) {
-    for intersection in &intersections {
-        if let Some(mut transform) = transforms.get_mut(cursor.frame).ok() {
-            if let Some(ray) = intersection.normal_ray() {
-                *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()))
-            }
+    match *mode {
+        InteractionMode::Inspect => {
+            let intersection = match intersections.iter().last() {
+                Some(intersection) => intersection,
+                None => { return; }
+            };
+
+            let mut transform = match transforms.get_mut(cursor.frame) {
+                Ok(transform) => transform,
+                None => { return; }
+            };
+
+            let ray = match intersection.normal_ray() {
+                Some(ray) => ray,
+                None => { return; }
+            };
+
+            *transform = Transform::from_matrix(
+                ray.to_aligned_transform([0., 0., 1.].into())
+            );
+        },
+        InteractionMode::SelectAnchor(_) => {
+            let intersection = match intersect_ground_plane(&select_anchor_params) {
+                Some(intersection) => intersection,
+                None => { return; }
+            };
+
+            let mut transform = match transforms.get_mut(cursor.frame) {
+                Ok(transform) => transform,
+                None => { return; }
+            };
+
+            *transform = Transform::from_translation(intersection);
         }
     }
 }

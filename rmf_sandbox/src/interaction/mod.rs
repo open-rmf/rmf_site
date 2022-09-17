@@ -36,11 +36,17 @@ pub use lane::*;
 pub mod misc;
 pub use misc::*;
 
+pub mod mode;
+pub use mode::*;
+
 pub mod picking;
 pub use picking::*;
 
 pub mod select;
 pub use select::*;
+
+pub mod select_anchor;
+pub use select_anchor::*;
 
 use bevy::prelude::*;
 use bevy_mod_picking::{PickingSystem, PickingPlugin};
@@ -67,6 +73,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Selection>()
             .init_resource::<Hovering>()
             .init_resource::<DragState>()
+            .init_resource::<InteractionMode>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -85,6 +92,10 @@ impl Plugin for InteractionPlugin {
                     )
                     .with_system(
                         maintain_selected_entities
+                        .after(maintain_hovered_entities)
+                    )
+                    .with_system(
+                        handle_select_anchor_mode
                         .after(maintain_hovered_entities)
                     )
                     .with_system(add_anchor_visual_cues)
@@ -129,6 +140,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(
                         update_picked.after(PickingSystem::UpdateIntersections)
                     )
+                    .with_system(update_interaction_mode)
             );
     }
 }

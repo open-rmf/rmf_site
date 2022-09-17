@@ -95,3 +95,13 @@ impl Door<u32> {
         }
     }
 }
+
+impl<SiteID: Copy> Edge<SiteID> for Door<SiteID> {
+    fn endpoints(&self) -> (SiteID, SiteID) {
+        self.anchors
+    }
+
+    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
+        (&mut self.anchors.0, &mut self.anchors.1)
+    }
+}

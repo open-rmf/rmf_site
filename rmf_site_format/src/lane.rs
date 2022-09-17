@@ -80,3 +80,13 @@ impl Lane<u32> {
         }
     }
 }
+
+impl<SiteID: Copy> Edge<SiteID> for Lane<SiteID> {
+    fn endpoints(&self) -> (SiteID, SiteID) {
+        self.anchors
+    }
+
+    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
+        (&mut self.anchors.0, &mut self.anchors.1)
+    }
+}

@@ -151,6 +151,8 @@ pub fn update_anchor_visual_cues(
             } else {
                 if let Some(drag) = cue.drag {
                     command.entity(drag).despawn_recursive();
+
+                    DynamicScene
                 }
                 cue.drag = None;
             }

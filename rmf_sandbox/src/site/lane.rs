@@ -29,6 +29,10 @@ pub const SELECTED_LANE_HEIGHT: f32 = 0.002;
 pub const HOVERED_LANE_HEIGHT: f32 = 0.003;
 pub const LANE_WIDTH: f32 = 0.5;
 
+/// Used as a resource to identify which Nav Graph is the currently selected one
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SelectedNavGraph(pub Option<Entity>);
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct LaneSegments {
     pub start: Entity,

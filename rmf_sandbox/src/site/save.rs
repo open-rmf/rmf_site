@@ -48,6 +48,13 @@ use rmf_site_format::{
 
 use crate::site::*;
 
+/// The Pending component indicates that an element is not yet ready to be
+/// saved to file. We will filter out these elements while assigning SiteIDs,
+/// and that will prevent them from being included while collecting elements
+/// into the Site data structure.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Pending;
+
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: Option<PathBuf>,
@@ -82,7 +89,7 @@ fn assign_site_ids(
 ) -> Result<(), SiteGenerationError> {
     let mut state: SystemState<(
         Commands,
-        Query<Entity, Or<(
+        Query<Entity, (Or<(
             With<Anchor>,
             With<Door<Entity>>,
             With<Drawing>,
@@ -93,14 +100,14 @@ fn assign_site_ids(
             With<Model>,
             With<PhysicalCamera>,
             With<Wall<Entity>>
-        )>>,
-        Query<Entity, Or<(
+        )>, Without<Pending>)>,
+        Query<Entity, (Or<(
             With<Lane<Entity>>,
             With<Location<Entity>>,
-        )>>,
-        Query<Entity, With<LevelProperties>>,
-        Query<Entity, With<NavGraphProperties>>,
-        Query<Entity, With<Lift<Entity>>>,
+        )>, Without<Pending>)>,
+        Query<Entity, (With<LevelProperties>, Without<Pending>)>,
+        Query<Entity, (With<NavGraphProperties>, Without<Pending>)>,
+        Query<Entity, (With<Lift<Entity>>, Without<Pending>)>,
         Query<&mut NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,

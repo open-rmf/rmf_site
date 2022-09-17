@@ -27,6 +27,9 @@ pub use door::*;
 pub mod drawing;
 pub use drawing::*;
 
+pub mod edge;
+pub use edge::*;
+
 pub mod fiducial;
 pub use fiducial::*;
 

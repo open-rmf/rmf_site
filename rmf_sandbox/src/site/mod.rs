@@ -45,6 +45,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod nav_graph;
+pub use nav_graph::*;
+
 pub mod physical_camera;
 pub use physical_camera::*;
 
@@ -97,6 +100,7 @@ impl Plugin for SitePlugin {
             .init_resource::<CurrentSite>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()
+            .init_resource::<SelectedNavGraph>()
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
@@ -123,6 +127,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_changed_anchor)
                     .with_system(update_lanes_for_changed_level)
+                    .with_system(assign_lane_to_nav_graph)
                     .with_system(add_lift_visuals)
                     .with_system(update_changed_lift)
                     .with_system(update_lift_for_changed_anchor)

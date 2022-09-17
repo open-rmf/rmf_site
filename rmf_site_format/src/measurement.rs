@@ -15,6 +15,7 @@
  *
 */
 
+use crate::Edge;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity};
@@ -49,5 +50,15 @@ impl Measurement<u32> {
             distance: self.distance,
             label: self.label.clone(),
         }
+    }
+}
+
+impl<SiteID: Copy> Edge<SiteID> for Measurement<SiteID> {
+    fn endpoints(&self) -> (SiteID, SiteID) {
+        self.anchors
+    }
+
+    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
+        (&mut self.anchors.0, &mut self.anchors.1)
     }
 }
