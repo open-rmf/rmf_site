@@ -18,7 +18,7 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LocationTag {
@@ -38,10 +38,20 @@ pub struct Location<SiteID> {
 }
 
 #[cfg(feature="bevy")]
-impl<SiteID> Location<SiteID> {
+impl<Entity> Location<Entity> {
     pub fn to_u32(&self, anchor: u32) -> Location<u32> {
         Location{
             anchor,
+            tags: self.tags.clone(),
+        }
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Location<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Location<Entity> {
+        Location{
+            anchor: *id_to_entity.get(&self.anchors.0).unwrap(),
             tags: self.tags.clone(),
         }
     }

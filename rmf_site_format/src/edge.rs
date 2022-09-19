@@ -15,6 +15,8 @@
  *
 */
 
+use crate::Side;
+
 /// The edge trait is used to unify the APIs of several edge-like site elements,
 /// such as lane, wall, door, measurement, and lift. These elements have a
 /// common theme: their position is (at least partially) defined by a pair of
@@ -65,5 +67,16 @@ pub trait Edge<T> {
 
     fn end_mut(&mut self) -> &mut T {
         self.right_mut()
+    }
+
+    fn array(&self) -> [T; 2] {
+        [self.left(), self.right()]
+    }
+
+    fn side(&self, side: Side) -> T {
+        match side {
+            Side::Left => self.left(),
+            Side::Right => self.right(),
+        }
     }
 }

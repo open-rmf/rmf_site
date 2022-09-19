@@ -81,6 +81,89 @@ impl SelectAnchorContinuity {
     }
 }
 
+struct TargetTransition {
+    created: Option<Entity>,
+    finished: bool,
+}
+
+impl TargetTransition {
+    fn none() -> Self {
+        Self{
+            created: None,
+            finished: false,
+        }
+    }
+
+    fn create(e: Entity) -> Self {
+        Self{
+            created: Some(e),
+            finished: false,
+        }
+    }
+
+    fn finished() -> Self {
+        Self{
+            created: None,
+            finished: true,
+        }
+    }
+
+    fn finish(mut self) -> Self {
+        self.finished = true;
+        self
+    }
+
+    fn preview(&self, e: Option<Entity>) -> Option<Entity> {
+        match e {
+            Some(e) => {
+                if self.created.is_some() {
+                    println!(
+                        "DEV ERROR: Created a superfluous target while in "
+                        "SelectAnchor mode"
+                    );
+                }
+                Some(e)
+            },
+            None => {
+                match self.created {
+                    Some(e) => Some(e),
+                    None => {
+                        println!(
+                            "DEV ERROR: Failed to create an entity while in "
+                            "SelectAnchor mode"
+                        );
+                        None
+                    }
+                }
+            }
+        }
+    }
+
+    fn next(&self, e: Option<Entity>) -> Option<Entity> {
+        if self.finished {
+            return None;
+        }
+
+        // The logic for next is the same as preview if the object is not
+        // finished yet
+        return self.preview(e);
+    }
+}
+
+struct PlacementTransition<T> {
+    preview: T,
+    next: T,
+}
+
+impl<T, U: Into<T>> From<PlacementTransition<U>> for PlacementTransition<T> {
+    fn from(input: PlacementTransition<U>) -> Self {
+        Self{
+            preview: input.preview.into(),
+            next: input.next.into(),
+        }
+    }
+}
+
 trait Placement {
     type Params: SystemParam;
 
@@ -94,16 +177,7 @@ trait Placement {
         target: Option<Entity>,
         params: &mut Self::Params,
         common: &mut SelectAnchorCommonParams,
-    ) -> (Option<Entity>, Self);
-
-    /// Preview what it would look like for the candidate anchor to be selected
-    fn preview(
-        &self,
-        anchor_candidate: Entity,
-        target: Option<Entity>,
-        params: &mut Self::Params,
-        common: &mut SelectAnchorCommonParams,
-    );
+    ) -> Result<(TargetTransition, PlacementTransition<Self>), ()>;
 
     /// Check what anchor originally has this placement
     fn current(
@@ -127,12 +201,11 @@ pub(crate) struct EdgePlacement<T> {
 }
 
 impl<T> EdgePlacement<T> {
-    fn left() -> Self {
-        Self{side: Side::Left, ..default()}
-    }
-
-    fn right() -> Self {
-        Self{side: Side::Right, ..default()}
+    fn transition(&self) -> PlacementTransition<Self> {
+        PlacementTransition{
+            preview: self.clone(),
+            next: Self{side: self.side.opposite(), _ignore: Default::default()},
+        }
     }
 }
 
@@ -145,7 +218,7 @@ impl<T: Edge<Entity> + Component> Placement for EdgePlacement<T> {
         target: Option<Entity>,
         params: &mut EdgePlacementParams<T>,
         common: &mut SelectAnchorCommonParams,
-    ) -> (Option<Entity>, Self) {
+    ) -> (TargetTransition, PlacementTransition<Self>) {
         let (target, mut endpoints) = match target {
             Some(target) => {
                 // We expect that we already have an element and we are
@@ -157,16 +230,16 @@ impl<T: Edge<Entity> + Component> Placement for EdgePlacement<T> {
                     Err(_) => {
                         println!(
                             "DEV ERROR: Entity {:?} is not the right kind of "
-                            "element for {self:?}"
+                            "element for {self:?}", target,
                         );
-                        return (None, self::right());
+                        return Err(());
                     }
                 }
             },
             None => {
                 // We need to begin creating a new element
                 let anchors = (anchor_selection, common.cursor.anchor_placement);
-                let deps = match common.dependents.get_many_mut(
+                let mut deps = match common.dependents.get_many_mut(
                     [anchors.0, anchors.1]
                 ) {
                     Ok(deps) => deps,
@@ -178,55 +251,138 @@ impl<T: Edge<Entity> + Component> Placement for EdgePlacement<T> {
                             "{self:?}: {:?} and {:?}",
                             anchors.0, anchors.1
                         );
-                        return (None, self::right());
+                        return Err(());
                     }
                 };
 
                 let target = common.commands
-                    .spawn_bundle(<T as Edge<Entity>>::new(anchors))
+                    .spawn()
+                    .insert(<T as Edge<Entity>>::new(anchors))
                     .insert(Pending)
                     .id();
                 for dep in &mut deps {
                     dep.dependents.insert(target);
                 }
 
-                return (Some(target), self::right());
+                return Ok((TargetTransition::create(target), self.transition()));
             }
         };
 
         // We are replacing one of the endpoints in an existing target
         let changed_anchors = match self.side {
             Side::Left => {
-                if replacing == Some(anchor_selection) {
-                    // The user has selected the anchor that was originally
-                    // meant to be replaced so we should accept that choice.
-                    (Some(anchor_selection), None)
-                } else {
-                    // A new anchor is being selected
-                    if anchor_selection == endpoints.right() {
-                        // The anchor selected for the left is the same as the
-                        // anchor already being used for the right.
-                        match replacing {
-                            Some(replacing) => {
-                                if replacing == endpoints.right() {
-                                    // Since the right side has the
-
-                                } else {
-
-                                }
-                            }
+                match replacing {
+                    Some(replacing) => {
+                        if endpoints.right() == replacing {
+                            // The right anchor was assigned the anchor that
+                            // is being replaced, which means a flip happened
+                            // previously, and the right anchor's original
+                            // value is currently held by the left. We should
+                            // give the right anchor back its original value
+                            // which should be currently held by the left.
+                            [Some(anchor_selection), Some(endpoints.left())]
+                        } else if anchor_selection == endpoints.right() {
+                            // The right anchor has been selected for the
+                            // left, so flip the anchors.
+                            [Some(anchor_selection), Some(replacing)]
+                        } else {
+                            // No need to modify the right anchor, just set
+                            // the left to its new value.
+                            [Some(anchor_selection), None]
                         }
+                    },
+                    None => {
+                        println!(
+                            "DEV ERROR: We should not be selecting a Left "
+                            "anchor if we are not in ReplaceAnchor mode."
+                        );
+                        return Err(());
                     }
                 }
             },
             Side::Right => {
-
+                match replacing {
+                    Some(replacing) => {
+                        if endpoints.left() == replacing {
+                            // The left anchor was assigned the anchor that is
+                            // being replaced, which means a flip happened
+                            // previously, and the left anchor's original value
+                            // is currently held by the left. We should give
+                            // the left anchor back its original value which
+                            // should be currently held by the right.
+                            [Some(endpoints.right()), Some(anchor_selection)]
+                        } else if anchor_selection == endpoints.left() {
+                            // The left anchor has been selected for the right,
+                            // so flip the anchors.
+                            [Some(replacing), Some(anchor_selection)]
+                        } else {
+                            // No need to modify the left anchor, just set the
+                            // right to its new value.
+                            [None, Some(anchor_selection)]
+                        }
+                    },
+                    None => {
+                        [None, Some(anchor_selection)]
+                    }
+                }
             }
+        };
+
+        // Remove the target edge as a dependency from any anchors that are no
+        // longer being used by this edge.
+        for (changed, current) in &[
+            (changed_anchors[0].is_some(), endpoints.left()),
+            (changed_anchors[1].is_some(), endpoints.right()),
+        ] {
+            if *changed && changed_anchors.iter().find(Some(*current)).is_none() {
+                // This anchor is being changed and is no longer being used by
+                // the lane.
+                if let Ok(deps) = common.dependents.get_mut(*current) {
+                    deps.dependents.remove(&target);
+                } else {
+                    println!(
+                        "DEV ERROR: No AnchorDependents component found for "
+                        "{:?} while in SelectAnchor mode.", *current
+                    );
+                }
+            }
+        }
+
+        // Add the target edge as a dependency to any anchors that did not
+        // previously have it.
+        for changed in changed_anchors.iter().filter_map(|a| *a) {
+            if endpoints.array().iter().find(changed).is_none() {
+                if let Ok(deps) = common.dependents.get(changed) {
+                    deps.dependents.contains(&target);
+                } else {
+                    println!(
+                        "DEV ERROR: No AnchorDependents component found for "
+                        "{:?} while in SelectAnchor mode.", *current
+                    );
+                }
+            }
+        }
+
+        if let Some(a) = changed_anchors[0] {
+            *endpoints.left_mut() = a;
+        }
+
+        if let Some(a) = changed_anchors[1] {
+            *endpoints.right_mut() = a;
+        }
+
+        match self.side {
+            Side::Left => (TargetTransition::none(), self.transition()),
+            Side::Right => (TargetTransition::finished(), self.transition()),
         }
     }
 
-    fn start() -> Self {
-        Self::left()
+    fn current(
+        &self,
+        target: Entity,
+        params: &Self::Params,
+    ) -> Option<Entity> {
+        params.edges.get(target).ok().map(|edge| edge.side(self.side))
     }
 }
 
@@ -236,18 +392,105 @@ impl<T> From<Side> for EdgePlacement<T> {
     }
 }
 
+#[derive(Debug, SystemParam)]
+pub(crate) struct LocationPlacementParams {
+    locations: Query<&mut Location<Entity>>,
+}
+
+#[derive(Default, Debug, Clone, Copy)]
 pub(crate) struct LocationPlacement;
 
-impl Placement for LocationPlacement {
-    fn next(&self) -> Option<Self> {
-        None
-    }
-
-    fn start() -> Self {
-        Self
+impl LocationPlacement {
+    fn transition(&self) -> PlacementTransition<Self> {
+        PlacementTransition{
+            preview: Default::default(),
+            next: Default::default(),
+        }
     }
 }
 
+impl Placement for LocationPlacement {
+    type Params = LocationPlacementParams;
+    fn next(
+        &self,
+        anchor_selection: Entity,
+        replacing: Option<Entity>,
+        target: Option<Entity>,
+        params: &mut Self::Params,
+        common: &mut SelectAnchorCommonParams,
+    ) -> (Option<Entity>, Self) {
+        match target {
+            Some(target) => {
+                // Change the anchor that the location is attached to.
+                let location = match params.locations.get_mut(target) {
+                    Ok(l) => l,
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: Unable to get location {:?} while in "
+                            "SelectAnchor mode.", target
+                        );
+                        return Err(());
+                    }
+                };
+
+                if location.anchor != anchor_selection {
+                    match common.dependents.get_many_mut(
+                        [location.anchor, anchor_selection]
+                    ) {
+                        Ok([old_dep, new_dep]) => {
+                            old_dep.dependents.remove(&target);
+                            new_dep.dependents.insert(&target);
+                        },
+                        Err(_) => {
+                            println!(
+                                "DEV ERROR: Unable to get anchor dependents "
+                                "for [{:?}, {:?}] while in SelectAnchor mode.",
+                                location.anchor,
+                                anchor_selection,
+                            );
+                            return Err(());
+                        }
+                    }
+                }
+
+                return (TargetTransition::finished(), self.transition());
+            }
+            None => {
+                // The location doesn't exist yet, so we need to spawn one.
+                let target = common.commands
+                    .spawn()
+                    .insert(Location{
+                        anchor: anchor_selection,
+                        tags: Default::default(),
+                    })
+                    .insert(Pending)
+                    .id();
+                if let Ok(dep) = common.dependents.get_mut(anchor_selection) {
+                    dep.dependents.insert(target);
+                } else {
+                    println!("DEV ERROR: Unable to get anchor dependents for {anchor_selection:?}");
+                }
+
+                return (TargetTransition::create(target).finish(), self.transition());
+            }
+        }
+    }
+
+    fn current(
+        &self,
+        target: Entity,
+        params: &Self::Params,
+    ) -> Option<Entity> {
+        params.locations.get(target).ok().map(|location| location.anchor)
+    }
+}
+
+#[derive(Debug, SystemParam)]
+pub(crate) struct FloorPlacementParams {
+    floors: Query<&mut Floor<Entity>>,
+}
+
+#[derive(Debug)]
 pub(crate) struct FloorPlacement {
     /// Replace the floor anchor at the specified index, or push the anchor to
     /// the end if None is specified. If the specified index is too high, this
@@ -266,11 +509,157 @@ impl FloorPlacement {
         // at the end.
         Self{placement: None}
     }
+
+    fn transition_from(index: usize) -> PlacementTransition<Self> {
+        PlacementTransition{
+            preview: Self::at_index(index),
+            next: Self::at_index(index+1),
+        }
+    }
+
+    fn transition_to(index: usize) -> PlacementTransition<Self> {
+        let index = if index > 0 { index - 1 } else { 0 };
+        Self::transition_from(index)
+    }
 }
 
 impl Placement for FloorPlacement {
-    fn next(&self) -> Option<Self> {
-        Some(Self{placement: self.placement.map(|i| i+1)})
+    type Params = FloorPlacementParams;
+
+    fn next(
+        &self,
+        anchor_selection: Entity,
+        replacing: Option<Entity>,
+        target: Option<Entity>,
+        params: &mut Self::Params,
+        common: &mut SelectAnchorCommonParams,
+    ) -> Result<(TargetTransition, Self), ()> {
+        let target = match target {
+            Some(target) => target,
+            None => {
+                // We need to create a new floor
+                let target = common.commands
+                    .spawn()
+                    .insert(Floor{
+                        anchors: vec![anchor_selection],
+                        texture: None,
+                    })
+                    .insert(Pending)
+                    .id();
+
+                match common.dependents.get_mut(anchor_selection) {
+                    Ok(dep) => {
+                        dep.dependents.insert(target);
+                    },
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: Invalid anchor being selected for "
+                            "{self:?}", self,
+                        );
+                    }
+                }
+
+                return Ok((TargetTransition::create(target), Self::transition_from(0)));
+            }
+        };
+
+        let floor = match params.floors.get_mut(target) {
+            Ok(floor) => floor,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Unable to find floor {target:?} while in "
+                    "SelectAnchor mode."
+                );
+                return Err(());
+            }
+        };
+
+        let index = self.placement.unwrap_or(floor.anchors.len()).min(floor.anchors.len());
+        if floor.anchors.len() >= 3 {
+            if Some(anchor_selection) == floor.anchors.first() {
+                if index >= floor.anchors.len() - 1 {
+                    // The user has set the first node to the last node,
+                    // creating a closed loop. We should consider the floor to
+                    // be finished.
+                    if index == floor.anchors.len() - 1 {
+                        // Remove the last element because it is redundant with
+                        // the first element now.
+                        floor.anchors.pop();
+                    }
+                    return Ok((TargetTransition::finished(), Self::transition_from(index)));
+                }
+            }
+        }
+
+        for (i, anchor) in floor.anchors.iter().enumerate() {
+            if *anchor == anchor_selection && i != index {
+                // The user has reselected a midpoint. That doesn't make sense
+                // for a floor so we will disregard it.
+                return Ok((TargetTransition::none(), Self::transition_to(index)));
+            }
+        }
+
+        if let Some(place_anchor) = floor.anchors.get_mut(index) {
+            let old_anchor = *place_anchor;
+            *place_anchor = anchor_selection;
+
+            if floor.anchors.iter().find(old_anchor).is_none() {
+                if let Ok(mut dep) = common.dependents.get_mut(old_anchor) {
+                    // Remove the dependency for the old anchor since we are not
+                    // using it anymore.
+                    dep.dependents.remove(&target);
+                } else {
+                    println!(
+                        "DEV ERROR: Invalid old anchor {:?} in floor", old_anchor
+                    );
+                }
+            } else {
+                println!(
+                    "DEV ERROR: Anchor {old_anchor:?} was duplicated in a floor"
+                );
+            }
+        } else {
+            // We need to add this anchor to the end of the vector
+            floor.anchors.push(anchor_selection);
+        }
+
+        let mut dep = match common.dependents.get_mut(anchor_selection) {
+            Ok(dep) => dep,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Invalid anchor being selected for {self:?}",
+                    self
+                );
+                return Ok((TargetTransition::none(), Self::transition_to(index)));
+            }
+        };
+        dep.dependents.insert(target);
+
+        return Ok((TargetTransition::none(), Self::transition_from(index)));
+    }
+
+    fn current(
+        &self,
+        target: Entity,
+        params: &Self::Params,
+    ) -> Option<Entity> {
+        let index = match self.placement {
+            Some(i) => i,
+            None => { return None; }
+        };
+
+        let floor = match params.floors.get(target) {
+            Ok(f) => f,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Unable to find floor {:?} while in "
+                    "SelectAnchor mode", target,
+                );
+                return None;
+            }
+        };
+
+        floor.anchors.get(i)
     }
 }
 
@@ -313,29 +702,29 @@ impl Placement for SelectAnchorPlacement {
         target: Option<Entity>,
         params: &mut Self::Params,
         common: &mut SelectAnchorCommonParams,
-    ) -> (Option<Entity>, Self) {
+    ) -> Result<(TargetTransition, PlacementTransition<Self>), ()> {
         match self {
             Self::Lane(p) => p.next(
                 anchor_selection, replacing, target, &mut params.lane, common
-            ).map(Self::Lane),
+            ).map(|x| x.into()),
             Self::Measurement(p) => p.next(
                 anchor_selection, replacing, target, &mut params.measurement, common,
-            ).map(Self::Measurement),
+            ).map(|x| x.into()),
             Self::Wall(p) => p.next(
                 anchor_selection, replacing, target, &mut params.wall, common,
-            ).map(Self::Wall),
+            ).map(|x| x.into()),
             Self::Door(p) => p.next(
                 anchor_selection, replacing, target, &mut params.door, common,
-            ).map(Self::Door),
+            ).map(|x| x.into()),
             Self::Lift(p) => p.next(
                 anchor_selection, replacing, target, &mut params.lift, common
-            ).map(Self::Lift),
+            ).map(|x| x.into()),
             Self::Location(p) => p.next(
                 anchor_selection, replacing, target, &mut params.location, common
-            ).map(Self::Location),
+            ).map(|x| x.into()),
             Self::Floor(p) => p.next(
                 anchor_selection, replacing, target, &mut params.floor, common,
-            ).map(Self::Floor)
+            ).map(|x| x.into()),
         }
     }
 
@@ -385,6 +774,56 @@ impl Placement for SelectAnchorPlacement {
             Self::Location(p) => p.current(target, &params.location),
             Self::Floor(p) => p.current(target, &params.floor),
         }
+    }
+}
+
+impl<T: Into<SelectAnchorPlacement>>
+From<(TargetTransition, PlacementTransition<T>)>
+for (TargetTransition, PlacementTransition<SelectAnchorPlacement>) {
+    fn from(input: (TargetTransition, PlacementTransition<T>)) -> Self {
+        (input.0, input.1.into())
+    }
+}
+
+impl From<EdgePlacement<Lane<Entity>>> for SelectAnchorPlacement {
+    fn from(input: EdgePlacement<Lane<Entity>>) -> Self {
+        SelectAnchorPlacement::Lane(input)
+    }
+}
+
+impl From<EdgePlacement<Measurement<Entity>>> for SelectAnchorPlacement {
+    fn from(input: EdgePlacement<Measurement<Entity>>) -> Self {
+        SelectAnchorPlacement::Measurement(input)
+    }
+}
+
+impl From<EdgePlacement<Wall<Entity>>> for SelectAnchorPlacement {
+    fn from(input: EdgePlacement<Wall<Entity>>) -> Self {
+        SelectAnchorPlacement::Wall(input)
+    }
+}
+
+impl From<EdgePlacement<Door<Entity>>> for SelectAnchorPlacement {
+    fn from(input: EdgePlacement<Door<Entity>>) -> Self {
+        SelectAnchorPlacement::Door(input)
+    }
+}
+
+impl From<EdgePlacement<Lift<Entity>>> for SelectAnchorPlacement {
+    fn from(input: EdgePlacement<Lift<Entity>>) -> Self {
+        SelectAnchorPlacement::Lift(input)
+    }
+}
+
+impl From<LocationPlacement> for SelectAnchorPlacement {
+    fn from(input: LocationPlacement) -> Self {
+        SelectAnchorPlacement::Location(input)
+    }
+}
+
+impl From<FloorPlacement> for SelectAnchorPlacement {
+    fn from(input: FloorPlacement) -> Self {
+        SelectAnchorPlacement::Floor(input)
     }
 }
 
@@ -561,13 +1000,19 @@ impl SelectAnchor {
         params: &mut SelectAnchorPlacementParams,
         common: &mut SelectAnchorCommonParams,
     ) -> Option<Self> {
-        let (next_target, next_placement) = self.placement.next(
+        let (target_transition, placement_transition) = match self.placement.next(
             anchor_selection,
             self.continuity.replacing(),
             self.for_element,
             params,
             common,
-        );
+        ) {
+            Ok(t) => t,
+            Err(_) => { return None; }
+        };
+
+        let next_target = target_transition.next(self.for_element);
+        let next_placement = placement_transition.next;
 
         match self.continuity {
             SelectAnchorContinuity::ReplaceAnchor{..} => {
@@ -601,6 +1046,40 @@ impl SelectAnchor {
                 });
             }
         }
+    }
+
+    fn preview(
+        &self,
+        anchor_selection: Entity,
+        params: &mut SelectAnchorPlacementParams,
+        common: &mut SelectAnchorCommonParams,
+    ) -> Option<Self> {
+        let (target_transition, placement_transition) = match self.placement.next(
+            anchor_selection,
+            self.continuity.replacing(),
+            self.for_element,
+            params,
+            common,
+        ) {
+            Ok(t) => t,
+            Err(_) => { return None; }
+        };
+        let target = match target_transition.preview(self.for_element) {
+            Some(target) => target,
+            None => {
+                // This shouldn't happen. If a target wasn't already assigned
+                // then a new one should have been created during the preview.
+                // We'll just indicate that we should exit the current mode by
+                // returning None.
+                return None;
+            }
+        };
+
+        Some(Self{
+            for_element: Some(target),
+            placement: placement_transition.preview,
+            continuity: self.continuity
+        })
     }
 }
 
@@ -727,14 +1206,15 @@ pub fn handle_select_anchor_mode(
                     // We should only call this function if the current hovered
                     // anchor is not the one currently assigned. Otherwise we
                     // are wasting query+command effort.
-                    request.next(
+                    request = match request.preview(
                         hovered, &mut placement_params, &mut common_params
-                    );
-
-                    // Note that we do not save the next mode because we are
-                    // really just previewing things. We keep the mode as-is
-                    // until a selection has occurred.
-                    return;
+                    ) {
+                        Some(next_mode) => next_mode,
+                        None => {
+                            *mode = InteractionMode::Inspect;
+                            return;
+                        }
+                    };
                 }
             }
         }

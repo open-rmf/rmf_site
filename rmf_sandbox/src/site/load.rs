@@ -188,6 +188,14 @@ fn generate_site_entities(
                                 .insert(SiteID(*lane_id));
                             consider_id(*lane_id);
                         }
+
+                        for (location_id, location) in &nav_graph_data.locations {
+                            nav_graph
+                                .spawn()
+                                .insert(location.to_ecs(&id_to_entity))
+                                .insert(SiteID(*location_id));
+                            consider_id(*location_id);
+                        }
                     });
             }
         });
