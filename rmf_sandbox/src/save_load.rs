@@ -10,7 +10,7 @@ use bevy::{
 
 use crate::{
     basic_components::{Id, Name},
-    building_map::BuildingMap,
+    building_map::{BuildingMap, CoordinateSystem},
     door::Door,
     floor::Floor,
     lane::Lane,
@@ -172,7 +172,7 @@ fn save(world: &mut World) {
     let building_map_extra = q_building_map_extra.single();
     let map = BuildingMap {
         name: q_name.get(root_entity).unwrap().0.clone(),
-        version: Some(2),
+        coordinate_system: CoordinateSystem::CartesianMeters,
         lifts,
         crowd_sim: building_map_extra.crowd_sim.clone(),
         levels,
