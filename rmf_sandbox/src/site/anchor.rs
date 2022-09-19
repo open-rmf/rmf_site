@@ -44,6 +44,11 @@ impl AnchorBundle {
         }
     }
 
+    pub fn at_transform(tf: &GlobalTransform) -> Self {
+        let translation = tf.translation();
+        Self::new((translation.x, translation.y))
+    }
+
     pub fn visible(self, is_visible: bool) -> Self {
         Self{
             visibility: Visibility{is_visible},

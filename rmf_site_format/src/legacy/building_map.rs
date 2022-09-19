@@ -19,10 +19,24 @@ use crate::{
     OrientationConstraint,
 };
 
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all="snake_case")]
+pub enum CoordinateSystem {
+    Pixels,
+    CartesianMeters,
+}
+
+impl Default for CoordinateSystem {
+    fn default() -> Self {
+        CoordinateSystem::Pixels
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct BuildingMap {
     pub name: String,
-    pub version: Option<i32>,
+    #[serde(default)]
+    pub coordinate_system: CoordinateSystem,
     pub levels: BTreeMap<String, Level>,
     pub crowd_sim: CrowdSim,
     pub lifts: BTreeMap<String, Lift>,

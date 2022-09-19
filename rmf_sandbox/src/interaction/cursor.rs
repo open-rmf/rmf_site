@@ -18,7 +18,7 @@
 use crate::{
     interaction::*,
     animate::*,
-    site::SiteAssets,
+    site::{SiteAssets, Anchor, AnchorDependents, Pending},
 };
 use bevy::{
     prelude::*,
@@ -115,6 +115,9 @@ impl FromWorld for Cursor {
                 visibility: Visibility { is_visible: false },
                 ..default()
             })
+            .insert(Anchor)
+            .insert(AnchorDependents)
+            .insert(Pending)
             .id();
 
         let cursor = world.spawn()
