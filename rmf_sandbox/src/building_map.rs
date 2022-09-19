@@ -5,10 +5,24 @@ use crate::crowd_sim::CrowdSim;
 use crate::level::Level;
 use crate::lift::Lift;
 
+#[derive(Deserialize, Serialize, Clone)]
+#[serde(rename_all="snake_case")]
+pub enum CoordinateSystem {
+    ReferenceImage,
+    CartesianMeters,
+}
+
+impl Default for CoordinateSystem {
+    fn default() -> Self {
+        CoordinateSystem::ReferenceImage
+    }
+}
+
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct BuildingMap {
     pub name: String,
-    pub version: Option<i32>,
+    #[serde(default)]
+    pub coordinate_system: CoordinateSystem,
     pub levels: BTreeMap<String, Level>,
     pub crowd_sim: CrowdSim,
     pub lifts: BTreeMap<String, Lift>,
@@ -17,19 +31,18 @@ pub struct BuildingMap {
 impl BuildingMap {
     pub fn from_bytes(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
         let map: BuildingMap = serde_yaml::from_slice(data)?;
-        let mut map_version = 1;
-        if let Some(version) = map.version {
-            map_version = version;
-        }
-        if map_version == 1 {
-            Ok(BuildingMap::from_v1(map))
-        } else {
-            Ok(map)
+        match map.coordinate_system {
+            CoordinateSystem::ReferenceImage => {
+                Ok(BuildingMap::from_pixel_coordinates(map))
+            }
+            CoordinateSystem::CartesianMeters => {
+                Ok(map)
+            }
         }
     }
 
     /// Converts a map from the legacy format, which uses pixel coordinates.
-    fn from_v1(mut map: BuildingMap) -> BuildingMap {
+    fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
         for (_, level) in map.levels.iter_mut() {
             // todo: calculate scale and inter-level alignment
             let mut ofs_x = 0.0;
@@ -71,7 +84,7 @@ impl BuildingMap {
                 m.y = (-m.y - ofs_y) * scale;
             }
         }
-        map.version = Some(2);
+        map.coordinate_system = CoordinateSystem::CartesianMeters;
         map
     }
 }
