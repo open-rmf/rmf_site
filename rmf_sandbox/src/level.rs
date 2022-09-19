@@ -16,17 +16,26 @@ pub struct LevelDrawing {
 
 #[derive(Deserialize, Serialize, Component, Clone, Default)]
 pub struct Level {
+    #[serde(default)]
     pub vertices: Vec<Vertex>,
+    #[serde(default)]
     pub lanes: Vec<Lane>,
+    #[serde(default)]
     pub measurements: Vec<Measurement>,
+    #[serde(default)]
     pub models: Vec<Model>,
+    #[serde(default)]
     pub walls: Vec<Wall>,
+    #[serde(default)]
     pub doors: Vec<Door>,
+    #[serde(default)]
     pub drawing: LevelDrawing,
     pub elevation: f64,
     pub flattened_x_offset: f64,
     pub flattened_y_offset: f64,
+    #[serde(default)]
     pub floors: Vec<Floor>,
+    #[serde(default)]
     pub physical_cameras: Vec<PhysicalCamera>,
     #[serde(default)]
     pub fiducials: Vec<Fiducial>,
