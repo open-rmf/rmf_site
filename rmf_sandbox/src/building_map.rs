@@ -6,7 +6,7 @@ use crate::level::Level;
 use crate::lift::Lift;
 
 #[derive(Deserialize, Serialize, Clone)]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum CoordinateSystem {
     ReferenceImage,
     CartesianMeters,
@@ -32,12 +32,8 @@ impl BuildingMap {
     pub fn from_bytes(data: &[u8]) -> serde_yaml::Result<BuildingMap> {
         let map: BuildingMap = serde_yaml::from_slice(data)?;
         match map.coordinate_system {
-            CoordinateSystem::ReferenceImage => {
-                Ok(BuildingMap::from_pixel_coordinates(map))
-            }
-            CoordinateSystem::CartesianMeters => {
-                Ok(map)
-            }
+            CoordinateSystem::ReferenceImage => Ok(BuildingMap::from_pixel_coordinates(map)),
+            CoordinateSystem::CartesianMeters => Ok(map),
         }
     }
 
