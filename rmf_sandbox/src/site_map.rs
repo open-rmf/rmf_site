@@ -468,12 +468,13 @@ fn update_walls(
         let (v1, v1_change) = vertices.get(v1_entity).unwrap();
         let v2_entity = vertices_mgrs.0[&level.0].id_to_entity(wall.1).unwrap();
         let (v2, v2_change) = vertices.get(v2_entity).unwrap();
+        let height = wall.3;
 
         if change.is_changed() || v1_change.is_changed() || v2_change.is_changed() {
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
-                    mesh: meshes.add(wall.mesh(v1, v2)),
+                    mesh: meshes.add(wall.mesh(v1, v2, height)),
                     material: handles.wall_material.clone(),
                     transform: wall.transform(v1, v2),
                     ..default()

@@ -27,15 +27,14 @@ impl Default for WallProperties {
 }
 
 #[derive(Deserialize, Serialize, Clone, Component, Default)]
-pub struct Wall(pub usize, pub usize, pub WallProperties);
+pub struct Wall(pub usize, pub usize, pub WallProperties, pub f32);
 
 impl Wall {
-    pub fn mesh(&self, v1: &Vertex, v2: &Vertex) -> Mesh {
+    pub fn mesh(&self, v1: &Vertex, v2: &Vertex, height: f32) -> Mesh {
         let dx = (v2.0 - v1.0) as f32;
         let dy = (v2.1 - v1.1) as f32;
         let length = Vec2::from([dx, dy]).length();
         let width = 0.1 as f32;
-        let height = 3.0 as f32;
 
         // let mut mesh = Mesh::new(PrimitiveTopology::
         // we need to wrap the base wall texture around the wall mesh

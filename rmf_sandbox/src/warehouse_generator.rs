@@ -289,7 +289,7 @@ fn on_enter(
             .unwrap()
             .insert(WarehouseTag);
         spawner
-            .spawn_in_level("L1", Wall(i, (i + 1) % 4, WallProperties::default()))
+            .spawn_in_level("L1", Wall(i, (i + 1) % 4, WallProperties::default(), 2.5))
             .unwrap()
             .insert(WarehouseTag);
     }
