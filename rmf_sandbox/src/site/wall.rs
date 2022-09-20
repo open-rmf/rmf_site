@@ -19,7 +19,7 @@ use bevy::{
     prelude::*,
     render::mesh::shape::Box,
 };
-use rmf_site_format::Wall;
+use rmf_site_format::{Wall, DEFAULT_LEVEL_HEIGHT};
 use crate::{
     site::*,
     interaction::Selectable,

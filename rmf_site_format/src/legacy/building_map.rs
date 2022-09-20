@@ -120,7 +120,7 @@ impl BuildingMap {
                     anchors.insert(anchor_id, anchor);
                     anchor_id
                 } else {
-                    let mut lift_cabin_anchors = lift_cabin_anchors
+                    let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
                     if let Some(duplicate) = lift_cabin_anchors.iter().find(

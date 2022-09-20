@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::Door;
+use rmf_site_format::{Door, DEFAULT_LEVEL_HEIGHT};
 use crate::{
     site::*,
     interaction::Selectable,

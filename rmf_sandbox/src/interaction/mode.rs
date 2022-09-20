@@ -16,11 +16,14 @@
 */
 
 use crate::interaction::*;
-use rmf_site_format::Side;
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ecs::system::SystemParam,
+};
 
 /// Used as a resource to indicate what type of interaction we are currently
 /// expecting from the user.
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub enum InteractionMode {
     /// The user may hover/select any item in the scene. This is the default
     /// interaction mode.
@@ -43,6 +46,19 @@ impl InteractionMode {
             _ => false,
         }
     }
+
+    fn backout<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
+        // TODO(MXG): Actually implement this.
+    }
+
+    fn cancel<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
+        // TODO(MXG): Actually implement this.
+    }
+}
+
+#[derive(SystemParam)]
+struct BackoutParams<'w, 's> {
+    commands: Commands<'w, 's>,
 }
 
 /// We use an event to change the InteractionMode for these reasons:
@@ -71,11 +87,22 @@ pub enum ChangeMode {
 pub fn update_interaction_mode(
     mut mode: ResMut<InteractionMode>,
     mut change_mode: EventReader<ChangeMode>,
+    mut backout: BackoutParams,
 ) {
     let new_mode = match change_mode.iter().last() {
         Some(new_mode) => new_mode,
         None => { return; }
     };
 
-    *mode = new_mode.0;
+    for request in change_mode.iter() {
+        match request {
+            ChangeMode::To(new_mode) => {
+                mode.cancel(&mut backout);
+                *mode = new_mode.clone();
+            },
+            ChangeMode::Backout => {
+                mode.backout(&mut backout);
+            }
+        }
+    }
 }

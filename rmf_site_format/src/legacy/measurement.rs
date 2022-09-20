@@ -24,8 +24,8 @@ impl Measurement {
 
         Ok(SiteMeasurement{
             anchors: (*left_anchor, *right_anchor),
-            distance: self.2.distance.1 as f32,
-            label: "<anonymous>".to_string(),
+            distance: Some(self.2.distance.1 as f32),
+            label: None,
         })
     }
 }

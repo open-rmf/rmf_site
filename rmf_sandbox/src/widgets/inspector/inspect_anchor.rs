@@ -18,16 +18,14 @@
 use crate::{
     site::{Anchor, AnchorDependents, SiteID, Category},
     widgets::{Icons, AppEvents, inspector::SelectionWidget},
-    interaction::{Hover, Select, MoveTo},
+    interaction::MoveTo,
 };
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::{
-        self, Widget, Label, Ui, DragValue, ImageButton,
-    },
+    egui::{Ui, DragValue, ImageButton},
 };
 use std::collections::{HashSet, BTreeMap};
 

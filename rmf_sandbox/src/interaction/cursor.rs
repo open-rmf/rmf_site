@@ -116,7 +116,7 @@ impl FromWorld for Cursor {
                 ..default()
             })
             .insert(Anchor)
-            .insert(AnchorDependents)
+            .insert(AnchorDependents::default())
             .insert(Pending)
             .id();
 
@@ -136,42 +136,22 @@ impl FromWorld for Cursor {
 }
 
 #[derive(SystemParam)]
-struct IntersectGroundPlaneParams {
-    cursor: Res<Cursor>,
-    windows: Res<Windows>,
-    camera_controls: Res<CameraControls>,
-    cameras: Query<&Camera>,
-    global_transforms: Query<&GlobalTransform>,
+struct IntersectGroundPlaneParams<'w, 's> {
+    windows: Res<'w, Windows>,
+    camera_controls: Res<'w, CameraControls>,
+    cameras: Query<'w, 's, &'static Camera>,
+    global_transforms: Query<'w, 's, &'static GlobalTransform>,
 }
 
 fn intersect_ground_plane(
     params: &IntersectGroundPlaneParams,
 ) -> Option<Vec3> {
-    let window = match windows.get_primary() {
-        Some(window) => window,
-        None => { return; }
-    };
-
-    let cursor_position = match window.cursor_position() {
-        Some(cursor_position) => cursor_position,
-        None => { return; }
-    };
-
-    let active_camera = match cameras.get(camera_controls.active_camera()) {
-        Ok(camera) => camera,
-        Err(_) => { return; }
-    };
-
-    let camera_tf = match global_transforms.get(active_camera) {
-        Ok(tf) => tf,
-        Err(_) => { return; }
-    };
-
-    let ray = match Ray3d::from_screenspace(cursor_position, camera, camera_tf) {
-        Some(ray) => ray,
-        None => { return; }
-    };
-
+    let window = params.windows.get_primary()?;
+    let cursor_position = window.cursor_position()?;
+    let e_active_camera = params.camera_controls.active_camera();
+    let active_camera = params.cameras.get(e_active_camera).ok()?;
+    let camera_tf = params.global_transforms.get(e_active_camera).ok()?;
+    let ray = Ray3d::from_screenspace(cursor_position, active_camera, camera_tf)?;
     let n_p = Vec3::Z;
     let n_r = ray.direction();
     let denom = n_p.dot(n_r);
@@ -185,6 +165,7 @@ fn intersect_ground_plane(
 
 pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
+    cursor: Res<Cursor>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
     mut transforms: Query<&mut Transform>,
     select_anchor_params: IntersectGroundPlaneParams,
@@ -198,7 +179,7 @@ pub fn update_cursor_transform(
 
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
-                None => { return; }
+                Err(_) => { return; }
             };
 
             let ray = match intersection.normal_ray() {
@@ -218,7 +199,7 @@ pub fn update_cursor_transform(
 
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
-                None => { return; }
+                Err(_) => { return; }
             };
 
             *transform = Transform::from_translation(intersection);

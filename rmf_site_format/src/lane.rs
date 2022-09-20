@@ -31,7 +31,7 @@ pub struct Lane<SiteID> {
     pub reverse: ReverseLane,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Motion {
     #[serde(skip_serializing_if="Option::is_none")]
     pub orientation_constraint: Option<OrientationConstraint>,
@@ -54,6 +54,12 @@ pub enum ReverseLane {
     Same,
     Disable,
     Different(Motion),
+}
+
+impl Default for ReverseLane {
+    fn default() -> Self {
+        ReverseLane::Same
+    }
 }
 
 #[cfg(feature="bevy")]
@@ -88,5 +94,13 @@ impl<SiteID: Copy> Edge<SiteID> for Lane<SiteID> {
 
     fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
         (&mut self.anchors.0, &mut self.anchors.1)
+    }
+
+    fn new(anchors: (SiteID, SiteID)) -> Self {
+        Lane{
+            anchors,
+            forward: Default::default(),
+            reverse: Default::default(),
+        }
     }
 }

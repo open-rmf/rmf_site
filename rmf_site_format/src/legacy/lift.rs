@@ -1,4 +1,4 @@
-use crate::{LiftCabin, LiftCabinDoor, DoorType};
+use crate::{LiftCabin, LiftCabinDoor, ParameterizedLiftCabin, DoorType};
 use super::{PortingError, Result};
 use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ impl Lift {
             self.width as f32 * 0.75
         );
 
-        Ok(LiftCabin::Params{
+        Ok(LiftCabin::Params(ParameterizedLiftCabin{
             width: self.width as f32,
             depth: self.depth as f32,
             door: LiftCabinDoor{
@@ -68,7 +68,7 @@ impl Lift {
             wall_thickness: None,
             gap: None,
             shift: None,
-        })
+        }))
     }
 }
 

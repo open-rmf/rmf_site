@@ -15,11 +15,16 @@
  *
 */
 
-use bevy::prelude::*;
-use rmf_site_format::{Lift, LiftCabin, DEFAULT_CABIN_WALL_THICKNESS, DEFAULT_CABIN_GAP};
 use crate::{
     site::*,
     interaction::Selectable,
+};
+use rmf_site_format::{
+    Lift, LiftCabin,
+};
+use bevy::{
+    prelude::*,
+    render::primitives::Aabb,
 };
 
 #[derive(Clone, Copy, Debug, Component)]
@@ -48,15 +53,11 @@ fn make_lift_transforms(
     };
 
     let cabin_tf = match &lift.cabin {
-        LiftCabin::Params{width, depth, door, wall_thickness, gap, shift} => {
-            let thick = wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS);
-            let gap = gap.unwrap_or(DEFAULT_CABIN_GAP);
-            let x = -depth/2.0 - thick - gap;
-            let y = shift.unwrap_or(0.);
-
+        LiftCabin::Params(params) => {
+            let Aabb{center, half_extents} = params.aabb();
             Transform{
-                translation: Vec3::new(x, y, DEFAULT_LEVEL_HEIGHT/2.0),
-                scale: Vec3::new(*depth, *width, DEFAULT_LEVEL_HEIGHT),
+                translation: center.into(),
+                scale: (2.0*half_extents).into(),
                 ..default()
             }
         },

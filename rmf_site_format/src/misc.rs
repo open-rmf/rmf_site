@@ -19,6 +19,8 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::*;
 
+pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Side {
     Left,

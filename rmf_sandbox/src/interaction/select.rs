@@ -19,7 +19,6 @@ use crate::{
     interaction::*,
     site::Anchor,
 };
-use rmf_site_format::Side;
 use bevy::prelude::*;
 use std::collections::HashSet;
 

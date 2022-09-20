@@ -19,10 +19,16 @@ use crate::*;
 use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::{
+    prelude::{Component, Entity},
+    render::primitives::Aabb,
+    math::Vec3A,
+};
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
 pub const DEFAULT_CABIN_GAP: f32 = 0.01;
+pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
+pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]
@@ -57,33 +63,57 @@ pub struct Lift<SiteID: Ord> {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LiftCabin {
-    /// The
-    Params{
-        /// How wide is the interior of the cabin, along the axis formed by the
-        /// anchor points.
-        width: f32,
-        /// How deep is the cabin, i.e. interior distance from the front wall to
-        /// the back wall of the cabin.
-        depth: f32,
-        /// What type of door is attached to the cabin.
-        door: LiftCabinDoor,
-        /// How thick are the walls of the cabin. Default is 0.05m.
-        #[serde(skip_serializing_if="Option::is_none")]
-        wall_thickness: Option<f32>,
-        /// How large is the gap between the line formed by the anchor points
-        /// and the edge of the cabin that lines up with the door. Default is
-        /// 0.01m.
-        #[serde(skip_serializing_if="Option::is_none")]
-        gap: Option<f32>,
-        /// Left (positive) / right (negative) shift of the cabin, off-center
-        /// from the anchor points. Default is 0.0m.
-        #[serde(skip_serializing_if="Option::is_none")]
-        shift: Option<f32>,
-    },
+    /// The lift cabin is defined by some parameters.
+    Params(ParameterizedLiftCabin),
     /// The model pose is relative to the center point of the two Lift anchors,
     /// with the y-axis facing the left anchor. The lift doors should open along
     /// the +/- y-axis, and agents should exit the lift along the positive x-axis.
     Model(Model),
+}
+
+/// A lift cabin that is defined entirely by a standard set of parameters.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct ParameterizedLiftCabin {
+    /// How wide is the interior of the cabin, along the axis formed by the
+    /// anchor points.
+    pub width: f32,
+    /// How deep is the cabin, i.e. interior distance from the front wall to
+    /// the back wall of the cabin.
+    pub depth: f32,
+    /// What type of door is attached to the cabin.
+    pub door: LiftCabinDoor,
+    /// How thick are the walls of the cabin. Default is 0.05m.
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub wall_thickness: Option<f32>,
+    /// How large is the gap between the line formed by the anchor points
+    /// and the edge of the cabin that lines up with the door. Default is
+    /// 0.01m.
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub gap: Option<f32>,
+    /// Left (positive) / right (negative) shift of the cabin, off-center
+    /// from the anchor points. Default is 0.0m.
+    #[serde(skip_serializing_if="Option::is_none")]
+    pub shift: Option<f32>,
+}
+
+#[cfg(feature="bevy")]
+impl ParameterizedLiftCabin {
+    pub fn aabb(&self) -> Aabb {
+        let thick = self.wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS);
+        let gap = self.gap.unwrap_or(DEFAULT_CABIN_GAP);
+        Aabb{
+            center: Vec3A::new(
+                -self.depth/2.0 - thick - gap,
+                self.shift.unwrap_or(0.),
+                DEFAULT_LEVEL_HEIGHT,
+            ),
+            half_extents: Vec3A::new(
+                self.depth/2.0,
+                self.width/2.0,
+                DEFAULT_LEVEL_HEIGHT/2.0,
+            )
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -158,5 +188,28 @@ impl<SiteID: Copy + Ord> Edge<SiteID> for Lift<SiteID> {
 
     fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
         (&mut self.reference_anchors.0, &mut self.reference_anchors.1)
+    }
+
+    fn new(reference_anchors: (SiteID, SiteID)) -> Self {
+        Lift{
+            name: "<Unnamed>".to_string(),
+            reference_anchors,
+            cabin: LiftCabin::Params(ParameterizedLiftCabin{
+                width: DEFAULT_CABIN_WIDTH,
+                depth: DEFAULT_CABIN_DEPTH,
+                door: LiftCabinDoor{
+                    width: 0.75*DEFAULT_CABIN_WIDTH,
+                    kind: DoorType::DoubleSliding{left_right_ratio: 0.5},
+                    shifted: None,
+                },
+                wall_thickness: None,
+                gap: None,
+                shift: None
+            }),
+            cabin_anchors: BTreeMap::new(),
+            level_doors: BTreeMap::new(),
+            corrections: BTreeMap::new(),
+            is_static: false,
+        }
     }
 }

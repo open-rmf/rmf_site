@@ -104,4 +104,12 @@ impl<SiteID: Copy> Edge<SiteID> for Door<SiteID> {
     fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
         (&mut self.anchors.0, &mut self.anchors.1)
     }
+
+    fn new(anchors: (SiteID, SiteID)) -> Self {
+        Door{
+            anchors,
+            name: "<Unnamed>".to_string(),
+            kind: DoorType::SingleSliding(Side::Left)
+        }
+    }
 }

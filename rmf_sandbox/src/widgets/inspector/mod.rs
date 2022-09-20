@@ -37,7 +37,7 @@ use bevy::{
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::{Widget, Label, Ui},
+    egui::{Label, Ui},
 };
 
 #[derive(SystemParam)]

@@ -30,9 +30,7 @@ use rmf_site_format::{
 };
 use bevy::prelude::*;
 use bevy_egui::{
-    egui::{
-        Widget, Grid, Ui,
-    },
+    egui::{Grid, Ui},
 };
 
 pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {

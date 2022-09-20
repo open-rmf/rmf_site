@@ -23,9 +23,7 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::{
-    egui::{
-        self, Widget, Label, Ui, ImageButton,
-    },
+    egui::{Ui, ImageButton},
 };
 
 pub struct SelectionWidget<'a, 'w, 's> {

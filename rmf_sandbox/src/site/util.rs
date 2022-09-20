@@ -38,5 +38,3 @@ pub fn line_stroke_transform(
         ..default()
     }
 }
-
-pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;

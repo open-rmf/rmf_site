@@ -18,18 +18,26 @@
 use bevy::prelude::*;
 use rmf_site_format::{Lane, Location, NavGraphProperties};
 
+/// Used as a resource to identify which Nav Graph is the currently selected one
+#[derive(Debug, Default, Clone, Copy)]
+pub struct SelectedNavGraph(pub Option<Entity>);
+
 pub fn assign_orphans_to_nav_graph(
     mut commands: Commands,
     mut selected_nav_graph: ResMut<SelectedNavGraph>,
-    new_elements: Query<Entity, Or<(Added<Lane<Entity>>, Added<Location<Entity>>)>>,
-    parents: Query<&Parent, With<Lane>>,
+    new_elements: Query<Entity, (
+        Or<(Added<Lane<Entity>>, Added<Location<Entity>>)>,
+        Without<Parent>,
+    )>,
 ) {
     if new_elements.is_empty() {
         return;
     }
 
     let mut get_selected_nav_graph = || -> Entity {
-        if selected_nav_graph.0.is_none() {
+        if let Some(nav_graph) = selected_nav_graph.0 {
+            nav_graph
+        } else {
             // Create a new nav graph since there isn't one selected right now
             let new_nav_graph = commands
                 .spawn_bundle(SpatialBundle::default())
@@ -37,17 +45,13 @@ pub fn assign_orphans_to_nav_graph(
                     name: "<Unnamed>".to_string()
                 }).id();
 
-            *selected_nav_graph = Some(new_nav_graph);
+            selected_nav_graph.0 = Some(new_nav_graph);
+            new_nav_graph
         }
-
-        return selected_nav_graph.0;
     };
 
     for e in &new_elements {
-        if !parents.contains(e) {
-            // This new lane does not have a parent, so we should assign it to
-            // the currently selected nav graph.
-            commands.entity(get_selected_nav_graph()).add_child(e);
-        }
+        // This new lane or location does not have a parent, so we should assign
+        // it to the currently selected nav graph.
     }
 }

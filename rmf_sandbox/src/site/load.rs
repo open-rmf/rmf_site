@@ -69,6 +69,7 @@ fn generate_site_entities(
                 })
                 .insert(level_data.properties.clone())
                 .insert(SiteID(*level_id))
+                .insert(Category("Level".to_string()))
                 .with_children(|level| {
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level

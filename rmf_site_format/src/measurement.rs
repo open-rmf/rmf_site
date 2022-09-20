@@ -24,8 +24,8 @@ use bevy::prelude::{Component, Entity};
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Measurement<SiteID> {
     pub anchors: (SiteID, SiteID),
-    pub distance: f32,
-    pub label: String,
+    pub distance: Option<f32>,
+    pub label: Option<String>,
 }
 
 #[cfg(feature="bevy")]
@@ -60,5 +60,9 @@ impl<SiteID: Copy> Edge<SiteID> for Measurement<SiteID> {
 
     fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
         (&mut self.anchors.0, &mut self.anchors.1)
+    }
+
+    fn new(anchors: (SiteID, SiteID)) -> Self {
+        Measurement{anchors, distance: None, label: None}
     }
 }

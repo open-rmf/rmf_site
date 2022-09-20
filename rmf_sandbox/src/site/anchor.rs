@@ -16,8 +16,12 @@
 */
 
 use crate::site::*;
+use rmf_site_format::{Lift, LiftCabin, LevelProperties};
 use std::collections::HashSet;
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    render::primitives::Sphere,
+};
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
@@ -87,4 +91,78 @@ pub struct PreviewAnchor {
     /// is helpful for sending dependents back to their original anchor if the
     /// user cancels the add-anchor interaction mode.
     replacing: Option<Entity>,
+}
+
+pub fn assign_orphan_anchors_to_parent(
+    parents: Query<&Parent>,
+    orphan_anchors: Query<(Entity, &GlobalTransform, &mut Transform), (Added<Anchor>, Without<Parent>)>,
+    mut commands: Commands,
+    mut current_level: ResMut<CurrentLevel>,
+    mut lifts: Query<(Entity, &mut Lift<Entity>, &GlobalTransform)>,
+) {
+    for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
+        let p_anchor = {
+            let mut p = global_anchor_tf.translation();
+            // Add a little height to make sure that the anchor isn't
+            // numerically unstable, right on the floor of the lift cabin.
+            p.z = 0.01;
+            p
+        };
+
+        let mut assigned_to_lift: bool = false;
+        // First check if the new anchor is inside the footprint of any lift cabins
+        for (e_lift, mut lift, global_lift_tf) in &mut lifts {
+            let cabin_aabb = match lift.cabin {
+                LiftCabin::Params(params) => params.aabb(),
+                LiftCabin::Model(_) => {
+                    // TODO(MXG): Support models as lift cabins
+                    continue;
+                }
+            };
+
+            let sphere = Sphere{
+                center: p_anchor.into(),
+                radius: 0.0,
+            };
+            if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.compute_matrix()) {
+                // The anchor is inside the lift cabin, so we should
+                // make it the anchor's parent.
+                commands.entity(e_lift).add_child(anchor);
+                assigned_to_lift = true;
+
+                // Since the anchor will be in the frame of the lift, we need
+                // to update its local transform.
+                *local_anchor_tf = Transform::from_matrix((
+                    global_lift_tf.affine().inverse() * global_anchor_tf.affine()
+                ).into());
+
+                break;
+            }
+        }
+
+        if assigned_to_lift {
+            continue;
+        }
+
+        // The anchor was not assigned to a lift, so we should assign it to the
+        // current level.
+        let parent = if let Some(level) = current_level.0 {
+            level
+        } else {
+            // No level is currently assigned, so we should create one.
+            let new_level_id = commands
+                .spawn()
+                .insert(LevelProperties{
+                    name: "<Unnamed>".to_string(),
+                    elevation: 0.,
+                })
+                .insert(Category("Level".to_string()))
+                .id();
+
+            current_level.0 = Some(new_level_id);
+            new_level_id
+        };
+
+        commands.entity(parent).add_child(anchor);
+    }
 }

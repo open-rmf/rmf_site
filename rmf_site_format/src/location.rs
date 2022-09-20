@@ -51,7 +51,7 @@ impl<Entity> Location<Entity> {
 impl Location<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Location<Entity> {
         Location{
-            anchor: *id_to_entity.get(&self.anchors.0).unwrap(),
+            anchor: *id_to_entity.get(&self.anchor).unwrap(),
             tags: self.tags.clone(),
         }
     }
