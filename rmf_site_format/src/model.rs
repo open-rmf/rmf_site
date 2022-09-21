@@ -18,17 +18,26 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Deref, DerefMut, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Model {
     /// Name of the model instance
-    pub name: String,
-    /// What kind of model is this (i.e. its SDF Model name)
-    pub kind: String,
+    pub name: Name,
+    /// What kind of model is this (i.e. its SDF Model name). If None, nothing
+    /// will be loaded for it.
+    pub kind: Label,
     /// Pose of the model relative to the level it is on.
     pub pose: Pose,
+    #[serde(skip_serializing_if="is_default")]
     /// Whether this model should be able to move in simulation
-    pub is_static: bool,
+    pub is_static: IsStatic,
+    /// Only relevant for bevy
+    #[serde(skip)]
+    pub marker: ModelMarker,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct ModelMarker;

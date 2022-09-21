@@ -20,7 +20,7 @@ use std::collections::BTreeMap;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::{
-    prelude::{Component, Entity},
+    prelude::{Component, Entity, Deref, DerefMut},
     render::primitives::Aabb,
     math::Vec3A,
 };
@@ -31,22 +31,27 @@ pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
 pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Lift<SiteID: Ord> {
-    /// Name of this lift. This must be unique within the site.
-    pub name: String,
-    /// These anchors define the canonical reference frame of the lift. Both
-    /// anchors must belong to the same level.
-    pub reference_anchors: (SiteID, SiteID),
-    /// Description of the cabin for the lift.
-    pub cabin: LiftCabin,
+    pub properties: LiftProperties<SiteID>,
     /// Anchors that are inside the cabin of the lift and exist in the map of
     /// the cabin's interior.
-    pub cabin_anchors: BTreeMap<SiteID, (f32, f32)>,
+    pub cabin_anchors: BTreeMap<SiteID, [f32; 2]>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Bundle))]
+pub struct LiftProperties<SiteID: Ord> {
+    /// Name of this lift. This must be unique within the site.
+    pub name: Name,
+    /// These anchors define the canonical reference frame of the lift. Both
+    /// anchors must belong to the same level.
+    pub reference_anchors: Edge<SiteID>,
+    /// Description of the cabin for the lift.
+    pub cabin: LiftCabin,
     /// A map from the ID of a level that this lift can visit to the door that
     /// the lift opens on that level. key: level, value: door. The lift can only
     /// visit levels that are included in this map.
-    pub level_doors: BTreeMap<SiteID, SiteID>,
+    pub level_doors: LevelDoors<SiteID>,
     /// For each level (key of the map, given as its ID in the [`Site`]::levels
     /// map), specify two anchors that correct the positioning of this lift on
     /// that level. These will act like [`Fiducial`] when the site levels are
@@ -54,14 +59,15 @@ pub struct Lift<SiteID: Ord> {
     ///
     /// Finalized site files should not have this field because it should become
     /// unnecessary after levels have been scaled and aligned.
-    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
-    pub corrections: BTreeMap<SiteID, (SiteID, SiteID)>,
+    #[serde(skip_serializing_if = "Corrections::is_empty")]
+    pub corrections: Corrections<SiteID>,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
-    pub is_static: bool,
+    pub is_static: IsStatic,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub enum LiftCabin {
     /// The lift cabin is defined by some parameters.
     Params(ParameterizedLiftCabin),
@@ -69,6 +75,12 @@ pub enum LiftCabin {
     /// with the y-axis facing the left anchor. The lift doors should open along
     /// the +/- y-axis, and agents should exit the lift along the positive x-axis.
     Model(Model),
+}
+
+impl Default for LiftCabin {
+    fn default() -> Self {
+        LiftCabin::Params(Default::default())
+    }
 }
 
 /// A lift cabin that is defined entirely by a standard set of parameters.
@@ -94,6 +106,23 @@ pub struct ParameterizedLiftCabin {
     /// from the anchor points. Default is 0.0m.
     #[serde(skip_serializing_if="Option::is_none")]
     pub shift: Option<f32>,
+}
+
+impl Default for ParameterizedLiftCabin {
+    fn default() -> Self {
+        Self{
+            width: DEFAULT_CABIN_WIDTH,
+            depth: DEFAULT_CABIN_DEPTH,
+            door: LiftCabinDoor{
+                width: 0.75*DEFAULT_CABIN_WIDTH,
+                kind: DoorType::DoubleSliding{left_right_ratio: 0.5},
+                shifted: None,
+            },
+            wall_thickness: None,
+            gap: None,
+            shift: None
+        }
+    }
 }
 
 #[cfg(feature="bevy")]
@@ -127,89 +156,81 @@ pub struct LiftCabinDoor {
     pub shifted: Option<f32>,
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct LevelDoors<T: Ord>(pub BTreeMap<T, T>);
+impl<T: Ord> Default for LevelDoors<T> {
+    fn default() -> Self {
+        LevelDoors(BTreeMap::new())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct Corrections<T: Ord>(pub BTreeMap<T, Edge<T>>);
+impl<T: Ord> Default for Corrections<T> {
+    fn default() -> Self {
+        Corrections(BTreeMap::new())
+    }
+}
+impl<T: Ord> Corrections<T> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
 #[cfg(feature="bevy")]
-impl Lift<Entity> {
+impl LiftProperties<Entity> {
     pub fn to_u32(
         &self,
-        reference_anchors: (u32, u32),
-        cabin_anchors: BTreeMap<u32, (f32, f32)>,
+        reference_anchors: Edge<u32>,
         level_doors: BTreeMap<u32, u32>,
         corrections: BTreeMap<u32, (u32, u32)>,
     ) -> Lift<u32> {
-        Lift{
+        LiftProperties{
+            name: self.name.clone(),
             reference_anchors,
-            cabin_anchors,
+            cabin: self.cabin.clone(),
             level_doors,
             corrections,
-            name: self.name.clone(),
-            cabin: self.cabin.clone(),
             is_static: self.is_static,
         }
     }
 }
 
 #[cfg(feature="bevy")]
-impl Lift<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lift<Entity> {
-        Lift{
-            reference_anchors: (
-                *id_to_entity.get(&self.reference_anchors.0).unwrap(),
-                *id_to_entity.get(&self.reference_anchors.1).unwrap(),
-            ),
-            corrections: self.corrections.iter().map(|(level, (a0, a1))| {
-                (
-                    *id_to_entity.get(level).unwrap(),
-                    (
-                        *id_to_entity.get(a0).unwrap(),
-                        *id_to_entity.get(a1).unwrap(),
-                    )
-                )
-            }).collect(),
+impl LiftProperties<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> LiftProperties<Entity> {
+        LiftProperties{
+            name: self.name.clone(),
+            reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
+            cabin: self.cabin.clone(),
             level_doors: self.level_doors.iter().map(|(level, door)| {
                 (
                     *id_to_entity.get(level).unwrap(),
                     *id_to_entity.get(door).unwrap(),
                 )
             }).collect(),
-            // These fields will be loaded as child entities so we can leave them
-            // blank here
-            cabin_anchors: Default::default(),
-            name: self.name.clone(),
-            cabin: self.cabin.clone(),
+            corrections: self.corrections.iter().map(|(level, edge)| {
+                (
+                    *id_to_entity.get(level).unwrap(),
+                    edge.to_ecs(id_to_entity),
+                )
+            }).collect(),
             is_static: self.is_static,
         }
     }
 }
 
-impl<SiteID: Copy + Ord> Edge<SiteID> for Lift<SiteID> {
-    fn endpoints(&self) -> (SiteID, SiteID) {
-        self.reference_anchors
-    }
-
-    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
-        (&mut self.reference_anchors.0, &mut self.reference_anchors.1)
-    }
-
-    fn new(reference_anchors: (SiteID, SiteID)) -> Self {
-        Lift{
-            name: "<Unnamed>".to_string(),
-            reference_anchors,
-            cabin: LiftCabin::Params(ParameterizedLiftCabin{
-                width: DEFAULT_CABIN_WIDTH,
-                depth: DEFAULT_CABIN_DEPTH,
-                door: LiftCabinDoor{
-                    width: 0.75*DEFAULT_CABIN_WIDTH,
-                    kind: DoorType::DoubleSliding{left_right_ratio: 0.5},
-                    shifted: None,
-                },
-                wall_thickness: None,
-                gap: None,
-                shift: None
-            }),
-            cabin_anchors: BTreeMap::new(),
-            level_doors: BTreeMap::new(),
-            corrections: BTreeMap::new(),
-            is_static: false,
+impl<T: Ord> From<Edge<T>> for LiftProperties<T> {
+    fn from(edge: Edge<T>) -> Self {
+        LiftProperties{
+            reference_anchors: edge,
+            name: Default::default(),
+            cabin: Default::default(),
+            level_doors: Default::default(),
+            corrections: Default::default(),
+            is_static: Default::default(),
         }
     }
 }

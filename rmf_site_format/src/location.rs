@@ -31,9 +31,9 @@ pub enum LocationTag {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Location<SiteID> {
-    pub anchor: SiteID,
+    pub anchor: Point<SiteID>,
     pub tags: Vec<LocationTag>,
 }
 
@@ -54,5 +54,11 @@ impl Location<u32> {
             anchor: *id_to_entity.get(&self.anchor).unwrap(),
             tags: self.tags.clone(),
         }
+    }
+}
+
+impl<T> From<Point<T>> for Location<T> {
+    fn from(anchor: Point<T>) -> Self {
+        Self{anchor, tags: Vec::new()}
     }
 }

@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Floor as SiteFloor, Texture, TextureSource, Angle};
+use crate::{Floor as SiteFloor, Texture, CustomTexture, TextureSource, Angle, FloorMarker, Path};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -28,18 +28,19 @@ impl Floor {
         }
 
         Ok(SiteFloor{
-            anchors,
+            anchors: Path(anchors),
             texture: if self.parameters.texture_name.1.is_empty() {
-                None
+                Texture::Default
             } else {
-                Some(Texture{
+                Texture::Custom(CustomTexture{
                     source: TextureSource::Filename(self.parameters.texture_name.1.clone()),
                     alpha: None,
                     rotation: Some(Angle::Deg(self.parameters.texture_rotation.1 as f32)),
                     scale: Some(self.parameters.texture_scale.1 as f32),
                     offset: None,
                 })
-            }
+            },
+            marker: FloorMarker,
         })
     }
 }

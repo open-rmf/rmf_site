@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
 };
 use super::{rbmf::*, Result, PortingError};
-use crate::{Door as SiteDoor, Side, Swing, Angle};
+use crate::{Door as SiteDoor, Side, Swing, Angle, Name};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -82,8 +82,8 @@ impl Door {
         )?;
 
         Ok(SiteDoor{
-            anchors: (*left_anchor, *right_anchor),
-            name: self.2.name.1.clone(),
+            anchors: [*left_anchor, *right_anchor].into(),
+            name: Name(self.2.name.1.clone()),
             kind,
         })
     }

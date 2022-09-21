@@ -16,67 +16,78 @@
 */
 
 use crate::Side;
+use serde::{Serialize, Deserialize};
+#[cfg(feature="bevy")]
+use bevy::prelude::{Component, Entity};
 
-/// The edge trait is used to unify the APIs of several edge-like site elements,
-/// such as lane, wall, door, measurement, and lift. These elements have a
-/// common theme: their position is (at least partially) defined by a pair of
-/// anchors. This trait gives a unified way of accessing and mutating those
-/// anchors.
-///
-/// Types that implement this trait should only implement [`endpoints`] and
-/// [`endpoints_mut`]. All other functions should keep their standard
-/// implementation.
-pub trait Edge<T> {
-    /// Get the endpoints of this edge.
-    fn endpoints(&self) -> (T, T);
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct Edge<T>([T; 2]);
 
-    /// Get mutable references to the endpoints of this edge.
-    fn endpoints_mut(&mut self) -> (&mut T, &mut T);
-
+impl<T: Copy> Edge<T> {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
-    fn new(anchors: (T, T)) -> Self;
-
-    fn left(&self) -> T {
-        self.endpoints().0
+    pub fn new(left: T, right: T) -> Self {
+        Self([left, right])
     }
 
-    fn left_mut(&mut self) -> &mut T {
-        self.endpoints_mut().0
+    pub fn array(&self) -> &[T; 2] {
+        &self.0
     }
 
-    fn right(&self) -> T {
-        self.endpoints().1
+    pub fn array_mut(&mut self) -> &mut [T; 2] {
+        &mut self.0
     }
 
-    fn right_mut(&mut self) -> &mut T {
-        self.endpoints_mut().1
+    pub fn left(&self) -> T {
+        self.0[0]
     }
 
-    fn start(&self) -> T {
+    pub fn left_mut(&mut self) -> &mut T {
+        self.0.get_mut(0).unwrap()
+    }
+
+    pub fn right(&self) -> T {
+        self.0[1]
+    }
+
+    pub fn right_mut(&mut self) -> &mut T {
+        self.0.get_mut(1).unwrap()
+    }
+
+    pub fn start(&self) -> T {
         self.left()
     }
 
-    fn start_mut(&mut self) -> &mut T {
+    pub fn start_mut(&mut self) -> &mut T {
         self.left_mut()
     }
 
-    fn end(&self) -> T {
+    pub fn end(&self) -> T {
         self.right()
     }
 
-    fn end_mut(&mut self) -> &mut T {
+    pub fn end_mut(&mut self) -> &mut T {
         self.right_mut()
     }
 
-    fn array(&self) -> [T; 2] {
-        [self.left(), self.right()]
-    }
-
-    fn side(&self, side: Side) -> T {
+    pub fn side(&self, side: Side) -> T {
         match side {
             Side::Left => self.left(),
             Side::Right => self.right(),
         }
+    }
+}
+
+impl<T> From<[T; 2]> for Edge<T> {
+    fn from(array: [T; 2]) -> Self {
+        Self(array)
+    }
+}
+
+#[cfg(feature="bevy")]
+impl Edge<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Edge<Entity> {
+        Self(self.0.iter().map(|a| *id_to_entity.get(a).unwrap()).collect())
     }
 }

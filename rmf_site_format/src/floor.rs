@@ -18,22 +18,29 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Floor<SiteID> {
-    pub anchors: Vec<SiteID>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub texture: Option<Texture>,
+    pub anchors: Path<SiteID>,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub texture: Texture,
+    #[serde(skip)]
+    pub marker: FloorMarker,
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct FloorMarker;
 
 #[cfg(feature="bevy")]
 impl Floor<Entity> {
-    pub fn to_u32(&self, anchors: Vec<u32>) -> Floor<u32> {
+    pub fn to_u32(&self, anchors: Path<u32>) -> Floor<u32> {
         Floor{
             anchors,
             texture: self.texture.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -42,8 +49,9 @@ impl Floor<Entity> {
 impl Floor<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Floor<Entity> {
         Floor{
-            anchors: self.anchors.iter().map(|a| *id_to_entity.get(a).unwrap()).collect(),
+            anchors: self.anchors.to_ecs(id_to_entity),
             texture: self.texture.clone(),
+            marker: Default::default()
         }
     }
 }

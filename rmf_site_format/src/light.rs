@@ -20,20 +20,21 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::{
     prelude::{
-        Component, PointLight, SpotLight, DirectionalLight,
-        PointLightBundle, SpotLightBundle, DirectionalLightBundle,
+        Component, Bundle, PointLight, SpotLight, DirectionalLight,
+        PointLightBundle, SpotLightBundle, DirectionalLightBundle, Transform,
     },
     ecs::system::EntityCommands,
 };
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Light {
     pub pose: Pose,
     pub kind: LightType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub enum LightType {
     PointLight{
         color: [f32; 4],
@@ -54,12 +55,12 @@ pub enum LightType {
 }
 
 #[cfg(feature="bevy")]
-impl Light {
-    pub fn insert_into(&self, commands: &mut EntityCommands) {
+impl LightType {
+    pub fn insert_at(&self, commands: &mut EntityCommands, tf: &Transform) {
         match self.kind {
             LightType::PointLight{color, intensity, range, radius} => {
                 commands.insert_bundle(PointLightBundle{
-                    transform: self.pose.transform(),
+                    transform: *tf,
                     point_light: PointLight{
                         color: color.into(),
                         intensity,
@@ -72,7 +73,7 @@ impl Light {
             },
             LightType::SpotLight{color, intensity, range, radius} => {
                 commands.insert_bundle(SpotLightBundle{
-                    transform: self.pose.transform(),
+                    transform: *tf,
                     spot_light: SpotLight{
                         color: color.into(),
                         intensity,
@@ -85,7 +86,7 @@ impl Light {
             },
             LightType::DirectionalLight{color, illuminance} => {
                 commands.insert_bundle(DirectionalLightBundle{
-                    transform: self.pose.transform(),
+                    transform: *tf,
                     directional_light: DirectionalLight{
                         color: color.into(),
                         illuminance,

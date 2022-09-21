@@ -15,17 +15,29 @@
  *
 */
 
-use crate::Edge;
+use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Measurement<SiteID> {
-    pub anchors: (SiteID, SiteID),
-    pub distance: Option<f32>,
-    pub label: Option<String>,
+    pub anchors: Edge<SiteID>,
+    #[serde(skip_serializing_if="is_default")]
+    pub distance: Distance,
+    #[serde(skip_serializing_if="is_default")]
+    pub label: Label,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct Distance(pub Option<f32>);
+
+impl Default for Distance {
+    fn default() -> Self {
+        Self(None)
+    }
 }
 
 #[cfg(feature="bevy")]
@@ -53,16 +65,12 @@ impl Measurement<u32> {
     }
 }
 
-impl<SiteID: Copy> Edge<SiteID> for Measurement<SiteID> {
-    fn endpoints(&self) -> (SiteID, SiteID) {
-        self.anchors
-    }
-
-    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
-        (&mut self.anchors.0, &mut self.anchors.1)
-    }
-
-    fn new(anchors: (SiteID, SiteID)) -> Self {
-        Measurement{anchors, distance: None, label: None}
+impl<T> From<Edge<T>> for Measurement<T> {
+    fn from(anchors: Edge<T>) -> Self {
+        Self{
+            anchors,
+            distance: Default::default(),
+            label: Default::default(),
+        }
     }
 }

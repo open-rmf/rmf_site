@@ -15,27 +15,35 @@
  *
 */
 
+use crate::{Point, Label};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
 
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Fiducial<SiteID> {
+    /// The anchor that represents the position of this fiducial.
+    pub anchor: Point<SiteID>,
     /// Label of this fiducial. This label must be unique within the level that
     /// the fiducial is being defined on. To be used for aligning, there must
-    /// be a fiducial with the same label on one or more other levels.
-    pub label: String,
-    /// The anchor that represents the position of this fiducial.
-    pub anchor: SiteID,
+    /// be a fiducial with the same label on one or more other levels. A value
+    /// of None means it will not effect alignment.
+    pub label: Label,
+    #[serde(skip)]
+    pub marker: FiducialMarker,
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct FiducialMarker;
 
 #[cfg(feature="bevy")]
 impl Fiducial<Entity> {
     pub fn to_u32(&self, anchor: u32) -> Fiducial<u32> {
-        Fiducial{label: self.label.clone(), anchor}
+        Fiducial{label: self.label.clone(), anchor: anchor.into(), marker: Default::default()}
     }
 }
 
@@ -43,8 +51,19 @@ impl Fiducial<Entity> {
 impl Fiducial<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Fiducial<Entity> {
         Fiducial{
-            anchor: *id_to_entity.get(&self.anchor).unwrap(),
+            anchor: self.anchor.to_ecs(id_to_entity),
             label: self.label.clone(),
+            marker: Default::default(),
+        }
+    }
+}
+
+impl<T> From<Point<T>> for Fiducial<T> {
+    fn from(anchor: Point<T>) -> Self {
+        Self{
+            anchor,
+            label: Default::default(),
+            marker: Default::default(),
         }
     }
 }

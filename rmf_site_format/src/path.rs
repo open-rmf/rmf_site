@@ -15,24 +15,17 @@
  *
 */
 
-use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Bundle};
+use bevy::prelude::{Component, Deref, DerefMut, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct PhysicalCamera {
-    pub name: Name,
-    pub pose: Pose,
-    pub properties: PhysicalCameraProperties,
-}
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct Path<SiteID>(pub Vec<SiteID>);
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct PhysicalCameraProperties {
-    pub width: u32,
-    pub height: u32,
-    pub horizontal_fov: f32,
-    pub frame_rate: f32,
+#[cfg(feature="bevy")]
+impl Path<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Path<Entity> {
+        Self(self.0.iter().map(|a| *id_to_entity.get(a).unwrap()).collect())
+    }
 }

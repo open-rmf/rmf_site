@@ -21,13 +21,20 @@ use serde::{Serialize, Deserialize};
 use bevy::prelude::Component;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub enum DrawingSource {
     Filename(String),
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Drawing {
     pub source: DrawingSource,
     pub pose: Pose,
+    #[serde(skip)]
+    pub marker: DrawingMarker,
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct DrawingMarker;

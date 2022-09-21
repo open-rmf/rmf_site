@@ -18,20 +18,28 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Lane<SiteID> {
     /// The endpoints of the lane (start, end)
-    pub anchors: (SiteID, SiteID),
+    pub anchors: Edge<SiteID>,
     /// The properties of the lane when traveling forwards
     pub forward: Motion,
     /// The properties of the lane when traveling in reverse
     pub reverse: ReverseLane,
+    /// Marker that tells bevy the entity is a Lane-type
+    #[serde(skip)]
+    pub marker: LaneMarker,
 }
 
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct LaneMarker;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Motion {
     #[serde(skip_serializing_if="Option::is_none")]
     pub orientation_constraint: Option<OrientationConstraint>,
@@ -50,6 +58,7 @@ pub enum OrientationConstraint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub enum ReverseLane {
     Same,
     Disable,
@@ -64,11 +73,12 @@ impl Default for ReverseLane {
 
 #[cfg(feature="bevy")]
 impl Lane<Entity> {
-    pub fn to_u32(&self, anchors: (u32, u32)) -> Lane<u32> {
+    pub fn to_u32(&self, anchors: Edge<u32>) -> Lane<u32> {
         Lane{
             anchors,
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -77,30 +87,21 @@ impl Lane<Entity> {
 impl Lane<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
         Lane{
-            anchors: (
-                *id_to_entity.get(&self.anchors.0).unwrap(),
-                *id_to_entity.get(&self.anchors.1).unwrap(),
-            ),
+            anchors: self.anchors.to_ecs(id_to_entity),
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
+            marker: Default::default(),
         }
     }
 }
 
-impl<SiteID: Copy> Edge<SiteID> for Lane<SiteID> {
-    fn endpoints(&self) -> (SiteID, SiteID) {
-        self.anchors
-    }
-
-    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
-        (&mut self.anchors.0, &mut self.anchors.1)
-    }
-
-    fn new(anchors: (SiteID, SiteID)) -> Self {
+impl<T> From<Edge<T>> for Lane<T> {
+    fn from(edge: Edge<T>) -> Self {
         Lane{
-            anchors,
+            anchors: edge,
             forward: Default::default(),
             reverse: Default::default(),
+            marker: Default::default(),
         }
     }
 }

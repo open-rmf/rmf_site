@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Wall as SiteWall, Texture, TextureSource};
+use crate::{Wall as SiteWall, Texture, CustomTexture, TextureSource};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -37,11 +37,11 @@ impl Wall {
             PortingError::InvalidVertex(self.1)
         )?;
         Ok(SiteWall{
-            anchors: (*left_anchor, *right_anchor),
+            anchors: [*left_anchor, *right_anchor].into(),
             texture: if self.2.texture_name.is_empty() {
-                None
+                Texture::Default
             } else {
-                Some(Texture{
+                Texture::Custom(CustomTexture{
                     source: TextureSource::Filename(self.2.texture_name.1.clone()),
                     alpha: Some(self.2.alpha.1 as f32),
                     rotation: None,

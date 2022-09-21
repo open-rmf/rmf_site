@@ -44,7 +44,7 @@ fn default_style_config() -> Style {
     .depth_limit(4)
     .new_line("\n".to_string())
     .indentor("  ".to_string())
-    .struct_names(true)
+    .struct_names(false)
 }
 
 impl Site {

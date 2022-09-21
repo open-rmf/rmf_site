@@ -83,15 +83,16 @@ impl Rotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub struct Pose {
-    pub trans: (f32, f32, f32),
+    pub trans: [f32; 3],
     pub rot: Rotation,
 }
 
 impl Default for Pose {
     fn default() -> Self {
         Self{
-            trans: (0., 0., 0.),
+            trans: [0., 0., 0.],
             rot: Rotation::Yaw(Angle::Deg(0.)),
         }
     }
@@ -105,5 +106,35 @@ impl Pose {
             rotation: self.rot.quat(),
             ..default()
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct Name(pub String);
+
+impl Default for Name {
+    fn default() -> Self {
+        Self("<Unnamed>".to_string())
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct Label(pub Option<String>);
+
+impl Default for Label {
+    fn default() -> Self {
+        Label(None)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct IsStatic(pub bool);
+
+impl Default for IsStatic {
+    fn default() -> Self {
+        IsStatic(false)
     }
 }

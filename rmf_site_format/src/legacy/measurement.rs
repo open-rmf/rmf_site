@@ -1,4 +1,4 @@
-use crate::{Measurement as SiteMeasurement};
+use crate::{Measurement as SiteMeasurement, Label, Distance};
 use super::{rbmf::*, PortingError, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -23,9 +23,9 @@ impl Measurement {
         )?;
 
         Ok(SiteMeasurement{
-            anchors: (*left_anchor, *right_anchor),
-            distance: Some(self.2.distance.1 as f32),
-            label: None,
+            anchors: [*left_anchor, *right_anchor].into(),
+            distance: Distance(Some(self.2.distance.1 as f32)),
+            label: Label(None),
         })
     }
 }

@@ -63,8 +63,14 @@ pub use model::*;
 pub mod nav_graph;
 pub use nav_graph::*;
 
+pub mod path;
+pub use path::*;
+
 pub mod physical_camera;
 pub use physical_camera::*;
+
+pub mod point;
+pub use point::*;
 
 pub mod semver;
 pub use semver::*;

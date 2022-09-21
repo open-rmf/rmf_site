@@ -63,17 +63,17 @@ pub enum DoorType {
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Door<SiteID> {
     /// (left_anchor, right_anchor)
-    pub anchors: (SiteID, SiteID),
+    pub anchors: Edge<SiteID>,
     /// Name of the door. RMF requires each door name to be unique among all
     /// doors in the site.
-    pub name: String,
+    pub name: Name,
     /// What kind of door is it.
     pub kind: DoorType,
 }
 
 #[cfg(feature="bevy")]
 impl Door<Entity> {
-    pub fn to_u32(&self, anchors: (u32, u32)) -> Door<u32> {
+    pub fn to_u32(&self, anchors: Edge<u32>) -> Door<u32> {
         Door{
             anchors,
             name: self.name.clone(),
@@ -86,30 +86,19 @@ impl Door<Entity> {
 impl Door<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Door<Entity> {
         Door{
-            anchors: (
-                *id_to_entity.get(&self.anchors.0).unwrap(),
-                *id_to_entity.get(&self.anchors.1).unwrap(),
-            ),
+            anchors: self.anchors.to_ecs(id_to_entity),
             name: self.name.clone(),
             kind: self.kind.clone(),
         }
     }
 }
 
-impl<SiteID: Copy> Edge<SiteID> for Door<SiteID> {
-    fn endpoints(&self) -> (SiteID, SiteID) {
-        self.anchors
-    }
-
-    fn endpoints_mut(&mut self) -> (&mut SiteID, &mut SiteID) {
-        (&mut self.anchors.0, &mut self.anchors.1)
-    }
-
-    fn new(anchors: (SiteID, SiteID)) -> Self {
+impl<T> From<Edge<T>> for Door<T> {
+    fn from(edge: Edge<T>) -> Self {
         Door{
-            anchors,
-            name: "<Unnamed>".to_string(),
-            kind: DoorType::SingleSliding(Side::Left)
+            anchors: edge,
+            name: Name("<Unnamed>".to_string()),
+            kind: DoorType::SingleSliding(Side::Left),
         }
     }
 }

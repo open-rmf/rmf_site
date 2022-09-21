@@ -1,4 +1,4 @@
-use crate::{PhysicalCamera as SitePhysicalCamera, Pose, Rotation, Angle, ImageProperties};
+use crate::{PhysicalCamera as SitePhysicalCamera, Pose, Rotation, Angle, PhysicalCameraProperties, Name};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -20,21 +20,21 @@ pub struct PhysicalCamera {
 impl PhysicalCamera {
     pub fn to_site(&self) -> SitePhysicalCamera {
         SitePhysicalCamera{
-            name: self.name.clone(),
+            name: Name(self.name.clone()),
             pose: Pose{
-                trans: (self.x as f32, self.y as f32, self.z as f32),
+                trans: [self.x as f32, self.y as f32, self.z as f32],
                 rot: Rotation::EulerExtrinsicXYZ(
                     Angle::Deg(0.),
                     Angle::Deg(self.pitch.to_degrees() as f32),
                     Angle::Deg(self.yaw.to_degrees() as f32)
                 ),
             },
-            image: ImageProperties{
+            properties: PhysicalCameraProperties{
                 width: self.image_width,
                 height: self.image_height,
+                horizontal_fov: self.image_fov as f32,
+                frame_rate: self.update_rate as f32,
             },
-            horizontal_fov: self.image_fov as f32,
-            frame_rate: self.update_rate as f32,
         }
     }
 }

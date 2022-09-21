@@ -7,9 +7,13 @@ use crate::{
     Level as SiteLevel,
     LevelProperties as SiteLevelProperties,
     Drawing as SiteDrawing, DrawingSource,
+    DrawingMarker,
     Fiducial as SiteFiducial,
+    FiducialMarker,
     Lift as SiteLift,
+    LiftProperties,
     Lane as SiteLane,
+    LaneMarker,
     Dock as SiteDock,
     NavGraph,
     NavGraphProperties,
@@ -17,6 +21,10 @@ use crate::{
     Motion,
     Pose,
     OrientationConstraint,
+    IsStatic,
+    LevelDoors,
+    Name,
+    Label,
 };
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -107,7 +115,7 @@ impl BuildingMap {
         // out at RMF runtime.
         let mut locations = BTreeMap::new();
 
-        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, (f32, f32))>> = BTreeMap::new();
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, [f32; 2])>> = BTreeMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
@@ -124,7 +132,7 @@ impl BuildingMap {
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
                     if let Some(duplicate) = lift_cabin_anchors.iter().find(
-                        |(_, (x, y))| {
+                        |(_, [x, y])| {
                             let dx = v.0 as f32 - *x;
                             let dy = v.1 as f32 - *y;
                             (dx*dx + dy*dy).sqrt() < 0.01
@@ -137,7 +145,7 @@ impl BuildingMap {
                         // This is a new cabin anchor so we need to create an
                         // ID for it
                         let anchor_id = site_id.next().unwrap();
-                        lift_cabin_anchors.push((anchor_id, (v.0 as f32, v.1 as f32)));
+                        lift_cabin_anchors.push((anchor_id, [v.0 as f32, v.1 as f32]));
                         anchor_id
                     }
                 };
@@ -159,6 +167,7 @@ impl BuildingMap {
                 drawings.insert(site_id.next().unwrap(), SiteDrawing{
                     source: DrawingSource::Filename(level.drawing.filename.clone()),
                     pose: Pose::default(),
+                    marker: DrawingMarker,
                 });
             }
 
@@ -170,8 +179,13 @@ impl BuildingMap {
                 // this fiducial is not really recognized as a vertex to the
                 // building format.
                 fiducials.insert(site_id.next().unwrap(), SiteFiducial{
-                    label: fiducial.2.clone(),
-                    anchor: anchor_id,
+                    label: if fiducial.2.is_empty() {
+                        Label(None)
+                    } else {
+                        Label(Some(fiducial.2.clone()))
+                    },
+                    anchor: anchor_id.into(),
+                    marker: FiducialMarker,
                 });
             }
 
@@ -274,9 +288,10 @@ impl BuildingMap {
                 };
 
                 let site_lane = SiteLane{
-                    anchors: (left, right),
+                    anchors: [left, right].into(),
                     forward: motion,
                     reverse,
+                    marker: LaneMarker,
                 };
 
                 nav_graph_lanes.entry(lane.2.graph_idx.1)
@@ -314,7 +329,7 @@ impl BuildingMap {
                 let right = site_id.next().unwrap();
                 level_anchors.insert(left, anchors.0);
                 level_anchors.insert(right, anchors.1);
-                (left, right)
+                [left, right]
             };
 
             let cabin = lift.make_cabin(name)?;
@@ -334,7 +349,7 @@ impl BuildingMap {
 
                 let door_name = doors.iter().last().unwrap();
                 let door_id = levels.get(level_id).unwrap().doors.iter().find(
-                    |(_, door)| door.name == *door_name
+                    |(_, door)| door.name.0 == *door_name
                 ).ok_or(
                     PortingError::InvalidLiftLevelDoorName{
                         lift: name.clone(),
@@ -345,8 +360,9 @@ impl BuildingMap {
 
                 level_doors.insert(*level_id, *door_id);
             }
+            let level_doors = LevelDoors(level_doors);
 
-            let cabin_anchors: BTreeMap<u32, (f32, f32)> = [lift_cabin_anchors.get(name)]
+            let cabin_anchors: BTreeMap<u32, [f32; 2]> = [lift_cabin_anchors.get(name)]
                 .into_iter()
                 .filter_map(|x| x)
                 .flat_map(|x| x)
@@ -356,13 +372,15 @@ impl BuildingMap {
             lifts.insert(
                 site_id.next().unwrap(),
                 SiteLift{
-                    name: name.clone(),
-                    reference_anchors: anchors,
-                    cabin,
+                    properties: LiftProperties{
+                        name: Name(name.clone()),
+                        reference_anchors: anchors.into(),
+                        cabin,
+                        level_doors,
+                        corrections: Default::default(),
+                        is_static: IsStatic(!lift.plugins),
+                    },
                     cabin_anchors,
-                    level_doors,
-                    corrections: Default::default(),
-                    is_static: lift.plugins,
                 }
             );
         }
