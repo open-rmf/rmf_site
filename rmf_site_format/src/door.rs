@@ -18,22 +18,24 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Entity, Bundle};
 
-/// How the door swings relative to someone who is standing in the frame of door
-/// with the left and right sides of their body aligned with the left and right
-/// anchor points of the door.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub enum Swing {
-    /// Swing forwards up to this (positive) angle
-    Forward(Angle),
-    /// Swing backwards up to this (positive) angle
-    Backward(Angle),
-    /// Swing each direction by (forward, backward) positive degrees.
-    Both(Angle, Angle),
+#[cfg_attr(feature="bevy", derive(Bundle))]
+pub struct Door<T: SiteID> {
+    /// (left_anchor, right_anchor)
+    pub anchors: Edge<T>,
+    /// Name of the door. RMF requires each door name to be unique among all
+    /// doors in the site.
+    pub name: NameInSite,
+    /// What kind of door is it.
+    pub kind: DoorType,
+    #[serde(skip)]
+    pub marker: DoorMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature="bevy", derive(Component))]
 pub enum DoorType {
     /// A single door that slides to one side
     SingleSliding(Side),
@@ -59,17 +61,22 @@ pub enum DoorType {
     Model(Model),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
-pub struct Door<T: SiteID> {
-    /// (left_anchor, right_anchor)
-    pub anchors: Edge<T>,
-    /// Name of the door. RMF requires each door name to be unique among all
-    /// doors in the site.
-    pub name: NameInSite,
-    /// What kind of door is it.
-    pub kind: DoorType,
+/// How the door swings relative to someone who is standing in the frame of door
+/// with the left and right sides of their body aligned with the left and right
+/// anchor points of the door.
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+pub enum Swing {
+    /// Swing forwards up to this (positive) angle
+    Forward(Angle),
+    /// Swing backwards up to this (positive) angle
+    Backward(Angle),
+    /// Swing each direction by (forward, backward) positive degrees.
+    Both(Angle, Angle),
 }
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct DoorMarker;
 
 #[cfg(feature="bevy")]
 impl Door<Entity> {
@@ -78,6 +85,7 @@ impl Door<Entity> {
             anchors,
             name: self.name.clone(),
             kind: self.kind.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -89,6 +97,7 @@ impl Door<u32> {
             anchors: self.anchors.to_ecs(id_to_entity),
             name: self.name.clone(),
             kind: self.kind.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -99,6 +108,7 @@ impl<T: SiteID> From<Edge<T>> for Door<T> {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
             kind: DoorType::SingleSliding(Side::Left),
+            marker: Default::default()
         }
     }
 }

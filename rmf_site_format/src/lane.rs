@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Bundle};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Lane<T: SiteID> {
     /// The endpoints of the lane (start, end)
@@ -34,11 +34,11 @@ pub struct Lane<T: SiteID> {
     pub marker: LaneMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct LaneMarker;
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Motion {
     #[serde(skip_serializing_if="Option::is_none")]
@@ -49,7 +49,7 @@ pub struct Motion {
     pub dock: Option<Dock>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum OrientationConstraint {
     Forward,
     Reverse,
@@ -57,7 +57,7 @@ pub enum OrientationConstraint {
     AbsoluteYaw(f32),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub enum ReverseLane {
     Same,

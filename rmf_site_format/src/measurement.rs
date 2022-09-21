@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Measurement<T: SiteID> {
     pub anchors: Edge<T>,
@@ -28,12 +28,18 @@ pub struct Measurement<T: SiteID> {
     pub distance: Distance,
     #[serde(skip_serializing_if="is_default")]
     pub label: Label,
+    #[serde(skip)]
+    pub marker: MeasurementMarker,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Distance(pub Option<f32>);
+
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct MeasurementMarker;
 
 impl Default for Distance {
     fn default() -> Self {
@@ -47,7 +53,8 @@ impl Measurement<Entity> {
         Measurement{
             anchors,
             distance: self.distance,
-            label: self.label.clone()
+            label: self.label.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -59,6 +66,7 @@ impl Measurement<u32> {
             anchors: self.anchors.to_ecs(id_to_entity),
             distance: self.distance,
             label: self.label.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -69,6 +77,7 @@ impl<T: SiteID> From<Edge<T>> for Measurement<T> {
             anchors,
             distance: Default::default(),
             label: Default::default(),
+            marker: Default::default(),
         }
     }
 }

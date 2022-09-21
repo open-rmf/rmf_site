@@ -19,7 +19,7 @@ use bevy::{
     prelude::*,
     render::mesh::shape::Box,
 };
-use rmf_site_format::{Wall, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{WallMarker, Edge, DEFAULT_LEVEL_HEIGHT};
 use crate::{
     site::*,
     interaction::Selectable,
@@ -28,12 +28,12 @@ use crate::{
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
 fn make_wall_components(
-    wall: &Wall<Entity>,
+    wall: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> Option<(Mesh, Transform)> {
     if let (Ok(start_anchor), Ok(end_anchor)) = (
-        anchors.get(wall.anchors.0),
-        anchors.get(wall.anchors.1),
+        anchors.get(wall.left()),
+        anchors.get(wall.right()),
     ) {
         let p_start = start_anchor.translation();
         let p_end = end_anchor.translation();
@@ -92,14 +92,14 @@ fn make_wall_components(
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Wall<Entity>), Added<Wall<Entity>>>,
+    walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, new_wall) in &walls {
-        if let Some((mesh, tf)) = make_wall_components(new_wall, &anchors) {
+    for (e, edge) in &walls {
+        if let Some((mesh, tf)) = make_wall_components(edge, &anchors) {
             commands.entity(e)
                 .insert_bundle(PbrBundle{
                     mesh: meshes.add(mesh),
@@ -113,16 +113,14 @@ pub fn add_wall_visual(
             panic!("Anchor was not initialized correctly");
         }
 
-        for mut dep in dependents.get_many_mut(
-            [new_wall.anchors.0, new_wall.anchors.1]
-        ).unwrap() {
+        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
             dep.dependents.insert(e);
         }
     }
 }
 
 fn update_wall_visuals(
-    wall: &Wall<Entity>,
+    wall: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transform: &mut Transform,
     mesh: &mut Handle<Mesh>,
@@ -134,7 +132,7 @@ fn update_wall_visuals(
 }
 
 pub fn update_changed_wall(
-    mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>), Changed<Wall<Entity>>>,
+    mut walls: Query<(&Edge<Entity>, &mut Transform, &mut Handle<Mesh>), (With<WallMarker>, Changed<Edge<Entity>>)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -144,7 +142,7 @@ pub fn update_changed_wall(
 }
 
 pub fn update_wall_for_changed_anchor(
-    mut walls: Query<(&Wall<Entity>, &mut Transform, &mut Handle<Mesh>)>,
+    mut walls: Query<(&Edge<Entity>, &mut Transform, &mut Handle<Mesh>), With<WallMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut meshes: ResMut<Assets<Mesh>>,

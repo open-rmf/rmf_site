@@ -85,6 +85,7 @@ impl Door {
             anchors: [*left_anchor, *right_anchor].into(),
             name: NameInSite(self.2.name.1.clone()),
             kind,
+            marker: Default::default(),
         })
     }
 }

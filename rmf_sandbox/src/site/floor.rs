@@ -23,24 +23,24 @@ use bevy::{
 };
 use lyon::{
     math::point,
-    path::Path,
+    path::Path as LyonPath,
     tessellation::{
         *, geometry_builder::simple_builder,
     }
 };
-use rmf_site_format::Floor;
+use rmf_site_format::{FloorMarker, Path};
 use crate::{
     site::*,
     interaction::Selectable,
 };
 
 fn make_floor_mesh(
-    floor: &Floor<Entity>,
+    path: &Path<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> Mesh {
-    let mut builder = Path::builder();
+    let mut builder = LyonPath::builder();
     let mut first = true;
-    for anchor in &floor.anchors {
+    for anchor in &path.anchors {
         let p = anchors.get(*anchor).unwrap().translation();
         if first {
             first = false;
@@ -101,7 +101,7 @@ fn make_floor_mesh(
 
 pub fn add_floor_visuals(
     mut commands: Commands,
-    floors: Query<(Entity, &Floor<Entity>), Added<Floor<Entity>>>,
+    floors: Query<(Entity, &Path<Entity>), Added<FloorMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
@@ -112,11 +112,13 @@ pub fn add_floor_visuals(
         commands.entity(e)
             .insert_bundle(PbrBundle{
                 mesh: meshes.add(mesh),
-                material: assets.default_floor_material.clone(), // TODO(MXG): load the user-specified texture when one is given
+                // TODO(MXG): load the user-specified texture when one is given
+                material: assets.default_floor_material.clone(),
                 ..default()
             })
             .insert(Selectable::new(e))
-            .insert(Category("Floor".to_string()));
+            .insert(Category("Floor".to_string()))
+            .insert(PathBehavior::for_floor());
 
         for anchor in &new_floor.anchors {
             let mut dep = dependents.get_mut(*anchor).unwrap();
@@ -126,7 +128,7 @@ pub fn add_floor_visuals(
 }
 
 pub fn update_changed_floor(
-    mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>), Changed<Floor<Entity>>>,
+    mut floors: Query<(&mut Handle<Mesh>, &Path<Entity>), (Changed<Path<Entity>>, With<FloorMarker>)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -137,15 +139,15 @@ pub fn update_changed_floor(
 }
 
 pub fn update_floor_for_changed_anchor(
-    mut floors: Query<(&mut Handle<Mesh>, &Floor<Entity>)>,
+    mut floors: Query<(&mut Handle<Mesh>, &Path<Entity>), With<FloorMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((mut mesh, floor)) = floors.get_mut(*dependent).ok() {
-                *mesh = meshes.add(make_floor_mesh(floor, &anchors));
+            if let Some((mut mesh, path)) = floors.get_mut(*dependent).ok() {
+                *mesh = meshes.add(make_floor_mesh(path, &anchors));
             }
         }
     }

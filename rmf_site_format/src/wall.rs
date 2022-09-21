@@ -18,15 +18,21 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Entity, Bundle};
+use bevy::prelude::{Entity, Bundle, Component};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Wall<T: SiteID> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if="is_default")]
     pub texture: Texture,
+    #[serde(skip)]
+    pub marker: WallMarker,
 }
+
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct WallMarker;
 
 #[cfg(feature="bevy")]
 impl Wall<Entity> {
@@ -34,6 +40,7 @@ impl Wall<Entity> {
         Wall{
             anchors,
             texture: self.texture.clone(),
+            marker: Default::default(),
         }
     }
 }
@@ -44,12 +51,13 @@ impl Wall<u32> {
         Wall{
             anchors: self.anchors.to_ecs(id_to_entity),
             texture: self.texture.clone(),
+            marker: Default::default(),
         }
     }
 }
 
 impl<T: SiteID> From<Edge<T>> for Wall<T> {
     fn from(anchors: Edge<T>) -> Self {
-        Self{anchors, texture: Default::default()}
+        Self{anchors, texture: Default::default(), marker: Default::default()}
     }
 }

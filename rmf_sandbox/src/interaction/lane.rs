@@ -19,24 +19,24 @@ use crate::{
     interaction::*,
     site::*,
 };
-use rmf_site_format::Lane;
+use rmf_site_format::{LaneMarker, Edge};
 use bevy::prelude::*;
 
 
 #[derive(Component, Default)]
 pub struct LaneVisualCue {
-    /// If the lane is using support from some vertices, the entities of those
-    /// vertices will be noted here
-    supporters: Option<(Entity, Entity)>,
+    /// If the lane is using support from some anchors, the entities of those
+    /// anchors will be saved here. It's important that we
+    supporters: Option<Edge<Entity>>,
 }
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,
-    new_lanes: Query<(Entity, &Lane<Entity>), Without<LaneVisualCue>>,
+    new_lanes: Query<(Entity, &Edge<Entity>), (With<LaneMarker>, Without<LaneVisualCue>)>,
 ) {
     for (e, lane) in &new_lanes {
         commands.entity(e).insert(LaneVisualCue{
-            supporters: Some((lane.anchors.0, lane.anchors.1))
+            supporters: Some(*lane)
         });
     }
 }
@@ -47,17 +47,18 @@ pub fn update_lane_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &Lane<Entity>,
+            &Edge<Entity>,
             &LaneSegments,
             &mut LaneVisualCue,
             &mut Transform,
         ),
         (
+            With<LaneMarker>,
             Without<AnchorVisualCue>,
             Or<(
                 Changed<Hovered>,
                 Changed<Selected>,
-                Changed<Lane<Entity>>,
+                Changed<Edge<Entity>>,
             )>,
         ),
     >,
@@ -68,13 +69,13 @@ pub fn update_lane_visual_cues(
     cursor: Res<Cursor>,
 ) {
     for (l, hovering, selected, lane, pieces, mut cue, mut tf) in &mut lanes {
-        let (v0, v1) = lane.anchors;
-        if let Some((old_v0, old_v1)) = cue.supporters {
+        let [v0, v1] = lane.array();
+        if let Some(old) = cue.supporters {
             // If we have supporters that are out of date, clear them out.
             // This can happen if a user changes the start or end vertices
             // of the lane.
-            if (old_v0, old_v1) != (v0, v1) {
-                for v in [old_v0, old_v1] {
+            if old.array() != [v0, v1] {
+                for v in old.array() {
                     if let Some((mut hover, mut selected)) = anchors.get_mut(v).ok() {
                         hover.support_hovering.remove(&l);
                         selected.support_selected.remove(&l);
@@ -84,7 +85,7 @@ pub fn update_lane_visual_cues(
         }
 
         if hovering.cue() || selected.cue() {
-            cue.supporters = Some((v0, v1));
+            cue.supporters = Some(*lane);
         } else {
             cue.supporters = None;
         }

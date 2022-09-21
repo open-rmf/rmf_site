@@ -48,8 +48,14 @@ pub use model::*;
 pub mod nav_graph;
 pub use nav_graph::*;
 
+pub mod path;
+pub use path::*;
+
 pub mod physical_camera;
 pub use physical_camera::*;
+
+pub mod pose;
+pub use pose::*;
 
 pub mod save;
 pub use save::*;
@@ -136,13 +142,14 @@ impl Plugin for SitePlugin {
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_changed_anchor)
-                    .with_system(update_models)
+                    .with_system(update_model_scenes)
                     .with_system(make_models_selectable)
                     .with_system(add_physical_camera_visuals)
                     .with_system(update_changed_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_changed_wall)
                     .with_system(update_wall_for_changed_anchor)
+                    .with_system(update_transforms_for_changed_poses)
                     .label(SiteUpdateLabel::AllSystems)
             );
     }

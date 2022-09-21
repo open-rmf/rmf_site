@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Deref, DerefMut, Entity};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Path<T: SiteID>(pub Vec<T>);

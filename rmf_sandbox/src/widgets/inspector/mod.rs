@@ -30,7 +30,7 @@ use crate::{
     widgets::AppEvents,
 };
 use rmf_site_format::{
-    Lane,
+    LaneMarker, Edge,
 };
 use bevy::{
     prelude::*,
@@ -46,7 +46,7 @@ pub struct InspectorParams<'w, 's> {
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub lanes: Query<'w, 's, &'static Lane<Entity>>,
+    pub lanes: Query<'w, 's, &'static Edge<Entity>, With<LaneMarker>>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {

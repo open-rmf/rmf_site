@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::{Door, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{DoorMarker, Edge, DEFAULT_LEVEL_HEIGHT};
 use crate::{
     site::*,
     interaction::Selectable,
@@ -32,11 +32,11 @@ pub struct DoorSegments {
 }
 
 fn make_door_transforms(
-    door: &Door<Entity>,
+    edge: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
-    let start_anchor = anchors.get(door.anchors.0).unwrap();
-    let end_anchor = anchors.get(door.anchors.1).unwrap();
+    let start_anchor = anchors.get(edge[0]).unwrap();
+    let end_anchor = anchors.get(edge[1]).unwrap();
 
     let p_start = start_anchor.translation();
     let p_end = end_anchor.translation();
@@ -61,13 +61,13 @@ fn make_door_transforms(
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    doors: Query<(Entity, &Door<Entity>), Added<Door<Entity>>>,
+    new_doors: Query<(Entity, &Edge<Entity>), Added<DoorMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
 ) {
-    for (e, new_door) in &doors {
-        let (pose_tf, shape_tf) = make_door_transforms(new_door, &anchors);
+    for (e, edge) in &new_doors {
+        let (pose_tf, shape_tf) = make_door_transforms(edge, &anchors);
 
         let mut commands = commands.entity(e);
         let child = commands.add_children(|parent| {
@@ -89,7 +89,7 @@ pub fn add_door_visuals(
         .insert(Category("Door".to_string()));
 
         for mut dep in dependents.get_many_mut(
-            [new_door.anchors.0, new_door.anchors.1]
+            [edge.anchors.0, edge.anchors.1]
         ).unwrap() {
             dep.dependents.insert(e);
         }
@@ -98,12 +98,12 @@ pub fn add_door_visuals(
 
 fn update_door_visuals(
     entity: Entity,
-    door: &Door<Entity>,
+    edge: &Edge<Entity>,
     segments: &DoorSegments,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
 ) {
-    let (pose_tf, shape_tf) = make_door_transforms(door, anchors);
+    let (pose_tf, shape_tf) = make_door_transforms(edge, anchors);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
     let mut shape_transform = transforms.get_mut(segments.entity).unwrap();
@@ -111,25 +111,25 @@ fn update_door_visuals(
 }
 
 pub fn update_changed_door(
-    doors: Query<(Entity, &Door<Entity>, &DoorSegments), Changed<Door<Entity>>>,
+    doors: Query<(Entity, &Edge<Entity>, &DoorSegments), Changed<Edge<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (entity, door, segments) in &doors {
-        update_door_visuals(entity, door, segments, &anchors, &mut transforms);
+    for (entity, edge, segments) in &doors {
+        update_door_visuals(entity, edge, segments, &anchors, &mut transforms);
     }
 }
 
 pub fn update_door_for_changed_anchor(
-    doors: Query<(Entity, &Door<Entity>, &DoorSegments)>,
+    doors: Query<(Entity, &Edge<Entity>, &DoorSegments), With<DoorMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((entity, door, segments)) = doors.get(*dependent).ok() {
-                update_door_visuals(entity, door, segments, &anchors, &mut transforms);
+            if let Some((entity, edge, segments)) = doors.get(*dependent).ok() {
+                update_door_visuals(entity, edge, segments, &anchors, &mut transforms);
             }
         }
     }

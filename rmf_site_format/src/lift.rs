@@ -38,7 +38,7 @@ pub struct Lift<T: SiteID> {
     pub cabin_anchors: BTreeMap<T, [f32; 2]>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct LiftProperties<T: SiteID> {
     /// Name of this lift. This must be unique within the site.
@@ -66,7 +66,7 @@ pub struct LiftProperties<T: SiteID> {
     pub is_static: IsStatic,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub enum LiftCabin {
     /// The lift cabin is defined by some parameters.
@@ -84,7 +84,7 @@ impl Default for LiftCabin {
 }
 
 /// A lift cabin that is defined entirely by a standard set of parameters.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct ParameterizedLiftCabin {
     /// How wide is the interior of the cabin, along the axis formed by the
     /// anchor points.
@@ -145,7 +145,7 @@ impl ParameterizedLiftCabin {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct LiftCabinDoor {
     /// How wide is the lift cabin door
     pub width: f32,
@@ -156,7 +156,7 @@ pub struct LiftCabinDoor {
     pub shifted: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct LevelDoors<T: SiteID>(pub BTreeMap<T, T>);
@@ -166,7 +166,7 @@ impl<T: SiteID> Default for LevelDoors<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Corrections<T: SiteID>(pub BTreeMap<T, Edge<T>>);

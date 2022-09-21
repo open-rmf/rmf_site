@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity};
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Edge<T>([T; 2]);
@@ -32,8 +32,8 @@ impl<T: SiteID> Edge<T> {
         Self([left, right])
     }
 
-    pub fn array(&self) -> &[T; 2] {
-        &self.0
+    pub fn array(&self) -> [T; 2] {
+        self.0
     }
 
     pub fn array_mut(&mut self) -> &mut [T; 2] {

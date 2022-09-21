@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Bundle, Entity, Deref, DerefMut};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum LocationTag {
     Charger,
     ParkingSpot,
@@ -30,14 +30,14 @@ pub enum LocationTag {
     Name(String),
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Location<T: SiteID> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct LocationTags(pub Vec<LocationTag>);

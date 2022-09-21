@@ -19,9 +19,7 @@ use crate::{
     site::*,
     interaction::Selectable,
 };
-use rmf_site_format::{
-    Lift, LiftCabin,
-};
+use rmf_site_format::{LiftCabin, Edge};
 use bevy::{
     prelude::*,
     render::primitives::Aabb,
@@ -33,11 +31,12 @@ pub struct LiftSegments {
 }
 
 fn make_lift_transforms(
-    lift: &Lift<Entity>,
+    reference_anchors: &Edge<Entity>,
+    cabin: &LiftCabin,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
-    let start_anchor = anchors.get(lift.reference_anchors.0).unwrap();
-    let end_anchor = anchors.get(lift.reference_anchors.1).unwrap();
+    let start_anchor = anchors.get(reference_anchors[0]).unwrap();
+    let end_anchor = anchors.get(reference_anchors[1]).unwrap();
 
     let p_start = start_anchor.translation();
     let p_end = end_anchor.translation();
@@ -52,7 +51,7 @@ fn make_lift_transforms(
         ..default()
     };
 
-    let cabin_tf = match &lift.cabin {
+    let cabin_tf = match &cabin {
         LiftCabin::Params(params) => {
             let Aabb{center, half_extents} = params.aabb();
             Transform{
@@ -62,6 +61,7 @@ fn make_lift_transforms(
             }
         },
         LiftCabin::Model(_) => {
+            // TODO(MXG): Add proper support for model lifts
             Transform::default()
         }
     };
@@ -71,13 +71,13 @@ fn make_lift_transforms(
 
 pub fn add_lift_visuals(
     mut commands: Commands,
-    lifts: Query<(Entity, &Lift<Entity>), Added<Lift<Entity>>>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin), Added<LiftCabin>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
 ) {
-    for (e, lift) in &lifts {
-        let (pose_tf, shape_tf) = make_lift_transforms(lift, &anchors);
+    for (e, edge, cabin) in &lifts {
+        let (pose_tf, shape_tf) = make_lift_transforms(edge, cabin, &anchors);
 
         let mut commands = commands.entity(e);
         let child = commands.add_children(|parent| {
@@ -108,12 +108,13 @@ pub fn add_lift_visuals(
 
 fn update_lift_visuals(
     entity: Entity,
-    lift: &Lift<Entity>,
+    edge: &Edge<Entity>,
+    cabin: &LiftCabin,
     segments: &LiftSegments,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
 ) {
-    let (pose_tf, shape_tf) = make_lift_transforms(lift, anchors);
+    let (pose_tf, shape_tf) = make_lift_transforms(edge, cabin, anchors);
     let mut lift_transform = transforms.get_mut(entity).unwrap();
     *lift_transform = pose_tf;
     let mut cabin_transform = transforms.get_mut(segments.cabin).unwrap();
@@ -121,25 +122,25 @@ fn update_lift_visuals(
 }
 
 pub fn update_changed_lift(
-    lifts: Query<(Entity, &Lift<Entity>, &LiftSegments), Changed<Lift<Entity>>>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin, &LiftSegments), Changed<Edge<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (entity, lift, segments) in &lifts {
-        update_lift_visuals(entity, lift, segments, &anchors, &mut transforms);
+    for (entity, edge, cabin, segments) in &lifts {
+        update_lift_visuals(entity, edge, cabin, segments, &anchors, &mut transforms);
     }
 }
 
 pub fn update_lift_for_changed_anchor(
-    lifts: Query<(Entity, &Lift<Entity>, &LiftSegments)>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin, &LiftSegments)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
     mut transforms: Query<&mut Transform>
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((entity, lift, segments)) = lifts.get(*dependent).ok() {
-                update_lift_visuals(entity, lift, segments, &anchors, &mut transforms);
+            if let Some((entity, edge, cabin, segments)) = lifts.get(*dependent).ok() {
+                update_lift_visuals(entity, edge, cabin, segments, &anchors, &mut transforms);
             }
         }
     }

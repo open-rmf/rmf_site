@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::Measurement;
+use rmf_site_format::{MeasurementMarker, Edge};
 use crate::{
     site::*,
     interaction::Selectable,
@@ -24,17 +24,15 @@ use crate::{
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
-    measurements: Query<(Entity, &Measurement<Entity>), Added<Measurement<Entity>>>,
+    measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
     mut anchors: Query<(&GlobalTransform, &mut AnchorDependents), With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
-    for (e, new_measurement) in &measurements {
+    for (e, edge) in &measurements {
         if let Ok([
             (start_anchor, mut start_dep),
             (end_anchor, mut end_dep)
-        ]) = anchors.get_many_mut(
-            [new_measurement.anchors.0, new_measurement.anchors.1]
-        ) {
+        ]) = anchors.get_many_mut(edge.array()) {
             start_dep.dependents.insert(e);
             end_dep.dependents.insert(e);
             commands.entity(e)
@@ -53,26 +51,26 @@ pub fn add_measurement_visuals(
 }
 
 fn update_measurement_visual(
-    measurement: &Measurement<Entity>,
+    edge: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transform: &mut Transform,
 ) {
-    let start_anchor = anchors.get(measurement.anchors.0).unwrap();
-    let end_anchor = anchors.get(measurement.anchors.1).unwrap();
+    let start_anchor = anchors.get(edge[0]).unwrap();
+    let end_anchor = anchors.get(edge[1]).unwrap();
     *transform = line_stroke_transform(start_anchor, end_anchor);
 }
 
 pub fn update_changed_measurement(
-    mut measurements: Query<(&Measurement<Entity>, &mut Transform), Changed<Measurement<Entity>>>,
+    mut measurements: Query<(&Edge<Entity>, &mut Transform), (Changed<Edge<Entity>>, With<MeasurementMarker>)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
 ) {
-    for (measurement, mut tf) in &mut measurements {
-        update_measurement_visual(measurement, &anchors, tf.as_mut());
+    for (edge, mut tf) in &mut measurements {
+        update_measurement_visual(edge, &anchors, tf.as_mut());
     }
 }
 
 pub fn update_measurement_for_changed_anchor(
-    mut measurements: Query<(&Measurement<Entity>, &mut Transform)>,
+    mut measurements: Query<(&Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
 ) {

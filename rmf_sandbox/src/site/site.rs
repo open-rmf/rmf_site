@@ -36,7 +36,7 @@ pub struct ChangeCurrentSite {
 }
 
 /// Used as a resource that keeps track of the current level entity
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
 pub struct CurrentLevel(pub Option<Entity>);
 
 /// Used as a resource that maps from the site entity to the level entity which

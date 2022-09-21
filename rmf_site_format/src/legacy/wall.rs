@@ -48,7 +48,8 @@ impl Wall {
                     scale: None,
                     offset: Some((0., self.2.texture_height.1 as f32)),
                 })
-            }
+            },
+            marker: Default::default(),
         })
     }
 }

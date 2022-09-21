@@ -16,17 +16,12 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::{LightType, Pose};
+use rmf_site_format::Pose;
 
-// TODO(MXG): Give a way to interact with lights and change their properties
-pub fn add_physical_lights(
-    mut commands: Commands,
-    physical_lights: Query<(Entity, &LightType, &Pose), Added<LightType>>,
+pub fn update_transforms_for_changed_poses(
+    mut poses: Query<(&Pose, &mut Transform), Changed<Pose>>,
 ) {
-    for (e, light, pose) in &physical_lights {
-        light.insert_at(
-            &mut commands.entity(e),
-            &pose.transform(),
-        );
+    for (pose, mut tf) in &mut poses {
+        *tf = pose.transform();
     }
 }

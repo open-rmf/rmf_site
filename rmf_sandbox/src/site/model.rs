@@ -19,7 +19,7 @@ use bevy::{
     prelude::*,
     asset::LoadState,
 };
-use rmf_site_format::Model;
+use rmf_site_format::{ModelMarker, Label, Pose};
 use crate::{
     interaction::Selectable,
     deletion::DespawnBlocker,
@@ -28,15 +28,15 @@ use crate::{
 use std::collections::HashMap;
 use smallvec::SmallVec;
 
-#[derive(Default, Debug, Clone)]
-pub struct LoadingModels(pub HashMap<Entity, (Model, Handle<Scene>)>);
+#[derive(Default, Debug, Clone, Deref, DerefMut)]
+pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
 
 #[derive(Default, Debug, Clone)]
 pub struct SpawnedModels(Vec<Entity>);
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
-    name: String,
+    kind: Label,
     scene_entity: Option<Entity>,
 }
 
@@ -44,31 +44,42 @@ pub struct ModelScene {
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ModelSceneRoot;
 
-pub fn update_models(
+pub fn update_model_scenes(
     mut commands: Commands,
-    added_models: Query<(Entity, &Model), Added<Model>>,
-    mut changed_models: Query<(Entity, &Model, &mut Transform), (Changed<Model>, With<Model>)>,
+    mut changed_models: Query<(
+        Entity,
+        &Label,
+        &Pose,
+    ), (Changed<Label>, With<ModelMarker>)>,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
-    mut q_current_scene: Query<&mut ModelScene>,
+    mut current_scenes: Query<&mut ModelScene>,
 ) {
     fn spawn_model(
         e: Entity,
-        model: &Model,
+        kind: &Label,
+        pose: &Pose,
         asset_server: &AssetServer,
         commands: &mut Commands,
         loading_models: &mut LoadingModels,
     ) {
-        let bundle_path =
-            String::from("sandbox://") + &model.kind + &String::from(".glb#Scene0");
-        let scene: Handle<Scene> = asset_server.load(&bundle_path);
+        let commands = commands.entity(e);
         commands
-            .entity(e)
-            .insert(DespawnBlocker)
-            .insert(ModelScene{name: model.name.clone(), scene_entity: None})
+            .insert(ModelScene{kind: kind.clone(), scene_entity: None})
+            .insert_bundle(SpatialBundle{
+                transform: pose.transform(),
+                ..default()
+            })
             .insert(Category("Model".to_string()));
-        loading_models.0.insert(e, (model.clone(), scene.clone()));
+
+        if let Some(kind) = &kind.0 {
+            let bundle_path =
+                String::from("sandbox://") + kind + &".glb#Scene0".to_string();
+            let scene: Handle<Scene> = asset_server.load(&bundle_path);
+            loading_models.insert(e, (model.clone(), scene.clone()));
+            commands.insert(DespawnBlocker);
+        }
     }
 
     // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -84,16 +95,12 @@ pub fn update_models(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, (model, h)) in loading_models.0.iter() {
+    for (e, h) in loading_models.0.iter() {
         if asset_server.get_load_state(h) == LoadState::Loaded {
             let model_scene_id = commands
                 .entity(*e)
-                .insert_bundle(SpatialBundle {
-                    transform: model.pose.transform(),
-                    ..default()
-                })
                 .add_children(|parent| {
-                    parent.spawn_bundle(SceneBundle {
+                    parent.spawn_bundle(SceneBundle{
                         scene: h.clone(),
                         ..default()
                     })
@@ -102,7 +109,7 @@ pub fn update_models(
                     .id()
                 });
 
-            q_current_scene.get_mut(*e).unwrap().scene_entity = Some(model_scene_id);
+            current_scenes.get_mut(*e).unwrap().scene_entity = Some(model_scene_id);
             spawned_models.0.push(*e);
         }
     }
@@ -113,22 +120,20 @@ pub fn update_models(
         loading_models.0.remove(e);
     }
 
-    // spawn the scenes for any newly added models
-    for (e, model) in added_models.iter() {
-        spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
-    }
-
     // update changed models
-    for (e, model, mut t) in changed_models.iter_mut() {
-        *t = model.pose.transform();
-        if let Ok(mut current_scene) = q_current_scene.get_mut(e) {
-            if current_scene.name != model.name {
+    for (e, kind, pose) in changed_models.iter_mut() {
+        if let Ok(mut current_scene) = current_scenes.get_mut(e) {
+            if current_scene.kind != *kind {
                 if let Some(scene_entity) = current_scene.scene_entity {
                     commands.entity(scene_entity).despawn_recursive();
                 }
                 current_scene.scene_entity = None;
-                spawn_model(e, model, &asset_server, &mut commands, &mut loading_models);
+                spawn_model(e, kind, pose, &asset_server, &mut commands, &mut loading_models);
             }
+        } else {
+            // If there isn't a current scene, then we will assume this model
+            // is being added for the first time.
+            spawn_model(e, kind, pose, &asset_server, &mut commands, &mut loading_models);
         }
     }
 }

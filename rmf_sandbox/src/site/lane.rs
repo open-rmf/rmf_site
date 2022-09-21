@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::Lane;
+use rmf_site_format::{LaneMarker, Edge};
 use crate::{
     site::*,
     interaction::Selectable,
@@ -43,13 +43,13 @@ impl LaneSegments {
 }
 
 fn should_display_lane(
-    lane: &Lane<Entity>,
+    edge: &Edge<Entity>,
     parents: &Query<&Parent, With<Anchor>>,
     current_level: &CurrentLevel,
 ) -> bool {
-    for anchor in [lane.anchors.0, lane.anchors.1] {
+    for anchor in edge.array() {
         if let Ok(level) = parents.get(anchor) {
-            if Some(level.get()) == current_level.0 {
+            if Some(level.get()) == current_level {
                 return true;
             }
         }
@@ -60,7 +60,7 @@ fn should_display_lane(
 
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Lane<Entity>), Added<Lane<Entity>>>,
+    lanes: Query<(Entity, &Edge<Entity>), Added<LaneMarker>>,
     mut anchors: Query<(&GlobalTransform, &mut AnchorDependents), With<Anchor>>,
     parents: Query<&Parent, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -125,13 +125,13 @@ pub fn add_lane_visuals(
 }
 
 fn update_lane_visuals(
-    lane: &Lane<Entity>,
+    lane: &Edge<Entity>,
     segments: &LaneSegments,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
 ) {
-    let start_anchor = anchors.get(lane.anchors.0).unwrap();
-    let end_anchor = anchors.get(lane.anchors.1).unwrap();
+    let start_anchor = anchors.get(lane.left()).unwrap();
+    let end_anchor = anchors.get(lane.right()).unwrap();
 
     if let Some(mut tf) = transforms.get_mut(segments.start).ok() {
         *tf = start_anchor.compute_transform();
@@ -145,7 +145,7 @@ fn update_lane_visuals(
 }
 
 pub fn update_changed_lane(
-    mut lanes: Query<(&Lane<Entity>, &LaneSegments, &mut Visibility), Changed<Lane<Entity>>>,
+    mut lanes: Query<(&Edge<Entity>, &LaneSegments, &mut Visibility), Changed<Edge<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
     parents: Query<&Parent, With<Anchor>>,
@@ -162,7 +162,7 @@ pub fn update_changed_lane(
 }
 
 pub fn update_lane_for_changed_anchor(
-    lanes: Query<(&Lane<Entity>, &LaneSegments)>,
+    lanes: Query<(&Edge<Entity>, &LaneSegments)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
@@ -177,7 +177,7 @@ pub fn update_lane_for_changed_anchor(
 }
 
 pub fn update_lanes_for_changed_level(
-    mut lanes: Query<(&Lane<Entity>, &mut Visibility), With<Lane<Entity>>>,
+    mut lanes: Query<(&Edge<Entity>, &mut Visibility), With<LaneMarker>>,
     parents: Query<&Parent, With<Anchor>>,
     current_level: Res<CurrentLevel>,
 ) {

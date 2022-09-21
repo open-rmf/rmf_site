@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::{Lane, Location, NavGraphProperties};
+use rmf_site_format::{LaneMarker, LocationTags, NavGraphProperties};
 
 /// Used as a resource to identify which Nav Graph is the currently selected one
 #[derive(Debug, Default, Clone, Copy)]
@@ -26,7 +26,7 @@ pub fn assign_orphans_to_nav_graph(
     mut commands: Commands,
     mut selected_nav_graph: ResMut<SelectedNavGraph>,
     new_elements: Query<Entity, (
-        Or<(Added<Lane<Entity>>, Added<Location<Entity>>)>,
+        Or<(Added<LaneMarker>, Added<LocationTags>)>,
         Without<Parent>,
     )>,
 ) {

@@ -19,7 +19,7 @@ use crate::{
     interaction::*,
 };
 use rmf_site_format::{
-    Floor, Wall, Model, Door, Lift, Measurement,
+    FloorMarker, WallMarker, ModelMarker, DoorType, LiftCabin, MeasurementMarker,
 };
 
 // TODO(MXG): Customize the behavior of floor, wall, and model visual cues.
@@ -30,12 +30,12 @@ pub struct MiscVisualCue;
 pub fn add_misc_visual_cues(
     mut commands: Commands,
     new_entities: Query<Entity, Or<(
-        Added<Floor<Entity>>,
-        Added<Wall<Entity>>,
-        Added<Model>,
-        Added<Door<Entity>>,
-        Added<Lift<Entity>>,
-        Added<Measurement<Entity>>,
+        Added<FloorMarker>,
+        Added<WallMarker>,
+        Added<ModelMarker>,
+        Added<DoorType>,
+        Added<LiftCabin>,
+        Added<MeasurementMarker>,
     )>>,
 ) {
     for e in &new_entities {

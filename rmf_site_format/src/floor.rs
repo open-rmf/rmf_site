@@ -20,7 +20,7 @@ use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Bundle};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Floor<T: SiteID> {
     pub anchors: Path<T>,
@@ -30,7 +30,7 @@ pub struct Floor<T: SiteID> {
     pub marker: FloorMarker,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct FloorMarker;
 
@@ -52,6 +52,16 @@ impl Floor<u32> {
             anchors: self.anchors.to_ecs(id_to_entity),
             texture: self.texture.clone(),
             marker: Default::default()
+        }
+    }
+}
+
+impl<T: SiteID> From<Path<T>> for Floor<T> {
+    fn from(path: Path<T>) -> Self {
+        Floor{
+            anchors: path,
+            texture: Default::default(),
+            marker: Default::default(),
         }
     }
 }

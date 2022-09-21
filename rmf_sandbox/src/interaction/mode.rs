@@ -23,7 +23,7 @@ use bevy::{
 
 /// Used as a resource to indicate what type of interaction we are currently
 /// expecting from the user.
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq)]
 pub enum InteractionMode {
     /// The user may hover/select any item in the scene. This is the default
     /// interaction mode.

@@ -26,6 +26,7 @@ impl Measurement {
             anchors: [*left_anchor, *right_anchor].into(),
             distance: Distance(Some(self.2.distance.1 as f32)),
             label: Label(None),
+            marker: Default::default(),
         })
     }
 }
