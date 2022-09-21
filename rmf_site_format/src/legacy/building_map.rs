@@ -23,7 +23,7 @@ use crate::{
     OrientationConstraint,
     IsStatic,
     LevelDoors,
-    Name,
+    NameInSite,
     Label,
 };
 
@@ -373,7 +373,7 @@ impl BuildingMap {
                 site_id.next().unwrap(),
                 SiteLift{
                     properties: LiftProperties{
-                        name: Name(name.clone()),
+                        name: NameInSite(name.clone()),
                         reference_anchors: anchors.into(),
                         cabin,
                         level_doors,

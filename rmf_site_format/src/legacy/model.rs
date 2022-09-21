@@ -1,4 +1,4 @@
-use crate::{Model as SiteModel, Pose, Rotation, Angle, Name, Label, IsStatic, ModelMarker};
+use crate::{Model as SiteModel, Pose, Rotation, Angle, NameInSite, Label, IsStatic, ModelMarker};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug)]
@@ -18,7 +18,7 @@ pub struct Model {
 impl Model {
     pub fn to_site(&self) -> SiteModel {
         SiteModel{
-            name: Name(self.instance_name.clone()),
+            name: NameInSite(self.instance_name.clone()),
             kind: if self.model_name.is_empty() {
                 Label(None)
             } else {

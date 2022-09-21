@@ -19,7 +19,7 @@ use crate::*;
 use std::{io, collections::BTreeMap};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Entity};
 
 pub use ron::ser::PrettyConfig as Style;
 
@@ -78,3 +78,10 @@ impl Site {
         ron::de::from_bytes(s)
     }
 }
+
+pub trait SiteID: Ord + Eq + Copy + Send + Sync + 'static { }
+
+impl SiteID for u32 { }
+
+#[cfg(feature="bevy")]
+impl SiteID for Entity { }

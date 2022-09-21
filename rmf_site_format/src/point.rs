@@ -15,15 +15,17 @@
  *
 */
 
+use crate::SiteID;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Deref, DerefMut};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Point<T>(pub T);
 
-impl<T> From<T> for Point<T> {
+impl<T: SiteID> From<T> for Point<T> {
     fn from(anchor: T) -> Self {
         Self(anchor)
     }
@@ -32,6 +34,6 @@ impl<T> From<T> for Point<T> {
 #[cfg(feature="bevy")]
 impl Point<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Point<Entity> {
-        Self(id_to_entity.get(self.anchor()).unwrap())
+        Point(*id_to_entity.get(&self.0).unwrap())
     }
 }

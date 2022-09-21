@@ -18,12 +18,12 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Measurement<SiteID> {
-    pub anchors: Edge<SiteID>,
+pub struct Measurement<T: SiteID> {
+    pub anchors: Edge<T>,
     #[serde(skip_serializing_if="is_default")]
     pub distance: Distance,
     #[serde(skip_serializing_if="is_default")]
@@ -31,6 +31,7 @@ pub struct Measurement<SiteID> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Distance(pub Option<f32>);
 
@@ -42,7 +43,7 @@ impl Default for Distance {
 
 #[cfg(feature="bevy")]
 impl Measurement<Entity> {
-    pub fn to_u32(&self, anchors: (u32, u32)) -> Measurement<u32> {
+    pub fn to_u32(&self, anchors: Edge<u32>) -> Measurement<u32> {
         Measurement{
             anchors,
             distance: self.distance,
@@ -55,17 +56,14 @@ impl Measurement<Entity> {
 impl Measurement<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Measurement<Entity> {
         Measurement{
-            anchors: (
-                *id_to_entity.get(&self.anchors.0).unwrap(),
-                *id_to_entity.get(&self.anchors.1).unwrap(),
-            ),
+            anchors: self.anchors.to_ecs(id_to_entity),
             distance: self.distance,
             label: self.label.clone(),
         }
     }
 }
 
-impl<T> From<Edge<T>> for Measurement<T> {
+impl<T: SiteID> From<Edge<T>> for Measurement<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self{
             anchors,

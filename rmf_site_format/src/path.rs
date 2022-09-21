@@ -15,17 +15,19 @@
  *
 */
 
+use crate::SiteID;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Deref, DerefMut, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
-pub struct Path<SiteID>(pub Vec<SiteID>);
+pub struct Path<T: SiteID>(pub Vec<T>);
 
 #[cfg(feature="bevy")]
 impl Path<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Path<Entity> {
-        Self(self.0.iter().map(|a| *id_to_entity.get(a).unwrap()).collect())
+        Path(self.0.iter().map(|a| *id_to_entity.get(a).unwrap()).collect())
     }
 }

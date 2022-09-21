@@ -23,7 +23,7 @@ use bevy::prelude::{Component, Bundle};
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct PhysicalCamera {
-    pub name: Name,
+    pub name: NameInSite,
     pub pose: Pose,
     pub properties: PhysicalCameraProperties,
 }

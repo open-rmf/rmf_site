@@ -61,12 +61,12 @@ pub enum DoorType {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Component))]
-pub struct Door<SiteID> {
+pub struct Door<T: SiteID> {
     /// (left_anchor, right_anchor)
-    pub anchors: Edge<SiteID>,
+    pub anchors: Edge<T>,
     /// Name of the door. RMF requires each door name to be unique among all
     /// doors in the site.
-    pub name: Name,
+    pub name: NameInSite,
     /// What kind of door is it.
     pub kind: DoorType,
 }
@@ -93,11 +93,11 @@ impl Door<u32> {
     }
 }
 
-impl<T> From<Edge<T>> for Door<T> {
+impl<T: SiteID> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
         Door{
             anchors: edge,
-            name: Name("<Unnamed>".to_string()),
+            name: NameInSite("<Unnamed>".to_string()),
             kind: DoorType::SingleSliding(Side::Left),
         }
     }

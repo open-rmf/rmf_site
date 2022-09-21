@@ -57,7 +57,7 @@ pub enum LightType {
 #[cfg(feature="bevy")]
 impl LightType {
     pub fn insert_at(&self, commands: &mut EntityCommands, tf: &Transform) {
-        match self.kind {
+        match *self {
             LightType::PointLight{color, intensity, range, radius} => {
                 commands.insert_bundle(PointLightBundle{
                     transform: *tf,

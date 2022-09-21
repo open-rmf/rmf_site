@@ -18,19 +18,19 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+use bevy::prelude::{Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Wall<SiteID> {
-    pub anchors: Edge<SiteID>,
+pub struct Wall<T: SiteID> {
+    pub anchors: Edge<T>,
     #[serde(skip_serializing_if="is_default")]
     pub texture: Texture,
 }
 
 #[cfg(feature="bevy")]
 impl Wall<Entity> {
-    pub fn to_u32(&self, anchors: (u32, u32)) -> Wall<u32> {
+    pub fn to_u32(&self, anchors: Edge<u32>) -> Wall<u32> {
         Wall{
             anchors,
             texture: self.texture.clone(),
@@ -42,16 +42,13 @@ impl Wall<Entity> {
 impl Wall<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Wall<Entity> {
         Wall{
-            anchors: (
-                *id_to_entity.get(&self.anchors.0).unwrap(),
-                *id_to_entity.get(&self.anchors.1).unwrap(),
-            ),
+            anchors: self.anchors.to_ecs(id_to_entity),
             texture: self.texture.clone(),
         }
     }
 }
 
-impl<T> From<Edge<T>> for Wall<T> {
+impl<T: SiteID> From<Edge<T>> for Wall<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self{anchors, texture: Default::default()}
     }

@@ -22,9 +22,9 @@ use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Lane<SiteID> {
+pub struct Lane<T: SiteID> {
     /// The endpoints of the lane (start, end)
-    pub anchors: Edge<SiteID>,
+    pub anchors: Edge<T>,
     /// The properties of the lane when traveling forwards
     pub forward: Motion,
     /// The properties of the lane when traveling in reverse
@@ -95,7 +95,7 @@ impl Lane<u32> {
     }
 }
 
-impl<T> From<Edge<T>> for Lane<T> {
+impl<T: SiteID> From<Edge<T>> for Lane<T> {
     fn from(edge: Edge<T>) -> Self {
         Lane{
             anchors: edge,

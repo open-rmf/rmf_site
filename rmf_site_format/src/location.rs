@@ -18,7 +18,7 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Bundle, Entity, Deref, DerefMut};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum LocationTag {
@@ -32,16 +32,27 @@ pub enum LocationTag {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Location<SiteID> {
-    pub anchor: Point<SiteID>,
-    pub tags: Vec<LocationTag>,
+pub struct Location<T: SiteID> {
+    pub anchor: Point<T>,
+    pub tags: LocationTags,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
+#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+pub struct LocationTags(pub Vec<LocationTag>);
+
+impl Default for LocationTags {
+    fn default() -> Self {
+        LocationTags(Vec::new())
+    }
 }
 
 #[cfg(feature="bevy")]
-impl<Entity> Location<Entity> {
+impl Location<Entity> {
     pub fn to_u32(&self, anchor: u32) -> Location<u32> {
         Location{
-            anchor,
+            anchor: Point(anchor),
             tags: self.tags.clone(),
         }
     }
@@ -51,14 +62,14 @@ impl<Entity> Location<Entity> {
 impl Location<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Location<Entity> {
         Location{
-            anchor: *id_to_entity.get(&self.anchor).unwrap(),
+            anchor: Point(*id_to_entity.get(&self.anchor).unwrap()),
             tags: self.tags.clone(),
         }
     }
 }
 
-impl<T> From<Point<T>> for Location<T> {
+impl<T: SiteID> From<Point<T>> for Location<T> {
     fn from(anchor: Point<T>) -> Self {
-        Self{anchor, tags: Vec::new()}
+        Self{anchor, tags: Default::default()}
     }
 }

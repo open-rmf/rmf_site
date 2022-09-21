@@ -15,16 +15,17 @@
  *
 */
 
-use crate::Side;
+use crate::{Side, SiteID};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Edge<T>([T; 2]);
 
-impl<T: Copy> Edge<T> {
+impl<T: SiteID> Edge<T> {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
     pub fn new(left: T, right: T) -> Self {
@@ -79,7 +80,7 @@ impl<T: Copy> Edge<T> {
     }
 }
 
-impl<T> From<[T; 2]> for Edge<T> {
+impl<T: SiteID> From<[T; 2]> for Edge<T> {
     fn from(array: [T; 2]) -> Self {
         Self(array)
     }
@@ -88,6 +89,9 @@ impl<T> From<[T; 2]> for Edge<T> {
 #[cfg(feature="bevy")]
 impl Edge<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Edge<Entity> {
-        Self(self.0.iter().map(|a| *id_to_entity.get(a).unwrap()).collect())
+        Edge([
+            *id_to_entity.get(&self.left()).unwrap(),
+            *id_to_entity.get(&self.right()).unwrap(),
+        ])
     }
 }

@@ -15,18 +15,18 @@
  *
 */
 
-use crate::{Point, Label};
+use crate::{Point, Label, SiteID};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
+use bevy::prelude::{Component, Entity, Bundle};
 
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Fiducial<SiteID> {
+pub struct Fiducial<T: SiteID> {
     /// The anchor that represents the position of this fiducial.
-    pub anchor: Point<SiteID>,
+    pub anchor: Point<T>,
     /// Label of this fiducial. This label must be unique within the level that
     /// the fiducial is being defined on. To be used for aligning, there must
     /// be a fiducial with the same label on one or more other levels. A value
@@ -58,7 +58,7 @@ impl Fiducial<u32> {
     }
 }
 
-impl<T> From<Point<T>> for Fiducial<T> {
+impl<T: SiteID> From<Point<T>> for Fiducial<T> {
     fn from(anchor: Point<T>) -> Self {
         Self{
             anchor,

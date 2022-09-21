@@ -18,13 +18,13 @@
 use crate::*;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
-use bevy::prelude::{Component, Deref, DerefMut, Bundle};
+use bevy::prelude::{Component, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
 pub struct Model {
     /// Name of the model instance
-    pub name: Name,
+    pub name: NameInSite,
     /// What kind of model is this (i.e. its SDF Model name). If None, nothing
     /// will be loaded for it.
     pub kind: Label,

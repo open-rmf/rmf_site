@@ -109,17 +109,22 @@ impl Pose {
     }
 }
 
+/// The unique name of the site element within its site.
+/// NOTE: We call this `NameInSite` instead of just `Name` because `Name`
+/// conflicts with another `Name` defined in `bevy::prelude`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
-pub struct Name(pub String);
+pub struct NameInSite(pub String);
 
-impl Default for Name {
+impl Default for NameInSite {
     fn default() -> Self {
         Self("<Unnamed>".to_string())
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Label(pub Option<String>);
 
@@ -129,7 +134,8 @@ impl Default for Label {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct IsStatic(pub bool);
 

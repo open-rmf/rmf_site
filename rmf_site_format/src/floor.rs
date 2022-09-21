@@ -22,8 +22,8 @@ use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Floor<SiteID> {
-    pub anchors: Path<SiteID>,
+pub struct Floor<T: SiteID> {
+    pub anchors: Path<T>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub texture: Texture,
     #[serde(skip)]
