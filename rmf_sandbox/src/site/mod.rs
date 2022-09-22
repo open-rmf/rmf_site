@@ -145,7 +145,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_scenes)
                     .with_system(make_models_selectable)
                     .with_system(add_physical_camera_visuals)
-                    .with_system(update_changed_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_changed_wall)
                     .with_system(update_wall_for_changed_anchor)

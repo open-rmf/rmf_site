@@ -40,7 +40,7 @@ fn make_floor_mesh(
 ) -> Mesh {
     let mut builder = LyonPath::builder();
     let mut first = true;
-    for anchor in &path.anchors {
+    for anchor in &path.0 {
         let p = anchors.get(*anchor).unwrap().translation();
         if first {
             first = false;
@@ -120,7 +120,7 @@ pub fn add_floor_visuals(
             .insert(Category("Floor".to_string()))
             .insert(PathBehavior::for_floor());
 
-        for anchor in &new_floor.anchors {
+        for anchor in &new_floor.0 {
             let mut dep = dependents.get_mut(*anchor).unwrap();
             dep.dependents.insert(e);
         }

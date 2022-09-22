@@ -49,7 +49,7 @@ fn should_display_lane(
 ) -> bool {
     for anchor in edge.array() {
         if let Ok(level) = parents.get(anchor) {
-            if Some(level.get()) == current_level {
+            if Some(level.get()) == **current_level {
                 return true;
             }
         }
@@ -70,9 +70,7 @@ pub fn add_lane_visuals(
         if let Ok([
             (start_anchor, mut start_dep),
             (end_anchor, mut end_dep)
-        ]) = anchors.get_many_mut(
-            [new_lane.anchors.0, new_lane.anchors.1]
-        ) {
+        ]) = anchors.get_many_mut(new_lane.array()) {
             start_dep.dependents.insert(e);
             end_dep.dependents.insert(e);
             let is_visible = should_display_lane(new_lane, &parents, current_level.as_ref());

@@ -35,8 +35,8 @@ fn make_lift_transforms(
     cabin: &LiftCabin,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
-    let start_anchor = anchors.get(reference_anchors[0]).unwrap();
-    let end_anchor = anchors.get(reference_anchors[1]).unwrap();
+    let start_anchor = anchors.get(reference_anchors.start()).unwrap();
+    let end_anchor = anchors.get(reference_anchors.end()).unwrap();
 
     let p_start = start_anchor.translation();
     let p_end = end_anchor.translation();
@@ -98,9 +98,7 @@ pub fn add_lift_visuals(
         .insert(LiftSegments{cabin: child})
         .insert(Category("Lift".to_string()));
 
-        for mut dep in dependents.get_many_mut(
-            [lift.reference_anchors.0, lift.reference_anchors.1]
-        ).unwrap() {
+        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
             dep.dependents.insert(e);
         }
     }

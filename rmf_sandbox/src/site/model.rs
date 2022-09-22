@@ -77,7 +77,7 @@ pub fn update_model_scenes(
             let bundle_path =
                 String::from("sandbox://") + kind + &".glb#Scene0".to_string();
             let scene: Handle<Scene> = asset_server.load(&bundle_path);
-            loading_models.insert(e, (model.clone(), scene.clone()));
+            loading_models.insert(e, scene.clone());
             commands.insert(DespawnBlocker);
         }
     }

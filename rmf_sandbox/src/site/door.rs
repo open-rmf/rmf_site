@@ -35,8 +35,8 @@ fn make_door_transforms(
     edge: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
-    let start_anchor = anchors.get(edge[0]).unwrap();
-    let end_anchor = anchors.get(edge[1]).unwrap();
+    let start_anchor = anchors.get(edge.left()).unwrap();
+    let end_anchor = anchors.get(edge.right()).unwrap();
 
     let p_start = start_anchor.translation();
     let p_end = end_anchor.translation();
@@ -88,9 +88,7 @@ pub fn add_door_visuals(
         .insert(DoorSegments{entity: child})
         .insert(Category("Door".to_string()));
 
-        for mut dep in dependents.get_many_mut(
-            [edge.anchors.0, edge.anchors.1]
-        ).unwrap() {
+        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
             dep.dependents.insert(e);
         }
     }

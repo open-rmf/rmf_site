@@ -71,23 +71,23 @@ fn assign_site_ids(
         Commands,
         Query<Entity, (Or<(
             With<Anchor>,
-            With<Door<Entity>>,
-            With<Drawing>,
-            With<Fiducial<Entity>>,
-            With<Floor<Entity>>,
-            With<Light>,
-            With<Measurement<Entity>>,
-            With<Model>,
-            With<PhysicalCamera>,
-            With<Wall<Entity>>
+            With<DoorType>,
+            With<DrawingMarker>,
+            With<FiducialMarker>,
+            With<FloorMarker>,
+            With<LightType>,
+            With<MeasurementMarker>,
+            With<ModelMarker>,
+            With<PhysicalCameraProperties>,
+            With<WallMarker>
         )>, Without<Pending>)>,
         Query<Entity, (Or<(
-            With<Lane<Entity>>,
-            With<Location<Entity>>,
+            With<LaneMarker>,
+            With<LocationTags>,
         )>, Without<Pending>)>,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
         Query<Entity, (With<NavGraphProperties>, Without<Pending>)>,
-        Query<Entity, (With<Lift<Entity>>, Without<Pending>)>,
+        Query<Entity, (With<LiftCabin>, Without<Pending>)>,
         Query<&mut NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
@@ -183,15 +183,15 @@ fn generate_levels(
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Transform, &SiteID, &Parent), With<Anchor>>,
-        Query<(&Door<Entity>, &SiteID, &Parent)>,
-        Query<(&Drawing, &SiteID, &Parent)>,
-        Query<(&Fiducial<Entity>, &SiteID, &Parent)>,
-        Query<(&Floor<Entity>, &SiteID, &Parent)>,
-        Query<(&Light, &SiteID, &Parent)>,
-        Query<(&Measurement<Entity>, &SiteID, &Parent)>,
-        Query<(&Model, &SiteID, &Parent)>,
-        Query<(&PhysicalCamera, &SiteID, &Parent)>,
-        Query<(&Wall<Entity>, &SiteID, &Parent)>,
+        Query<(&Edge<Entity>, &NameInSite, &DoorType, &SiteID, &Parent)>,
+        Query<(&DrawingSource, &Pose, &SiteID, &Parent), With<DrawingMarker>>,
+        Query<(&Point<Entity>, &Label, &SiteID, &Parent), With<FiducialMarker>>,
+        Query<(&Path<Entity>, &Texture, &SiteID, &Parent), With<FloorMarker>>,
+        Query<(&LightType, &Pose, &SiteID, &Parent)>,
+        Query<(&Edge<Entity>, &Distance, &Label, &SiteID, &Parent), With<MeasurementMarker>>,
+        Query<(&NameInSite, &Label, &Pose, &IsStatic, &SiteID, &Parent), With<ModelMarker>>,
+        Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID, &Parent)>,
+        Query<(&Edge<Entity>, &Texture, &SiteID, &Parent), With<WallMarker>>,
         Query<(&LevelProperties, &SiteID, &Parent)>,
     )> = SystemState::new(world);
 
@@ -223,20 +223,20 @@ fn generate_levels(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_pair = |(left_entity, right_entity)| {
-        let left = get_anchor_id(left_entity)?;
-        let right = get_anchor_id(right_entity)?;
-        Ok((left, right))
+    let get_anchor_id_edge = |edge: &Edge<Entity>| {
+        let left = get_anchor_id(edge.left())?;
+        let right = get_anchor_id(edge.right())?;
+        Ok(Edge::new(left, right))
     };
 
-    let get_anchor_id_vec = |entities: &Vec<Entity>| {
+    let get_anchor_id_path = |entities: &Vec<Entity>| {
         let mut anchor_ids = Vec::new();
         anchor_ids.reserve(entities.len());
         for entity in entities {
             let id = get_anchor_id(*entity)?;
             anchor_ids.push(id);
         }
-        Ok(anchor_ids)
+        Ok(Path(anchor_ids))
     };
 
     for (anchor_tf, id, parent) in &q_anchors {
@@ -248,79 +248,118 @@ fn generate_levels(
         }
     }
 
-    for (door, id, parent) in &q_doors {
+    for (edge, name, kind, id, parent) in &q_doors {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_pair(door.anchors)?;
-                level.doors.insert(id.0, door.to_u32(anchors));
+                let anchors = get_anchor_id_edge(edge)?;
+                level.doors.insert(id.0, Door{
+                    anchors,
+                    name: name.clone(),
+                    kind: kind.clone(),
+                    marker: DoorMarker,
+                });
             }
         }
     }
 
-    for (drawing, id, parent) in &q_drawings {
+    for (source, pose, id, parent) in &q_drawings {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.drawings.insert(id.0, drawing.clone());
+                level.drawings.insert(id.0, Drawing{
+                    source: source.clone(),
+                    pose: pose.clone(),
+                    marker: DrawingMarker,
+                });
             }
         }
     }
 
-    for (fiducial, id, parent) in &q_fiducials {
+    for (point, label, id, parent) in &q_fiducials {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchor = get_anchor_id(fiducial.anchor)?;
-                level.fiducials.insert(id.0, fiducial.to_u32(anchor));
+                let anchor = Point(get_anchor_id(point.0)?);
+                level.fiducials.insert(id.0, Fiducial{
+                    anchor,
+                    label: label.clone(),
+                    marker: FiducialMarker,
+                });
             }
         }
     }
 
-    for (floor, id, parent) in &q_floors {
+    for (path, texture, id, parent) in &q_floors {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_vec(&floor.anchors)?;
-                level.floors.insert(id.0, floor.to_u32(anchors));
+                let anchors = get_anchor_id_path(&path)?;
+                level.floors.insert(id.0, Floor{
+                    anchors,
+                    texture: texture.clone(),
+                    marker: FloorMarker,
+                });
             }
         }
     }
 
-    for (light, id, parent) in &q_lights {
+    for (kind, pose, id, parent) in &q_lights {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.lights.insert(id.0, light.clone());
+                level.lights.insert(id.0, Light{
+                    pose: pose.clone(),
+                    kind: kind.clone(),
+                });
             }
         }
     }
 
-    for (measurement, id, parent) in &q_measurements {
+    for (edge, distance, label, id, parent) in &q_measurements {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_pair(measurement.anchors)?;
-                level.measurements.insert(id.0, measurement.to_u32(anchors));
+                let anchors = get_anchor_id_edge(edge)?;
+                level.measurements.insert(id.0, Measurement{
+                    anchors,
+                    distance: distance.clone(),
+                    label: label.clone(),
+                    marker: MeasurementMarker,
+                });
             }
         }
     }
 
-    for (model, id, parent) in &q_models {
+    for (name, kind, pose, is_static, id, parent) in &q_models {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.models.insert(id.0, model.clone());
+                level.models.insert(id.0, Model{
+                    name: name.clone(),
+                    kind: kind.clone(),
+                    pose: pose.clone(),
+                    is_static: is_static.clone(),
+                    marker: ModelMarker,
+                });
             }
         }
     }
 
-    for (physical_camera, id, parent) in &q_physical_cameras {
+    for (name, pose, properties, id, parent) in &q_physical_cameras {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.physical_cameras.insert(id.0, physical_camera.clone());
+                level.physical_cameras.insert(id.0, PhysicalCamera{
+                    name: name.clone(),
+                    pose: pose.clone(),
+                    properties: properties.clone()
+                });
             }
         }
     }
 
-    for (wall, id, parent) in &q_walls {
+    for (edge, texture, id, parent) in &q_walls {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_pair(wall.anchors)?;
-                level.walls.insert(id.0, wall.to_u32(anchors));
+                let anchors = get_anchor_id_edge(edge)?;
+                level.walls.insert(id.0, Wall{
+                    anchors,
+                    texture: texture.clone(),
+                    marker: WallMarker,
+                });
             }
         }
     }
@@ -328,9 +367,10 @@ fn generate_levels(
     return Ok(levels);
 }
 
-type QueryLift = Query<(
-    Entity, &NameInSite, &Edge<Entity>, &LiftCabin, &LevelDoors<Entity>,
-    &Corrections<Entity>, &IsStatic, &SiteID, &Parent
+type QueryLift<'w, 's> = Query<'w, 's, (
+    Entity, &'static NameInSite, &'static Edge<Entity>, &'static LiftCabin,
+    &'static LevelDoors<Entity>, &'static Corrections<Entity>,
+    &'static IsStatic, &'static SiteID, &'static Parent
 )>;
 
 fn generate_lifts(
@@ -378,7 +418,7 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |edge: Edge<Entity>| {
+    let get_anchor_id_edge = |edge: &Edge<Entity>| {
         let left = get_anchor_id(edge.left())?;
         let right = get_anchor_id(edge.right())?;
         Ok(Edge::new(left, right))
@@ -431,7 +471,7 @@ fn generate_lifts(
         let mut id_map = BTreeMap::new();
         for (level, anchors) in entity_map {
             confirm_anchors_level(*level, anchors)?;
-            let anchors = get_anchor_id_edge(*anchors)?;
+            let anchors = get_anchor_id_edge(anchors)?;
             let level = get_level_id(*level)?;
             id_map.insert(level, anchors);
         }
@@ -467,7 +507,7 @@ fn generate_lifts(
             level_doors.insert(level_id, door_id);
         }
 
-        let reference_anchors = get_anchor_id_edge(lift.reference_anchors)?;
+        let reference_anchors = get_anchor_id_edge(edge)?;
         let corrections = get_corrections_map(&corrections.0)?;
         lifts.insert(id.0, Lift{
             properties: LiftProperties{
@@ -491,7 +531,7 @@ fn generate_nav_graphs(
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
     let state: SystemState<(
         Query<(&NavGraphProperties, &SiteID, &Parent, Option<&Children>)>,
-        Query<(&Edges<Entity>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
+        Query<(&Edge<Entity>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
         Query<(&Point<Entity>, &LocationTags, &SiteID)>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
@@ -510,9 +550,9 @@ fn generate_nav_graphs(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_edge = |(left, right)| {
-        let left = get_anchor_id(left)?;
-        let right = get_anchor_id(right)?;
+    let get_anchor_id_edge = |edge: &Edge<Entity>| {
+        let left = get_anchor_id(edge.left())?;
+        let right = get_anchor_id(edge.right())?;
         Ok(Edge::new(left, right))
     };
 
@@ -530,15 +570,18 @@ fn generate_nav_graphs(
                     let edge = get_anchor_id_edge(edge)?;
                     lanes.insert(lane_id.0, Lane{
                         anchors: edge,
-                        forward,
-                        reverse,
+                        forward: forward.clone(),
+                        reverse: reverse.clone(),
                         marker: LaneMarker
                     });
                 }
 
                 if let Ok((point, tags, location_id)) = q_locations.get(*child) {
-                    let anchor = Point(get_anchor_id(location.anchor)?);
-                    locations.insert(location_id.0, Location{anchor, tags});
+                    let anchor = Point(get_anchor_id(point.0)?);
+                    locations.insert(location_id.0, Location{
+                        anchor,
+                        tags: tags.clone()
+                    });
                 }
             }
         }

@@ -55,8 +55,8 @@ fn update_measurement_visual(
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transform: &mut Transform,
 ) {
-    let start_anchor = anchors.get(edge[0]).unwrap();
-    let end_anchor = anchors.get(edge[1]).unwrap();
+    let start_anchor = anchors.get(edge.start()).unwrap();
+    let end_anchor = anchors.get(edge.end()).unwrap();
     *transform = line_stroke_transform(start_anchor, end_anchor);
 }
 

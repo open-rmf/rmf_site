@@ -58,7 +58,7 @@ impl Angle {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum Rotation {
     Yaw(Angle),
     EulerExtrinsicXYZ(Angle, Angle, Angle),
@@ -82,7 +82,7 @@ impl Rotation {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
