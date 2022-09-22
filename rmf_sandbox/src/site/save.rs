@@ -25,27 +25,7 @@ use bevy::{
 };
 use thiserror::Error as ThisError;
 
-use rmf_site_format::{
-    Site,
-    SiteProperties,
-    Door,
-    Drawing,
-    Fiducial,
-    Floor,
-    Lane,
-    Level,
-    LevelProperties,
-    Lift,
-    Light,
-    Location,
-    Measurement,
-    Model,
-    NavGraph,
-    NavGraphProperties,
-    PhysicalCamera,
-    Wall,
-};
-
+use rmf_site_format::*;
 use crate::site::*;
 
 /// The Pending component indicates that an element is not yet ready to be
@@ -348,15 +328,20 @@ fn generate_levels(
     return Ok(levels);
 }
 
+type QueryLift = Query<(
+    Entity, &NameInSite, &Edge<Entity>, &LiftCabin, &LevelDoors<Entity>,
+    &Corrections<Entity>, &IsStatic, &SiteID, &Parent
+)>;
+
 fn generate_lifts(
     world: &mut World,
     site: Entity,
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Transform, &SiteID), With<Anchor>>,
-        Query<&SiteID, With<Door<Entity>>>,
+        Query<&SiteID, With<DoorType>>,
         Query<&SiteID, With<LevelProperties>>,
-        Query<(Entity, &Lift<Entity>, &SiteID, &Parent)>,
+        QueryLift,
         Query<&Parent>,
         Query<&Children>,
     )> = SystemState::new(world);
@@ -393,10 +378,10 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_pair = |(left_entity, right_entity)| {
-        let left = get_anchor_id(left_entity)?;
-        let right = get_anchor_id(right_entity)?;
-        Ok((left, right))
+    let get_anchor_id_edge = |edge: Edge<Entity>| {
+        let left = get_anchor_id(edge.left())?;
+        let right = get_anchor_id(edge.right())?;
+        Ok(Edge::new(left, right))
     };
 
     let confirm_entity_level = |level, child| {
@@ -426,9 +411,9 @@ fn generate_lifts(
         Err(SiteGenerationError::InvalidAnchorReference{level, anchor})
     };
 
-    let confirm_anchors_level = |level, (left, right)| {
-        confirm_anchor_level(level, left)?;
-        confirm_anchor_level(level, right)?;
+    let confirm_anchors_level = |level, edge: &Edge<Entity>| {
+        confirm_anchor_level(level, edge.left())?;
+        confirm_anchor_level(level, edge.right())?;
         confirm_level_on_site(level)?;
         Ok(())
     };
@@ -442,26 +427,26 @@ fn generate_lifts(
         Err(SiteGenerationError::InvalidDoorReference{level, door})
     };
 
-    let get_corrections_map = |entity_map: &BTreeMap<Entity, (Entity, Entity)>| {
+    let get_corrections_map = |entity_map: &BTreeMap<Entity, Edge<Entity>>| {
         let mut id_map = BTreeMap::new();
         for (level, anchors) in entity_map {
-            confirm_anchors_level(*level, *anchors)?;
-            let anchors = get_anchor_id_pair(*anchors)?;
+            confirm_anchors_level(*level, anchors)?;
+            let anchors = get_anchor_id_edge(*anchors)?;
             let level = get_level_id(*level)?;
             id_map.insert(level, anchors);
         }
-        Ok(id_map)
+        Ok(Corrections(id_map))
     };
 
-    for (entity, lift, id, parent) in &q_lifts {
+    for (entity, name, edge, cabin, e_level_doors, corrections, is_static, id, parent) in &q_lifts {
         if parent.get() != site {
             continue;
         }
 
-        if let Ok(canon_level) = q_parents.get(lift.reference_anchors.0) {
-            confirm_anchors_level(canon_level.get(), lift.reference_anchors)?;
+        if let Ok(canon_level) = q_parents.get(edge.left()) {
+            confirm_anchors_level(canon_level.get(), edge)?;
         } else {
-            return Err(SiteGenerationError::BrokenAnchorReference(lift.reference_anchors.0));
+            return Err(SiteGenerationError::BrokenAnchorReference(edge.left()));
         }
 
         let mut cabin_anchors = BTreeMap::new();
@@ -469,23 +454,32 @@ fn generate_lifts(
             for child in children {
                 if let Ok((anchor_tf, site_id)) = q_anchors.get(*child) {
                     let p = anchor_tf.translation;
-                    cabin_anchors.insert(site_id.0, (p.x, p.y));
+                    cabin_anchors.insert(site_id.0, [p.x, p.y]);
                 }
             }
         }
 
         let mut level_doors = BTreeMap::new();
-        for (level, door) in &lift.level_doors {
+        for (level, door) in &e_level_doors.0 {
             confirm_door_level(*level, *door)?;
             let level_id = get_level_id(*level)?;
             let door_id = get_door_id(*door)?;
             level_doors.insert(level_id, door_id);
         }
 
-        let reference_anchors = get_anchor_id_pair(lift.reference_anchors)?;
-        let corrections = get_corrections_map(&lift.corrections)?;
-        let lift = lift.to_u32(reference_anchors, cabin_anchors, level_doors, corrections);
-        lifts.insert(id.0, lift);
+        let reference_anchors = get_anchor_id_edge(lift.reference_anchors)?;
+        let corrections = get_corrections_map(&corrections.0)?;
+        lifts.insert(id.0, Lift{
+            properties: LiftProperties{
+                name: name.clone(),
+                reference_anchors,
+                cabin: cabin.clone(),
+                level_doors: LevelDoors(level_doors),
+                corrections,
+                is_static: is_static.clone(),
+            },
+            cabin_anchors,
+        });
     }
 
     return Ok(lifts);
@@ -495,10 +489,10 @@ fn generate_nav_graphs(
     world: &mut World,
     site: Entity,
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
-    let mut state: SystemState<(
+    let state: SystemState<(
         Query<(&NavGraphProperties, &SiteID, &Parent, Option<&Children>)>,
-        Query<(&Lane<Entity>, &SiteID)>,
-        Query<(&Location<Entity>, &SiteID)>,
+        Query<(&Edges<Entity>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
+        Query<(&Point<Entity>, &LocationTags, &SiteID)>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
@@ -507,7 +501,7 @@ fn generate_nav_graphs(
         q_lanes,
         q_locations,
         q_anchors,
-    ) = state.get_mut(world);
+    ) = state.get(world);
 
     let get_anchor_id = |entity| {
         let site_id = q_anchors.get(entity).map_err(
@@ -516,10 +510,10 @@ fn generate_nav_graphs(
         Ok(site_id.0)
     };
 
-    let get_anchor_id_pair = |(left, right)| {
+    let get_anchor_id_edge = |(left, right)| {
         let left = get_anchor_id(left)?;
         let right = get_anchor_id(right)?;
-        Ok((left, right))
+        Ok(Edge::new(left, right))
     };
 
     let mut nav_graphs = BTreeMap::new();
@@ -532,14 +526,19 @@ fn generate_nav_graphs(
         let mut locations = BTreeMap::new();
         if let Some(children) = children {
             for child in children {
-                if let Ok((lane, lane_id)) = q_lanes.get(*child) {
-                    let anchors = get_anchor_id_pair(lane.anchors)?;
-                    lanes.insert(lane_id.0, lane.to_u32(anchors));
+                if let Ok((edge, forward, reverse, lane_id)) = q_lanes.get(*child) {
+                    let edge = get_anchor_id_edge(edge)?;
+                    lanes.insert(lane_id.0, Lane{
+                        anchors: edge,
+                        forward,
+                        reverse,
+                        marker: LaneMarker
+                    });
                 }
 
-                if let Ok((location, location_id)) = q_locations.get(*child) {
-                    let anchor = get_anchor_id(location.anchor)?;
-                    locations.insert(location_id.0, location.to_u32(anchor));
+                if let Ok((point, tags, location_id)) = q_locations.get(*child) {
+                    let anchor = Point(get_anchor_id(location.anchor)?);
+                    locations.insert(location_id.0, Location{anchor, tags});
                 }
             }
         }

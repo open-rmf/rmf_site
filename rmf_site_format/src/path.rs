@@ -15,7 +15,7 @@
  *
 */
 
-use crate::SiteID;
+use crate::RefTrait;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Deref, DerefMut, Entity};
@@ -23,7 +23,7 @@ use bevy::prelude::{Component, Deref, DerefMut, Entity};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
-pub struct Path<T: SiteID>(pub Vec<T>);
+pub struct Path<T: RefTrait>(pub Vec<T>);
 
 #[cfg(feature="bevy")]
 impl Path<u32> {

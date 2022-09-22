@@ -79,9 +79,9 @@ impl Site {
     }
 }
 
-pub trait SiteID: Ord + Eq + Copy + Send + Sync + 'static { }
+pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static { }
 
-impl SiteID for u32 { }
+impl RefTrait for u32 { }
 
 #[cfg(feature="bevy")]
-impl SiteID for Entity { }
+impl RefTrait for Entity { }

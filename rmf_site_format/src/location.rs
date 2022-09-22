@@ -32,7 +32,7 @@ pub enum LocationTag {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Location<T: SiteID> {
+pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
 }
@@ -49,16 +49,6 @@ impl Default for LocationTags {
 }
 
 #[cfg(feature="bevy")]
-impl Location<Entity> {
-    pub fn to_u32(&self, anchor: u32) -> Location<u32> {
-        Location{
-            anchor: Point(anchor),
-            tags: self.tags.clone(),
-        }
-    }
-}
-
-#[cfg(feature="bevy")]
 impl Location<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Location<Entity> {
         Location{
@@ -68,7 +58,7 @@ impl Location<u32> {
     }
 }
 
-impl<T: SiteID> From<Point<T>> for Location<T> {
+impl<T: RefTrait> From<Point<T>> for Location<T> {
     fn from(anchor: Point<T>) -> Self {
         Self{anchor, tags: Default::default()}
     }

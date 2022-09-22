@@ -22,7 +22,7 @@ use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Door<T: SiteID> {
+pub struct Door<T: RefTrait> {
     /// (left_anchor, right_anchor)
     pub anchors: Edge<T>,
     /// Name of the door. RMF requires each door name to be unique among all
@@ -102,7 +102,7 @@ impl Door<u32> {
     }
 }
 
-impl<T: SiteID> From<Edge<T>> for Door<T> {
+impl<T: RefTrait> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
         Door{
             anchors: edge,

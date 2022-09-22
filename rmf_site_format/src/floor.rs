@@ -22,7 +22,7 @@ use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Floor<T: SiteID> {
+pub struct Floor<T: RefTrait> {
     pub anchors: Path<T>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub texture: Texture,
@@ -56,7 +56,7 @@ impl Floor<u32> {
     }
 }
 
-impl<T: SiteID> From<Path<T>> for Floor<T> {
+impl<T: RefTrait> From<Path<T>> for Floor<T> {
     fn from(path: Path<T>) -> Self {
         Floor{
             anchors: path,

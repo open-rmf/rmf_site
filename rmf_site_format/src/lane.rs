@@ -22,7 +22,7 @@ use bevy::prelude::{Component, Entity, Bundle};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Lane<T: SiteID> {
+pub struct Lane<T: RefTrait> {
     /// The endpoints of the lane (start, end)
     pub anchors: Edge<T>,
     /// The properties of the lane when traveling forwards
@@ -72,18 +72,6 @@ impl Default for ReverseLane {
 }
 
 #[cfg(feature="bevy")]
-impl Lane<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Lane<u32> {
-        Lane{
-            anchors,
-            forward: self.forward.clone(),
-            reverse: self.reverse.clone(),
-            marker: Default::default(),
-        }
-    }
-}
-
-#[cfg(feature="bevy")]
 impl Lane<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
         Lane{
@@ -95,7 +83,7 @@ impl Lane<u32> {
     }
 }
 
-impl<T: SiteID> From<Edge<T>> for Lane<T> {
+impl<T: RefTrait> From<Edge<T>> for Lane<T> {
     fn from(edge: Edge<T>) -> Self {
         Lane{
             anchors: edge,

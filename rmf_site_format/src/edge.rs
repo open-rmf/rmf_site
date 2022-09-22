@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Side, SiteID};
+use crate::{Side, RefTrait};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity};
@@ -25,7 +25,7 @@ use bevy::prelude::{Component, Entity};
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Edge<T>([T; 2]);
 
-impl<T: SiteID> Edge<T> {
+impl<T: RefTrait> Edge<T> {
     /// Create a new edge of this type using the given anchors. All other
     /// properties of the edge should have sensible default values.
     pub fn new(left: T, right: T) -> Self {
@@ -80,7 +80,7 @@ impl<T: SiteID> Edge<T> {
     }
 }
 
-impl<T: SiteID> From<[T; 2]> for Edge<T> {
+impl<T: RefTrait> From<[T; 2]> for Edge<T> {
     fn from(array: [T; 2]) -> Self {
         Self(array)
     }

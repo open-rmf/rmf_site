@@ -22,7 +22,7 @@ use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Measurement<T: SiteID> {
+pub struct Measurement<T: RefTrait> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if="is_default")]
     pub distance: Distance,
@@ -71,7 +71,7 @@ impl Measurement<u32> {
     }
 }
 
-impl<T: SiteID> From<Edge<T>> for Measurement<T> {
+impl<T: RefTrait> From<Edge<T>> for Measurement<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self{
             anchors,

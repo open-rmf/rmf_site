@@ -15,7 +15,7 @@
  *
 */
 
-use crate::SiteID;
+use crate::RefTrait;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Deref, DerefMut};
@@ -25,7 +25,7 @@ use bevy::prelude::{Component, Entity, Deref, DerefMut};
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
 pub struct Point<T>(pub T);
 
-impl<T: SiteID> From<T> for Point<T> {
+impl<T: RefTrait> From<T> for Point<T> {
     fn from(anchor: T) -> Self {
         Self(anchor)
     }

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Point, Label, SiteID};
+use crate::{Point, Label, RefTrait};
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::{Component, Entity, Bundle};
@@ -24,7 +24,7 @@ use bevy::prelude::{Component, Entity, Bundle};
 /// to other levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Fiducial<T: SiteID> {
+pub struct Fiducial<T: RefTrait> {
     /// The anchor that represents the position of this fiducial.
     pub anchor: Point<T>,
     /// Label of this fiducial. This label must be unique within the level that
@@ -58,7 +58,7 @@ impl Fiducial<u32> {
     }
 }
 
-impl<T: SiteID> From<Point<T>> for Fiducial<T> {
+impl<T: RefTrait> From<Point<T>> for Fiducial<T> {
     fn from(anchor: Point<T>) -> Self {
         Self{
             anchor,

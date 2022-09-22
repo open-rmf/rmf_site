@@ -22,7 +22,7 @@ use bevy::prelude::{Entity, Bundle, Component};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct Wall<T: SiteID> {
+pub struct Wall<T: RefTrait> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if="is_default")]
     pub texture: Texture,
@@ -56,7 +56,7 @@ impl Wall<u32> {
     }
 }
 
-impl<T: SiteID> From<Edge<T>> for Wall<T> {
+impl<T: RefTrait> From<Edge<T>> for Wall<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self{anchors, texture: Default::default(), marker: Default::default()}
     }

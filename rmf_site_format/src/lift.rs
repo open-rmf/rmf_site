@@ -31,7 +31,7 @@ pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
 pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct Lift<T: SiteID> {
+pub struct Lift<T: RefTrait> {
     pub properties: LiftProperties<T>,
     /// Anchors that are inside the cabin of the lift and exist in the map of
     /// the cabin's interior.
@@ -40,7 +40,7 @@ pub struct Lift<T: SiteID> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Bundle))]
-pub struct LiftProperties<T: SiteID> {
+pub struct LiftProperties<T: RefTrait> {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,
     /// These anchors define the canonical reference frame of the lift. Both
@@ -159,8 +159,8 @@ pub struct LiftCabinDoor {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
-pub struct LevelDoors<T: SiteID>(pub BTreeMap<T, T>);
-impl<T: SiteID> Default for LevelDoors<T> {
+pub struct LevelDoors<T: RefTrait>(pub BTreeMap<T, T>);
+impl<T: RefTrait> Default for LevelDoors<T> {
     fn default() -> Self {
         LevelDoors(BTreeMap::new())
     }
@@ -169,34 +169,15 @@ impl<T: SiteID> Default for LevelDoors<T> {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
-pub struct Corrections<T: SiteID>(pub BTreeMap<T, Edge<T>>);
-impl<T: SiteID> Default for Corrections<T> {
+pub struct Corrections<T: RefTrait>(pub BTreeMap<T, Edge<T>>);
+impl<T: RefTrait> Default for Corrections<T> {
     fn default() -> Self {
         Corrections(BTreeMap::new())
     }
 }
-impl<T: SiteID> Corrections<T> {
+impl<T: RefTrait> Corrections<T> {
     pub fn is_empty(&self) -> bool {
         self.0.is_empty()
-    }
-}
-
-#[cfg(feature="bevy")]
-impl LiftProperties<Entity> {
-    pub fn to_u32(
-        &self,
-        reference_anchors: Edge<u32>,
-        level_doors: BTreeMap<u32, u32>,
-        corrections: BTreeMap<u32, Edge<u32>>,
-    ) -> LiftProperties<u32> {
-        LiftProperties{
-            name: self.name.clone(),
-            reference_anchors,
-            cabin: self.cabin.clone(),
-            level_doors: LevelDoors(level_doors),
-            corrections: Corrections(corrections),
-            is_static: self.is_static,
-        }
     }
 }
 
@@ -224,7 +205,7 @@ impl LiftProperties<u32> {
     }
 }
 
-impl<T: SiteID> From<Edge<T>> for LiftProperties<T> {
+impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
     fn from(edge: Edge<T>) -> Self {
         LiftProperties{
             reference_anchors: edge,
