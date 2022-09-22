@@ -604,7 +604,7 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
     fn next<'w, 's>(
         &self,
         anchor_selection: Entity,
-        replacing: Option<Entity>,
+        _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition<Self>, ()> {
@@ -1188,9 +1188,12 @@ pub fn handle_select_anchor_mode(
     }
 
     if hovering.is_changed() {
+        dbg!();
         if hovering.0.is_none() {
+            dbg!();
             set_visibility(params.cursor.frame, &mut visibility, true);
         } else {
+            dbg!();
             set_visibility(params.cursor.frame, &mut visibility, false);
         }
     }

@@ -72,6 +72,10 @@ impl AnchorBundle {
             ..self
         }
     }
+
+    pub fn dependents(self, dependents: AnchorDependents) -> Self {
+        Self{dependents, ..self}
+    }
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]

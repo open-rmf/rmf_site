@@ -90,10 +90,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     &mut self.params.anchor_dependents_params,
                     self.events,
                 ).show(ui);
-            } else if let Ok(lane) = self.params.lanes.get(selection) {
+            } else if let Ok(edge) = self.params.lanes.get(selection) {
                 Self::heading("Lane", site_id, ui);
                 InspectLaneWidget::new(
-                    lane, site_id,
+                    selection, edge, site_id,
                     &mut self.params.anchor_params,
                     self.events,
                 ).show(ui);

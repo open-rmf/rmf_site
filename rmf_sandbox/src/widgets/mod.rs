@@ -17,7 +17,7 @@
 
 use crate::{
     site::{SiteState, SiteUpdateLabel},
-    interaction::{PickingBlockers, Hover, Select, MoveTo},
+    interaction::{PickingBlockers, Hover, Select, MoveTo, ChangeMode},
 };
 use bevy::{
     prelude::*,
@@ -69,6 +69,7 @@ pub struct AppEvents<'w, 's> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: ResMut<'w, Events<MoveTo>>,
+    pub change_mode: ResMut<'w, Events<ChangeMode>>,
     _ignore: Query<'w, 's, ()>,
 }
 

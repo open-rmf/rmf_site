@@ -89,11 +89,6 @@ pub fn update_interaction_mode(
     mut change_mode: EventReader<ChangeMode>,
     mut backout: BackoutParams,
 ) {
-    let new_mode = match change_mode.iter().last() {
-        Some(new_mode) => new_mode,
-        None => { return; }
-    };
-
     for request in change_mode.iter() {
         match request {
             ChangeMode::To(new_mode) => {

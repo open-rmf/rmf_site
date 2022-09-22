@@ -78,6 +78,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Select>()
             .add_event::<Hover>()
             .add_event::<MoveTo>()
+            .add_event::<ChangeMode>()
             .add_plugin(PickingPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(

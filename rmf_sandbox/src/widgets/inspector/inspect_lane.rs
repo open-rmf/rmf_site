@@ -17,6 +17,7 @@
 
 use crate::{
     site::SiteID,
+    interaction::{ChangeMode, SelectAnchor, InteractionMode},
     widgets::{
         AppEvents,
         inspector::{
@@ -26,7 +27,7 @@ use crate::{
     },
 };
 use rmf_site_format::{
-    Edge,
+    Edge, Side,
 };
 use bevy::prelude::*;
 use bevy_egui::{
@@ -34,7 +35,8 @@ use bevy_egui::{
 };
 
 pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub lane: &'a Edge<Entity>,
+    pub entity: Entity,
+    pub edge: &'a Edge<Entity>,
     pub site_id: Option<&'a SiteID>,
     pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
@@ -42,12 +44,13 @@ pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
-        lane: &'a Edge<Entity>,
+        entity: Entity,
+        edge: &'a Edge<Entity>,
         site_id: Option<&'a SiteID>,
         anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{lane, site_id, anchor_params, events}
+        Self{entity, edge, site_id, anchor_params, events}
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -61,20 +64,30 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.end_row();
 
             ui.label("Start");
-            InspectAnchorWidget::new(
-                self.lane.start(),
+            let start_response = InspectAnchorWidget::new(
+                self.edge.start(),
                 self.anchor_params,
                 self.events,
             ).as_dependency().show(ui);
             ui.end_row();
+            if start_response.replace {
+                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
+                    SelectAnchor::replace_side(self.entity, Side::Left).for_lane()
+                )));
+            }
 
             ui.label("End");
-            InspectAnchorWidget::new(
-                self.lane.end(),
+            let end_response = InspectAnchorWidget::new(
+                self.edge.end(),
                 self.anchor_params,
                 self.events
             ).as_dependency().show(ui);
             ui.end_row();
+            if end_response.replace {
+                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
+                    SelectAnchor::replace_side(self.entity, Side::Right).for_lane()
+                )));
+            }
         });
     }
 }

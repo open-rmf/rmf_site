@@ -59,7 +59,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
         }
     }
 
-    pub fn show(self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui) -> InspectAnchorResponse {
+        let mut replace = false;
         if self.is_dependency {
             if let Ok(site_id) = self.params.site_id.get(self.anchor) {
                 ui.label(format!("#{}", site_id.0));
@@ -82,7 +83,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 )
             );
 
-            // TODO(MXG): React to assign being clicked
+            replace = assign_response.clicked();
             assign_response.on_hover_text("Reassign");
         }
 
@@ -107,7 +108,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 });
             }
         }
+
+        InspectAnchorResponse{replace}
     }
+}
+
+pub struct InspectAnchorResponse {
+    pub replace: bool,
 }
 
 #[derive(SystemParam)]
