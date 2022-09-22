@@ -16,7 +16,7 @@
 */
 
 use crate::site::*;
-use rmf_site_format::{Lift, LiftCabin, LevelProperties};
+use rmf_site_format::{LiftCabin, LevelProperties};
 use std::collections::HashSet;
 use bevy::{
     prelude::*,
@@ -35,8 +35,8 @@ pub struct AnchorBundle {
 }
 
 impl AnchorBundle {
-    pub fn new(anchor: (f32, f32)) -> Self {
-        let transform = Transform::from_translation([anchor.0, anchor.1, 0.].into());
+    pub fn new(anchor: [f32; 2]) -> Self {
+        let transform = Transform::from_translation([anchor[0], anchor[1], 0.].into());
         Self{
             transform,
             global_transform: transform.into(),
@@ -50,7 +50,7 @@ impl AnchorBundle {
 
     pub fn at_transform(tf: &GlobalTransform) -> Self {
         let translation = tf.translation();
-        Self::new((translation.x, translation.y))
+        Self::new([translation.x, translation.y])
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
@@ -94,8 +94,7 @@ pub struct PreviewAnchor {
 }
 
 pub fn assign_orphan_anchors_to_parent(
-    parents: Query<&Parent>,
-    orphan_anchors: Query<(Entity, &GlobalTransform, &mut Transform), (Added<Anchor>, Without<Parent>)>,
+    mut orphan_anchors: Query<(Entity, &GlobalTransform, &mut Transform), (Added<Anchor>, Without<Parent>)>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     mut lifts: Query<(Entity, &LiftCabin, &GlobalTransform)>,

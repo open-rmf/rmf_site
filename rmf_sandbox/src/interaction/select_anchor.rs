@@ -263,7 +263,7 @@ trait Placement {
 }
 
 #[derive(Debug, Clone, Copy)]
-pub(crate) struct EdgePlacement<T> {
+pub struct EdgePlacement<T> {
     side: Side,
     _ignore: std::marker::PhantomData<T>,
 }
@@ -412,7 +412,7 @@ impl<T: Bundle + From<Edge<Entity>> + Clone + std::fmt::Debug> Placement for Edg
             if *changed && changed_anchors.iter().find(|x| **x == Some(*current)).is_none() {
                 // This anchor is being changed and is no longer being used by
                 // the lane.
-                if let Ok(deps) = params.dependents.get_mut(*current) {
+                if let Ok(mut deps) = params.dependents.get_mut(*current) {
                     deps.dependents.remove(&target);
                 } else {
                     println!(
@@ -469,7 +469,7 @@ impl<T> From<Side> for EdgePlacement<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PointPlacement<T> {
+pub struct PointPlacement<T> {
     _ignore: std::marker::PhantomData<T>,
 }
 
@@ -492,7 +492,7 @@ impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
     fn next<'w, 's>(
         &self,
         anchor_selection: Entity,
-        replacing: Option<Entity>,
+        _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition<Self>, ()> {
@@ -514,7 +514,7 @@ impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
                     match params.dependents.get_many_mut(
                         [**point, anchor_selection]
                     ) {
-                        Ok([old_dep, new_dep]) => {
+                        Ok([mut old_dep, mut new_dep]) => {
                             old_dep.dependents.remove(&target);
                             new_dep.dependents.insert(target);
                         },
@@ -540,7 +540,7 @@ impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
                     .insert_bundle(new_bundle)
                     .insert(Pending)
                     .id();
-                if let Ok(dep) = params.dependents.get_mut(anchor_selection) {
+                if let Ok(mut dep) = params.dependents.get_mut(anchor_selection) {
                     dep.dependents.insert(target);
                 } else {
                     println!("DEV ERROR: Unable to get anchor dependents for {anchor_selection:?}");
@@ -561,7 +561,7 @@ impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub(crate) struct PathPlacement<T> {
+pub struct PathPlacement<T> {
     /// Replace the floor anchor at the specified index, or push the anchor to
     /// the end if None is specified. If the specified index is too high, this
     /// value will be changed to None and all new anchors will be pushed to the
@@ -620,7 +620,7 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
                     .id();
 
                 match params.dependents.get_mut(anchor_selection) {
-                    Ok(dep) => {
+                    Ok(mut dep) => {
                         dep.dependents.insert(target);
                     },
                     Err(_) => {
@@ -737,7 +737,7 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
 }
 
 #[derive(SystemParam)]
-struct SelectAnchorPlacementParams<'w, 's> {
+pub struct SelectAnchorPlacementParams<'w, 's> {
     edges: Query<'w, 's, &'static mut Edge<Entity>>,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
@@ -1124,8 +1124,8 @@ pub fn handle_select_anchor_mode(
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
 ) {
-    let mut request = match *mode {
-        InteractionMode::SelectAnchor(request) => request,
+    let mut request = match &*mode {
+        InteractionMode::SelectAnchor(request) => request.clone(),
         _ => {
             return;
         }
@@ -1263,8 +1263,18 @@ pub fn handle_select_anchor_mode(
         }
     }
 
-    if InteractionMode::SelectAnchor(request) != *mode {
-        // Update the interaction mode to the most recent request mode
+    // TODO(MXG) Is there a nicer way of doing this?
+    let need_change = if let InteractionMode::SelectAnchor(current) = &*mode {
+        if *current == request {
+            false
+        } else {
+            true
+        }
+    } else {
+        true
+    };
+
+    if need_change {
         *mode = InteractionMode::SelectAnchor(request);
     }
 }

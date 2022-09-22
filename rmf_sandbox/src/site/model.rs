@@ -64,7 +64,7 @@ pub fn update_model_scenes(
         commands: &mut Commands,
         loading_models: &mut LoadingModels,
     ) {
-        let commands = commands.entity(e);
+        let mut commands = commands.entity(e);
         commands
             .insert(ModelScene{kind: kind.clone(), scene_entity: None})
             .insert_bundle(SpatialBundle{

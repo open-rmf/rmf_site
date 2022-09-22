@@ -57,7 +57,7 @@ impl InteractionMode {
 }
 
 #[derive(SystemParam)]
-struct BackoutParams<'w, 's> {
+pub struct BackoutParams<'w, 's> {
     commands: Commands<'w, 's>,
 }
 

@@ -84,7 +84,7 @@ fn generate_site_entities(
                     for (door_id, door) in &level_data.doors {
                         let door_entity = level
                             .spawn()
-                            .insert(door.to_ecs(&id_to_entity))
+                            .insert_bundle(door.to_ecs(&id_to_entity))
                             .insert(SiteID(*door_id))
                             .id();
                         id_to_entity.insert(*door_id, door_entity);
@@ -94,7 +94,7 @@ fn generate_site_entities(
                     for (drawing_id, drawing) in &level_data.drawings {
                         level
                             .spawn()
-                            .insert(drawing.clone())
+                            .insert_bundle(drawing.clone())
                             .insert(SiteID(*drawing_id));
                         consider_id(*drawing_id);
                     }
@@ -102,7 +102,7 @@ fn generate_site_entities(
                     for (fiducial_id, fiducial) in &level_data.fiducials {
                         level
                             .spawn()
-                            .insert(fiducial.to_ecs(&id_to_entity))
+                            .insert_bundle(fiducial.to_ecs(&id_to_entity))
                             .insert(SiteID(*fiducial_id));
                         consider_id(*fiducial_id);
                     }
@@ -110,7 +110,7 @@ fn generate_site_entities(
                     for (floor_id, floor) in &level_data.floors {
                         level
                             .spawn()
-                            .insert(floor.to_ecs(&id_to_entity))
+                            .insert_bundle(floor.to_ecs(&id_to_entity))
                             .insert(SiteID(*floor_id));
                         consider_id(*floor_id);
                     }
@@ -118,7 +118,7 @@ fn generate_site_entities(
                     for (light_id, light) in &level_data.lights {
                         level
                             .spawn()
-                            .insert(light.clone())
+                            .insert_bundle(light.clone())
                             .insert(SiteID(*light_id));
                         consider_id(*light_id);
                     }
@@ -126,7 +126,7 @@ fn generate_site_entities(
                     for (measurement_id, measurement) in &level_data.measurements {
                         level
                             .spawn()
-                            .insert(measurement.to_ecs(&id_to_entity))
+                            .insert_bundle(measurement.to_ecs(&id_to_entity))
                             .insert(SiteID(*measurement_id));
                         consider_id(*measurement_id);
                     }
@@ -134,7 +134,7 @@ fn generate_site_entities(
                     for (model_id, model) in &level_data.models {
                         level
                             .spawn()
-                            .insert(model.clone())
+                            .insert_bundle(model.clone())
                             .insert(SiteID(*model_id));
                         consider_id(*model_id);
                     }
@@ -142,7 +142,7 @@ fn generate_site_entities(
                     for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                         level
                             .spawn()
-                            .insert(physical_camera.clone())
+                            .insert_bundle(physical_camera.clone())
                             .insert(SiteID(*physical_camera_id));
                         consider_id(*physical_camera_id);
                     }
@@ -150,7 +150,7 @@ fn generate_site_entities(
                     for (wall_id, wall) in &level_data.walls {
                         level
                             .spawn()
-                            .insert(wall.to_ecs(&id_to_entity))
+                            .insert_bundle(wall.to_ecs(&id_to_entity))
                             .insert(SiteID(*wall_id));
                         consider_id(*wall_id);
                     }
@@ -161,7 +161,7 @@ fn generate_site_entities(
 
             for (lift_id, lift_data) in &site_data.lifts {
                 site.spawn_bundle(SpatialBundle::default())
-                    .insert(lift_data.to_ecs(&id_to_entity))
+                    .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
                     .insert(SiteID(*lift_id))
                     .with_children(|lift| {
                         for (anchor_id, anchor) in &lift_data.cabin_anchors {
@@ -185,7 +185,7 @@ fn generate_site_entities(
                         for (lane_id, lane) in &nav_graph_data.lanes {
                             nav_graph
                                 .spawn()
-                                .insert(lane.to_ecs(&id_to_entity))
+                                .insert_bundle(lane.to_ecs(&id_to_entity))
                                 .insert(SiteID(*lane_id));
                             consider_id(*lane_id);
                         }
@@ -193,7 +193,7 @@ fn generate_site_entities(
                         for (location_id, location) in &nav_graph_data.locations {
                             nav_graph
                                 .spawn()
-                                .insert(location.to_ecs(&id_to_entity))
+                                .insert_bundle(location.to_ecs(&id_to_entity))
                                 .insert(SiteID(*location_id));
                             consider_id(*location_id);
                         }

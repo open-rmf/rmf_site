@@ -26,7 +26,7 @@ use crate::{
     },
 };
 use rmf_site_format::{
-    Lane,
+    Edge,
 };
 use bevy::prelude::*;
 use bevy_egui::{
@@ -34,7 +34,7 @@ use bevy_egui::{
 };
 
 pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub lane: &'a Lane<Entity>,
+    pub lane: &'a Edge<Entity>,
     pub site_id: Option<&'a SiteID>,
     pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
@@ -42,7 +42,7 @@ pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
-        lane: &'a Lane<Entity>,
+        lane: &'a Edge<Entity>,
         site_id: Option<&'a SiteID>,
         anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
@@ -62,7 +62,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             ui.label("Start");
             InspectAnchorWidget::new(
-                self.lane.anchors.0,
+                self.lane.start(),
                 self.anchor_params,
                 self.events,
             ).as_dependency().show(ui);
@@ -70,7 +70,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             ui.label("End");
             InspectAnchorWidget::new(
-                self.lane.anchors.1,
+                self.lane.end(),
                 self.anchor_params,
                 self.events
             ).as_dependency().show(ui);

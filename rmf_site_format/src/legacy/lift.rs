@@ -29,7 +29,7 @@ pub struct Lift {
 }
 
 impl Lift {
-    pub fn calculate_anchors(&self) -> ((f32, f32), (f32 ,f32)) {
+    pub fn calculate_anchors(&self) -> [[f32; 2]; 2] {
         let x = self.x as f32;
         let y = self.y as f32;
         let d = self.depth as f32 / 2.0;
@@ -40,7 +40,7 @@ impl Lift {
         };
         let (dx_0, dy_0) = rotate(d, w);
         let (dx_1, dy_1) = rotate(d, -w);
-        return ((x + dx_0, y + dy_0), (x + dx_1, y + dy_1));
+        return [[x + dx_0, y + dy_0], [x + dx_1, y + dy_1]];
     }
 
     pub fn make_cabin(&self, name: &String) -> Result<LiftCabin> {

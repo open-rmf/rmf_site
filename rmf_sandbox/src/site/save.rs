@@ -243,7 +243,7 @@ fn generate_levels(
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let p = anchor_tf.translation;
-                level.anchors.insert(id.0, (p.x, p.y));
+                level.anchors.insert(id.0, [p.x, p.y]);
             }
         }
     }
@@ -529,7 +529,7 @@ fn generate_nav_graphs(
     world: &mut World,
     site: Entity,
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
-    let state: SystemState<(
+    let mut state: SystemState<(
         Query<(&NavGraphProperties, &SiteID, &Parent, Option<&Children>)>,
         Query<(&Edge<Entity>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
         Query<(&Point<Entity>, &LocationTags, &SiteID)>,

@@ -124,7 +124,7 @@ impl BuildingMap {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
                     let anchor_id = site_id.next().unwrap();
-                    let anchor = (v.0 as f32, v.1 as f32);
+                    let anchor = [v.0 as f32, v.1 as f32];
                     anchors.insert(anchor_id, anchor);
                     anchor_id
                 } else {
@@ -174,7 +174,7 @@ impl BuildingMap {
             let mut fiducials = BTreeMap::new();
             for fiducial in &level.fiducials {
                 let anchor_id = site_id.next().unwrap();
-                anchors.insert(anchor_id, (fiducial.0 as f32, fiducial.1 as f32));
+                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32]);
                 // Do not add this anchor to the vertex_to_anchor_id map because
                 // this fiducial is not really recognized as a vertex to the
                 // building format.
@@ -327,8 +327,8 @@ impl BuildingMap {
             let anchors = {
                 let left = site_id.next().unwrap();
                 let right = site_id.next().unwrap();
-                level_anchors.insert(left, anchors.0);
-                level_anchors.insert(right, anchors.1);
+                level_anchors.insert(left, anchors[0]);
+                level_anchors.insert(right, anchors[1]);
                 [left, right]
             };
 

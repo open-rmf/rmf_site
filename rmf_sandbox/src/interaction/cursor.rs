@@ -136,7 +136,7 @@ impl FromWorld for Cursor {
 }
 
 #[derive(SystemParam)]
-struct IntersectGroundPlaneParams<'w, 's> {
+pub struct IntersectGroundPlaneParams<'w, 's> {
     windows: Res<'w, Windows>,
     camera_controls: Res<'w, CameraControls>,
     cameras: Query<'w, 's, &'static Camera>,
