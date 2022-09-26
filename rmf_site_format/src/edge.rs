@@ -78,6 +78,26 @@ impl<T: RefTrait> Edge<T> {
             Side::Right => self.right(),
         }
     }
+
+    pub fn side_mut(&mut self, side: Side) -> &mut T {
+        match side {
+            Side::Left => self.left_mut(),
+            Side::Right => self.right_mut(),
+        }
+    }
+
+    pub fn with_side_of(mut self, side: Side, value: T) -> Self {
+        *self.side_mut(side) = value;
+        self
+    }
+
+    pub fn in_reverse(&self) -> Self {
+        Self([self.right(), self.left()])
+    }
+
+    pub fn is_reverse_of(&self, other: &Self) -> bool {
+        self.left() == other.right() && self.right() == other.left()
+    }
 }
 
 impl<T: RefTrait> From<[T; 2]> for Edge<T> {

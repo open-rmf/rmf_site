@@ -34,6 +34,13 @@ impl Side {
             Side::Right => Side::Left,
         }
     }
+
+    pub fn index(&self) -> usize {
+        match self {
+            Side::Left => 0,
+            Side::Right => 1,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd)]

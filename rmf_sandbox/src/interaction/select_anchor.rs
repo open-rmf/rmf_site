@@ -187,6 +187,12 @@ trait Placement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()>;
 
+    fn current<'w, 's>(
+        &self,
+        target: Entity,
+        params: &SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity>;
+
     /// Check what anchor originally has this placement
     fn save_original<'w, 's>(
         &self,
@@ -214,6 +220,13 @@ impl EdgePlacement {
         }
     }
 
+    fn ignore(&self) -> PlacementTransition {
+        PlacementTransition{
+            preview: None,
+            next: Arc::new(self.clone()),
+        }
+    }
+
     fn new<T: Bundle + From<Edge<Entity>>>(side: Side) -> Arc<Self> {
         Arc::new(Self{
             side,
@@ -229,6 +242,7 @@ impl EdgePlacement {
             ),
             finalize: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                    dbg!("Removing Original edge");
                     params.commands.entity(entity).remove::<Original<Edge<Entity>>>();
                 }
             )
@@ -244,13 +258,13 @@ impl Placement for EdgePlacement {
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
-        let (target, mut endpoints) = match target {
+        let (target, mut endpoints, original) = match target {
             Some(target) => {
                 // We expect that we already have an element and we are
                 // modifying it.
                 match params.edges.get_mut(target) {
-                    Ok(edge) => {
-                        (target, edge)
+                    Ok((edge, original)) => {
+                        (target, edge, original)
                     },
                     Err(_) => {
                         println!(
@@ -287,61 +301,41 @@ impl Placement for EdgePlacement {
             }
         };
 
-        // We are replacing one of the endpoints in an existing target
-        let changed_anchors = match self.side {
-            Side::Left => {
-                match replacing {
-                    Some(replacing) => {
-                        if endpoints.right() == replacing {
-                            // The right anchor was assigned the anchor that
-                            // is being replaced, which means a flip happened
-                            // previously, and the right anchor's original
-                            // value is currently held by the left. We should
-                            // give the right anchor back its original value
-                            // which should be currently held by the left.
-                            [Some(anchor_selection), Some(endpoints.left())]
-                        } else if anchor_selection == endpoints.right() {
-                            // The right anchor has been selected for the
-                            // left, so flip the anchors.
-                            [Some(anchor_selection), Some(replacing)]
-                        } else {
-                            // No need to modify the right anchor, just set
-                            // the left to its new value.
-                            [Some(anchor_selection), None]
-                        }
-                    },
-                    None => {
-                        println!(
-                            "DEV ERROR: We should not be selecting a Left \
-                            anchor if we are not in ReplaceAnchor mode."
-                        );
-                        return Err(());
-                    }
+        println!("=================================");
+        let new_edge = match original {
+            Some(original) => {
+                if anchor_selection == original.side(self.side.opposite()) {
+                    // The user is asking to swap the anchors
+                    original.in_reverse()
+                } else {
+                    original.with_side_of(self.side, anchor_selection)
                 }
             },
-            Side::Right => {
+            None => {
                 match replacing {
                     Some(replacing) => {
-                        if endpoints.left() == replacing {
-                            // The left anchor was assigned the anchor that is
-                            // being replaced, which means a flip happened
-                            // previously, and the left anchor's original value
-                            // is currently held by the left. We should give
-                            // the left anchor back its original value which
-                            // should be currently held by the right.
-                            [Some(endpoints.right()), Some(anchor_selection)]
-                        } else if anchor_selection == endpoints.left() {
-                            // The left anchor has been selected for the right,
-                            // so flip the anchors.
-                            [Some(replacing), Some(anchor_selection)]
+                        let new_edge = if endpoints.side(self.side.opposite()) == replacing {
+                            // The opposite anchor was assigned the anchor that
+                            // is being replaced. This implies that a flip
+                            // happened at some point in the past. We should
+                            // flip the edge back to normal before continuing.
+                            *endpoints = endpoints.in_reverse();
+                            *endpoints
                         } else {
-                            // No need to modify the left anchor, just set the
-                            // right to its new value.
-                            [None, Some(anchor_selection)]
-                        }
+                            *endpoints
+                        };
+
+                        new_edge.with_side_of(self.side, anchor_selection)
                     },
                     None => {
-                        [None, Some(anchor_selection)]
+                        if endpoints.side(self.side.opposite()) == anchor_selection {
+                            // The user is asking to select the same anchor for
+                            // both sides of the edge. This is not okay, so we
+                            // ignore this request.
+                            return Ok((TargetTransition::none(), self.ignore()).into());
+                        }
+
+                        endpoints.with_side_of(self.side, anchor_selection)
                     }
                 }
             }
@@ -349,52 +343,47 @@ impl Placement for EdgePlacement {
 
         // Remove the target edge as a dependency from any anchors that are no
         // longer being used by this edge.
-        for (changed, current) in &[
-            (changed_anchors[0].is_some(), endpoints.left()),
-            (changed_anchors[1].is_some(), endpoints.right()),
-        ] {
-            if *changed && changed_anchors.iter().find(|x| **x == Some(*current)).is_none() {
-                // This anchor is being changed and is no longer being used by
-                // the lane.
-                if let Ok(mut deps) = params.dependents.get_mut(*current) {
+        for old_anchor in endpoints.array() {
+            if new_edge.array().iter().find(|x| **x == old_anchor).is_none() {
+                // This anchor is no longer being used by the edge.
+                if let Ok(mut deps) = params.dependents.get_mut(old_anchor) {
                     deps.dependents.remove(&target);
                 } else {
                     println!(
                         "DEV ERROR: No AnchorDependents component found for \
-                        {:?} while in SelectAnchor mode.", *current
+                        {:?} while in SelectAnchor mode.", old_anchor
                     );
                 }
             }
         }
 
-        // Add the target edge as a dependency to any anchors that did not
-        // previously have it.
-        for changed in changed_anchors.iter().filter_map(|a| *a) {
-            if endpoints.array().iter().find(|x| **x == changed).is_none() {
-                if let Ok(deps) = params.dependents.get(changed) {
-                    deps.dependents.contains(&target);
+        for new_anchor in new_edge.array() {
+            if endpoints.array().iter().find(|x| **x == new_anchor).is_none() {
+                // This anchor was not being used by the edge previously.
+                if let Ok(mut deps) = params.dependents.get_mut(new_anchor) {
+                    deps.dependents.insert(target);
                 } else {
                     println!(
                         "DEV ERROR: No AnchorDependents component found for \
-                        {:?} while in SelectAnchor mode.",
-                        changed
+                        {:?} while in SelectAnchor mode.", new_anchor
                     );
                 }
             }
         }
 
-        if let Some(a) = changed_anchors[0] {
-            *endpoints.left_mut() = a;
-        }
-
-        if let Some(a) = changed_anchors[1] {
-            *endpoints.right_mut() = a;
-        }
-
+        *endpoints = new_edge;
         return match self.side {
             Side::Left => Ok((TargetTransition::none(), self.transition()).into()),
             Side::Right => Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into()),
         };
+    }
+
+    fn current<'w, 's>(
+        &self,
+        target: Entity,
+        params: &SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity> {
+        params.edges.get(target).ok().map(|edge| edge.0.side(self.side))
     }
 
     fn save_original<'w, 's>(
@@ -402,7 +391,7 @@ impl Placement for EdgePlacement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
-        if let Ok(original) = params.edges.get(target).cloned() {
+        if let Ok(original) = params.edges.get(target).map(|x| x.0).cloned() {
             params.commands.entity(target).insert(Original(original));
             return Some(original.side(self.side));
         }
@@ -504,6 +493,14 @@ impl Placement for PointPlacement {
                 return Ok((TargetTransition::create(target).finish(self.finalize.clone()), self.transition()).into());
             }
         }
+    }
+
+    fn current<'w, 's>(
+        &self,
+        target: Entity,
+        params: &SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity> {
+        params.points.get(target).ok().map(|p| p.0)
     }
 
     fn save_original<'w, 's>(
@@ -683,16 +680,35 @@ impl Placement for PathPlacement {
         return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 
-    fn save_original<'w, 's>(
+    fn current<'w, 's>(
         &self,
         target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
+        params: &SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
         let index = match self.placement {
             Some(i) => i,
             None => { return None; }
         };
 
+        let path = match params.paths.get(target) {
+            Ok(p) => p.0,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Unable to find path for {:?} while in \
+                    SelectAnchor mode", target,
+                );
+                return None;
+            }
+        };
+
+        path.get(index).cloned()
+    }
+
+    fn save_original<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity> {
         let path = match params.paths.get(target) {
             Ok(p) => p.0.clone(),
             Err(_) => {
@@ -704,7 +720,7 @@ impl Placement for PathPlacement {
             }
         };
 
-        let placement = path.get(index).cloned();
+        let placement = self.placement.map(|index| path.get(index).cloned()).flatten();
         params.commands.entity(target).insert(Original(path));
         return placement;
     }
@@ -712,7 +728,7 @@ impl Placement for PathPlacement {
 
 #[derive(SystemParam)]
 pub struct SelectAnchorPlacementParams<'w, 's> {
-    edges: Query<'w, 's, &'static mut Edge<Entity>>,
+    edges: Query<'w, 's, (&'static mut Edge<Entity>, Option<&'static Original<Edge<Entity>>>)>,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut AnchorDependents>,
@@ -1091,7 +1107,9 @@ pub fn handle_select_anchor_mode(
             }
         }
 
+        dbg!("Checking if we need an original");
         if request.continuity.needs_original() {
+            dbg!("Yes we need an original");
             // Keep track of the original anchor that we intend to replace so
             // that we can revert any previews.
             let for_element = match request.target {
@@ -1122,6 +1140,9 @@ pub fn handle_select_anchor_mode(
             request.continuity = SelectAnchorContinuity::ReplaceAnchor{
                 original_anchor: Some(original)
             };
+            // Save the new mode here in case it doesn't get saved by any
+            // branches in the rest of this system function.
+            *mode = InteractionMode::SelectAnchor(request.clone());
         }
     }
 
@@ -1169,11 +1190,13 @@ pub fn handle_select_anchor_mode(
                     return;
                 }
             };
+
+            *mode = InteractionMode::SelectAnchor(request);
         } else {
             if let Some(target) = request.target {
                 // Offer a preview based on the current hovering status
                 let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
-                let current = request.placement.save_original(target, &mut params);
+                let current = request.placement.current(target, &params);
 
                 if Some(hovered) != current {
                     // We should only call this function if the current hovered

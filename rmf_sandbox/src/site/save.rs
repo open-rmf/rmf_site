@@ -38,7 +38,7 @@ pub struct Pending;
 /// The Original component indicates that an element is being modified but not
 /// yet in a state where it can be correctly saved. We should save the original
 /// value instead of the apparent current value.
-#[derive(Component, Debug, Clone, Copy)]
+#[derive(Component, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct Original<T>(pub T);
 
 pub struct SaveSite {

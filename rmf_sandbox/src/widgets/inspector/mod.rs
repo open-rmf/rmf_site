@@ -25,7 +25,7 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    site::SiteID,
+    site::{SiteID, Original},
     interaction::Selection,
     widgets::AppEvents,
 };
@@ -46,7 +46,10 @@ pub struct InspectorParams<'w, 's> {
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub lanes: Query<'w, 's, &'static Edge<Entity>, With<LaneMarker>>,
+    pub lanes: Query<'w, 's, (
+        &'static Edge<Entity>,
+        Option<&'static Original<Edge<Entity>>>
+    ), With<LaneMarker>>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -90,7 +93,21 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     &mut self.params.anchor_dependents_params,
                     self.events,
                 ).show(ui);
-            } else if let Ok(edge) = self.params.lanes.get(selection) {
+            } else if let Ok((edge, o_edge)) = self.params.lanes.get(selection) {
+                let edge = if let Some(original) = o_edge {
+                    if original.is_reverse_of(edge) {
+                        // The user is previewing a flipped edge. To avoid ugly
+                        // high frequency UI flipping, we will display the edge
+                        // in its original form until the user has committed to
+                        // the flip.
+                        &original.0
+                    } else {
+                        edge
+                    }
+                } else {
+                    edge
+                };
+
                 Self::heading("Lane", site_id, ui);
                 InspectLaneWidget::new(
                     selection, edge, site_id,

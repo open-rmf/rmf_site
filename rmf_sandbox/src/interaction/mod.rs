@@ -97,7 +97,7 @@ impl Plugin for InteractionPlugin {
                     )
                     .with_system(
                         handle_select_anchor_mode
-                        .after(maintain_hovered_entities)
+                        .after(maintain_selected_entities)
                     )
                     .with_system(add_anchor_visual_cues)
                     .with_system(
