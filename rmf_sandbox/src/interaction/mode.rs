@@ -23,7 +23,7 @@ use bevy::{
 
 /// Used as a resource to indicate what type of interaction we are currently
 /// expecting from the user.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub enum InteractionMode {
     /// The user may hover/select any item in the scene. This is the default
     /// interaction mode.
@@ -39,12 +39,16 @@ impl Default for InteractionMode {
 }
 
 impl InteractionMode {
-    pub fn selecting(&self) -> bool {
+    pub fn is_selecting(&self) -> bool {
         match self {
             Self::Inspect => true,
             Self::SelectAnchor(_) => true,
             _ => false,
         }
+    }
+
+    pub fn is_inspecting(&self) -> bool {
+        matches!(self, InteractionMode::Inspect)
     }
 
     fn backout<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {

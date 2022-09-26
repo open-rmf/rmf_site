@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, AnchorDependents, Pending, PathBehavior},
+    site::{Anchor, AnchorBundle, AnchorDependents, Pending, PathBehavior, Original},
 };
 use rmf_site_format::{
     Side, Edge, Point, Path, Lane, Measurement, Wall, Door, LiftProperties, Location, Floor,
@@ -26,6 +26,7 @@ use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
+use std::sync::Arc;
 
 /// Describe how the interaction mode should change while
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -81,13 +82,13 @@ impl SelectAnchorContinuity {
     }
 }
 
-struct Transition<T> {
+struct Transition {
     target: TargetTransition,
-    placement: PlacementTransition<T>,
+    placement: PlacementTransition,
 }
 
-impl<T> From<(TargetTransition, PlacementTransition<T>)> for Transition<T> {
-    fn from(input: (TargetTransition, PlacementTransition<T>)) -> Self {
+impl From<(TargetTransition, PlacementTransition)> for Transition {
+    fn from(input: (TargetTransition, PlacementTransition)) -> Self {
         Self{
             target: input.0,
             placement: input.1,
@@ -95,48 +96,44 @@ impl<T> From<(TargetTransition, PlacementTransition<T>)> for Transition<T> {
     }
 }
 
-impl<T: IntoSelectAnchorPlacement> From<Transition<T>> for Transition<SelectAnchorPlacement> {
-    fn from(input: Transition<T>) -> Self {
-        Transition{
-            target: input.target,
-            placement: input.placement.into()
-        }
-    }
-}
+type CreateEdgeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Edge<Entity>) -> Entity + Send + Sync>;
+type CreatePointFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Point<Entity>) -> Entity + Send + Sync>;
+type CreatePathFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Path<Entity>) -> Entity + Send + Sync>;
+type FinalizeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Entity)  + Send + Sync>;
 
 struct TargetTransition {
     created: Option<Entity>,
-    finished: bool,
+    is_finished: Option<FinalizeFn>,
 }
 
 impl TargetTransition {
     fn none() -> Self {
         Self{
             created: None,
-            finished: false,
+            is_finished: None,
         }
     }
 
     fn create(e: Entity) -> Self {
         Self{
             created: Some(e),
-            finished: false,
+            is_finished: None,
         }
     }
 
-    fn finished() -> Self {
+    fn finished(finalize: FinalizeFn) -> Self {
         Self{
             created: None,
-            finished: true,
+            is_finished: Some(finalize),
         }
     }
 
-    fn finish(mut self) -> Self {
-        self.finished = true;
+    fn finish(mut self, finalize: FinalizeFn) -> Self {
+        self.is_finished = Some(finalize);
         self
     }
 
-    fn preview(&self, e: Option<Entity>) -> Option<Entity> {
+    fn current(&self, e: Option<Entity>) -> Option<Entity> {
         match e {
             Some(e) => {
                 if self.created.is_some() {
@@ -163,83 +160,19 @@ impl TargetTransition {
     }
 
     fn next(&self, e: Option<Entity>) -> Option<Entity> {
-        if self.finished {
+        if self.is_finished.is_some() {
             return None;
         }
 
         // The logic for next is the same as preview if the object is not
         // finished yet
-        return self.preview(e);
+        return self.current(e);
     }
 }
 
-struct PlacementTransition<T> {
-    preview: T,
-    next: T,
-}
-
-impl<T: IntoSelectAnchorPlacement> From<PlacementTransition<T>> for PlacementTransition<SelectAnchorPlacement> {
-    fn from(input: PlacementTransition<T>) -> Self {
-        Self{
-            preview: input.preview.into_sap(),
-            next: input.next.into_sap(),
-        }
-    }
-}
-
-/// We make this custom trait instead of using the standard
-/// `impl From<T> for SelectAnchorPlacement` to avoid a problematic trait
-/// ambiguity that prevents compilation.
-trait IntoSelectAnchorPlacement {
-    fn into_sap(self) -> SelectAnchorPlacement;
-}
-
-impl IntoSelectAnchorPlacement for EdgePlacement<Lane<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Lane(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for EdgePlacement<Measurement<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Measurement(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for EdgePlacement<Wall<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Wall(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for EdgePlacement<Door<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Door(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for EdgePlacement<LiftProperties<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Lift(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for PointPlacement<Location<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Location(self)
-    }
-}
-
-impl IntoSelectAnchorPlacement for PathPlacement<Floor<Entity>> {
-    fn into_sap(self) -> SelectAnchorPlacement {
-        SelectAnchorPlacement::Floor(self)
-    }
-}
-
-impl<T: IntoSelectAnchorPlacement> From<T> for SelectAnchorPlacement {
-    fn from(input: T) -> Self {
-        input.into_sap()
-    }
+struct PlacementTransition {
+    preview: Option<PlacementArc>,
+    next: PlacementArc,
 }
 
 trait Placement {
@@ -252,47 +185,65 @@ trait Placement {
         replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition<Self>, ()> where Self: Sized;
+    ) -> Result<Transition, ()>;
 
     /// Check what anchor originally has this placement
-    fn current<'w, 's>(
+    fn save_original<'w, 's>(
         &self,
         target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
-    ) -> Option<Entity> where Self: Sized;
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity>;
 }
 
-#[derive(Debug, Clone, Copy)]
-pub struct EdgePlacement<T> {
+#[derive(Clone)]
+pub struct EdgePlacement {
     side: Side,
-    _ignore: std::marker::PhantomData<T>,
+    create: CreateEdgeFn,
+    finalize: FinalizeFn,
 }
 
-impl<T> PartialEq<EdgePlacement<T>> for EdgePlacement<T> {
-    fn eq(&self, other: &EdgePlacement<T>) -> bool {
-        self.side == other.side
-    }
-}
-
-impl<T> Eq for EdgePlacement<T> { }
-
-impl<T: Clone> EdgePlacement<T> {
-    fn transition(&self) -> PlacementTransition<Self> {
+impl EdgePlacement {
+    fn transition(&self) -> PlacementTransition {
         PlacementTransition{
-            preview: self.clone(),
-            next: Self{side: self.side.opposite(), _ignore: Default::default()},
+            preview: None,
+            next: Arc::new(Self{
+                side: self.side.opposite(),
+                create: self.create.clone(),
+                finalize: self.finalize.clone(),
+            }),
         }
     }
+
+    fn new<T: Bundle + From<Edge<Entity>>>(side: Side) -> Arc<Self> {
+        Arc::new(Self{
+            side,
+            create: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, edge: Edge<Entity>| {
+                    let new_bundle: T = edge.into();
+                    params.commands
+                        .spawn()
+                        .insert_bundle(new_bundle)
+                        .insert(Pending)
+                        .id()
+                }
+            ),
+            finalize: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                    params.commands.entity(entity).remove::<Original<Edge<Entity>>>();
+                }
+            )
+        })
+    }
 }
 
-impl<T: Bundle + From<Edge<Entity>> + Clone + std::fmt::Debug> Placement for EdgePlacement<T> {
+impl Placement for EdgePlacement {
     fn next<'w, 's>(
         &self,
         anchor_selection: Entity,
         replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition<Self>, ()> {
+    ) -> Result<Transition, ()> {
         let (target, mut endpoints) = match target {
             Some(target) => {
                 // We expect that we already have an element and we are
@@ -304,7 +255,7 @@ impl<T: Bundle + From<Edge<Entity>> + Clone + std::fmt::Debug> Placement for Edg
                     Err(_) => {
                         println!(
                             "DEV ERROR: Entity {:?} is not the right kind of \
-                            element for {self:?}", target,
+                            element", target,
                         );
                         return Err(());
                     }
@@ -315,30 +266,23 @@ impl<T: Bundle + From<Edge<Entity>> + Clone + std::fmt::Debug> Placement for Edg
                 let anchors = Edge::new(
                     anchor_selection, params.cursor.anchor_placement
                 );
+                let target = (*self.create)(params, anchors);
                 let mut deps = match params.dependents.get_many_mut(anchors.array()) {
                     Ok(deps) => deps,
                     Err(_) => {
                         // One of the anchors was not a valid anchor, so we
                         // should abort.
                         println!(
-                            "DEV ERROR: Invalid anchors being selected for \
-                            {self:?}: {:?} and {:?}",
+                            "DEV ERROR: Invalid anchors being selected: {:?} and {:?}",
                             anchors.left(), anchors.right(),
                         );
                         return Err(());
                     }
                 };
 
-                let new_bundle: T = anchors.into();
-                let target = params.commands
-                    .spawn()
-                    .insert_bundle(new_bundle)
-                    .insert(Pending)
-                    .id();
                 for dep in &mut deps {
                     dep.dependents.insert(target);
                 }
-
                 return Ok((TargetTransition::create(target), self.transition()).into());
             }
         };
@@ -449,53 +393,69 @@ impl<T: Bundle + From<Edge<Entity>> + Clone + std::fmt::Debug> Placement for Edg
 
         return match self.side {
             Side::Left => Ok((TargetTransition::none(), self.transition()).into()),
-            Side::Right => Ok((TargetTransition::finished(), self.transition()).into()),
+            Side::Right => Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into()),
         };
     }
 
-    fn current<'w, 's>(
+    fn save_original<'w, 's>(
         &self,
         target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
-        params.edges.get(target).ok().map(|edge| edge.side(self.side))
+        if let Ok(original) = params.edges.get(target).cloned() {
+            params.commands.entity(target).insert(Original(original));
+            return Some(original.side(self.side));
+        }
+
+        return None;
     }
 }
 
-impl<T> From<Side> for EdgePlacement<T> {
-    fn from(side: Side) -> Self {
-        Self{side, _ignore: Default::default()}
+#[derive(Clone)]
+pub struct PointPlacement {
+    create: CreatePointFn,
+    finalize: FinalizeFn,
+}
+
+impl PointPlacement {
+    fn new<T: Bundle + From<Point<Entity>>>() -> Arc<Self> {
+        Arc::new(Self{
+            create: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, point: Point<Entity>| {
+                    let new_bundle: T = point.into();
+                    params.commands
+                        .spawn()
+                        .insert_bundle(new_bundle)
+                        .insert(Pending)
+                        .id()
+                }
+            ),
+            finalize: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                    params.commands.entity(entity).remove::<Original<Point<Entity>>>();
+                }
+            )
+        })
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PointPlacement<T> {
-    _ignore: std::marker::PhantomData<T>,
-}
-
-impl<T> Default for PointPlacement<T> {
-    fn default() -> Self {
-        PointPlacement{_ignore: Default::default()}
-    }
-}
-
-impl<T> PointPlacement<T> {
-    fn transition(&self) -> PlacementTransition<Self> {
+impl PointPlacement {
+    fn transition(&self) -> PlacementTransition {
         PlacementTransition{
-            preview: Default::default(),
-            next: Default::default(),
+            preview: None,
+            next: Arc::new(self.clone()),
         }
     }
 }
 
-impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
+impl Placement for PointPlacement {
     fn next<'w, 's>(
         &self,
         anchor_selection: Entity,
         _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition<Self>, ()> {
+    ) -> Result<Transition, ()> {
         match target {
             Some(target) => {
                 // Change the anchor that the location is attached to.
@@ -530,94 +490,104 @@ impl<T: Bundle + From<Point<Entity>>> Placement for PointPlacement<T> {
                     }
                 }
 
-                return Ok((TargetTransition::finished(), self.transition()).into());
+                return Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into());
             }
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
-                let new_bundle: T = Point(anchor_selection).into();
-                let target = params.commands
-                    .spawn()
-                    .insert_bundle(new_bundle)
-                    .insert(Pending)
-                    .id();
+                let target = (*self.create)(params, Point(anchor_selection));
                 if let Ok(mut dep) = params.dependents.get_mut(anchor_selection) {
                     dep.dependents.insert(target);
                 } else {
                     println!("DEV ERROR: Unable to get anchor dependents for {anchor_selection:?}");
                 }
 
-                return Ok((TargetTransition::create(target).finish(), self.transition()).into());
+                return Ok((TargetTransition::create(target).finish(self.finalize.clone()), self.transition()).into());
             }
         }
     }
 
-    fn current<'w, 's>(
+    fn save_original<'w, 's>(
         &self,
         target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
-        params.points.get(target).ok().map(|p| p.0)
+        if let Ok(original) = params.points.get(target).cloned() {
+            params.commands.entity(target).insert(Original(original));
+            return Some(original.0);
+        }
+
+        return None;
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub struct PathPlacement<T> {
+#[derive(Clone)]
+pub struct PathPlacement {
     /// Replace the floor anchor at the specified index, or push the anchor to
     /// the end if None is specified. If the specified index is too high, this
     /// value will be changed to None and all new anchors will be pushed to the
     /// back.
     placement: Option<usize>,
-    _ignore: std::marker::PhantomData<T>,
+    create: CreatePathFn,
+    finalize: FinalizeFn,
 }
 
-impl<T> PathPlacement<T> {
-    fn at_index(index: usize) -> Self {
-        Self{placement: Some(index), _ignore: Default::default()}
+impl PathPlacement {
+
+    fn new<T: Bundle + From<Path<Entity>>>(placement: Option<usize>) -> Arc<Self> {
+        Arc::new(Self{
+            placement,
+            create: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
+                    let new_bundle: T = path.into();
+                    params.commands
+                        .spawn()
+                        .insert_bundle(new_bundle)
+                        .insert(Pending)
+                        .id()
+                }
+            ),
+            finalize: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                    params.commands.entity(entity).remove::<Original<Path<Entity>>>();
+                }
+            )
+        })
     }
 
-    fn start() -> Self {
-        // Using None for the placement means anchors will always be inserted
-        // at the end.
-        Self{placement: None, _ignore: Default::default()}
+    fn at_index(&self, index: usize) -> Arc<Self> {
+        Arc::new(Self{
+            placement: Some(index),
+            create: self.create.clone(),
+            finalize: self.finalize.clone(),
+        })
     }
 
-    fn transition_from(index: usize) -> PlacementTransition<Self> {
+    fn transition_from(&self, index: usize) -> PlacementTransition {
         PlacementTransition{
-            preview: Self::at_index(index),
-            next: Self::at_index(index+1),
+            preview: Some(self.at_index(index)),
+            next: self.at_index(index+1),
         }
     }
 
-    fn transition_to(index: usize) -> PlacementTransition<Self> {
+    fn transition_to(&self, index: usize) -> PlacementTransition {
         let index = if index > 0 { index - 1 } else { 0 };
-        Self::transition_from(index)
+        self.transition_from(index)
     }
 }
 
-impl<T> From<Option<usize>> for PathPlacement<T> {
-    fn from(p: Option<usize>) -> Self {
-        PathPlacement{placement: p, _ignore: Default::default()}
-    }
-}
-
-impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlacement<T> {
+impl Placement for PathPlacement {
     fn next<'w, 's>(
         &self,
         anchor_selection: Entity,
         _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition<Self>, ()> {
+    ) -> Result<Transition, ()> {
         let target = match target {
             Some(target) => target,
             None => {
                 // We need to create a new element
-                let new_bundle: T = Path(vec![anchor_selection]).into();
-                let target = params.commands
-                    .spawn()
-                    .insert_bundle(new_bundle)
-                    .insert(Pending)
-                    .id();
+                let target = (*self.create)(params, Path(vec![anchor_selection]));
 
                 match params.dependents.get_mut(anchor_selection) {
                     Ok(mut dep) => {
@@ -625,13 +595,12 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
                     },
                     Err(_) => {
                         println!(
-                            "DEV ERROR: Invalid anchor being selected for \
-                            {self:?}",
+                            "DEV ERROR: Invalid anchor being selected",
                         );
                     }
                 }
 
-                return Ok((TargetTransition::create(target), Self::transition_from(0)).into());
+                return Ok((TargetTransition::create(target), self.transition_from(0)).into());
             }
         };
 
@@ -658,7 +627,10 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
                         // the first element now.
                         path.pop();
                     }
-                    return Ok((TargetTransition::finished(), Self::transition_from(index)).into());
+                    return Ok((
+                        TargetTransition::finished(self.finalize.clone()),
+                        self.transition_from(index)
+                    ).into());
                 }
             }
         }
@@ -668,7 +640,7 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
                 if *anchor == anchor_selection && i != index {
                     // The user has reselected a midpoint. That violates the
                     // requested behavior, so we ignore it.
-                    return Ok((TargetTransition::none(), Self::transition_to(index)).into());
+                    return Ok((TargetTransition::none(), self.transition_to(index)).into());
                 }
             }
         }
@@ -701,28 +673,28 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
             Ok(dep) => dep,
             Err(_) => {
                 println!(
-                    "DEV ERROR: Invalid anchor being selected for {self:?}",
+                    "DEV ERROR: Invalid anchor being selected",
                 );
-                return Ok((TargetTransition::none(), Self::transition_to(index)).into());
+                return Ok((TargetTransition::none(), self.transition_to(index)).into());
             }
         };
         dep.dependents.insert(target);
 
-        return Ok((TargetTransition::none(), Self::transition_from(index)).into());
+        return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 
-    fn current<'w, 's>(
+    fn save_original<'w, 's>(
         &self,
         target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
         let index = match self.placement {
             Some(i) => i,
             None => { return None; }
         };
 
-        let (path, _) = match params.paths.get(target) {
-            Ok(p) => p,
+        let path = match params.paths.get(target) {
+            Ok(p) => p.0.clone(),
             Err(_) => {
                 println!(
                     "DEV ERROR: Unable to find path for {:?} while in \
@@ -732,7 +704,9 @@ impl<T: Bundle + From<Path<Entity>> + std::fmt::Debug> Placement for PathPlaceme
             }
         };
 
-        path.get(index).cloned()
+        let placement = path.get(index).cloned();
+        params.commands.entity(target).insert(Original(path));
+        return placement;
     }
 }
 
@@ -746,67 +720,6 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     cursor: Res<'w, Cursor>,
 }
 
-#[derive(Debug, Clone, PartialEq)]
-pub enum SelectAnchorPlacement {
-    Lane(EdgePlacement<Lane<Entity>>),
-    Measurement(EdgePlacement<Measurement<Entity>>),
-    Wall(EdgePlacement<Wall<Entity>>),
-    Door(EdgePlacement<Door<Entity>>),
-    Lift(EdgePlacement<LiftProperties<Entity>>),
-    Location(PointPlacement<Location<Entity>>),
-    Floor(PathPlacement<Floor<Entity>>),
-}
-
-impl Placement for SelectAnchorPlacement {
-    fn next<'w, 's>(
-        &self,
-        anchor_selection: Entity,
-        replacing: Option<Entity>,
-        target: Option<Entity>,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition<Self>, ()> {
-        match self {
-            Self::Lane(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Measurement(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Wall(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Door(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Lift(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Location(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-            Self::Floor(p) => p.next(
-                anchor_selection, replacing, target, params,
-            ).map(|x| x.into()),
-        }
-    }
-
-    fn current<'w, 's>(
-        &self,
-        target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
-    ) -> Option<Entity> {
-        match self {
-            Self::Lane(p) => p.current(target, params),
-            Self::Measurement(p) => p.current(target, params),
-            Self::Wall(p) => p.current(target, params),
-            Self::Door(p) => p.current(target, params),
-            Self::Lift(p) => p.current(target, params),
-            Self::Location(p) => p.current(target, params),
-            Self::Floor(p) => p.current(target, params),
-        }
-    }
-}
-
 pub struct SelectAnchorEdgeBuilder {
     for_element: Option<Entity>,
     placement: Side,
@@ -816,40 +729,40 @@ pub struct SelectAnchorEdgeBuilder {
 impl SelectAnchorEdgeBuilder {
     pub fn for_lane(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Lift(self.placement.into()),
+            target: self.for_element,
+            placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
 
     pub fn for_measurement(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Measurement(self.placement.into()),
+            target: self.for_element,
+            placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
 
     pub fn for_wall(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Wall(self.placement.into()),
+            target: self.for_element,
+            placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
 
     pub fn for_door(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Door(self.placement.into()),
+            target: self.for_element,
+            placement: EdgePlacement::new::<Door<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
 
     pub fn for_lift(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Lift(self.placement.into()),
+            target: self.for_element,
+            placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
@@ -863,8 +776,8 @@ pub struct SelectAnchorPointBuilder {
 impl SelectAnchorPointBuilder {
     pub fn for_location(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Location(PointPlacement::default()),
+            target: self.for_element,
+            placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
         }
     }
@@ -879,21 +792,23 @@ pub struct SelectAnchorPathBuilder {
 impl SelectAnchorPathBuilder {
     pub fn for_floor(self) -> SelectAnchor {
         SelectAnchor{
-            for_element: self.for_element,
-            placement: SelectAnchorPlacement::Floor(self.placement.into()),
+            target: self.for_element,
+            placement: PathPlacement::new::<Floor<Entity>>(self.placement),
             continuity: self.continuity,
         }
     }
 }
 
+type PlacementArc = Arc<dyn Placement + Send + Sync>;
+
 /// This enum requests that the next selection should be an anchor, and that
 /// selection should be provided to one of the enumerated entities. When the
 /// inner object is None, that means the selection action should create a new
 /// instance of one.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Clone)]
 pub struct SelectAnchor {
-    for_element: Option<Entity>,
-    placement: SelectAnchorPlacement,
+    target: Option<Entity>,
+    placement: PlacementArc,
     continuity: SelectAnchorContinuity,
 }
 
@@ -1004,7 +919,7 @@ impl SelectAnchor {
         match self.continuity {
             SelectAnchorContinuity::ReplaceAnchor{ .. } => false,
             SelectAnchorContinuity::InsertElement
-            | SelectAnchorContinuity::Continuous => self.for_element.is_none(),
+            | SelectAnchorContinuity::Continuous => self.target.is_none(),
         }
     }
 
@@ -1019,18 +934,19 @@ impl SelectAnchor {
         let transition = match self.placement.next(
             anchor_selection,
             self.continuity.replacing(),
-            self.for_element,
+            self.target,
             params,
         ) {
             Ok(t) => t,
             Err(_) => { return None; }
         };
 
-        if transition.target.finished {
-            if let Some(finished_target) = transition.target.preview(self.for_element) {
+        if let Some(finalize) = &transition.target.is_finished {
+            if let Some(finished_target) = transition.target.current(self.target) {
                 // Remove the Pending marker from the target because it has
                 // been finished.
                 params.commands.entity(finished_target).remove::<Pending>();
+                finalize(params, finished_target);
             } else {
                 println!(
                     "DEV ERROR: An element was supposed to be finished by \
@@ -1039,7 +955,7 @@ impl SelectAnchor {
             }
         }
 
-        let next_target = transition.target.next(self.for_element);
+        let next_target = transition.target.next(self.target);
         let next_placement = transition.placement.next;
 
         match self.continuity {
@@ -1052,7 +968,7 @@ impl SelectAnchor {
                 match next_target {
                     Some(next_target) => {
                         return Some(Self{
-                            for_element: Some(next_target),
+                            target: Some(next_target),
                             placement: next_placement,
                             continuity: self.continuity,
                         });
@@ -1068,7 +984,7 @@ impl SelectAnchor {
             },
             SelectAnchorContinuity::Continuous => {
                 return Some(Self{
-                    for_element: next_target,
+                    target: next_target,
                     placement: next_placement,
                     continuity: self.continuity,
                 });
@@ -1080,34 +996,57 @@ impl SelectAnchor {
         &self,
         anchor_selection: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Option<Self> {
+    ) -> PreviewResult {
         let transition = match self.placement.next(
             anchor_selection,
             self.continuity.replacing(),
-            self.for_element,
+            self.target,
             params,
         ) {
             Ok(t) => t,
-            Err(_) => { return None; }
+            Err(_) => { return PreviewResult::Invalid; }
         };
 
-        let target = match transition.target.preview(self.for_element) {
+        let target = match transition.target.current(self.target) {
             Some(target) => target,
             None => {
                 // This shouldn't happen. If a target wasn't already assigned
                 // then a new one should have been created during the preview.
                 // We'll just indicate that we should exit the current mode by
                 // returning None.
-                return None;
+                return PreviewResult::Invalid;
             }
         };
 
-        Some(Self{
-            for_element: Some(target),
-            placement: transition.placement.preview,
+        if let Some(new_placement) = transition.placement.preview {
+            return PreviewResult::Updated(Self{
+                target: Some(target),
+                placement: new_placement.clone(),
+                continuity: self.continuity
+            });
+        }
+
+        if Some(target) == self.target {
+            // Neither the placement nor the target has changed due to this
+            // preview, so just return the Unchanged variant.
+            return PreviewResult::Unchanged;
+        }
+
+        return PreviewResult::Updated(Self{
+            target: Some(target),
+            placement: self.placement.clone(),
             continuity: self.continuity
-        })
+        });
     }
+}
+
+enum PreviewResult {
+    /// The SelectAnchor state needs to be updated
+    Updated(SelectAnchor),
+    /// The SelectAnchor state is unchanged
+    Unchanged,
+    /// The SelectAnchor request was invalid and should exit
+    Invalid,
 }
 
 pub fn handle_select_anchor_mode(
@@ -1155,7 +1094,7 @@ pub fn handle_select_anchor_mode(
         if request.continuity.needs_original() {
             // Keep track of the original anchor that we intend to replace so
             // that we can revert any previews.
-            let for_element = match request.for_element {
+            let for_element = match request.target {
                 Some(for_element) => for_element,
                 None => {
                     println!(
@@ -1167,13 +1106,12 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            let original = match request.placement.current(for_element, &params) {
+            let original = match request.placement.save_original(for_element, &mut params) {
                 Some(original) => original,
                 None => {
                     println!(
                         "DEV ERROR: cannot locate an original anchor for \
-                        {:?} in entity {:?}. Reverting to Inspect Mode.",
-                        request.placement,
+                        entity {:?}. Reverting to Inspect Mode.",
                         for_element,
                     );
                     *mode = InteractionMode::Inspect;
@@ -1232,20 +1170,26 @@ pub fn handle_select_anchor_mode(
                 }
             };
         } else {
-            if let Some(target) = request.for_element {
+            if let Some(target) = request.target {
                 // Offer a preview based on the current hovering status
                 let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
-                let current = request.placement.current(target, &params);
+                let current = request.placement.save_original(target, &mut params);
 
                 if Some(hovered) != current {
                     // We should only call this function if the current hovered
                     // anchor is not the one currently assigned. Otherwise we
                     // are wasting query+command effort.
-                    request = match request.preview(hovered, &mut params) {
-                        Some(next_mode) => next_mode,
-                        None => {
+                    match request.preview(hovered, &mut params) {
+                        PreviewResult::Updated(next) => {
+                            *mode = InteractionMode::SelectAnchor(next);
+                        },
+                        PreviewResult::Unchanged => {
+                            // Do nothing, the mode has not changed
+                        },
+                        PreviewResult::Invalid => {
+                            // Something was invalid about the request, so we
+                            // will exit back to Inspect mode.
                             *mode = InteractionMode::Inspect;
-                            return;
                         }
                     };
                 }
@@ -1264,21 +1208,7 @@ pub fn handle_select_anchor_mode(
                 }
             };
         }
-    }
 
-    // TODO(MXG) Is there a nicer way of doing this?
-    let need_change = if let InteractionMode::SelectAnchor(current) = &*mode {
-        if *current == request {
-            false
-        } else {
-            true
-        }
-    } else {
-        true
-    };
-
-    if need_change {
         *mode = InteractionMode::SelectAnchor(request);
     }
 }
-

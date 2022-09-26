@@ -153,7 +153,7 @@ pub fn handle_selection_picking(
         }
     }
 
-    if !mode.selecting() {
+    if !mode.is_selecting() {
         hover.send(Hover(None));
         return;
     }
@@ -224,7 +224,7 @@ pub fn maintain_selected_entities(
     mut selection: ResMut<Selection>,
     mut select: EventReader<Select>,
 ) {
-    if InteractionMode::Inspect != *mode {
+    if mode.is_inspecting() {
         // We only maintain the "selected" entity when we are in Inspect mode.
         // Other "selecting" modes, like SelectAnchor, take in the selection as
         // an event and do not change the current selection that is being

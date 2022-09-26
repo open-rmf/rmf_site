@@ -35,6 +35,12 @@ use crate::site::*;
 #[derive(Component, Debug, Clone, Copy)]
 pub struct Pending;
 
+/// The Original component indicates that an element is being modified but not
+/// yet in a state where it can be correctly saved. We should save the original
+/// value instead of the apparent current value.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct Original<T>(pub T);
+
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: Option<PathBuf>,
@@ -183,15 +189,15 @@ fn generate_levels(
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Transform, &SiteID, &Parent), With<Anchor>>,
-        Query<(&Edge<Entity>, &NameInSite, &DoorType, &SiteID, &Parent)>,
+        Query<(&Edge<Entity>, Option<&Original<Edge<Entity>>>, &NameInSite, &DoorType, &SiteID, &Parent)>,
         Query<(&DrawingSource, &Pose, &SiteID, &Parent), With<DrawingMarker>>,
-        Query<(&Point<Entity>, &Label, &SiteID, &Parent), With<FiducialMarker>>,
-        Query<(&Path<Entity>, &Texture, &SiteID, &Parent), With<FloorMarker>>,
+        Query<(&Point<Entity>, Option<&Original<Point<Entity>>>, &Label, &SiteID, &Parent), With<FiducialMarker>>,
+        Query<(&Path<Entity>, Option<&Original<Path<Entity>>>, &Texture, &SiteID, &Parent), With<FloorMarker>>,
         Query<(&LightType, &Pose, &SiteID, &Parent)>,
-        Query<(&Edge<Entity>, &Distance, &Label, &SiteID, &Parent), With<MeasurementMarker>>,
+        Query<(&Edge<Entity>, Option<&Original<Edge<Entity>>>, &Distance, &Label, &SiteID, &Parent), With<MeasurementMarker>>,
         Query<(&NameInSite, &Label, &Pose, &IsStatic, &SiteID, &Parent), With<ModelMarker>>,
         Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID, &Parent)>,
-        Query<(&Edge<Entity>, &Texture, &SiteID, &Parent), With<WallMarker>>,
+        Query<(&Edge<Entity>, Option<&Original<Edge<Entity>>>, &Texture, &SiteID, &Parent), With<WallMarker>>,
         Query<(&LevelProperties, &SiteID, &Parent)>,
     )> = SystemState::new(world);
 
@@ -248,7 +254,8 @@ fn generate_levels(
         }
     }
 
-    for (edge, name, kind, id, parent) in &q_doors {
+    for (edge, o_edge, name, kind, id, parent) in &q_doors {
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
@@ -274,7 +281,8 @@ fn generate_levels(
         }
     }
 
-    for (point, label, id, parent) in &q_fiducials {
+    for (point, o_point, label, id, parent) in &q_fiducials {
+        let point = o_point.map(|x| &x.0).unwrap_or(point);
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchor = Point(get_anchor_id(point.0)?);
@@ -287,7 +295,8 @@ fn generate_levels(
         }
     }
 
-    for (path, texture, id, parent) in &q_floors {
+    for (path, o_path, texture, id, parent) in &q_floors {
+        let path = o_path.map(|x| &x.0).unwrap_or(path);
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_path(&path)?;
@@ -311,7 +320,8 @@ fn generate_levels(
         }
     }
 
-    for (edge, distance, label, id, parent) in &q_measurements {
+    for (edge, o_edge, distance, label, id, parent) in &q_measurements {
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
@@ -345,13 +355,14 @@ fn generate_levels(
                 level.physical_cameras.insert(id.0, PhysicalCamera{
                     name: name.clone(),
                     pose: pose.clone(),
-                    properties: properties.clone()
+                    properties: properties.clone(),
                 });
             }
         }
     }
 
-    for (edge, texture, id, parent) in &q_walls {
+    for (edge, o_edge, texture, id, parent) in &q_walls {
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
@@ -531,8 +542,8 @@ fn generate_nav_graphs(
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&NavGraphProperties, &SiteID, &Parent, Option<&Children>)>,
-        Query<(&Edge<Entity>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
-        Query<(&Point<Entity>, &LocationTags, &SiteID)>,
+        Query<(&Edge<Entity>, Option<&Original<Edge<Entity>>>, &Motion, &ReverseLane, &SiteID), With<LaneMarker>>,
+        Query<(&Point<Entity>, Option<&Original<Point<Entity>>>, &LocationTags, &SiteID)>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
@@ -566,7 +577,8 @@ fn generate_nav_graphs(
         let mut locations = BTreeMap::new();
         if let Some(children) = children {
             for child in children {
-                if let Ok((edge, forward, reverse, lane_id)) = q_lanes.get(*child) {
+                if let Ok((edge, o_edge, forward, reverse, lane_id)) = q_lanes.get(*child) {
+                    let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                     let edge = get_anchor_id_edge(edge)?;
                     lanes.insert(lane_id.0, Lane{
                         anchors: edge,
@@ -576,7 +588,8 @@ fn generate_nav_graphs(
                     });
                 }
 
-                if let Ok((point, tags, location_id)) = q_locations.get(*child) {
+                if let Ok((point, o_point, tags, location_id)) = q_locations.get(*child) {
+                    let point = o_point.map(|x| &x.0).unwrap_or(point);
                     let anchor = Point(get_anchor_id(point.0)?);
                     locations.insert(location_id.0, Location{
                         anchor,
