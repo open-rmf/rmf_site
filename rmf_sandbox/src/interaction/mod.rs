@@ -64,6 +64,7 @@ impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state(InteractionState::Disable)
+            .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -115,7 +116,6 @@ impl Plugin for InteractionPlugin {
                         update_misc_visual_cues
                         .after(maintain_selected_entities)
                     )
-                    .with_system(make_gizmos_pickable)
                     .with_system(
                         update_drag_click_start
                         .after(maintain_selected_entities)
@@ -131,9 +131,11 @@ impl Plugin for InteractionPlugin {
                 SystemSet::on_exit(InteractionState::Enable)
                     .with_system(hide_cursor)
             )
-            .add_system_to_stage(
+            .add_system_set_to_stage(
                 CoreStage::PostUpdate,
-                move_anchor,
+                SystemSet::on_update(InteractionState::Enable)
+                    .with_system(move_anchor)
+                    .with_system(make_gizmos_pickable)
             )
             .add_system_set_to_stage(
                 CoreStage::First,

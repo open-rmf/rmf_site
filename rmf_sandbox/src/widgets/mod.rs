@@ -52,7 +52,7 @@ impl Plugin for StandardUiLayout {
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .after(SiteUpdateLabel::AllSystems)
+                    // .after(SiteUpdateLabel::AllSystems)
                     .with_system(
                         standard_ui_layout.label(UiUpdateLabel::DrawUi)
                     )

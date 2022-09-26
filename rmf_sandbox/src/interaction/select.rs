@@ -66,7 +66,7 @@ impl Default for Selected {
 #[derive(Component, Debug, PartialEq, Eq)]
 pub struct Hovered {
     /// The cursor is hovering on this object specifically
-    pub is_hovering: bool,
+    pub is_hovered: bool,
     /// The cursor is hovering on a different object which wants this entity
     /// to be highlighted.
     pub support_hovering: HashSet<Entity>,
@@ -74,14 +74,14 @@ pub struct Hovered {
 
 impl Hovered {
     pub fn cue(&self) -> bool {
-        self.is_hovering || !self.support_hovering.is_empty()
+        self.is_hovered || !self.support_hovering.is_empty()
     }
 }
 
 impl Default for Hovered {
     fn default() -> Self {
         Self {
-            is_hovering: false,
+            is_hovered: false,
             support_hovering: Default::default(),
         }
     }
@@ -193,13 +193,13 @@ pub fn maintain_hovered_entities(
         if hovering.0 != new_hovered.0 {
             if let Some(previous_hovered) = hovering.0 {
                 if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
-                    hovering.is_hovering = false;
+                    hovering.is_hovered = false;
                 }
             }
 
             if let Some(new_hovered) = new_hovered.0 {
                 if let Ok(mut hovering) = hovered.get_mut(new_hovered) {
-                    hovering.is_hovering = true;
+                    hovering.is_hovered = true;
                 }
             }
 

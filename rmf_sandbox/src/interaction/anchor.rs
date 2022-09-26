@@ -23,7 +23,7 @@ use crate::{
 };
 use bevy::prelude::*;
 
-#[derive(Component)]
+#[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualCue {
     pub dagger: Entity,
     pub halo: Entity,
@@ -33,7 +33,7 @@ pub struct AnchorVisualCue {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<Entity, Added<Anchor>>,
+    new_anchors: Query<Entity, (Added<Anchor>, Without<Preview>)>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
@@ -105,12 +105,12 @@ pub fn update_anchor_visual_cues(
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (v, hovering, selected, mut cue, select_tracker) in &mut anchors {
-        if hovering.cue() || selected.cue() {
+    for (v, hovered, selected, mut cue, select_tracker) in &mut anchors {
+        if hovered.cue() || selected.cue() {
             set_visibility(cue.dagger, &mut visibility, true);
         }
 
-        if hovering.is_hovering {
+        if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
 
@@ -123,9 +123,9 @@ pub fn update_anchor_visual_cues(
             set_bobbing(cue.dagger, anchor_height, anchor_height, &mut bobbing);
         }
 
-        if hovering.cue() && selected.cue() {
+        if hovered.cue() && selected.cue() {
             set_material(cue.body, &site_assets.hover_select_material, &mut materials);
-        } else if hovering.cue() {
+        } else if hovered.cue() {
             // Hovering but not selected
             set_visibility(cue.halo, &mut visibility, true);
             set_material(cue.body, &site_assets.hover_material, &mut materials);

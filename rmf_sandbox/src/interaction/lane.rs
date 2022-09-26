@@ -110,7 +110,7 @@ pub fn update_lane_visual_cues(
             }
         }
 
-        if hovering.is_hovering {
+        if hovering.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
 

@@ -69,7 +69,10 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    transform::TransformSystem,
+};
 
 /// The Category component is added to site entities so they can easily express
 /// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
@@ -98,6 +101,7 @@ impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state(SiteState::Off)
+            .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
             .init_resource::<SpawnedModels>()
@@ -123,6 +127,11 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site)
+            )
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .before(TransformSystem::TransformPropagate)
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
@@ -149,7 +158,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_wall)
                     .with_system(update_wall_for_changed_anchor)
                     .with_system(update_transforms_for_changed_poses)
-                    .label(SiteUpdateLabel::AllSystems)
             );
     }
 }

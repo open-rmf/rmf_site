@@ -1149,11 +1149,11 @@ pub fn handle_select_anchor_mode(
     if hovering.is_changed() {
         dbg!();
         if hovering.0.is_none() {
-            dbg!();
             set_visibility(params.cursor.frame, &mut visibility, true);
+            set_visibility(params.cursor.anchor_placement, &mut visibility, true);
         } else {
-            dbg!();
             set_visibility(params.cursor.frame, &mut visibility, false);
+            set_visibility(params.cursor.anchor_placement, &mut visibility, false);
         }
     }
 

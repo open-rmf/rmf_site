@@ -18,7 +18,7 @@
 use crate::{
     interaction::*,
     animate::*,
-    site::{SiteAssets, Anchor, AnchorDependents, Pending},
+    site::{SiteAssets, AnchorBundle, AnchorDependents, Pending},
 };
 use bevy::{
     prelude::*,
@@ -105,19 +105,17 @@ impl FromWorld for Cursor {
             .id();
 
         let anchor_placement = world.spawn()
-            .insert_bundle(PbrBundle{
-                transform: Transform{
-                    rotation: Quat::from_rotation_x(90_f32.to_radians()),
-                    ..default()
-                },
-                mesh: anchor_mesh,
-                material: preview_anchor_material,
-                visibility: Visibility { is_visible: false },
-                ..default()
-            })
-            .insert(Anchor)
-            .insert(AnchorDependents::default())
+            .insert_bundle(AnchorBundle::new([0., 0.]).visible(false))
             .insert(Pending)
+            .insert(Preview)
+            .with_children(|parent| {
+                parent.spawn_bundle(PbrBundle{
+                    mesh: anchor_mesh,
+                    material: preview_anchor_material,
+                    transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
+                    ..default()
+                });
+            })
             .id();
 
         let cursor = world.spawn()
@@ -134,6 +132,12 @@ impl FromWorld for Cursor {
         }
     }
 }
+
+/// A unit component that indicates the entity is only for previewing and
+/// should never be interacted with. This is applied to the "anchor" that is
+/// attached to the cursor.
+#[derive(Component, Clone, Copy, Debug)]
+pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
@@ -160,7 +164,7 @@ fn intersect_ground_plane(
         return None;
     }
 
-    Some(n_r * ray.origin().dot(n_p) / denom)
+    Some(ray.origin() - n_r * ray.origin().dot(n_p) / denom)
 }
 
 pub fn update_cursor_transform(
