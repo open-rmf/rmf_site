@@ -16,6 +16,7 @@
 */
 
 use crate::{
+    site::SiteID,
     widgets::{Icons, AppEvents},
     interaction::{Hover, Select},
 };
@@ -23,11 +24,12 @@ use bevy::{
     prelude::*,
 };
 use bevy_egui::{
-    egui::{Ui, ImageButton},
+    egui::{Ui, ImageButton, Button},
 };
 
 pub struct SelectionWidget<'a, 'w, 's> {
     entity: Entity,
+    site_id: Option<SiteID>,
     icons: &'a Icons,
     events: &'a mut AppEvents<'w, 's>,
 }
@@ -35,17 +37,24 @@ pub struct SelectionWidget<'a, 'w, 's> {
 impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
     pub fn new(
         entity: Entity,
+        site_id: Option<SiteID>,
         icons: &'a Icons,
         events: &'a mut AppEvents<'w, 's>,
     ) -> Self {
-        Self{entity, icons, events}
+        Self{entity, site_id, icons, events}
     }
 
     pub fn show(self, ui: &mut Ui) {
+        let text = match self.site_id {
+            Some(id) => format!("#{}", id.0),
+            None => "*".to_string(),
+        };
+
         let response = ui.add(
-            ImageButton::new(
+            Button::image_and_text(
                 self.icons.egui_select,
                 [18., 18.],
+                text,
             )
         );
 

@@ -58,7 +58,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.label("");
             ui.label("ID");
             ui.label("");
-            ui.label("");
             ui.label("x");
             ui.label("y");
             ui.end_row();

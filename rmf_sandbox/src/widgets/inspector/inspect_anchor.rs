@@ -62,16 +62,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn show(self, ui: &mut Ui) -> InspectAnchorResponse {
         let mut replace = false;
         if self.is_dependency {
-            if let Ok(site_id) = self.params.site_id.get(self.anchor) {
-                ui.label(format!("#{}", site_id.0));
-            } else {
-                // The star symbol means the anchor is unsaved and therefore
-                // has no ID assigned yet.
-                ui.label("*").on_hover_text("unsaved");
-            }
-
             SelectionWidget::new(
                 self.anchor,
+                self.params.site_id.get(self.anchor).ok().cloned(),
                 self.params.icons.as_ref(),
                 self.events,
             ).show(ui);
@@ -165,14 +158,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
 
             for (e, site_id) in entities {
                 ui.horizontal(|ui| {
-                    if let Some(site_id) = site_id {
-                        ui.label(format!("#{}", site_id));
-                    } else {
-                        ui.label("*").on_hover_text("unsaved");
-                    }
-
                     SelectionWidget::new(
                         *e,
+                        site_id.map(SiteID),
                         params.icons.as_ref(),
                         events
                     ).show(ui);
