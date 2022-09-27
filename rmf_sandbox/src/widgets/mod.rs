@@ -16,9 +16,10 @@
 */
 
 use crate::{
-    site::{SiteState, SiteUpdateLabel},
+    site::{SiteState, SiteUpdateLabel, Change},
     interaction::{PickingBlockers, Hover, Select, MoveTo, ChangeMode},
 };
+use rmf_site_format::*;
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
@@ -68,7 +69,8 @@ impl Plugin for StandardUiLayout {
 pub struct AppEvents<'w, 's> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
-    pub move_to: ResMut<'w, Events<MoveTo>>,
+    pub move_to: EventWriter<'w, 's, MoveTo>,
+    pub change_motion: EventWriter<'w, 's, Change<Motion>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     _ignore: Query<'w, 's, ()>,
 }

@@ -18,6 +18,9 @@
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
+pub mod inspect_edge;
+pub use inspect_edge::*;
+
 pub mod inspect_lane;
 pub use inspect_lane::*;
 
@@ -46,10 +49,7 @@ pub struct InspectorParams<'w, 's> {
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub lanes: Query<'w, 's, (
-        &'static Edge<Entity>,
-        Option<&'static Original<Edge<Entity>>>
-    ), With<LaneMarker>>,
+    pub lanes: LaneQuery<'w, 's>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -93,24 +93,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     &mut self.params.anchor_dependents_params,
                     self.events,
                 ).show(ui);
-            } else if let Ok((edge, o_edge)) = self.params.lanes.get(selection) {
-                let edge = if let Some(original) = o_edge {
-                    if original.is_reverse_of(edge) {
-                        // The user is previewing a flipped edge. To avoid ugly
-                        // high frequency UI flipping, we will display the edge
-                        // in its original form until the user has committed to
-                        // the flip.
-                        &original.0
-                    } else {
-                        edge
-                    }
-                } else {
-                    edge
-                };
-
+            } else if self.params.lanes.contains(selection) {
                 Self::heading("Lane", site_id, ui);
                 InspectLaneWidget::new(
-                    selection, edge, site_id,
+                    selection,
+                    &self.params.lanes,
                     &mut self.params.anchor_params,
                     self.events,
                 ).show(ui);

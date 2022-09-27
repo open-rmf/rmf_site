@@ -1174,6 +1174,7 @@ pub fn handle_select_anchor_mode(
     mut selection: ResMut<Selection>,
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
+    blockers: Option<Res<PickingBlockers>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -1261,8 +1262,9 @@ pub fn handle_select_anchor_mode(
     if select.is_empty() {
         let clicked = mouse_button_input.just_pressed(MouseButton::Left)
             || touch_input.iter_just_pressed().next().is_some();
+        let blocked = blockers.filter(|x| x.blocking()).is_some();
 
-        if clicked {
+        if clicked && !blocked {
             // Since the user clicked but there are no actual selections, the
             // user is effectively asking to create a new anchor at the current
             // cursor location. We will create that anchor and treat it as if it

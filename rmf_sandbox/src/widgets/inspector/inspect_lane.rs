@@ -16,77 +16,70 @@
 */
 
 use crate::{
-    site::SiteID,
-    interaction::{ChangeMode, SelectAnchor, InteractionMode},
+    site::{Original, Previously},
     widgets::{
-        AppEvents,
-        inspector::{
-            InspectAnchorParams,
-            InspectAnchorWidget,
-        },
-    },
+        inspector::{InspectEdgeWidget, InspectAnchorParams, AppEvents},
+    }
 };
 use rmf_site_format::{
-    Edge, Side,
+    Edge, Motion, ReverseLane, LaneMarker,
 };
 use bevy::prelude::*;
-use bevy_egui::{
-    egui::{Grid, Ui},
-};
+use bevy_egui::egui::Ui;
 
-pub struct InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
+pub type LaneQuery<'w, 's> = Query<'w, 's, (
+    &'static Edge<Entity>,
+    Option<&'static Original<Edge<Entity>>>,
+    &'static Motion,
+    Option<&'static Previously<Motion>>,
+    &'static ReverseLane,
+    Option<&'static Previously<ReverseLane>>,
+), With<LaneMarker>>;
+
+pub struct InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
     pub entity: Entity,
-    pub edge: &'a Edge<Entity>,
-    pub site_id: Option<&'a SiteID>,
-    pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
+    pub lanes: &'a LaneQuery<'w1, 's1>,
+    pub anchor_params: &'a mut InspectAnchorParams<'w2, 's2>,
+    pub events: &'a mut AppEvents<'w3, 's3>,
 }
 
-impl<'a, 'w1, 'w2, 's1, 's2> InspectLaneWidget<'a, 'w1, 'w2, 's1, 's2> {
+impl<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
+
     pub fn new(
         entity: Entity,
-        edge: &'a Edge<Entity>,
-        site_id: Option<&'a SiteID>,
-        anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
+        lanes: &'a LaneQuery<'w1, 's1>,
+        anchor_params: &'a mut InspectAnchorParams<'w2, 's2>,
+        events: &'a mut AppEvents<'w3, 's3>,
     ) -> Self {
-        Self{entity, edge, site_id, anchor_params, events}
+        Self{entity, lanes, anchor_params, events}
     }
 
     pub fn show(self, ui: &mut Ui) {
-        Grid::new("inspect_lane").show(ui, |ui| {
-            ui.label("");
-            ui.label("ID");
-            ui.label("");
-            ui.label("x");
-            ui.label("y");
-            ui.end_row();
+        let (edge, original, forward, p_forward, reverse, p_reverse) = self.lanes.get(self.entity).unwrap();
+        InspectEdgeWidget::new(
+            self.entity, edge, original, self.anchor_params, self.events,
+        ).show(ui);
 
-            ui.label("Start");
-            let start_response = InspectAnchorWidget::new(
-                self.edge.start(),
-                self.anchor_params,
-                self.events,
-            ).as_dependency().show(ui);
-            ui.end_row();
-            if start_response.replace {
-                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
-                    SelectAnchor::replace_side(self.entity, Side::Left).for_lane()
-                )));
-            }
+    }
+}
 
-            ui.label("End");
-            let end_response = InspectAnchorWidget::new(
-                self.edge.end(),
-                self.anchor_params,
-                self.events
-            ).as_dependency().show(ui);
-            ui.end_row();
-            if end_response.replace {
-                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
-                    SelectAnchor::replace_side(self.entity, Side::Right).for_lane()
-                )));
-            }
-        });
+pub struct InspectMotionWidget<'a> {
+    pub motion: &'a Motion,
+    pub previous: Option<&'a Motion>,
+    pub disabled: bool,
+}
+
+impl<'a> InspectMotionWidget<'a> {
+
+    pub fn new(motion: &'a Motion, previous: Option<&'a Motion>) -> Self {
+        Self{motion, previous, disabled: false}
+    }
+
+    pub fn disable(self) -> Self {
+        Self{disabled: true, ..self}
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Option<Motion> {
+
     }
 }

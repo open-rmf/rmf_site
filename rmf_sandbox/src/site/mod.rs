@@ -69,6 +69,8 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+use rmf_site_format::*;
+
 use bevy::{
     prelude::*,
     transform::TransformSystem,
@@ -83,6 +85,28 @@ use bevy::{
 /// read, and is not meant to be a key for identifying the type of an entity.
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Component)]
 pub struct Category(pub String);
+
+/// The Change component is used as an event to indicate that the value of a
+/// component should change for some entity. Using these events instead of
+/// modifying the component directly helps with managing an undo/redo buffer.
+#[derive(Debug, Clone)]
+pub struct Change<T> {
+    pub to_value: T,
+    pub for_element: Entity,
+}
+
+impl<T> Change<T> {
+    pub fn new(to_value: T, for_element: Entity) -> Self {
+        Self{to_value, for_element}
+    }
+}
+
+/// The Previously component is used to keep track of previous values held by
+/// components that are optional or contain optional fields. This is used by
+/// the UI to store values that the user has input so that those values aren't
+/// completely erased any time the user toggles a field.
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub struct Previously<T>(pub T);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
@@ -114,6 +138,8 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
+            .add_event::<Change<Motion>>()
+            .add_event::<Change<ReverseLane>>()
             .add_system(load_site)
             .add_system_set(
                 SystemSet::on_enter(SiteState::Display)
