@@ -181,7 +181,7 @@ trait Placement {
     /// filled.
     fn next<'w, 's>(
         &self,
-        anchor_selection: Entity,
+        anchor_selection: AnchorSelection,
         replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
@@ -199,6 +199,83 @@ trait Placement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity>;
+}
+
+/// Because of bevy's async nature, we need to use different methods for
+/// modifying anchor dependents based on whether the anchor is brand new or
+/// whether the anchor already existed before the current system was run. To
+/// simplify that we encapsulate the logic inside of this AnchorSelection enum.
+enum AnchorSelection {
+    Existing(Entity),
+    New{entity: Entity, dependents: AnchorDependents},
+}
+
+impl AnchorSelection {
+
+    fn new(entity: Entity) -> Self {
+        Self::New{entity, dependents: Default::default()}
+    }
+
+    fn existing(entity: Entity) -> Self {
+        Self::Existing(entity)
+    }
+
+    fn entity(&self) -> Entity {
+        match self {
+            Self::Existing(entity) | Self::New{entity, ..} => *entity,
+        }
+    }
+
+    fn add_dependent<'w, 's>(
+        &mut self,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+        dependent: Entity,
+    ) -> Result<(), ()> {
+        match self {
+            Self::Existing(e) => {
+                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                    Ok(dep) => dep,
+                    Err(_) => {
+                        // The entity was not a proper anchor
+                        println!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        return Err(());
+                    }
+                };
+                dep.dependents.insert(dependent);
+                Ok(())
+            },
+            Self::New{entity, dependents} => {
+                dependents.dependents.insert(dependent);
+                params.commands.entity(*entity).insert(dependents.clone());
+                Ok(())
+            }
+        }
+    }
+
+    fn remove_dependent<'w, 's>(
+        &mut self,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+        dependent: Entity,
+    ) -> Result<(), ()> {
+        match self {
+            Self::Existing(e) => {
+                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                    Ok(dep) => dep,
+                    Err(_) => {
+                        println!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        return Err(());
+                    }
+                };
+                dep.dependents.remove(&dependent);
+                Ok(())
+            },
+            Self::New{entity, dependents} => {
+                dependents.dependents.remove(&dependent);
+                params.commands.entity(*entity).insert(dependents.clone());
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Clone)]
@@ -253,7 +330,7 @@ impl EdgePlacement {
 impl Placement for EdgePlacement {
     fn next<'w, 's>(
         &self,
-        anchor_selection: Entity,
+        mut anchor_selection: AnchorSelection,
         replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
@@ -278,36 +355,24 @@ impl Placement for EdgePlacement {
             None => {
                 // We need to begin creating a new element
                 let anchors = Edge::new(
-                    anchor_selection, params.cursor.anchor_placement
+                    anchor_selection.entity(), params.cursor.anchor_placement
                 );
                 let target = (*self.create)(params, anchors);
-                let mut deps = match params.dependents.get_many_mut(anchors.array()) {
-                    Ok(deps) => deps,
-                    Err(_) => {
-                        // One of the anchors was not a valid anchor, so we
-                        // should abort.
-                        println!(
-                            "DEV ERROR: Invalid anchors being selected: {:?} and {:?}",
-                            anchors.left(), anchors.right(),
-                        );
-                        return Err(());
-                    }
-                };
-
-                for dep in &mut deps {
-                    dep.dependents.insert(target);
+                for anchor in anchors.array() {
+                    params.add_dependent(target, anchor, &mut anchor_selection)?;
                 }
+
                 return Ok((TargetTransition::create(target), self.transition()).into());
             }
         };
 
         let new_edge = match original {
             Some(original) => {
-                if anchor_selection == original.side(self.side.opposite()) {
+                if anchor_selection.entity() == original.side(self.side.opposite()) {
                     // The user is asking to swap the anchors
                     original.in_reverse()
                 } else {
-                    original.with_side_of(self.side, anchor_selection)
+                    original.with_side_of(self.side, anchor_selection.entity())
                 }
             },
             None => {
@@ -324,53 +389,51 @@ impl Placement for EdgePlacement {
                             *endpoints
                         };
 
-                        new_edge.with_side_of(self.side, anchor_selection)
+                        new_edge.with_side_of(self.side, anchor_selection.entity())
                     },
                     None => {
-                        if endpoints.side(self.side.opposite()) == anchor_selection {
+                        if endpoints.side(self.side.opposite()) == anchor_selection.entity() {
                             // The user is asking to select the same anchor for
                             // both sides of the edge. This is not okay, so we
                             // ignore this request.
                             return Ok((TargetTransition::none(), self.ignore()).into());
                         }
 
-                        endpoints.with_side_of(self.side, anchor_selection)
+                        endpoints.with_side_of(self.side, anchor_selection.entity())
                     }
                 }
             }
         };
 
+        let old_anchors = *endpoints;
+        *endpoints = new_edge;
+
         // Remove the target edge as a dependency from any anchors that are no
         // longer being used by this edge.
-        for old_anchor in endpoints.array() {
+        for old_anchor in old_anchors.array() {
             if new_edge.array().iter().find(|x| **x == old_anchor).is_none() {
                 // This anchor is no longer being used by the edge.
-                if let Ok(mut deps) = params.dependents.get_mut(old_anchor) {
-                    deps.dependents.remove(&target);
-                } else {
-                    println!(
-                        "DEV ERROR: No AnchorDependents component found for \
-                        {:?} while in SelectAnchor mode.", old_anchor
-                    );
+                match params.remove_dependent(target, old_anchor, &mut anchor_selection) {
+                    Ok(_) => {
+                        // Do nothing
+                    },
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: No AnchorDependents component found for \
+                            {:?} while in SelectAnchor mode.", old_anchor
+                        );
+                    }
                 }
             }
         }
 
         for new_anchor in new_edge.array() {
-            if endpoints.array().iter().find(|x| **x == new_anchor).is_none() {
+            if old_anchors.array().iter().find(|x| **x == new_anchor).is_none() {
                 // This anchor was not being used by the edge previously.
-                if let Ok(mut deps) = params.dependents.get_mut(new_anchor) {
-                    deps.dependents.insert(target);
-                } else {
-                    println!(
-                        "DEV ERROR: No AnchorDependents component found for \
-                        {:?} while in SelectAnchor mode.", new_anchor
-                    );
-                }
+                params.add_dependent(target, new_anchor, &mut anchor_selection)?;
             }
         }
 
-        *endpoints = new_edge;
         return match self.side {
             Side::Left => Ok((TargetTransition::none(), self.transition()).into()),
             Side::Right => Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into()),
@@ -439,7 +502,7 @@ impl PointPlacement {
 impl Placement for PointPlacement {
     fn next<'w, 's>(
         &self,
-        anchor_selection: Entity,
+        mut anchor_selection: AnchorSelection,
         _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
@@ -447,7 +510,7 @@ impl Placement for PointPlacement {
         match target {
             Some(target) => {
                 // Change the anchor that the location is attached to.
-                let point = match params.points.get_mut(target) {
+                let mut point = match params.points.get_mut(target) {
                     Ok(l) => l,
                     Err(_) => {
                         println!(
@@ -458,37 +521,19 @@ impl Placement for PointPlacement {
                     }
                 };
 
-                if **point != anchor_selection {
-                    match params.dependents.get_many_mut(
-                        [**point, anchor_selection]
-                    ) {
-                        Ok([mut old_dep, mut new_dep]) => {
-                            old_dep.dependents.remove(&target);
-                            new_dep.dependents.insert(target);
-                        },
-                        Err(_) => {
-                            println!(
-                                "DEV ERROR: Unable to get anchor dependents \
-                                for [{:?}, {:?}] while in SelectAnchor mode.",
-                                point,
-                                anchor_selection,
-                            );
-                            return Err(());
-                        }
-                    }
+                if **point != anchor_selection.entity() {
+                    let old_point = **point;
+                    **point = anchor_selection.entity();
+                    params.remove_dependent(target, old_point, &mut anchor_selection)?;
+                    params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
                 }
 
                 return Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into());
             }
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
-                let target = (*self.create)(params, Point(anchor_selection));
-                if let Ok(mut dep) = params.dependents.get_mut(anchor_selection) {
-                    dep.dependents.insert(target);
-                } else {
-                    println!("DEV ERROR: Unable to get anchor dependents for {anchor_selection:?}");
-                }
-
+                let target = (*self.create)(params, Point(anchor_selection.entity()));
+                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection);
                 return Ok((TargetTransition::create(target).finish(self.finalize.clone()), self.transition()).into());
             }
         }
@@ -574,7 +619,7 @@ impl PathPlacement {
 impl Placement for PathPlacement {
     fn next<'w, 's>(
         &self,
-        anchor_selection: Entity,
+        mut anchor_selection: AnchorSelection,
         _replacing: Option<Entity>,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
@@ -583,19 +628,8 @@ impl Placement for PathPlacement {
             Some(target) => target,
             None => {
                 // We need to create a new element
-                let target = (*self.create)(params, Path(vec![anchor_selection]));
-
-                match params.dependents.get_mut(anchor_selection) {
-                    Ok(mut dep) => {
-                        dep.dependents.insert(target);
-                    },
-                    Err(_) => {
-                        println!(
-                            "DEV ERROR: Invalid anchor being selected",
-                        );
-                    }
-                }
-
+                let target = (*self.create)(params, Path(vec![anchor_selection.entity()]));
+                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
                 return Ok((TargetTransition::create(target), self.transition_from(0)).into());
             }
         };
@@ -613,7 +647,7 @@ impl Placement for PathPlacement {
 
         let index = self.placement.unwrap_or(path.len()).min(path.len());
         if path.len() >= behavior.minimum_points && behavior.implied_complete_loop {
-            if Some(anchor_selection) == path.first().cloned() {
+            if Some(anchor_selection.entity()) == path.first().cloned() {
                 if index >= path.len() - 1 {
                     // The user has set the first node to the last node,
                     // creating a closed loop. We should consider the floor to
@@ -633,7 +667,7 @@ impl Placement for PathPlacement {
 
         if !behavior.allow_inner_loops {
             for (i, anchor) in path.iter().enumerate() {
-                if *anchor == anchor_selection && i != index {
+                if *anchor == anchor_selection.entity() && i != index {
                     // The user has reselected a midpoint. That violates the
                     // requested behavior, so we ignore it.
                     return Ok((TargetTransition::none(), self.transition_to(index)).into());
@@ -643,39 +677,17 @@ impl Placement for PathPlacement {
 
         if let Some(place_anchor) = path.get_mut(index) {
             let old_anchor = *place_anchor;
-            *place_anchor = anchor_selection;
+            *place_anchor = anchor_selection.entity();
 
             if path.iter().find(|x| **x == old_anchor).is_none() {
-                if let Ok(mut dep) = params.dependents.get_mut(old_anchor) {
-                    // Remove the dependency for the old anchor since we are not
-                    // using it anymore.
-                    dep.dependents.remove(&target);
-                } else {
-                    println!(
-                        "DEV ERROR: Invalid old anchor {:?} in path", old_anchor
-                    );
-                }
-            } else {
-                println!(
-                    "DEV ERROR: Anchor {old_anchor:?} was duplicated in a path"
-                );
+                params.remove_dependent(target, old_anchor, &mut anchor_selection)?;
             }
         } else {
             // We need to add this anchor to the end of the vector
-            path.push(anchor_selection);
+            path.push(anchor_selection.entity());
         }
 
-        let mut dep = match params.dependents.get_mut(anchor_selection) {
-            Ok(dep) => dep,
-            Err(_) => {
-                println!(
-                    "DEV ERROR: Invalid anchor being selected",
-                );
-                return Ok((TargetTransition::none(), self.transition_to(index)).into());
-            }
-        };
-        dep.dependents.insert(target);
-
+        params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection);
         return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 
@@ -737,6 +749,55 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
+
+    fn add_dependent(
+        &mut self,
+        dependent: Entity,
+        to_anchor: Entity,
+        anchor_selection: &mut AnchorSelection,
+    ) -> Result<(), ()> {
+        if to_anchor == anchor_selection.entity() {
+            anchor_selection.add_dependent(self, dependent)
+        } else {
+            let mut dep = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
+                Ok(dep) => dep,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Trying to insert invalid anchor \
+                        {to_anchor:?} into entity {dependent:?}"
+                    );
+                    return Err(());
+                }
+            };
+            dep.dependents.insert(dependent);
+            Ok(())
+        }
+    }
+
+    fn remove_dependent(
+        &mut self,
+        dependent: Entity,
+        from_anchor: Entity,
+        anchor_selection: &mut AnchorSelection,
+    ) -> Result<(), ()> {
+        if from_anchor == anchor_selection.entity() {
+            anchor_selection.remove_dependent(self, dependent)
+        } else {
+            let mut dep = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
+                Ok(dep) => dep,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Removing invalid anchor {from_anchor:?} \
+                        from entity {dependent:?}"
+                    );
+                    return Err(());
+                }
+            };
+            dep.dependents.remove(&dependent);
+            Ok(())
+        }
+    }
+
     /// Use this when exiting SelectAnchor mode
     fn cleanup(&mut self) {
         set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
@@ -951,7 +1012,7 @@ impl SelectAnchor {
     /// anchors and should return to Inspect mode.
     fn next<'w, 's>(
         &self,
-        anchor_selection: Entity,
+        anchor_selection: AnchorSelection,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Self> {
         let transition = match self.placement.next(
@@ -1021,7 +1082,7 @@ impl SelectAnchor {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> PreviewResult {
         let transition = match self.placement.next(
-            anchor_selection,
+            AnchorSelection::existing(anchor_selection),
             self.continuity.replacing(),
             self.target,
             params,
@@ -1194,7 +1255,7 @@ pub fn handle_select_anchor_mode(
                 .spawn_bundle(AnchorBundle::at_transform(tf))
                 .id();
 
-            request = match request.next(new_anchor, &mut params) {
+            request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();
@@ -1236,7 +1297,7 @@ pub fn handle_select_anchor_mode(
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {
-            request = match request.next(new_selection, &mut params) {
+            request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();
