@@ -56,13 +56,21 @@ impl InteractionMode {
     }
 
     fn cancel<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
-        // TODO(MXG): Actually implement this.
+        // match self {
+        //     Self::Inspect => {
+        //         // Do nothing
+        //     },
+        //     Self::SelectAnchor(select_anchor) => {
+        //         select_anchor
+        //     }
+        // }
     }
 }
 
 #[derive(SystemParam)]
 pub struct BackoutParams<'w, 's> {
     commands: Commands<'w, 's>,
+    select_anchor: SelectAnchorPlacementParams<'w, 's>,
 }
 
 /// We use an event to change the InteractionMode for these reasons:

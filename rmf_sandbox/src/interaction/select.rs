@@ -188,6 +188,7 @@ pub fn maintain_hovered_entities(
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
+    blockers: Option<Res<PickingBlockers>>,
 ) {
     if let Some(new_hovered) = hover.iter().last() {
         if hovering.0 != new_hovered.0 {
@@ -209,8 +210,9 @@ pub fn maintain_hovered_entities(
 
     let clicked = mouse_button_input.just_pressed(MouseButton::Left)
         || touch_input.iter_just_pressed().next().is_some();
+    let blocked = blockers.filter(|x| x.blocking()).is_some();
 
-    if clicked {
+    if clicked && !blocked {
         if let Some(current_hovered) = hovering.0 {
             select.send(Select(Some(current_hovered)));
         }

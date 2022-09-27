@@ -301,7 +301,6 @@ impl Placement for EdgePlacement {
             }
         };
 
-        println!("=================================");
         let new_edge = match original {
             Some(original) => {
                 if anchor_selection == original.side(self.side.opposite()) {
@@ -734,6 +733,14 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     dependents: Query<'w, 's, &'static mut AnchorDependents>,
     commands: Commands<'w, 's>,
     cursor: Res<'w, Cursor>,
+    visibility: Query<'w, 's, &'static mut Visibility>,
+}
+
+impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
+    /// Use this when exiting SelectAnchor mode
+    fn cleanup(&mut self) {
+        set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
+    }
 }
 
 pub struct SelectAnchorEdgeBuilder {
@@ -1073,7 +1080,6 @@ pub fn handle_select_anchor_mode(
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut params: SelectAnchorPlacementParams,
-    mut visibility: Query<&mut Visibility>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
     mut select: EventReader<Select>,
@@ -1091,10 +1097,18 @@ pub fn handle_select_anchor_mode(
         // check if something besides an anchor is being hovered, and clear it
         // out if it is.
         if let Some(hovering) = hovering.0 {
-            if !anchors.contains(hovering) {
+            if anchors.contains(hovering) {
+                set_visibility(params.cursor.frame, &mut params.visibility, false);
+            } else {
                 hover.send(Hover(None));
+                set_visibility(params.cursor.frame, &mut params.visibility, true);
             }
+        } else {
+            set_visibility(params.cursor.frame, &mut params.visibility, true);
         }
+
+        /// Make the anchor placement component of the cursor visible
+        set_visibility(params.cursor.anchor_placement, &mut params.visibility, true);
 
         // If we are creating a new object, then we should deselect anything
         // that might be currently selected.
@@ -1107,9 +1121,7 @@ pub fn handle_select_anchor_mode(
             }
         }
 
-        dbg!("Checking if we need an original");
         if request.continuity.needs_original() {
-            dbg!("Yes we need an original");
             // Keep track of the original anchor that we intend to replace so
             // that we can revert any previews.
             let for_element = match request.target {
@@ -1119,6 +1131,7 @@ pub fn handle_select_anchor_mode(
                         "DEV ERROR: for_element must be Some for ReplaceAnchor. \
                         Reverting to Inspect Mode."
                     );
+                    params.cleanup();
                     *mode = InteractionMode::Inspect;
                     return;
                 }
@@ -1132,6 +1145,7 @@ pub fn handle_select_anchor_mode(
                         entity {:?}. Reverting to Inspect Mode.",
                         for_element,
                     );
+                    params.cleanup();
                     *mode = InteractionMode::Inspect;
                     return;
                 }
@@ -1147,13 +1161,10 @@ pub fn handle_select_anchor_mode(
     }
 
     if hovering.is_changed() {
-        dbg!();
         if hovering.0.is_none() {
-            set_visibility(params.cursor.frame, &mut visibility, true);
-            set_visibility(params.cursor.anchor_placement, &mut visibility, true);
+            set_visibility(params.cursor.frame, &mut params.visibility, true);
         } else {
-            set_visibility(params.cursor.frame, &mut visibility, false);
-            set_visibility(params.cursor.anchor_placement, &mut visibility, false);
+            set_visibility(params.cursor.frame, &mut params.visibility, false);
         }
     }
 
@@ -1186,6 +1197,7 @@ pub fn handle_select_anchor_mode(
             request = match request.next(new_anchor, &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
+                    params.cleanup();
                     *mode = InteractionMode::Inspect;
                     return;
                 }
@@ -1212,6 +1224,7 @@ pub fn handle_select_anchor_mode(
                         PreviewResult::Invalid => {
                             // Something was invalid about the request, so we
                             // will exit back to Inspect mode.
+                            params.cleanup();
                             *mode = InteractionMode::Inspect;
                         }
                     };
@@ -1226,6 +1239,7 @@ pub fn handle_select_anchor_mode(
             request = match request.next(new_selection, &mut params) {
                 Some(next_mode) => next_mode,
                 None => {
+                    params.cleanup();
                     *mode = InteractionMode::Inspect;
                     return;
                 }

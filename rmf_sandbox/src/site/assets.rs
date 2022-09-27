@@ -51,7 +51,9 @@ impl FromWorld for SiteAssets {
         let passive_lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
         let select_material = materials.add(Color::rgb(1., 0.3, 1.).into());
         let hover_material = materials.add(Color::rgb(0.3, 1., 1.).into());
-        let hover_select_material = materials.add(Color::rgb(1., 0.6, 1.).into());
+        let hover_select_material = materials.add(Color::rgb(1.0, 0.0, 0.3).into());
+        // let hover_select_material = materials.add(Color::rgb_u8(177, 178, 255).into());
+        // let hover_select_material = materials.add(Color::rgb_u8(214, 28, 78).into());
         let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
         let passive_anchor_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
         let preview_anchor_material = materials.add(StandardMaterial{

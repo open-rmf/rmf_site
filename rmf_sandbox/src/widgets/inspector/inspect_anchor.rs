@@ -18,7 +18,7 @@
 use crate::{
     site::{Anchor, AnchorDependents, SiteID, Category},
     widgets::{Icons, AppEvents, inspector::SelectionWidget},
-    interaction::MoveTo,
+    interaction::{MoveTo, Hover},
 };
 use bevy::{
     prelude::*,
@@ -82,6 +82,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     [18., 18.],
                 )
             );
+
+            if assign_response.hovered() {
+                self.events.hover.send(Hover(Some(self.anchor)));
+            }
 
             replace = assign_response.clicked();
             assign_response.on_hover_text("Reassign");
