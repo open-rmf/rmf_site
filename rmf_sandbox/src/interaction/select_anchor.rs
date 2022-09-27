@@ -103,33 +103,33 @@ type FinalizeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Entity)  + Send +
 
 struct TargetTransition {
     created: Option<Entity>,
-    is_finished: Option<FinalizeFn>,
+    is_finished: bool,
 }
 
 impl TargetTransition {
     fn none() -> Self {
         Self{
             created: None,
-            is_finished: None,
+            is_finished: false,
         }
     }
 
     fn create(e: Entity) -> Self {
         Self{
             created: Some(e),
-            is_finished: None,
+            is_finished: false,
         }
     }
 
-    fn finished(finalize: FinalizeFn) -> Self {
+    fn finished() -> Self {
         Self{
             created: None,
-            is_finished: Some(finalize),
+            is_finished: true,
         }
     }
 
-    fn finish(mut self, finalize: FinalizeFn) -> Self {
-        self.is_finished = Some(finalize);
+    fn finish(mut self) -> Self {
+        self.is_finished = true;
         self
     }
 
@@ -160,7 +160,7 @@ impl TargetTransition {
     }
 
     fn next(&self, e: Option<Entity>) -> Option<Entity> {
-        if self.is_finished.is_some() {
+        if self.is_finished {
             return None;
         }
 
@@ -199,6 +199,12 @@ trait Placement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity>;
+
+    fn finalize<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    );
 }
 
 /// Because of bevy's async nature, we need to use different methods for
@@ -319,7 +325,6 @@ impl EdgePlacement {
             ),
             finalize: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, entity: Entity| {
-                    dbg!("Removing Original edge");
                     params.commands.entity(entity).remove::<Original<Edge<Entity>>>();
                 }
             )
@@ -436,7 +441,7 @@ impl Placement for EdgePlacement {
 
         return match self.side {
             Side::Left => Ok((TargetTransition::none(), self.transition()).into()),
-            Side::Right => Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into()),
+            Side::Right => Ok((TargetTransition::finished(), self.transition()).into()),
         };
     }
 
@@ -459,6 +464,14 @@ impl Placement for EdgePlacement {
         }
 
         return None;
+    }
+
+    fn finalize<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) {
+        (*self.finalize)(params, target);
     }
 }
 
@@ -528,13 +541,13 @@ impl Placement for PointPlacement {
                     params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
                 }
 
-                return Ok((TargetTransition::finished(self.finalize.clone()), self.transition()).into());
+                return Ok((TargetTransition::finished(), self.transition()).into());
             }
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
                 let target = (*self.create)(params, Point(anchor_selection.entity()));
                 params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection);
-                return Ok((TargetTransition::create(target).finish(self.finalize.clone()), self.transition()).into());
+                return Ok((TargetTransition::create(target).finish(), self.transition()).into());
             }
         }
     }
@@ -558,6 +571,14 @@ impl Placement for PointPlacement {
         }
 
         return None;
+    }
+
+    fn finalize<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) {
+        (*self.finalize)(params, target);
     }
 }
 
@@ -658,7 +679,7 @@ impl Placement for PathPlacement {
                         path.pop();
                     }
                     return Ok((
-                        TargetTransition::finished(self.finalize.clone()),
+                        TargetTransition::finished(),
                         self.transition_from(index)
                     ).into());
                 }
@@ -734,6 +755,14 @@ impl Placement for PathPlacement {
         let placement = self.placement.map(|index| path.get(index).cloned()).flatten();
         params.commands.entity(target).insert(Original(path));
         return placement;
+    }
+
+    fn finalize<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) {
+        (*self.finalize)(params, target);
     }
 }
 
@@ -1025,12 +1054,12 @@ impl SelectAnchor {
             Err(_) => { return None; }
         };
 
-        if let Some(finalize) = &transition.target.is_finished {
+        if transition.target.is_finished || self.continuity.replacing().is_some() {
             if let Some(finished_target) = transition.target.current(self.target) {
                 // Remove the Pending marker from the target because it has
                 // been finished.
                 params.commands.entity(finished_target).remove::<Pending>();
-                finalize(params, finished_target);
+                self.placement.finalize(finished_target, params);
             } else {
                 println!(
                     "DEV ERROR: An element was supposed to be finished by \
