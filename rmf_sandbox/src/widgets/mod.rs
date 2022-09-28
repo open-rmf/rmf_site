@@ -18,6 +18,10 @@
 use crate::{
     site::{SiteState, SiteUpdateLabel, Change},
     interaction::{PickingBlockers, Hover, Select, MoveTo, ChangeMode},
+    inspector::{
+        add_previous_lane_trackers,
+        update_previous_lane_trackers,
+    },
 };
 use rmf_site_format::*;
 use bevy::{
@@ -57,6 +61,13 @@ impl Plugin for StandardUiLayout {
                     .with_system(
                         standard_ui_layout.label(UiUpdateLabel::DrawUi)
                     )
+            )
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .after(SiteUpdateLabel::ProcessChanges)
+                    .with_system(add_previous_lane_trackers)
+                    .with_system(update_previous_lane_trackers)
             );
     }
 }

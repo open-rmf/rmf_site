@@ -188,3 +188,16 @@ pub fn update_lanes_for_changed_level(
         }
     }
 }
+
+pub fn update_lane_motions(
+    mut lane_motions: Query<&mut Motion, With<LaneMarker>>,
+    mut motion_changes: EventReader<Change<Motion>>,
+) {
+    for change in motion_changes.iter() {
+        if let Ok(mut motion) = lane_motions.get_mut(change.for_element) {
+            *motion = change.to_value.clone();
+        } else {
+            println!("DEV ERROR: Cannot find lane motion for {:?}", change.for_element);
+        }
+    }
+}

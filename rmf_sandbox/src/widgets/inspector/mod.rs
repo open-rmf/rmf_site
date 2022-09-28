@@ -18,6 +18,9 @@
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
+pub mod inspect_angle;
+pub use inspect_angle::*;
+
 pub mod inspect_edge;
 pub use inspect_edge::*;
 

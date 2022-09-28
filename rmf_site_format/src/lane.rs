@@ -41,20 +41,58 @@ pub struct LaneMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct Motion {
-    #[serde(skip_serializing_if="Option::is_none")]
-    pub orientation_constraint: Option<OrientationConstraint>,
+    #[serde(skip_serializing_if="OrientationConstraint::is_none")]
+    pub orientation_constraint: OrientationConstraint,
     #[serde(skip_serializing_if="Option::is_none")]
     pub speed_limit: Option<f32>,
     #[serde(skip_serializing_if="Option::is_none")]
     pub dock: Option<Dock>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum OrientationConstraint {
-    Forward,
-    Reverse,
-    RelativeYaw(f32),
-    AbsoluteYaw(f32),
+    None,
+    Forwards,
+    Backwards,
+    RelativeYaw(Angle),
+    AbsoluteYaw(Angle),
+}
+
+impl OrientationConstraint {
+
+    pub fn is_none(&self) -> bool {
+        matches!(self, Self::None)
+    }
+
+    pub fn relative_yaw(&self) -> Option<Angle> {
+        match self {
+            Self::RelativeYaw(yaw) => Some(*yaw),
+            _ => None,
+        }
+    }
+
+    pub fn absolute_yaw(&self) -> Option<Angle> {
+        match self {
+            Self::AbsoluteYaw(yaw) => Some(*yaw),
+            _ => None,
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            Self::None => "None",
+            Self::Forwards => "Forwards",
+            Self::Backwards => "Backwards",
+            Self::RelativeYaw(_) => "Relative Yaw",
+            Self::AbsoluteYaw(_) => "Absolute Yaw",
+        }
+    }
+}
+
+impl Default for OrientationConstraint {
+    fn default() -> Self {
+        Self::None
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]

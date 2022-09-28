@@ -266,11 +266,11 @@ impl BuildingMap {
 
                 let motion = Motion{
                     orientation_constraint: if lane.2.orientation.1 == "forward" {
-                        Some(OrientationConstraint::Forward)
+                        OrientationConstraint::Forwards
                     } else if lane.2.orientation.1 == "backward" {
-                        Some(OrientationConstraint::Reverse)
+                        OrientationConstraint::Backwards
                     } else {
-                        None
+                        OrientationConstraint::None
                     },
                     speed_limit: None,
                     dock: left_dock,

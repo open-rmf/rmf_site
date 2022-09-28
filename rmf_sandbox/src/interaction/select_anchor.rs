@@ -546,7 +546,7 @@ impl Placement for PointPlacement {
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
                 let target = (*self.create)(params, Point(anchor_selection.entity()));
-                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection);
+                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
                 return Ok((TargetTransition::create(target).finish(), self.transition()).into());
             }
         }
@@ -708,7 +708,7 @@ impl Placement for PathPlacement {
             path.push(anchor_selection.entity());
         }
 
-        params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection);
+        params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
         return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 

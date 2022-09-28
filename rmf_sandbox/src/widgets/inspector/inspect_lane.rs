@@ -16,25 +16,85 @@
 */
 
 use crate::{
-    site::{Original, Previously},
+    site::{Original, Change},
     widgets::{
-        inspector::{InspectEdgeWidget, InspectAnchorParams, AppEvents},
+        inspector::{
+            InspectEdgeWidget, InspectAnchorParams, AppEvents, InspectAngle,
+        },
     }
 };
 use rmf_site_format::{
-    Edge, Motion, ReverseLane, LaneMarker,
+    Edge, Motion, ReverseLane, LaneMarker, OrientationConstraint, Angle,
 };
 use bevy::prelude::*;
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{
+    Ui, ComboBox, DragValue, Button,
+};
 
 pub type LaneQuery<'w, 's> = Query<'w, 's, (
     &'static Edge<Entity>,
     Option<&'static Original<Edge<Entity>>>,
     &'static Motion,
-    Option<&'static Previously<Motion>>,
+    &'static PreviousMotion,
     &'static ReverseLane,
-    Option<&'static Previously<ReverseLane>>,
+    &'static PreviousReverse,
 ), With<LaneMarker>>;
+
+#[derive(Clone, Debug, Default, Component)]
+pub struct PreviousMotion {
+    pub relative_yaw: Option<Angle>,
+    pub absolute_yaw: Option<Angle>,
+    pub speed_limit: Option<f32>,
+    pub dock_name: Option<String>,
+    pub dock_duration: Option<f32>,
+}
+
+impl PreviousMotion {
+    pub fn absorb(&mut self, from_motion: &Motion) {
+        match from_motion.orientation_constraint {
+            OrientationConstraint::RelativeYaw(v) => {
+                self.relative_yaw = Some(v);
+            },
+            OrientationConstraint::AbsoluteYaw(v) => {
+                self.absolute_yaw = Some(v);
+            },
+            _ => {
+                // Do nothing
+            }
+        }
+
+        if let Some(s) = from_motion.speed_limit {
+            self.speed_limit = Some(s);
+        }
+
+        if let Some(dock) = &from_motion.dock {
+            self.dock_name = Some(dock.name.clone());
+            if let Some(duration) = dock.duration {
+                self.dock_duration = Some(duration);
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default, Component)]
+pub struct PreviousReverse{
+    pub motion: Option<Motion>,
+    pub previous: PreviousMotion,
+}
+
+impl PreviousReverse {
+    pub fn absorb(&mut self, from_reverse: &ReverseLane) {
+        match from_reverse {
+            ReverseLane::Different(from_motion) => {
+                self.motion = Some(from_motion.clone());
+                self.previous.absorb(from_motion);
+            },
+            _ => {
+                // Do nothing
+            }
+        }
+    }
+}
 
 pub struct InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
     pub entity: Entity,
@@ -60,18 +120,21 @@ impl<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1,
             self.entity, edge, original, self.anchor_params, self.events,
         ).show(ui);
 
+        if let Some(new_motion) = InspectMotionWidget::new(forward, p_forward).show(ui) {
+            self.events.change_motion.send(Change::new(new_motion, self.entity));
+        }
     }
 }
 
 pub struct InspectMotionWidget<'a> {
     pub motion: &'a Motion,
-    pub previous: Option<&'a Motion>,
+    pub previous: &'a PreviousMotion,
     pub disabled: bool,
 }
 
 impl<'a> InspectMotionWidget<'a> {
 
-    pub fn new(motion: &'a Motion, previous: Option<&'a Motion>) -> Self {
+    pub fn new(motion: &'a Motion, previous: &'a PreviousMotion) -> Self {
         Self{motion, previous, disabled: false}
     }
 
@@ -80,6 +143,126 @@ impl<'a> InspectMotionWidget<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Motion> {
+        ui.add_space(10.0);
+        ui.label("Orientation Constraint");
+        let new_orientation = ui.horizontal(|ui| {
+            let assumed_relative_yaw =
+                self.motion.orientation_constraint.relative_yaw().unwrap_or(
+                    self.previous.relative_yaw.unwrap_or(Angle::Deg(0.0))
+                );
 
+            let assumed_absolute_yaw =
+                self.motion.orientation_constraint.absolute_yaw().unwrap_or(
+                    self.previous.absolute_yaw.unwrap_or(Angle::Deg(0.0))
+                );
+
+            let mut orientation = self.motion.orientation_constraint.clone();
+            ComboBox::from_id_source("Orientation Constraint")
+                .selected_text(orientation.label())
+                .show_ui(ui, |ui| {
+                    for variant in &[
+                        OrientationConstraint::None,
+                        OrientationConstraint::Forwards,
+                        OrientationConstraint::Backwards,
+                        OrientationConstraint::RelativeYaw(assumed_relative_yaw),
+                        OrientationConstraint::AbsoluteYaw(assumed_absolute_yaw),
+                    ] {
+                        ui.selectable_value(&mut orientation, *variant, variant.label());
+                    }
+                });
+
+            match &mut orientation {
+                OrientationConstraint::RelativeYaw(value) => {
+                    InspectAngle::new(value).show(ui);
+                },
+                OrientationConstraint::AbsoluteYaw(value) => {
+                    InspectAngle::new(value).show(ui);
+                },
+                _ => {
+                    // Do nothing
+                }
+            }
+
+            if orientation != self.motion.orientation_constraint {
+                return Some(orientation);
+            }
+
+            return None;
+        }).inner;
+
+        ui.add_space(10.0);
+        let new_speed = ui.horizontal(|ui| {
+            let mut assumed_speed = self.motion.speed_limit.unwrap_or(
+                self.previous.speed_limit.unwrap_or(0.0)
+            );
+
+            let mut has_speed_limit = self.motion.speed_limit.is_some();
+            ui.checkbox(&mut has_speed_limit, "Speed Limit");
+            if has_speed_limit {
+                ui.add(
+                    DragValue::new(&mut assumed_speed)
+                    .clamp_range(0.0..=100.0)
+                    .min_decimals(2)
+                    .max_decimals(2)
+                    .speed(0.01)
+                    .suffix(" m/s")
+                );
+            }
+
+            if has_speed_limit {
+                if self.motion.speed_limit != Some(assumed_speed) {
+                    return Some(Some(assumed_speed));
+                }
+            } else {
+                if self.motion.speed_limit.is_some() {
+                    return Some(None);
+                }
+            }
+
+            return None;
+        }).inner;
+
+        if new_orientation.is_some() || new_speed.is_some() {
+            let mut new_motion = self.motion.clone();
+            if let Some(new_orientation) = new_orientation {
+                new_motion.orientation_constraint = new_orientation;
+            }
+
+            if let Some(new_speed) = new_speed {
+                new_motion.speed_limit = new_speed;
+            }
+
+            return Some(new_motion);
+        }
+
+        return None;
+    }
+}
+
+pub fn add_previous_lane_trackers(
+    mut commands: Commands,
+    new_lanes: Query<(Entity, &Motion, &ReverseLane), Added<LaneMarker>>,
+) {
+    for (e, motion, reverse) in &new_lanes {
+        let mut p_motion = PreviousMotion::default();
+        p_motion.absorb(motion);
+        commands.entity(e).insert(p_motion);
+
+        let mut p_reverse = PreviousReverse::default();
+        p_reverse.absorb(reverse);
+        commands.entity(e).insert(p_reverse);
+    }
+}
+
+pub fn update_previous_lane_trackers(
+    mut changed_motions: Query<(&Motion, &mut PreviousMotion), Changed<Motion>>,
+    mut changed_reverses: Query<(&ReverseLane, &mut PreviousReverse), Changed<ReverseLane>>,
+) {
+    for (motion, mut previous) in &mut changed_motions {
+        previous.absorb(motion);
+    }
+
+    for (reverse, mut previous) in &mut changed_motions {
+        previous.absorb(reverse);
     }
 }

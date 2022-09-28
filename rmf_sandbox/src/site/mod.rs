@@ -101,13 +101,6 @@ impl<T> Change<T> {
     }
 }
 
-/// The Previously component is used to keep track of previous values held by
-/// components that are optional or contain optional fields. This is used by
-/// the UI to store values that the user has input so that those values aren't
-/// completely erased any time the user toggles a field.
-#[derive(Debug, Clone, Component, Deref, DerefMut)]
-pub struct Previously<T>(pub T);
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
     Off,
@@ -116,7 +109,7 @@ pub enum SiteState {
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum SiteUpdateLabel {
-    AllSystems
+    ProcessChanges,
 }
 
 pub struct SitePlugin;
@@ -125,6 +118,8 @@ impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state(SiteState::Off)
+            .add_state_to_stage(CoreStage::First, SiteState::Off)
+            .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
@@ -153,6 +148,12 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site)
+            )
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .label(SiteUpdateLabel::ProcessChanges)
+                    .with_system(update_lane_motions)
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
