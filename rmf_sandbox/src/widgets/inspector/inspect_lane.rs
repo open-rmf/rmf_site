@@ -143,7 +143,7 @@ impl<'a> InspectMotionWidget<'a> {
         let new_speed = InspectOptionF32::new(
             "Speed Limit".to_string(),
             self.motion.speed_limit,
-            self.previous.speed_limit.unwrap_or(0.0),
+            self.previous.speed_limit.unwrap_or(1.0),
         )
             .clamp_range(0.0..=100.0)
             .min_decimals(2)
@@ -275,31 +275,3 @@ impl<'a> InspectReverseWidget<'a> {
         }
     }
 }
-
-// pub fn add_previous_lane_trackers(
-//     mut commands: Commands,
-//     new_lanes: Query<(Entity, &Motion, &ReverseLane), Added<LaneMarker>>,
-// ) {
-//     for (e, motion, reverse) in &new_lanes {
-//         let mut p_motion = RecallMotion::default();
-//         p_motion.absorb(motion);
-//         commands.entity(e).insert(p_motion);
-
-//         let mut p_reverse = RecallReverse::default();
-//         p_reverse.absorb(reverse);
-//         commands.entity(e).insert(p_reverse);
-//     }
-// }
-
-// pub fn update_previous_lane_trackers(
-//     mut changed_motions: Query<(&Motion, &mut RecallMotion), Changed<Motion>>,
-//     mut changed_reverses: Query<(&ReverseLane, &mut RecallReverse), Changed<ReverseLane>>,
-// ) {
-//     for (motion, mut previous) in &mut changed_motions {
-//         previous.absorb(motion);
-//     }
-
-//     for (reverse, mut previous) in &mut changed_reverses {
-//         previous.absorb(reverse);
-//     }
-// }

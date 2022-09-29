@@ -21,6 +21,9 @@ pub use anchor::*;
 pub mod assets;
 pub use assets::*;
 
+pub mod change_plugin;
+pub use change_plugin::*;
+
 pub mod door;
 pub use door::*;
 
@@ -89,21 +92,6 @@ use bevy::{
 #[derive(Debug, Clone, Hash, PartialEq, Eq, Component)]
 pub struct Category(pub String);
 
-/// The Change component is used as an event to indicate that the value of a
-/// component should change for some entity. Using these events instead of
-/// modifying the component directly helps with managing an undo/redo buffer.
-#[derive(Debug, Clone)]
-pub struct Change<T> {
-    pub to_value: T,
-    pub for_element: Entity,
-}
-
-impl<T> Change<T> {
-    pub fn new(to_value: T, for_element: Entity) -> Self {
-        Self{to_value, for_element}
-    }
-}
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
     Off,
@@ -138,7 +126,9 @@ impl Plugin for SitePlugin {
             .add_event::<SaveSite>()
             .add_event::<Change<Motion>>()
             .add_event::<Change<ReverseLane>>()
+            .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
+            .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_system(load_site)
             .add_system_set(
@@ -154,12 +144,12 @@ impl Plugin for SitePlugin {
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site)
             )
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .label(SiteUpdateLabel::ProcessChanges)
-                    .with_system(update_lane_motions)
-            )
+            // .add_system_set_to_stage(
+            //     CoreStage::PreUpdate,
+            //     SystemSet::on_update(SiteState::Display)
+            //         .label(SiteUpdateLabel::ProcessChanges)
+            //         .with_system(update_lane_motions)
+            // )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(SiteState::Display)
