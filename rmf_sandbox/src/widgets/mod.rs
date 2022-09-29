@@ -32,6 +32,9 @@ use bevy_egui::{
 pub mod inspector;
 use inspector::{InspectorWidget, InspectorParams};
 
+pub mod create;
+use create::CreateWidget;
+
 pub mod icons;
 pub use icons::*;
 
@@ -95,6 +98,12 @@ fn standard_ui_layout(
                         InspectorWidget::new(
                             &mut inspector_params, &mut events
                         ).show(ui);
+                    });
+
+                    CollapsingHeader::new("Create")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        CreateWidget::new(&mut events).show(ui);
                     });
                 });
             });

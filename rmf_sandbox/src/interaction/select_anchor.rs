@@ -1341,3 +1341,9 @@ pub fn handle_select_anchor_mode(
         *mode = InteractionMode::SelectAnchor(request);
     }
 }
+
+impl From<SelectAnchor> for InteractionMode {
+    fn from(mode: SelectAnchor) -> Self {
+        InteractionMode::SelectAnchor(mode)
+    }
+}

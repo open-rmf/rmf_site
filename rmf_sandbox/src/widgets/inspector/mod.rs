@@ -81,9 +81,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.heading(format!("{} (unsaved)", label));
         }
     }
-}
 
-impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn show(self, ui: &mut Ui) {
         if let Some(selection) =  self.params.selection.0 {
             let site_id = self.params.site_id.get(selection).ok().flatten();
