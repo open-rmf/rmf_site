@@ -49,6 +49,47 @@ pub struct Motion {
     pub dock: Option<Dock>,
 }
 
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct RecallMotion {
+    pub relative_yaw: Option<Angle>,
+    pub absolute_yaw: Option<Angle>,
+    pub speed_limit: Option<f32>,
+    pub dock: Option<Dock>,
+    pub dock_name: Option<String>,
+    pub dock_duration: Option<f32>,
+}
+
+impl Recall for RecallMotion {
+    type Source = Motion;
+
+    fn remember(&mut self, source: &Motion) {
+        match source.orientation_constraint {
+            OrientationConstraint::RelativeYaw(v) => {
+                self.relative_yaw = Some(v);
+            },
+            OrientationConstraint::AbsoluteYaw(v) => {
+                self.absolute_yaw = Some(v);
+            },
+            _ => {
+                // Do nothing
+            }
+        }
+
+        if let Some(s) = source.speed_limit {
+            self.speed_limit = Some(s);
+        }
+
+        if let Some(dock) = &source.dock {
+            self.dock = Some(dock.clone());
+            self.dock_name = Some(dock.name.clone());
+            if let Some(duration) = dock.duration {
+                self.dock_duration = Some(duration);
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum OrientationConstraint {
     None,
@@ -103,11 +144,52 @@ pub enum ReverseLane {
     Different(Motion),
 }
 
+impl ReverseLane {
+    pub fn label(&self) -> &str {
+        match self {
+            Self::Same => "Same",
+            Self::Disable => "Disabled",
+            Self::Different(_) => "Different",
+        }
+    }
+
+    pub fn different_motion(&self) -> Option<&Motion> {
+        match self {
+            Self::Different(motion) => Some(motion),
+            _ => None,
+        }
+    }
+}
+
 impl Default for ReverseLane {
     fn default() -> Self {
         ReverseLane::Same
     }
 }
+
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct RecallReverseLane {
+    pub motion: Option<Motion>,
+    pub previous: RecallMotion,
+}
+
+impl Recall for RecallReverseLane {
+    type Source = ReverseLane;
+    fn remember(&mut self, from_reverse: &ReverseLane) {
+        match from_reverse {
+            ReverseLane::Different(from_motion) => {
+                self.motion = Some(from_motion.clone());
+                self.previous.remember(from_motion);
+            },
+            _ => {
+                // Do nothing
+            }
+        }
+    }
+}
+
 
 #[cfg(feature="bevy")]
 impl Lane<u32> {

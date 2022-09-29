@@ -72,6 +72,9 @@ pub use physical_camera::*;
 pub mod point;
 pub use point::*;
 
+pub mod recall;
+pub use recall::*;
+
 pub mod semver;
 pub use semver::*;
 

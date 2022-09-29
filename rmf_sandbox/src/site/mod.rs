@@ -57,6 +57,9 @@ pub use physical_camera::*;
 pub mod pose;
 pub use pose::*;
 
+pub mod recall_plugin;
+pub use recall_plugin::RecallPlugin;
+
 pub mod save;
 pub use save::*;
 
@@ -135,6 +138,8 @@ impl Plugin for SitePlugin {
             .add_event::<SaveSite>()
             .add_event::<Change<Motion>>()
             .add_event::<Change<ReverseLane>>()
+            .add_plugin(RecallPlugin::<RecallMotion>::default())
+            .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_system(load_site)
             .add_system_set(
                 SystemSet::on_enter(SiteState::Display)

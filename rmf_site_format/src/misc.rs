@@ -68,8 +68,8 @@ impl Angle {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum Rotation {
     Yaw(Angle),
-    EulerExtrinsicXYZ(Angle, Angle, Angle),
-    Quat(f32, f32, f32, f32),
+    EulerExtrinsicXYZ([Angle; 3]),
+    Quat([f32; 4]),
 }
 
 #[cfg(feature="bevy")]
@@ -77,13 +77,13 @@ impl Rotation {
     pub fn quat(&self) -> Quat {
         match self {
             Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
-            Self::EulerExtrinsicXYZ(x, y, z) => {
+            Self::EulerExtrinsicXYZ([x, y, z]) => {
                 Quat::from_euler(
                     EulerRot::ZYX, z.radians(), y.radians(), x.radians()
                 )
             },
-            Self::Quat(x, y, z, w) => {
-                Quat::from_array([*x, *y, *z, *w])
+            Self::Quat(quat) => {
+                Quat::from_array(*quat)
             }
         }
     }

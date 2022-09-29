@@ -18,10 +18,6 @@
 use crate::{
     site::{SiteState, SiteUpdateLabel, Change},
     interaction::{PickingBlockers, Hover, Select, MoveTo, ChangeMode},
-    inspector::{
-        add_previous_lane_trackers,
-        update_previous_lane_trackers,
-    },
 };
 use rmf_site_format::*;
 use bevy::{
@@ -61,13 +57,6 @@ impl Plugin for StandardUiLayout {
                     .with_system(
                         standard_ui_layout.label(UiUpdateLabel::DrawUi)
                     )
-            )
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .after(SiteUpdateLabel::ProcessChanges)
-                    .with_system(add_previous_lane_trackers)
-                    .with_system(update_previous_lane_trackers)
             );
     }
 }
@@ -81,7 +70,8 @@ pub struct AppEvents<'w, 's> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
-    pub change_motion: EventWriter<'w, 's, Change<Motion>>,
+    pub change_lane_motion: EventWriter<'w, 's, Change<Motion>>,
+    pub change_lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     _ignore: Query<'w, 's, ()>,
 }
@@ -99,7 +89,7 @@ fn standard_ui_layout(
             .auto_shrink([false, false])
             .show(ui, |ui| {
                 ui.vertical(|ui| {
-                    CollapsingHeader::new("Selection")
+                    CollapsingHeader::new("Inspect")
                     .default_open(true)
                     .show(ui, |ui| {
                         InspectorWidget::new(

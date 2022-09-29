@@ -27,6 +27,12 @@ pub use inspect_edge::*;
 pub mod inspect_lane;
 pub use inspect_lane::*;
 
+pub mod inspect_option_f32;
+pub use inspect_option_f32::*;
+
+pub mod inspect_pose;
+pub use inspect_pose::*;
+
 pub mod selection_widget;
 pub use selection_widget::*;
 

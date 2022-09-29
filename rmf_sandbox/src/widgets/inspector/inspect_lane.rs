@@ -20,81 +20,27 @@ use crate::{
     widgets::{
         inspector::{
             InspectEdgeWidget, InspectAnchorParams, AppEvents, InspectAngle,
+            InspectOptionF32,
         },
-    }
+    },
 };
 use rmf_site_format::{
-    Edge, Motion, ReverseLane, LaneMarker, OrientationConstraint, Angle,
+    Edge, Motion, RecallMotion, ReverseLane, RecallReverseLane, LaneMarker,
+    OrientationConstraint, Angle, Dock,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{
-    Ui, ComboBox, DragValue, Button,
+    Ui, ComboBox, DragValue, RichText,
 };
 
 pub type LaneQuery<'w, 's> = Query<'w, 's, (
     &'static Edge<Entity>,
     Option<&'static Original<Edge<Entity>>>,
     &'static Motion,
-    &'static PreviousMotion,
+    &'static RecallMotion,
     &'static ReverseLane,
-    &'static PreviousReverse,
+    &'static RecallReverseLane,
 ), With<LaneMarker>>;
-
-#[derive(Clone, Debug, Default, Component)]
-pub struct PreviousMotion {
-    pub relative_yaw: Option<Angle>,
-    pub absolute_yaw: Option<Angle>,
-    pub speed_limit: Option<f32>,
-    pub dock_name: Option<String>,
-    pub dock_duration: Option<f32>,
-}
-
-impl PreviousMotion {
-    pub fn absorb(&mut self, from_motion: &Motion) {
-        match from_motion.orientation_constraint {
-            OrientationConstraint::RelativeYaw(v) => {
-                self.relative_yaw = Some(v);
-            },
-            OrientationConstraint::AbsoluteYaw(v) => {
-                self.absolute_yaw = Some(v);
-            },
-            _ => {
-                // Do nothing
-            }
-        }
-
-        if let Some(s) = from_motion.speed_limit {
-            self.speed_limit = Some(s);
-        }
-
-        if let Some(dock) = &from_motion.dock {
-            self.dock_name = Some(dock.name.clone());
-            if let Some(duration) = dock.duration {
-                self.dock_duration = Some(duration);
-            }
-        }
-    }
-}
-
-#[derive(Clone, Debug, Default, Component)]
-pub struct PreviousReverse{
-    pub motion: Option<Motion>,
-    pub previous: PreviousMotion,
-}
-
-impl PreviousReverse {
-    pub fn absorb(&mut self, from_reverse: &ReverseLane) {
-        match from_reverse {
-            ReverseLane::Different(from_motion) => {
-                self.motion = Some(from_motion.clone());
-                self.previous.absorb(from_motion);
-            },
-            _ => {
-                // Do nothing
-            }
-        }
-    }
-}
 
 pub struct InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
     pub entity: Entity,
@@ -120,32 +66,34 @@ impl<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1,
             self.entity, edge, original, self.anchor_params, self.events,
         ).show(ui);
 
+        ui.add_space(10.0);
         if let Some(new_motion) = InspectMotionWidget::new(forward, p_forward).show(ui) {
-            self.events.change_motion.send(Change::new(new_motion, self.entity));
+            self.events.change_lane_motion.send(Change::new(new_motion, self.entity));
         }
+
+        ui.separator();
+        ui.push_id("Reverse", |ui| {
+            if let Some(new_reverse) = InspectReverseWidget::new(reverse, p_reverse).show(ui) {
+                self.events.change_lane_reverse.send(Change::new(new_reverse, self.entity));
+            }
+        });
     }
 }
 
 pub struct InspectMotionWidget<'a> {
     pub motion: &'a Motion,
-    pub previous: &'a PreviousMotion,
-    pub disabled: bool,
+    pub previous: &'a RecallMotion,
+    for_reverse: bool,
 }
 
 impl<'a> InspectMotionWidget<'a> {
 
-    pub fn new(motion: &'a Motion, previous: &'a PreviousMotion) -> Self {
-        Self{motion, previous, disabled: false}
-    }
-
-    pub fn disable(self) -> Self {
-        Self{disabled: true, ..self}
+    pub fn new(motion: &'a Motion, previous: &'a RecallMotion) -> Self {
+        Self{motion, previous, for_reverse: false}
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Motion> {
-        ui.add_space(10.0);
-        ui.label("Orientation Constraint");
-        let new_orientation = ui.horizontal(|ui| {
+        let new_orientation = ui.vertical(|ui| {
             let assumed_relative_yaw =
                 self.motion.orientation_constraint.relative_yaw().unwrap_or(
                     self.previous.relative_yaw.unwrap_or(Angle::Deg(0.0))
@@ -156,6 +104,7 @@ impl<'a> InspectMotionWidget<'a> {
                     self.previous.absolute_yaw.unwrap_or(Angle::Deg(0.0))
                 );
 
+            ui.label("Orientation Constraint");
             let mut orientation = self.motion.orientation_constraint.clone();
             ComboBox::from_id_source("Orientation Constraint")
                 .selected_text(orientation.label())
@@ -191,38 +140,69 @@ impl<'a> InspectMotionWidget<'a> {
         }).inner;
 
         ui.add_space(10.0);
-        let new_speed = ui.horizontal(|ui| {
-            let mut assumed_speed = self.motion.speed_limit.unwrap_or(
-                self.previous.speed_limit.unwrap_or(0.0)
+        let new_speed = InspectOptionF32::new(
+            "Speed Limit".to_string(),
+            self.motion.speed_limit,
+            self.previous.speed_limit.unwrap_or(0.0),
+        )
+            .clamp_range(0.0..=100.0)
+            .min_decimals(2)
+            .max_decimals(2)
+            .speed(0.01)
+            .suffix(" m/s".to_string())
+            .show(ui);
+
+        ui.add_space(10.0);
+        let mut has_dock = self.motion.dock.is_some();
+        ui.checkbox(&mut has_dock, "Dock");
+        let new_dock = if has_dock {
+            let mut dock = self.motion.dock.clone().unwrap_or(
+                self.previous.dock.clone().unwrap_or_else(
+                    || {
+                        Dock{
+                            name: self.previous.dock_name.clone().unwrap_or("<Unnamed>".to_string()),
+                            duration: self.previous.dock_duration,
+                        }
+                    }
+                )
             );
 
-            let mut has_speed_limit = self.motion.speed_limit.is_some();
-            ui.checkbox(&mut has_speed_limit, "Speed Limit");
-            if has_speed_limit {
-                ui.add(
-                    DragValue::new(&mut assumed_speed)
-                    .clamp_range(0.0..=100.0)
-                    .min_decimals(2)
-                    .max_decimals(2)
-                    .speed(0.01)
-                    .suffix(" m/s")
-                );
+            ui.horizontal(|ui| {
+                ui.label("name");
+                ui.text_edit_singleline(&mut dock.name);
+            });
+
+            let new_duration = InspectOptionF32::new(
+                "Duration".to_string(),
+                dock.duration,
+                self.previous.dock_duration.unwrap_or(30.0)
+            )
+                .clamp_range(0.0..=std::f32::INFINITY)
+                .min_decimals(0)
+                .max_decimals(1)
+                .speed(1.0)
+                .suffix(" s".to_string())
+                .tooltip("How long does the docking take?".to_string())
+                .show(ui);
+
+            if let Some(new_duration) = new_duration {
+                dock.duration = new_duration;
             }
 
-            if has_speed_limit {
-                if self.motion.speed_limit != Some(assumed_speed) {
-                    return Some(Some(assumed_speed));
-                }
+            if Some(&dock) != self.motion.dock.as_ref() {
+                Some(Some(dock))
             } else {
-                if self.motion.speed_limit.is_some() {
-                    return Some(None);
-                }
+                None
             }
+        } else {
+            if self.motion.dock.is_some() {
+                Some(None)
+            } else {
+                None
+            }
+        };
 
-            return None;
-        }).inner;
-
-        if new_orientation.is_some() || new_speed.is_some() {
+        if new_orientation.is_some() || new_speed.is_some() || new_dock.is_some() {
             let mut new_motion = self.motion.clone();
             if let Some(new_orientation) = new_orientation {
                 new_motion.orientation_constraint = new_orientation;
@@ -232,6 +212,10 @@ impl<'a> InspectMotionWidget<'a> {
                 new_motion.speed_limit = new_speed;
             }
 
+            if let Some(new_dock) = new_dock {
+                new_motion.dock = new_dock;
+            }
+
             return Some(new_motion);
         }
 
@@ -239,30 +223,83 @@ impl<'a> InspectMotionWidget<'a> {
     }
 }
 
-pub fn add_previous_lane_trackers(
-    mut commands: Commands,
-    new_lanes: Query<(Entity, &Motion, &ReverseLane), Added<LaneMarker>>,
-) {
-    for (e, motion, reverse) in &new_lanes {
-        let mut p_motion = PreviousMotion::default();
-        p_motion.absorb(motion);
-        commands.entity(e).insert(p_motion);
+pub struct InspectReverseWidget<'a> {
+    pub reverse: &'a ReverseLane,
+    pub previous: &'a RecallReverseLane,
+}
 
-        let mut p_reverse = PreviousReverse::default();
-        p_reverse.absorb(reverse);
-        commands.entity(e).insert(p_reverse);
+impl<'a> InspectReverseWidget<'a> {
+    pub fn new(reverse: &'a ReverseLane, previous: &'a RecallReverseLane) -> Self {
+        Self{reverse, previous}
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Option<ReverseLane> {
+        let assumed_motion = self.reverse.different_motion().cloned().unwrap_or(
+            self.previous.motion.clone().unwrap_or(
+                Motion::default()
+            )
+        );
+
+        let mut new_reverse = self.reverse.clone();
+        ui.label(RichText::new("Reverse").size(18.0));
+        ComboBox::from_id_source("Reverse Lane")
+            .selected_text(new_reverse.label())
+            .show_ui(ui, |ui| {
+                for variant in &[
+                    ReverseLane::Same,
+                    ReverseLane::Disable,
+                    ReverseLane::Different(assumed_motion)
+                ] {
+                    ui.selectable_value(&mut new_reverse, variant.clone(), variant.label());
+                }
+            });
+
+        match &mut new_reverse {
+            ReverseLane::Different(motion) => {
+                ui.add_space(10.0);
+                if let Some(new_motion) = InspectMotionWidget::new(
+                    motion, &self.previous.previous
+                ).show(ui) {
+                    new_reverse = ReverseLane::Different(new_motion);
+                }
+            },
+            _ => {
+                // Do nothing
+            }
+        }
+
+        if new_reverse != *self.reverse {
+            Some(new_reverse)
+        } else {
+            None
+        }
     }
 }
 
-pub fn update_previous_lane_trackers(
-    mut changed_motions: Query<(&Motion, &mut PreviousMotion), Changed<Motion>>,
-    mut changed_reverses: Query<(&ReverseLane, &mut PreviousReverse), Changed<ReverseLane>>,
-) {
-    for (motion, mut previous) in &mut changed_motions {
-        previous.absorb(motion);
-    }
+// pub fn add_previous_lane_trackers(
+//     mut commands: Commands,
+//     new_lanes: Query<(Entity, &Motion, &ReverseLane), Added<LaneMarker>>,
+// ) {
+//     for (e, motion, reverse) in &new_lanes {
+//         let mut p_motion = RecallMotion::default();
+//         p_motion.absorb(motion);
+//         commands.entity(e).insert(p_motion);
 
-    for (reverse, mut previous) in &mut changed_motions {
-        previous.absorb(reverse);
-    }
-}
+//         let mut p_reverse = RecallReverse::default();
+//         p_reverse.absorb(reverse);
+//         commands.entity(e).insert(p_reverse);
+//     }
+// }
+
+// pub fn update_previous_lane_trackers(
+//     mut changed_motions: Query<(&Motion, &mut RecallMotion), Changed<Motion>>,
+//     mut changed_reverses: Query<(&ReverseLane, &mut RecallReverse), Changed<ReverseLane>>,
+// ) {
+//     for (motion, mut previous) in &mut changed_motions {
+//         previous.absorb(motion);
+//     }
+
+//     for (reverse, mut previous) in &mut changed_reverses {
+//         previous.absorb(reverse);
+//     }
+// }
