@@ -12,9 +12,10 @@ extern crate web_sys;
 
 mod aabb;
 mod animate;
+mod keyboard;
+use keyboard::*;
 mod settings;
 use settings::*;
-
 mod widgets;
 use widgets::*;
 
@@ -111,6 +112,7 @@ pub fn run() {
         })
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
+        .add_plugin(KeyboardInputPlugin)
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
         // .add_plugin(WarehouseGeneratorPlugin)

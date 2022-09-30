@@ -37,6 +37,8 @@ pub struct Cursor {
     pub dagger: Entity,
     pub anchor_placement: Entity,
     dependents: HashSet<Entity>,
+    /// Use a &str to label each mode that might want to turn the cursor on
+    modes: HashSet<&'static str>,
 }
 
 impl Cursor {
@@ -47,9 +49,7 @@ impl Cursor {
     ) {
         if self.dependents.insert(dependent) {
             if self.dependents.len() == 1 {
-                if let Ok(mut v) = visibility.get_mut(self.frame) {
-                    v.is_visible = true;
-                }
+                self.toggle_visibility(visibility);
             }
         }
     }
@@ -61,11 +61,46 @@ impl Cursor {
     ) {
         if self.dependents.remove(&dependent) {
             if self.dependents.is_empty() {
-                if let Ok(mut v) = visibility.get_mut(self.frame) {
-                    v.is_visible = false;
-                }
+                self.toggle_visibility(visibility);
             }
         }
+    }
+
+    pub fn add_mode(
+        &mut self,
+        mode: &'static str,
+        visibility: &mut Query<&mut Visibility>,
+    ) {
+        if self.modes.insert(mode) {
+            if self.modes.len() == 1 {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
+    pub fn remove_mode(
+        &mut self,
+        mode: &'static str,
+        visibility: &mut Query<&mut Visibility>,
+    ) {
+        if self.modes.remove(&mode) {
+            if self.modes.is_empty() {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
+    fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
+        if let Ok(mut v) = visibility.get_mut(self.frame) {
+            let visible = self.should_be_visible();
+            if v.is_visible != visible {
+                v.is_visible = visible;
+            }
+        }
+    }
+
+    pub fn should_be_visible(&self) -> bool {
+        !self.dependents.is_empty() || !self.modes.is_empty()
     }
 }
 
@@ -129,6 +164,7 @@ impl FromWorld for Cursor {
             dagger,
             anchor_placement,
             dependents: Default::default(),
+            modes: Default::default(),
         }
     }
 }

@@ -80,6 +80,7 @@ use rmf_site_format::*;
 use bevy::{
     prelude::*,
     transform::TransformSystem,
+    render::view::visibility::VisibilitySystems,
 };
 
 /// The Category component is added to site entities so they can easily express
@@ -103,14 +104,25 @@ pub enum SiteUpdateLabel {
     ProcessChanges,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum SiteCustomStage {
+    /// We need a custom stage for assigning orphan elements because the
+    /// commands from CoreStage::Update need to flush before the AssignOrphan
+    /// systems are run, and the AssignOrphan commands need to flush before the
+    /// PostUpdate systems are run.
+    AssignOrphans,
+}
+
 pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app
             .add_state(SiteState::Off)
+            .add_stage_after(CoreStage::Update, SiteCustomStage::AssignOrphans, SystemStage::parallel())
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
+            .add_state_to_stage(SiteCustomStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
@@ -144,17 +156,17 @@ impl Plugin for SitePlugin {
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site)
             )
-            // .add_system_set_to_stage(
-            //     CoreStage::PreUpdate,
-            //     SystemSet::on_update(SiteState::Display)
-            //         .label(SiteUpdateLabel::ProcessChanges)
-            //         .with_system(update_lane_motions)
-            // )
+            .add_system_set_to_stage(
+                SiteCustomStage::AssignOrphans,
+                SystemSet::on_update(SiteState::Display)
+                    .with_system(assign_orphan_anchors_to_parent)
+                    .with_system(assign_orphans_to_nav_graph)
+            )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .before(TransformSystem::TransformPropagate)
-                    .with_system(assign_orphan_anchors_to_parent)
+                    .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
                     .with_system(update_door_for_changed_anchor)
@@ -163,9 +175,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_floor_for_changed_anchor)
                     .with_system(add_lane_visuals)
                     .with_system(update_changed_lane)
-                    .with_system(update_lane_for_changed_anchor)
-                    .with_system(update_lanes_for_changed_level)
-                    .with_system(assign_orphans_to_nav_graph)
+                    .with_system(update_lane_for_moved_anchor)
+                    .with_system(update_visibility_for_lanes)
                     .with_system(add_lift_visuals)
                     .with_system(update_changed_lift)
                     .with_system(update_lift_for_changed_anchor)

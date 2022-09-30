@@ -52,7 +52,20 @@ impl InteractionMode {
     }
 
     fn backout<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
-        // TODO(MXG): Actually implement this.
+        let change_mode = match self {
+            Self::Inspect => {
+                params.select.send(Select(None));
+                // No change of mode is needed
+                None
+            },
+            Self::SelectAnchor(select_anchor) => {
+                Some(select_anchor.backout(&mut params.select_anchor))
+            },
+        };
+
+        if let Some(change_mode) = change_mode {
+            *self = change_mode;
+        }
     }
 
     fn cancel<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
@@ -70,6 +83,7 @@ impl InteractionMode {
 #[derive(SystemParam)]
 pub struct BackoutParams<'w, 's> {
     commands: Commands<'w, 's>,
+    select: EventWriter<'w, 's, Select>,
     select_anchor: SelectAnchorPlacementParams<'w, 's>,
 }
 

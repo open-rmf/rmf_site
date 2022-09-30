@@ -317,20 +317,6 @@ fn camera_controls(
     }
 }
 
-pub fn handle_keyboard_camera_change(
-    keyboard_input: Res<Input<KeyCode>>,
-    mut camera_controls: ResMut<CameraControls>,
-    mut cameras: Query<(&mut Camera, &mut Visibility)>,
-) {
-    if keyboard_input.just_pressed(KeyCode::F2) {
-        camera_controls.use_orthographic(true, &mut cameras);
-    }
-
-    if keyboard_input.just_pressed(KeyCode::F3) {
-        camera_controls.use_perspective(true, &mut cameras);
-    }
-}
-
 pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
@@ -338,7 +324,6 @@ impl Plugin for CameraControlsPlugin {
         app
             .insert_resource(MouseLocation::default())
             .init_resource::<CameraControls>()
-            .add_system(handle_keyboard_camera_change)
             .add_system(camera_controls);
     }
 }

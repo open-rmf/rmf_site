@@ -56,7 +56,6 @@ impl Plugin for StandardUiLayout {
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    // .after(SiteUpdateLabel::AllSystems)
                     .with_system(
                         standard_ui_layout.label(UiUpdateLabel::DrawUi)
                     )
@@ -99,7 +98,7 @@ fn standard_ui_layout(
                             &mut inspector_params, &mut events
                         ).show(ui);
                     });
-
+                    ui.separator();
                     CollapsingHeader::new("Create")
                     .default_open(false)
                     .show(ui, |ui| {

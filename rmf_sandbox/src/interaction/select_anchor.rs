@@ -28,6 +28,8 @@ use bevy::{
 };
 use std::sync::Arc;
 
+const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
+
 /// Describe how the interaction mode should change while
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum SelectAnchorContinuity {
@@ -58,10 +60,11 @@ pub enum SelectAnchorContinuity {
     /// a new element will be created starting from the last anchor that was
     /// selected.
     ///
-    /// Backout behavior is the same as InsertElement, except any elements that
-    /// finished being created along the way will remain in tact while backing
-    /// out.
-    Continuous,
+    /// Backout behavior finishes the current element that's being constructed.
+    /// If the element did not qualify to finish then it is deleted. The user
+    /// can begin drawing a new element. A double-backout is needed to exit the
+    /// mode.
+    Continuous{previous: Option<Entity>},
 }
 
 impl SelectAnchorContinuity {
@@ -77,6 +80,13 @@ impl SelectAnchorContinuity {
     fn replacing(&self) -> Option<Entity> {
         match self {
             Self::ReplaceAnchor{original_anchor} => *original_anchor,
+            _ => None,
+        }
+    }
+
+    fn previous(&self) -> Option<Entity> {
+        match self {
+            Self::Continuous{previous} => *previous,
             _ => None,
         }
     }
@@ -104,6 +114,7 @@ type FinalizeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Entity)  + Send +
 struct TargetTransition {
     created: Option<Entity>,
     is_finished: bool,
+    discontinue: bool,
 }
 
 impl TargetTransition {
@@ -111,6 +122,7 @@ impl TargetTransition {
         Self{
             created: None,
             is_finished: false,
+            discontinue: false,
         }
     }
 
@@ -118,6 +130,7 @@ impl TargetTransition {
         Self{
             created: Some(e),
             is_finished: false,
+            discontinue: false,
         }
     }
 
@@ -125,6 +138,15 @@ impl TargetTransition {
         Self{
             created: None,
             is_finished: true,
+            discontinue: false,
+        }
+    }
+
+    fn discontinued() -> Self {
+        Self{
+            created: None,
+            is_finished: false,
+            discontinue: true,
         }
     }
 
@@ -182,7 +204,7 @@ trait Placement {
     fn next<'w, 's>(
         &self,
         anchor_selection: AnchorSelection,
-        replacing: Option<Entity>,
+        continuity: SelectAnchorContinuity,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()>;
@@ -205,6 +227,13 @@ trait Placement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     );
+
+    fn backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()>;
 }
 
 /// Because of bevy's async nature, we need to use different methods for
@@ -303,6 +332,28 @@ impl EdgePlacement {
         }
     }
 
+    fn to_start(&self) -> PlacementTransition {
+        PlacementTransition{
+            preview: None,
+            next: Arc::new(Self{
+                side: Side::Left,
+                create: self.create.clone(),
+                finalize: self.finalize.clone(),
+            })
+        }
+    }
+
+    fn to_end(&self) -> PlacementTransition {
+        PlacementTransition{
+            preview: None,
+            next: Arc::new(Self{
+                side: Side::Right,
+                create: self.create.clone(),
+                finalize: self.finalize.clone(),
+            })
+        }
+    }
+
     fn ignore(&self) -> PlacementTransition {
         PlacementTransition{
             preview: None,
@@ -330,13 +381,49 @@ impl EdgePlacement {
             )
         })
     }
+
+    fn update_dependencies(
+        mut anchor_selection: Option<&mut AnchorSelection>,
+        target: Entity,
+        old_edge: Edge<Entity>,
+        new_edge: Edge<Entity>,
+        params: &mut SelectAnchorPlacementParams,
+    ) -> Result<(), ()> {
+        // Remove the target edge as a dependency from any anchors that are no
+        // longer being used by this edge.
+        for old_anchor in old_edge.array() {
+            if new_edge.array().iter().find(|x| **x == old_anchor).is_none() {
+                // This anchor is no longer being used by the edge.
+                match params.remove_dependent(target, old_anchor, &mut anchor_selection) {
+                    Ok(_) => {
+                        // Do nothing
+                    },
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: No AnchorDependents component found for \
+                            {:?} while in SelectAnchor mode.", old_anchor
+                        );
+                    }
+                }
+            }
+        }
+
+        for new_anchor in new_edge.array() {
+            if old_edge.array().iter().find(|x| **x == new_anchor).is_none() {
+                // This anchor was not being used by the edge previously.
+                params.add_dependent(target, new_anchor, &mut anchor_selection)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Placement for EdgePlacement {
     fn next<'w, 's>(
         &self,
         mut anchor_selection: AnchorSelection,
-        replacing: Option<Entity>,
+        continuity: SelectAnchorContinuity,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
@@ -359,15 +446,30 @@ impl Placement for EdgePlacement {
             },
             None => {
                 // We need to begin creating a new element
+                if self.side == Side::Right {
+                    if let Some(previous) = continuity.previous() {
+                        // We should connect this new element to the previous one.
+                        let (previous_edge, _) = params.edges.get(previous).map_err(|_| ())?;
+                        let anchors = Edge::new(
+                            previous_edge.right(), anchor_selection.entity()
+                        );
+                        let target = (*self.create)(params, anchors);
+                        for anchor in anchors.array() {
+                            params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
+                        }
+
+                        return Ok((TargetTransition::create(target).finish(), self.to_end()).into());
+                    }
+                }
+
                 let anchors = Edge::new(
                     anchor_selection.entity(), params.cursor.anchor_placement
                 );
                 let target = (*self.create)(params, anchors);
                 for anchor in anchors.array() {
-                    params.add_dependent(target, anchor, &mut anchor_selection)?;
+                    params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
                 }
-
-                return Ok((TargetTransition::create(target), self.transition()).into());
+                return Ok((TargetTransition::create(target), self.to_end()).into());
             }
         };
 
@@ -381,7 +483,7 @@ impl Placement for EdgePlacement {
                 }
             },
             None => {
-                match replacing {
+                match continuity.replacing() {
                     Some(replacing) => {
                         let new_edge = if endpoints.side(self.side.opposite()) == replacing {
                             // The opposite anchor was assigned the anchor that
@@ -397,51 +499,50 @@ impl Placement for EdgePlacement {
                         new_edge.with_side_of(self.side, anchor_selection.entity())
                     },
                     None => {
-                        if endpoints.side(self.side.opposite()) == anchor_selection.entity() {
-                            // The user is asking to select the same anchor for
-                            // both sides of the edge. This is not okay, so we
-                            // ignore this request.
-                            return Ok((TargetTransition::none(), self.ignore()).into());
+                        match self.side {
+                            Side::Left => {
+                                // We are reseting the start point of an edge
+                                // that is being freshly created, so set both
+                                // sides to the same anchor.
+                                Edge::new(anchor_selection.entity(), anchor_selection.entity())
+                            },
+                            Side::Right => {
+                                if endpoints.left() == anchor_selection.entity() {
+                                    // The user is asking to select the same anchor for
+                                    // both sides of the edge. This is not okay, so we
+                                    // ignore this request.
+                                    return Ok((TargetTransition::none(), self.ignore()).into());
+                                }
+
+                                endpoints.with_side_of(Side::Right, anchor_selection.entity())
+                            }
                         }
 
-                        endpoints.with_side_of(self.side, anchor_selection.entity())
                     }
                 }
             }
         };
 
-        let old_anchors = *endpoints;
+        let old_edge = *endpoints;
         *endpoints = new_edge;
+        Self::update_dependencies(
+            Some(&mut anchor_selection), target, old_edge, new_edge, params
+        )?;
 
-        // Remove the target edge as a dependency from any anchors that are no
-        // longer being used by this edge.
-        for old_anchor in old_anchors.array() {
-            if new_edge.array().iter().find(|x| **x == old_anchor).is_none() {
-                // This anchor is no longer being used by the edge.
-                match params.remove_dependent(target, old_anchor, &mut anchor_selection) {
-                    Ok(_) => {
-                        // Do nothing
+        return match self.side {
+            Side::Left => {
+                Ok((TargetTransition::none(), self.to_end()).into())
+            },
+            Side::Right => {
+                match continuity {
+                    SelectAnchorContinuity::Continuous{..} => {
+                        Ok((TargetTransition::finished(), self.to_end()).into())
                     },
-                    Err(_) => {
-                        println!(
-                            "DEV ERROR: No AnchorDependents component found for \
-                            {:?} while in SelectAnchor mode.", old_anchor
-                        );
+                    _ => {
+                        Ok((TargetTransition::finished(), self.to_start()).into())
                     }
                 }
             }
-        }
-
-        for new_anchor in new_edge.array() {
-            if old_anchors.array().iter().find(|x| **x == new_anchor).is_none() {
-                // This anchor was not being used by the edge previously.
-                params.add_dependent(target, new_anchor, &mut anchor_selection)?;
-            }
-        }
-
-        return match self.side {
-            Side::Left => Ok((TargetTransition::none(), self.transition()).into()),
-            Side::Right => Ok((TargetTransition::finished(), self.transition()).into()),
         };
     }
 
@@ -472,6 +573,58 @@ impl Placement for EdgePlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) {
         (*self.finalize)(params, target);
+    }
+
+    fn backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()> {
+        if continuity.replacing().is_some() {
+            // Restore the target to its original and then quit
+            if let Ok((mut edge, original)) = params.edges.get_mut(target) {
+                if let Some(original) = original {
+                    let old_edge = *edge;
+                    *edge = **original;
+                    Self::update_dependencies(None, target, old_edge, *edge, params)?;
+                    return Ok((TargetTransition::finished(), self.to_start()).into());
+                } else {
+                    println!(
+                        "DEV ERROR: Unable to find original for {target:?} \
+                        while backing out of edge replacement"
+                    );
+                    return Err(());
+                }
+            } else {
+                println!(
+                    "DEV ERROR: Unable to find edge for {target:?} while \
+                    backing out of edge replacement"
+                );
+                return Err(());
+            }
+        } else {
+            // Delete the target because it is unfinished, then restart from
+            // the beginning.
+            let equal_points = if let Ok((mut edge, _)) = params.edges.get(target) {
+                for anchor in edge.array() {
+                    if let Ok(mut dep) = params.dependents.get_mut(anchor) {
+                        dep.dependents.remove(&target);
+                    }
+                }
+                edge.start() == edge.end()
+            } else {
+                true
+            };
+
+            params.commands.entity(target).despawn_recursive();
+
+            if equal_points {
+                return Ok((TargetTransition::discontinued(), self.to_start()).into());
+            } else {
+                return Ok((TargetTransition::none(), self.to_start()).into());
+            }
+        }
     }
 }
 
@@ -516,7 +669,7 @@ impl Placement for PointPlacement {
     fn next<'w, 's>(
         &self,
         mut anchor_selection: AnchorSelection,
-        _replacing: Option<Entity>,
+        _continuity: SelectAnchorContinuity,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
@@ -537,8 +690,8 @@ impl Placement for PointPlacement {
                 if **point != anchor_selection.entity() {
                     let old_point = **point;
                     **point = anchor_selection.entity();
-                    params.remove_dependent(target, old_point, &mut anchor_selection)?;
-                    params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
+                    params.remove_dependent(target, old_point, &mut Some(&mut anchor_selection))?;
+                    params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
                 }
 
                 return Ok((TargetTransition::finished(), self.transition()).into());
@@ -546,7 +699,7 @@ impl Placement for PointPlacement {
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
                 let target = (*self.create)(params, Point(anchor_selection.entity()));
-                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
+                params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
                 return Ok((TargetTransition::create(target).finish(), self.transition()).into());
             }
         }
@@ -579,6 +732,40 @@ impl Placement for PointPlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) {
         (*self.finalize)(params, target);
+    }
+
+    fn backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()> {
+        if let Ok(mut point) = params.points.get_mut(target) {
+            if let Ok(mut dep) = params.dependents.get_mut(**point) {
+                dep.dependents.remove(&target);
+            }
+
+            if let Some(replacing) = continuity.replacing() {
+                // Restore the target to the original
+                if let Ok(mut dep) = params.dependents.get_mut(replacing) {
+                    dep.dependents.insert(target);
+                }
+
+                point.0 = replacing;
+                return Ok((TargetTransition::finished(), self.transition()).into());
+            } else {
+                // Delete the location entirely because there is no anchor to
+                // return it to.
+                params.commands.entity(target).despawn_recursive();
+                return Ok((TargetTransition::none(), self.transition()).into());
+            }
+        } else {
+            println!(
+                "DEV ERROR: Cannot find point for location {target:?} while \
+                trying to back out of SelectAnchor mode"
+            );
+            return Err(());
+        }
     }
 }
 
@@ -624,6 +811,17 @@ impl PathPlacement {
         })
     }
 
+    fn restart(&self) -> PlacementTransition {
+        PlacementTransition{
+            preview: None,
+            next: Arc::new(Self{
+                placement: None,
+                create: self.create.clone(),
+                finalize: self.finalize.clone(),
+            }),
+        }
+    }
+
     fn transition_from(&self, index: usize) -> PlacementTransition {
         PlacementTransition{
             preview: Some(self.at_index(index)),
@@ -641,7 +839,7 @@ impl Placement for PathPlacement {
     fn next<'w, 's>(
         &self,
         mut anchor_selection: AnchorSelection,
-        _replacing: Option<Entity>,
+        _continuity: SelectAnchorContinuity,
         target: Option<Entity>,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
@@ -650,7 +848,7 @@ impl Placement for PathPlacement {
             None => {
                 // We need to create a new element
                 let target = (*self.create)(params, Path(vec![anchor_selection.entity()]));
-                params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
+                params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
                 return Ok((TargetTransition::create(target), self.transition_from(0)).into());
             }
         };
@@ -701,14 +899,14 @@ impl Placement for PathPlacement {
             *place_anchor = anchor_selection.entity();
 
             if path.iter().find(|x| **x == old_anchor).is_none() {
-                params.remove_dependent(target, old_anchor, &mut anchor_selection)?;
+                params.remove_dependent(target, old_anchor, &mut Some(&mut anchor_selection))?;
             }
         } else {
             // We need to add this anchor to the end of the vector
             path.push(anchor_selection.entity());
         }
 
-        params.add_dependent(target, anchor_selection.entity(), &mut anchor_selection)?;
+        params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
         return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 
@@ -764,6 +962,68 @@ impl Placement for PathPlacement {
     ) {
         (*self.finalize)(params, target);
     }
+
+    fn backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()> {
+        if let Some(replacing) = continuity.replacing() {
+            if let Some(index) = self.placement {
+                let (mut path, _) = params.paths.get_mut(target).map_err(|_| ())?;
+                if let Some(anchor) = path.get_mut(index) {
+                    let mut dep = params.dependents.get_mut(*anchor).map_err(|_| ())?;
+                    dep.dependents.remove(&target);
+                    dep.dependents.insert(replacing);
+                    *anchor = replacing;
+
+                    return Ok((TargetTransition::finished(), self.restart()).into());
+                }
+
+                println!(
+                    "DEV ERROR: Path of length {} is missing the index {} \
+                    that was supposed to be replaced.",
+                    path.len(), index
+                );
+                return Err(());
+            }
+
+            println!(
+                "DEV ERROR: Unable to find the placement of a path anchor \
+                that is being replaced."
+            );
+            return Err(());
+        }
+
+        let (mut path, behavior) = params.paths.get_mut(target).map_err(|_| ())?;
+        if path.len() < behavior.minimum_points {
+            // We're backing out when the path is too small, so we will delete
+            // the object.
+            for anchor in path.iter() {
+                if let Ok(mut dep) = params.dependents.get_mut(*anchor) {
+                    dep.dependents.remove(&target);
+                }
+            }
+
+            params.commands.entity(target).despawn_recursive();
+            return Ok((TargetTransition::none(), self.restart()).into());
+        }
+
+        if let Some(last) = path.last() {
+            // The last anchor is virtually guaranteed to be one that's being
+            // previewed rather than one that's actually been selected, so we
+            // will remove it here. Technically there could be a race condition
+            // if the user selects + backs out in the same update cycle, but if
+            // they're giving conflicting inputs in such a small window then
+            // it's not unreasonable for us to permit that race condition.
+            let mut dep = params.dependents.get_mut(*last).unwrap();
+            dep.dependents.remove(last);
+            path.pop();
+        }
+
+        return Ok((TargetTransition::finished(), self.restart()).into());
+    }
 }
 
 #[derive(SystemParam)]
@@ -773,7 +1033,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut AnchorDependents>,
     commands: Commands<'w, 's>,
-    cursor: Res<'w, Cursor>,
+    cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
 }
 
@@ -783,52 +1043,57 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         &mut self,
         dependent: Entity,
         to_anchor: Entity,
-        anchor_selection: &mut AnchorSelection,
+        anchor_selection: &mut Option<&mut AnchorSelection>,
     ) -> Result<(), ()> {
-        if to_anchor == anchor_selection.entity() {
-            anchor_selection.add_dependent(self, dependent)
-        } else {
-            let mut dep = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
-                Ok(dep) => dep,
-                Err(_) => {
-                    println!(
-                        "DEV ERROR: Trying to insert invalid anchor \
-                        {to_anchor:?} into entity {dependent:?}"
-                    );
-                    return Err(());
-                }
-            };
-            dep.dependents.insert(dependent);
-            Ok(())
+        if let Some(anchor_selection) = anchor_selection {
+            if to_anchor == anchor_selection.entity() {
+                return anchor_selection.add_dependent(self, dependent);
+            }
         }
+
+        let mut dep = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
+            Ok(dep) => dep,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Trying to insert invalid anchor \
+                    {to_anchor:?} into entity {dependent:?}"
+                );
+                return Err(());
+            }
+        };
+        dep.dependents.insert(dependent);
+        Ok(())
     }
 
     fn remove_dependent(
         &mut self,
         dependent: Entity,
         from_anchor: Entity,
-        anchor_selection: &mut AnchorSelection,
+        anchor_selection: &mut Option<&mut AnchorSelection>,
     ) -> Result<(), ()> {
-        if from_anchor == anchor_selection.entity() {
-            anchor_selection.remove_dependent(self, dependent)
-        } else {
-            let mut dep = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
-                Ok(dep) => dep,
-                Err(_) => {
-                    println!(
-                        "DEV ERROR: Removing invalid anchor {from_anchor:?} \
-                        from entity {dependent:?}"
-                    );
-                    return Err(());
-                }
-            };
-            dep.dependents.remove(&dependent);
-            Ok(())
+        if let Some(anchor_selection) = anchor_selection {
+            if from_anchor == anchor_selection.entity() {
+                return anchor_selection.remove_dependent(self, dependent);
+            }
         }
+
+        let mut dep = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
+            Ok(dep) => dep,
+            Err(_) => {
+                println!(
+                    "DEV ERROR: Removing invalid anchor {from_anchor:?} \
+                    from entity {dependent:?}"
+                );
+                return Err(());
+            }
+        };
+        dep.dependents.remove(&dependent);
+        Ok(())
     }
 
     /// Use this when exiting SelectAnchor mode
     fn cleanup(&mut self) {
+        self.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
         set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
     }
 }
@@ -967,7 +1232,7 @@ impl SelectAnchor {
         SelectAnchorEdgeBuilder{
             for_element: None,
             placement: Side::Left,
-            continuity: SelectAnchorContinuity::Continuous,
+            continuity: SelectAnchorContinuity::Continuous{previous: None},
         }
     }
 
@@ -1001,7 +1266,7 @@ impl SelectAnchor {
         SelectAnchorPathBuilder{
             for_element: None,
             placement: None,
-            continuity: SelectAnchorContinuity::Continuous,
+            continuity: SelectAnchorContinuity::Continuous{previous: None},
         }
     }
 
@@ -1032,7 +1297,7 @@ impl SelectAnchor {
         match self.continuity {
             SelectAnchorContinuity::ReplaceAnchor{ .. } => false,
             SelectAnchorContinuity::InsertElement
-            | SelectAnchorContinuity::Continuous => self.target.is_none(),
+            | SelectAnchorContinuity::Continuous{ .. } => self.target.is_none(),
         }
     }
 
@@ -1046,7 +1311,7 @@ impl SelectAnchor {
     ) -> Option<Self> {
         let transition = match self.placement.next(
             anchor_selection,
-            self.continuity.replacing(),
+            self.continuity,
             self.target,
             params,
         ) {
@@ -1078,30 +1343,34 @@ impl SelectAnchor {
                 return None;
             },
             SelectAnchorContinuity::InsertElement => {
-                match next_target {
-                    Some(next_target) => {
-                        return Some(Self{
-                            target: Some(next_target),
-                            placement: next_placement,
-                            continuity: self.continuity,
-                        });
-                    },
-                    None => {
-                        // If the next target is none, then the last
-                        // selection finished constructing an element.
-                        // Since this is InsertElement mode, we should
-                        // quit here.
-                        return None;
-                    }
+                if transition.target.is_finished {
+                    // For InsertElement mode we exit the SelectAnchor mode as
+                    // soon as a target is finished.
+                    return None;
+                } else {
+                    return Some(Self{
+                        target: next_target,
+                        placement: next_placement,
+                        continuity: self.continuity,
+                    });
                 }
             },
-            SelectAnchorContinuity::Continuous => {
+            SelectAnchorContinuity::Continuous{..} => {
                 return Some(Self{
                     target: next_target,
                     placement: next_placement,
-                    continuity: self.continuity,
+                    continuity: if transition.target.is_finished {
+                        // If the target finished then the current target becomes
+                        // the previous target.
+                        let previous = transition.target.current(self.target);
+                        SelectAnchorContinuity::Continuous{previous}
+                    } else {
+                        // If the target is not finished then we just carry along
+                        // the previous continuity.
+                        self.continuity.clone()
+                    },
                 });
-            }
+            },
         }
     }
 
@@ -1112,7 +1381,7 @@ impl SelectAnchor {
     ) -> PreviewResult {
         let transition = match self.placement.next(
             AnchorSelection::existing(anchor_selection),
-            self.continuity.replacing(),
+            self.continuity,
             self.target,
             params,
         ) {
@@ -1150,6 +1419,71 @@ impl SelectAnchor {
             placement: self.placement.clone(),
             continuity: self.continuity
         });
+    }
+
+    pub fn backout<'w, 's>(
+        &self,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> InteractionMode {
+        if let Some(target) = self.target {
+            let transition = match self.placement.backout(
+                self.continuity,
+                target,
+                params
+            ) {
+                Ok(t) => t,
+                Err(_) => {
+                    params.cleanup();
+                    return InteractionMode::Inspect;
+                }
+            };
+
+            if transition.target.is_finished {
+                params.commands.entity(target).remove::<Pending>();
+                self.placement.finalize(target, params);
+            }
+
+            if transition.target.discontinue {
+                params.cleanup();
+                return InteractionMode::Inspect;
+            }
+
+            match self.continuity {
+                SelectAnchorContinuity::ReplaceAnchor{..} => {
+                    // Backing out of ReplaceAnchor always means we go back to
+                    // Inspect mode.
+                    params.cleanup();
+                    return InteractionMode::Inspect;
+                },
+                SelectAnchorContinuity::InsertElement => {
+                    if transition.target.is_finished {
+                        // If we have finished inserting an element then stop here
+                        params.cleanup();
+                        return InteractionMode::Inspect;
+                    } else {
+                        return InteractionMode::SelectAnchor(Self{
+                            target: None,
+                            placement: transition.placement.next,
+                            continuity: SelectAnchorContinuity::InsertElement,
+                        });
+                    }
+                },
+                SelectAnchorContinuity::Continuous{..} => {
+                    return InteractionMode::SelectAnchor(Self{
+                        target: None,
+                        placement: transition.placement.next,
+                        continuity: SelectAnchorContinuity::Continuous{previous: None},
+                    });
+                }
+            }
+        } else {
+            // If there is no current target then a backout means we should
+            // exit the SelectAnchor mode entirely.
+            params.cleanup();
+            return InteractionMode::Inspect;
+        }
+
+
     }
 }
 
@@ -1189,13 +1523,13 @@ pub fn handle_select_anchor_mode(
         // out if it is.
         if let Some(hovering) = hovering.0 {
             if anchors.contains(hovering) {
-                set_visibility(params.cursor.frame, &mut params.visibility, false);
+                params.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
             } else {
                 hover.send(Hover(None));
-                set_visibility(params.cursor.frame, &mut params.visibility, true);
+                params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
             }
         } else {
-            set_visibility(params.cursor.frame, &mut params.visibility, true);
+            params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
 
         /// Make the anchor placement component of the cursor visible
@@ -1253,9 +1587,9 @@ pub fn handle_select_anchor_mode(
 
     if hovering.is_changed() {
         if hovering.0.is_none() {
-            set_visibility(params.cursor.frame, &mut params.visibility, true);
+            params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         } else {
-            set_visibility(params.cursor.frame, &mut params.visibility, false);
+            params.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
     }
 
@@ -1297,30 +1631,30 @@ pub fn handle_select_anchor_mode(
 
             *mode = InteractionMode::SelectAnchor(request);
         } else {
-            if let Some(target) = request.target {
-                // Offer a preview based on the current hovering status
-                let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
-                let current = request.placement.current(target, &params);
+            // Offer a preview based on the current hovering status
+            let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
+            let current = request.target.map(|target| {
+                request.placement.current(target, &params)
+            }).flatten();
 
-                if Some(hovered) != current {
-                    // We should only call this function if the current hovered
-                    // anchor is not the one currently assigned. Otherwise we
-                    // are wasting query+command effort.
-                    match request.preview(hovered, &mut params) {
-                        PreviewResult::Updated(next) => {
-                            *mode = InteractionMode::SelectAnchor(next);
-                        },
-                        PreviewResult::Unchanged => {
-                            // Do nothing, the mode has not changed
-                        },
-                        PreviewResult::Invalid => {
-                            // Something was invalid about the request, so we
-                            // will exit back to Inspect mode.
-                            params.cleanup();
-                            *mode = InteractionMode::Inspect;
-                        }
-                    };
-                }
+            if Some(hovered) != current {
+                // We should only call this function if the current hovered
+                // anchor is not the one currently assigned. Otherwise we
+                // are wasting query+command effort.
+                match request.preview(hovered, &mut params) {
+                    PreviewResult::Updated(next) => {
+                        *mode = InteractionMode::SelectAnchor(next);
+                    },
+                    PreviewResult::Unchanged => {
+                        // Do nothing, the mode has not changed
+                    },
+                    PreviewResult::Invalid => {
+                        // Something was invalid about the request, so we
+                        // will exit back to Inspect mode.
+                        params.cleanup();
+                        *mode = InteractionMode::Inspect;
+                    }
+                };
             }
         }
     } else {
