@@ -113,8 +113,10 @@ pub fn add_wall_visual(
             panic!("Anchor was not initialized correctly");
         }
 
-        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
-            dep.dependents.insert(e);
+        for anchor in &edge.array() {
+            if let Ok(mut dep) = dependents.get_mut(*anchor) {
+                dep.dependents.insert(e);
+            }
         }
     }
 }

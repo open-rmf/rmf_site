@@ -25,27 +25,29 @@ use crate::{
 pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
-    mut anchors: Query<(&GlobalTransform, &mut AnchorDependents), With<Anchor>>,
+    anchors: Query<&GlobalTransform, With<Anchor>>,
+    mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
 ) {
     for (e, edge) in &measurements {
-        if let Ok([
-            (start_anchor, mut start_dep),
-            (end_anchor, mut end_dep)
-        ]) = anchors.get_many_mut(edge.array()) {
-            start_dep.dependents.insert(e);
-            end_dep.dependents.insert(e);
+        if let Ok([start_anchor, end_anchor]) = anchors.get_many(edge.array()) {
             commands.entity(e)
                 .insert_bundle(PbrBundle{
                     mesh: assets.lane_mid_mesh.clone(),
                     material: assets.measurement_material.clone(),
-                    transform: line_stroke_transform(start_anchor, end_anchor),
+                    transform: line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH),
                     ..default()
                 })
                 .insert(Selectable::new(e))
                 .insert(Category("Measurement".to_string()));
         } else {
             panic!("Anchor was not initialized correctly");
+        }
+
+        for anchor in &edge.array() {
+            if let Ok(mut dep) = dependents.get_mut(*anchor) {
+                dep.dependents.insert(e);
+            }
         }
     }
 }
@@ -57,7 +59,7 @@ fn update_measurement_visual(
 ) {
     let start_anchor = anchors.get(edge.start()).unwrap();
     let end_anchor = anchors.get(edge.end()).unwrap();
-    *transform = line_stroke_transform(start_anchor, end_anchor);
+    *transform = line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH);
 }
 
 pub fn update_changed_measurement(

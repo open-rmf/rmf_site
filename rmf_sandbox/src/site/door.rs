@@ -88,8 +88,10 @@ pub fn add_door_visuals(
         .insert(DoorSegments{entity: child})
         .insert(Category("Door".to_string()));
 
-        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
-            dep.dependents.insert(e);
+        for anchor in &edge.array() {
+            if let Ok(mut dep) = dependents.get_mut(*anchor) {
+                dep.dependents.insert(e);
+            }
         }
     }
 }

@@ -21,12 +21,12 @@ use bevy::prelude::*;
 pub fn line_stroke_transform(
     start: &GlobalTransform,
     end: &GlobalTransform,
+    width: f32,
 ) -> Transform {
     let p_start = start.translation();
     let p_end = end.translation();
     let dp = p_end - p_start;
     let length = dp.length();
-    let width = LANE_WIDTH;
 
     let yaw = dp.y.atan2(dp.x);
     let tilt = dp.z.atan2(dp.x.abs());

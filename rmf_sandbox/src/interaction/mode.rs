@@ -69,14 +69,9 @@ impl InteractionMode {
     }
 
     fn cancel<'w, 's>(&mut self, params: &mut BackoutParams<'w, 's>) {
-        // match self {
-        //     Self::Inspect => {
-        //         // Do nothing
-        //     },
-        //     Self::SelectAnchor(select_anchor) => {
-        //         select_anchor
-        //     }
-        // }
+        while !matches!(self, InteractionMode::Inspect) {
+            self.backout(params);
+        }
     }
 }
 

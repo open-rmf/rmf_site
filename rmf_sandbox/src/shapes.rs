@@ -79,6 +79,16 @@ impl PartialMesh {
     }
 }
 
+impl From<PartialMesh> for Mesh {
+    fn from(partial: PartialMesh) -> Self {
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.set_indices(Some(Indices::U32(partial.indices)));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, partial.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, partial.normals);
+        mesh
+    }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct Circle {
     pub radius: f32,
@@ -393,20 +403,18 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     mesh
 }
 
-pub(crate) fn make_flat_square_mesh() -> Mesh {
+pub(crate) fn make_flat_square_mesh(extent: f32) -> PartialMesh {
     let positions: Vec<[f32; 3]> = [
-        [-1., -1., 0.],
-        [1., -1., 0.],
-        [1., 1., 0.],
-        [-1., 1., 0.],
+        [-extent, -extent, 0.],
+        [extent, -extent, 0.],
+        [extent, extent, 0.],
+        [-extent, extent, 0.],
     ].into_iter().cycle().take(8).collect();
 
-    let indices = Indices::U32(
-        [
-            0, 1, 2, 0, 2, 3,
-            4, 6, 5, 4, 7, 6,
-        ].into_iter().collect()
-    );
+    let indices = [
+        0, 1, 2, 0, 2, 3,
+        4, 6, 5, 4, 7, 6,
+    ].into_iter().collect();
 
     let normals: Vec<[f32; 3]> = [
         [0., 0., 1.]
@@ -415,11 +423,7 @@ pub(crate) fn make_flat_square_mesh() -> Mesh {
         [0., 0., -1.]
     ].into_iter().cycle().take(4)).collect();
 
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.set_indices(Some(indices));
-    return mesh;
+    return PartialMesh{positions, normals, indices};
 }
 
 pub(crate) fn make_halo_mesh() -> Mesh {

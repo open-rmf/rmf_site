@@ -221,7 +221,6 @@ pub fn maintain_hovered_entities(
 
 pub fn maintain_selected_entities(
     mode: Res<InteractionMode>,
-    anchors: Query<(), With<Anchor>>,
     mut selected: Query<&mut Selected>,
     mut selection: ResMut<Selection>,
     mut select: EventReader<Select>,

@@ -92,7 +92,7 @@ pub fn add_lane_visuals(
                     .spawn_bundle(PbrBundle {
                         mesh: assets.lane_mid_mesh.clone(),
                         material: assets.passive_lane_material.clone(),
-                        transform: line_stroke_transform(start_anchor, end_anchor),
+                        transform: line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH),
                         ..default()
                     })
                     .insert(Selectable::new(e))
@@ -137,7 +137,7 @@ fn update_lane_visuals(
         *tf = start_anchor.compute_transform();
     }
     if let Some(mut tf) = transforms.get_mut(segments.mid).ok() {
-        *tf = line_stroke_transform(start_anchor, end_anchor);
+        *tf = line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH);
     }
     if let Some(mut tf) = transforms.get_mut(segments.end).ok() {
         *tf = end_anchor.compute_transform();

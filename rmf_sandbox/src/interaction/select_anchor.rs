@@ -775,7 +775,7 @@ pub struct PathPlacement {
     /// the end if None is specified. If the specified index is too high, this
     /// value will be changed to None and all new anchors will be pushed to the
     /// back.
-    placement: Option<usize>,
+    index: Option<usize>,
     create: CreatePathFn,
     finalize: FinalizeFn,
 }
@@ -784,7 +784,7 @@ impl PathPlacement {
 
     fn new<T: Bundle + From<Path<Entity>>>(placement: Option<usize>) -> Arc<Self> {
         Arc::new(Self{
-            placement,
+            index: placement,
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
                     let new_bundle: T = path.into();
@@ -805,7 +805,7 @@ impl PathPlacement {
 
     fn at_index(&self, index: usize) -> Arc<Self> {
         Arc::new(Self{
-            placement: Some(index),
+            index: Some(index),
             create: self.create.clone(),
             finalize: self.finalize.clone(),
         })
@@ -815,7 +815,7 @@ impl PathPlacement {
         PlacementTransition{
             preview: None,
             next: Arc::new(Self{
-                placement: None,
+                index: None,
                 create: self.create.clone(),
                 finalize: self.finalize.clone(),
             }),
@@ -832,6 +832,13 @@ impl PathPlacement {
     fn transition_to(&self, index: usize) -> PlacementTransition {
         let index = if index > 0 { index - 1 } else { 0 };
         self.transition_from(index)
+    }
+
+    fn ignore(&self) -> PlacementTransition {
+        PlacementTransition{
+            preview: None,
+            next: Arc::new(self.clone()),
+        }
     }
 }
 
@@ -864,7 +871,7 @@ impl Placement for PathPlacement {
             }
         };
 
-        let index = self.placement.unwrap_or(path.len()).min(path.len());
+        let index = self.index.unwrap_or(path.len()).min(path.len());
         if path.len() >= behavior.minimum_points && behavior.implied_complete_loop {
             if Some(anchor_selection.entity()) == path.first().cloned() {
                 if index >= path.len() - 1 {
@@ -889,7 +896,7 @@ impl Placement for PathPlacement {
                 if *anchor == anchor_selection.entity() && i != index {
                     // The user has reselected a midpoint. That violates the
                     // requested behavior, so we ignore it.
-                    return Ok((TargetTransition::none(), self.transition_to(index)).into());
+                    return Ok((TargetTransition::none(), self.ignore()).into());
                 }
             }
         }
@@ -915,7 +922,7 @@ impl Placement for PathPlacement {
         target: Entity,
         params: &SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
-        let index = match self.placement {
+        let index = match self.index {
             Some(i) => i,
             None => { return None; }
         };
@@ -950,7 +957,7 @@ impl Placement for PathPlacement {
             }
         };
 
-        let placement = self.placement.map(|index| path.get(index).cloned()).flatten();
+        let placement = self.index.map(|index| path.get(index).cloned()).flatten();
         params.commands.entity(target).insert(Original(path));
         return placement;
     }
@@ -970,7 +977,7 @@ impl Placement for PathPlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
         if let Some(replacing) = continuity.replacing() {
-            if let Some(index) = self.placement {
+            if let Some(index) = self.index {
                 let (mut path, _) = params.paths.get_mut(target).map_err(|_| ())?;
                 if let Some(anchor) = path.get_mut(index) {
                     let mut dep = params.dependents.get_mut(*anchor).map_err(|_| ())?;
@@ -997,7 +1004,16 @@ impl Placement for PathPlacement {
         }
 
         let (mut path, behavior) = params.paths.get_mut(target).map_err(|_| ())?;
-        if path.len() < behavior.minimum_points {
+        let discontinue = path.is_empty() || (
+            path.len() == 1 && self.index == Some(0)
+        );
+
+        let insufficient_points = path.len() < behavior.minimum_points || (
+            path.len() < behavior.minimum_points + 1
+            && self.index < Some(behavior.minimum_points)
+        );
+
+        if insufficient_points || discontinue {
             // We're backing out when the path is too small, so we will delete
             // the object.
             for anchor in path.iter() {
@@ -1007,6 +1023,9 @@ impl Placement for PathPlacement {
             }
 
             params.commands.entity(target).despawn_recursive();
+            if discontinue {
+                return Ok((TargetTransition::discontinued(), self.restart()).into());
+            }
             return Ok((TargetTransition::none(), self.restart()).into());
         }
 

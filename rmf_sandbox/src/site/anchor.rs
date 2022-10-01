@@ -104,7 +104,6 @@ pub fn assign_orphan_anchors_to_parent(
     mut lifts: Query<(Entity, &LiftCabin, &GlobalTransform)>,
 ) {
     for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
-        dbg!(anchor);
         let p_anchor = {
             let mut p = global_anchor_tf.translation();
             // Add a little height to make sure that the anchor isn't
@@ -131,7 +130,6 @@ pub fn assign_orphan_anchors_to_parent(
             if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.compute_matrix()) {
                 // The anchor is inside the lift cabin, so we should
                 // make it the anchor's parent.
-                dbg!(anchor, e_lift);
                 commands.entity(e_lift).add_child(anchor);
                 assigned_to_lift = true;
 
@@ -152,7 +150,6 @@ pub fn assign_orphan_anchors_to_parent(
         // The anchor was not assigned to a lift, so we should assign it to the
         // current level.
         let parent = if let Some(level) = current_level.0 {
-            dbg!(current_level.0);
             level
         } else {
             // No level is currently assigned, so we should create one.
@@ -165,12 +162,10 @@ pub fn assign_orphan_anchors_to_parent(
                 .insert(Category("Level".to_string()))
                 .id();
 
-            dbg!(new_level_id);
             current_level.0 = Some(new_level_id);
             new_level_id
         };
 
-        dbg!(anchor, parent);
         commands.entity(parent).add_child(anchor);
     }
 }

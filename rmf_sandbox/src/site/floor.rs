@@ -15,11 +15,18 @@
  *
 */
 
+use crate::{
+    site::*,
+    interaction::Selectable,
+    shapes::*,
+};
+use rmf_site_format::{FloorMarker, Path};
 use bevy::{
     prelude::*,
     render::mesh::{
         PrimitiveTopology, Indices,
-    }
+    },
+    math::Affine3A,
 };
 use lyon::{
     math::point,
@@ -28,20 +35,82 @@ use lyon::{
         *, geometry_builder::simple_builder,
     }
 };
-use rmf_site_format::{FloorMarker, Path};
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
 
-fn make_floor_mesh(
+pub const FALLBACK_FLOOR_SIZE: f32 = 0.5;
+
+fn make_fallback_floor_mesh(p: Vec3) -> Mesh {
+    make_flat_square_mesh(0.5).transform_by(
+        Affine3A::from_scale_rotation_translation(
+            Vec3::splat(FALLBACK_FLOOR_SIZE),
+            Quat::from_rotation_z(0.0),
+            p,
+        )
+    ).into()
+}
+
+fn make_fallback_floor_mesh_at_avg(positions: Vec<Vec3>) -> Mesh {
+    let p = positions.iter()
+        .fold(Vec3::ZERO, |sum, x| sum + *x) / positions.len() as f32;
+    return make_fallback_floor_mesh(p);
+}
+
+fn make_fallback_floor_mesh_near_path(
     path: &Path<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> Mesh {
+    let mut positions: Vec<Vec3> = Vec::new();
+    for anchor in path.iter() {
+        if let Ok(tf) = anchors.get(*anchor) {
+            positions.push(tf.translation());
+        }
+    }
+    return make_fallback_floor_mesh_at_avg(positions);
+}
+
+fn make_floor_mesh(
+    anchor_path: &Path<Entity>,
+    anchors: &Query<&GlobalTransform, With<Anchor>>,
+) -> Mesh {
+    if anchor_path.len() == 0 {
+        return Mesh::new(PrimitiveTopology::TriangleList);
+    } else if anchor_path.len() == 1 {
+        let p = anchors.get(anchor_path[0])
+            .map(|p| p.translation()).unwrap_or(Vec3::ZERO);
+        return make_fallback_floor_mesh(p);
+    } else if anchor_path.len() == 2 {
+        let mut positions: Vec<&GlobalTransform> = Vec::new();
+        let mut valid = true;
+        for anchor in anchor_path.iter() {
+            if let Ok(tf) = anchors.get(*anchor) {
+                positions.push(tf);
+            } else {
+                println!("DEV ERROR: Failed to find anchor {anchor:?} used by a path");
+                valid = false;
+            }
+        }
+        if !valid {
+            return make_fallback_floor_mesh_at_avg(
+                positions.iter().map(|tf| tf.translation()).collect()
+            );
+        }
+
+        let tf = line_stroke_transform(positions[0], positions[1], FALLBACK_FLOOR_SIZE);
+        return make_flat_square_mesh(0.5).transform_by(tf.compute_affine()).into();
+    }
+
     let mut builder = LyonPath::builder();
     let mut first = true;
-    for anchor in &path.0 {
-        let p = anchors.get(*anchor).unwrap().translation();
+    let mut valid = true;
+    for anchor in &anchor_path.0 {
+        let p = match anchors.get(*anchor) {
+            Ok(a) => a,
+            Err(_) => {
+                println!("DEV ERROR: Failed to find anchor {anchor:?} used by a path");
+                valid = false;
+                continue;
+            }
+        }.translation();
+
         if first {
             first = false;
             builder.begin(point(p.x, p.y));
@@ -49,10 +118,14 @@ fn make_floor_mesh(
             builder.line_to(point(p.x, p.y));
         }
     }
+
+    if !valid {
+        return make_fallback_floor_mesh_near_path(anchor_path, anchors);
+    }
+
     builder.close();
     let path = builder.build();
 
-    // let mut buffers: VertexBuffers<FillVertex, u32> = VertexBuffers::new();
     let mut buffers = VertexBuffers::new();
     {
         let mut vertex_builder = simple_builder(&mut buffers);
@@ -65,8 +138,8 @@ fn make_floor_mesh(
 
         match result {
             Err(err) => {
-                print!("Failed to render floor: {err}\nFalling back to default floor plane.");
-                return shape::Plane{size: 100.0}.into();
+                println!("Failed to render floor: {err}");
+                return make_fallback_floor_mesh_near_path(anchor_path, anchors);
             },
             _ => { },
         }
