@@ -20,7 +20,6 @@ mod widgets;
 use widgets::*;
 
 mod demo_world;
-mod deletion;
 mod shapes;
 
 mod main_menu;
@@ -34,7 +33,6 @@ mod simulation_state;
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use deletion::DeletionPlugin;
 use sandbox_asset_io::SandboxAssetIoPlugin;
 use site::SitePlugin;
 
@@ -104,7 +102,6 @@ pub fn run() {
 
     app
         .init_resource::<Settings>()
-        .add_event::<deletion::DeleteElement>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
@@ -116,7 +113,6 @@ pub fn run() {
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
         // .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(DeletionPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
         .add_plugin(StandardUiLayout)

@@ -118,12 +118,12 @@ pub struct MoveTo {
 }
 
 pub fn make_gizmos_pickable(
-    mut command: Commands,
+    mut commands: Commands,
     drag_axis: Query<Entity, Added<DragAxis>>,
     drag_plane: Query<Entity, Added<DragPlane>>,
 ) {
     for e in drag_axis.iter().chain(drag_plane.iter()) {
-        command.entity(e).insert_bundle(PickableBundle::default());
+        commands.entity(e).insert_bundle(PickableBundle::default());
     }
 }
 

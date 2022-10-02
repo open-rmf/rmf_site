@@ -15,9 +15,12 @@
  *
 */
 
-use crate::interaction::{
-    camera_controls::CameraControls,
-    ChangeMode,
+use crate::{
+    interaction::{
+        camera_controls::CameraControls,
+        ChangeMode, InteractionMode, Selection,
+    },
+    site::Delete,
 };
 use bevy::{
     prelude::*,
@@ -34,10 +37,13 @@ impl Plugin for KeyboardInputPlugin {
 
 fn handle_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
+    selection: Res<Selection>,
+    current_mode: Res<InteractionMode>,
     mut camera_controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Camera, &mut Visibility)>,
     mut egui_context: ResMut<EguiContext>,
     mut change_mode: EventWriter<ChangeMode>,
+    mut delete: EventWriter<Delete>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -58,5 +64,15 @@ fn handle_keyboard_input(
 
     if keyboard_input.just_pressed(KeyCode::Escape) {
         change_mode.send(ChangeMode::Backout);
+    }
+
+    if keyboard_input.just_pressed(KeyCode::Delete) {
+        if current_mode.is_inspecting() {
+            if let Some(selection) = selection.0 {
+                delete.send(Delete::new(selection));
+            } else {
+                println!("No selected entity to delete");
+            }
+        }
     }
 }

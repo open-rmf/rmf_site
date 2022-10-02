@@ -37,9 +37,20 @@ fn make_lift_transforms(
 ) -> (Transform, Transform) {
     let start_anchor = anchors.get(reference_anchors.start()).unwrap();
     let end_anchor = anchors.get(reference_anchors.end()).unwrap();
+    let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
+        (
+            (
+                start_anchor.translation(),
+                start_anchor.translation() + DEFAULT_CABIN_WIDTH * Vec3::Y,
+            )
+        )
+    } else {
+        (
+            start_anchor.translation(),
+            end_anchor.translation(),
+        )
+    };
 
-    let p_start = start_anchor.translation();
-    let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
@@ -98,7 +109,8 @@ pub fn add_lift_visuals(
         .insert(LiftSegments{cabin: child})
         .insert(Category("Lift".to_string()));
 
-        for mut dep in dependents.get_many_mut(edge.array()).unwrap() {
+        for anchor in edge.array() {
+            let mut dep = dependents.get_mut(anchor).unwrap();
             dep.dependents.insert(e);
         }
     }

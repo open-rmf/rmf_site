@@ -120,7 +120,7 @@ impl Default for ParameterizedLiftCabin {
             },
             wall_thickness: None,
             gap: None,
-            shift: None
+            shift: None,
         }
     }
 }
@@ -134,7 +134,7 @@ impl ParameterizedLiftCabin {
             center: Vec3A::new(
                 -self.depth/2.0 - thick - gap,
                 self.shift.unwrap_or(0.),
-                DEFAULT_LEVEL_HEIGHT,
+                DEFAULT_LEVEL_HEIGHT/2.0,
             ),
             half_extents: Vec3A::new(
                 self.depth/2.0,

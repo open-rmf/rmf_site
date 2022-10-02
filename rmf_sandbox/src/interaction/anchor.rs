@@ -16,10 +16,9 @@
 */
 
 use crate::{
-    site::{Anchor, SiteAssets},
+    site::{Anchor, SiteAssets, Delete},
     interaction::*,
     animate::*,
-    deletion::DeleteElement,
 };
 use bevy::prelude::*;
 
@@ -164,15 +163,15 @@ pub fn update_anchor_visual_cues(
 pub fn remove_deleted_supports_from_visual_cues(
     mut hovered: Query<&mut Hovered, With<AnchorVisualCue>>,
     mut selected: Query<&mut Selected, With<AnchorVisualCue>>,
-    mut deleted_elements: EventReader<DeleteElement>,
+    mut deleted_elements: EventReader<Delete>,
 ) {
     for deletion in deleted_elements.iter() {
         for mut h in &mut hovered {
-            h.support_hovering.remove(&deletion.0);
+            h.support_hovering.remove(&deletion.element);
         }
 
         for mut s in &mut selected {
-            s.support_selected.remove(&deletion.0);
+            s.support_selected.remove(&deletion.element);
         }
     }
 }

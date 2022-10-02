@@ -37,6 +37,14 @@ fn make_wall_components(
     ) {
         let p_start = start_anchor.translation();
         let p_end = end_anchor.translation();
+        let (p_start, p_end) = if wall.left() == wall.right() {
+            (
+                p_start - DEFAULT_WALL_THICKNESS/2.0 * Vec3::X,
+                p_start + DEFAULT_WALL_THICKNESS/2.0 * Vec3::X,
+            )
+        } else {
+            (p_start, p_end)
+        };
         let dp = p_end - p_start;
         let length = dp.length();
         let yaw = dp.y.atan2(dp.x);

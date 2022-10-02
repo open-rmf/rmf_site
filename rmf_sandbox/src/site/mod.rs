@@ -24,6 +24,9 @@ pub use assets::*;
 pub mod change_plugin;
 pub use change_plugin::*;
 
+pub mod deletion;
+pub use deletion::*;
+
 pub mod door;
 pub use door::*;
 
@@ -142,6 +145,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
+            .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(
                 SystemSet::on_enter(SiteState::Display)

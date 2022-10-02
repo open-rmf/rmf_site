@@ -22,8 +22,7 @@ use bevy::{
 use rmf_site_format::{ModelMarker, Label, Pose};
 use crate::{
     interaction::Selectable,
-    deletion::DespawnBlocker,
-    site::Category,
+    site::{Category, PreventDeletion}
 };
 use std::collections::HashMap;
 use smallvec::SmallVec;
@@ -78,7 +77,7 @@ pub fn update_model_scenes(
                 String::from("sandbox://") + kind + &".glb#Scene0".to_string();
             let scene: Handle<Scene> = asset_server.load(&bundle_path);
             loading_models.insert(e, scene.clone());
-            commands.insert(DespawnBlocker);
+            commands.insert(PreventDeletion::because("Waiting for model to spawn".to_string()));
         }
     }
 
@@ -88,7 +87,7 @@ pub fn update_model_scenes(
     // entities are only despawned at the next frame. This also ensures that entities are
     // "fully spawned" before despawning.
     for e in spawned_models.0.iter() {
-        commands.entity(*e).remove::<DespawnBlocker>();
+        commands.entity(*e).remove::<PreventDeletion>();
     }
     spawned_models.0.clear();
 
