@@ -139,12 +139,11 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
-            .add_event::<Change<Motion>>()
-            .add_event::<Change<ReverseLane>>()
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
+            .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(

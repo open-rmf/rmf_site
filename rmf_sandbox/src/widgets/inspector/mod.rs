@@ -59,6 +59,7 @@ pub struct InspectorParams<'w, 's> {
     pub edges: Query<'w, 's, (&'static Edge<Entity>, Option<&'static Original<Edge<Entity>>>)>,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
+    pub names: Query<'w, 's, &'static NameInSite>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -131,6 +132,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.push_id("Reverse Motion", |ui| {
                     if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
                         self.events.change_lane_reverse.send(Change::new(new_reverse, selection));
+                    }
+                });
+                ui.add_space(10.0);
+            }
+
+            if let Ok(name) = self.params.names.get(selection) {
+                ui.horizontal(|ui| {
+                    ui.label("Name");
+                    let mut new_name = name.clone();
+                    ui.text_edit_singleline(&mut new_name.0);
+                    if new_name != *name {
+                        self.events.change_name.send(Change::new(new_name, selection));
                     }
                 });
             }
