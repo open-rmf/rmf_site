@@ -34,29 +34,31 @@ impl<'a> InspectLabel<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Label> {
-        let mut has_value = self.label.is_some();
-        ui.checkbox(&mut has_value, self.title);
-        if has_value {
-            let mut assumed_value = self.label.as_ref().map(|x| x.clone()).unwrap_or_else(
-                || self.recall.value.as_ref().map(|x| x.clone()).unwrap_or_else(
-                    || "<Undefined>".to_string()
-                )
-            );
-            ui.text_edit_singleline(&mut assumed_value);
+        ui.horizontal(|ui| {
+            let mut has_value = self.label.is_some();
+            ui.checkbox(&mut has_value, self.title);
+            if has_value {
+                let mut assumed_value = self.label.as_ref().map(|x| x.clone()).unwrap_or_else(
+                    || self.recall.value.as_ref().map(|x| x.clone()).unwrap_or_else(
+                        || "<undefined>".to_string()
+                    )
+                );
+                ui.text_edit_singleline(&mut assumed_value);
 
-            let new_label = Label(Some(assumed_value));
-            if new_label != *self.label {
-                Some(new_label)
+                let new_label = Label(Some(assumed_value));
+                if new_label != *self.label {
+                    Some(new_label)
+                } else {
+                    None
+                }
             } else {
-                None
+                let new_label = Label(None);
+                if new_label != *self.label {
+                    Some(new_label)
+                } else {
+                    None
+                }
             }
-        } else {
-            let new_label = Label(None);
-            if new_label != *self.label {
-                Some(new_label)
-            } else {
-                None
-            }
-        }
+        }).inner
     }
 }

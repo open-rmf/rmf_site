@@ -55,18 +55,20 @@ impl<'a> InspectPose<'a> {
         });
         ui.add_space(5.0);
 
-        ui.label("Rotation");
-        ComboBox::from_id_source("pose_rotation")
-            .selected_text(new_pose.rot.label())
-            .show_ui(ui, |ui| {
-                for variant in &[
-                    new_pose.rot.as_yaw(),
-                    new_pose.rot.as_euler_extrinsic_xyz(),
-                    new_pose.rot.as_quat(),
-                ] {
-                    ui.selectable_value(&mut new_pose.rot, *variant, variant.label());
-                }
-            });
+        ui.horizontal(|ui| {
+            ui.label("Rotation");
+            ComboBox::from_id_source("pose_rotation")
+                .selected_text(new_pose.rot.label())
+                .show_ui(ui, |ui| {
+                    for variant in &[
+                        new_pose.rot.as_yaw(),
+                        new_pose.rot.as_euler_extrinsic_xyz(),
+                        new_pose.rot.as_quat(),
+                    ] {
+                        ui.selectable_value(&mut new_pose.rot, *variant, variant.label());
+                    }
+                });
+        });
 
         match &mut new_pose.rot {
             Rotation::Yaw(yaw) => {
