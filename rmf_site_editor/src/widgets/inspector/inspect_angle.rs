@@ -36,7 +36,7 @@ impl<'a> InspectAngle<'a> {
                         .min_decimals(0)
                         .max_decimals(1)
                         .speed(1.0)
-                        .clamp_range(-180.0..=180.0),
+                        .clamp_range(-360.0..=360.0),
                 );
 
                 let response = ui.button("deg").on_hover_text("Click to change to radians");
@@ -51,7 +51,7 @@ impl<'a> InspectAngle<'a> {
                         .min_decimals(2)
                         .max_decimals(4)
                         .speed(std::f32::consts::PI / 180.0)
-                        .clamp_range(-std::f32::consts::PI..=std::f32::consts::PI),
+                        .clamp_range(-std::f32::consts::TAU..=std::f32::consts::TAU),
                 );
 
                 let response = ui.button("rad").on_hover_text("Click to change to degrees");
