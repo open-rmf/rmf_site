@@ -40,7 +40,7 @@ fn egui_ui(
         .title_bar(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(egui_context.ctx_mut(), |ui| {
-            ui.heading("Welcome to The RMF Sandbox!");
+            ui.heading("Welcome to The RMF Site Editor!");
             ui.add_space(10.);
 
             ui.horizontal(|ui| {

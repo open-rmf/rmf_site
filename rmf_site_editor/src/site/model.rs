@@ -69,7 +69,7 @@ pub fn update_model_scenes(
             .insert(Category("Model".to_string()));
 
         if let Some(kind) = &kind.0 {
-            let bundle_path = String::from("sandbox://") + kind + &".glb#Scene0".to_string();
+            let bundle_path = String::from("rmf-site://") + kind + &".glb#Scene0".to_string();
             let scene: Handle<Scene> = asset_server.load(&bundle_path);
             loading_models.insert(e, scene.clone());
             commands.insert(PreventDeletion::because(

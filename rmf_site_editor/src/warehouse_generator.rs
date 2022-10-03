@@ -193,8 +193,8 @@ fn warehouse_generator(
     // TODO: We should add floor material to level and have site map spawn it. This is needed so
     // that the warehouse will look the same in traffic editor.
     if !material_map.materials.contains_key("concrete_floor") {
-        let albedo = asset_server.load("sandbox://textures/concrete_albedo_1024.png");
-        let roughness = asset_server.load("sandbox://textures/concrete_roughness_1024.png");
+        let albedo = asset_server.load("rmf-site://textures/concrete_albedo_1024.png");
+        let roughness = asset_server.load("rmf-site://textures/concrete_roughness_1024.png");
         let concrete_floor_handle = materials.add(StandardMaterial {
             base_color_texture: Some(albedo.clone()),
             perceptual_roughness: 0.3,

@@ -12,21 +12,21 @@ use std::path::{Path, PathBuf};
 pub fn cache_path() -> PathBuf {
     let mut p = dirs::cache_dir().unwrap();
     p.push("open-robotics");
-    p.push("rmf_sandbox");
+    p.push("rmf_site_editor");
     return p;
 }
 
-struct SandboxAssetIo {
+struct SiteAssetIo {
     pub default_io: Box<dyn AssetIo>,
 }
 
-const SANDBOX_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
+const SITE_EDITOR_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
 
-impl AssetIo for SandboxAssetIo {
+impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        if path.starts_with("sandbox://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("sandbox://").unwrap();
-            let uri = String::from(SANDBOX_MODELS_URI) + without_prefix;
+        if path.starts_with("rmf-site://") {
+            let without_prefix = path.to_str().unwrap().strip_prefix("rmf-site://").unwrap();
+            let uri = String::from(SITE_EDITOR_MODELS_URI) + without_prefix;
 
             #[cfg(not(target_arch = "wasm32"))]
             {
@@ -114,13 +114,13 @@ impl AssetIo for SandboxAssetIo {
 }
 
 /// A plugin used to execute the override of the asset io
-pub struct SandboxAssetIoPlugin;
+pub struct SiteAssetIoPlugin;
 
-impl Plugin for SandboxAssetIoPlugin {
+impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
         let asset_io = {
             let default_io = bevy::asset::create_platform_default_asset_io(app);
-            SandboxAssetIo { default_io }
+            SiteAssetIo { default_io }
         };
 
         // the asset server is constructed and added the resource manager

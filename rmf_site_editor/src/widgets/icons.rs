@@ -29,8 +29,8 @@ pub struct Icons {
 impl FromWorld for Icons {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let bevy_select = asset_server.load("sandbox://textures/select.png");
-        let bevy_edit = asset_server.load("sandbox://textures/edit.png");
+        let bevy_select = asset_server.load("rmf-site://textures/select.png");
+        let bevy_edit = asset_server.load("rmf-site://textures/edit.png");
 
         let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
         let egui_select = egui_context.add_image(bevy_select.clone());

@@ -1,7 +1,7 @@
 <html>
 <head>
   <meta charset="utf-8">
-  <title>The RMF Sandbox</title>
+  <title>The RMF Site Editor</title>
   <style>
     body {
       background-color: #101010;
@@ -16,17 +16,17 @@
   </style>
 </head>
 <body>
-<canvas id="rmf_sandbox_canvas">
+<canvas id="rmf_site_editor_canvas">
 </canvas>
 <script type="module">
-  import init from "./librmf_sandbox.js";
+  import init from "./librmf_site_editor.js";
 
   document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
   resize_canvas();
   window.addEventListener('resize', resize_canvas);
 
   function resize_canvas() {
-    let canvas = document.getElementById("rmf_sandbox_canvas");
+    let canvas = document.getElementById("rmf_site_editor_canvas");
     canvas.width = window.innerWidth;
     canvas.height = window.innerHeight;
     console.log('canvas size: ' + canvas.width + ' ' + canvas.height);

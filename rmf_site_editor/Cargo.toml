@@ -1,5 +1,5 @@
 [package]
-name = "rmf_sandbox"
+name = "rmf_site_editor"
 version = "0.0.1"
 edition = "2021"
 

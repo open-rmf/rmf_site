@@ -27,13 +27,13 @@ mod site;
 // mod warehouse_generator;
 mod interaction;
 
-mod sandbox_asset_io;
+mod site_asset_io;
 mod simulation_state;
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use sandbox_asset_io::SandboxAssetIoPlugin;
+use site_asset_io::SiteAssetIoPlugin;
 use site::SitePlugin;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -77,8 +77,8 @@ pub fn run() {
     #[cfg(target_arch = "wasm32")]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Sandbox".to_string(),
-            canvas: Some(String::from("#rmf_sandbox_canvas")),
+            title: "RMF Site Editor".to_string(),
+            canvas: Some(String::from("#rmf_site_editor_canvas")),
             //vsync: false,
             ..Default::default()
         })
@@ -92,7 +92,7 @@ pub fn run() {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Sandbox".to_string(),
+            title: "RMF Site Editor".to_string(),
             width: 1600.,
             height: 900.,
             //vsync: false,
@@ -104,7 +104,7 @@ pub fn run() {
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(SandboxAssetIoPlugin)
+            group.add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin)
         })
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
