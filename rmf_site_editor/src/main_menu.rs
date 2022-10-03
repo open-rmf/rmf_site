@@ -32,6 +32,8 @@ fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut _commands: Commands,
     mut _exit: EventWriter<AppExit>,
+    mut _load_site: EventWriter<LoadSite>,
+    mut _interaction_state: ResMut<State<InteractionState>>,
     mut app_state: ResMut<State<AppState>>,
 ) {
     egui::Window::new("Welcome!")
@@ -76,13 +78,24 @@ fn egui_ui(
                         let yaml = demo_office();
                         let data = yaml.as_bytes();
                         match BuildingMap::from_bytes(&data) {
-                            Ok(map) => {
-                                _commands.insert_resource(map);
-                                match app_state.set(AppState::SiteEditor) {
-                                    Ok(_) => {}
-                                    Err(err) => {
-                                        println!("Failed to enter traffic editor: {:?}", err);
+                            Ok(building) => match building.to_site() {
+                                Ok(site) => {
+                                    _load_site.send(LoadSite {
+                                        site,
+                                        focus: true,
+                                        default_file: None,
+                                    });
+                                    match app_state.set(AppState::SiteEditor) {
+                                        Ok(_) => {
+                                            _interaction_state.set(InteractionState::Enable).ok();
+                                        }
+                                        Err(err) => {
+                                            println!("Failed to enter traffic editor: {:?}", err);
+                                        }
                                     }
+                                },
+                                Err(err) => {
+                                    println!("{err:?}");
                                 }
                             }
                             Err(err) => {

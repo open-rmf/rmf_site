@@ -19,7 +19,7 @@ echo "Starting deployment process using branch $BRANCH"
 
 set -o verbose
 
-git clone ssh://git@github.com/osrf/rmf_site_editor temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
+git clone ssh://git@github.com/open-rmf/rmf_site_editor temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
 
 cd temp-deploy-checkout/rmf_editor
 git checkout --orphan gh-pages

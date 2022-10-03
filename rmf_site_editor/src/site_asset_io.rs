@@ -74,7 +74,7 @@ impl AssetIo for SiteAssetIo {
     }
 
     fn get_metadata(&self, path: &Path) -> Result<Metadata, AssetIoError> {
-        if path.starts_with("sandbox://") {
+        if path.starts_with("rmf-site://") {
             return Ok(Metadata::new(FileType::File));
         } else {
             return self.default_io.get_metadata(path);

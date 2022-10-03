@@ -27,14 +27,14 @@ mod site;
 // mod warehouse_generator;
 mod interaction;
 
-mod site_asset_io;
 mod simulation_state;
+mod site_asset_io;
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use site_asset_io::SiteAssetIoPlugin;
 use site::SitePlugin;
+use site_asset_io::SiteAssetIoPlugin;
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
