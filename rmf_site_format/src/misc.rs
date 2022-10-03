@@ -74,7 +74,31 @@ pub enum Rotation {
 
 #[cfg(feature="bevy")]
 impl Rotation {
-    pub fn quat(&self) -> Quat {
+
+    pub fn as_yaw(&self) -> Self {
+        match self {
+            Self::Yaw(_) => self.clone(),
+            Self::EulerExtrinsicXYZ([_, _, yaw]) => Self::Yaw(*yaw),
+            Self::Quat(quat) => Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0)),
+        }
+    }
+
+    pub fn as_euler_extrinsic_xyz(&self) -> Self {
+        match self {
+            Self::Yaw(yaw) => Self::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), *yaw]),
+            Self::EulerExtrinsicXYZ(_) => self.clone(),
+            Self::Quat(quat) => {
+                let (z, y, x) = self.as_bevy_quat().to_euler(EulerRot::ZYX);
+                Self::EulerExtrinsicXYZ([Angle::Rad(x), Angle::Rad(y), Angle::Rad(z)])
+            }
+        }
+    }
+
+    pub fn as_quat(&self) -> Self {
+        Self::Quat(self.as_bevy_quat().to_array())
+    }
+
+    pub fn as_bevy_quat(&self) -> Quat {
         match self {
             Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
             Self::EulerExtrinsicXYZ([x, y, z]) => {
@@ -85,6 +109,14 @@ impl Rotation {
             Self::Quat(quat) => {
                 Quat::from_array(*quat)
             }
+        }
+    }
+
+    pub fn label(&self) -> &str {
+        match self {
+            Self::Yaw(_) => "Yaw",
+            Self::EulerExtrinsicXYZ(_) => "Euler Extrinsic XYZ",
+            Self::Quat(_) => "Quaternion",
         }
     }
 }
@@ -110,7 +142,7 @@ impl Pose {
     pub fn transform(&self) -> Transform {
         Transform{
             translation: self.trans.clone().into(),
-            rotation: self.rot.quat(),
+            rotation: self.rot.as_bevy_quat(),
             ..default()
         }
     }

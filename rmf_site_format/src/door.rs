@@ -61,6 +61,18 @@ pub enum DoorType {
     Model(Model),
 }
 
+impl DoorType {
+    pub fn label(&self) -> &str {
+        match self {
+            Self::SingleSliding(_) => "Single Sliding",
+            Self::DoubleSliding { .. } => "Double Sliding",
+            Self::SingleSwing { .. } => "Single Swing",
+            Self::DoubleSwing(_) => "Double Swing",
+            Self::Model(_) => "Model",
+        }
+    }
+}
+
 /// How the door swings relative to someone who is standing in the frame of door
 /// with the left and right sides of their body aligned with the left and right
 /// anchor points of the door.
@@ -77,6 +89,75 @@ pub enum Swing {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct DoorMarker;
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct RecallDoorType {
+    pub single_sliding: Option<DoorType>,
+    pub double_sliding: Option<DoorType>,
+    pub single_swing: Option<DoorType>,
+    pub double_swing: Option<DoorType>,
+    pub model: Option<DoorType>,
+}
+
+impl RecallDoorType {
+    pub fn assume_single_sliding(&self) -> DoorType {
+        self.single_sliding.as_ref().map(|x| x.clone()).unwrap_or(
+            DoorType::SingleSliding(Side::Left)
+        )
+    }
+
+    pub fn assume_double_sliding(&self) -> DoorType {
+        self.double_sliding.as_ref().map(|x| x.clone()).unwrap_or(
+            DoorType::DoubleSliding { left_right_ratio: 0.5 }
+        )
+    }
+
+    pub fn assume_single_swing(&self) -> DoorType {
+        self.single_swing.as_ref().map(|x| x.clone()).unwrap_or(
+            DoorType::SingleSwing{
+                pivot: Side::Left,
+                swing: Swing::Forward(Angle::Deg(90.0))
+            }
+        )
+    }
+
+    pub fn assume_double_swing(&self) -> DoorType {
+        self.double_swing.as_ref().map(|x| x.clone()).unwrap_or(
+            DoorType::DoubleSwing(Swing::Forward(Angle::Deg(90.0)))
+        )
+    }
+
+    pub fn assume_model(&self) -> DoorType {
+        self.model.as_ref().map(|x| x.clone()).unwrap_or(
+            DoorType::Model(Model::default())
+        )
+    }
+}
+
+impl Recall for RecallDoorType {
+    type Source = DoorType;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match source {
+            DoorType::SingleSliding(_) => {
+                self.single_sliding = Some(source.clone());
+            },
+            DoorType::DoubleSliding{..} => {
+                self.double_sliding = Some(source.clone());
+            },
+            DoorType::SingleSwing{..} => {
+                self.single_sliding = Some(source.clone());
+            },
+            DoorType::DoubleSwing(_) => {
+                self.double_swing = Some(source.clone());
+            },
+            DoorType::Model(_) => {
+                self.model = Some(source.clone());
+            }
+        }
+    }
+}
 
 #[cfg(feature="bevy")]
 impl Door<Entity> {

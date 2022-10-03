@@ -15,23 +15,13 @@
  *
 */
 
-use crate::{
-    site::{Original, Change},
-    widgets::{
-        inspector::{
-            InspectEdgeWidget, InspectAnchorParams, AppEvents, InspectAngle,
-            InspectOptionF32,
-        },
-    },
-};
+use crate::widgets::inspector::{InspectAngle,InspectOptionF32};
 use rmf_site_format::{
-    Edge, Motion, RecallMotion, ReverseLane, RecallReverseLane, LaneMarker,
+    Motion, RecallMotion, ReverseLane, RecallReverseLane, LaneMarker,
     OrientationConstraint, Angle, Dock,
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{
-    Ui, ComboBox, DragValue, RichText,
-};
+use bevy_egui::egui::{Ui, ComboBox, RichText};
 
 pub struct InspectMotionWidget<'a> {
     pub motion: &'a Motion,

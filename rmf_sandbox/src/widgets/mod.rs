@@ -75,6 +75,7 @@ pub struct AppEvents<'w, 's> {
     pub change_lane_motion: EventWriter<'w, 's, Change<Motion>>,
     pub change_lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
     pub change_name: EventWriter<'w, 's, Change<NameInSite>>,
+    pub change_pose: EventWriter<'w, 's, Change<Pose>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     _ignore: Query<'w, 's, ()>,
 }

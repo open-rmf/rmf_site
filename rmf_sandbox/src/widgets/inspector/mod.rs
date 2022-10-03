@@ -60,6 +60,7 @@ pub struct InspectorParams<'w, 's> {
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
+    pub poses: Query<'w, 's, &'static Pose>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -146,6 +147,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         self.events.change_name.send(Change::new(new_name, selection));
                     }
                 });
+            }
+
+            if let Ok(pose) = self.params.poses.get(selection) {
+                if let Some(new_pose) = InspectPose::new(pose).show(ui) {
+                    self.events.change_pose.send(Change::new(new_pose, selection));
+                }
+                ui.add_space(10.0);
             }
         } else {
             ui.add(

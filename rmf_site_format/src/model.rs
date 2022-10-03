@@ -41,3 +41,15 @@ pub struct Model {
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
 #[cfg_attr(feature="bevy", derive(Component))]
 pub struct ModelMarker;
+
+impl Default for Model {
+    fn default() -> Self {
+        Self{
+            name: NameInSite("<Unnamed>".to_string()),
+            kind: Label(None),
+            pose: Pose::default(),
+            is_static: IsStatic(false),
+            marker: ModelMarker,
+        }
+    }
+}
