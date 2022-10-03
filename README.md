@@ -24,13 +24,13 @@ Rust and Bevy allow The RMF Site Editor to target both desktop (Windows/Linux/Ma
 We need a newer Rust than what comes with Ubuntu 20.04.
 
 First make sure you don't have any distro-installed Rust stuff on your machine:
-```
-sudo apt remove rustc cargo
+```bash
+$ sudo apt remove rustc cargo
 ```
 
 If you don't have it already, install `rustup` from the Rust website: https://www.rust-lang.org/tools/install
-```
-curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
+```bash
+$ curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh
 ```
 Just select the normal defaults (option 1).
 A bunch of stuff will happen. Be sure to close and re-open your terminal afterwards, so that it gets all the new stuff.
@@ -38,8 +38,8 @@ A bunch of stuff will happen. Be sure to close and re-open your terminal afterwa
 Alternatively, if you already have a Rust installation managed by `rustup`, you can just do this to bring it up-to-date: `rustup update`
 
 Finally, we need some library packages:
-```
-sudo apt install libgtk-3-dev
+```bash
+$ sudo apt install libgtk-3-dev
 ```
 
 # Install dependencies (Windows 11)
@@ -49,10 +49,10 @@ Make sure you install rust from the main rust website. Cargo should take care of
 # Install extra dependencies for WebAssembly
 
 These are only needed if you're going to build a WebAssembly binary:
-```
-sudo apt install binaryen
-cargo install wasm-bindgen-cli basic-http-server
-rustup target add wasm32-unknown-unknown
+```bash
+$ sudo apt install binaryen
+$ cargo install wasm-bindgen-cli basic-http-server
+$ rustup target add wasm32-unknown-unknown
 ```
 
 # Build and Run (Desktop)
@@ -61,19 +61,20 @@ Currently tested on Ubuntu 20.04.4 LTS and windows 11.
 
 From the root directory:
 
+```bash
+$ cargo run
 ```
-cargo build
-cargo run
-```
+
+Use the `--release` flag for better runtime performance.
 
 # Build and Run (WebAssembly)
 
 TODO: The web assembly version is highly experimental, currently it lacks important features like
 saving/loading of map files.
 
-```
-scripts/build-web.sh
-scripts/serve-web.sh
+```bash
+$ scripts/build-web.sh
+$ scripts/serve-web.sh
 ```
 
 Then use your favorite web browser to visit `http://localhost:1234`
