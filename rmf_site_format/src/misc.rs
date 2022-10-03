@@ -15,6 +15,7 @@
  *
 */
 
+use crate::Recall;
 use serde::{Serialize, Deserialize};
 #[cfg(feature="bevy")]
 use bevy::prelude::*;
@@ -170,6 +171,27 @@ pub struct Label(pub Option<String>);
 impl Default for Label {
     fn default() -> Self {
         Label(None)
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature="bevy", derive(Component))]
+pub struct RecallLabel {
+    pub value: Option<String>,
+}
+
+impl Recall for RecallLabel {
+    type Source = Label;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match &source.0 {
+            Some(value) => {
+                self.value = Some(value.clone());
+            },
+            None => {
+                // Do nothing
+            },
+        }
     }
 }
 

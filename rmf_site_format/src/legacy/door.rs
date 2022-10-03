@@ -3,7 +3,10 @@ use std::{
     collections::HashMap,
 };
 use super::{rbmf::*, Result, PortingError};
-use crate::{Door as SiteDoor, Side, Swing, Angle, NameInSite};
+use crate::{
+    Door as SiteDoor, Side, Swing, Angle, NameInSite,
+    SingleSlidingDoor, DoubleSlidingDoor, SingleSwingDoor, DoubleSwingDoor,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -49,10 +52,12 @@ impl Door {
         let type_: DoorType = self.2.type_.1.as_str().into();
         let kind = match type_ {
             DoorType::SingleSliding => {
-                crate::DoorType::SingleSliding(Side::Right)
+                SingleSlidingDoor{towards: Side::Right}.into()
             },
             DoorType::DoubleSliding => {
-                crate::DoorType::DoubleSliding { left_right_ratio: 1./self.2.right_left_ratio.1 as f32 }
+                DoubleSlidingDoor{
+                    left_right_ratio: 1./self.2.right_left_ratio.1 as f32
+                }.into()
             },
             DoorType::SingleTelescope => {
                 return Err(PortingError::DeprecatedType("porting telescope door type is not supported".to_string()));
@@ -61,13 +66,13 @@ impl Door {
                 return Err(PortingError::DeprecatedType("porting double_telescope type is not supported".to_string()));
             },
             DoorType::SingleSwing | DoorType::SingleHinged => {
-                crate::DoorType::SingleSwing{
-                    pivot: Side::Right,
-                    swing: self.to_swing(),
-                }
+                SingleSwingDoor{
+                    pivot_on: Side::Right,
+                    swing: self.to_swing()
+                }.into()
             },
             DoorType::DoubleSwing | DoorType::DoubleHinged => {
-                crate::DoorType::DoubleSwing(self.to_swing())
+                DoubleSwingDoor{swing: self.to_swing()}.into()
             },
             DoorType::Unknown => {
                 return Err(PortingError::InvalidType(self.2.type_.1.clone()))

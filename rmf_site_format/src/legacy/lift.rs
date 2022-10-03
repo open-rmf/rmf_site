@@ -1,4 +1,4 @@
-use crate::{LiftCabin, LiftCabinDoor, ParameterizedLiftCabin, DoorType};
+use crate::{LiftCabin, LiftCabinDoor, ParameterizedLiftCabin, DoorType, DoubleSlidingDoor};
 use super::{PortingError, Result};
 use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
@@ -62,7 +62,7 @@ impl Lift {
             depth: self.depth as f32,
             door: LiftCabinDoor{
                 width: door_width,
-                kind: DoorType::DoubleSliding{left_right_ratio: 1.0},
+                kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                 shifted: None,
             },
             wall_thickness: None,

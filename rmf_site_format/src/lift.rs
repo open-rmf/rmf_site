@@ -115,7 +115,7 @@ impl Default for ParameterizedLiftCabin {
             depth: DEFAULT_CABIN_DEPTH,
             door: LiftCabinDoor{
                 width: 0.75*DEFAULT_CABIN_WIDTH,
-                kind: DoorType::DoubleSliding{left_right_ratio: 0.5},
+                kind: DoubleSlidingDoor{left_right_ratio: 0.5}.into(),
                 shifted: None,
             },
             wall_thickness: None,

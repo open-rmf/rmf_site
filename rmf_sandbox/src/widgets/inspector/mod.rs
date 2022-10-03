@@ -24,8 +24,17 @@ pub use inspect_angle::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
+pub mod inspect_is_static;
+pub use inspect_is_static::*;
+
+pub mod inspect_label;
+pub use inspect_label::*;
+
 pub mod inspect_lane;
 pub use inspect_lane::*;
+
+pub mod inspect_name;
+pub use inspect_name::*;
 
 pub mod inspect_option_f32;
 pub use inspect_option_f32::*;
@@ -47,7 +56,7 @@ use bevy::{
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::{Label, Ui, RichText},
+    egui::{Ui, RichText},
 };
 
 #[derive(SystemParam)]
@@ -60,6 +69,7 @@ pub struct InspectorParams<'w, 's> {
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
+    pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub poses: Query<'w, 's, &'static Pose>,
 }
 
@@ -139,14 +149,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok(name) = self.params.names.get(selection) {
-                ui.horizontal(|ui| {
-                    ui.label("Name");
-                    let mut new_name = name.clone();
-                    ui.text_edit_singleline(&mut new_name.0);
-                    if new_name != *name {
-                        self.events.change_name.send(Change::new(new_name, selection));
-                    }
-                });
+                if let Some(new_name) = InspectName::new(name).show(ui) {
+                    self.events.change_name.send(Change::new(new_name, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok((label, recall)) = self.params.labels.get(selection) {
+                if let Some(new_label) = InspectLabel::new("Kind", label, recall).show(ui) {
+                    self.events.change_label.send(Change::new(new_label, selection));
+                }
             }
 
             if let Ok(pose) = self.params.poses.get(selection) {
@@ -156,10 +168,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
         } else {
-            ui.add(
-                Label::new("Nothing selected")
-                .wrap(false)
-            );
+            ui.label("Nothing selected");
         }
     }
 }

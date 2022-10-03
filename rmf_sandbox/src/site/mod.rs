@@ -145,6 +145,8 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
+            .add_plugin(ChangePlugin::<Label>::default())
+            .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(
