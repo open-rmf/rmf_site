@@ -1,17 +1,17 @@
-[![](https://github.com/open-rmf/rmf_sandbox/workflows/style/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/style.yaml)
-[![](https://github.com/open-rmf/rmf_sandbox/workflows/ci_linux/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/ci_linux.yaml)
-[![](https://github.com/open-rmf/rmf_sandbox/workflows/ci_web/badge.svg)](https://github.com/open-rmf/rmf_sandbox/actions/workflows/ci_web.yaml)
+[![](https://github.com/open-rmf/rmf_site/workflows/style/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/style.yaml)
+[![](https://github.com/open-rmf/rmf_site/workflows/ci_linux/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_linux.yaml)
+[![](https://github.com/open-rmf/rmf_site/workflows/ci_web/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_web.yaml)
 
-# The RMF Sandbox
+# The RMF Site Editor
 
-The RMF Sandbox is an experimental approach to visualizing large RMF deployment sites.
+The RMF Site Editor is an experimental approach to visualizing large RMF deployment sites.
 It is built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
 
-Rust and Bevy allow The RMF Sandbox to target both desktop (Windows/Linux/Mac) and web (WebAssembly+WebGL/WebGPU) using the same codebase:
- * Web build: the browser sandbox provides maximum convenience, since there is nothing to build or install.
+Rust and Bevy allow The RMF Site Editor to target both desktop (Windows/Linux/Mac) and web (WebAssembly+WebGL/WebGPU) using the same codebase:
+ * Web build: the browser application provides maximum convenience, since there is nothing to build or install.
  * Desktop build: maximum performance, thanks to multithreading and lower-level GPU integration.
 
-[Click here to use the web build in your browser](https://open-rmf.github.io/rmf_sandbox/).
+[Click here to use the web build in your browser](https://open-rmf.github.io/rmf_site/).
 
 # Helpful Links
 
@@ -59,7 +59,7 @@ rustup target add wasm32-unknown-unknown
 
 Currently tested on Ubuntu 20.04.4 LTS and windows 11.
 
-From the `rmf_sandbox` subdirectory:
+From the root directory:
 
 ```
 cargo build

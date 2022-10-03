@@ -829,11 +829,6 @@ impl PathPlacement {
         }
     }
 
-    fn transition_to(&self, index: usize) -> PlacementTransition {
-        let index = if index > 0 { index - 1 } else { 0 };
-        self.transition_from(index)
-    }
-
     fn ignore(&self) -> PlacementTransition {
         PlacementTransition{
             preview: None,
@@ -1228,7 +1223,7 @@ impl SelectAnchor {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let mode = SelectAnchor::create_one_new_edge().for_lane();
     /// ```
     pub fn create_one_new_edge() -> SelectAnchorEdgeBuilder {
@@ -1244,7 +1239,7 @@ impl SelectAnchor {
     ///
     /// # Examples
     ///
-    /// ```
+    /// ```ignore
     /// let mode = SelectAnchor::create_new_path().for_wall();
     /// ```
     pub fn create_new_edge_sequence() -> SelectAnchorEdgeBuilder {

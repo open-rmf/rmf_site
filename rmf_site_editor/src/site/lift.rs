@@ -39,10 +39,8 @@ fn make_lift_transforms(
     let end_anchor = anchors.get(reference_anchors.end()).unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
         (
-            (
-                start_anchor.translation(),
-                start_anchor.translation() + DEFAULT_CABIN_WIDTH * Vec3::Y,
-            )
+            start_anchor.translation(),
+            start_anchor.translation() + DEFAULT_CABIN_WIDTH * Vec3::Y,
         )
     } else {
         (

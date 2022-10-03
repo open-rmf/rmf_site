@@ -194,7 +194,7 @@ fn site_file_load_complete(
                                 focus: true,
                                 default_file: file.map(|f| f.0),
                             });
-                            interaction_state.set(InteractionState::Enable);
+                            interaction_state.set(InteractionState::Enable).ok();
                         }
                         Err(err) => {
                             println!("Failed to enter traffic editor: {:?}", err);
