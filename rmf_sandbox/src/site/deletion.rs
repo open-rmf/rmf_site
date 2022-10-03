@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::AnchorDependents;
+use crate::{
+    site::AnchorDependents,
+    interaction::{Selection, Select},
+};
 use rmf_site_format::{Edge, Point, Path};
 use bevy::prelude::*;
 
@@ -56,6 +59,8 @@ fn perform_deletions(
     paths: Query<&Path<Entity>>,
     mut dependents: Query<&mut AnchorDependents>,
     mut deletions: EventReader<Delete>,
+    selection: Res<Selection>,
+    mut select: EventWriter<Select>,
 ) {
     for delete in deletions.iter() {
         if let Ok(anchor) = dependents.get(delete.element) {
@@ -101,6 +106,10 @@ fn perform_deletions(
                     dep.dependents.remove(&delete.element);
                 }
             }
+        }
+
+        if **selection == Some(delete.element) {
+            select.send(Select(None));
         }
 
         // TODO(MXG): Replace this with a move to the trash bin.

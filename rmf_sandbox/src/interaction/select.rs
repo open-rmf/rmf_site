@@ -88,19 +88,19 @@ impl Default for Hovered {
 }
 
 /// Used as a resource to keep track of which entity is currently selected.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct Selection(pub Option<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct Select(pub Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
 pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
