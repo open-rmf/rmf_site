@@ -93,11 +93,11 @@ fn egui_ui(
                                             println!("Failed to enter traffic editor: {:?}", err);
                                         }
                                     }
-                                },
+                                }
                                 Err(err) => {
                                     println!("{err:?}");
                                 }
-                            }
+                            },
                             Err(err) => {
                                 println!("{:?}", err);
                             }
