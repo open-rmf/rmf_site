@@ -33,53 +33,6 @@ use bevy_egui::egui::{
     Ui, ComboBox, DragValue, RichText,
 };
 
-pub type LaneQuery<'w, 's> = Query<'w, 's, (
-    &'static Edge<Entity>,
-    Option<&'static Original<Edge<Entity>>>,
-    &'static Motion,
-    &'static RecallMotion,
-    &'static ReverseLane,
-    &'static RecallReverseLane,
-), With<LaneMarker>>;
-
-pub struct InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
-    pub entity: Entity,
-    pub lanes: &'a LaneQuery<'w1, 's1>,
-    pub anchor_params: &'a mut InspectAnchorParams<'w2, 's2>,
-    pub events: &'a mut AppEvents<'w3, 's3>,
-}
-
-impl<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> InspectLaneWidget<'a, 'w1, 'w2, 'w3, 's1, 's2, 's3> {
-
-    pub fn new(
-        entity: Entity,
-        lanes: &'a LaneQuery<'w1, 's1>,
-        anchor_params: &'a mut InspectAnchorParams<'w2, 's2>,
-        events: &'a mut AppEvents<'w3, 's3>,
-    ) -> Self {
-        Self{entity, lanes, anchor_params, events}
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        let (edge, original, forward, p_forward, reverse, p_reverse) = self.lanes.get(self.entity).unwrap();
-        InspectEdgeWidget::new(
-            self.entity, edge, original, self.anchor_params, self.events,
-        ).show(ui);
-
-        ui.add_space(10.0);
-        if let Some(new_motion) = InspectMotionWidget::new(forward, p_forward).show(ui) {
-            self.events.change_lane_motion.send(Change::new(new_motion, self.entity));
-        }
-
-        ui.separator();
-        ui.push_id("Reverse", |ui| {
-            if let Some(new_reverse) = InspectReverseWidget::new(reverse, p_reverse).show(ui) {
-                self.events.change_lane_reverse.send(Change::new(new_reverse, self.entity));
-            }
-        });
-    }
-}
-
 pub struct InspectMotionWidget<'a> {
     pub motion: &'a Motion,
     pub previous: &'a RecallMotion,
@@ -241,7 +194,7 @@ impl<'a> InspectReverseWidget<'a> {
         );
 
         let mut new_reverse = self.reverse.clone();
-        ui.label(RichText::new("Reverse").size(18.0));
+        ui.label(RichText::new("Reverse Motion").size(18.0));
         ComboBox::from_id_source("Reverse Lane")
             .selected_text(new_reverse.label())
             .show_ui(ui, |ui| {

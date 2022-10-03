@@ -93,7 +93,7 @@ use bevy::{
 ///
 /// The information in this component is intended to be presented to humans to
 /// read, and is not meant to be a key for identifying the type of an entity.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Component)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Component, Deref, DerefMut)]
 pub struct Category(pub String);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]

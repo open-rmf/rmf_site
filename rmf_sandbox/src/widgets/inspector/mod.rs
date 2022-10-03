@@ -37,28 +37,28 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    site::{SiteID, Original},
+    site::{SiteID, Category, Original, Change},
     interaction::Selection,
     widgets::AppEvents,
 };
-use rmf_site_format::{
-    LaneMarker, Edge,
-};
+use rmf_site_format::*;
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
 };
 use bevy_egui::{
-    egui::{Label, Ui},
+    egui::{Label, Ui, RichText},
 };
 
 #[derive(SystemParam)]
 pub struct InspectorParams<'w, 's> {
     pub selection: Res<'w, Selection>,
-    pub site_id: Query<'w, 's, Option<&'static SiteID>>,
+    pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub lanes: LaneQuery<'w, 's>,
+    pub edges: Query<'w, 's, (&'static Edge<Entity>, Option<&'static Original<Edge<Entity>>>)>,
+    pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
+    pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -74,7 +74,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
         Self{params, events}
     }
 
-    fn heading(label: &str, site_id: Option<&SiteID>, ui: &mut Ui) {
+    fn heading(&self, selection: Entity, ui: &mut Ui) {
+        let (label, site_id) = if let Ok((category, site_id)) = self.params.heading.get(selection) {
+            (
+                category.map(|x| x.0.as_str()).unwrap_or("<Unknown Type>"),
+                site_id,
+            )
+        } else {
+            ("<Unknown Type>", None)
+        };
+
         if let Some(site_id) = site_id {
             ui.heading(format!("{} #{}", label, site_id.0));
         } else {
@@ -84,9 +93,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
     pub fn show(self, ui: &mut Ui) {
         if let Some(selection) =  self.params.selection.0 {
-            let site_id = self.params.site_id.get(selection).ok().flatten();
+            self.heading(selection, ui);
             if self.params.anchor_params.transforms.contains(selection) {
-                Self::heading("Anchor", site_id, ui);
                 ui.horizontal(|ui| {
                     InspectAnchorWidget::new(
                         selection,
@@ -100,19 +108,31 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     &mut self.params.anchor_dependents_params,
                     self.events,
                 ).show(ui);
-            } else if self.params.lanes.contains(selection) {
-                Self::heading("Lane", site_id, ui);
-                InspectLaneWidget::new(
-                    selection,
-                    &self.params.lanes,
-                    &mut self.params.anchor_params,
-                    self.events,
+                ui.add_space(10.0);
+            }
+
+            if let Ok((edge, original)) = self.params.edges.get(selection) {
+                InspectEdgeWidget::new(
+                    selection, edge, original, &mut self.params.anchor_params, self.events
                 ).show(ui);
-            } else {
-                ui.add(
-                    Label::new("Unsupported selection type")
-                    .wrap(false)
-                );
+                ui.add_space(10.0);
+            }
+
+            if let Ok((motion, recall)) = self.params.motions.get(selection) {
+                ui.label(RichText::new("Forward Motion").size(18.0));
+                if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
+                    self.events.change_lane_motion.send(Change::new(new_motion, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok((reverse, recall)) = self.params.reverse_motions.get(selection) {
+                ui.separator();
+                ui.push_id("Reverse Motion", |ui| {
+                    if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
+                        self.events.change_lane_reverse.send(Change::new(new_reverse, selection));
+                    }
+                });
             }
         } else {
             ui.add(
