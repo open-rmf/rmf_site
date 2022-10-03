@@ -15,11 +15,8 @@
  *
 */
 
+use crate::{shapes::*, site::*};
 use bevy::prelude::*;
-use crate::{
-    site::*,
-    shapes::*,
-};
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
@@ -56,7 +53,7 @@ impl FromWorld for SiteAssets {
         // let hover_select_material = materials.add(Color::rgb_u8(214, 28, 78).into());
         let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
         let passive_anchor_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
-        let preview_anchor_material = materials.add(StandardMaterial{
+        let preview_anchor_material = materials.add(StandardMaterial {
             base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
             alpha_mode: AlphaMode::Blend,
             depth_bias: 1.0,

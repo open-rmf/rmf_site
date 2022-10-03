@@ -1,7 +1,7 @@
-use crate::{LiftCabin, LiftCabinDoor, ParameterizedLiftCabin, DoorType, DoubleSlidingDoor};
 use super::{PortingError, Result};
-use std::collections::BTreeMap;
+use crate::{DoorType, DoubleSlidingDoor, LiftCabin, LiftCabinDoor, ParameterizedLiftCabin};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct LiftDoor {
@@ -36,7 +36,10 @@ impl Lift {
         let w = self.width as f32 / 2.0;
         let theta = self.yaw as f32;
         let rotate = |x, y| {
-            (x*theta.cos() - y*theta.sin(), x*theta.sin() + y*theta.cos())
+            (
+                x * theta.cos() - y * theta.sin(),
+                x * theta.sin() + y * theta.cos(),
+            )
         };
         let (dx_0, dy_0) = rotate(d, w);
         let (dx_1, dy_1) = rotate(d, -w);
@@ -45,22 +48,23 @@ impl Lift {
 
     pub fn make_cabin(&self, name: &String) -> Result<LiftCabin> {
         if self.doors.len() > 1 {
-            return Err(PortingError::InvalidLiftCabinDoors{
+            return Err(PortingError::InvalidLiftCabinDoors {
                 lift: name.clone(),
-                door_count: self.doors.len()
+                door_count: self.doors.len(),
             });
         }
 
-        let door_width = self.doors.iter().next().map(
-            |(_, door)| door.width as f32
-        ).unwrap_or(
-            self.width as f32 * 0.75
-        );
+        let door_width = self
+            .doors
+            .iter()
+            .next()
+            .map(|(_, door)| door.width as f32)
+            .unwrap_or(self.width as f32 * 0.75);
 
-        Ok(LiftCabin::Params(ParameterizedLiftCabin{
+        Ok(LiftCabin::Params(ParameterizedLiftCabin {
             width: self.width as f32,
             depth: self.depth as f32,
-            door: LiftCabinDoor{
+            door: LiftCabinDoor {
                 width: door_width,
                 kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                 shifted: None,

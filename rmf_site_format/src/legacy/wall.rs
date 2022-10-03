@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Wall as SiteWall, Texture, CustomTexture, TextureSource};
+use crate::{CustomTexture, Texture, TextureSource, Wall as SiteWall};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -30,18 +30,18 @@ pub struct Wall(pub usize, pub usize, pub WallProperties);
 
 impl Wall {
     pub fn to_site(&self, vertex_to_anchor_id: &HashMap<usize, u32>) -> Result<SiteWall<u32>> {
-        let left_anchor = vertex_to_anchor_id.get(&self.0).ok_or(
-            PortingError::InvalidVertex(self.0)
-        )?;
-        let right_anchor = vertex_to_anchor_id.get(&self.1).ok_or(
-            PortingError::InvalidVertex(self.1)
-        )?;
-        Ok(SiteWall{
+        let left_anchor = vertex_to_anchor_id
+            .get(&self.0)
+            .ok_or(PortingError::InvalidVertex(self.0))?;
+        let right_anchor = vertex_to_anchor_id
+            .get(&self.1)
+            .ok_or(PortingError::InvalidVertex(self.1))?;
+        Ok(SiteWall {
             anchors: [*left_anchor, *right_anchor].into(),
             texture: if self.2.texture_name.is_empty() {
                 Texture::Default
             } else {
-                Texture::Custom(CustomTexture{
+                Texture::Custom(CustomTexture {
                     source: TextureSource::Filename(self.2.texture_name.1.clone()),
                     alpha: Some(self.2.alpha.1 as f32),
                     rotation: None,

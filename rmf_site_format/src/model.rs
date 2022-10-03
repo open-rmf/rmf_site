@@ -16,12 +16,12 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Bundle};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Model {
     /// Name of the model instance
     pub name: NameInSite,
@@ -30,7 +30,7 @@ pub struct Model {
     pub kind: Label,
     /// Pose of the model relative to the level it is on.
     pub pose: Pose,
-    #[serde(skip_serializing_if="is_default")]
+    #[serde(skip_serializing_if = "is_default")]
     /// Whether this model should be able to move in simulation
     pub is_static: IsStatic,
     /// Only relevant for bevy
@@ -39,12 +39,12 @@ pub struct Model {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default, PartialEq, Eq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct ModelMarker;
 
 impl Default for Model {
     fn default() -> Self {
-        Self{
+        Self {
             name: NameInSite("<Unnamed>".to_string()),
             kind: Label(None),
             pose: Pose::default(),

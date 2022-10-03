@@ -17,7 +17,7 @@
 
 use crate::interaction::*;
 use bevy::prelude::*;
-use bevy_mod_picking::{PickingRaycastSet, PickableBundle};
+use bevy_mod_picking::{PickableBundle, PickingRaycastSet};
 use bevy_mod_raycast::{Intersection, Ray3d};
 
 #[derive(Debug, Clone, Copy)]
@@ -35,7 +35,7 @@ pub struct DraggableMaterialSet {
 
 impl DraggableMaterialSet {
     pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
-        Self{
+        Self {
             passive: materials.add(Color::rgb(1., 0., 0.).into()),
             hover: materials.add(Color::rgb(1.0, 0.3, 0.3).into()),
             drag: materials.add(Color::rgb(0.7, 0., 0.).into()),
@@ -43,7 +43,7 @@ impl DraggableMaterialSet {
     }
 
     pub fn make_y_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
-        Self{
+        Self {
             passive: materials.add(Color::rgb(0., 0.9, 0.).into()),
             hover: materials.add(Color::rgb(0.5, 1.0, 0.5).into()),
             drag: materials.add(Color::rgb(0., 0.6, 0.).into()),
@@ -51,7 +51,7 @@ impl DraggableMaterialSet {
     }
 
     pub fn make_z_plane(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
-        Self{
+        Self {
             passive: materials.add(Color::rgba(0., 0., 1., 0.6).into()),
             hover: materials.add(Color::rgba(0.3, 0.3, 1., 0.6).into()),
             drag: materials.add(Color::rgba(0., 0., 0.7, 0.9).into()),
@@ -69,11 +69,12 @@ pub struct Draggable {
 }
 
 impl Draggable {
-    pub fn new(
-        for_entity: Entity,
-        materials: Option<DraggableMaterialSet>,
-    ) -> Self {
-        Self{for_entity, materials, initial: None}
+    pub fn new(for_entity: Entity, materials: Option<DraggableMaterialSet>) -> Self {
+        Self {
+            for_entity,
+            materials,
+            initial: None,
+        }
     }
 }
 
@@ -177,7 +178,7 @@ pub fn update_drag_click_start(
                 if let Ok((mut drag, mut material)) = draggables.get_mut(e) {
                     if let Ok(tf) = transforms.get(drag.for_entity) {
                         selection_blocker.dragging = true;
-                        drag.initial = Some(InitialDragConditions{
+                        drag.initial = Some(InitialDragConditions {
                             click_point: intersection.clone(),
                             entity_tf: tf.compute_transform(),
                         });
@@ -220,7 +221,10 @@ pub fn update_drag_release(
             // to move the cursor off of whatever object it happens to be
             // hovering over after the drag is finished before interactions like
             // selecting or dragging can resume.
-            change_pick.send(ChangePick{from: None, to: picked.0});
+            change_pick.send(ChangePick {
+                from: None,
+                to: picked.0,
+            });
         }
     }
 }
@@ -238,19 +242,25 @@ pub fn update_drag_motions(
     if let DragState::Dragging(dragging) = *drag_state {
         let cursor_position = match cursor_motion.iter().last() {
             Some(m) => m.position,
-            None => { return; }
+            None => {
+                return;
+            }
         };
 
         let active_camera = camera_controls.active_camera();
         let ray = if let Some(camera) = cameras.get(active_camera).ok() {
             let camera_tf = match transforms.get(active_camera).ok() {
                 Some(tf) => tf.1.clone(),
-                None => { return; }
+                None => {
+                    return;
+                }
             };
 
             match Ray3d::from_screenspace(cursor_position, camera, &camera_tf) {
                 Some(ray) => ray,
-                None => { return; }
+                None => {
+                    return;
+                }
             }
         } else {
             return;
@@ -258,8 +268,13 @@ pub fn update_drag_motions(
 
         if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging) {
             if let Some(initial) = &draggable.initial {
-                if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
-                    let n = drag_tf.affine().transform_vector3(axis.along).normalize_or_zero();
+                if let Some((for_local_tf, for_global_tf)) =
+                    transforms.get(draggable.for_entity).ok()
+                {
+                    let n = drag_tf
+                        .affine()
+                        .transform_vector3(axis.along)
+                        .normalize_or_zero();
                     let dp = ray.origin() - initial.click_point;
                     let a = ray.direction().dot(n);
                     let b = ray.direction().dot(dp);
@@ -272,13 +287,18 @@ pub fn update_drag_motions(
                         return;
                     }
 
-                    let t = (a*b - c)/denom;
-                    let delta = t*n;
-                    let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
-                    let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                    move_to.send(MoveTo{
+                    let t = (a * b - c) / denom;
+                    let delta = t * n;
+                    let tf_goal = initial
+                        .entity_tf
+                        .with_translation(initial.entity_tf.translation + delta);
+                    let tf_parent_inv =
+                        for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                    move_to.send(MoveTo {
                         entity: draggable.for_entity,
-                        transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into()),
+                        transform: Transform::from_matrix(
+                            (tf_parent_inv * tf_goal.compute_affine()).into(),
+                        ),
                     });
                 }
             }
@@ -286,8 +306,13 @@ pub fn update_drag_motions(
 
         if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging) {
             if let Some(initial) = &draggable.initial {
-                if let Some((for_local_tf, for_global_tf)) = transforms.get(draggable.for_entity).ok() {
-                    let n_p = drag_tf.affine().transform_vector3(plane.in_plane).normalize_or_zero();
+                if let Some((for_local_tf, for_global_tf)) =
+                    transforms.get(draggable.for_entity).ok()
+                {
+                    let n_p = drag_tf
+                        .affine()
+                        .transform_vector3(plane.in_plane)
+                        .normalize_or_zero();
                     let n_r = ray.direction();
                     let denom = n_p.dot(n_r);
                     if denom.abs() < 1e-3 {
@@ -296,13 +321,18 @@ pub fn update_drag_motions(
                         return;
                     }
 
-                    let t = (initial.click_point - ray.origin()).dot(n_p)/denom;
+                    let t = (initial.click_point - ray.origin()).dot(n_p) / denom;
                     let delta = ray.position(t) - initial.click_point;
-                    let tf_goal = initial.entity_tf.with_translation(initial.entity_tf.translation + delta);
-                    let tf_parent_inv = for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                    move_to.send(MoveTo{
+                    let tf_goal = initial
+                        .entity_tf
+                        .with_translation(initial.entity_tf.translation + delta);
+                    let tf_parent_inv =
+                        for_local_tf.compute_affine() * for_global_tf.affine().inverse();
+                    move_to.send(MoveTo {
                         entity: draggable.for_entity,
-                        transform: Transform::from_matrix((tf_parent_inv * tf_goal.compute_affine()).into())
+                        transform: Transform::from_matrix(
+                            (tf_parent_inv * tf_goal.compute_affine()).into(),
+                        ),
                     });
                 }
             }

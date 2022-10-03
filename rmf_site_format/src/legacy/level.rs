@@ -1,13 +1,6 @@
 use super::{
-    fiducial::Fiducial,
-    floor::Floor,
-    measurement::Measurement,
-    model::Model,
-    physical_camera::PhysicalCamera,
-    vertex::Vertex,
-    wall::Wall,
-    door::Door,
-    lane::Lane
+    door::Door, fiducial::Fiducial, floor::Floor, lane::Lane, measurement::Measurement,
+    model::Model, physical_camera::PhysicalCamera, vertex::Vertex, wall::Wall,
 };
 use serde::{Deserialize, Serialize};
 

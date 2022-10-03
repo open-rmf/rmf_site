@@ -16,9 +16,9 @@
 */
 
 use crate::{
-    site::{Anchor, SiteAssets, Delete},
-    interaction::*,
     animate::*,
+    interaction::*,
+    site::{Anchor, Delete, SiteAssets},
 };
 use bevy::prelude::*;
 
@@ -40,7 +40,7 @@ pub fn add_anchor_visual_cues(
         let mut commands = commands.entity(e);
         let (dagger, halo, body) = commands.add_children(|parent| {
             let dagger = parent
-                .spawn_bundle(PbrBundle{
+                .spawn_bundle(PbrBundle {
                     material: interaction_assets.dagger_material.clone(),
                     mesh: interaction_assets.dagger_mesh.clone(),
                     visibility: Visibility { is_visible: false },
@@ -51,7 +51,7 @@ pub fn add_anchor_visual_cues(
                 .id();
 
             let halo = parent
-                .spawn_bundle(PbrBundle{
+                .spawn_bundle(PbrBundle {
                     material: interaction_assets.halo_material.clone(),
                     mesh: interaction_assets.halo_mesh.clone(),
                     transform: Transform::from_scale([0.2, 0.2, 1.].into()),
@@ -62,14 +62,14 @@ pub fn add_anchor_visual_cues(
                 .id();
 
             let body = parent
-                .spawn_bundle(PbrBundle{
+                .spawn_bundle(PbrBundle {
                     mesh: site_assets.anchor_mesh.clone(),
                     material: site_assets.passive_anchor_material.clone(),
                     transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
                     ..default()
                 })
                 .insert(Selectable::new(e))
-                .insert(DragPlane{
+                .insert(DragPlane {
                     in_plane: Vec3::new(0., 1., 0.),
                 })
                 .insert(Draggable::new(e, None))
@@ -78,7 +78,12 @@ pub fn add_anchor_visual_cues(
             (dagger, halo, body)
         });
 
-        commands.insert(AnchorVisualCue{dagger, halo, body, drag: None});
+        commands.insert(AnchorVisualCue {
+            dagger,
+            halo,
+            body,
+            drag: None,
+        });
     }
 }
 
@@ -96,7 +101,16 @@ pub fn move_anchor(
 
 pub fn update_anchor_visual_cues(
     mut command: Commands,
-    mut anchors: Query<(Entity, &Hovered, &Selected, &mut AnchorVisualCue, ChangeTrackers<Selected>), Or<(Changed<Hovered>, Changed<Selected>)>>,
+    mut anchors: Query<
+        (
+            Entity,
+            &Hovered,
+            &Selected,
+            &mut AnchorVisualCue,
+            ChangeTrackers<Selected>,
+        ),
+        Or<(Changed<Hovered>, Changed<Selected>)>,
+    >,
     mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,

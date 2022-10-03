@@ -16,12 +16,9 @@
 */
 
 use crate::site::*;
-use rmf_site_format::{LiftCabin, LevelProperties};
+use bevy::{prelude::*, render::primitives::Sphere};
+use rmf_site_format::{LevelProperties, LiftCabin};
 use std::collections::HashSet;
-use bevy::{
-    prelude::*,
-    render::primitives::Sphere,
-};
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
@@ -37,7 +34,7 @@ pub struct AnchorBundle {
 impl AnchorBundle {
     pub fn new(anchor: [f32; 2]) -> Self {
         let transform = Transform::from_translation([anchor[0], anchor[1], 0.].into());
-        Self{
+        Self {
             transform,
             global_transform: transform.into(),
             anchor: Default::default(),
@@ -54,8 +51,8 @@ impl AnchorBundle {
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
-        Self{
-            visibility: Visibility{is_visible},
+        Self {
+            visibility: Visibility { is_visible },
             ..self
         }
     }
@@ -67,14 +64,14 @@ impl AnchorBundle {
     /// the anchor and its dependents have the wrong values until that cycle is
     /// finished.
     pub fn parent_transform(self, parent_tf: &GlobalTransform) -> Self {
-        Self{
+        Self {
             global_transform: parent_tf.mul_transform(self.transform),
             ..self
         }
     }
 
     pub fn dependents(self, dependents: AnchorDependents) -> Self {
-        Self{dependents, ..self}
+        Self { dependents, ..self }
     }
 }
 
@@ -98,7 +95,10 @@ pub struct PreviewAnchor {
 }
 
 pub fn assign_orphan_anchors_to_parent(
-    mut orphan_anchors: Query<(Entity, &GlobalTransform, &mut Transform), (Added<Anchor>, Without<Parent>)>,
+    mut orphan_anchors: Query<
+        (Entity, &GlobalTransform, &mut Transform),
+        (Added<Anchor>, Without<Parent>),
+    >,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     mut lifts: Query<(Entity, &LiftCabin, &GlobalTransform)>,
@@ -123,7 +123,7 @@ pub fn assign_orphan_anchors_to_parent(
                 }
             };
 
-            let sphere = Sphere{
+            let sphere = Sphere {
                 center: p_anchor.into(),
                 radius: 0.0,
             };
@@ -135,9 +135,9 @@ pub fn assign_orphan_anchors_to_parent(
 
                 // Since the anchor will be in the frame of the lift, we need
                 // to update its local transform.
-                *local_anchor_tf = Transform::from_matrix((
-                    global_lift_tf.affine().inverse() * global_anchor_tf.affine()
-                ).into());
+                *local_anchor_tf = Transform::from_matrix(
+                    (global_lift_tf.affine().inverse() * global_anchor_tf.affine()).into(),
+                );
 
                 break;
             }
@@ -155,7 +155,7 @@ pub fn assign_orphan_anchors_to_parent(
             // No level is currently assigned, so we should create one.
             let new_level_id = commands
                 .spawn()
-                .insert(LevelProperties{
+                .insert(LevelProperties {
                     name: "<Unnamed>".to_string(),
                     elevation: 0.,
                 })

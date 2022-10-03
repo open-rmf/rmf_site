@@ -16,23 +16,16 @@
 */
 
 use crate::{
-    site::{SiteID, Original},
-    interaction::{ChangeMode, SelectAnchor, InteractionMode},
+    interaction::{ChangeMode, InteractionMode, SelectAnchor},
+    site::{Original, SiteID},
     widgets::{
+        inspector::{InspectAnchorParams, InspectAnchorWidget},
         AppEvents,
-        inspector::{
-            InspectAnchorParams,
-            InspectAnchorWidget,
-        },
     },
 };
-use rmf_site_format::{
-    Edge, Side,
-};
 use bevy::prelude::*;
-use bevy_egui::{
-    egui::{Grid, Ui},
-};
+use bevy_egui::egui::{Grid, Ui};
+use rmf_site_format::{Edge, Side};
 
 pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub entity: Entity,
@@ -51,11 +44,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
         anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{entity, original, edge, anchor_params, events, left_right: false}
+        Self {
+            entity,
+            original,
+            edge,
+            anchor_params,
+            events,
+            left_right: false,
+        }
     }
 
     pub fn left_right(self) -> Self {
-        Self{
+        Self {
             left_right: true,
             ..self
         }
@@ -101,29 +101,31 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.end_row();
 
             ui.label(self.start_text());
-            let start_response = InspectAnchorWidget::new(
-                edge.start(),
-                self.anchor_params,
-                self.events,
-            ).as_dependency().show(ui);
+            let start_response =
+                InspectAnchorWidget::new(edge.start(), self.anchor_params, self.events)
+                    .as_dependency()
+                    .show(ui);
             ui.end_row();
             if start_response.replace {
-                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
-                    SelectAnchor::replace_side(self.entity, Side::Left).for_lane()
-                )));
+                self.events
+                    .change_mode
+                    .send(ChangeMode::To(InteractionMode::SelectAnchor(
+                        SelectAnchor::replace_side(self.entity, Side::Left).for_lane(),
+                    )));
             }
 
             ui.label(self.end_text());
-            let end_response = InspectAnchorWidget::new(
-                edge.end(),
-                self.anchor_params,
-                self.events
-            ).as_dependency().show(ui);
+            let end_response =
+                InspectAnchorWidget::new(edge.end(), self.anchor_params, self.events)
+                    .as_dependency()
+                    .show(ui);
             ui.end_row();
             if end_response.replace {
-                self.events.change_mode.send(ChangeMode::To(InteractionMode::SelectAnchor(
-                    SelectAnchor::replace_side(self.entity, Side::Right).for_lane()
-                )));
+                self.events
+                    .change_mode
+                    .send(ChangeMode::To(InteractionMode::SelectAnchor(
+                        SelectAnchor::replace_side(self.entity, Side::Right).for_lane(),
+                    )));
             }
         });
     }

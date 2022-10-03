@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    site::Anchor,
-};
+use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 
@@ -38,7 +35,10 @@ impl PickingBlockers {
 
 impl Default for PickingBlockers {
     fn default() -> Self {
-        PickingBlockers { masked: false, ui: false }
+        PickingBlockers {
+            masked: false,
+            ui: false,
+        }
     }
 }
 
@@ -94,7 +94,10 @@ pub fn update_picked(
         if blockers.blocking() {
             // If picking is masked, then nothing should be picked
             if picked.0.is_some() {
-                change_pick.send(ChangePick{from: picked.0, to: None});
+                change_pick.send(ChangePick {
+                    from: picked.0,
+                    to: None,
+                });
                 picked.as_mut().0 = None;
             }
 
@@ -119,7 +122,7 @@ pub fn update_picked(
                         } else {
                             continue;
                         }
-                    },
+                    }
                     _ => {
                         // Do nothing
                     }
@@ -131,7 +134,10 @@ pub fn update_picked(
     }
 
     if picked.0 != current_picked {
-        change_pick.send(ChangePick{from: picked.0, to: current_picked});
+        change_pick.send(ChangePick {
+            from: picked.0,
+            to: current_picked,
+        });
         picked.as_mut().0 = current_picked;
     }
 }

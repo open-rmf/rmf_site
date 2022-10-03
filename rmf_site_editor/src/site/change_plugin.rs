@@ -30,7 +30,10 @@ pub struct Change<T: Component + Clone + Debug> {
 
 impl<T: Component + Clone + Debug> Change<T> {
     pub fn new(to_value: T, for_element: Entity) -> Self {
-        Self{to_value, for_element}
+        Self {
+            to_value,
+            for_element,
+        }
     }
 }
 
@@ -43,14 +46,12 @@ pub struct ChangePlugin<T: Component + Clone + Debug> {
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<Change<T>>()
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .label(SiteUpdateLabel::ProcessChanges)
-                    .with_system(update_changed_values::<T>)
-            );
+        app.add_event::<Change<T>>().add_system_set_to_stage(
+            CoreStage::PreUpdate,
+            SystemSet::on_update(SiteState::Display)
+                .label(SiteUpdateLabel::ProcessChanges)
+                .with_system(update_changed_values::<T>),
+        );
     }
 }
 

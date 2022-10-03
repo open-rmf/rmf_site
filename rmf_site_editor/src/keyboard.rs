@@ -16,15 +16,10 @@
 */
 
 use crate::{
-    interaction::{
-        camera_controls::CameraControls,
-        ChangeMode, InteractionMode, Selection,
-    },
+    interaction::{camera_controls::CameraControls, ChangeMode, InteractionMode, Selection},
     site::Delete,
 };
-use bevy::{
-    prelude::*,
-};
+use bevy::prelude::*;
 use bevy_egui::EguiContext;
 
 pub struct KeyboardInputPlugin;

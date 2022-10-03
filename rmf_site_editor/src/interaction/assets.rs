@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    shapes::*,
-};
+use crate::{interaction::*, shapes::*};
 use bevy::prelude::*;
 
 #[derive(Clone, Debug)]
@@ -35,7 +32,6 @@ pub struct InteractionAssets {
 }
 
 impl InteractionAssets {
-
     pub fn make_draggable_axis(
         &self,
         command: &mut Commands,
@@ -49,20 +45,20 @@ impl InteractionAssets {
         scale: f32,
     ) -> Entity {
         return command.entity(parent).add_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
-                transform: Transform::from_rotation(
-                    rotation
-                ).with_translation(offset)
-                .with_scale(Vec3::splat(scale)),
-                mesh: self.arrow_mesh.clone(),
-                material: material_set.passive.clone(),
-                ..default()
-            })
-            .insert(DragAxis{
-                along: [0., 0., 1.].into(),
-            })
-            .insert(Draggable::new(for_entity, Some(material_set)))
-            .id()
+            parent
+                .spawn_bundle(PbrBundle {
+                    transform: Transform::from_rotation(rotation)
+                        .with_translation(offset)
+                        .with_scale(Vec3::splat(scale)),
+                    mesh: self.arrow_mesh.clone(),
+                    material: material_set.passive.clone(),
+                    ..default()
+                })
+                .insert(DragAxis {
+                    along: [0., 0., 1.].into(),
+                })
+                .insert(Draggable::new(for_entity, Some(material_set)))
+                .id()
         });
     }
 
@@ -72,9 +68,9 @@ impl InteractionAssets {
         anchor: Entity,
         cue: &mut AnchorVisualCue,
     ) {
-        let drag_parent = command.entity(anchor).add_children(|parent| {
-            parent.spawn_bundle(SpatialBundle::default()).id()
-        });
+        let drag_parent = command
+            .entity(anchor)
+            .add_children(|parent| parent.spawn_bundle(SpatialBundle::default()).id());
 
         let height = 0.01;
         let scale = 0.2;
@@ -99,7 +95,7 @@ impl InteractionAssets {
                 self.y_axis_materials.clone(),
                 Vec3::new(0., -offset, height),
                 Quat::from_rotation_x(90_f32.to_radians()),
-            )
+            ),
         ] {
             self.make_draggable_axis(command, anchor, drag_parent, m, p, r, scale);
         }

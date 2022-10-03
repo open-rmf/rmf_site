@@ -49,7 +49,7 @@ pub mod select_anchor;
 pub use select_anchor::*;
 
 use bevy::prelude::*;
-use bevy_mod_picking::{PickingSystem, PickingPlugin};
+use bevy_mod_picking::{PickingPlugin, PickingSystem};
 
 #[derive(Default)]
 pub struct InteractionPlugin;
@@ -62,8 +62,7 @@ pub enum InteractionState {
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_state(InteractionState::Disable)
+        app.add_state(InteractionState::Disable)
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
@@ -88,62 +87,36 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_picking_cam)
                     .with_system(make_selectable_entities_pickable)
                     .with_system(handle_selection_picking)
-                    .with_system(
-                        maintain_hovered_entities
-                        .after(handle_selection_picking)
-                    )
-                    .with_system(
-                        maintain_selected_entities
-                        .after(maintain_hovered_entities)
-                    )
-                    .with_system(
-                        handle_select_anchor_mode
-                        .after(maintain_selected_entities)
-                    )
+                    .with_system(maintain_hovered_entities.after(handle_selection_picking))
+                    .with_system(maintain_selected_entities.after(maintain_hovered_entities))
+                    .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
                     .with_system(add_anchor_visual_cues)
-                    .with_system(
-                        update_anchor_visual_cues
-                        .after(maintain_selected_entities)
-                    )
+                    .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(add_lane_visual_cues)
-                    .with_system(
-                        update_lane_visual_cues
-                        .after(maintain_selected_entities)
-                    )
+                    .with_system(update_lane_visual_cues.after(maintain_selected_entities))
                     .with_system(add_misc_visual_cues)
-                    .with_system(
-                        update_misc_visual_cues
-                        .after(maintain_selected_entities)
-                    )
-                    .with_system(
-                        update_drag_click_start
-                        .after(maintain_selected_entities)
-                    )
+                    .with_system(update_misc_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_drag_click_start.after(maintain_selected_entities))
                     .with_system(update_drag_release)
                     .with_system(
                         update_drag_motions
-                        .after(update_drag_click_start)
-                        .after(update_drag_release)
+                            .after(update_drag_click_start)
+                            .after(update_drag_release),
                     ),
             )
-            .add_system_set(
-                SystemSet::on_exit(InteractionState::Enable)
-                    .with_system(hide_cursor)
-            )
+            .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(move_anchor)
-                    .with_system(make_gizmos_pickable)
+                    .with_system(make_gizmos_pickable),
             )
             .add_system_set_to_stage(
                 CoreStage::First,
                 SystemSet::new()
-                    .with_system(
-                        update_picked.after(PickingSystem::UpdateIntersections)
-                    )
-                    .with_system(update_interaction_mode)
+                    .with_system(update_picked.after(PickingSystem::UpdateIntersections))
+                    .with_system(update_interaction_mode),
             );
     }
 }

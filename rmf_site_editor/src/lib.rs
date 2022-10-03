@@ -100,8 +100,7 @@ pub fn run() {
         });
     }
 
-    app
-        .init_resource::<Settings>()
+    app.init_resource::<Settings>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
         .add_plugins_with(DefaultPlugins, |group| {

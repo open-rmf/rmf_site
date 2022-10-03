@@ -16,12 +16,12 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Door<T: RefTrait> {
     /// (left_anchor, right_anchor)
     pub anchors: Edge<T>,
@@ -35,7 +35,7 @@ pub struct Door<T: RefTrait> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum DoorType {
     SingleSliding(SingleSlidingDoor),
     DoubleSliding(DoubleSlidingDoor),
@@ -49,7 +49,6 @@ pub enum DoorType {
 }
 
 impl DoorType {
-
     pub fn single_sliding(&self) -> Option<&SingleSlidingDoor> {
         match self {
             Self::SingleSliding(v) => Some(v),
@@ -105,7 +104,9 @@ pub struct SingleSlidingDoor {
 
 impl Default for SingleSlidingDoor {
     fn default() -> Self {
-        Self{towards: Side::Left}
+        Self {
+            towards: Side::Left,
+        }
     }
 }
 
@@ -124,7 +125,9 @@ pub struct DoubleSlidingDoor {
 
 impl Default for DoubleSlidingDoor {
     fn default() -> Self {
-        Self{left_right_ratio: 1.0}
+        Self {
+            left_right_ratio: 1.0,
+        }
     }
 }
 
@@ -145,7 +148,10 @@ pub struct SingleSwingDoor {
 
 impl Default for SingleSwingDoor {
     fn default() -> Self {
-        Self{pivot_on: Side::Left, swing: Swing::Forward(Angle::Deg(90.0))}
+        Self {
+            pivot_on: Side::Left,
+            swing: Swing::Forward(Angle::Deg(90.0)),
+        }
     }
 }
 
@@ -164,7 +170,9 @@ pub struct DoubleSwingDoor {
 
 impl Default for DoubleSwingDoor {
     fn default() -> Self {
-        Self{swing: Swing::Forward(Angle::Deg(90.0))}
+        Self {
+            swing: Swing::Forward(Angle::Deg(90.0)),
+        }
     }
 }
 
@@ -194,11 +202,11 @@ pub enum Swing {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct DoorMarker;
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallDoorType {
     pub single_sliding: Option<DoorType>,
     pub double_sliding: Option<DoorType>,
@@ -209,42 +217,53 @@ pub struct RecallDoorType {
 
 impl RecallDoorType {
     pub fn assume_single_sliding(&self, current: &DoorType) -> DoorType {
-        current.single_sliding().map(|x| x.clone().into()).unwrap_or(
-            self.single_sliding.as_ref().map(|x| x.clone()).unwrap_or(
-                DoorType::SingleSliding(SingleSlidingDoor::default())
+        current
+            .single_sliding()
+            .map(|x| x.clone().into())
+            .unwrap_or(
+                self.single_sliding
+                    .as_ref()
+                    .map(|x| x.clone())
+                    .unwrap_or(DoorType::SingleSliding(SingleSlidingDoor::default())),
             )
-        )
     }
 
     pub fn assume_double_sliding(&self, current: &DoorType) -> DoorType {
-        current.double_sliding().map(|x| x.clone().into()).unwrap_or(
-            self.double_sliding.as_ref().map(|x| x.clone()).unwrap_or(
-                DoorType::DoubleSliding(DoubleSlidingDoor::default())
+        current
+            .double_sliding()
+            .map(|x| x.clone().into())
+            .unwrap_or(
+                self.double_sliding
+                    .as_ref()
+                    .map(|x| x.clone())
+                    .unwrap_or(DoorType::DoubleSliding(DoubleSlidingDoor::default())),
             )
-        )
     }
 
     pub fn assume_single_swing(&self, current: &DoorType) -> DoorType {
         current.single_swing().map(|x| x.clone().into()).unwrap_or(
-            self.single_swing.as_ref().map(|x| x.clone()).unwrap_or(
-                DoorType::SingleSwing(SingleSwingDoor::default())
-            )
+            self.single_swing
+                .as_ref()
+                .map(|x| x.clone())
+                .unwrap_or(DoorType::SingleSwing(SingleSwingDoor::default())),
         )
     }
 
     pub fn assume_double_swing(&self, current: &DoorType) -> DoorType {
         current.double_swing().map(|x| x.clone().into()).unwrap_or(
-            self.double_swing.as_ref().map(|x| x.clone()).unwrap_or(
-                DoorType::DoubleSwing(DoubleSwingDoor::default())
-            )
+            self.double_swing
+                .as_ref()
+                .map(|x| x.clone())
+                .unwrap_or(DoorType::DoubleSwing(DoubleSwingDoor::default())),
         )
     }
 
     pub fn assume_model(&self, current: &DoorType) -> DoorType {
         current.model().map(|x| x.clone().into()).unwrap_or(
-            self.model.as_ref().map(|x| x.clone()).unwrap_or(
-                DoorType::Model(Model::default())
-            )
+            self.model
+                .as_ref()
+                .map(|x| x.clone())
+                .unwrap_or(DoorType::Model(Model::default())),
         )
     }
 }
@@ -256,16 +275,16 @@ impl Recall for RecallDoorType {
         match source {
             DoorType::SingleSliding(_) => {
                 self.single_sliding = Some(source.clone());
-            },
-            DoorType::DoubleSliding{..} => {
+            }
+            DoorType::DoubleSliding { .. } => {
                 self.double_sliding = Some(source.clone());
-            },
-            DoorType::SingleSwing{..} => {
+            }
+            DoorType::SingleSwing { .. } => {
                 self.single_sliding = Some(source.clone());
-            },
+            }
             DoorType::DoubleSwing(_) => {
                 self.double_swing = Some(source.clone());
-            },
+            }
             DoorType::Model(_) => {
                 self.model = Some(source.clone());
             }
@@ -273,10 +292,10 @@ impl Recall for RecallDoorType {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Door<Entity> {
     pub fn to_u32(&self, anchors: Edge<u32>) -> Door<u32> {
-        Door{
+        Door {
             anchors,
             name: self.name.clone(),
             kind: self.kind.clone(),
@@ -285,10 +304,10 @@ impl Door<Entity> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Door<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Door<Entity> {
-        Door{
+        Door {
             anchors: self.anchors.to_ecs(id_to_entity),
             name: self.name.clone(),
             kind: self.kind.clone(),
@@ -299,11 +318,11 @@ impl Door<u32> {
 
 impl<T: RefTrait> From<Edge<T>> for Door<T> {
     fn from(edge: Edge<T>) -> Self {
-        Door{
+        Door {
             anchors: edge,
             name: NameInSite("<Unnamed>".to_string()),
             kind: SingleSlidingDoor::default().into(),
-            marker: Default::default()
+            marker: Default::default(),
         }
     }
 }

@@ -24,11 +24,19 @@ pub enum PortingError {
     #[error("a non-existent level {0} was referenced")]
     InvalidLevelName(String),
     #[error("wrong number [{door_count}] of lift cabin doors for lift [{lift}]; must be no greater than 1")]
-    InvalidLiftCabinDoors{lift: String, door_count: usize},
+    InvalidLiftCabinDoors { lift: String, door_count: usize },
     #[error("wrong number [{door_count}] of level doors for lift [{lift}] on level [{level}]")]
-    InvalidLiftLevelDoorCount{lift: String, level: String, door_count: usize},
+    InvalidLiftLevelDoorCount {
+        lift: String,
+        level: String,
+        door_count: usize,
+    },
     #[error("unable to find a door named {door} on level {level} requested by lift {lift}")]
-    InvalidLiftLevelDoorName{lift: String, level: String, door: String},
+    InvalidLiftLevelDoorName {
+        lift: String,
+        level: String,
+        door: String,
+    },
     #[error("the data contained a known type which has been deprecated: {0}")]
     DeprecatedType(String),
     #[error("the data contained an unknown/invalid type: {0}")]

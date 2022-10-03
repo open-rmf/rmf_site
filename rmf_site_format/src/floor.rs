@@ -16,12 +16,12 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Floor<T: RefTrait> {
     pub anchors: Path<T>,
     #[serde(default, skip_serializing_if = "is_default")]
@@ -31,13 +31,13 @@ pub struct Floor<T: RefTrait> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct FloorMarker;
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Floor<Entity> {
     pub fn to_u32(&self, anchors: Path<u32>) -> Floor<u32> {
-        Floor{
+        Floor {
             anchors,
             texture: self.texture.clone(),
             marker: Default::default(),
@@ -45,20 +45,20 @@ impl Floor<Entity> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Floor<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Floor<Entity> {
-        Floor{
+        Floor {
             anchors: self.anchors.to_ecs(id_to_entity),
             texture: self.texture.clone(),
-            marker: Default::default()
+            marker: Default::default(),
         }
     }
 }
 
 impl<T: RefTrait> From<Path<T>> for Floor<T> {
     fn from(path: Path<T>) -> Self {
-        Floor{
+        Floor {
             anchors: path,
             texture: Default::default(),
             marker: Default::default(),

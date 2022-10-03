@@ -17,14 +17,11 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, AnchorDependents, Pending, PathBehavior, Original},
+    site::{Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending},
 };
+use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Side, Edge, Point, Path, Lane, Measurement, Wall, Door, LiftProperties, Location, Floor,
-};
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
+    Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, Path, Point, Side, Wall,
 };
 use std::sync::Arc;
 
@@ -44,7 +41,7 @@ pub enum SelectAnchorContinuity {
     /// We allow the original_anchor to initially be None so that users do not
     /// need to know its initial value. The handle_select_anchor_mode will fill
     /// this in when the time comes.
-    ReplaceAnchor{original_anchor: Option<Entity>},
+    ReplaceAnchor { original_anchor: Option<Entity> },
     /// Select enough anchors for one element to be completed. For edge-like
     /// elements this means both sides must be filled in. For Location, one
     /// selection is enough. For Floor this will be equivalent to Continuous
@@ -64,29 +61,31 @@ pub enum SelectAnchorContinuity {
     /// If the element did not qualify to finish then it is deleted. The user
     /// can begin drawing a new element. A double-backout is needed to exit the
     /// mode.
-    Continuous{previous: Option<Entity>},
+    Continuous { previous: Option<Entity> },
 }
 
 impl SelectAnchorContinuity {
     fn needs_original(&self) -> bool {
         match self {
-            Self::ReplaceAnchor{original_anchor} => {
+            Self::ReplaceAnchor { original_anchor } => {
                 return original_anchor.is_none();
-            },
-            _ => { return false; }
+            }
+            _ => {
+                return false;
+            }
         }
     }
 
     fn replacing(&self) -> Option<Entity> {
         match self {
-            Self::ReplaceAnchor{original_anchor} => *original_anchor,
+            Self::ReplaceAnchor { original_anchor } => *original_anchor,
             _ => None,
         }
     }
 
     fn previous(&self) -> Option<Entity> {
         match self {
-            Self::Continuous{previous} => *previous,
+            Self::Continuous { previous } => *previous,
             _ => None,
         }
     }
@@ -99,17 +98,20 @@ struct Transition {
 
 impl From<(TargetTransition, PlacementTransition)> for Transition {
     fn from(input: (TargetTransition, PlacementTransition)) -> Self {
-        Self{
+        Self {
             target: input.0,
             placement: input.1,
         }
     }
 }
 
-type CreateEdgeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Edge<Entity>) -> Entity + Send + Sync>;
-type CreatePointFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Point<Entity>) -> Entity + Send + Sync>;
-type CreatePathFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Path<Entity>) -> Entity + Send + Sync>;
-type FinalizeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Entity)  + Send + Sync>;
+type CreateEdgeFn =
+    Arc<dyn Fn(&mut SelectAnchorPlacementParams, Edge<Entity>) -> Entity + Send + Sync>;
+type CreatePointFn =
+    Arc<dyn Fn(&mut SelectAnchorPlacementParams, Point<Entity>) -> Entity + Send + Sync>;
+type CreatePathFn =
+    Arc<dyn Fn(&mut SelectAnchorPlacementParams, Path<Entity>) -> Entity + Send + Sync>;
+type FinalizeFn = Arc<dyn Fn(&mut SelectAnchorPlacementParams, Entity) + Send + Sync>;
 
 struct TargetTransition {
     created: Option<Entity>,
@@ -119,7 +121,7 @@ struct TargetTransition {
 
 impl TargetTransition {
     fn none() -> Self {
-        Self{
+        Self {
             created: None,
             is_finished: false,
             discontinue: false,
@@ -127,7 +129,7 @@ impl TargetTransition {
     }
 
     fn create(e: Entity) -> Self {
-        Self{
+        Self {
             created: Some(e),
             is_finished: false,
             discontinue: false,
@@ -135,7 +137,7 @@ impl TargetTransition {
     }
 
     fn finished() -> Self {
-        Self{
+        Self {
             created: None,
             is_finished: true,
             discontinue: false,
@@ -143,7 +145,7 @@ impl TargetTransition {
     }
 
     fn discontinued() -> Self {
-        Self{
+        Self {
             created: None,
             is_finished: false,
             discontinue: true,
@@ -165,19 +167,17 @@ impl TargetTransition {
                     );
                 }
                 Some(e)
-            },
-            None => {
-                match self.created {
-                    Some(e) => Some(e),
-                    None => {
-                        println!(
-                            "DEV ERROR: Failed to create an entity while in \
-                            SelectAnchor mode"
-                        );
-                        None
-                    }
-                }
             }
+            None => match self.created {
+                Some(e) => Some(e),
+                None => {
+                    println!(
+                        "DEV ERROR: Failed to create an entity while in \
+                            SelectAnchor mode"
+                    );
+                    None
+                }
+            },
         }
     }
 
@@ -222,11 +222,7 @@ trait Placement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity>;
 
-    fn finalize<'w, 's>(
-        &self,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    );
+    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>);
 
     fn backout<'w, 's>(
         &self,
@@ -242,13 +238,18 @@ trait Placement {
 /// simplify that we encapsulate the logic inside of this AnchorSelection enum.
 enum AnchorSelection {
     Existing(Entity),
-    New{entity: Entity, dependents: AnchorDependents},
+    New {
+        entity: Entity,
+        dependents: AnchorDependents,
+    },
 }
 
 impl AnchorSelection {
-
     fn new(entity: Entity) -> Self {
-        Self::New{entity, dependents: Default::default()}
+        Self::New {
+            entity,
+            dependents: Default::default(),
+        }
     }
 
     fn existing(entity: Entity) -> Self {
@@ -257,7 +258,7 @@ impl AnchorSelection {
 
     fn entity(&self) -> Entity {
         match self {
-            Self::Existing(entity) | Self::New{entity, ..} => *entity,
+            Self::Existing(entity) | Self::New { entity, .. } => *entity,
         }
     }
 
@@ -278,8 +279,8 @@ impl AnchorSelection {
                 };
                 dep.dependents.insert(dependent);
                 Ok(())
-            },
-            Self::New{entity, dependents} => {
+            }
+            Self::New { entity, dependents } => {
                 dependents.dependents.insert(dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
@@ -303,8 +304,8 @@ impl AnchorSelection {
                 };
                 dep.dependents.remove(&dependent);
                 Ok(())
-            },
-            Self::New{entity, dependents} => {
+            }
+            Self::New { entity, dependents } => {
                 dependents.dependents.remove(&dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
@@ -322,9 +323,9 @@ pub struct EdgePlacement {
 
 impl EdgePlacement {
     fn transition(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
-            next: Arc::new(Self{
+            next: Arc::new(Self {
                 side: self.side.opposite(),
                 create: self.create.clone(),
                 finalize: self.finalize.clone(),
@@ -333,52 +334,54 @@ impl EdgePlacement {
     }
 
     fn to_start(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
-            next: Arc::new(Self{
+            next: Arc::new(Self {
                 side: Side::Left,
                 create: self.create.clone(),
                 finalize: self.finalize.clone(),
-            })
+            }),
         }
     }
 
     fn to_end(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
-            next: Arc::new(Self{
+            next: Arc::new(Self {
                 side: Side::Right,
                 create: self.create.clone(),
                 finalize: self.finalize.clone(),
-            })
+            }),
         }
     }
 
     fn ignore(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
             next: Arc::new(self.clone()),
         }
     }
 
     fn new<T: Bundle + From<Edge<Entity>>>(side: Side) -> Arc<Self> {
-        Arc::new(Self{
+        Arc::new(Self {
             side,
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, edge: Edge<Entity>| {
                     let new_bundle: T = edge.into();
-                    params.commands
+                    params
+                        .commands
                         .spawn()
                         .insert_bundle(new_bundle)
                         .insert(Pending)
                         .id()
-                }
+                },
             ),
-            finalize: Arc::new(
-                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
-                    params.commands.entity(entity).remove::<Original<Edge<Entity>>>();
-                }
-            )
+            finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                params
+                    .commands
+                    .entity(entity)
+                    .remove::<Original<Edge<Entity>>>();
+            }),
         })
     }
 
@@ -392,16 +395,22 @@ impl EdgePlacement {
         // Remove the target edge as a dependency from any anchors that are no
         // longer being used by this edge.
         for old_anchor in old_edge.array() {
-            if new_edge.array().iter().find(|x| **x == old_anchor).is_none() {
+            if new_edge
+                .array()
+                .iter()
+                .find(|x| **x == old_anchor)
+                .is_none()
+            {
                 // This anchor is no longer being used by the edge.
                 match params.remove_dependent(target, old_anchor, &mut anchor_selection) {
                     Ok(_) => {
                         // Do nothing
-                    },
+                    }
                     Err(_) => {
                         println!(
                             "DEV ERROR: No AnchorDependents component found for \
-                            {:?} while in SelectAnchor mode.", old_anchor
+                            {:?} while in SelectAnchor mode.",
+                            old_anchor
                         );
                     }
                 }
@@ -409,7 +418,12 @@ impl EdgePlacement {
         }
 
         for new_anchor in new_edge.array() {
-            if old_edge.array().iter().find(|x| **x == new_anchor).is_none() {
+            if old_edge
+                .array()
+                .iter()
+                .find(|x| **x == new_anchor)
+                .is_none()
+            {
                 // This anchor was not being used by the edge previously.
                 params.add_dependent(target, new_anchor, &mut anchor_selection)?;
             }
@@ -432,39 +446,40 @@ impl Placement for EdgePlacement {
                 // We expect that we already have an element and we are
                 // modifying it.
                 match params.edges.get_mut(target) {
-                    Ok((edge, original)) => {
-                        (target, edge, original)
-                    },
+                    Ok((edge, original)) => (target, edge, original),
                     Err(_) => {
                         println!(
                             "DEV ERROR: Entity {:?} is not the right kind of \
-                            element", target,
+                            element",
+                            target,
                         );
                         return Err(());
                     }
                 }
-            },
+            }
             None => {
                 // We need to begin creating a new element
                 if self.side == Side::Right {
                     if let Some(previous) = continuity.previous() {
                         // We should connect this new element to the previous one.
                         let (previous_edge, _) = params.edges.get(previous).map_err(|_| ())?;
-                        let anchors = Edge::new(
-                            previous_edge.right(), anchor_selection.entity()
-                        );
+                        let anchors = Edge::new(previous_edge.right(), anchor_selection.entity());
                         let target = (*self.create)(params, anchors);
                         for anchor in anchors.array() {
-                            params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
+                            params.add_dependent(
+                                target,
+                                anchor,
+                                &mut Some(&mut anchor_selection),
+                            )?;
                         }
 
-                        return Ok((TargetTransition::create(target).finish(), self.to_end()).into());
+                        return Ok(
+                            (TargetTransition::create(target).finish(), self.to_end()).into()
+                        );
                     }
                 }
 
-                let anchors = Edge::new(
-                    anchor_selection.entity(), params.cursor.anchor_placement
-                );
+                let anchors = Edge::new(anchor_selection.entity(), params.cursor.anchor_placement);
                 let target = (*self.create)(params, anchors);
                 for anchor in anchors.array() {
                     params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
@@ -481,7 +496,7 @@ impl Placement for EdgePlacement {
                 } else {
                     original.with_side_of(self.side, anchor_selection.entity())
                 }
-            },
+            }
             None => {
                 match continuity.replacing() {
                     Some(replacing) => {
@@ -497,7 +512,7 @@ impl Placement for EdgePlacement {
                         };
 
                         new_edge.with_side_of(self.side, anchor_selection.entity())
-                    },
+                    }
                     None => {
                         match self.side {
                             Side::Left => {
@@ -505,7 +520,7 @@ impl Placement for EdgePlacement {
                                 // that is being freshly created, so set both
                                 // sides to the same anchor.
                                 Edge::new(anchor_selection.entity(), anchor_selection.entity())
-                            },
+                            }
                             Side::Right => {
                                 if endpoints.left() == anchor_selection.entity() {
                                     // The user is asking to select the same anchor for
@@ -517,7 +532,6 @@ impl Placement for EdgePlacement {
                                 endpoints.with_side_of(Side::Right, anchor_selection.entity())
                             }
                         }
-
                     }
                 }
             }
@@ -526,23 +540,21 @@ impl Placement for EdgePlacement {
         let old_edge = *endpoints;
         *endpoints = new_edge;
         Self::update_dependencies(
-            Some(&mut anchor_selection), target, old_edge, new_edge, params
+            Some(&mut anchor_selection),
+            target,
+            old_edge,
+            new_edge,
+            params,
         )?;
 
         return match self.side {
-            Side::Left => {
-                Ok((TargetTransition::none(), self.to_end()).into())
-            },
-            Side::Right => {
-                match continuity {
-                    SelectAnchorContinuity::Continuous{..} => {
-                        Ok((TargetTransition::finished(), self.to_end()).into())
-                    },
-                    _ => {
-                        Ok((TargetTransition::finished(), self.to_start()).into())
-                    }
+            Side::Left => Ok((TargetTransition::none(), self.to_end()).into()),
+            Side::Right => match continuity {
+                SelectAnchorContinuity::Continuous { .. } => {
+                    Ok((TargetTransition::finished(), self.to_end()).into())
                 }
-            }
+                _ => Ok((TargetTransition::finished(), self.to_start()).into()),
+            },
         };
     }
 
@@ -551,7 +563,11 @@ impl Placement for EdgePlacement {
         target: Entity,
         params: &SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Entity> {
-        params.edges.get(target).ok().map(|edge| edge.0.side(self.side))
+        params
+            .edges
+            .get(target)
+            .ok()
+            .map(|edge| edge.0.side(self.side))
     }
 
     fn save_original<'w, 's>(
@@ -567,11 +583,7 @@ impl Placement for EdgePlacement {
         return None;
     }
 
-    fn finalize<'w, 's>(
-        &self,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) {
+    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>) {
         (*self.finalize)(params, target);
     }
 
@@ -636,29 +648,31 @@ pub struct PointPlacement {
 
 impl PointPlacement {
     fn new<T: Bundle + From<Point<Entity>>>() -> Arc<Self> {
-        Arc::new(Self{
+        Arc::new(Self {
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, point: Point<Entity>| {
                     let new_bundle: T = point.into();
-                    params.commands
+                    params
+                        .commands
                         .spawn()
                         .insert_bundle(new_bundle)
                         .insert(Pending)
                         .id()
-                }
+                },
             ),
-            finalize: Arc::new(
-                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
-                    params.commands.entity(entity).remove::<Original<Point<Entity>>>();
-                }
-            )
+            finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                params
+                    .commands
+                    .entity(entity)
+                    .remove::<Original<Point<Entity>>>();
+            }),
         })
     }
 }
 
 impl PointPlacement {
     fn transition(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
             next: Arc::new(self.clone()),
         }
@@ -681,7 +695,8 @@ impl Placement for PointPlacement {
                     Err(_) => {
                         println!(
                             "DEV ERROR: Unable to get location {:?} while in \
-                            SelectAnchor mode.", target
+                            SelectAnchor mode.",
+                            target
                         );
                         return Err(());
                     }
@@ -691,7 +706,11 @@ impl Placement for PointPlacement {
                     let old_point = **point;
                     **point = anchor_selection.entity();
                     params.remove_dependent(target, old_point, &mut Some(&mut anchor_selection))?;
-                    params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
+                    params.add_dependent(
+                        target,
+                        anchor_selection.entity(),
+                        &mut Some(&mut anchor_selection),
+                    )?;
                 }
 
                 return Ok((TargetTransition::finished(), self.transition()).into());
@@ -699,7 +718,11 @@ impl Placement for PointPlacement {
             None => {
                 // The element doesn't exist yet, so we need to spawn one.
                 let target = (*self.create)(params, Point(anchor_selection.entity()));
-                params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
+                params.add_dependent(
+                    target,
+                    anchor_selection.entity(),
+                    &mut Some(&mut anchor_selection),
+                )?;
                 return Ok((TargetTransition::create(target).finish(), self.transition()).into());
             }
         }
@@ -726,11 +749,7 @@ impl Placement for PointPlacement {
         return None;
     }
 
-    fn finalize<'w, 's>(
-        &self,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) {
+    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>) {
         (*self.finalize)(params, target);
     }
 
@@ -781,30 +800,31 @@ pub struct PathPlacement {
 }
 
 impl PathPlacement {
-
     fn new<T: Bundle + From<Path<Entity>>>(placement: Option<usize>) -> Arc<Self> {
-        Arc::new(Self{
+        Arc::new(Self {
             index: placement,
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
                     let new_bundle: T = path.into();
-                    params.commands
+                    params
+                        .commands
                         .spawn()
                         .insert_bundle(new_bundle)
                         .insert(Pending)
                         .id()
-                }
+                },
             ),
-            finalize: Arc::new(
-                |params: &mut SelectAnchorPlacementParams, entity: Entity| {
-                    params.commands.entity(entity).remove::<Original<Path<Entity>>>();
-                }
-            )
+            finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                params
+                    .commands
+                    .entity(entity)
+                    .remove::<Original<Path<Entity>>>();
+            }),
         })
     }
 
     fn at_index(&self, index: usize) -> Arc<Self> {
-        Arc::new(Self{
+        Arc::new(Self {
             index: Some(index),
             create: self.create.clone(),
             finalize: self.finalize.clone(),
@@ -812,9 +832,9 @@ impl PathPlacement {
     }
 
     fn restart(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
-            next: Arc::new(Self{
+            next: Arc::new(Self {
                 index: None,
                 create: self.create.clone(),
                 finalize: self.finalize.clone(),
@@ -823,14 +843,14 @@ impl PathPlacement {
     }
 
     fn transition_from(&self, index: usize) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: Some(self.at_index(index)),
-            next: self.at_index(index+1),
+            next: self.at_index(index + 1),
         }
     }
 
     fn ignore(&self) -> PlacementTransition {
-        PlacementTransition{
+        PlacementTransition {
             preview: None,
             next: Arc::new(self.clone()),
         }
@@ -850,7 +870,11 @@ impl Placement for PathPlacement {
             None => {
                 // We need to create a new element
                 let target = (*self.create)(params, Path(vec![anchor_selection.entity()]));
-                params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
+                params.add_dependent(
+                    target,
+                    anchor_selection.entity(),
+                    &mut Some(&mut anchor_selection),
+                )?;
                 return Ok((TargetTransition::create(target), self.transition_from(0)).into());
             }
         };
@@ -878,10 +902,7 @@ impl Placement for PathPlacement {
                         // the first element now.
                         path.pop();
                     }
-                    return Ok((
-                        TargetTransition::finished(),
-                        self.transition_from(index)
-                    ).into());
+                    return Ok((TargetTransition::finished(), self.transition_from(index)).into());
                 }
             }
         }
@@ -908,7 +929,11 @@ impl Placement for PathPlacement {
             path.push(anchor_selection.entity());
         }
 
-        params.add_dependent(target, anchor_selection.entity(), &mut Some(&mut anchor_selection))?;
+        params.add_dependent(
+            target,
+            anchor_selection.entity(),
+            &mut Some(&mut anchor_selection),
+        )?;
         return Ok((TargetTransition::none(), self.transition_from(index)).into());
     }
 
@@ -919,7 +944,9 @@ impl Placement for PathPlacement {
     ) -> Option<Entity> {
         let index = match self.index {
             Some(i) => i,
-            None => { return None; }
+            None => {
+                return None;
+            }
         };
 
         let path = match params.paths.get(target) {
@@ -927,7 +954,8 @@ impl Placement for PathPlacement {
             Err(_) => {
                 println!(
                     "DEV ERROR: Unable to find path for {:?} while in \
-                    SelectAnchor mode", target,
+                    SelectAnchor mode",
+                    target,
                 );
                 return None;
             }
@@ -946,7 +974,8 @@ impl Placement for PathPlacement {
             Err(_) => {
                 println!(
                     "DEV ERROR: Unable to find path for {:?} while in \
-                    SelectAnchor mode", target,
+                    SelectAnchor mode",
+                    target,
                 );
                 return None;
             }
@@ -957,11 +986,7 @@ impl Placement for PathPlacement {
         return placement;
     }
 
-    fn finalize<'w, 's>(
-        &self,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) {
+    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>) {
         (*self.finalize)(params, target);
     }
 
@@ -986,7 +1011,8 @@ impl Placement for PathPlacement {
                 println!(
                     "DEV ERROR: Path of length {} is missing the index {} \
                     that was supposed to be replaced.",
-                    path.len(), index
+                    path.len(),
+                    index
                 );
                 return Err(());
             }
@@ -999,14 +1025,11 @@ impl Placement for PathPlacement {
         }
 
         let (mut path, behavior) = params.paths.get_mut(target).map_err(|_| ())?;
-        let discontinue = path.is_empty() || (
-            path.len() == 1 && self.index == Some(0)
-        );
+        let discontinue = path.is_empty() || (path.len() == 1 && self.index == Some(0));
 
-        let insufficient_points = path.len() < behavior.minimum_points || (
-            path.len() < behavior.minimum_points + 1
-            && self.index < Some(behavior.minimum_points)
-        );
+        let insufficient_points = path.len() < behavior.minimum_points
+            || (path.len() < behavior.minimum_points + 1
+                && self.index < Some(behavior.minimum_points));
 
         if insufficient_points || discontinue {
             // We're backing out when the path is too small, so we will delete
@@ -1042,7 +1065,14 @@ impl Placement for PathPlacement {
 
 #[derive(SystemParam)]
 pub struct SelectAnchorPlacementParams<'w, 's> {
-    edges: Query<'w, 's, (&'static mut Edge<Entity>, Option<&'static Original<Edge<Entity>>>)>,
+    edges: Query<
+        'w,
+        's,
+        (
+            &'static mut Edge<Entity>,
+            Option<&'static Original<Edge<Entity>>>,
+        ),
+    >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut AnchorDependents>,
@@ -1052,7 +1082,6 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
-
     fn add_dependent(
         &mut self,
         dependent: Entity,
@@ -1107,7 +1136,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
 
     /// Use this when exiting SelectAnchor mode
     fn cleanup(&mut self) {
-        self.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
+        self.cursor
+            .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
         set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
     }
 }
@@ -1120,7 +1150,7 @@ pub struct SelectAnchorEdgeBuilder {
 
 impl SelectAnchorEdgeBuilder {
     pub fn for_lane(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1128,7 +1158,7 @@ impl SelectAnchorEdgeBuilder {
     }
 
     pub fn for_measurement(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1136,7 +1166,7 @@ impl SelectAnchorEdgeBuilder {
     }
 
     pub fn for_wall(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1144,7 +1174,7 @@ impl SelectAnchorEdgeBuilder {
     }
 
     pub fn for_door(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<Door<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1152,7 +1182,7 @@ impl SelectAnchorEdgeBuilder {
     }
 
     pub fn for_lift(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1167,7 +1197,7 @@ pub struct SelectAnchorPointBuilder {
 
 impl SelectAnchorPointBuilder {
     pub fn for_location(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
@@ -1183,7 +1213,7 @@ pub struct SelectAnchorPathBuilder {
 
 impl SelectAnchorPathBuilder {
     pub fn for_floor(self) -> SelectAnchor {
-        SelectAnchor{
+        SelectAnchor {
             target: self.for_element,
             placement: PathPlacement::new::<Floor<Entity>>(self.placement),
             continuity: self.continuity,
@@ -1205,16 +1235,12 @@ pub struct SelectAnchor {
 }
 
 impl SelectAnchor {
-
-    pub fn replace_side(
-        edge: Entity,
-        side: Side,
-    ) -> SelectAnchorEdgeBuilder {
-        SelectAnchorEdgeBuilder{
+    pub fn replace_side(edge: Entity, side: Side) -> SelectAnchorEdgeBuilder {
+        SelectAnchorEdgeBuilder {
             for_element: Some(edge),
             placement: side,
-            continuity: SelectAnchorContinuity::ReplaceAnchor{
-                original_anchor: None
+            continuity: SelectAnchorContinuity::ReplaceAnchor {
+                original_anchor: None,
             },
         }
     }
@@ -1227,7 +1253,7 @@ impl SelectAnchor {
     /// let mode = SelectAnchor::create_one_new_edge().for_lane();
     /// ```
     pub fn create_one_new_edge() -> SelectAnchorEdgeBuilder {
-        SelectAnchorEdgeBuilder{
+        SelectAnchorEdgeBuilder {
             for_element: None,
             placement: Side::Left,
             continuity: SelectAnchorContinuity::InsertElement,
@@ -1243,32 +1269,29 @@ impl SelectAnchor {
     /// let mode = SelectAnchor::create_new_path().for_wall();
     /// ```
     pub fn create_new_edge_sequence() -> SelectAnchorEdgeBuilder {
-        SelectAnchorEdgeBuilder{
+        SelectAnchorEdgeBuilder {
             for_element: None,
             placement: Side::Left,
-            continuity: SelectAnchorContinuity::Continuous{previous: None},
+            continuity: SelectAnchorContinuity::Continuous { previous: None },
         }
     }
 
     /// Create one new location. After an anchor is selected the new location
     /// will be created and the mode will return to Inspect.
     pub fn create_new_point() -> SelectAnchorPointBuilder {
-        SelectAnchorPointBuilder{
+        SelectAnchorPointBuilder {
             for_element: None,
             continuity: SelectAnchorContinuity::InsertElement,
         }
     }
 
     /// Move an existing location to a new anchor.
-    pub fn replace_point(
-        location: Entity,
-        original_anchor: Entity,
-    ) -> SelectAnchorPointBuilder {
-        SelectAnchorPointBuilder{
+    pub fn replace_point(location: Entity, original_anchor: Entity) -> SelectAnchorPointBuilder {
+        SelectAnchorPointBuilder {
             for_element: Some(location),
-            continuity: SelectAnchorContinuity::ReplaceAnchor{
+            continuity: SelectAnchorContinuity::ReplaceAnchor {
                 original_anchor: None,
-            }
+            },
         }
     }
 
@@ -1277,29 +1300,26 @@ impl SelectAnchor {
     /// of the floor the selection will be ignored, unless it is the first
     /// anchor of the floor, in which case a Backout will occur.
     pub fn create_new_path() -> SelectAnchorPathBuilder {
-        SelectAnchorPathBuilder{
+        SelectAnchorPathBuilder {
             for_element: None,
             placement: None,
-            continuity: SelectAnchorContinuity::Continuous{previous: None},
+            continuity: SelectAnchorContinuity::Continuous { previous: None },
         }
     }
 
     /// Replace which anchor one of the points on the floor is using.
-    pub fn replace_path_point(
-        path: Entity,
-        index: usize,
-    ) -> SelectAnchorPathBuilder {
-        SelectAnchorPathBuilder{
-            for_element:  Some(path),
+    pub fn replace_path_point(path: Entity, index: usize) -> SelectAnchorPathBuilder {
+        SelectAnchorPathBuilder {
+            for_element: Some(path),
             placement: Some(index),
-            continuity: SelectAnchorContinuity::ReplaceAnchor{
+            continuity: SelectAnchorContinuity::ReplaceAnchor {
                 original_anchor: None,
             },
         }
     }
 
     pub fn extend_path(path: Entity) -> SelectAnchorPathBuilder {
-        SelectAnchorPathBuilder{
+        SelectAnchorPathBuilder {
             for_element: Some(path),
             placement: None,
             continuity: SelectAnchorContinuity::InsertElement,
@@ -1309,9 +1329,10 @@ impl SelectAnchor {
     /// Whether a new object is being created
     pub fn begin_creating(&self) -> bool {
         match self.continuity {
-            SelectAnchorContinuity::ReplaceAnchor{ .. } => false,
-            SelectAnchorContinuity::InsertElement
-            | SelectAnchorContinuity::Continuous{ .. } => self.target.is_none(),
+            SelectAnchorContinuity::ReplaceAnchor { .. } => false,
+            SelectAnchorContinuity::InsertElement | SelectAnchorContinuity::Continuous { .. } => {
+                self.target.is_none()
+            }
         }
     }
 
@@ -1323,15 +1344,16 @@ impl SelectAnchor {
         anchor_selection: AnchorSelection,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Self> {
-        let transition = match self.placement.next(
-            anchor_selection,
-            self.continuity,
-            self.target,
-            params,
-        ) {
-            Ok(t) => t,
-            Err(_) => { return None; }
-        };
+        let transition =
+            match self
+                .placement
+                .next(anchor_selection, self.continuity, self.target, params)
+            {
+                Ok(t) => t,
+                Err(_) => {
+                    return None;
+                }
+            };
 
         if transition.target.is_finished || self.continuity.replacing().is_some() {
             if let Some(finished_target) = transition.target.current(self.target) {
@@ -1351,40 +1373,40 @@ impl SelectAnchor {
         let next_placement = transition.placement.next;
 
         match self.continuity {
-            SelectAnchorContinuity::ReplaceAnchor{..} => {
+            SelectAnchorContinuity::ReplaceAnchor { .. } => {
                 // No matter what gets returned for next_target or next_placement
                 // we exit the ReplaceAnchor mode as soon as a selection is made.
                 return None;
-            },
+            }
             SelectAnchorContinuity::InsertElement => {
                 if transition.target.is_finished {
                     // For InsertElement mode we exit the SelectAnchor mode as
                     // soon as a target is finished.
                     return None;
                 } else {
-                    return Some(Self{
+                    return Some(Self {
                         target: next_target,
                         placement: next_placement,
                         continuity: self.continuity,
                     });
                 }
-            },
-            SelectAnchorContinuity::Continuous{..} => {
-                return Some(Self{
+            }
+            SelectAnchorContinuity::Continuous { .. } => {
+                return Some(Self {
                     target: next_target,
                     placement: next_placement,
                     continuity: if transition.target.is_finished {
                         // If the target finished then the current target becomes
                         // the previous target.
                         let previous = transition.target.current(self.target);
-                        SelectAnchorContinuity::Continuous{previous}
+                        SelectAnchorContinuity::Continuous { previous }
                     } else {
                         // If the target is not finished then we just carry along
                         // the previous continuity.
                         self.continuity.clone()
                     },
                 });
-            },
+            }
         }
     }
 
@@ -1400,7 +1422,9 @@ impl SelectAnchor {
             params,
         ) {
             Ok(t) => t,
-            Err(_) => { return PreviewResult::Invalid; }
+            Err(_) => {
+                return PreviewResult::Invalid;
+            }
         };
 
         let target = match transition.target.current(self.target) {
@@ -1415,10 +1439,10 @@ impl SelectAnchor {
         };
 
         if let Some(new_placement) = transition.placement.preview {
-            return PreviewResult::Updated(Self{
+            return PreviewResult::Updated(Self {
                 target: Some(target),
                 placement: new_placement.clone(),
-                continuity: self.continuity
+                continuity: self.continuity,
             });
         }
 
@@ -1428,10 +1452,10 @@ impl SelectAnchor {
             return PreviewResult::Unchanged;
         }
 
-        return PreviewResult::Updated(Self{
+        return PreviewResult::Updated(Self {
             target: Some(target),
             placement: self.placement.clone(),
-            continuity: self.continuity
+            continuity: self.continuity,
         });
     }
 
@@ -1440,11 +1464,7 @@ impl SelectAnchor {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> InteractionMode {
         if let Some(target) = self.target {
-            let transition = match self.placement.backout(
-                self.continuity,
-                target,
-                params
-            ) {
+            let transition = match self.placement.backout(self.continuity, target, params) {
                 Ok(t) => t,
                 Err(_) => {
                     params.cleanup();
@@ -1463,30 +1483,30 @@ impl SelectAnchor {
             }
 
             match self.continuity {
-                SelectAnchorContinuity::ReplaceAnchor{..} => {
+                SelectAnchorContinuity::ReplaceAnchor { .. } => {
                     // Backing out of ReplaceAnchor always means we go back to
                     // Inspect mode.
                     params.cleanup();
                     return InteractionMode::Inspect;
-                },
+                }
                 SelectAnchorContinuity::InsertElement => {
                     if transition.target.is_finished {
                         // If we have finished inserting an element then stop here
                         params.cleanup();
                         return InteractionMode::Inspect;
                     } else {
-                        return InteractionMode::SelectAnchor(Self{
+                        return InteractionMode::SelectAnchor(Self {
                             target: None,
                             placement: transition.placement.next,
                             continuity: SelectAnchorContinuity::InsertElement,
                         });
                     }
-                },
-                SelectAnchorContinuity::Continuous{..} => {
-                    return InteractionMode::SelectAnchor(Self{
+                }
+                SelectAnchorContinuity::Continuous { .. } => {
+                    return InteractionMode::SelectAnchor(Self {
                         target: None,
                         placement: transition.placement.next,
-                        continuity: SelectAnchorContinuity::Continuous{previous: None},
+                        continuity: SelectAnchorContinuity::Continuous { previous: None },
                     });
                 }
             }
@@ -1496,8 +1516,6 @@ impl SelectAnchor {
             params.cleanup();
             return InteractionMode::Inspect;
         }
-
-
     }
 }
 
@@ -1537,13 +1555,19 @@ pub fn handle_select_anchor_mode(
         // out if it is.
         if let Some(hovering) = hovering.0 {
             if anchors.contains(hovering) {
-                params.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+                params
+                    .cursor
+                    .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
             } else {
                 hover.send(Hover(None));
-                params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+                params
+                    .cursor
+                    .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
             }
         } else {
-            params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+            params
+                .cursor
+                .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
 
         /// Make the anchor placement component of the cursor visible
@@ -1590,8 +1614,8 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            request.continuity = SelectAnchorContinuity::ReplaceAnchor{
-                original_anchor: Some(original)
+            request.continuity = SelectAnchorContinuity::ReplaceAnchor {
+                original_anchor: Some(original),
             };
             // Save the new mode here in case it doesn't get saved by any
             // branches in the rest of this system function.
@@ -1601,9 +1625,13 @@ pub fn handle_select_anchor_mode(
 
     if hovering.is_changed() {
         if hovering.0.is_none() {
-            params.cursor.add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+            params
+                .cursor
+                .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         } else {
-            params.cursor.remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+            params
+                .cursor
+                .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
     }
 
@@ -1630,7 +1658,8 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            let new_anchor = params.commands
+            let new_anchor = params
+                .commands
                 .spawn_bundle(AnchorBundle::at_transform(tf))
                 .id();
 
@@ -1647,9 +1676,10 @@ pub fn handle_select_anchor_mode(
         } else {
             // Offer a preview based on the current hovering status
             let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
-            let current = request.target.map(|target| {
-                request.placement.current(target, &params)
-            }).flatten();
+            let current = request
+                .target
+                .map(|target| request.placement.current(target, &params))
+                .flatten();
 
             if Some(hovered) != current {
                 // We should only call this function if the current hovered
@@ -1658,10 +1688,10 @@ pub fn handle_select_anchor_mode(
                 match request.preview(hovered, &mut params) {
                     PreviewResult::Updated(next) => {
                         *mode = InteractionMode::SelectAnchor(next);
-                    },
+                    }
                     PreviewResult::Unchanged => {
                         // Do nothing, the mode has not changed
-                    },
+                    }
                     PreviewResult::Invalid => {
                         // Something was invalid about the request, so we
                         // will exit back to Inspect mode.
@@ -1672,7 +1702,8 @@ pub fn handle_select_anchor_mode(
             }
         }
     } else {
-        for new_selection in select.iter()
+        for new_selection in select
+            .iter()
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {

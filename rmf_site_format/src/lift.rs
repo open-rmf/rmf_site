@@ -16,14 +16,14 @@
 */
 
 use crate::*;
-use std::collections::BTreeMap;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{Component, Entity, Bundle, Deref, DerefMut},
-    render::primitives::Aabb,
     math::Vec3A,
+    prelude::{Bundle, Component, Deref, DerefMut, Entity},
+    render::primitives::Aabb,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
 pub const DEFAULT_CABIN_GAP: f32 = 0.01;
@@ -39,7 +39,7 @@ pub struct Lift<T: RefTrait> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct LiftProperties<T: RefTrait> {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,
@@ -67,7 +67,7 @@ pub struct LiftProperties<T: RefTrait> {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LiftCabin {
     /// The lift cabin is defined by some parameters.
     Params(ParameterizedLiftCabin),
@@ -95,27 +95,30 @@ pub struct ParameterizedLiftCabin {
     /// What type of door is attached to the cabin.
     pub door: LiftCabinDoor,
     /// How thick are the walls of the cabin. Default is 0.05m.
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub wall_thickness: Option<f32>,
     /// How large is the gap between the line formed by the anchor points
     /// and the edge of the cabin that lines up with the door. Default is
     /// 0.01m.
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gap: Option<f32>,
     /// Left (positive) / right (negative) shift of the cabin, off-center
     /// from the anchor points. Default is 0.0m.
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub shift: Option<f32>,
 }
 
 impl Default for ParameterizedLiftCabin {
     fn default() -> Self {
-        Self{
+        Self {
             width: DEFAULT_CABIN_WIDTH,
             depth: DEFAULT_CABIN_DEPTH,
-            door: LiftCabinDoor{
-                width: 0.75*DEFAULT_CABIN_WIDTH,
-                kind: DoubleSlidingDoor{left_right_ratio: 0.5}.into(),
+            door: LiftCabinDoor {
+                width: 0.75 * DEFAULT_CABIN_WIDTH,
+                kind: DoubleSlidingDoor {
+                    left_right_ratio: 0.5,
+                }
+                .into(),
                 shifted: None,
             },
             wall_thickness: None,
@@ -125,22 +128,22 @@ impl Default for ParameterizedLiftCabin {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl ParameterizedLiftCabin {
     pub fn aabb(&self) -> Aabb {
         let thick = self.wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS);
         let gap = self.gap.unwrap_or(DEFAULT_CABIN_GAP);
-        Aabb{
+        Aabb {
             center: Vec3A::new(
-                -self.depth/2.0 - thick - gap,
+                -self.depth / 2.0 - thick - gap,
                 self.shift.unwrap_or(0.),
-                DEFAULT_LEVEL_HEIGHT/2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
             ),
             half_extents: Vec3A::new(
-                self.depth/2.0,
-                self.width/2.0,
-                DEFAULT_LEVEL_HEIGHT/2.0,
-            )
+                self.depth / 2.0,
+                self.width / 2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
+            ),
         }
     }
 }
@@ -158,7 +161,7 @@ pub struct LiftCabinDoor {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct LevelDoors<T: RefTrait>(pub BTreeMap<T, T>);
 impl<T: RefTrait> Default for LevelDoors<T> {
     fn default() -> Self {
@@ -168,7 +171,7 @@ impl<T: RefTrait> Default for LevelDoors<T> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Corrections<T: RefTrait>(pub BTreeMap<T, Edge<T>>);
 impl<T: RefTrait> Default for Corrections<T> {
     fn default() -> Self {
@@ -181,25 +184,35 @@ impl<T: RefTrait> Corrections<T> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl LiftProperties<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> LiftProperties<Entity> {
-        LiftProperties{
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LiftProperties<Entity> {
+        LiftProperties {
             name: self.name.clone(),
             reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
             cabin: self.cabin.clone(),
-            level_doors: LevelDoors(self.level_doors.iter().map(|(level, door)| {
-                (
-                    *id_to_entity.get(level).unwrap(),
-                    *id_to_entity.get(door).unwrap(),
-                )
-            }).collect()),
-            corrections: Corrections(self.corrections.iter().map(|(level, edge)| {
-                (
-                    *id_to_entity.get(level).unwrap(),
-                    edge.to_ecs(id_to_entity),
-                )
-            }).collect()),
+            level_doors: LevelDoors(
+                self.level_doors
+                    .iter()
+                    .map(|(level, door)| {
+                        (
+                            *id_to_entity.get(level).unwrap(),
+                            *id_to_entity.get(door).unwrap(),
+                        )
+                    })
+                    .collect(),
+            ),
+            corrections: Corrections(
+                self.corrections
+                    .iter()
+                    .map(|(level, edge)| {
+                        (*id_to_entity.get(level).unwrap(), edge.to_ecs(id_to_entity))
+                    })
+                    .collect(),
+            ),
             is_static: self.is_static,
         }
     }
@@ -207,7 +220,7 @@ impl LiftProperties<u32> {
 
 impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
     fn from(edge: Edge<T>) -> Self {
-        LiftProperties{
+        LiftProperties {
             reference_anchors: edge,
             name: Default::default(),
             cabin: Default::default(),

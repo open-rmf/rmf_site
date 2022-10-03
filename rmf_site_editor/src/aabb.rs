@@ -11,11 +11,8 @@
 
 use bevy::{
     prelude::*,
+    render::{primitives::Aabb, view::VisibilitySystems},
     utils::HashMap,
-    render::{
-        primitives::Aabb,
-        view::VisibilitySystems,
-    }
 };
 use smallvec::SmallVec;
 
@@ -89,10 +86,7 @@ pub fn register_bounds(
 pub fn update_bounds(
     mut commands: Commands,
     meshes: Res<Assets<Mesh>>,
-    mut mesh_reassigned: Query<
-        (Entity, &Handle<Mesh>, &mut Aabb),
-        Changed<Handle<Mesh>>,
-    >,
+    mut mesh_reassigned: Query<(Entity, &Handle<Mesh>, &mut Aabb), Changed<Handle<Mesh>>>,
     mut entity_mesh_map: ResMut<EntityMeshMap>,
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
     entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
@@ -132,15 +126,11 @@ pub struct AabbUpdatePlugin;
 
 impl Plugin for AabbUpdatePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<EntityMeshMap>()
+        app.init_resource::<EntityMeshMap>()
             .add_system_to_stage(
                 CoreStage::PostUpdate,
-                register_bounds.after(VisibilitySystems::CalculateBounds)
+                register_bounds.after(VisibilitySystems::CalculateBounds),
             )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                update_bounds
-            );
+            .add_system_to_stage(CoreStage::PostUpdate, update_bounds);
     }
 }

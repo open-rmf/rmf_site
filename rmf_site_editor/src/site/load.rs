@@ -15,14 +15,9 @@
  *
 */
 
-use crate::{
-    site::*,
-};
+use crate::site::*;
 use bevy::prelude::*;
-use std::{
-    collections::HashMap,
-    path::PathBuf,
-};
+use std::{collections::HashMap, path::PathBuf};
 
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
@@ -43,10 +38,7 @@ pub struct LoadSite {
     pub default_file: Option<PathBuf>,
 }
 
-fn generate_site_entities(
-    commands: &mut Commands,
-    site_data: &rmf_site_format::Site,
-) -> Entity {
+fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::Site) -> Entity {
     let mut id_to_entity = HashMap::new();
     let mut highest_id = 0_u32;
     let mut consider_id = |consider| {
@@ -56,14 +48,15 @@ fn generate_site_entities(
     };
 
     let mut site = commands.spawn();
-    site.insert_bundle(SpatialBundle{
-            visibility: Visibility { is_visible: false },
-            ..default()
-        })
-        .insert(site_data.properties.clone())
-        .with_children(|site| {
-            for (level_id, level_data) in &site_data.levels {
-                let level_entity = site.spawn_bundle(SpatialBundle{
+    site.insert_bundle(SpatialBundle {
+        visibility: Visibility { is_visible: false },
+        ..default()
+    })
+    .insert(site_data.properties.clone())
+    .with_children(|site| {
+        for (level_id, level_data) in &site_data.levels {
+            let level_entity = site
+                .spawn_bundle(SpatialBundle {
                     visibility: Visibility { is_visible: false },
                     ..default()
                 })
@@ -154,52 +147,53 @@ fn generate_site_entities(
                             .insert(SiteID(*wall_id));
                         consider_id(*wall_id);
                     }
-                }).id();
-                id_to_entity.insert(*level_id, level_entity);
-                consider_id(*level_id);
-            }
+                })
+                .id();
+            id_to_entity.insert(*level_id, level_entity);
+            consider_id(*level_id);
+        }
 
-            for (lift_id, lift_data) in &site_data.lifts {
-                site.spawn_bundle(SpatialBundle::default())
-                    .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
-                    .insert(SiteID(*lift_id))
-                    .with_children(|lift| {
-                        for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                            let anchor_entity = lift
-                                .spawn()
-                                .insert_bundle(AnchorBundle::new(*anchor))
-                                .insert(SiteID(*anchor_id))
-                                .id();
-                            id_to_entity.insert(*anchor_id, anchor_entity);
-                            consider_id(*anchor_id);
-                        }
-                    });
-                consider_id(*lift_id);
-            }
+        for (lift_id, lift_data) in &site_data.lifts {
+            site.spawn_bundle(SpatialBundle::default())
+                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
+                .insert(SiteID(*lift_id))
+                .with_children(|lift| {
+                    for (anchor_id, anchor) in &lift_data.cabin_anchors {
+                        let anchor_entity = lift
+                            .spawn()
+                            .insert_bundle(AnchorBundle::new(*anchor))
+                            .insert(SiteID(*anchor_id))
+                            .id();
+                        id_to_entity.insert(*anchor_id, anchor_entity);
+                        consider_id(*anchor_id);
+                    }
+                });
+            consider_id(*lift_id);
+        }
 
-            for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
-                site.spawn_bundle(SpatialBundle::default())
-                    .insert(nav_graph_data.properties.clone())
-                    .insert(SiteID(*nav_graph_id))
-                    .with_children(|nav_graph| {
-                        for (lane_id, lane) in &nav_graph_data.lanes {
-                            nav_graph
-                                .spawn()
-                                .insert_bundle(lane.to_ecs(&id_to_entity))
-                                .insert(SiteID(*lane_id));
-                            consider_id(*lane_id);
-                        }
+        for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
+            site.spawn_bundle(SpatialBundle::default())
+                .insert(nav_graph_data.properties.clone())
+                .insert(SiteID(*nav_graph_id))
+                .with_children(|nav_graph| {
+                    for (lane_id, lane) in &nav_graph_data.lanes {
+                        nav_graph
+                            .spawn()
+                            .insert_bundle(lane.to_ecs(&id_to_entity))
+                            .insert(SiteID(*lane_id));
+                        consider_id(*lane_id);
+                    }
 
-                        for (location_id, location) in &nav_graph_data.locations {
-                            nav_graph
-                                .spawn()
-                                .insert_bundle(location.to_ecs(&id_to_entity))
-                                .insert(SiteID(*location_id));
-                            consider_id(*location_id);
-                        }
-                    });
-            }
-        });
+                    for (location_id, location) in &nav_graph_data.locations {
+                        nav_graph
+                            .spawn()
+                            .insert_bundle(location.to_ecs(&id_to_entity))
+                            .insert(SiteID(*location_id));
+                        consider_id(*location_id);
+                    }
+                });
+        }
+    });
 
     site.insert(NextSiteID(highest_id + 1));
     return site.id();
@@ -215,13 +209,12 @@ pub fn load_site(
     for cmd in load_sites.iter() {
         let site = generate_site_entities(&mut commands, &cmd.site);
         if let Some(path) = &cmd.default_file {
-            commands.entity(site)
-                .insert(DefaultFile(path.clone()));
+            commands.entity(site).insert(DefaultFile(path.clone()));
         }
         opened_sites.0.push(site);
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite{site, level: None});
+            change_current_site.send(ChangeCurrentSite { site, level: None });
 
             if *site_display_state.current() == SiteState::Off {
                 site_display_state.set(SiteState::Display).ok();

@@ -16,7 +16,7 @@
 */
 
 use crate::{CURRENT_MAJOR_VERSION, CURRENT_MINOR_VERSION};
-use serde::{Serialize, Deserialize, de::Visitor};
+use serde::{de::Visitor, Deserialize, Serialize};
 
 /// rmf_site_format uses a kind of semantic versioning.
 /// We will continue to parse every format version starting from 1.0 in
@@ -59,7 +59,8 @@ impl Default for SemVer {
 
 impl Serialize for SemVer {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
-        where S: serde::Serializer
+    where
+        S: serde::Serializer,
     {
         serializer.serialize_str(&format!("{}.{}", self.0, self.1))
     }
@@ -67,7 +68,8 @@ impl Serialize for SemVer {
 
 impl<'de> Deserialize<'de> for SemVer {
     fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-        where D: serde::Deserializer<'de>
+    where
+        D: serde::Deserializer<'de>,
     {
         deserializer.deserialize_str(SemVerVisitor)
     }
@@ -79,12 +81,13 @@ impl<'de> Visitor<'de> for SemVerVisitor {
 
     fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
         formatter.write_str(
-            "a string of the form \"MAJOR.MINOR\"  where MAJOR and MINOR are non-negative integers"
+            "a string of the form \"MAJOR.MINOR\"  where MAJOR and MINOR are non-negative integers",
         )
     }
 
     fn visit_str<E>(self, v: &str) -> Result<Self::Value, E>
-        where E: serde::de::Error,
+    where
+        E: serde::de::Error,
     {
         let split_results: Vec<_> = v.split(".").map(|s| s.parse::<u32>()).collect();
         let mut version_components: [u32; 2] = [0, 0];
@@ -94,7 +97,7 @@ impl<'de> Visitor<'de> for SemVerVisitor {
                     if i < 2 {
                         version_components[i] = *value;
                     }
-                },
+                }
                 Err(err) => {
                     return Err(E::custom(err.to_string()));
                 }

@@ -24,9 +24,6 @@ pub fn add_physical_lights(
     physical_lights: Query<(Entity, &LightType, &Pose), Added<LightType>>,
 ) {
     for (e, light, pose) in &physical_lights {
-        light.insert_at(
-            &mut commands.entity(e),
-            &pose.transform(),
-        );
+        light.insert_at(&mut commands.entity(e), &pose.transform());
     }
 }

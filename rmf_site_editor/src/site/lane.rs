@@ -15,12 +15,12 @@
  *
 */
 
-use bevy::prelude::*;
-use rmf_site_format::{LaneMarker, Edge};
 use crate::{
+    interaction::{Cursor, Selectable},
     site::*,
-    interaction::{Selectable, Cursor}
 };
+use bevy::prelude::*;
+use rmf_site_format::{Edge, LaneMarker};
 
 // TODO(MXG): Make these configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
@@ -37,7 +37,7 @@ pub struct LaneSegments {
 }
 
 impl LaneSegments {
-    pub fn iter(&self) -> impl Iterator<Item=Entity> {
+    pub fn iter(&self) -> impl Iterator<Item = Entity> {
         [self.start, self.mid, self.end].into_iter()
     }
 }
@@ -75,7 +75,11 @@ pub fn add_lane_visuals(
         }
 
         if let Ok([start_anchor, end_anchor]) = transforms.get_many(new_lane.array()) {
-            let is_visible = should_display_lane(new_lane, &computed_visibility, cursor.as_ref().map(|c| c.anchor_placement));
+            let is_visible = should_display_lane(
+                new_lane,
+                &computed_visibility,
+                cursor.as_ref().map(|c| c.anchor_placement),
+            );
 
             let mut commands = commands.entity(e);
             let (start, mid, end) = commands.add_children(|parent| {
@@ -111,10 +115,10 @@ pub fn add_lane_visuals(
             });
 
             commands
-                .insert(LaneSegments{start, mid, end})
-                .insert_bundle(SpatialBundle{
+                .insert(LaneSegments { start, mid, end })
+                .insert_bundle(SpatialBundle {
                     transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
-                    visibility: Visibility{is_visible},
+                    visibility: Visibility { is_visible },
                     ..default()
                 })
                 .insert(Category("Lane".to_string()));
@@ -154,7 +158,11 @@ pub fn update_changed_lane(
     for (lane, segments, mut visibility) in &mut lanes {
         update_lane_visuals(lane, segments, &anchors, &mut transforms);
 
-        let is_visible = should_display_lane(lane, &computed_visibility, cursor.as_ref().map(|c| c.anchor_placement));
+        let is_visible = should_display_lane(
+            lane,
+            &computed_visibility,
+            cursor.as_ref().map(|c| c.anchor_placement),
+        );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
         }
@@ -185,7 +193,11 @@ pub fn update_visibility_for_lanes(
 ) {
     if current_level.is_changed() {
         for (edge, mut visibility) in &mut lanes {
-            let is_visible = should_display_lane(edge, &computed_visibility, cursor.as_ref().map(|c| c.anchor_placement));
+            let is_visible = should_display_lane(
+                edge,
+                &computed_visibility,
+                cursor.as_ref().map(|c| c.anchor_placement),
+            );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
             }

@@ -16,11 +16,11 @@
 */
 
 use crate::{
+    interaction::{Select, Selection},
     site::AnchorDependents,
-    interaction::{Selection, Select},
 };
-use rmf_site_format::{Edge, Point, Path};
 use bevy::prelude::*;
+use rmf_site_format::{Edge, Path, Point};
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
 // deletion buffer will be to preserve deleted entities so that they can be
@@ -28,13 +28,15 @@ use bevy::prelude::*;
 
 /// Components tagged with this will not be deleted.
 #[derive(Component, Default, Debug, Clone)]
-pub struct PreventDeletion{
+pub struct PreventDeletion {
     pub reason: Option<String>,
 }
 
 impl PreventDeletion {
     pub fn because(reason: String) -> Self {
-        PreventDeletion{reason: Some(reason)}
+        PreventDeletion {
+            reason: Some(reason),
+        }
     }
 }
 
@@ -47,7 +49,7 @@ pub struct Delete {
 
 impl Delete {
     pub fn new(element: Entity) -> Self {
-        Self{element}
+        Self { element }
     }
 }
 
@@ -79,8 +81,7 @@ fn perform_deletions(
             if let Some(reason) = &prevent.reason {
                 println!(
                     "Element {:?} cannot be deleted because: {}",
-                    delete.element,
-                    reason,
+                    delete.element, reason,
                 );
                 continue;
             }
@@ -121,8 +122,7 @@ pub struct DeletionPlugin;
 
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<Delete>()
+        app.add_event::<Delete>()
             .add_system_to_stage(CoreStage::First, perform_deletions);
     }
 }

@@ -15,7 +15,7 @@
  *
 */
 
-use bevy_egui::egui::{Ui, DragValue};
+use bevy_egui::egui::{DragValue, Ui};
 use std::ops::RangeInclusive;
 
 pub struct InspectOptionF32 {
@@ -31,13 +31,8 @@ pub struct InspectOptionF32 {
 }
 
 impl InspectOptionF32 {
-
-    pub fn new(
-        title: String,
-        current_value: Option<f32>,
-        assumed_value: f32,
-    ) -> Self {
-        Self{
+    pub fn new(title: String, current_value: Option<f32>, assumed_value: f32) -> Self {
+        Self {
             title,
             current_value,
             assumed_value,
@@ -92,7 +87,7 @@ impl InspectOptionF32 {
                         .min_decimals(self.min_decimals)
                         .max_decimals_opt(self.max_decimals)
                         .speed(self.speed)
-                        .suffix(self.suffix)
+                        .suffix(self.suffix),
                 );
 
                 if let Some(tooltip) = self.tooltip {
@@ -111,6 +106,7 @@ impl InspectOptionF32 {
             }
 
             return None;
-        }).inner
+        })
+        .inner
     }
 }

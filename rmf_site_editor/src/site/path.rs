@@ -34,7 +34,7 @@ pub struct PathBehavior {
 
 impl PathBehavior {
     pub fn for_floor() -> Self {
-        Self{
+        Self {
             allow_inner_loops: false,
             minimum_points: 3,
             implied_complete_loop: true,

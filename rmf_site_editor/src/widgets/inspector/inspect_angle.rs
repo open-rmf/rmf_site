@@ -15,11 +15,9 @@
  *
 */
 
-use rmf_site_format::Angle;
 use bevy::prelude::*;
-use bevy_egui::egui::{
-    Ui, DragValue,
-};
+use bevy_egui::egui::{DragValue, Ui};
+use rmf_site_format::Angle;
 
 pub struct InspectAngle<'a> {
     pub angle: &'a mut Angle,
@@ -27,44 +25,40 @@ pub struct InspectAngle<'a> {
 
 impl<'a> InspectAngle<'a> {
     pub fn new(angle: &'a mut Angle) -> Self {
-        Self{angle}
+        Self { angle }
     }
 
     pub fn show(self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            match self.angle {
-                Angle::Deg(deg) => {
-                    ui.add(
-                        DragValue::new(deg)
+        ui.horizontal(|ui| match self.angle {
+            Angle::Deg(deg) => {
+                ui.add(
+                    DragValue::new(deg)
                         .min_decimals(0)
                         .max_decimals(1)
                         .speed(1.0)
-                        .clamp_range(-180.0..=180.0)
-                    );
+                        .clamp_range(-180.0..=180.0),
+                );
 
-                    let response = ui.button("deg")
-                        .on_hover_text("Click to change to radians");
+                let response = ui.button("deg").on_hover_text("Click to change to radians");
 
-                    if response.clicked() {
-                        *self.angle = Angle::Rad(self.angle.radians());
-                    }
-                },
-                Angle::Rad(rad) => {
-                    ui.add(
-                        DragValue::new(rad)
+                if response.clicked() {
+                    *self.angle = Angle::Rad(self.angle.radians());
+                }
+            }
+            Angle::Rad(rad) => {
+                ui.add(
+                    DragValue::new(rad)
                         .min_decimals(2)
                         .max_decimals(4)
-                        .speed(std::f32::consts::PI/180.0)
-                        .clamp_range(-std::f32::consts::PI..=std::f32::consts::PI)
-                    );
+                        .speed(std::f32::consts::PI / 180.0)
+                        .clamp_range(-std::f32::consts::PI..=std::f32::consts::PI),
+                );
 
-                    let response = ui.button("rad")
-                        .on_hover_text("Click to change to degrees");
+                let response = ui.button("rad").on_hover_text("Click to change to degrees");
 
-                    if response.clicked() {
-                        *self.angle = Angle::Deg(self.angle.degrees());
-                    }
-                },
+                if response.clicked() {
+                    *self.angle = Angle::Deg(self.angle.degrees());
+                }
             }
         });
     }

@@ -15,8 +15,8 @@
  *
 */
 
-use rmf_site_format::{Label, RecallLabel};
 use bevy_egui::egui::Ui;
+use rmf_site_format::{Label, RecallLabel};
 
 pub struct InspectLabel<'a> {
     title: &'a str,
@@ -25,12 +25,12 @@ pub struct InspectLabel<'a> {
 }
 
 impl<'a> InspectLabel<'a> {
-    pub fn new(
-        title: &'a str,
-        label: &'a Label,
-        recall: &'a RecallLabel,
-    ) -> Self {
-        Self{title, label, recall}
+    pub fn new(title: &'a str, label: &'a Label, recall: &'a RecallLabel) -> Self {
+        Self {
+            title,
+            label,
+            recall,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Label> {
@@ -38,11 +38,14 @@ impl<'a> InspectLabel<'a> {
             let mut has_value = self.label.is_some();
             ui.checkbox(&mut has_value, self.title);
             if has_value {
-                let mut assumed_value = self.label.as_ref().map(|x| x.clone()).unwrap_or_else(
-                    || self.recall.value.as_ref().map(|x| x.clone()).unwrap_or_else(
-                        || "<undefined>".to_string()
-                    )
-                );
+                let mut assumed_value =
+                    self.label.as_ref().map(|x| x.clone()).unwrap_or_else(|| {
+                        self.recall
+                            .value
+                            .as_ref()
+                            .map(|x| x.clone())
+                            .unwrap_or_else(|| "<undefined>".to_string())
+                    });
                 ui.text_edit_singleline(&mut assumed_value);
 
                 let new_label = Label(Some(assumed_value));
@@ -59,6 +62,7 @@ impl<'a> InspectLabel<'a> {
                     None
                 }
             }
-        }).inner
+        })
+        .inner
     }
 }

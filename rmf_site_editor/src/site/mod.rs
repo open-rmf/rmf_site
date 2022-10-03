@@ -80,11 +80,7 @@ pub use wall::*;
 
 use rmf_site_format::*;
 
-use bevy::{
-    prelude::*,
-    transform::TransformSystem,
-    render::view::visibility::VisibilitySystems,
-};
+use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
 /// The Category component is added to site entities so they can easily express
 /// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
@@ -120,9 +116,12 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_state(SiteState::Off)
-            .add_stage_after(CoreStage::Update, SiteCustomStage::AssignOrphans, SystemStage::parallel())
+        app.add_state(SiteState::Off)
+            .add_stage_after(
+                CoreStage::Update,
+                SiteCustomStage::AssignOrphans,
+                SystemStage::parallel(),
+            )
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
             .add_state_to_stage(SiteCustomStage::AssignOrphans, SiteState::Off)
@@ -149,24 +148,18 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
-            .add_system_set(
-                SystemSet::on_enter(SiteState::Display)
-                    .with_system(site_display_on)
-            )
-            .add_system_set(
-                SystemSet::on_exit(SiteState::Display)
-                    .with_system(site_display_off)
-            )
+            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
+            .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
-                    .with_system(change_site)
+                    .with_system(change_site),
             )
             .add_system_set_to_stage(
                 SiteCustomStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphans_to_nav_graph)
+                    .with_system(assign_orphans_to_nav_graph),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -196,7 +189,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_wall_visual)
                     .with_system(update_changed_wall)
                     .with_system(update_wall_for_changed_anchor)
-                    .with_system(update_transforms_for_changed_poses)
+                    .with_system(update_transforms_for_changed_poses),
             );
     }
 }

@@ -16,13 +16,13 @@
 */
 
 use crate::RefTrait;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Deref, DerefMut};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Component, Deref, DerefMut, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Point<T>(pub T);
 
 impl<T: RefTrait> From<T> for Point<T> {
@@ -31,7 +31,7 @@ impl<T: RefTrait> From<T> for Point<T> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Point<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Point<Entity> {
         Point(*id_to_entity.get(&self.0).unwrap())

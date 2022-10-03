@@ -1,34 +1,16 @@
-use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    Site,
-    SiteProperties,
-    Level as SiteLevel,
-    LevelProperties as SiteLevelProperties,
-    Drawing as SiteDrawing, DrawingSource,
-    DrawingMarker,
-    Fiducial as SiteFiducial,
-    FiducialMarker,
-    Lift as SiteLift,
-    LiftProperties,
-    Lane as SiteLane,
-    LaneMarker,
-    Dock as SiteDock,
-    NavGraph,
-    NavGraphProperties,
-    ReverseLane,
-    Motion,
-    Pose,
-    OrientationConstraint,
-    IsStatic,
-    LevelDoors,
-    NameInSite,
-    Label,
+    Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, DrawingSource,
+    Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelDoors, LevelProperties as SiteLevelProperties, Lift as SiteLift,
+    LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
+    ReverseLane, Site, SiteProperties,
 };
+use serde::{Deserialize, Serialize};
+use std::collections::{BTreeMap, HashMap};
 
 #[derive(Deserialize, Serialize, Clone)]
-#[serde(rename_all="snake_case")]
+#[serde(rename_all = "snake_case")]
 pub enum CoordinateSystem {
     ReferenceImage,
     CartesianMeters,
@@ -131,13 +113,11 @@ impl BuildingMap {
                     let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
-                    if let Some(duplicate) = lift_cabin_anchors.iter().find(
-                        |(_, [x, y])| {
-                            let dx = v.0 as f32 - *x;
-                            let dy = v.1 as f32 - *y;
-                            (dx*dx + dy*dy).sqrt() < 0.01
-                        }
-                    ) {
+                    if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, [x, y])| {
+                        let dx = v.0 as f32 - *x;
+                        let dy = v.1 as f32 - *y;
+                        (dx * dx + dy * dy).sqrt() < 0.01
+                    }) {
                         // This is a duplicate cabin anchor so we return its
                         // existing ID
                         duplicate.0
@@ -164,11 +144,14 @@ impl BuildingMap {
 
             let mut drawings = BTreeMap::new();
             if !level.drawing.filename.is_empty() {
-                drawings.insert(site_id.next().unwrap(), SiteDrawing{
-                    source: DrawingSource::Filename(level.drawing.filename.clone()),
-                    pose: Pose::default(),
-                    marker: DrawingMarker,
-                });
+                drawings.insert(
+                    site_id.next().unwrap(),
+                    SiteDrawing {
+                        source: DrawingSource::Filename(level.drawing.filename.clone()),
+                        pose: Pose::default(),
+                        marker: DrawingMarker,
+                    },
+                );
             }
 
             let mut fiducials = BTreeMap::new();
@@ -178,15 +161,18 @@ impl BuildingMap {
                 // Do not add this anchor to the vertex_to_anchor_id map because
                 // this fiducial is not really recognized as a vertex to the
                 // building format.
-                fiducials.insert(site_id.next().unwrap(), SiteFiducial{
-                    label: if fiducial.2.is_empty() {
-                        Label(None)
-                    } else {
-                        Label(Some(fiducial.2.clone()))
+                fiducials.insert(
+                    site_id.next().unwrap(),
+                    SiteFiducial {
+                        label: if fiducial.2.is_empty() {
+                            Label(None)
+                        } else {
+                            Label(Some(fiducial.2.clone()))
+                        },
+                        anchor: anchor_id.into(),
+                        marker: FiducialMarker,
                     },
-                    anchor: anchor_id.into(),
-                    marker: FiducialMarker,
-                });
+                );
             }
 
             let mut floors = BTreeMap::new();
@@ -223,8 +209,8 @@ impl BuildingMap {
             level_name_to_id.insert(name.clone(), level_id);
             levels.insert(
                 level_id,
-                SiteLevel{
-                    properties: SiteLevelProperties{
+                SiteLevel {
+                    properties: SiteLevelProperties {
                         name: name.clone(),
                         elevation,
                     },
@@ -238,23 +224,23 @@ impl BuildingMap {
                     models,
                     physical_cameras,
                     walls,
-                }
+                },
             );
 
             for lane in &level.lanes {
-                let left = *vertex_to_anchor_id.get(&lane.0).ok_or(
-                    PortingError::InvalidVertex(lane.0)
-                )?;
-                let right = *vertex_to_anchor_id.get(&lane.1).ok_or(
-                    PortingError::InvalidVertex(lane.1)
-                )?;
+                let left = *vertex_to_anchor_id
+                    .get(&lane.0)
+                    .ok_or(PortingError::InvalidVertex(lane.0))?;
+                let right = *vertex_to_anchor_id
+                    .get(&lane.1)
+                    .ok_or(PortingError::InvalidVertex(lane.1))?;
 
                 let get_dock = |v: usize| {
                     let dock_name = &level.vertices.get(v).unwrap().4.dock_name.1;
                     if dock_name.is_empty() {
                         return None;
                     } else {
-                        return Some(SiteDock{
+                        return Some(SiteDock {
                             name: dock_name.clone(),
                             duration: None,
                         });
@@ -264,7 +250,7 @@ impl BuildingMap {
                 let left_dock = get_dock(lane.0);
                 let right_dock = get_dock(lane.1);
 
-                let motion = Motion{
+                let motion = Motion {
                     orientation_constraint: if lane.2.orientation.1 == "forward" {
                         OrientationConstraint::Forwards
                     } else if lane.2.orientation.1 == "backward" {
@@ -279,7 +265,7 @@ impl BuildingMap {
                 let reverse = if !lane.2.bidirectional.1 {
                     ReverseLane::Disable
                 } else if right_dock != motion.dock {
-                    ReverseLane::Different(Motion{
+                    ReverseLane::Different(Motion {
                         dock: right_dock,
                         ..motion.clone()
                     })
@@ -287,14 +273,15 @@ impl BuildingMap {
                     ReverseLane::Same
                 };
 
-                let site_lane = SiteLane{
+                let site_lane = SiteLane {
                     anchors: [left, right].into(),
                     forward: motion,
                     reverse,
                     marker: LaneMarker,
                 };
 
-                nav_graph_lanes.entry(lane.2.graph_idx.1)
+                nav_graph_lanes
+                    .entry(lane.2.graph_idx.1)
                     .or_insert(Default::default())
                     .push(site_lane);
             }
@@ -302,27 +289,29 @@ impl BuildingMap {
 
         let mut nav_graphs = BTreeMap::new();
         for (idx, lanes) in nav_graph_lanes {
-            let lanes: BTreeMap<_, _> = lanes.into_iter().map(|lane| {
-                (site_id.next().unwrap(), lane)
-            }).collect();
+            let lanes: BTreeMap<_, _> = lanes
+                .into_iter()
+                .map(|lane| (site_id.next().unwrap(), lane))
+                .collect();
 
             nav_graphs.insert(
                 site_id.next().unwrap(),
-                NavGraph{
-                    properties: NavGraphProperties {name: idx.to_string()},
+                NavGraph {
+                    properties: NavGraphProperties {
+                        name: idx.to_string(),
+                    },
                     lanes,
                     locations: locations.clone(),
-                }
+                },
             );
         }
 
         let mut lifts = BTreeMap::new();
         for (name, lift) in &self.lifts {
             let anchors = lift.calculate_anchors();
-            let anchor_level_id = level_name_to_id
-                .get(&lift.reference_floor_name).ok_or(
-                    PortingError::InvalidLevelName(lift.reference_floor_name.clone())
-                )?;
+            let anchor_level_id = level_name_to_id.get(&lift.reference_floor_name).ok_or(
+                PortingError::InvalidLevelName(lift.reference_floor_name.clone()),
+            )?;
             let level_anchors = &mut levels.get_mut(anchor_level_id).unwrap().anchors;
             let anchors = {
                 let left = site_id.next().unwrap();
@@ -335,12 +324,12 @@ impl BuildingMap {
             let cabin = lift.make_cabin(name)?;
             let mut level_doors = BTreeMap::new();
             for (level, doors) in &lift.level_doors {
-                let level_id = level_name_to_id.get(level).ok_or(
-                    PortingError::InvalidLevelName(level.clone())
-                )?;
+                let level_id = level_name_to_id
+                    .get(level)
+                    .ok_or(PortingError::InvalidLevelName(level.clone()))?;
 
                 if doors.len() != 1 {
-                    return Err(PortingError::InvalidLiftLevelDoorCount{
+                    return Err(PortingError::InvalidLiftLevelDoorCount {
                         lift: name.clone(),
                         level: level.clone(),
                         door_count: doors.len(),
@@ -348,15 +337,18 @@ impl BuildingMap {
                 }
 
                 let door_name = doors.iter().last().unwrap();
-                let door_id = levels.get(level_id).unwrap().doors.iter().find(
-                    |(_, door)| door.name.0 == *door_name
-                ).ok_or(
-                    PortingError::InvalidLiftLevelDoorName{
+                let door_id = levels
+                    .get(level_id)
+                    .unwrap()
+                    .doors
+                    .iter()
+                    .find(|(_, door)| door.name.0 == *door_name)
+                    .ok_or(PortingError::InvalidLiftLevelDoorName {
                         lift: name.clone(),
                         level: level.clone(),
-                        door: door_name.clone()
-                    }
-                )?.0;
+                        door: door_name.clone(),
+                    })?
+                    .0;
 
                 level_doors.insert(*level_id, *door_id);
             }
@@ -371,8 +363,8 @@ impl BuildingMap {
 
             lifts.insert(
                 site_id.next().unwrap(),
-                SiteLift{
-                    properties: LiftProperties{
+                SiteLift {
+                    properties: LiftProperties {
                         name: NameInSite(name.clone()),
                         reference_anchors: anchors.into(),
                         cabin,
@@ -381,13 +373,15 @@ impl BuildingMap {
                         is_static: IsStatic(!lift.plugins),
                     },
                     cabin_anchors,
-                }
+                },
             );
         }
 
-        Ok(Site{
+        Ok(Site {
             format_version: Default::default(),
-            properties: SiteProperties{name: self.name.clone()},
+            properties: SiteProperties {
+                name: self.name.clone(),
+            },
             levels,
             lifts,
             nav_graphs,
@@ -422,6 +416,9 @@ mod tests {
     fn site_yaml() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        println!("{}", serde_json::to_string_pretty(&map.to_site().unwrap()).unwrap());
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&map.to_site().unwrap()).unwrap()
+        );
     }
 }

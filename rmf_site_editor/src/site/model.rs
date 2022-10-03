@@ -15,17 +15,14 @@
  *
 */
 
-use bevy::{
-    prelude::*,
-    asset::LoadState,
-};
-use rmf_site_format::{ModelMarker, Label, Pose};
 use crate::{
     interaction::Selectable,
-    site::{Category, PreventDeletion}
+    site::{Category, PreventDeletion},
 };
-use std::collections::HashMap;
+use bevy::{asset::LoadState, prelude::*};
+use rmf_site_format::{Label, ModelMarker, Pose};
 use smallvec::SmallVec;
+use std::collections::HashMap;
 
 #[derive(Default, Debug, Clone, Deref, DerefMut)]
 pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
@@ -45,11 +42,7 @@ pub struct ModelSceneRoot;
 
 pub fn update_model_scenes(
     mut commands: Commands,
-    mut changed_models: Query<(
-        Entity,
-        &Label,
-        &Pose,
-    ), (Changed<Label>, With<ModelMarker>)>,
+    mut changed_models: Query<(Entity, &Label, &Pose), (Changed<Label>, With<ModelMarker>)>,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
@@ -65,19 +58,23 @@ pub fn update_model_scenes(
     ) {
         let mut commands = commands.entity(e);
         commands
-            .insert(ModelScene{kind: kind.clone(), scene_entity: None})
-            .insert_bundle(SpatialBundle{
+            .insert(ModelScene {
+                kind: kind.clone(),
+                scene_entity: None,
+            })
+            .insert_bundle(SpatialBundle {
                 transform: pose.transform(),
                 ..default()
             })
             .insert(Category("Model".to_string()));
 
         if let Some(kind) = &kind.0 {
-            let bundle_path =
-                String::from("sandbox://") + kind + &".glb#Scene0".to_string();
+            let bundle_path = String::from("sandbox://") + kind + &".glb#Scene0".to_string();
             let scene: Handle<Scene> = asset_server.load(&bundle_path);
             loading_models.insert(e, scene.clone());
-            commands.insert(PreventDeletion::because("Waiting for model to spawn".to_string()));
+            commands.insert(PreventDeletion::because(
+                "Waiting for model to spawn".to_string(),
+            ));
         }
     }
 
@@ -96,17 +93,16 @@ pub fn update_model_scenes(
     // model entity and make it selectable.
     for (e, h) in loading_models.0.iter() {
         if asset_server.get_load_state(h) == LoadState::Loaded {
-            let model_scene_id = commands
-                .entity(*e)
-                .add_children(|parent| {
-                    parent.spawn_bundle(SceneBundle{
+            let model_scene_id = commands.entity(*e).add_children(|parent| {
+                parent
+                    .spawn_bundle(SceneBundle {
                         scene: h.clone(),
                         ..default()
                     })
                     .insert(ModelSceneRoot)
                     .insert(Selectable::new(*e))
                     .id()
-                });
+            });
 
             current_scenes.get_mut(*e).unwrap().scene_entity = Some(model_scene_id);
             spawned_models.0.push(*e);
@@ -127,12 +123,26 @@ pub fn update_model_scenes(
                     commands.entity(scene_entity).despawn_recursive();
                 }
                 current_scene.scene_entity = None;
-                spawn_model(e, kind, pose, &asset_server, &mut commands, &mut loading_models);
+                spawn_model(
+                    e,
+                    kind,
+                    pose,
+                    &asset_server,
+                    &mut commands,
+                    &mut loading_models,
+                );
             }
         } else {
             // If there isn't a current scene, then we will assume this model
             // is being added for the first time.
-            spawn_model(e, kind, pose, &asset_server, &mut commands, &mut loading_models);
+            spawn_model(
+                e,
+                kind,
+                pose,
+                &asset_server,
+                &mut commands,
+                &mut loading_models,
+            );
         }
     }
 }

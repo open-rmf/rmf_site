@@ -15,8 +15,8 @@
  *
 */
 
-use rmf_site_format::NameInSite;
 use bevy_egui::egui::Ui;
+use rmf_site_format::NameInSite;
 
 pub struct InspectName<'a> {
     pub name: &'a NameInSite,
@@ -24,7 +24,7 @@ pub struct InspectName<'a> {
 
 impl<'a> InspectName<'a> {
     pub fn new(name: &'a NameInSite) -> Self {
-        Self{name}
+        Self { name }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<NameInSite> {
@@ -37,6 +37,7 @@ impl<'a> InspectName<'a> {
             } else {
                 None
             }
-        }).inner
+        })
+        .inner
     }
 }

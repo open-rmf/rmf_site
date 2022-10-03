@@ -15,8 +15,8 @@
  *
 */
 
-use rmf_site_format::IsStatic;
 use bevy_egui::egui::Ui;
+use rmf_site_format::IsStatic;
 
 pub struct InspectIsStatic {
     pub is_static: IsStatic,
@@ -24,15 +24,15 @@ pub struct InspectIsStatic {
 
 impl InspectIsStatic {
     pub fn new(is_static: &IsStatic) -> Self {
-        Self{is_static: *is_static}
+        Self {
+            is_static: *is_static,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<IsStatic> {
         let mut new_is_static = self.is_static;
         ui.checkbox(&mut new_is_static.0, "Static")
-            .on_hover_text(
-                "Static means the object cannot move in a simulation"
-            );
+            .on_hover_text("Static means the object cannot move in a simulation");
 
         if new_is_static != self.is_static {
             return Some(new_is_static);

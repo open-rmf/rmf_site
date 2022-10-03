@@ -16,10 +16,7 @@
 */
 
 use crate::interaction::*;
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// Used as a resource to indicate what type of interaction we are currently
 /// expecting from the user.
@@ -57,10 +54,10 @@ impl InteractionMode {
                 params.select.send(Select(None));
                 // No change of mode is needed
                 None
-            },
+            }
             Self::SelectAnchor(select_anchor) => {
                 Some(select_anchor.backout(&mut params.select_anchor))
-            },
+            }
         };
 
         if let Some(change_mode) = change_mode {
@@ -115,7 +112,7 @@ pub fn update_interaction_mode(
             ChangeMode::To(new_mode) => {
                 mode.cancel(&mut backout);
                 *mode = new_mode.clone();
-            },
+            }
             ChangeMode::Backout => {
                 mode.backout(&mut backout);
             }

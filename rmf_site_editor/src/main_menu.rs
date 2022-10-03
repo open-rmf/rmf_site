@@ -16,13 +16,10 @@
 */
 
 use super::demo_world::demo_office;
+use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
-use crate::{AppState, OpenedMapFile, site::LoadSite, interaction::InteractionState};
-use rmf_site_format::{
-    Site,
-    legacy::building_map::BuildingMap,
-};
+use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
@@ -55,13 +52,11 @@ fn egui_ui(
                             let yaml = demo_office();
                             let data = yaml.as_bytes();
                             let site = match BuildingMap::from_bytes(&data) {
-                                Ok(building) => {
-                                    match building.to_site() {
-                                        Ok(site) => site,
-                                        Err(err) => {
-                                            println!("{err:?}");
-                                            return None;
-                                        }
+                                Ok(building) => match building.to_site() {
+                                    Ok(site) => site,
+                                    Err(err) => {
+                                        println!("{err:?}");
+                                        return None;
                                     }
                                 },
                                 Err(err) => {
@@ -116,15 +111,13 @@ fn egui_ui(
                             let data = file.read().await;
                             let site = if is_legacy {
                                 match BuildingMap::from_bytes(&data) {
-                                    Ok(building) => {
-                                        match building.to_site() {
-                                            Ok(site) => site,
-                                            Err(err) => {
-                                                println!("{:?}", err);
-                                                return None;
-                                            }
+                                    Ok(building) => match building.to_site() {
+                                        Ok(site) => site,
+                                        Err(err) => {
+                                            println!("{:?}", err);
+                                            return None;
                                         }
-                                    }
+                                    },
                                     Err(err) => {
                                         println!("{:?}", err);
                                         return None;
@@ -189,7 +182,7 @@ fn site_file_load_complete(
                     match app_state.set(AppState::SiteEditor) {
                         Ok(_) => {
                             let LoadSiteFileResult(file, site) = result;
-                            load_site.send(LoadSite{
+                            load_site.send(LoadSite {
                                 site,
                                 focus: true,
                                 default_file: file.map(|f| f.0),
@@ -214,6 +207,8 @@ impl Plugin for MainMenuPlugin {
         app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(egui_ui));
 
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(site_file_load_complete));
+        app.add_system_set(
+            SystemSet::on_update(AppState::MainMenu).with_system(site_file_load_complete),
+        );
     }
 }

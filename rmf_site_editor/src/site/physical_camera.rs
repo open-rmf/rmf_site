@@ -15,12 +15,9 @@
  *
 */
 
+use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{PhysicalCameraProperties, Pose};
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
 
 pub fn add_physical_camera_visuals(
     mut commands: Commands,
@@ -28,8 +25,9 @@ pub fn add_physical_camera_visuals(
     assets: Res<SiteAssets>,
 ) {
     for (e, pose) in &physical_cameras {
-        commands.entity(e)
-            .insert_bundle(PbrBundle{
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
                 mesh: assets.physical_camera_mesh.clone(),
                 material: assets.physical_camera_material.clone(),
                 transform: pose.transform(),

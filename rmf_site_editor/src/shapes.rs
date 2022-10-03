@@ -15,11 +15,11 @@
  *
 */
 
+use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
 };
-use bevy::math::Affine3A;
 
 pub(crate) struct PartialMesh {
     positions: Vec<[f32; 3]>,
@@ -28,7 +28,6 @@ pub(crate) struct PartialMesh {
 }
 
 impl PartialMesh {
-
     pub(crate) fn transform_by(mut self, tf: Affine3A) -> Self {
         for p in &mut self.positions {
             *p = tf.transform_point3((*p).into()).into();
@@ -187,39 +186,37 @@ pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> Partial
         (circles[1], circles[0])
     };
 
-    let positions: Vec<[f32; 3]> = make_circles(
-        [bottom_circle, top_circle], resolution, 0.
-    )
-    .collect();
+    let positions: Vec<[f32; 3]> =
+        make_circles([bottom_circle, top_circle], resolution, 0.).collect();
 
     let top_start = resolution;
-    let indices = [[0, 1, top_start+1, 0, top_start+1, top_start]]
+    let indices = [[0, 1, top_start + 1, 0, top_start + 1, top_start]]
         .into_iter()
         .cycle()
         .enumerate()
         .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
-        .take(6*(resolution-1) as usize)
+        .take(6 * (resolution - 1) as usize)
         .collect();
 
     let mut normals = Vec::new();
     normals.resize(positions.len(), [0., 0., 1.]);
     for i in 0..resolution {
-        let theta = (i as f32)/(resolution as f32 - 1.) * 2.*std::f32::consts::PI;
+        let theta = (i as f32) / (resolution as f32 - 1.) * 2. * std::f32::consts::PI;
         let dr = top_circle.radius - bottom_circle.radius;
         let dh = top_circle.height - bottom_circle.height;
         let phi = dr.atan2(dh);
         let r_y = Affine3A::from_rotation_y(phi);
         let r_z = Affine3A::from_rotation_z(theta);
-        let n = (r_z*r_y).transform_vector3([1., 0., 0.,].into());
+        let n = (r_z * r_y).transform_vector3([1., 0., 0.].into());
         normals[i as usize] = n.into();
-        normals[(i+top_start) as usize] = n.into();
+        normals[(i + top_start) as usize] = n.into();
     }
 
     return PartialMesh {
         positions,
         normals,
         indices,
-    }
+    };
 }
 
 pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> PartialMesh {
@@ -266,7 +263,7 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Par
 }
 
 fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
-    let positions: Vec<[f32; 3]> = make_circles([circle], resolution+1, 0.)
+    let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
         .take(resolution as usize) // skip the last vertex which would close the circle
         .chain([peak].into_iter().cycle().take(resolution as usize))
         .collect();
@@ -277,8 +274,8 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
         .cycle()
         .enumerate()
         .flat_map(|(i, values)| values.into_iter().map(move |s| s + i as u32))
-        .take(3*(resolution as usize - 1))
-        .chain([peak_start-1, 0, (positions.len()-1) as u32])
+        .take(3 * (resolution as usize - 1))
+        .chain([peak_start - 1, 0, (positions.len() - 1) as u32])
         .collect();
 
     let mut normals = Vec::<[f32; 3]>::new();
@@ -296,14 +293,18 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
             (r_z * r_y).transform_vector3(Vec3::new(1., 0., 0.)).into()
         };
 
-        let theta = (i as f32)/(resolution as f32) * 2.0 * std::f32::consts::PI;
+        let theta = (i as f32) / (resolution as f32) * 2.0 * std::f32::consts::PI;
         normals[i as usize] = calculate_normal(theta);
 
-        let mid_theta = (i as f32 + 0.5)/(resolution as f32) * 2.0 * std::f32::consts::PI;
+        let mid_theta = (i as f32 + 0.5) / (resolution as f32) * 2.0 * std::f32::consts::PI;
         normals[(i + peak_start) as usize] = calculate_normal(mid_theta);
     }
 
-    return PartialMesh{positions, normals, indices};
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    };
 }
 
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh {
@@ -313,10 +314,10 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh
         .collect();
 
     let peak = positions.len() as u32 - 1;
-    let indices: Vec<u32> = (0..resolution-1)
+    let indices: Vec<u32> = (0..resolution - 1)
         .into_iter()
-        .flat_map(|i| [i, peak, i+1].into_iter())
-        .chain([resolution-1, peak, 0])
+        .flat_map(|i| [i, peak, i + 1].into_iter())
+        .chain([resolution - 1, peak, 0])
         .collect();
 
     let normals: Vec<[f32; 3]> = [[0., 0., -1.]]
@@ -325,7 +326,11 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh
         .take(positions.len())
         .collect();
 
-    return PartialMesh{positions, normals, indices};
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    };
 }
 
 pub(crate) fn make_dagger_mesh() -> Mesh {
@@ -344,7 +349,9 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
     make_boxy_wrap([lower_ring, upper_ring], segments).merge_into(&mut mesh);
     make_pyramid(upper_ring, [0., 0., top_height], segments).merge_into(&mut mesh);
     make_pyramid(lower_ring.flip_height(), [0., 0., 0.], segments)
-        .transform_by(Affine3A::from_quat(Quat::from_rotation_y(180_f32.to_radians())))
+        .transform_by(Affine3A::from_quat(Quat::from_rotation_y(
+            180_f32.to_radians(),
+        )))
         .merge_into(&mut mesh);
     return mesh;
 }
@@ -385,20 +392,36 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     mesh.remove_attribute(Mesh::ATTRIBUTE_UV_0);
 
     // Outside of the lens hood
-    make_pyramid(Circle{radius: scale, height: 0.}, [0., 0., scale], 4)
-        .transform_by(
-            Affine3A::from_translation([lens_hood_protrusion*scale, 0., 0.].into())
+    make_pyramid(
+        Circle {
+            radius: scale,
+            height: 0.,
+        },
+        [0., 0., scale],
+        4,
+    )
+    .transform_by(
+        Affine3A::from_translation([lens_hood_protrusion * scale, 0., 0.].into())
             * Affine3A::from_rotation_y(-90_f32.to_radians())
-            * Affine3A::from_rotation_z(45_f32.to_radians())
-        ).merge_into(&mut mesh);
+            * Affine3A::from_rotation_z(45_f32.to_radians()),
+    )
+    .merge_into(&mut mesh);
 
     // Inside of the lens hood
-    make_pyramid(Circle{radius: scale, height: scale}, [0., 0., 0.], 4)
-        .transform_by(
-            Affine3A::from_translation([(1.-lens_hood_protrusion)*scale, 0., 0.].into())
+    make_pyramid(
+        Circle {
+            radius: scale,
+            height: scale,
+        },
+        [0., 0., 0.],
+        4,
+    )
+    .transform_by(
+        Affine3A::from_translation([(1. - lens_hood_protrusion) * scale, 0., 0.].into())
             * Affine3A::from_rotation_y(90_f32.to_radians())
-            * Affine3A::from_rotation_z(45_f32.to_radians())
-        ).merge_into(&mut mesh);
+            * Affine3A::from_rotation_z(45_f32.to_radians()),
+    )
+    .merge_into(&mut mesh);
 
     mesh
 }
@@ -409,21 +432,26 @@ pub(crate) fn make_flat_square_mesh(extent: f32) -> PartialMesh {
         [extent, -extent, 0.],
         [extent, extent, 0.],
         [-extent, extent, 0.],
-    ].into_iter().cycle().take(8).collect();
+    ]
+    .into_iter()
+    .cycle()
+    .take(8)
+    .collect();
 
-    let indices = [
-        0, 1, 2, 0, 2, 3,
-        4, 6, 5, 4, 7, 6,
-    ].into_iter().collect();
+    let indices = [0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6].into_iter().collect();
 
-    let normals: Vec<[f32; 3]> = [
-        [0., 0., 1.]
-    ].into_iter().cycle().take(4)
-    .chain([
-        [0., 0., -1.]
-    ].into_iter().cycle().take(4)).collect();
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.]]
+        .into_iter()
+        .cycle()
+        .take(4)
+        .chain([[0., 0., -1.]].into_iter().cycle().take(4))
+        .collect();
 
-    return PartialMesh{positions, normals, indices};
+    return PartialMesh {
+        positions,
+        normals,
+        indices,
+    };
 }
 
 pub(crate) fn make_halo_mesh() -> Mesh {

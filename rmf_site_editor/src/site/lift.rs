@@ -15,15 +15,9 @@
  *
 */
 
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
-use rmf_site_format::{LiftCabin, Edge};
-use bevy::{
-    prelude::*,
-    render::primitives::Aabb,
-};
+use crate::{interaction::Selectable, site::*};
+use bevy::{prelude::*, render::primitives::Aabb};
+use rmf_site_format::{Edge, LiftCabin};
 
 #[derive(Clone, Copy, Debug, Component)]
 pub struct LiftSegments {
@@ -43,18 +37,15 @@ fn make_lift_transforms(
             start_anchor.translation() + DEFAULT_CABIN_WIDTH * Vec3::Y,
         )
     } else {
-        (
-            start_anchor.translation(),
-            end_anchor.translation(),
-        )
+        (start_anchor.translation(), end_anchor.translation())
     };
 
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
-    let center = (p_start+p_end)/2.0;
+    let center = (p_start + p_end) / 2.0;
 
-    let lift_tf = Transform{
+    let lift_tf = Transform {
         translation: Vec3::new(center.x, center.y, 0.),
         rotation: Quat::from_rotation_z(yaw),
         ..default()
@@ -62,13 +53,16 @@ fn make_lift_transforms(
 
     let cabin_tf = match &cabin {
         LiftCabin::Params(params) => {
-            let Aabb{center, half_extents} = params.aabb();
-            Transform{
+            let Aabb {
+                center,
+                half_extents,
+            } = params.aabb();
+            Transform {
                 translation: center.into(),
-                scale: (2.0*half_extents).into(),
+                scale: (2.0 * half_extents).into(),
                 ..default()
             }
-        },
+        }
         LiftCabin::Model(_) => {
             // TODO(MXG): Add proper support for model lifts
             Transform::default()
@@ -90,22 +84,24 @@ pub fn add_lift_visuals(
 
         let mut commands = commands.entity(e);
         let child = commands.add_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
-                mesh: assets.box_mesh.clone(),
-                material: assets.door_material.clone(),
-                transform: shape_tf,
-                ..default()
-            })
-            .insert(Selectable::new(e))
-            .id()
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh: assets.box_mesh.clone(),
+                    material: assets.door_material.clone(),
+                    transform: shape_tf,
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .id()
         });
 
-        commands.insert_bundle(SpatialBundle{
-            transform: pose_tf,
-            ..default()
-        })
-        .insert(LiftSegments{cabin: child})
-        .insert(Category("Lift".to_string()));
+        commands
+            .insert_bundle(SpatialBundle {
+                transform: pose_tf,
+                ..default()
+            })
+            .insert(LiftSegments { cabin: child })
+            .insert(Category("Lift".to_string()));
 
         for anchor in edge.array() {
             let mut dep = dependents.get_mut(anchor).unwrap();
@@ -143,7 +139,7 @@ pub fn update_lift_for_changed_anchor(
     lifts: Query<(Entity, &Edge<Entity>, &LiftCabin, &LiftSegments)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
-    mut transforms: Query<&mut Transform>
+    mut transforms: Query<&mut Transform>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {

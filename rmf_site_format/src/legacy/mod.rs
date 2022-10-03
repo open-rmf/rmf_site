@@ -18,6 +18,7 @@
 pub mod building_map;
 pub mod crowd_sim;
 pub mod door;
+pub mod error;
 pub mod fiducial;
 pub mod floor;
 pub mod lane;
@@ -29,5 +30,4 @@ pub mod physical_camera;
 pub mod rbmf;
 pub mod vertex;
 pub mod wall;
-pub mod error;
 pub use error::{PortingError, Result};

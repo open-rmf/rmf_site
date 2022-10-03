@@ -15,14 +15,14 @@
  *
 */
 
-use crate::{Side, RefTrait};
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+use crate::{RefTrait, Side};
+#[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Edge<T>([T; 2]);
 
 impl<T: RefTrait> Edge<T> {
@@ -106,7 +106,7 @@ impl<T: RefTrait> From<[T; 2]> for Edge<T> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Edge<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Edge<Entity> {
         Edge([

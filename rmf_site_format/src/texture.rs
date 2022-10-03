@@ -16,9 +16,9 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 use bevy::prelude::Component;
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum TextureSource {
@@ -28,18 +28,18 @@ pub enum TextureSource {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CustomTexture {
     pub source: TextureSource,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub alpha: Option<f32>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Angle>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub scale: Option<f32>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub offset: Option<(f32, f32)>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Texture {
     Default,
     Custom(CustomTexture),

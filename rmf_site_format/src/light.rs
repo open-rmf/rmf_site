@@ -16,52 +16,57 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{
-        Component, Bundle, PointLight, SpotLight, DirectionalLight,
-        PointLightBundle, SpotLightBundle, DirectionalLightBundle, Transform,
-    },
     ecs::system::EntityCommands,
+    prelude::{
+        Bundle, Component, DirectionalLight, DirectionalLightBundle, PointLight, PointLightBundle,
+        SpotLight, SpotLightBundle, Transform,
+    },
 };
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Light {
     pub pose: Pose,
     pub kind: LightType,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LightType {
-    PointLight{
+    PointLight {
         color: [f32; 4],
         intensity: f32,
         range: f32,
         radius: f32,
     },
-    SpotLight{
+    SpotLight {
         color: [f32; 4],
         intensity: f32,
         range: f32,
         radius: f32,
     },
-    DirectionalLight{
+    DirectionalLight {
         color: [f32; 4],
         illuminance: f32,
     },
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl LightType {
     pub fn insert_at(&self, commands: &mut EntityCommands, tf: &Transform) {
         match *self {
-            LightType::PointLight{color, intensity, range, radius} => {
-                commands.insert_bundle(PointLightBundle{
+            LightType::PointLight {
+                color,
+                intensity,
+                range,
+                radius,
+            } => {
+                commands.insert_bundle(PointLightBundle {
                     transform: *tf,
-                    point_light: PointLight{
+                    point_light: PointLight {
                         color: color.into(),
                         intensity,
                         range,
@@ -70,11 +75,16 @@ impl LightType {
                     },
                     ..Default::default()
                 });
-            },
-            LightType::SpotLight{color, intensity, range, radius} => {
-                commands.insert_bundle(SpotLightBundle{
+            }
+            LightType::SpotLight {
+                color,
+                intensity,
+                range,
+                radius,
+            } => {
+                commands.insert_bundle(SpotLightBundle {
                     transform: *tf,
-                    spot_light: SpotLight{
+                    spot_light: SpotLight {
                         color: color.into(),
                         intensity,
                         range,
@@ -83,18 +93,18 @@ impl LightType {
                     },
                     ..Default::default()
                 });
-            },
-            LightType::DirectionalLight{color, illuminance} => {
-                commands.insert_bundle(DirectionalLightBundle{
+            }
+            LightType::DirectionalLight { color, illuminance } => {
+                commands.insert_bundle(DirectionalLightBundle {
                     transform: *tf,
-                    directional_light: DirectionalLight{
+                    directional_light: DirectionalLight {
                         color: color.into(),
                         illuminance,
                         ..Default::default()
                     },
                     ..Default::default()
                 });
-            },
+            }
         }
     }
 }

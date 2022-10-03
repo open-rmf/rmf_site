@@ -15,12 +15,9 @@
  *
 */
 
+use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{DoorMarker, Edge, DEFAULT_LEVEL_HEIGHT};
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.1;
 
@@ -43,19 +40,19 @@ fn make_door_transforms(
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
-    let center = (p_start+p_end)/2.0;
+    let center = (p_start + p_end) / 2.0;
 
     (
-        Transform{
+        Transform {
             translation: Vec3::new(center.x, center.y, 0.),
             rotation: Quat::from_rotation_z(yaw),
             ..default()
         },
-        Transform{
-            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT/2.0),
+        Transform {
+            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
             scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
             ..default()
-        }
+        },
     )
 }
 
@@ -71,22 +68,24 @@ pub fn add_door_visuals(
 
         let mut commands = commands.entity(e);
         let child = commands.add_children(|parent| {
-            parent.spawn_bundle(PbrBundle{
-                mesh: assets.box_mesh.clone(),
-                material: assets.door_material.clone(),
-                transform: shape_tf,
-                ..default()
-            })
-            .insert(Selectable::new(e))
-            .id()
+            parent
+                .spawn_bundle(PbrBundle {
+                    mesh: assets.box_mesh.clone(),
+                    material: assets.door_material.clone(),
+                    transform: shape_tf,
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .id()
         });
 
-        commands.insert_bundle(SpatialBundle{
-            transform: pose_tf,
-            ..default()
-        })
-        .insert(DoorSegments{entity: child})
-        .insert(Category("Door".to_string()));
+        commands
+            .insert_bundle(SpatialBundle {
+                transform: pose_tf,
+                ..default()
+            })
+            .insert(DoorSegments { entity: child })
+            .insert(Category("Door".to_string()));
 
         for anchor in &edge.array() {
             if let Ok(mut dep) = dependents.get_mut(*anchor) {

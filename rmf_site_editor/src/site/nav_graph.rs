@@ -25,10 +25,13 @@ pub struct SelectedNavGraph(pub Option<Entity>);
 pub fn assign_orphans_to_nav_graph(
     mut commands: Commands,
     mut selected_nav_graph: ResMut<SelectedNavGraph>,
-    new_elements: Query<Entity, (
-        Or<(Added<LaneMarker>, Added<LocationTags>)>,
-        Without<Parent>,
-    )>,
+    new_elements: Query<
+        Entity,
+        (
+            Or<(Added<LaneMarker>, Added<LocationTags>)>,
+            Without<Parent>,
+        ),
+    >,
 ) {
     if new_elements.is_empty() {
         return;
@@ -41,9 +44,10 @@ pub fn assign_orphans_to_nav_graph(
             // Create a new nav graph since there isn't one selected right now
             let new_nav_graph = commands
                 .spawn_bundle(SpatialBundle::default())
-                .insert(NavGraphProperties{
-                    name: "<Unnamed>".to_string()
-                }).id();
+                .insert(NavGraphProperties {
+                    name: "<Unnamed>".to_string(),
+                })
+                .id();
 
             selected_nav_graph.0 = Some(new_nav_graph);
             new_nav_graph

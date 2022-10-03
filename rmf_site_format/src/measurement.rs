@@ -16,17 +16,17 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle, Deref, DerefMut};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Measurement<T: RefTrait> {
     pub anchors: Edge<T>,
-    #[serde(skip_serializing_if="is_default")]
+    #[serde(skip_serializing_if = "is_default")]
     pub distance: Distance,
-    #[serde(skip_serializing_if="is_default")]
+    #[serde(skip_serializing_if = "is_default")]
     pub label: Label,
     #[serde(skip)]
     pub marker: MeasurementMarker,
@@ -34,11 +34,11 @@ pub struct Measurement<T: RefTrait> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Distance(pub Option<f32>);
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct MeasurementMarker;
 
 impl Default for Distance {
@@ -47,10 +47,10 @@ impl Default for Distance {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Measurement<Entity> {
     pub fn to_u32(&self, anchors: Edge<u32>) -> Measurement<u32> {
-        Measurement{
+        Measurement {
             anchors,
             distance: self.distance,
             label: self.label.clone(),
@@ -59,10 +59,13 @@ impl Measurement<Entity> {
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Measurement<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Measurement<Entity> {
-        Measurement{
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> Measurement<Entity> {
+        Measurement {
             anchors: self.anchors.to_ecs(id_to_entity),
             distance: self.distance,
             label: self.label.clone(),
@@ -73,7 +76,7 @@ impl Measurement<u32> {
 
 impl<T: RefTrait> From<Edge<T>> for Measurement<T> {
     fn from(anchors: Edge<T>) -> Self {
-        Self{
+        Self {
             anchors,
             distance: Default::default(),
             label: Default::default(),

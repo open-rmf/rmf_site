@@ -15,13 +15,9 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    site::*,
-};
-use rmf_site_format::{LaneMarker, Edge};
+use crate::{interaction::*, site::*};
 use bevy::prelude::*;
-
+use rmf_site_format::{Edge, LaneMarker};
 
 #[derive(Component, Default)]
 pub struct LaneVisualCue {
@@ -35,8 +31,8 @@ pub fn add_lane_visual_cues(
     new_lanes: Query<(Entity, &Edge<Entity>), (With<LaneMarker>, Without<LaneVisualCue>)>,
 ) {
     for (e, lane) in &new_lanes {
-        commands.entity(e).insert(LaneVisualCue{
-            supporters: Some(*lane)
+        commands.entity(e).insert(LaneVisualCue {
+            supporters: Some(*lane),
         });
     }
 }
@@ -55,11 +51,7 @@ pub fn update_lane_visual_cues(
         (
             With<LaneMarker>,
             Without<AnchorVisualCue>,
-            Or<(
-                Changed<Hovered>,
-                Changed<Selected>,
-                Changed<Edge<Entity>>,
-            )>,
+            Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
         ),
     >,
     mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualCue>>,

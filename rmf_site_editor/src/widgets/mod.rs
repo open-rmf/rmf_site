@@ -16,21 +16,18 @@
 */
 
 use crate::{
-    site::{SiteState, SiteUpdateLabel, Change},
-    interaction::{PickingBlockers, Hover, Select, MoveTo, ChangeMode},
+    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select},
+    site::{Change, SiteState, SiteUpdateLabel},
+};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::{
+    egui::{self, CollapsingHeader},
+    EguiContext,
 };
 use rmf_site_format::*;
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::{
-    EguiContext,
-    egui::{self, CollapsingHeader},
-};
 
 pub mod inspector;
-use inspector::{InspectorWidget, InspectorParams};
+use inspector::{InspectorParams, InspectorWidget};
 
 pub mod create;
 use create::CreateWidget;
@@ -48,17 +45,11 @@ pub struct StandardUiLayout;
 
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<Icons>()
-            .add_system_set(
-                SystemSet::on_enter(SiteState::Display)
-                .with_system(init_ui_style)
-            )
+        app.init_resource::<Icons>()
+            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .with_system(
-                        standard_ui_layout.label(UiUpdateLabel::DrawUi)
-                    )
+                    .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi)),
             );
     }
 }
@@ -91,24 +82,22 @@ fn standard_ui_layout(
         .resizable(true)
         .show(egui_context.ctx_mut(), |ui| {
             let r = egui::ScrollArea::both()
-            .auto_shrink([false, false])
-            .show(ui, |ui| {
-                ui.vertical(|ui| {
-                    CollapsingHeader::new("Inspect")
-                    .default_open(true)
-                    .show(ui, |ui| {
-                        InspectorWidget::new(
-                            &mut inspector_params, &mut events
-                        ).show(ui);
-                    });
-                    ui.separator();
-                    CollapsingHeader::new("Create")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        CreateWidget::new(&mut events).show(ui);
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Inspect")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                InspectorWidget::new(&mut inspector_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Create")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                CreateWidget::new(&mut events).show(ui);
+                            });
                     });
                 });
-            });
         });
 
     let egui_context = egui_context.ctx_mut();
@@ -129,9 +118,7 @@ fn standard_ui_layout(
     }
 }
 
-fn init_ui_style(
-    mut egui_context: ResMut<EguiContext>,
-) {
+fn init_ui_style(mut egui_context: ResMut<EguiContext>) {
     // I think the default egui dark mode text color is too dim, so this changes
     // it to a brighter white.
     let mut visuals = egui::Visuals::dark();

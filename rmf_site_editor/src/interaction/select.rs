@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    site::Anchor,
-};
+use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
@@ -34,7 +31,10 @@ pub struct Selectable {
 
 impl Selectable {
     pub fn new(element: Entity) -> Self {
-        Selectable{is_selectable: true, element}
+        Selectable {
+            is_selectable: true,
+            element,
+        }
     }
 }
 
@@ -120,7 +120,10 @@ impl SelectionBlockers {
 
 impl Default for SelectionBlockers {
     fn default() -> Self {
-        SelectionBlockers { dragging: false, placing: false }
+        SelectionBlockers {
+            dragging: false,
+            placing: false,
+        }
     }
 }
 
@@ -129,10 +132,12 @@ pub fn make_selectable_entities_pickable(
     new_selectables: Query<(Entity, &Selectable), Added<Selectable>>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands.entity(entity)
+        commands
+            .entity(entity)
             .insert_bundle(PickableBundle::default());
 
-        commands.entity(selectable.element)
+        commands
+            .entity(selectable.element)
             .insert(Selected::default())
             .insert(Hovered::default());
     }
@@ -160,23 +165,24 @@ pub fn handle_selection_picking(
 
     for pick in picks.iter() {
         hover.send(Hover(
-            pick.to.and_then(|change_pick_to| {
-                selectables.get(change_pick_to).ok().map(
-                    |selectable| {
-                        selectable.element
-                    }
-                )
-            }).and_then(|change_pick_to| {
-                if let InteractionMode::SelectAnchor(_) = *mode {
-                    if anchors.contains(change_pick_to) {
-                        Some(change_pick_to)
+            pick.to
+                .and_then(|change_pick_to| {
+                    selectables
+                        .get(change_pick_to)
+                        .ok()
+                        .map(|selectable| selectable.element)
+                })
+                .and_then(|change_pick_to| {
+                    if let InteractionMode::SelectAnchor(_) = *mode {
+                        if anchors.contains(change_pick_to) {
+                            Some(change_pick_to)
+                        } else {
+                            None
+                        }
                     } else {
-                        None
+                        Some(change_pick_to)
                     }
-                } else {
-                    Some(change_pick_to)
-                }
-            })
+                }),
         ));
     }
 }

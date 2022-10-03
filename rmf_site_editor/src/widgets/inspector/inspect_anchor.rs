@@ -16,18 +16,13 @@
 */
 
 use crate::{
-    site::{Anchor, AnchorDependents, SiteID, Category},
-    widgets::{Icons, AppEvents, inspector::SelectionWidget},
-    interaction::{MoveTo, Hover},
+    interaction::{Hover, MoveTo},
+    site::{Anchor, AnchorDependents, Category, SiteID},
+    widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::{
-    egui::{Ui, DragValue, ImageButton},
-};
-use std::collections::{HashSet, BTreeMap};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{DragValue, ImageButton, Ui};
+use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
@@ -49,11 +44,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
         params: &'a mut InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{anchor, params, events, is_dependency: false}
+        Self {
+            anchor,
+            params,
+            events,
+            is_dependency: false,
+        }
     }
 
     pub fn as_dependency(self) -> Self {
-        Self{
+        Self {
             is_dependency: true,
             ..self
         }
@@ -67,14 +67,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 self.params.site_id.get(self.anchor).ok().cloned(),
                 self.params.icons.as_ref(),
                 self.events,
-            ).show(ui);
+            )
+            .show(ui);
 
-            let assign_response = ui.add(
-                ImageButton::new(
-                    self.params.icons.egui_edit,
-                    [18., 18.],
-                )
-            );
+            let assign_response = ui.add(ImageButton::new(self.params.icons.egui_edit, [18., 18.]));
 
             if assign_response.hovered() {
                 self.events.hover.send(Hover(Some(self.anchor)));
@@ -99,14 +95,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             ui.add(DragValue::new(&mut y).speed(0.01));
 
             if x != tf.translation.x || y != tf.translation.y {
-                self.events.move_to.send(MoveTo{
+                self.events.move_to.send(MoveTo {
                     entity: self.anchor,
                     transform: Transform::from_translation([x, y, 0.0].into()),
                 });
             }
         }
 
-        InspectAnchorResponse{replace}
+        InspectAnchorResponse { replace }
     }
 }
 
@@ -133,20 +129,26 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
         params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{anchor, params, events}
+        Self {
+            anchor,
+            params,
+            events,
+        }
     }
 
     fn show_dependents(
         dependents: &HashSet<Entity>,
         params: &InspectAnchorDependentsParams<'w1, 's1>,
         events: &mut AppEvents<'w2, 's2>,
-        ui: &mut Ui
+        ui: &mut Ui,
     ) {
         ui.heading("Dependents");
         let mut category_map: BTreeMap<String, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
         for e in dependents {
             if let Ok((category, site_id)) = params.info.get(*e) {
-                category_map.entry(category.0.clone()).or_default()
+                category_map
+                    .entry(category.0.clone())
+                    .or_default()
                     .insert(*e, site_id.map(|s| s.0));
             } else {
                 ui.label(format!("ERROR: Broken reference to entity {e:?}"));
@@ -158,12 +160,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
 
             for (e, site_id) in entities {
                 ui.horizontal(|ui| {
-                    SelectionWidget::new(
-                        *e,
-                        site_id.map(SiteID),
-                        params.icons.as_ref(),
-                        events
-                    ).show(ui);
+                    SelectionWidget::new(*e, site_id.map(SiteID), params.icons.as_ref(), events)
+                        .show(ui);
                 });
             }
         }
@@ -175,17 +173,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
                 if d.dependents.is_empty() {
                     ui.label("No dependents");
                 } else {
-                    Self::show_dependents(
-                        &d.dependents,
-                        &self.params,
-                        &mut self.events,
-                        ui
-                    );
+                    Self::show_dependents(&d.dependents, &self.params, &mut self.events, ui);
                 }
             } else {
-                ui.label(
-                    "ERROR: Unable to find dependents info for this anchor"
-                );
+                ui.label("ERROR: Unable to find dependents info for this anchor");
             }
         });
     }

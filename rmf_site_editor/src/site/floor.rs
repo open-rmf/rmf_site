@@ -15,42 +15,33 @@
  *
 */
 
-use crate::{
-    site::*,
-    interaction::Selectable,
-    shapes::*,
-};
-use rmf_site_format::{FloorMarker, Path};
+use crate::{interaction::Selectable, shapes::*, site::*};
 use bevy::{
-    prelude::*,
-    render::mesh::{
-        PrimitiveTopology, Indices,
-    },
     math::Affine3A,
+    prelude::*,
+    render::mesh::{Indices, PrimitiveTopology},
 };
 use lyon::{
     math::point,
     path::Path as LyonPath,
-    tessellation::{
-        *, geometry_builder::simple_builder,
-    }
+    tessellation::{geometry_builder::simple_builder, *},
 };
+use rmf_site_format::{FloorMarker, Path};
 
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.5;
 
 fn make_fallback_floor_mesh(p: Vec3) -> Mesh {
-    make_flat_square_mesh(0.5).transform_by(
-        Affine3A::from_scale_rotation_translation(
+    make_flat_square_mesh(0.5)
+        .transform_by(Affine3A::from_scale_rotation_translation(
             Vec3::splat(FALLBACK_FLOOR_SIZE),
             Quat::from_rotation_z(0.0),
             p,
-        )
-    ).into()
+        ))
+        .into()
 }
 
 fn make_fallback_floor_mesh_at_avg(positions: Vec<Vec3>) -> Mesh {
-    let p = positions.iter()
-        .fold(Vec3::ZERO, |sum, x| sum + *x) / positions.len() as f32;
+    let p = positions.iter().fold(Vec3::ZERO, |sum, x| sum + *x) / positions.len() as f32;
     return make_fallback_floor_mesh(p);
 }
 
@@ -74,8 +65,10 @@ fn make_floor_mesh(
     if anchor_path.len() == 0 {
         return Mesh::new(PrimitiveTopology::TriangleList);
     } else if anchor_path.len() == 1 {
-        let p = anchors.get(anchor_path[0])
-            .map(|p| p.translation()).unwrap_or(Vec3::ZERO);
+        let p = anchors
+            .get(anchor_path[0])
+            .map(|p| p.translation())
+            .unwrap_or(Vec3::ZERO);
         return make_fallback_floor_mesh(p);
     } else if anchor_path.len() == 2 {
         let mut positions: Vec<&GlobalTransform> = Vec::new();
@@ -90,12 +83,14 @@ fn make_floor_mesh(
         }
         if !valid {
             return make_fallback_floor_mesh_at_avg(
-                positions.iter().map(|tf| tf.translation()).collect()
+                positions.iter().map(|tf| tf.translation()).collect(),
             );
         }
 
         let tf = line_stroke_transform(positions[0], positions[1], FALLBACK_FLOOR_SIZE);
-        return make_flat_square_mesh(0.5).transform_by(tf.compute_affine()).into();
+        return make_flat_square_mesh(0.5)
+            .transform_by(tf.compute_affine())
+            .into();
     }
 
     let mut builder = LyonPath::builder();
@@ -109,7 +104,8 @@ fn make_floor_mesh(
                 valid = false;
                 continue;
             }
-        }.translation();
+        }
+        .translation();
 
         if first {
             first = false;
@@ -140,27 +136,21 @@ fn make_floor_mesh(
             Err(err) => {
                 println!("Failed to render floor: {err}");
                 return make_fallback_floor_mesh_near_path(anchor_path, anchors);
-            },
-            _ => { },
+            }
+            _ => {}
         }
     }
 
-    let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(
-        |v| [v.x, v.y, 0.]
-    ).collect();
+    let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(|v| [v.x, v.y, 0.]).collect();
 
-    let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(
-        |_| [0., 0., 1.]
-    ).collect();
+    let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(|_| [0., 0., 1.]).collect();
 
-    let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(
-        |v| [v.x, v.y]
-    ).collect();
+    let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(|v| [v.x, v.y]).collect();
 
     let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-    for i in 0..buffers.indices.len()/3 {
-        let i1 = 3*i+1;
-        let i2 = 3*i+2;
+    for i in 0..buffers.indices.len() / 3 {
+        let i1 = 3 * i + 1;
+        let i2 = 3 * i + 2;
         buffers.indices.swap(i1, i2);
     }
     let indices = buffers.indices.drain(..).map(|v| v as u32).collect();
@@ -182,8 +172,9 @@ pub fn add_floor_visuals(
 ) {
     for (e, new_floor) in &floors {
         let mesh = make_floor_mesh(new_floor, &anchors);
-        commands.entity(e)
-            .insert_bundle(PbrBundle{
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
                 mesh: meshes.add(mesh),
                 // TODO(MXG): load the user-specified texture when one is given
                 material: assets.default_floor_material.clone(),
@@ -201,7 +192,10 @@ pub fn add_floor_visuals(
 }
 
 pub fn update_changed_floor(
-    mut floors: Query<(&mut Handle<Mesh>, &Path<Entity>), (Changed<Path<Entity>>, With<FloorMarker>)>,
+    mut floors: Query<
+        (&mut Handle<Mesh>, &Path<Entity>),
+        (Changed<Path<Entity>>, With<FloorMarker>),
+    >,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {

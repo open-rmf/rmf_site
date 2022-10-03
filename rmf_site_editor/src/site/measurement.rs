@@ -15,12 +15,9 @@
  *
 */
 
+use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
-use rmf_site_format::{MeasurementMarker, Edge};
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
+use rmf_site_format::{Edge, MeasurementMarker};
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
@@ -31,8 +28,9 @@ pub fn add_measurement_visuals(
 ) {
     for (e, edge) in &measurements {
         if let Ok([start_anchor, end_anchor]) = anchors.get_many(edge.array()) {
-            commands.entity(e)
-                .insert_bundle(PbrBundle{
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
                     mesh: assets.lane_mid_mesh.clone(),
                     material: assets.measurement_material.clone(),
                     transform: line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH),
@@ -63,7 +61,10 @@ fn update_measurement_visual(
 }
 
 pub fn update_changed_measurement(
-    mut measurements: Query<(&Edge<Entity>, &mut Transform), (Changed<Edge<Entity>>, With<MeasurementMarker>)>,
+    mut measurements: Query<
+        (&Edge<Entity>, &mut Transform),
+        (Changed<Edge<Entity>>, With<MeasurementMarker>),
+    >,
     anchors: Query<&GlobalTransform, With<Anchor>>,
 ) {
     for (edge, mut tf) in &mut measurements {

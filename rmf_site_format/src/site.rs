@@ -16,15 +16,15 @@
 */
 
 use crate::*;
-use std::{io, collections::BTreeMap};
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Entity};
+use serde::{Deserialize, Serialize};
+use std::{collections::BTreeMap, io};
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct SiteProperties {
     pub name: String,
 }
@@ -41,10 +41,10 @@ pub struct Site {
 
 fn default_style_config() -> Style {
     Style::new()
-    .depth_limit(4)
-    .new_line("\n".to_string())
-    .indentor("  ".to_string())
-    .struct_names(false)
+        .depth_limit(4)
+        .new_line("\n".to_string())
+        .indentor("  ".to_string())
+        .struct_names(false)
 }
 
 impl Site {
@@ -79,9 +79,9 @@ impl Site {
     }
 }
 
-pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static { }
+pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static {}
 
-impl RefTrait for u32 { }
+impl RefTrait for u32 {}
 
-#[cfg(feature="bevy")]
-impl RefTrait for Entity { }
+#[cfg(feature = "bevy")]
+impl RefTrait for Entity {}

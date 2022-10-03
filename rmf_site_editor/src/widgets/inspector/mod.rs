@@ -46,18 +46,13 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    site::{SiteID, Category, Original, Change},
     interaction::Selection,
+    site::{Category, Change, Original, SiteID},
     widgets::AppEvents,
 };
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{RichText, Ui};
 use rmf_site_format::*;
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::{
-    egui::{Ui, RichText},
-};
 
 #[derive(SystemParam)]
 pub struct InspectorParams<'w, 's> {
@@ -65,7 +60,14 @@ pub struct InspectorParams<'w, 's> {
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub edges: Query<'w, 's, (&'static Edge<Entity>, Option<&'static Original<Edge<Entity>>>)>,
+    pub edges: Query<
+        'w,
+        's,
+        (
+            &'static Edge<Entity>,
+            Option<&'static Original<Edge<Entity>>>,
+        ),
+    >,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
@@ -83,7 +85,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
         params: &'a mut InspectorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self{params, events}
+        Self { params, events }
     }
 
     fn heading(&self, selection: Entity, ui: &mut Ui) {
@@ -104,7 +106,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        if let Some(selection) =  self.params.selection.0 {
+        if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
             if self.params.anchor_params.transforms.contains(selection) {
                 ui.horizontal(|ui| {
@@ -112,28 +114,37 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         selection,
                         &mut self.params.anchor_params,
                         self.events,
-                    ).show(ui);
+                    )
+                    .show(ui);
                 });
                 ui.separator();
                 InspectAnchorDependentsWidget::new(
                     selection,
                     &mut self.params.anchor_dependents_params,
                     self.events,
-                ).show(ui);
+                )
+                .show(ui);
                 ui.add_space(10.0);
             }
 
             if let Ok((edge, original)) = self.params.edges.get(selection) {
                 InspectEdgeWidget::new(
-                    selection, edge, original, &mut self.params.anchor_params, self.events
-                ).show(ui);
+                    selection,
+                    edge,
+                    original,
+                    &mut self.params.anchor_params,
+                    self.events,
+                )
+                .show(ui);
                 ui.add_space(10.0);
             }
 
             if let Ok((motion, recall)) = self.params.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
-                    self.events.change_lane_motion.send(Change::new(new_motion, selection));
+                    self.events
+                        .change_lane_motion
+                        .send(Change::new(new_motion, selection));
                 }
                 ui.add_space(10.0);
             }
@@ -142,7 +153,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.separator();
                 ui.push_id("Reverse Motion", |ui| {
                     if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
-                        self.events.change_lane_reverse.send(Change::new(new_reverse, selection));
+                        self.events
+                            .change_lane_reverse
+                            .send(Change::new(new_reverse, selection));
                     }
                 });
                 ui.add_space(10.0);
@@ -150,20 +163,26 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok(name) = self.params.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {
-                    self.events.change_name.send(Change::new(new_name, selection));
+                    self.events
+                        .change_name
+                        .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
             }
 
             if let Ok((label, recall)) = self.params.labels.get(selection) {
                 if let Some(new_label) = InspectLabel::new("Kind", label, recall).show(ui) {
-                    self.events.change_label.send(Change::new(new_label, selection));
+                    self.events
+                        .change_label
+                        .send(Change::new(new_label, selection));
                 }
             }
 
             if let Ok(pose) = self.params.poses.get(selection) {
                 if let Some(new_pose) = InspectPose::new(pose).show(ui) {
-                    self.events.change_pose.send(Change::new(new_pose, selection));
+                    self.events
+                        .change_pose
+                        .send(Change::new(new_pose, selection));
                 }
                 ui.add_space(10.0);
             }

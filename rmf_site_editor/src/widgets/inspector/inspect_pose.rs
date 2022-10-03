@@ -16,20 +16,12 @@
 */
 
 use crate::{
-    site::{Original, Change},
-    widgets::{
-        inspector::{
-            InspectAngle,
-        },
-    },
-};
-use rmf_site_format::{
-    Pose, Rotation, Angle,
+    site::{Change, Original},
+    widgets::inspector::InspectAngle,
 };
 use bevy::math::Quat;
-use bevy_egui::egui::{
-    Ui, Grid, DragValue, ComboBox,
-};
+use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
+use rmf_site_format::{Angle, Pose, Rotation};
 
 pub struct InspectPose<'a> {
     pub pose: &'a Pose,
@@ -37,7 +29,7 @@ pub struct InspectPose<'a> {
 
 impl<'a> InspectPose<'a> {
     pub fn new(pose: &'a Pose) -> Self {
-        Self{pose}
+        Self { pose }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Pose> {
@@ -73,7 +65,7 @@ impl<'a> InspectPose<'a> {
         match &mut new_pose.rot {
             Rotation::Yaw(yaw) => {
                 InspectAngle::new(yaw).show(ui);
-            },
+            }
             Rotation::EulerExtrinsicXYZ([roll, pitch, yaw]) => {
                 Grid::new("inspect_rotation_euler_xyz").show(ui, |ui| {
                     ui.label("roll");
@@ -85,7 +77,7 @@ impl<'a> InspectPose<'a> {
                     InspectAngle::new(pitch).show(ui);
                     InspectAngle::new(yaw).show(ui);
                 });
-            },
+            }
             Rotation::Quat([x, y, z, w]) => {
                 Grid::new("inspect_rotation_quat").show(ui, |ui| {
                     ui.label("x");

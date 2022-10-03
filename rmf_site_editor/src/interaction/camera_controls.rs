@@ -321,8 +321,7 @@ pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .insert_resource(MouseLocation::default())
+        app.insert_resource(MouseLocation::default())
             .init_resource::<CameraControls>()
             .add_system(camera_controls);
     }

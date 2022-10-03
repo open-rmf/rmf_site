@@ -15,11 +15,9 @@
  *
 */
 
-use crate::{
-    interaction::*,
-};
+use crate::interaction::*;
 use rmf_site_format::{
-    FloorMarker, WallMarker, ModelMarker, DoorType, LiftCabin, MeasurementMarker,
+    DoorType, FloorMarker, LiftCabin, MeasurementMarker, ModelMarker, WallMarker,
 };
 
 // TODO(MXG): Customize the behavior of floor, wall, and model visual cues.
@@ -29,17 +27,21 @@ pub struct MiscVisualCue;
 
 pub fn add_misc_visual_cues(
     mut commands: Commands,
-    new_entities: Query<Entity, Or<(
-        Added<FloorMarker>,
-        Added<WallMarker>,
-        Added<ModelMarker>,
-        Added<DoorType>,
-        Added<LiftCabin>,
-        Added<MeasurementMarker>,
-    )>>,
+    new_entities: Query<
+        Entity,
+        Or<(
+            Added<FloorMarker>,
+            Added<WallMarker>,
+            Added<ModelMarker>,
+            Added<DoorType>,
+            Added<LiftCabin>,
+            Added<MeasurementMarker>,
+        )>,
+    >,
 ) {
     for e in &new_entities {
-        commands.entity(e)
+        commands
+            .entity(e)
             .insert(MiscVisualCue)
             .insert(Selectable::new(e));
     }

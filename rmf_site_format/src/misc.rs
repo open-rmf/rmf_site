@@ -16,9 +16,9 @@
 */
 
 use crate::Recall;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 use bevy::prelude::*;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
@@ -73,14 +73,15 @@ pub enum Rotation {
     Quat([f32; 4]),
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Rotation {
-
     pub fn as_yaw(&self) -> Self {
         match self {
             Self::Yaw(_) => self.clone(),
             Self::EulerExtrinsicXYZ([_, _, yaw]) => Self::Yaw(*yaw),
-            Self::Quat(quat) => Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0)),
+            Self::Quat(quat) => {
+                Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0))
+            }
         }
     }
 
@@ -103,13 +104,9 @@ impl Rotation {
         match self {
             Self::Yaw(yaw) => Quat::from_rotation_z(yaw.radians()),
             Self::EulerExtrinsicXYZ([x, y, z]) => {
-                Quat::from_euler(
-                    EulerRot::ZYX, z.radians(), y.radians(), x.radians()
-                )
-            },
-            Self::Quat(quat) => {
-                Quat::from_array(*quat)
+                Quat::from_euler(EulerRot::ZYX, z.radians(), y.radians(), x.radians())
             }
+            Self::Quat(quat) => Quat::from_array(*quat),
         }
     }
 
@@ -123,7 +120,7 @@ impl Rotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
     pub rot: Rotation,
@@ -131,17 +128,17 @@ pub struct Pose {
 
 impl Default for Pose {
     fn default() -> Self {
-        Self{
+        Self {
             trans: [0., 0., 0.],
             rot: Rotation::Yaw(Angle::Deg(0.)),
         }
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Pose {
     pub fn transform(&self) -> Transform {
-        Transform{
+        Transform {
             translation: self.trans.clone().into(),
             rotation: self.rot.as_bevy_quat(),
             ..default()
@@ -154,7 +151,7 @@ impl Pose {
 /// conflicts with another `Name` defined in `bevy::prelude`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct NameInSite(pub String);
 
 impl Default for NameInSite {
@@ -165,7 +162,7 @@ impl Default for NameInSite {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Label(pub Option<String>);
 
 impl Default for Label {
@@ -175,7 +172,7 @@ impl Default for Label {
 }
 
 #[derive(Default, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallLabel {
     pub value: Option<String>,
 }
@@ -187,17 +184,17 @@ impl Recall for RecallLabel {
         match &source.0 {
             Some(value) => {
                 self.value = Some(value.clone());
-            },
+            }
             None => {
                 // Do nothing
-            },
+            }
         }
     }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature="bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct IsStatic(pub bool);
 
 impl Default for IsStatic {

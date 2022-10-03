@@ -16,9 +16,7 @@
 */
 
 use bevy::prelude::*;
-use bevy_egui::{
-    egui, EguiContext,
-};
+use bevy_egui::{egui, EguiContext};
 
 #[derive(Clone, Debug)]
 pub struct Icons {

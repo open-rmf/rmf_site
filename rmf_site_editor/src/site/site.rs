@@ -15,11 +15,8 @@
  *
 */
 
-use rmf_site_format::{
-    LevelProperties,
-    SiteProperties,
-};
 use bevy::prelude::*;
+use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
@@ -73,14 +70,20 @@ pub fn change_site(
 
     if let Some(cmd) = change_current_site.iter().last() {
         if open_sites.0.iter().find(|s| **s == cmd.site).is_none() {
-            println!("Requested site change to an entity that is not an open site: {:?}", cmd.site);
+            println!(
+                "Requested site change to an entity that is not an open site: {:?}",
+                cmd.site
+            );
             return;
         }
 
         if let Some(chosen_level) = cmd.level {
-            if parents.get(chosen_level).ok().filter(
-                |parent| parent.get() == cmd.site
-            ).is_none() {
+            if parents
+                .get(chosen_level)
+                .ok()
+                .filter(|parent| parent.get() == cmd.site)
+                .is_none()
+            {
                 println!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
                     chosen_level,
@@ -126,15 +129,14 @@ pub fn change_site(
 
                     if !found_level {
                         // Create a new blank level for the user
-                        let new_level = commands.entity(cmd.site)
-                            .add_children(|site| {
-                                site.spawn_bundle(SpatialBundle::default())
-                                    .insert(LevelProperties{
-                                        name: "<unnamed level>".to_string(),
-                                        elevation: 0.,
-                                    })
-                                    .id()
-                            });
+                        let new_level = commands.entity(cmd.site).add_children(|site| {
+                            site.spawn_bundle(SpatialBundle::default())
+                                .insert(LevelProperties {
+                                    name: "<unnamed level>".to_string(),
+                                    elevation: 0.,
+                                })
+                                .id()
+                        });
 
                         cached_levels.0.insert(cmd.site, new_level);
                         current_level.0 = Some(new_level);

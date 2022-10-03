@@ -16,14 +16,11 @@
 */
 
 use crate::{
-    interaction::*,
     animate::*,
-    site::{SiteAssets, AnchorBundle, AnchorDependents, Pending},
+    interaction::*,
+    site::{AnchorBundle, AnchorDependents, Pending, SiteAssets},
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
 use std::collections::HashSet;
@@ -42,11 +39,7 @@ pub struct Cursor {
 }
 
 impl Cursor {
-    pub fn add_dependent(
-        &mut self,
-        dependent: Entity,
-        visibility: &mut Query<&mut Visibility>,
-    ) {
+    pub fn add_dependent(&mut self, dependent: Entity, visibility: &mut Query<&mut Visibility>) {
         if self.dependents.insert(dependent) {
             if self.dependents.len() == 1 {
                 self.toggle_visibility(visibility);
@@ -54,11 +47,7 @@ impl Cursor {
         }
     }
 
-    pub fn remove_dependent(
-        &mut self,
-        dependent: Entity,
-        visibility: &mut Query<&mut Visibility>,
-    ) {
+    pub fn remove_dependent(&mut self, dependent: Entity, visibility: &mut Query<&mut Visibility>) {
         if self.dependents.remove(&dependent) {
             if self.dependents.is_empty() {
                 self.toggle_visibility(visibility);
@@ -66,11 +55,7 @@ impl Cursor {
         }
     }
 
-    pub fn add_mode(
-        &mut self,
-        mode: &'static str,
-        visibility: &mut Query<&mut Visibility>,
-    ) {
+    pub fn add_mode(&mut self, mode: &'static str, visibility: &mut Query<&mut Visibility>) {
         if self.modes.insert(mode) {
             if self.modes.len() == 1 {
                 self.toggle_visibility(visibility);
@@ -78,11 +63,7 @@ impl Cursor {
         }
     }
 
-    pub fn remove_mode(
-        &mut self,
-        mode: &'static str,
-        visibility: &mut Query<&mut Visibility>,
-    ) {
+    pub fn remove_mode(&mut self, mode: &'static str, visibility: &mut Query<&mut Visibility>) {
         if self.modes.remove(&mode) {
             if self.modes.is_empty() {
                 self.toggle_visibility(visibility);
@@ -108,8 +89,9 @@ impl FromWorld for Cursor {
     fn from_world(world: &mut World) -> Self {
         let interaction_assets = world.get_resource::<InteractionAssets>()
             .expect("make sure that the InteractionAssets resource is initialized before the Cursor resource");
-        let site_assets = world.get_resource::<SiteAssets>()
-            .expect("make sure that the SiteAssets resource is initialized before the Cursor resource");
+        let site_assets = world.get_resource::<SiteAssets>().expect(
+            "make sure that the SiteAssets resource is initialized before the Cursor resource",
+        );
         let halo_mesh = interaction_assets.halo_mesh.clone();
         let halo_material = interaction_assets.halo_material.clone();
         let dagger_mesh = interaction_assets.dagger_mesh.clone();
@@ -117,8 +99,9 @@ impl FromWorld for Cursor {
         let anchor_mesh = site_assets.anchor_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
 
-        let halo = world.spawn()
-            .insert_bundle(PbrBundle{
+        let halo = world
+            .spawn()
+            .insert_bundle(PbrBundle {
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                 mesh: halo_mesh,
                 material: halo_material,
@@ -128,8 +111,9 @@ impl FromWorld for Cursor {
             .insert(Spinning::default())
             .id();
 
-        let dagger = world.spawn()
-            .insert_bundle(PbrBundle{
+        let dagger = world
+            .spawn()
+            .insert_bundle(PbrBundle {
                 mesh: dagger_mesh,
                 material: dagger_material,
                 visibility: Visibility { is_visible: true },
@@ -139,12 +123,13 @@ impl FromWorld for Cursor {
             .insert(Bobbing::default())
             .id();
 
-        let anchor_placement = world.spawn()
+        let anchor_placement = world
+            .spawn()
             .insert_bundle(AnchorBundle::new([0., 0.]).visible(false))
             .insert(Pending)
             .insert(Preview)
             .with_children(|parent| {
-                parent.spawn_bundle(PbrBundle{
+                parent.spawn_bundle(PbrBundle {
                     mesh: anchor_mesh,
                     material: preview_anchor_material,
                     transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
@@ -153,7 +138,8 @@ impl FromWorld for Cursor {
             })
             .id();
 
-        let cursor = world.spawn()
+        let cursor = world
+            .spawn()
             .push_children(&[halo, dagger, anchor_placement])
             .insert_bundle(SpatialBundle::default())
             .id();
@@ -183,9 +169,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
 }
 
-fn intersect_ground_plane(
-    params: &IntersectGroundPlaneParams,
-) -> Option<Vec3> {
+fn intersect_ground_plane(params: &IntersectGroundPlaneParams) -> Option<Vec3> {
     let window = params.windows.get_primary()?;
     let cursor_position = window.cursor_position()?;
     let e_active_camera = params.camera_controls.active_camera();
@@ -214,32 +198,40 @@ pub fn update_cursor_transform(
         InteractionMode::Inspect => {
             let intersection = match intersections.iter().last() {
                 Some(intersection) => intersection,
-                None => { return; }
+                None => {
+                    return;
+                }
             };
 
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
-                Err(_) => { return; }
+                Err(_) => {
+                    return;
+                }
             };
 
             let ray = match intersection.normal_ray() {
                 Some(ray) => ray,
-                None => { return; }
+                None => {
+                    return;
+                }
             };
 
-            *transform = Transform::from_matrix(
-                ray.to_aligned_transform([0., 0., 1.].into())
-            );
-        },
+            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+        }
         InteractionMode::SelectAnchor(_) => {
             let intersection = match intersect_ground_plane(&select_anchor_params) {
                 Some(intersection) => intersection,
-                None => { return; }
+                None => {
+                    return;
+                }
             };
 
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
-                Err(_) => { return; }
+                Err(_) => {
+                    return;
+                }
             };
 
             *transform = Transform::from_translation(intersection);
@@ -247,9 +239,6 @@ pub fn update_cursor_transform(
     }
 }
 
-pub fn hide_cursor(
-    mut visibility: Query<&mut Visibility>,
-    cursor: Res<Cursor>,
-) {
+pub fn hide_cursor(mut visibility: Query<&mut Visibility>, cursor: Res<Cursor>) {
     set_visibility(cursor.frame, &mut visibility, false);
 }

@@ -15,15 +15,9 @@
  *
 */
 
-use bevy::{
-    prelude::*,
-    render::mesh::shape::Box,
-};
-use rmf_site_format::{WallMarker, Edge, DEFAULT_LEVEL_HEIGHT};
-use crate::{
-    site::*,
-    interaction::Selectable,
-};
+use crate::{interaction::Selectable, site::*};
+use bevy::{prelude::*, render::mesh::shape::Box};
+use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
@@ -31,16 +25,15 @@ fn make_wall_components(
     wall: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> Option<(Mesh, Transform)> {
-    if let (Ok(start_anchor), Ok(end_anchor)) = (
-        anchors.get(wall.left()),
-        anchors.get(wall.right()),
-    ) {
+    if let (Ok(start_anchor), Ok(end_anchor)) =
+        (anchors.get(wall.left()), anchors.get(wall.right()))
+    {
         let p_start = start_anchor.translation();
         let p_end = end_anchor.translation();
         let (p_start, p_end) = if wall.left() == wall.right() {
             (
-                p_start - DEFAULT_WALL_THICKNESS/2.0 * Vec3::X,
-                p_start + DEFAULT_WALL_THICKNESS/2.0 * Vec3::X,
+                p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
+                p_start + DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
             )
         } else {
             (p_start, p_end)
@@ -48,7 +41,7 @@ fn make_wall_components(
         let dp = p_end - p_start;
         let length = dp.length();
         let yaw = dp.y.atan2(dp.x);
-        let center = (p_start + p_end)/2.0;
+        let center = (p_start + p_end) / 2.0;
 
         let mut mesh: Mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT).into();
         // The default UV coordinates made by bevy do not work well for walls,
@@ -66,29 +59,29 @@ fn make_wall_components(
             [0., 1.], // 7
             // right
             [length, 1.], // 8
-            [0., 1.], // 9
-            [0., 0.], // 10
+            [0., 1.],     // 9
+            [0., 0.],     // 10
             [length, 0.], // 11
             // left
-            [0., 0.], // 12
+            [0., 0.],     // 12
             [length, 0.], // 13
             [length, 1.], // 14
-            [0., 1.], // 15
+            [0., 1.],     // 15
             // front
-            [0., 1.], // 16
+            [0., 1.],     // 16
             [length, 1.], // 17
             [length, 0.], // 18
-            [0., 0.], // 19
+            [0., 0.],     // 19
             // back
             [length, 0.], // 20
-            [0., 0.], // 21
-            [0., 1.], // 22
+            [0., 0.],     // 21
+            [0., 1.],     // 22
             [length, 1.], // 23
         ];
         mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
 
-        let tf = Transform{
-            translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT/2.0),
+        let tf = Transform {
+            translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT / 2.0),
             rotation: Quat::from_rotation_z(yaw),
             ..default()
         };
@@ -108,8 +101,9 @@ pub fn add_wall_visual(
 ) {
     for (e, edge) in &walls {
         if let Some((mesh, tf)) = make_wall_components(edge, &anchors) {
-            commands.entity(e)
-                .insert_bundle(PbrBundle{
+            commands
+                .entity(e)
+                .insert_bundle(PbrBundle {
                     mesh: meshes.add(mesh),
                     material: assets.wall_material.clone(), // TODO(MXG): load the user-specified texture when one is given
                     transform: tf,
@@ -142,7 +136,10 @@ fn update_wall_visuals(
 }
 
 pub fn update_changed_wall(
-    mut walls: Query<(&Edge<Entity>, &mut Transform, &mut Handle<Mesh>), (With<WallMarker>, Changed<Edge<Entity>>)>,
+    mut walls: Query<
+        (&Edge<Entity>, &mut Transform, &mut Handle<Mesh>),
+        (With<WallMarker>, Changed<Edge<Entity>>),
+    >,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {

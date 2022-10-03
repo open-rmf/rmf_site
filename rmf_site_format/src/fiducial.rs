@@ -15,15 +15,15 @@
  *
 */
 
-use crate::{Point, Label, RefTrait};
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+use crate::{Label, Point, RefTrait};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Entity};
+use serde::{Deserialize, Serialize};
 
 /// Mark a point within the map of a level to serve as a ground truth relative
 /// to other levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Fiducial<T: RefTrait> {
     /// The anchor that represents the position of this fiducial.
     pub anchor: Point<T>,
@@ -37,20 +37,27 @@ pub struct Fiducial<T: RefTrait> {
 }
 
 #[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct FiducialMarker;
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Fiducial<Entity> {
     pub fn to_u32(&self, anchor: u32) -> Fiducial<u32> {
-        Fiducial{label: self.label.clone(), anchor: anchor.into(), marker: Default::default()}
+        Fiducial {
+            label: self.label.clone(),
+            anchor: anchor.into(),
+            marker: Default::default(),
+        }
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Fiducial<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Fiducial<Entity> {
-        Fiducial{
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> Fiducial<Entity> {
+        Fiducial {
             anchor: self.anchor.to_ecs(id_to_entity),
             label: self.label.clone(),
             marker: Default::default(),
@@ -60,7 +67,7 @@ impl Fiducial<u32> {
 
 impl<T: RefTrait> From<Point<T>> for Fiducial<T> {
     fn from(anchor: Point<T>) -> Self {
-        Self{
+        Self {
             anchor,
             label: Default::default(),
             marker: Default::default(),

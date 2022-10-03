@@ -16,12 +16,12 @@
 */
 
 use crate::*;
-use serde::{Serialize, Deserialize};
-#[cfg(feature="bevy")]
-use bevy::prelude::{Component, Entity, Bundle};
+#[cfg(feature = "bevy")]
+use bevy::prelude::{Bundle, Component, Entity};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Lane<T: RefTrait> {
     /// The endpoints of the lane (start, end)
     pub anchors: Edge<T>,
@@ -35,22 +35,22 @@ pub struct Lane<T: RefTrait> {
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct LaneMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Motion {
-    #[serde(skip_serializing_if="OrientationConstraint::is_none")]
+    #[serde(skip_serializing_if = "OrientationConstraint::is_none")]
     pub orientation_constraint: OrientationConstraint,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub speed_limit: Option<f32>,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub dock: Option<Dock>,
 }
 
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallMotion {
     pub relative_yaw: Option<Angle>,
     pub absolute_yaw: Option<Angle>,
@@ -67,10 +67,10 @@ impl Recall for RecallMotion {
         match source.orientation_constraint {
             OrientationConstraint::RelativeYaw(v) => {
                 self.relative_yaw = Some(v);
-            },
+            }
             OrientationConstraint::AbsoluteYaw(v) => {
                 self.absolute_yaw = Some(v);
-            },
+            }
             _ => {
                 // Do nothing
             }
@@ -100,7 +100,6 @@ pub enum OrientationConstraint {
 }
 
 impl OrientationConstraint {
-
     pub fn is_none(&self) -> bool {
         matches!(self, Self::None)
     }
@@ -137,7 +136,7 @@ impl Default for OrientationConstraint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum ReverseLane {
     Same,
     Disable,
@@ -167,9 +166,8 @@ impl Default for ReverseLane {
     }
 }
 
-
 #[derive(Clone, Debug, Default)]
-#[cfg_attr(feature="bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallReverseLane {
     pub motion: Option<Motion>,
     pub previous: RecallMotion,
@@ -182,7 +180,7 @@ impl Recall for RecallReverseLane {
             ReverseLane::Different(from_motion) => {
                 self.motion = Some(from_motion.clone());
                 self.previous.remember(from_motion);
-            },
+            }
             _ => {
                 // Do nothing
             }
@@ -190,11 +188,10 @@ impl Recall for RecallReverseLane {
     }
 }
 
-
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl Lane<u32> {
     pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
-        Lane{
+        Lane {
             anchors: self.anchors.to_ecs(id_to_entity),
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
@@ -205,7 +202,7 @@ impl Lane<u32> {
 
 impl<T: RefTrait> From<Edge<T>> for Lane<T> {
     fn from(edge: Edge<T>) -> Self {
-        Lane{
+        Lane {
             anchors: edge,
             forward: Default::default(),
             reverse: Default::default(),
