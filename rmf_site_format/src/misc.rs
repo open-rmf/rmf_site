@@ -29,6 +29,14 @@ pub enum Side {
 }
 
 impl Side {
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Side::Left => "Left",
+            Side::Right => "Right",
+        }
+    }
+
     pub fn opposite(&self) -> Side {
         match self {
             Side::Left => Side::Right,

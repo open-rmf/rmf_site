@@ -87,11 +87,17 @@ impl DoorType {
     pub fn label(&self) -> &str {
         match self {
             Self::SingleSliding(_) => "Single Sliding",
-            Self::DoubleSliding { .. } => "Double Sliding",
-            Self::SingleSwing { .. } => "Single Swing",
+            Self::DoubleSliding(_) => "Double Sliding",
+            Self::SingleSwing(_) => "Single Swing",
             Self::DoubleSwing(_) => "Double Swing",
             Self::Model(_) => "Model",
         }
+    }
+}
+
+impl Default for DoorType {
+    fn default() -> Self {
+        SingleSlidingDoor::default().into()
     }
 }
 
@@ -191,14 +197,48 @@ impl From<Model> for DoorType {
 /// How the door swings relative to someone who is standing in the frame of door
 /// with the left and right sides of their body aligned with the left and right
 /// anchor points of the door.
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub enum Swing {
     /// Swing forwards up to this (positive) angle
     Forward(Angle),
     /// Swing backwards up to this (positive) angle
     Backward(Angle),
-    /// Swing each direction by (forward, backward) positive degrees.
-    Both(Angle, Angle),
+    /// Swing each direction up to the given (positive) angle.
+    Both{forward: Angle, backward: Angle},
+}
+
+impl Swing {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Forward(_) => "Forward",
+            Self::Backward(_) => "Backward",
+            Self::Both {..} => "Both",
+        }
+    }
+
+    pub fn assume_forward(&self) -> Self {
+        match self {
+            Self::Forward(angle) => Self::Forward(*angle),
+            Self::Backward(angle) => Self::Forward(*angle),
+            Self::Both { forward, .. } => Self::Forward(*forward),
+        }
+    }
+
+    pub fn assume_backward(&self) -> Self {
+        match self {
+            Self::Forward(angle) => Self::Backward(*angle),
+            Self::Backward(angle) => Self::Backward(*angle),
+            Self::Both { backward, .. } => Self::Backward(*backward),
+        }
+    }
+
+    pub fn assume_both(&self) -> Self {
+        match self {
+            Self::Forward(angle) => Self::Both {forward: *angle, backward: *angle},
+            Self::Backward(angle) => Self::Both {forward: *angle, backward: *angle},
+            Self::Both { forward, backward } => Self::Both {forward: *forward, backward: *backward},
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
@@ -224,7 +264,7 @@ impl RecallDoorType {
                 self.single_sliding
                     .as_ref()
                     .map(|x| x.clone())
-                    .unwrap_or(DoorType::SingleSliding(SingleSlidingDoor::default())),
+                    .unwrap_or(SingleSlidingDoor::default().into()),
             )
     }
 
@@ -236,7 +276,7 @@ impl RecallDoorType {
                 self.double_sliding
                     .as_ref()
                     .map(|x| x.clone())
-                    .unwrap_or(DoorType::DoubleSliding(DoubleSlidingDoor::default())),
+                    .unwrap_or(DoubleSlidingDoor::default().into()),
             )
     }
 
@@ -245,7 +285,7 @@ impl RecallDoorType {
             self.single_swing
                 .as_ref()
                 .map(|x| x.clone())
-                .unwrap_or(DoorType::SingleSwing(SingleSwingDoor::default())),
+                .unwrap_or(SingleSwingDoor::default().into()),
         )
     }
 
@@ -254,7 +294,7 @@ impl RecallDoorType {
             self.double_swing
                 .as_ref()
                 .map(|x| x.clone())
-                .unwrap_or(DoorType::DoubleSwing(DoubleSwingDoor::default())),
+                .unwrap_or(DoubleSwingDoor::default().into()),
         )
     }
 
@@ -280,7 +320,7 @@ impl Recall for RecallDoorType {
                 self.double_sliding = Some(source.clone());
             }
             DoorType::SingleSwing { .. } => {
-                self.single_sliding = Some(source.clone());
+                self.single_swing = Some(source.clone());
             }
             DoorType::DoubleSwing(_) => {
                 self.double_swing = Some(source.clone());

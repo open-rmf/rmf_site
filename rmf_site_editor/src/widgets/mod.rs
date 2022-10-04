@@ -69,6 +69,7 @@ pub struct AppEvents<'w, 's> {
     pub change_kind: EventWriter<'w, 's, Change<Kind>>,
     pub change_label: EventWriter<'w, 's, Change<Label>>,
     pub change_pose: EventWriter<'w, 's, Change<Pose>>,
+    pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     _ignore: Query<'w, 's, ()>,
 }

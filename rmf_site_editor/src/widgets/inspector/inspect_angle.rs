@@ -18,14 +18,21 @@
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Ui};
 use rmf_site_format::Angle;
+use std::ops::RangeInclusive;
 
 pub struct InspectAngle<'a> {
-    pub angle: &'a mut Angle,
+    angle: &'a mut Angle,
+    range_degrees: RangeInclusive<f32>,
 }
 
 impl<'a> InspectAngle<'a> {
     pub fn new(angle: &'a mut Angle) -> Self {
-        Self { angle }
+        Self { angle, range_degrees: -360.0..=360.0 }
+    }
+
+    pub fn range_degrees(mut self, range: RangeInclusive<f32>) -> Self {
+        self.range_degrees = range;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -36,7 +43,7 @@ impl<'a> InspectAngle<'a> {
                         .min_decimals(0)
                         .max_decimals(1)
                         .speed(1.0)
-                        .clamp_range(-360.0..=360.0),
+                        .clamp_range(self.range_degrees),
                 );
 
                 let response = ui.button("deg").on_hover_text("Click to change to radians");
@@ -51,7 +58,7 @@ impl<'a> InspectAngle<'a> {
                         .min_decimals(2)
                         .max_decimals(4)
                         .speed(std::f32::consts::PI / 180.0)
-                        .clamp_range(-std::f32::consts::TAU..=std::f32::consts::TAU),
+                        .clamp_range(self.range_degrees.start().to_radians()..=self.range_degrees.end().to_radians()),
                 );
 
                 let response = ui.button("rad").on_hover_text("Click to change to degrees");

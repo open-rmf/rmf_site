@@ -25,16 +25,14 @@ use rmf_site_format::{
 
 pub struct InspectMotionWidget<'a> {
     pub motion: &'a Motion,
-    pub previous: &'a RecallMotion,
-    for_reverse: bool,
+    pub recall: &'a RecallMotion,
 }
 
 impl<'a> InspectMotionWidget<'a> {
-    pub fn new(motion: &'a Motion, previous: &'a RecallMotion) -> Self {
+    pub fn new(motion: &'a Motion, recall: &'a RecallMotion) -> Self {
         Self {
             motion,
-            previous,
-            for_reverse: false,
+            recall,
         }
     }
 
@@ -45,13 +43,13 @@ impl<'a> InspectMotionWidget<'a> {
                     .motion
                     .orientation_constraint
                     .relative_yaw()
-                    .unwrap_or(self.previous.relative_yaw.unwrap_or(Angle::Deg(0.0)));
+                    .unwrap_or(self.recall.relative_yaw.unwrap_or(Angle::Deg(0.0)));
 
                 let assumed_absolute_yaw = self
                     .motion
                     .orientation_constraint
                     .absolute_yaw()
-                    .unwrap_or(self.previous.absolute_yaw.unwrap_or(Angle::Deg(0.0)));
+                    .unwrap_or(self.recall.absolute_yaw.unwrap_or(Angle::Deg(0.0)));
 
                 ui.label("Orientation Constraint");
                 let mut orientation = self.motion.orientation_constraint.clone();
@@ -93,7 +91,7 @@ impl<'a> InspectMotionWidget<'a> {
         let new_speed = InspectOptionF32::new(
             "Speed Limit".to_string(),
             self.motion.speed_limit,
-            self.previous.speed_limit.unwrap_or(1.0),
+            self.recall.speed_limit.unwrap_or(1.0),
         )
         .clamp_range(0.0..=100.0)
         .min_decimals(2)
@@ -110,14 +108,14 @@ impl<'a> InspectMotionWidget<'a> {
                 self.motion
                     .dock
                     .clone()
-                    .unwrap_or(self.previous.dock.clone().unwrap_or_else(|| {
+                    .unwrap_or(self.recall.dock.clone().unwrap_or_else(|| {
                         Dock {
                             name: self
-                                .previous
+                                .recall
                                 .dock_name
                                 .clone()
                                 .unwrap_or("<Unnamed>".to_string()),
-                            duration: self.previous.dock_duration,
+                            duration: self.recall.dock_duration,
                         }
                     }));
 
@@ -129,7 +127,7 @@ impl<'a> InspectMotionWidget<'a> {
             let new_duration = InspectOptionF32::new(
                 "Duration".to_string(),
                 dock.duration,
-                self.previous.dock_duration.unwrap_or(30.0),
+                self.recall.dock_duration.unwrap_or(30.0),
             )
             .clamp_range(0.0..=std::f32::INFINITY)
             .min_decimals(0)
@@ -179,12 +177,12 @@ impl<'a> InspectMotionWidget<'a> {
 
 pub struct InspectReverseWidget<'a> {
     pub reverse: &'a ReverseLane,
-    pub previous: &'a RecallReverseLane,
+    pub recall: &'a RecallReverseLane,
 }
 
 impl<'a> InspectReverseWidget<'a> {
     pub fn new(reverse: &'a ReverseLane, previous: &'a RecallReverseLane) -> Self {
-        Self { reverse, previous }
+        Self { reverse, recall: previous }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<ReverseLane> {
@@ -192,7 +190,7 @@ impl<'a> InspectReverseWidget<'a> {
             .reverse
             .different_motion()
             .cloned()
-            .unwrap_or(self.previous.motion.clone().unwrap_or(Motion::default()));
+            .unwrap_or(self.recall.motion.clone().unwrap_or(Motion::default()));
 
         let mut new_reverse = self.reverse.clone();
         ui.label(RichText::new("Reverse Motion").size(18.0));
@@ -212,7 +210,7 @@ impl<'a> InspectReverseWidget<'a> {
             ReverseLane::Different(motion) => {
                 ui.add_space(10.0);
                 if let Some(new_motion) =
-                    InspectMotionWidget::new(motion, &self.previous.previous).show(ui)
+                    InspectMotionWidget::new(motion, &self.recall.previous).show(ui)
                 {
                     new_reverse = ReverseLane::Different(new_motion);
                 }

@@ -21,6 +21,9 @@ pub use inspect_anchor::*;
 pub mod inspect_angle;
 pub use inspect_angle::*;
 
+pub mod inspect_door;
+pub use inspect_door::*;
+
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
@@ -41,6 +44,9 @@ pub use inspect_option_f32::*;
 
 pub mod inspect_pose;
 pub use inspect_pose::*;
+
+pub mod inspect_side;
+pub use inspect_side::*;
 
 pub mod selection_widget;
 pub use selection_widget::*;
@@ -73,6 +79,7 @@ pub struct InspectorParams<'w, 's> {
     pub names: Query<'w, 's, &'static NameInSite>,
     pub kinds: Query<'w, 's, (&'static Kind, &'static RecallKind)>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
+    pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
 }
 
@@ -194,6 +201,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(new_pose, selection));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok((door, recall)) = self.params.doors.get(selection) {
+                if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
+                    self.events
+                        .change_door
+                        .send(Change::new(new_door, selection));
+                }
             }
         } else {
             ui.label("Nothing selected");
