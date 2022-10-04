@@ -31,4 +31,4 @@ jobs:
     - uses: actions/checkout@v3
 
     - name: build
-      run: cd scripts/build-web.sh
+      run: scripts/build-web.sh
