@@ -16,48 +16,51 @@
 */
 
 use bevy_egui::egui::Ui;
-use rmf_site_format::{Label, RecallLabel};
+use rmf_site_format::Recall;
 
-pub struct InspectLabel<'a> {
+pub struct InspectOptionString<'a> {
     title: &'a str,
-    label: &'a Label,
-    recall: &'a RecallLabel,
+    value: &'a Option<String>,
+    recall: &'a Option<String>,
 }
 
-impl<'a> InspectLabel<'a> {
-    pub fn new(title: &'a str, label: &'a Label, recall: &'a RecallLabel) -> Self {
+impl<'a> InspectOptionString<'a> {
+    pub fn new(
+        title: &'a str,
+        value: &'a Option<String>,
+        recall: &'a Option<String>
+    ) -> Self {
         Self {
             title,
-            label,
+            value,
             recall,
         }
     }
 
-    pub fn show(self, ui: &mut Ui) -> Option<Label> {
+    pub fn show(self, ui: &mut Ui) -> Option<Option<String>> {
         ui.horizontal(|ui| {
-            let mut has_value = self.label.is_some();
+            let mut has_value = self.value.is_some();
             ui.checkbox(&mut has_value, self.title);
             if has_value {
                 let mut assumed_value =
-                    self.label.as_ref().map(|x| x.clone()).unwrap_or_else(|| {
+                    self.value.as_ref().map(|x| x.clone()).unwrap_or_else(|| {
                         self.recall
-                            .value
                             .as_ref()
                             .map(|x| x.clone())
                             .unwrap_or_else(|| "<undefined>".to_string())
                     });
                 ui.text_edit_singleline(&mut assumed_value);
 
-                let new_label = Label(Some(assumed_value));
-                if new_label != *self.label {
-                    Some(new_label)
+                let new_value = Some(assumed_value);
+                if new_value != *self.value {
+                    Some(new_value)
                 } else {
                     None
                 }
             } else {
-                let new_label = Label(None);
-                if new_label != *self.label {
-                    Some(new_label)
+                let new_value = None;
+                if new_value != *self.value {
+                    Some(new_value)
                 } else {
                     None
                 }

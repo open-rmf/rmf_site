@@ -89,7 +89,7 @@ impl Rotation {
         match self {
             Self::Yaw(yaw) => Self::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), *yaw]),
             Self::EulerExtrinsicXYZ(_) => self.clone(),
-            Self::Quat(quat) => {
+            Self::Quat(_) => {
                 let (z, y, x) = self.as_bevy_quat().to_euler(EulerRot::ZYX);
                 Self::EulerExtrinsicXYZ([Angle::Rad(x), Angle::Rad(y), Angle::Rad(z)])
             }
@@ -179,6 +179,38 @@ pub struct RecallLabel {
 
 impl Recall for RecallLabel {
     type Source = Label;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match &source.0 {
+            Some(value) => {
+                self.value = Some(value.clone());
+            }
+            None => {
+                // Do nothing
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct Kind(pub Option<String>);
+
+impl Default for Kind {
+    fn default() -> Self {
+        Kind(None)
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallKind {
+    pub value: Option<String>,
+}
+
+impl Recall for RecallKind {
+    type Source = Kind;
 
     fn remember(&mut self, source: &Self::Source) {
         match &source.0 {

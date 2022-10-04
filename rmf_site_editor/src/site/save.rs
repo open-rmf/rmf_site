@@ -230,7 +230,7 @@ fn generate_levels(
             ),
             With<MeasurementMarker>,
         >,
-        Query<(&NameInSite, &Label, &Pose, &IsStatic, &SiteID, &Parent), With<ModelMarker>>,
+        Query<(&NameInSite, &Kind, &Pose, &IsStatic, &SiteID, &Parent), With<ModelMarker>>,
         Query<(
             &NameInSite,
             &Pose,
