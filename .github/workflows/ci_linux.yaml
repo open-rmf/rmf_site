@@ -18,6 +18,6 @@ jobs:
         sudo apt-get install libasound2-dev libudev-dev libgtk-3-dev
     - uses: actions/checkout@v3
     - name: Build
-      run: cd rmf_sandbox && cargo build
+      run: cargo build
     - name: Run tests
-      run: cd rmf_sandbox && cargo test
+      run: cargo test
