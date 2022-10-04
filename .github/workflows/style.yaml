@@ -22,4 +22,4 @@ jobs:
         rustup component add rustfmt
 
     - name: style
-      run: cd rmf_sandbox && rustfmt --check --edition 2021 src/*
+      run: rustfmt --check --edition 2021 rmf_site_format/src/lib.rs rmf_site_editor/src/lib.rs rmf_site_editor/src/main.rs

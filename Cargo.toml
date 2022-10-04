@@ -1,0 +1,12 @@
+[workspace]
+members = [
+    "rmf_site_editor",
+    "rmf_site_format",
+]
+
+# This is needed for packages that are part of a workspace to use the 2nd version
+# of the cargo dependency resolving algorithm. In ordinary crates this would be
+# enabled with edition="2021", but it seems that when a crate is in a workspace,
+# the workspace needs to explicitly specify this.
+# For more see: https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
+resolver = "2"

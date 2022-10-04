@@ -1,0 +1,40 @@
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>The RMF Site Editor</title>
+  <style>
+    body {
+      background-color: #101010;
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+    }
+    canvas {
+      background-color: #401010;
+    }
+  </style>
+</head>
+<body>
+<canvas id="rmf_site_editor_canvas">
+</canvas>
+<script type="module">
+  import init from "./librmf_site_editor.js";
+
+  document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
+  resize_canvas();
+  window.addEventListener('resize', resize_canvas);
+
+  function resize_canvas() {
+    let canvas = document.getElementById("rmf_site_editor_canvas");
+    canvas.width = window.innerWidth;
+    canvas.height = window.innerHeight;
+    console.log('canvas size: ' + canvas.width + ' ' + canvas.height);
+  }
+
+  init("./librmf_site_editor_bg.wasm").then(function (wasm) {
+    wasm.run();
+  });
+</script>
+</body>
+</html>
