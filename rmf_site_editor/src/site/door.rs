@@ -212,16 +212,14 @@ pub fn add_door_visuals(
             let cue_inner = parent
                 .spawn_bundle(PbrBundle {
                     mesh: meshes.add(cue_inner_mesh),
-                    // material: assets.translucent_black.clone(),
-                    material: assets.translucent_white.clone(),
+                    material: assets.translucent_black.clone(),
                     ..default()
                 }).id();
 
             let cue_outline = parent
                 .spawn_bundle(PbrBundle {
                     mesh: meshes.add(cue_outline_mesh),
-                    material: assets.translucent_black.clone(),
-                    // material: assets.translucent_white.clone(),
+                    material: assets.translucent_white.clone(),
                     ..default()
                 }).id();
 
