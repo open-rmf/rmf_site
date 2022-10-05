@@ -53,7 +53,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::Selection,
-    site::{Category, Change, Original, SiteID},
+    site::{Category, Change, Original, SiteID, EdgeLabels},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -72,6 +72,7 @@ pub struct InspectorParams<'w, 's> {
         (
             &'static Edge<Entity>,
             Option<&'static Original<Edge<Entity>>>,
+            Option<&'static EdgeLabels>,
         ),
     >,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
@@ -135,11 +136,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok((edge, original)) = self.params.edges.get(selection) {
+            if let Ok((edge, original, labels)) = self.params.edges.get(selection) {
                 InspectEdgeWidget::new(
                     selection,
                     edge,
                     original,
+                    labels,
                     &mut self.params.anchor_params,
                     self.events,
                 )

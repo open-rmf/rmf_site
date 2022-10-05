@@ -85,7 +85,8 @@ pub fn add_door_visuals(
                 ..default()
             })
             .insert(DoorSegments { entity: child })
-            .insert(Category("Door".to_string()));
+            .insert(Category("Door".to_string()))
+            .insert(EdgeLabels::LeftRight);
 
         for anchor in &edge.array() {
             if let Ok(mut dep) = dependents.get_mut(*anchor) {

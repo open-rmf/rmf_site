@@ -37,7 +37,8 @@ pub fn add_measurement_visuals(
                     ..default()
                 })
                 .insert(Selectable::new(e))
-                .insert(Category("Measurement".to_string()));
+                .insert(Category("Measurement".to_string()))
+                .insert(EdgeLabels::StartEnd);
         } else {
             panic!("Anchor was not initialized correctly");
         }

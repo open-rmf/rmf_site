@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, InteractionMode, SelectAnchor},
-    site::{Original, SiteID},
+    site::{Original, SiteID, EdgeLabels},
     widgets::{
         inspector::{InspectAnchorParams, InspectAnchorWidget},
         AppEvents,
@@ -31,9 +31,9 @@ pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub entity: Entity,
     pub edge: &'a Edge<Entity>,
     pub original: Option<&'a Original<Edge<Entity>>>,
+    pub labels: Option<&'a EdgeLabels>,
     pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
-    pub left_right: bool,
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -41,40 +41,26 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
         entity: Entity,
         edge: &'a Edge<Entity>,
         original: Option<&'a Original<Edge<Entity>>>,
+        labels: Option<&'a EdgeLabels>,
         anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
             entity,
-            original,
             edge,
+            original,
+            labels,
             anchor_params,
             events,
-            left_right: false,
         }
     }
 
-    pub fn left_right(self) -> Self {
-        Self {
-            left_right: true,
-            ..self
-        }
+    pub fn start_text(&self) -> &'static str {
+        self.labels.unwrap_or(&EdgeLabels::default()).start()
     }
 
-    pub fn start_text(&self) -> &str {
-        if self.left_right {
-            "Left"
-        } else {
-            "Start"
-        }
-    }
-
-    pub fn end_text(&self) -> &str {
-        if self.left_right {
-            "Right"
-        } else {
-            "End"
-        }
+    pub fn end_text(&self) -> &'static str {
+        self.labels.unwrap_or(&EdgeLabels::default()).end()
     }
 
     pub fn show(self, ui: &mut Ui) {
