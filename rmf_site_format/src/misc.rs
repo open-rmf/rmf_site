@@ -29,7 +29,6 @@ pub enum Side {
 }
 
 impl Side {
-
     pub fn label(&self) -> &'static str {
         match self {
             Side::Left => "Left",
@@ -48,6 +47,16 @@ impl Side {
         match self {
             Side::Left => 0,
             Side::Right => 1,
+        }
+    }
+
+    /// The popular convention for robotics is for "Forward" to be along the
+    /// +x axis, which means "Left" is +y and "Right" is -y. To conform with
+    /// that convention, this function gives back +1.0 for Left and -1.0 for y.
+    pub fn sign(&self) -> f32 {
+        match self {
+            Side::Left => 1.0,
+            Side::Right => -1.0,
         }
     }
 }

@@ -129,6 +129,17 @@ pub struct DoubleSlidingDoor {
     pub left_right_ratio: f32,
 }
 
+impl DoubleSlidingDoor {
+    /// Get the offset from the door center of the point where the doors
+    /// separate. A value of 0.0 means the doors are even. A negative value
+    /// means the left door is smaller while a positive value means the right
+    /// door is smaller.
+    pub fn compute_offset(&self, door_width: f32) -> f32 {
+        let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
+        return door_width/2.0 - l;
+    }
+}
+
 impl Default for DoubleSlidingDoor {
     fn default() -> Self {
         Self {

@@ -87,7 +87,7 @@ pub fn add_lift_visuals(
             parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.box_mesh.clone(),
-                    material: assets.door_material.clone(),
+                    material: assets.door_body_material.clone(),
                     transform: shape_tf,
                     ..default()
                 })

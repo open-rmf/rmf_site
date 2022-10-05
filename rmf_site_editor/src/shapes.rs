@@ -20,14 +20,15 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
 };
+use rmf_site_format::Angle;
 
-pub(crate) struct PartialMesh {
+pub(crate) struct MeshBuffer {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     indices: Vec<u32>,
 }
 
-impl PartialMesh {
+impl MeshBuffer {
     pub(crate) fn transform_by(mut self, tf: Affine3A) -> Self {
         for p in &mut self.positions {
             *p = tf.transform_point3((*p).into()).into();
@@ -37,6 +38,14 @@ impl PartialMesh {
             *n = tf.transform_vector3((*n).into()).into();
         }
 
+        self
+    }
+
+    pub(crate) fn merge_with(mut self, mut other: Self) -> Self {
+        let offset = self.positions.len();
+        self.indices.extend(other.indices.into_iter().map(|i| i + offset as u32));
+        self.positions.extend(other.positions.into_iter());
+        self.normals.extend(other.normals.into_iter());
         self
     }
 
@@ -78,8 +87,8 @@ impl PartialMesh {
     }
 }
 
-impl From<PartialMesh> for Mesh {
-    fn from(partial: PartialMesh) -> Self {
+impl From<MeshBuffer> for Mesh {
+    fn from(partial: MeshBuffer) -> Self {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
         mesh.set_indices(Some(Indices::U32(partial.indices)));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, partial.positions);
@@ -119,7 +128,7 @@ pub(crate) fn make_circles(
         .flat_map(move |(range, circle)| {
             range.into_iter().map(move |i| {
                 let theta =
-                    (i as f32) / (resolution as f32 - 1.) * (2.0 * std::f32::consts::PI - gap);
+                    (i as f32) / (resolution as f32 - 1.) * (std::f32::consts::TAU - gap);
                 let r = circle.radius;
                 let h = circle.height;
                 [r * theta.cos(), r * theta.sin(), h]
@@ -127,7 +136,7 @@ pub(crate) fn make_circles(
         });
 }
 
-pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> PartialMesh {
+pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> MeshBuffer {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -172,14 +181,14 @@ pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> PartialMesh
         });
     }
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,
     };
 }
 
-pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> PartialMesh {
+pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> MeshBuffer {
     let (bottom_circle, top_circle) = if circles[0].height < circles[1].height {
         (circles[0], circles[1])
     } else {
@@ -212,14 +221,14 @@ pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> Partial
         normals[(i + top_start) as usize] = n.into();
     }
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,
     };
 }
 
-pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> PartialMesh {
+pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle, circle], segments + 1, 0.)
         .chain([peak].into_iter().cycle().take(segments as usize))
         .collect();
@@ -255,14 +264,14 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Par
         });
     }
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,
     };
 }
 
-fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
+fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
         .take(resolution as usize) // skip the last vertex which would close the circle
         .chain([peak].into_iter().cycle().take(resolution as usize))
@@ -300,14 +309,14 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> PartialMesh {
         normals[(i + peak_start) as usize] = calculate_normal(mid_theta);
     }
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,
     };
 }
 
-pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh {
+pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
         .take(resolution as usize - 1) // skip the vertex which would close the circle
         .chain([[0., 0., circle.height]].into_iter())
@@ -326,7 +335,7 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> PartialMesh
         .take(positions.len())
         .collect();
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,
@@ -356,7 +365,7 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
     return mesh;
 }
 
-pub(crate) fn make_arrow_mesh() -> Mesh {
+pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
     let tip = [0., 0., 1.];
     let l_head = 0.2;
     let r_head = 0.15;
@@ -381,6 +390,131 @@ pub(crate) fn make_arrow_mesh() -> Mesh {
     make_smooth_wrap([head_base, cylinder_top], resolution).merge_into(&mut mesh);
     make_bottom_circle(cylinder_bottom, resolution).merge_into(&mut mesh);
     return mesh;
+}
+
+pub(crate) fn flat_arrow_mesh(
+    handle_length: f32,
+    handle_width: f32,
+    tip_length: f32,
+    tip_width: f32,
+) -> MeshBuffer {
+    let half_handle_width = handle_width/2.0;
+    let half_tip_width = tip_width/2.0;
+    let positions: Vec<[f32; 3]> = vec![
+        [0.0, half_handle_width, 0.0], // 0
+        [0.0, -half_handle_width, 0.0], // 1
+        [handle_length, -half_handle_width, 0.0], // 2
+        [handle_length, half_handle_width, 0.0], // 3
+        [handle_length, half_tip_width, 0.0], // 4
+        [handle_length, -half_tip_width, 0.0], // 5
+        [handle_length + tip_length, 0.0, 0.0], // 6
+    ];
+
+    let normals: Vec<[f32; 3]> = {
+        let mut normals = Vec::new();
+        normals.resize(positions.len(), [0.0, 0.0, 1.0]);
+        normals
+    };
+
+    let indices: Vec<u32> = vec![
+        0, 1, 3,
+        1, 2, 3,
+        4, 5, 6,
+    ];
+
+    MeshBuffer {positions, normals, indices}
+}
+
+pub(crate) fn flat_arrow_mesh_between(
+    start: Vec3,
+    stop: Vec3,
+    handle_width: f32,
+    tip_length: f32,
+    tip_width: f32,
+) -> MeshBuffer {
+    let total_length = (stop - start).length();
+    let tip_length = total_length.min(tip_length);
+    let handle_length = total_length - tip_length;
+    let center = (start + stop)/2.0;
+    let dp = stop - start;
+    let yaw = dp.y.atan2(dp.x);
+
+    flat_arrow_mesh(handle_length, handle_width, tip_length, tip_width)
+        .transform_by(
+            Affine3A::from_scale_rotation_translation(
+                Vec3::new(1.0, 1.0, 1.0),
+                Quat::from_rotation_z(yaw),
+                start,
+            )
+        )
+}
+
+pub(crate) fn flat_arc(
+    outer_radius: f32,
+    inner_thickness: f32,
+    angle: Angle,
+    vertices_per_degree: f32,
+) -> MeshBuffer {
+    let resolution = (angle.degrees() * vertices_per_degree) as u32;
+    let positions: Vec<[f32; 3]> = make_circles(
+        [
+            (outer_radius - inner_thickness, 0.).into(),
+            (outer_radius, 0.).into(),
+        ],
+        resolution,
+        std::f32::consts::TAU - angle.radians(),
+    ).collect();
+
+    let normals: Vec<[f32; 3]> = {
+        let mut normals = Vec::new();
+        normals.resize(positions.len(), [0.0, 0.0, 1.0]);
+        normals
+    };
+
+    let indices: Vec<u32> = [[0, resolution, resolution + 1, 0, resolution + 1, 1]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(segment, values)| {
+            values.map(|s| segment as u32 + s)
+        })
+        .take(6 * (resolution as usize - 1))
+        .collect();
+
+    MeshBuffer { positions, normals, indices }
+}
+
+pub(crate) fn line_stroke_mesh(
+    start: Vec3,
+    end: Vec3,
+    thickness: f32,
+) -> MeshBuffer {
+    let positions: Vec<[f32; 3]> = vec![
+        [-0.5, -0.5, 0.], // 0
+        [0.5, -0.5, 0.], // 1
+        [0.5, 0.5, 0.], // 2
+        [-0.5, 0.5, 0.], // 3
+    ];
+
+    let normals: Vec<[f32; 3]> = {
+        let mut normals = Vec::new();
+        normals.resize(positions.len(), [0.0, 0.0, 1.0]);
+        normals
+    };
+
+    let indices: Vec<u32> = vec![0, 1, 2, 0, 2, 3];
+
+    let center = (start + end) / 2.0;
+    let dp = end - start;
+    let yaw = dp.y.atan2(dp.x);
+
+    MeshBuffer { positions, normals, indices }.transform_by(
+        Affine3A::from_scale_rotation_translation(
+            Vec3::new(dp.length(), thickness, 1.),
+            Quat::from_rotation_z(yaw),
+            center,
+        )
+    )
 }
 
 pub(crate) fn make_physical_camera_mesh() -> Mesh {
@@ -426,7 +560,7 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     mesh
 }
 
-pub(crate) fn make_flat_square_mesh(extent: f32) -> PartialMesh {
+pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = [
         [-extent, -extent, 0.],
         [extent, -extent, 0.],
@@ -447,7 +581,7 @@ pub(crate) fn make_flat_square_mesh(extent: f32) -> PartialMesh {
         .chain([[0., 0., -1.]].into_iter().cycle().take(4))
         .collect();
 
-    return PartialMesh {
+    return MeshBuffer {
         positions,
         normals,
         indices,

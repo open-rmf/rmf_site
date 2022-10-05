@@ -33,7 +33,8 @@ pub struct SiteAssets {
     pub measurement_material: Handle<StandardMaterial>,
     pub anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
-    pub door_material: Handle<StandardMaterial>,
+    pub door_body_material: Handle<StandardMaterial>,
+    pub door_cue_material: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
 }
 
@@ -69,8 +70,13 @@ impl FromWorld for SiteAssets {
             perceptual_roughness: 0.5,
             ..default()
         });
-        let door_material = materials.add(StandardMaterial {
+        let door_body_material = materials.add(StandardMaterial {
             base_color: Color::rgba(1., 1., 1., 0.8),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let door_cue_material = materials.add(StandardMaterial {
+            base_color: Color::rgba(0., 0., 0., 0.8),
             alpha_mode: AlphaMode::Blend,
             ..default()
         });
@@ -105,7 +111,8 @@ impl FromWorld for SiteAssets {
             passive_anchor_material,
             preview_anchor_material,
             wall_material,
-            door_material,
+            door_body_material,
+            door_cue_material,
             physical_camera_material,
         }
     }
