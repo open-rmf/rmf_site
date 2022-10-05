@@ -59,6 +59,12 @@ impl Side {
             Side::Right => -1.0,
         }
     }
+
+    /// When the pivot of a door is on this side, get the angle of the door
+    /// when it is closed.
+    pub fn pivot_closed_angle(&self) -> Angle {
+        Angle::Deg(self.index() as f32 * 180.0 - 90.0)
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd)]
@@ -79,6 +85,43 @@ impl Angle {
         match self {
             Angle::Deg(v) => *v,
             Angle::Rad(v) => v.to_degrees(),
+        }
+    }
+}
+
+impl std::ops::Mul<f32> for Angle {
+    type Output = Angle;
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(rhs * v),
+            Self::Rad(v) => Self::Rad(rhs * v),
+        }
+    }
+}
+
+impl std::ops::Mul<Angle> for f32 {
+    type Output = Angle;
+    fn mul(self, rhs: Angle) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl std::ops::Add for Angle {
+    type Output = Angle;
+    fn add(self, rhs: Self) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(v + rhs.degrees()),
+            Self::Rad(v) => Self::Rad(v + rhs.radians()),
+        }
+    }
+}
+
+impl std::ops::Sub for Angle {
+    type Output = Angle;
+    fn sub(self, rhs: Self) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(v - rhs.degrees()),
+            Self::Rad(v) => Self::Rad(v - rhs.radians()),
         }
     }
 }

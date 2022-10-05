@@ -227,6 +227,27 @@ impl Swing {
         }
     }
 
+    /// Given which side will be pivoted on, this function gives back
+    /// 0. The initial angle of the swing
+    /// 1. The angle that will be swept by the swing, relative to the initial angle
+    /// For Both, the initial angle will be the backward angle and the sweep
+    /// will reach the forward angle.
+    pub fn swing_on_pivot(&self, pivot_on: Side) -> (Angle, Angle) {
+        let pivot_sign = pivot_on.sign();
+        let closed_angle = pivot_on.pivot_closed_angle();
+        match self {
+            Self::Forward(sweep) => {
+                (closed_angle, pivot_sign * *sweep)
+            },
+            Self::Backward(sweep) => {
+                (closed_angle, -pivot_sign * *sweep)
+            },
+            Self::Both { forward, backward } => {
+                (closed_angle - pivot_sign* *backward, pivot_sign * (*forward + *backward))
+            }
+        }
+    }
+
     pub fn assume_forward(&self) -> Self {
         match self {
             Self::Forward(angle) => Self::Forward(*angle),

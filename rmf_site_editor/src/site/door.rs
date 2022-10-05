@@ -27,23 +27,25 @@ use bevy::{
 use rmf_site_format::{DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.1;
-pub const DOOR_CUE_THICKNESS: f32 = 0.01;
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
-pub const DOOR_STOP_LINE_CUE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
+pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
+pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
+pub const DOOR_SWEEP_THICKNESS: f32 = 0.05;
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DoorSegments {
     // TODO(MXG): When it's time to animate the doors we should replace this
     // with an enum for the different possible door types: Single/Double Swing/Sliding
     pub body: Entity,
-    pub cues: Entity,
+    pub cue_inner: Entity,
+    pub cue_outline: Entity,
 }
 
 fn make_door_visuals(
     edge: &Edge<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     kind: &DoorType,
-) -> (Transform, Transform, Mesh) {
+) -> (Transform, Transform, Mesh, Mesh) {
     let start_anchor = anchors.get(edge.left()).unwrap();
     let end_anchor = anchors.get(edge.right()).unwrap();
 
@@ -54,6 +56,7 @@ fn make_door_visuals(
     let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start + p_end) / 2.0;
 
+    let (inner, outline) = make_door_cues(length, kind);
     (
         Transform {
             translation: Vec3::new(center.x, center.y, 0.),
@@ -65,18 +68,19 @@ fn make_door_visuals(
             scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
             ..default()
         },
-        make_door_cues(length, kind),
+        inner,
+        outline,
     )
 }
 
 fn door_slide_stop_line(
     y: f32,
 ) -> MeshBuffer {
-    let x_span = DOOR_STOP_LINE_CUE_LENGTH;
+    let x_span = DOOR_STOP_LINE_LENGTH;
     line_stroke_mesh(
         Vec3::new(-x_span, y, DOOR_CUE_HEIGHT),
         Vec3::new(x_span, y, DOOR_CUE_HEIGHT),
-        DOOR_CUE_THICKNESS,
+        DOOR_STOP_LINE_THICKNESS,
     )
 }
 
@@ -85,7 +89,7 @@ fn door_slide_arrow(
     stop: f32,
     sign: f32,
 ) -> MeshBuffer {
-    let x_max = DOOR_STOP_LINE_CUE_LENGTH;
+    let x_max = DOOR_STOP_LINE_LENGTH;
     let tip = DEFAULT_DOOR_THICKNESS;
     let handle_thickness = DEFAULT_DOOR_THICKNESS/3.0;
     flat_arrow_mesh_between(
@@ -105,37 +109,79 @@ fn door_slide_arrows(
     .merge_with(door_slide_arrow(start, stop, 1.0))
 }
 
+fn door_swing_arc(
+    door_width: f32,
+    door_count: u32,
+    pivot_on: Side,
+    swing: Swing,
+) -> MeshBuffer {
+    let pivot = pivot_on.sign() * door_width/2.0;
+    let pivot = Vec3::new(0.0, pivot, DOOR_CUE_HEIGHT);
+    let door_width = door_width / door_count as f32;
+    let (initial_angle, sweep) = swing.swing_on_pivot(pivot_on);
+    flat_arc(
+        pivot,
+        door_width,
+        DOOR_SWEEP_THICKNESS,
+        initial_angle,
+        sweep,
+        0.5,
+    )
+    .merge_with(line_stroke_away_from(
+        pivot + pivot_on.sign() * DOOR_STOP_LINE_THICKNESS/2.0 * Vec3::Y,
+        initial_angle,
+        door_width,
+        DOOR_STOP_LINE_THICKNESS
+    ))
+    .merge_with(line_stroke_away_from(
+        pivot + pivot_on.sign() * DOOR_STOP_LINE_THICKNESS/2.0 * Vec3::Y,
+        initial_angle + sweep,
+        door_width,
+        DOOR_STOP_LINE_THICKNESS
+    ))
+}
+
 fn make_door_cues(
     door_width: f32,
     kind: &DoorType,
-) -> Mesh {
+) -> (Mesh, Mesh) {
     match kind {
         DoorType::SingleSliding(door) => {
-            let start = door.towards.opposite().sign() * (door_width - DOOR_CUE_THICKNESS)/2.0;
-            let stop = door.towards.sign() * (door_width - DOOR_CUE_THICKNESS)/2.0;
-            let mut mesh: Mesh = door_slide_stop_line(-door_width/2.0).into();
-            door_slide_stop_line(door_width/2.0).merge_into(&mut mesh);
-            door_slide_arrows(start, stop).merge_into(&mut mesh);
-            mesh
+            let start = door.towards.opposite().sign() * (door_width - DOOR_STOP_LINE_THICKNESS)/2.0;
+            let stop = door.towards.sign() * (door_width - DOOR_STOP_LINE_THICKNESS)/2.0;
+            door_slide_stop_line(-door_width/2.0)
+            .merge_with(door_slide_stop_line(door_width/2.0))
+            .merge_with(door_slide_arrows(start, stop))
+            .into_mesh_and_outline()
         },
         DoorType::DoubleSliding(door) => {
-            let left = -(door_width - DOOR_CUE_THICKNESS)/2.0;
+            let left = (door_width - DOOR_STOP_LINE_THICKNESS)/2.0;
             let mid = door.compute_offset(door_width);
-            let right = (door_width - DOOR_CUE_THICKNESS)/2.0;
-            let tweak = DOOR_CUE_THICKNESS/2.0;
-            let mut mesh: Mesh = door_slide_stop_line(left).into();
-            door_slide_stop_line(mid).merge_into(&mut mesh);
-            door_slide_stop_line(right).merge_into(&mut mesh);
-            door_slide_arrows(mid-tweak, left+tweak).merge_into(&mut mesh);
-            door_slide_arrows(mid+tweak, right-tweak).merge_into(&mut mesh);
-            mesh
+            let right = -(door_width - DOOR_STOP_LINE_THICKNESS)/2.0;
+            let tweak = DOOR_STOP_LINE_THICKNESS/2.0;
+
+            door_slide_stop_line(left)
+            .merge_with(door_slide_stop_line(mid))
+            .merge_with(door_slide_stop_line(right))
+            .merge_with(door_slide_arrows(mid+tweak, left-tweak))
+            .merge_with(door_slide_arrows(mid-tweak, right+tweak))
+            .into_mesh_and_outline()
+        },
+        DoorType::SingleSwing(door) => {
+            door_swing_arc(door_width, 1, door.pivot_on, door.swing)
+            .into_mesh_and_outline()
+        },
+        DoorType::DoubleSwing(door) => {
+            door_swing_arc(door_width, 2, Side::Left, door.swing)
+            .merge_with(door_swing_arc(door_width, 2, Side::Right, door.swing))
+            .into_mesh_and_outline()
         }
         _ => {
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, Vec::<[f32; 3]>::new());
             mesh.set_indices(Some(Indices::U32(vec![])));
-            mesh
+            (mesh.clone(), mesh)
         }
     }
 }
@@ -149,10 +195,10 @@ pub fn add_door_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge, kind) in &new_doors {
-        let (pose_tf, shape_tf, cues_mesh) = make_door_visuals(edge, &anchors, kind);
+        let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) = make_door_visuals(edge, &anchors, kind);
 
         let mut commands = commands.entity(e);
-        let (body, cues) = commands.add_children(|parent| {
+        let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
             let body = parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.box_mesh.clone(),
@@ -163,14 +209,23 @@ pub fn add_door_visuals(
                 .insert(Selectable::new(e))
                 .id();
 
-            let cues = parent
+            let cue_inner = parent
                 .spawn_bundle(PbrBundle {
-                    mesh: meshes.add(cues_mesh),
-                    material: assets.door_cue_material.clone(),
+                    mesh: meshes.add(cue_inner_mesh),
+                    // material: assets.translucent_black.clone(),
+                    material: assets.translucent_white.clone(),
                     ..default()
                 }).id();
 
-            (body, cues)
+            let cue_outline = parent
+                .spawn_bundle(PbrBundle {
+                    mesh: meshes.add(cue_outline_mesh),
+                    material: assets.translucent_black.clone(),
+                    // material: assets.translucent_white.clone(),
+                    ..default()
+                }).id();
+
+            (body, cue_inner, cue_outline)
         });
 
         commands
@@ -178,7 +233,7 @@ pub fn add_door_visuals(
                 transform: pose_tf,
                 ..default()
             })
-            .insert(DoorSegments { body, cues })
+            .insert(DoorSegments { body, cue_inner, cue_outline })
             .insert(Category("Door".to_string()))
             .insert(EdgeLabels::LeftRight);
 
@@ -200,13 +255,15 @@ fn update_door_visuals(
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
 ) {
-    let (pose_tf, shape_tf, cues_mesh) = make_door_visuals(edge, anchors, kind);
+    let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) = make_door_visuals(edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
     let mut shape_transform = transforms.get_mut(segments.body).unwrap();
     *shape_transform = shape_tf;
-    let mut cues = mesh_handles.get_mut(segments.cues).unwrap();
-    *cues = mesh_assets.add(cues_mesh);
+    let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
+    *cue_inner = mesh_assets.add(cue_inner_mesh);
+    let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
+    *cue_outline = mesh_assets.add(cue_outline_mesh);
 }
 
 pub fn update_changed_door(

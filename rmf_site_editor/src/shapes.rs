@@ -22,13 +22,28 @@ use bevy::{
 };
 use rmf_site_format::Angle;
 
+#[derive(Default, Debug, Clone)]
 pub(crate) struct MeshBuffer {
     positions: Vec<[f32; 3]>,
     normals: Vec<[f32; 3]>,
     indices: Vec<u32>,
+    outline: Vec<u32>,
 }
 
 impl MeshBuffer {
+    pub(crate) fn new(
+        positions: Vec<[f32; 3]>,
+        normals: Vec<[f32; 3]>,
+        indices: Vec<u32>,
+    ) -> Self {
+        Self{positions, normals, indices, outline: Vec::new()}
+    }
+
+    pub(crate) fn with_outline(mut self, outline: Vec<u32>) -> Self {
+        self.outline = outline;
+        self
+    }
+
     pub(crate) fn transform_by(mut self, tf: Affine3A) -> Self {
         for p in &mut self.positions {
             *p = tf.transform_point3((*p).into()).into();
@@ -44,6 +59,7 @@ impl MeshBuffer {
     pub(crate) fn merge_with(mut self, mut other: Self) -> Self {
         let offset = self.positions.len();
         self.indices.extend(other.indices.into_iter().map(|i| i + offset as u32));
+        self.outline.extend(other.outline.into_iter().map(|i| i + offset as u32));
         self.positions.extend(other.positions.into_iter());
         self.normals.extend(other.normals.into_iter());
         self
@@ -52,15 +68,34 @@ impl MeshBuffer {
     pub(crate) fn merge_into(self, mesh: &mut Mesh) {
         let offset = mesh.attribute(Mesh::ATTRIBUTE_POSITION).map(|a| a.len());
         if let Some(offset) = offset {
-            if let Some(Indices::U32(indices)) = mesh.indices_mut() {
-                indices.extend(self.indices.into_iter().map(|i| i + offset as u32));
-            } else {
-                mesh.set_indices(Some(Indices::U32(
-                    self.indices
-                        .into_iter()
-                        .map(|i| i + offset as u32)
-                        .collect(),
-                )));
+            match mesh.primitive_topology() {
+                PrimitiveTopology::TriangleList => {
+                    if let Some(Indices::U32(indices)) = mesh.indices_mut() {
+                        indices.extend(self.indices.into_iter().map(|i| i + offset as u32));
+                    } else {
+                        mesh.set_indices(Some(Indices::U32(
+                            self.indices
+                                .into_iter()
+                                .map(|i| i + offset as u32)
+                                .collect(),
+                        )));
+                    }
+                },
+                PrimitiveTopology::LineList => {
+                    if let Some(Indices::U32(indices)) = mesh.indices_mut() {
+                        indices.extend(self.outline.into_iter().map(|i| i + offset as u32));
+                    } else {
+                        mesh.set_indices(Some(Indices::U32(
+                            self.outline
+                                .into_iter()
+                                .map(|i| i + offset as u32)
+                                .collect()
+                        )));
+                    }
+                },
+                other => {
+                    panic!("Unsupported primitive topology while merging mesh: {:?}", other);
+                }
             }
 
             if let Some(VertexAttributeValues::Float32x3(current_positions)) =
@@ -82,17 +117,41 @@ impl MeshBuffer {
             // The mesh currently has no positions in it (and should therefore have no normals or indices either)
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
-            mesh.set_indices(Some(Indices::U32(self.indices)));
+
+            match mesh.primitive_topology() {
+                PrimitiveTopology::TriangleList => {
+                    mesh.set_indices(Some(Indices::U32(self.indices)));
+                },
+                PrimitiveTopology::LineList => {
+                    mesh.set_indices(Some(Indices::U32(self.outline)));
+                },
+                other => {
+                    panic!("Unsupported primitive topology while merging mesh: {:?}", other);
+                }
+            }
         }
+    }
+
+    pub(crate) fn into_outline(self) -> Mesh {
+        let mut mesh = Mesh::new(PrimitiveTopology::LineList);
+        mesh.set_indices(Some(Indices::U32(self.outline)));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+        mesh
+    }
+
+    pub(crate) fn into_mesh_and_outline(self) -> (Mesh, Mesh) {
+        let clone = self.clone();
+        (clone.into(), self.into_outline())
     }
 }
 
 impl From<MeshBuffer> for Mesh {
-    fn from(partial: MeshBuffer) -> Self {
+    fn from(buffer: MeshBuffer) -> Self {
         let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
-        mesh.set_indices(Some(Indices::U32(partial.indices)));
-        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, partial.positions);
-        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, partial.normals);
+        mesh.set_indices(Some(Indices::U32(buffer.indices)));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals);
         mesh
     }
 }
@@ -181,11 +240,7 @@ pub(crate) fn make_boxy_wrap(circles: [Circle; 2], segments: u32) -> MeshBuffer 
         });
     }
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> MeshBuffer {
@@ -221,11 +276,7 @@ pub(crate) fn make_smooth_wrap(circles: [Circle; 2], resolution: u32) -> MeshBuf
         normals[(i + top_start) as usize] = n.into();
     }
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> MeshBuffer {
@@ -264,11 +315,7 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Mes
         });
     }
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
@@ -309,11 +356,7 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
         normals[(i + peak_start) as usize] = calculate_normal(mid_theta);
     }
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
@@ -335,11 +378,7 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer 
         .take(positions.len())
         .collect();
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_dagger_mesh() -> Mesh {
@@ -422,7 +461,17 @@ pub(crate) fn flat_arrow_mesh(
         4, 5, 6,
     ];
 
-    MeshBuffer {positions, normals, indices}
+    let outline: Vec<u32> = vec![
+        0, 1,
+        1, 2,
+        2, 5,
+        5, 6,
+        6, 4,
+        4, 3,
+        3, 0,
+    ];
+
+    MeshBuffer::new(positions, normals, indices).with_outline(outline)
 }
 
 pub(crate) fn flat_arrow_mesh_between(
@@ -450,19 +499,28 @@ pub(crate) fn flat_arrow_mesh_between(
 }
 
 pub(crate) fn flat_arc(
+    pivot: Vec3,
     outer_radius: f32,
     inner_thickness: f32,
-    angle: Angle,
+    initial_angle: Angle,
+    sweep: Angle,
     vertices_per_degree: f32,
 ) -> MeshBuffer {
-    let resolution = (angle.degrees() * vertices_per_degree) as u32;
+
+    let (initial_angle, sweep) = if sweep.radians() < 0.0 {
+        (Angle::Rad(initial_angle.radians() + sweep.radians()), Angle::Rad(-sweep.radians()))
+    } else {
+        (initial_angle, sweep)
+    };
+
+    let resolution = (sweep.degrees() * vertices_per_degree) as u32;
     let positions: Vec<[f32; 3]> = make_circles(
         [
             (outer_radius - inner_thickness, 0.).into(),
             (outer_radius, 0.).into(),
         ],
         resolution,
-        std::f32::consts::TAU - angle.radians(),
+        std::f32::consts::TAU - sweep.radians(),
     ).collect();
 
     let normals: Vec<[f32; 3]> = {
@@ -481,7 +539,23 @@ pub(crate) fn flat_arc(
         .take(6 * (resolution as usize - 1))
         .collect();
 
-    MeshBuffer { positions, normals, indices }
+    let outline: Vec<u32> = [[0, 1, resolution, resolution + 1]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(segment, values)| {
+            values.map(|s| segment as u32 + s)
+        })
+        .take(4 * (resolution as usize - 1))
+        .collect();
+
+    MeshBuffer::new(positions, normals, indices).with_outline(outline)
+        .transform_by(
+            Affine3A::from_rotation_translation(
+                Quat::from_rotation_z(initial_angle.radians()),
+                pivot,
+            )
+        )
 }
 
 pub(crate) fn line_stroke_mesh(
@@ -503,18 +577,33 @@ pub(crate) fn line_stroke_mesh(
     };
 
     let indices: Vec<u32> = vec![0, 1, 2, 0, 2, 3];
+    let outline: Vec<u32> = vec![0, 1, 1, 2, 2, 3, 3, 0];
 
     let center = (start + end) / 2.0;
     let dp = end - start;
     let yaw = dp.y.atan2(dp.x);
 
-    MeshBuffer { positions, normals, indices }.transform_by(
-        Affine3A::from_scale_rotation_translation(
-            Vec3::new(dp.length(), thickness, 1.),
-            Quat::from_rotation_z(yaw),
-            center,
+    MeshBuffer::new(positions, normals, indices)
+        .with_outline(outline)
+        .transform_by(
+            Affine3A::from_scale_rotation_translation(
+                Vec3::new(dp.length(), thickness, 1.),
+                Quat::from_rotation_z(yaw),
+                center,
+            )
         )
-    )
+}
+
+pub(crate) fn line_stroke_away_from(
+    start: Vec3,
+    direction: Angle,
+    length: f32,
+    thickness: f32,
+) -> MeshBuffer {
+    let end = start + Affine3A::from_rotation_z(direction.radians())
+        .transform_vector3(Vec3::new(length, 0.0, 0.0));
+
+    line_stroke_mesh(start, end, thickness)
 }
 
 pub(crate) fn make_physical_camera_mesh() -> Mesh {
@@ -581,11 +670,7 @@ pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
         .chain([[0., 0., -1.]].into_iter().cycle().take(4))
         .collect();
 
-    return MeshBuffer {
-        positions,
-        normals,
-        indices,
-    };
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_halo_mesh() -> Mesh {
