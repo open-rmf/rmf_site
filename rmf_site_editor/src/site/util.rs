@@ -38,3 +38,33 @@ pub fn line_stroke_transform(
         ..default()
     }
 }
+
+/// This component indicates what labels are used to refer to the start/left
+/// end/right anchors of an edge.
+#[derive(Component, Clone, Copy, Debug)]
+pub enum EdgeLabels {
+    StartEnd,
+    LeftRight,
+}
+
+impl Default for EdgeLabels {
+    fn default() -> Self {
+        Self::StartEnd
+    }
+}
+
+impl EdgeLabels {
+    pub fn start(&self) -> &'static str {
+        match self {
+            Self::StartEnd => "start",
+            Self::LeftRight => "left",
+        }
+    }
+
+    pub fn end(&self) -> &'static str {
+        match self {
+            Self::StartEnd => "end",
+            Self::LeftRight => "right",
+        }
+    }
+}

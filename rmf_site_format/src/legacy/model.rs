@@ -1,4 +1,4 @@
-use crate::{Angle, IsStatic, Label, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation};
+use crate::{Angle, IsStatic, Kind, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug)]
@@ -20,9 +20,9 @@ impl Model {
         SiteModel {
             name: NameInSite(self.instance_name.clone()),
             kind: if self.model_name.is_empty() {
-                Label(None)
+                Kind(None)
             } else {
-                Label(Some(self.model_name.clone()))
+                Kind(Some(self.model_name.clone()))
             },
             pose: Pose {
                 trans: [self.x as f32, self.y as f32, self.z_offset as f32],

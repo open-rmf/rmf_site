@@ -109,7 +109,7 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
-        let arrow_mesh = meshes.add(make_arrow_mesh());
+        let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let flat_square_mesh = meshes.add(make_flat_square_mesh(1.0).into());
 
         let mut materials = world

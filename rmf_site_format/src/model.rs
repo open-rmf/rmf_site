@@ -27,7 +27,7 @@ pub struct Model {
     pub name: NameInSite,
     /// What kind of model is this (i.e. its SDF Model name). If None, nothing
     /// will be loaded for it.
-    pub kind: Label,
+    pub kind: Kind,
     /// Pose of the model relative to the level it is on.
     pub pose: Pose,
     #[serde(skip_serializing_if = "is_default")]
@@ -46,7 +46,7 @@ impl Default for Model {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
-            kind: Label(None),
+            kind: Kind(None),
             pose: Pose::default(),
             is_static: IsStatic(false),
             marker: ModelMarker,

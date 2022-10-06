@@ -21,14 +21,17 @@ pub use inspect_anchor::*;
 pub mod inspect_angle;
 pub use inspect_angle::*;
 
+pub mod inspect_door;
+pub use inspect_door::*;
+
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
-pub mod inspect_label;
-pub use inspect_label::*;
+pub mod inspect_option_string;
+pub use inspect_option_string::*;
 
 pub mod inspect_lane;
 pub use inspect_lane::*;
@@ -42,12 +45,15 @@ pub use inspect_option_f32::*;
 pub mod inspect_pose;
 pub use inspect_pose::*;
 
+pub mod inspect_side;
+pub use inspect_side::*;
+
 pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
     interaction::Selection,
-    site::{Category, Change, Original, SiteID},
+    site::{Category, Change, EdgeLabels, Original, SiteID},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -66,12 +72,15 @@ pub struct InspectorParams<'w, 's> {
         (
             &'static Edge<Entity>,
             Option<&'static Original<Edge<Entity>>>,
+            Option<&'static EdgeLabels>,
         ),
     >,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
+    pub kinds: Query<'w, 's, (&'static Kind, &'static RecallKind)>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
+    pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
 }
 
@@ -127,11 +136,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok((edge, original)) = self.params.edges.get(selection) {
+            if let Ok((edge, original, labels)) = self.params.edges.get(selection) {
                 InspectEdgeWidget::new(
                     selection,
                     edge,
                     original,
+                    labels,
                     &mut self.params.anchor_params,
                     self.events,
                 )
@@ -170,11 +180,23 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
+            if let Ok((kind, recall)) = self.params.kinds.get(selection) {
+                if let Some(new_kind) =
+                    InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui)
+                {
+                    self.events
+                        .change_kind
+                        .send(Change::new(Kind(new_kind), selection));
+                }
+            }
+
             if let Ok((label, recall)) = self.params.labels.get(selection) {
-                if let Some(new_label) = InspectLabel::new("Kind", label, recall).show(ui) {
+                if let Some(new_label) =
+                    InspectOptionString::new("Label", &label.0, &recall.value).show(ui)
+                {
                     self.events
                         .change_label
-                        .send(Change::new(new_label, selection));
+                        .send(Change::new(Label(new_label), selection));
                 }
             }
 
@@ -185,6 +207,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(new_pose, selection));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok((door, recall)) = self.params.doors.get(selection) {
+                if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
+                    self.events
+                        .change_door
+                        .send(Change::new(new_door, selection));
+                }
             }
         } else {
             ui.label("Nothing selected");

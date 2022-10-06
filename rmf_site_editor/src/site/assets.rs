@@ -33,7 +33,9 @@ pub struct SiteAssets {
     pub measurement_material: Handle<StandardMaterial>,
     pub anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
-    pub door_material: Handle<StandardMaterial>,
+    pub door_body_material: Handle<StandardMaterial>,
+    pub translucent_black: Handle<StandardMaterial>,
+    pub translucent_white: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
 }
 
@@ -69,7 +71,17 @@ impl FromWorld for SiteAssets {
             perceptual_roughness: 0.5,
             ..default()
         });
-        let door_material = materials.add(StandardMaterial {
+        let door_body_material = materials.add(StandardMaterial {
+            base_color: Color::rgba(1., 1., 1., 0.8),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let translucent_black = materials.add(StandardMaterial {
+            base_color: Color::rgba(0., 0., 0., 0.8),
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+        let translucent_white = materials.add(StandardMaterial {
             base_color: Color::rgba(1., 1., 1., 0.8),
             alpha_mode: AlphaMode::Blend,
             ..default()
@@ -77,7 +89,7 @@ impl FromWorld for SiteAssets {
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let vertex_mesh = meshes.add(Mesh::from(shape::Capsule {
+        let anchor_mesh = meshes.add(Mesh::from(shape::Capsule {
             radius: 0.15, // TODO(MXG): Make the vertex radius configurable
             rings: 2,
             depth: 0.05,
@@ -91,7 +103,7 @@ impl FromWorld for SiteAssets {
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
-            anchor_mesh: vertex_mesh,
+            anchor_mesh,
             default_floor_material,
             lane_mid_mesh,
             lane_end_mesh,
@@ -105,7 +117,9 @@ impl FromWorld for SiteAssets {
             passive_anchor_material,
             preview_anchor_material,
             wall_material,
-            door_material,
+            door_body_material,
+            translucent_black,
+            translucent_white,
             physical_camera_material,
         }
     }

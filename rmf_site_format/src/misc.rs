@@ -29,6 +29,13 @@ pub enum Side {
 }
 
 impl Side {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Side::Left => "Left",
+            Side::Right => "Right",
+        }
+    }
+
     pub fn opposite(&self) -> Side {
         match self {
             Side::Left => Side::Right,
@@ -41,6 +48,22 @@ impl Side {
             Side::Left => 0,
             Side::Right => 1,
         }
+    }
+
+    /// The popular convention for robotics is for "Forward" to be along the
+    /// +x axis, which means "Left" is +y and "Right" is -y. To conform with
+    /// that convention, this function gives back +1.0 for Left and -1.0 for y.
+    pub fn sign(&self) -> f32 {
+        match self {
+            Side::Left => 1.0,
+            Side::Right => -1.0,
+        }
+    }
+
+    /// When the pivot of a door is on this side, get the angle of the door
+    /// when it is closed.
+    pub fn pivot_closed_angle(&self) -> Angle {
+        Angle::Deg(self.index() as f32 * 180.0 - 90.0)
     }
 }
 
@@ -62,6 +85,43 @@ impl Angle {
         match self {
             Angle::Deg(v) => *v,
             Angle::Rad(v) => v.to_degrees(),
+        }
+    }
+}
+
+impl std::ops::Mul<f32> for Angle {
+    type Output = Angle;
+    fn mul(self, rhs: f32) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(rhs * v),
+            Self::Rad(v) => Self::Rad(rhs * v),
+        }
+    }
+}
+
+impl std::ops::Mul<Angle> for f32 {
+    type Output = Angle;
+    fn mul(self, rhs: Angle) -> Self::Output {
+        rhs * self
+    }
+}
+
+impl std::ops::Add for Angle {
+    type Output = Angle;
+    fn add(self, rhs: Self) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(v + rhs.degrees()),
+            Self::Rad(v) => Self::Rad(v + rhs.radians()),
+        }
+    }
+}
+
+impl std::ops::Sub for Angle {
+    type Output = Angle;
+    fn sub(self, rhs: Self) -> Self::Output {
+        match self {
+            Self::Deg(v) => Self::Deg(v - rhs.degrees()),
+            Self::Rad(v) => Self::Rad(v - rhs.radians()),
         }
     }
 }
@@ -89,7 +149,7 @@ impl Rotation {
         match self {
             Self::Yaw(yaw) => Self::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), *yaw]),
             Self::EulerExtrinsicXYZ(_) => self.clone(),
-            Self::Quat(quat) => {
+            Self::Quat(_) => {
                 let (z, y, x) = self.as_bevy_quat().to_euler(EulerRot::ZYX);
                 Self::EulerExtrinsicXYZ([Angle::Rad(x), Angle::Rad(y), Angle::Rad(z)])
             }
@@ -179,6 +239,38 @@ pub struct RecallLabel {
 
 impl Recall for RecallLabel {
     type Source = Label;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match &source.0 {
+            Some(value) => {
+                self.value = Some(value.clone());
+            }
+            None => {
+                // Do nothing
+            }
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct Kind(pub Option<String>);
+
+impl Default for Kind {
+    fn default() -> Self {
+        Kind(None)
+    }
+}
+
+#[derive(Default, Debug, Clone, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallKind {
+    pub value: Option<String>,
+}
+
+impl Recall for RecallKind {
+    type Source = Kind;
 
     fn remember(&mut self, source: &Self::Source) {
         match &source.0 {
