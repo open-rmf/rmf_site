@@ -529,25 +529,34 @@ pub(crate) fn flat_arc(
         normals
     };
 
-    let indices: Vec<u32> = [[0, resolution, resolution + 1, 0, resolution + 1, 1]]
-        .into_iter()
-        .cycle()
-        .enumerate()
-        .flat_map(|(segment, values)| {
-            values.map(|s| segment as u32 + s)
-        })
-        .take(6 * (resolution as usize - 1))
-        .collect();
+    let indices: Vec<u32> = if resolution >= 1 {
+        [[0, resolution, resolution + 1, 0, resolution + 1, 1]]
+            .into_iter()
+            .cycle()
+            .enumerate()
+            .flat_map(|(segment, values)| {
+                values.map(|s| segment as u32 + s)
+            })
+            .take(6 * (resolution as usize - 1))
+            .collect()
+    } else {
+        Vec::new()
+    };
 
-    let outline: Vec<u32> = [[0, 1, resolution, resolution + 1]]
-        .into_iter()
-        .cycle()
-        .enumerate()
-        .flat_map(|(segment, values)| {
-            values.map(|s| segment as u32 + s)
-        })
-        .take(4 * (resolution as usize - 1))
-        .collect();
+
+    let outline: Vec<u32> = if resolution >= 1 {
+        [[0, 1, resolution, resolution + 1]]
+            .into_iter()
+            .cycle()
+            .enumerate()
+            .flat_map(|(segment, values)| {
+                values.map(|s| segment as u32 + s)
+            })
+            .take(4 * (resolution as usize - 1))
+            .collect()
+    } else {
+        Vec::new()
+    };
 
     MeshBuffer::new(positions, normals, indices).with_outline(outline)
         .transform_by(
