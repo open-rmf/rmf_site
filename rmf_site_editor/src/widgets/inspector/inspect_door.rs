@@ -122,7 +122,7 @@ impl<'a> InspectSwing<'a> {
             Swing::Forward(angle) => {
                 ui.horizontal(|ui| {
                     ui.label("Limit:");
-                    InspectAngle::new(angle).show(ui);
+                    InspectAngle::new(angle).range_degrees(0.0..=180.0).show(ui);
                 });
             },
             Swing::Backward(angle) => {
