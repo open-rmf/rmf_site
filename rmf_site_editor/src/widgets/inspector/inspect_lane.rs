@@ -30,10 +30,7 @@ pub struct InspectMotionWidget<'a> {
 
 impl<'a> InspectMotionWidget<'a> {
     pub fn new(motion: &'a Motion, recall: &'a RecallMotion) -> Self {
-        Self {
-            motion,
-            recall,
-        }
+        Self { motion, recall }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Motion> {
@@ -182,7 +179,10 @@ pub struct InspectReverseWidget<'a> {
 
 impl<'a> InspectReverseWidget<'a> {
     pub fn new(reverse: &'a ReverseLane, previous: &'a RecallReverseLane) -> Self {
-        Self { reverse, recall: previous }
+        Self {
+            reverse,
+            recall: previous,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<ReverseLane> {

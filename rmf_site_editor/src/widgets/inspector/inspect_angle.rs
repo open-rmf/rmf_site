@@ -27,7 +27,10 @@ pub struct InspectAngle<'a> {
 
 impl<'a> InspectAngle<'a> {
     pub fn new(angle: &'a mut Angle) -> Self {
-        Self { angle, range_degrees: -360.0..=360.0 }
+        Self {
+            angle,
+            range_degrees: -360.0..=360.0,
+        }
     }
 
     pub fn range_degrees(mut self, range: RangeInclusive<f32>) -> Self {
@@ -58,7 +61,10 @@ impl<'a> InspectAngle<'a> {
                         .min_decimals(2)
                         .max_decimals(4)
                         .speed(std::f32::consts::PI / 180.0)
-                        .clamp_range(self.range_degrees.start().to_radians()..=self.range_degrees.end().to_radians()),
+                        .clamp_range(
+                            self.range_degrees.start().to_radians()
+                                ..=self.range_degrees.end().to_radians(),
+                        ),
                 );
 
                 let response = ui.button("rad").on_hover_text("Click to change to degrees");

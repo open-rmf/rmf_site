@@ -136,7 +136,7 @@ impl DoubleSlidingDoor {
     /// door is smaller.
     pub fn compute_offset(&self, door_width: f32) -> f32 {
         let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
-        return door_width/2.0 - l;
+        return door_width / 2.0 - l;
     }
 }
 
@@ -215,7 +215,7 @@ pub enum Swing {
     /// Swing backwards up to this (positive) angle
     Backward(Angle),
     /// Swing each direction up to the given (positive) angle.
-    Both{forward: Angle, backward: Angle},
+    Both { forward: Angle, backward: Angle },
 }
 
 impl Swing {
@@ -223,7 +223,7 @@ impl Swing {
         match self {
             Self::Forward(_) => "Forward",
             Self::Backward(_) => "Backward",
-            Self::Both {..} => "Both",
+            Self::Both { .. } => "Both",
         }
     }
 
@@ -236,15 +236,12 @@ impl Swing {
         let pivot_sign = pivot_on.sign();
         let closed_angle = pivot_on.pivot_closed_angle();
         match self {
-            Self::Forward(sweep) => {
-                (closed_angle, pivot_sign * *sweep)
-            },
-            Self::Backward(sweep) => {
-                (closed_angle, -pivot_sign * *sweep)
-            },
-            Self::Both { forward, backward } => {
-                (closed_angle - pivot_sign* *backward, pivot_sign * (*forward + *backward))
-            }
+            Self::Forward(sweep) => (closed_angle, pivot_sign * *sweep),
+            Self::Backward(sweep) => (closed_angle, -pivot_sign * *sweep),
+            Self::Both { forward, backward } => (
+                closed_angle - pivot_sign * *backward,
+                pivot_sign * (*forward + *backward),
+            ),
         }
     }
 
@@ -266,9 +263,18 @@ impl Swing {
 
     pub fn assume_both(&self) -> Self {
         match self {
-            Self::Forward(angle) => Self::Both {forward: *angle, backward: *angle},
-            Self::Backward(angle) => Self::Both {forward: *angle, backward: *angle},
-            Self::Both { forward, backward } => Self::Both {forward: *forward, backward: *backward},
+            Self::Forward(angle) => Self::Both {
+                forward: *angle,
+                backward: *angle,
+            },
+            Self::Backward(angle) => Self::Both {
+                forward: *angle,
+                backward: *angle,
+            },
+            Self::Both { forward, backward } => Self::Both {
+                forward: *forward,
+                backward: *backward,
+            },
         }
     }
 }

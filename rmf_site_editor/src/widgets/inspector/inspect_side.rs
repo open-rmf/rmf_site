@@ -28,8 +28,10 @@ impl<'a> InspectSide<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let response = ui.button(self.side.label())
-            .on_hover_text(format!("Click to change to {}", self.side.opposite().label()));
+        let response = ui.button(self.side.label()).on_hover_text(format!(
+            "Click to change to {}",
+            self.side.opposite().label()
+        ));
 
         if response.clicked() {
             *self.side = self.side.opposite();

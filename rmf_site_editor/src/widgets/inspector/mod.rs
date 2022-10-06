@@ -53,7 +53,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::Selection,
-    site::{Category, Change, Original, SiteID, EdgeLabels},
+    site::{Category, Change, EdgeLabels, Original, SiteID},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -181,7 +181,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((kind, recall)) = self.params.kinds.get(selection) {
-                if let Some(new_kind) = InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui) {
+                if let Some(new_kind) =
+                    InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui)
+                {
                     self.events
                         .change_kind
                         .send(Change::new(Kind(new_kind), selection));
@@ -189,7 +191,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((label, recall)) = self.params.labels.get(selection) {
-                if let Some(new_label) = InspectOptionString::new("Label", &label.0, &recall.value).show(ui) {
+                if let Some(new_label) =
+                    InspectOptionString::new("Label", &label.0, &recall.value).show(ui)
+                {
                     self.events
                         .change_label
                         .send(Change::new(Label(new_label), selection));

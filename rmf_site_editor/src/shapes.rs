@@ -31,12 +31,13 @@ pub(crate) struct MeshBuffer {
 }
 
 impl MeshBuffer {
-    pub(crate) fn new(
-        positions: Vec<[f32; 3]>,
-        normals: Vec<[f32; 3]>,
-        indices: Vec<u32>,
-    ) -> Self {
-        Self{positions, normals, indices, outline: Vec::new()}
+    pub(crate) fn new(positions: Vec<[f32; 3]>, normals: Vec<[f32; 3]>, indices: Vec<u32>) -> Self {
+        Self {
+            positions,
+            normals,
+            indices,
+            outline: Vec::new(),
+        }
     }
 
     pub(crate) fn with_outline(mut self, outline: Vec<u32>) -> Self {
@@ -58,8 +59,10 @@ impl MeshBuffer {
 
     pub(crate) fn merge_with(mut self, mut other: Self) -> Self {
         let offset = self.positions.len();
-        self.indices.extend(other.indices.into_iter().map(|i| i + offset as u32));
-        self.outline.extend(other.outline.into_iter().map(|i| i + offset as u32));
+        self.indices
+            .extend(other.indices.into_iter().map(|i| i + offset as u32));
+        self.outline
+            .extend(other.outline.into_iter().map(|i| i + offset as u32));
         self.positions.extend(other.positions.into_iter());
         self.normals.extend(other.normals.into_iter());
         self
@@ -80,7 +83,7 @@ impl MeshBuffer {
                                 .collect(),
                         )));
                     }
-                },
+                }
                 PrimitiveTopology::LineList => {
                     if let Some(Indices::U32(indices)) = mesh.indices_mut() {
                         indices.extend(self.outline.into_iter().map(|i| i + offset as u32));
@@ -89,12 +92,15 @@ impl MeshBuffer {
                             self.outline
                                 .into_iter()
                                 .map(|i| i + offset as u32)
-                                .collect()
+                                .collect(),
                         )));
                     }
-                },
+                }
                 other => {
-                    panic!("Unsupported primitive topology while merging mesh: {:?}", other);
+                    panic!(
+                        "Unsupported primitive topology while merging mesh: {:?}",
+                        other
+                    );
                 }
             }
 
@@ -121,12 +127,15 @@ impl MeshBuffer {
             match mesh.primitive_topology() {
                 PrimitiveTopology::TriangleList => {
                     mesh.set_indices(Some(Indices::U32(self.indices)));
-                },
+                }
                 PrimitiveTopology::LineList => {
                     mesh.set_indices(Some(Indices::U32(self.outline)));
-                },
+                }
                 other => {
-                    panic!("Unsupported primitive topology while merging mesh: {:?}", other);
+                    panic!(
+                        "Unsupported primitive topology while merging mesh: {:?}",
+                        other
+                    );
                 }
             }
         }
@@ -186,8 +195,7 @@ pub(crate) fn make_circles(
         .zip(circles.into_iter())
         .flat_map(move |(range, circle)| {
             range.into_iter().map(move |i| {
-                let theta =
-                    (i as f32) / (resolution as f32 - 1.) * (std::f32::consts::TAU - gap);
+                let theta = (i as f32) / (resolution as f32 - 1.) * (std::f32::consts::TAU - gap);
                 let r = circle.radius;
                 let h = circle.height;
                 [r * theta.cos(), r * theta.sin(), h]
@@ -437,16 +445,16 @@ pub(crate) fn flat_arrow_mesh(
     tip_length: f32,
     tip_width: f32,
 ) -> MeshBuffer {
-    let half_handle_width = handle_width/2.0;
-    let half_tip_width = tip_width/2.0;
+    let half_handle_width = handle_width / 2.0;
+    let half_tip_width = tip_width / 2.0;
     let positions: Vec<[f32; 3]> = vec![
-        [0.0, half_handle_width, 0.0], // 0
-        [0.0, -half_handle_width, 0.0], // 1
+        [0.0, half_handle_width, 0.0],            // 0
+        [0.0, -half_handle_width, 0.0],           // 1
         [handle_length, -half_handle_width, 0.0], // 2
-        [handle_length, half_handle_width, 0.0], // 3
-        [handle_length, half_tip_width, 0.0], // 4
-        [handle_length, -half_tip_width, 0.0], // 5
-        [handle_length + tip_length, 0.0, 0.0], // 6
+        [handle_length, half_handle_width, 0.0],  // 3
+        [handle_length, half_tip_width, 0.0],     // 4
+        [handle_length, -half_tip_width, 0.0],    // 5
+        [handle_length + tip_length, 0.0, 0.0],   // 6
     ];
 
     let normals: Vec<[f32; 3]> = {
@@ -455,21 +463,9 @@ pub(crate) fn flat_arrow_mesh(
         normals
     };
 
-    let indices: Vec<u32> = vec![
-        0, 1, 3,
-        1, 2, 3,
-        4, 5, 6,
-    ];
+    let indices: Vec<u32> = vec![0, 1, 3, 1, 2, 3, 4, 5, 6];
 
-    let outline: Vec<u32> = vec![
-        0, 1,
-        1, 2,
-        2, 5,
-        5, 6,
-        6, 4,
-        4, 3,
-        3, 0,
-    ];
+    let outline: Vec<u32> = vec![0, 1, 1, 2, 2, 5, 5, 6, 6, 4, 4, 3, 3, 0];
 
     MeshBuffer::new(positions, normals, indices).with_outline(outline)
 }
@@ -484,18 +480,17 @@ pub(crate) fn flat_arrow_mesh_between(
     let total_length = (stop - start).length();
     let tip_length = total_length.min(tip_length);
     let handle_length = total_length - tip_length;
-    let center = (start + stop)/2.0;
+    let center = (start + stop) / 2.0;
     let dp = stop - start;
     let yaw = dp.y.atan2(dp.x);
 
-    flat_arrow_mesh(handle_length, handle_width, tip_length, tip_width)
-        .transform_by(
-            Affine3A::from_scale_rotation_translation(
-                Vec3::new(1.0, 1.0, 1.0),
-                Quat::from_rotation_z(yaw),
-                start,
-            )
-        )
+    flat_arrow_mesh(handle_length, handle_width, tip_length, tip_width).transform_by(
+        Affine3A::from_scale_rotation_translation(
+            Vec3::new(1.0, 1.0, 1.0),
+            Quat::from_rotation_z(yaw),
+            start,
+        ),
+    )
 }
 
 pub(crate) fn flat_arc(
@@ -506,9 +501,11 @@ pub(crate) fn flat_arc(
     sweep: Angle,
     vertices_per_degree: f32,
 ) -> MeshBuffer {
-
     let (initial_angle, sweep) = if sweep.radians() < 0.0 {
-        (Angle::Rad(initial_angle.radians() + sweep.radians()), Angle::Rad(-sweep.radians()))
+        (
+            Angle::Rad(initial_angle.radians() + sweep.radians()),
+            Angle::Rad(-sweep.radians()),
+        )
     } else {
         (initial_angle, sweep)
     };
@@ -521,7 +518,8 @@ pub(crate) fn flat_arc(
         ],
         resolution,
         std::f32::consts::TAU - sweep.radians(),
-    ).collect();
+    )
+    .collect();
 
     let normals: Vec<[f32; 3]> = {
         let mut normals = Vec::new();
@@ -534,49 +532,39 @@ pub(crate) fn flat_arc(
             .into_iter()
             .cycle()
             .enumerate()
-            .flat_map(|(segment, values)| {
-                values.map(|s| segment as u32 + s)
-            })
+            .flat_map(|(segment, values)| values.map(|s| segment as u32 + s))
             .take(6 * (resolution as usize - 1))
             .collect()
     } else {
         Vec::new()
     };
 
-
     let outline: Vec<u32> = if resolution >= 1 {
         [[0, 1, resolution, resolution + 1]]
             .into_iter()
             .cycle()
             .enumerate()
-            .flat_map(|(segment, values)| {
-                values.map(|s| segment as u32 + s)
-            })
+            .flat_map(|(segment, values)| values.map(|s| segment as u32 + s))
             .take(4 * (resolution as usize - 1))
             .collect()
     } else {
         Vec::new()
     };
 
-    MeshBuffer::new(positions, normals, indices).with_outline(outline)
-        .transform_by(
-            Affine3A::from_rotation_translation(
-                Quat::from_rotation_z(initial_angle.radians()),
-                pivot,
-            )
-        )
+    MeshBuffer::new(positions, normals, indices)
+        .with_outline(outline)
+        .transform_by(Affine3A::from_rotation_translation(
+            Quat::from_rotation_z(initial_angle.radians()),
+            pivot,
+        ))
 }
 
-pub(crate) fn line_stroke_mesh(
-    start: Vec3,
-    end: Vec3,
-    thickness: f32,
-) -> MeshBuffer {
+pub(crate) fn line_stroke_mesh(start: Vec3, end: Vec3, thickness: f32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = vec![
         [-0.5, -0.5, 0.], // 0
-        [0.5, -0.5, 0.], // 1
-        [0.5, 0.5, 0.], // 2
-        [-0.5, 0.5, 0.], // 3
+        [0.5, -0.5, 0.],  // 1
+        [0.5, 0.5, 0.],   // 2
+        [-0.5, 0.5, 0.],  // 3
     ];
 
     let normals: Vec<[f32; 3]> = {
@@ -594,13 +582,11 @@ pub(crate) fn line_stroke_mesh(
 
     MeshBuffer::new(positions, normals, indices)
         .with_outline(outline)
-        .transform_by(
-            Affine3A::from_scale_rotation_translation(
-                Vec3::new(dp.length(), thickness, 1.),
-                Quat::from_rotation_z(yaw),
-                center,
-            )
-        )
+        .transform_by(Affine3A::from_scale_rotation_translation(
+            Vec3::new(dp.length(), thickness, 1.),
+            Quat::from_rotation_z(yaw),
+            center,
+        ))
 }
 
 pub(crate) fn line_stroke_away_from(
@@ -609,8 +595,9 @@ pub(crate) fn line_stroke_away_from(
     length: f32,
     thickness: f32,
 ) -> MeshBuffer {
-    let end = start + Affine3A::from_rotation_z(direction.radians())
-        .transform_vector3(Vec3::new(length, 0.0, 0.0));
+    let end = start
+        + Affine3A::from_rotation_z(direction.radians())
+            .transform_vector3(Vec3::new(length, 0.0, 0.0));
 
     line_stroke_mesh(start, end, thickness)
 }

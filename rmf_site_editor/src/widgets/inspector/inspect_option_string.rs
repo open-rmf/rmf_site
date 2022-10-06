@@ -25,11 +25,7 @@ pub struct InspectOptionString<'a> {
 }
 
 impl<'a> InspectOptionString<'a> {
-    pub fn new(
-        title: &'a str,
-        value: &'a Option<String>,
-        recall: &'a Option<String>
-    ) -> Self {
+    pub fn new(title: &'a str, value: &'a Option<String>, recall: &'a Option<String>) -> Self {
         Self {
             title,
             value,
