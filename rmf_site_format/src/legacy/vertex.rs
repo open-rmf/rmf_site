@@ -1,6 +1,6 @@
 use super::rbmf::*;
 use crate::{
-    is_default, IsStatic, Label, Location, LocationTag, LocationTags, Model, ModelMarker,
+    is_default, IsStatic, Kind, Location, LocationTag, LocationTags, Model, ModelMarker,
     NameInSite, Pose,
 };
 use serde::{Deserialize, Serialize};
@@ -55,7 +55,7 @@ impl Vertex {
         if !me.spawn_robot_name.is_empty() && !me.spawn_robot_type.is_empty() {
             tags.push(LocationTag::SpawnRobot(Model {
                 name: NameInSite(me.spawn_robot_name.1.clone()),
-                kind: Label(Some(me.spawn_robot_type.1.clone())),
+                kind: Kind(Some(me.spawn_robot_type.1.clone())),
                 pose: Pose::default(),
                 is_static: IsStatic(false),
                 marker: ModelMarker,

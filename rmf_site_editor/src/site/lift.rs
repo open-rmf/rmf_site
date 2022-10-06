@@ -87,7 +87,7 @@ pub fn add_lift_visuals(
             parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.box_mesh.clone(),
-                    material: assets.door_material.clone(),
+                    material: assets.door_body_material.clone(),
                     transform: shape_tf,
                     ..default()
                 })
@@ -101,7 +101,8 @@ pub fn add_lift_visuals(
                 ..default()
             })
             .insert(LiftSegments { cabin: child })
-            .insert(Category("Lift".to_string()));
+            .insert(Category("Lift".to_string()))
+            .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
             let mut dep = dependents.get_mut(anchor).unwrap();

@@ -110,7 +110,8 @@ pub fn add_wall_visual(
                     ..default()
                 })
                 .insert(Selectable::new(e))
-                .insert(Category("Wall".to_string()));
+                .insert(Category("Wall".to_string()))
+                .insert(EdgeLabels::StartEnd);
         } else {
             panic!("Anchor was not initialized correctly");
         }

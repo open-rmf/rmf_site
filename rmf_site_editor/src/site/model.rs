@@ -20,7 +20,7 @@ use crate::{
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
-use rmf_site_format::{Label, ModelMarker, Pose};
+use rmf_site_format::{Kind, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
@@ -32,7 +32,7 @@ pub struct SpawnedModels(Vec<Entity>);
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
-    kind: Label,
+    kind: Kind,
     scene_entity: Option<Entity>,
 }
 
@@ -42,7 +42,7 @@ pub struct ModelSceneRoot;
 
 pub fn update_model_scenes(
     mut commands: Commands,
-    mut changed_models: Query<(Entity, &Label, &Pose), (Changed<Label>, With<ModelMarker>)>,
+    mut changed_models: Query<(Entity, &Kind, &Pose), (Changed<Kind>, With<ModelMarker>)>,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
@@ -50,7 +50,7 @@ pub fn update_model_scenes(
 ) {
     fn spawn_model(
         e: Entity,
-        kind: &Label,
+        kind: &Kind,
         pose: &Pose,
         asset_server: &AssetServer,
         commands: &mut Commands,
