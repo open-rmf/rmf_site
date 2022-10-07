@@ -26,7 +26,9 @@ pub struct Level {
     #[serde(default)]
     pub drawing: LevelDrawing,
     pub elevation: f64,
+    #[serde(default)]
     pub flattened_x_offset: f64,
+    #[serde(default)]
     pub flattened_y_offset: f64,
     #[serde(default)]
     pub floors: Vec<Floor>,
