@@ -42,7 +42,9 @@ impl Door {
         } else if self.2.motion_axis.1 == "end" {
             Ok(Side::Right)
         } else {
-            Err(PortingError::InvalidMotionAxis(self.2.motion_axis.1.clone()))
+            Err(PortingError::InvalidMotionAxis(
+                self.2.motion_axis.1.clone(),
+            ))
         }
     }
 
@@ -54,7 +56,7 @@ impl Door {
                 } else {
                     Ok(Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32)))
                 }
-            },
+            }
             Side::Right => {
                 if self.2.motion_direction.1 < 0 {
                     Ok(Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32)))
