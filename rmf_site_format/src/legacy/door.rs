@@ -36,11 +36,32 @@ impl Default for DoorProperties {
 pub struct Door(pub usize, pub usize, pub DoorProperties);
 
 impl Door {
-    pub fn to_swing(&self) -> Swing {
-        if self.2.motion_direction.1 < 0 {
-            Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32))
+    pub fn to_pivot_on(&self) -> Result<Side> {
+        if self.2.motion_axis.1 == "start" {
+            Ok(Side::Left)
+        } else if self.2.motion_axis.1 == "end" {
+            Ok(Side::Right)
         } else {
-            Swing::Forward(Angle::Deg(self.2.motion_degrees.1 as f32))
+            Err(PortingError::InvalidMotionAxis(self.2.motion_axis.1.clone()))
+        }
+    }
+
+    pub fn to_swing(&self) -> Result<Swing> {
+        match self.to_pivot_on()? {
+            Side::Left => {
+                if self.2.motion_direction.1 < 0 {
+                    Ok(Swing::Forward(Angle::Deg(self.2.motion_degrees.1 as f32)))
+                } else {
+                    Ok(Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32)))
+                }
+            },
+            Side::Right => {
+                if self.2.motion_direction.1 < 0 {
+                    Ok(Swing::Backward(Angle::Deg(self.2.motion_degrees.1 as f32)))
+                } else {
+                    Ok(Swing::Forward(Angle::Deg(self.2.motion_degrees.1 as f32)))
+                }
+            }
         }
     }
 
@@ -66,12 +87,12 @@ impl Door {
                 ));
             }
             DoorType::SingleSwing | DoorType::SingleHinged => SingleSwingDoor {
-                pivot_on: Side::Right,
-                swing: self.to_swing(),
+                pivot_on: self.to_pivot_on()?,
+                swing: self.to_swing()?,
             }
             .into(),
             DoorType::DoubleSwing | DoorType::DoubleHinged => DoubleSwingDoor {
-                swing: self.to_swing(),
+                swing: self.to_swing()?,
             }
             .into(),
             DoorType::Unknown => return Err(PortingError::InvalidType(self.2.type_.1.clone())),
