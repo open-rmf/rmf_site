@@ -37,6 +37,8 @@ pub enum PortingError {
         level: String,
         door: String,
     },
+    #[error("A door had an invalid motion axis value: {0}")]
+    InvalidMotionAxis(String),
     #[error("the data contained a known type which has been deprecated: {0}")]
     DeprecatedType(String),
     #[error("the data contained an unknown/invalid type: {0}")]
