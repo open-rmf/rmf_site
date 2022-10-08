@@ -1,6 +1,11 @@
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use bevy_egui::EguiPlugin;
+use clap::Parser;
+use std::fs;
+use interaction::InteractionState;
+use site::load::LoadSite;
 use main_menu::MainMenuPlugin;
+use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 // use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
 
@@ -70,8 +75,58 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterIn
     }
 }
 
+// todo: a way to accept arguments from JavaScript land
 #[wasm_bindgen]
-pub fn run() {
+pub fn run_js() {
+    run(vec!["web".to_string()]);
+}
+
+#[derive(Parser)]
+struct Args
+{
+    /// Filename of a Site or Building map
+    filename: Option<String>,
+}
+
+fn argument_parser_system(
+    mut load_site: EventWriter<LoadSite>,
+    mut interaction_state: ResMut<State<InteractionState>>,
+    args: Res<Args>,
+    mut app_state: ResMut<State<AppState>>,
+) {
+    if args.filename.is_some() {
+        let filename = args.filename.clone().unwrap(); //unwrap();
+        let file_data = fs::read(filename).unwrap();
+        match BuildingMap::from_bytes(&file_data) {
+            Ok(building) => match building.to_site() {
+                Ok(site) => {
+                    println!("site loaded OK");
+                    load_site.send(LoadSite {
+                        site,
+                        focus: true,
+                        default_file: None,
+                    });
+                    match app_state.set(AppState::SiteEditor) {
+                        Ok(_) => {
+                            interaction_state.set(InteractionState::Enable).ok();
+                        }
+                        Err(err) => {
+                            println!("Failed to enter traffic editor: {:?}", err);
+                        }
+                    }
+                }
+                Err(err) => {
+                    println!("site parse error: {err:?}");
+                }
+            },
+            Err(err) => {
+                println!("building parse error {:?}", err);
+            }
+        }
+    }
+}
+
+pub fn run(string_args: Vec<String>) {
     let mut app = App::new();
 
     #[cfg(target_arch = "wasm32")]
@@ -116,5 +171,7 @@ pub fn run() {
         .add_plugin(InteractionPlugin)
         .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
+        .insert_resource(Args::parse_from(string_args))
+        .add_startup_system(argument_parser_system)
         .run();
 }

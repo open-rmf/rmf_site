@@ -23,10 +23,10 @@ use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 
 use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
 
-struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
+pub struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
 #[derive(Component)]
-struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
+pub struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
