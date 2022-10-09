@@ -28,7 +28,9 @@ pub struct BuildingMap {
     #[serde(default)]
     pub coordinate_system: CoordinateSystem,
     pub levels: BTreeMap<String, Level>,
+    #[serde(default)]
     pub crowd_sim: CrowdSim,
+    #[serde(default)]
     pub lifts: BTreeMap<String, Lift>,
 }
 
