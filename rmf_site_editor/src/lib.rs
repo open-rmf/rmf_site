@@ -1,11 +1,11 @@
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use bevy_egui::EguiPlugin;
 use clap::Parser;
-use std::fs;
 use interaction::InteractionState;
-use site::load::LoadSite;
 use main_menu::MainMenuPlugin;
 use rmf_site_format::{legacy::building_map::BuildingMap, Site};
+use site::load::LoadSite;
+use std::fs;
 // use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
 
@@ -82,8 +82,7 @@ pub fn run_js() {
 }
 
 #[derive(Parser)]
-struct Args
-{
+struct Args {
     /// Filename of a Site or Building map
     filename: Option<String>,
 }
