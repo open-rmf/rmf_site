@@ -21,7 +21,7 @@ set -o verbose
 
 git clone ssh://git@github.com/open-rmf/rmf_site temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
 
-cd temp-deploy-checkout/rmf_editor
+cd temp-deploy-checkout
 git checkout --orphan gh-pages
 git reset
 scripts/build-web.sh
