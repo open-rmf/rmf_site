@@ -19,7 +19,7 @@ echo "Starting deployment process using branch $BRANCH"
 
 set -o verbose
 
-git clone ssh://git@github.com/open-rmf/rmf_site_editor temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
+git clone ssh://git@github.com/open-rmf/rmf_site temp-deploy-checkout --branch $BRANCH --single-branch --depth 1
 
 cd temp-deploy-checkout/rmf_editor
 git checkout --orphan gh-pages
@@ -28,7 +28,7 @@ scripts/build-web.sh
 
 git add -f web
 cd ..
-cp rmf_editor/web/root_index.html index.html
+cp web/root_index.html index.html
 git add index.html
 
 git commit -a -m "publish to github pages"
