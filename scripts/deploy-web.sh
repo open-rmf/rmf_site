@@ -27,7 +27,6 @@ git reset
 scripts/build-web.sh
 
 git add -f web
-cd ..
 cp web/root_index.html index.html
 git add index.html
 
