@@ -39,7 +39,7 @@ Alternatively, if you already have a Rust installation managed by `rustup`, you 
 
 Finally, we need some library packages:
 ```bash
-$ sudo apt install libgtk-3-dev
+$ sudo apt install libgtk-3-dev libasound2-dev libudev-dev
 ```
 
 # Install dependencies (Windows 11)
