@@ -30,6 +30,9 @@ pub use deletion::*;
 pub mod door;
 pub use door::*;
 
+pub mod drawing;
+pub use drawing::*;
+
 pub mod floor;
 pub use floor::*;
 
@@ -189,6 +192,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_measurement_for_changed_anchor)
                     .with_system(update_model_scenes)
                     .with_system(make_models_selectable)
+                    .with_system(add_drawing_visuals)
+                    .with_system(update_changed_drawing)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_changed_wall)
