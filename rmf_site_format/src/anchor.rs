@@ -1,0 +1,63 @@
+/*
+ * Copyright (C) 2022 Open Source Robotics Foundation
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *     http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ *
+*/
+
+use crate::{Category, Categorized};
+use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
+#[cfg(feature = "bevy")]
+use bevy::{
+    prelude::{Component, GlobalTransform},
+    math::{Vec2, Vec3, Affine3A},
+};
+
+#[derive(Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum Anchor {
+    Translate2D([f32; 2]),
+    CategorizedTranslate2D(Categorized<[f32; 2]>),
+}
+
+impl From<[f32; 2]> for Anchor {
+    fn from(value: [f32; 2]) -> Self {
+        Anchor::Translate2D(value)
+    }
+}
+
+impl Anchor {
+    pub fn for_category(&self, category: Category) -> &[f32; 2] {
+        match self {
+            Self::Translate2D(v) => v,
+            Self::CategorizedTranslate2D(v) => v.for_category(category),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl Anchor {
+    pub fn point(&self, category: Category, tf: &GlobalTransform) -> Vec3 {
+        match category {
+            Category::General => {
+                tf.translation()
+            }
+            category => {
+                let dp = Vec2::from(self.for_category(category)) - Vec2::from(self.for_category(Category::General));
+                tf.affine().transform_point3([dp.x, dp.y, 0.0])
+            }
+        }
+    }
+}

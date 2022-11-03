@@ -31,7 +31,7 @@ pub struct LevelProperties {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Level {
     pub properties: LevelProperties,
-    pub anchors: BTreeMap<u32, [f32; 2]>,
+    pub anchors: BTreeMap<u32, Anchor>,
     pub doors: BTreeMap<u32, Door<u32>>,
     pub drawings: BTreeMap<u32, Drawing>,
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,

@@ -23,18 +23,21 @@ pub enum PortingError {
     InvalidVertex(usize),
     #[error("a non-existent level {0} was referenced")]
     InvalidLevelName(String),
-    #[error("wrong number [{door_count}] of lift cabin doors for lift [{lift}]; must be no greater than 1")]
-    InvalidLiftCabinDoors { lift: String, door_count: usize },
+    #[error("wrong number [{door_count}] of lift cabin doors for lift [{lift}]; must be no greater than 4")]
+    InvalidLiftCabinDoorCount { lift: String, door_count: usize },
+    #[error("lift [{lift}] has more than one cabin door on {face} side")]
+    DuplicateLiftCabinDoor { lift: String, face: &'static str },
+    #[error("cabin door [{door}] in lift [{lift}] has an invalid placement")]
+    InvalidLiftCabinDoorPlacement { lift: String, door: String },
     #[error("wrong number [{door_count}] of level doors for lift [{lift}] on level [{level}]")]
     InvalidLiftLevelDoorCount {
         lift: String,
         level: String,
         door_count: usize,
     },
-    #[error("unable to find a door named {door} on level {level} requested by lift {lift}")]
-    InvalidLiftLevelDoorName {
+    #[error("unable to find a cabin door named {door} for lift {lift}")]
+    InvalidLiftCabinDoorName {
         lift: String,
-        level: String,
         door: String,
     },
     #[error("A door had an invalid motion axis value: {0}")]

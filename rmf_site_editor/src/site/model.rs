@@ -66,7 +66,7 @@ pub fn update_model_scenes(
                 transform: pose.transform(),
                 ..default()
             })
-            .insert(Category("Model".to_string()));
+            .insert(Category::Model);
 
         if let Some(kind) = &kind.0 {
             let bundle_path = String::from("rmf-site://") + kind + &".glb#Scene0".to_string();

@@ -121,7 +121,7 @@ pub fn add_lane_visuals(
                     visibility: Visibility { is_visible },
                     ..default()
                 })
-                .insert(Category("Lane".to_string()))
+                .insert(Category::Lane)
                 .insert(EdgeLabels::StartEnd);
         } else {
             panic!("Anchor was not initialized correctly");

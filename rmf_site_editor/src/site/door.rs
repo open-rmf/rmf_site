@@ -20,9 +20,8 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use rmf_site_format::{DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{DoorMarker, DoorType, Edge, Category, DEFAULT_LEVEL_HEIGHT};
 
-pub const DEFAULT_DOOR_THICKNESS: f32 = 0.1;
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
 pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
@@ -164,7 +163,7 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), Added<DoorMarker>>,
+    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), Added<DoorType>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
@@ -215,7 +214,7 @@ pub fn add_door_visuals(
                 cue_inner,
                 cue_outline,
             })
-            .insert(Category("Door".to_string()))
+            .insert(Category::Door)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in &edge.array() {
@@ -273,7 +272,7 @@ pub fn update_changed_door(
 }
 
 pub fn update_door_for_changed_anchor(
-    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments), With<DoorMarker>>,
+    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,

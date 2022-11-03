@@ -91,6 +91,7 @@ impl BuildingMap {
 
     pub fn to_site(&self) -> Result<Site> {
         let mut site_id = 0_u32..;
+        let mut site_anchors = BTreeMap::new();
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut nav_graph_lanes = HashMap::<i64, Vec<SiteLane<u32>>>::new();
@@ -310,77 +311,23 @@ impl BuildingMap {
 
         let mut lifts = BTreeMap::new();
         for (name, lift) in &self.lifts {
-            let anchors = lift.calculate_anchors();
-            let anchor_level_id = level_name_to_id.get(&lift.reference_floor_name).ok_or(
-                PortingError::InvalidLevelName(lift.reference_floor_name.clone()),
-            )?;
-            let level_anchors = &mut levels.get_mut(anchor_level_id).unwrap().anchors;
-            let anchors = {
-                let left = site_id.next().unwrap();
-                let right = site_id.next().unwrap();
-                level_anchors.insert(left, anchors[0]);
-                level_anchors.insert(right, anchors[1]);
-                [left, right]
-            };
-
-            let cabin = lift.make_cabin(name)?;
-            let mut level_doors = BTreeMap::new();
-            for (level, doors) in &lift.level_doors {
-                let level_id = level_name_to_id
-                    .get(level)
-                    .ok_or(PortingError::InvalidLevelName(level.clone()))?;
-
-                if doors.len() != 1 {
-                    return Err(PortingError::InvalidLiftLevelDoorCount {
-                        lift: name.clone(),
-                        level: level.clone(),
-                        door_count: doors.len(),
-                    });
-                }
-
-                let door_name = doors.iter().last().unwrap();
-                let door_id = levels
-                    .get(level_id)
-                    .unwrap()
-                    .doors
-                    .iter()
-                    .find(|(_, door)| door.name.0 == *door_name)
-                    .ok_or(PortingError::InvalidLiftLevelDoorName {
-                        lift: name.clone(),
-                        level: level.clone(),
-                        door: door_name.clone(),
-                    })?
-                    .0;
-
-                level_doors.insert(*level_id, *door_id);
-            }
-            let level_doors = LevelDoors(level_doors);
-
-            let cabin_anchors: BTreeMap<u32, [f32; 2]> = [lift_cabin_anchors.get(name)]
-                .into_iter()
-                .filter_map(|x| x)
-                .flat_map(|x| x)
-                .copied()
-                .collect();
-
+            let lift_id = site_id.next().unwrap();
             lifts.insert(
-                site_id.next().unwrap(),
-                SiteLift {
-                    properties: LiftProperties {
-                        name: NameInSite(name.clone()),
-                        reference_anchors: anchors.into(),
-                        cabin,
-                        level_doors,
-                        corrections: Default::default(),
-                        is_static: IsStatic(!lift.plugins),
-                    },
-                    cabin_anchors,
-                },
+                lift_id,
+                lift.to_site(
+                    name,
+                    &mut site_id,
+                    &mut site_anchors,
+                    &levels,
+                    &level_name_to_id,
+                    &lift_cabin_anchors
+                )?
             );
         }
 
         Ok(Site {
             format_version: Default::default(),
+            anchors: site_anchors,
             properties: SiteProperties {
                 name: self.name.clone(),
             },

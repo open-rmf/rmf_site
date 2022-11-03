@@ -25,18 +25,35 @@ use bevy::{
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.05;
+pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.1;
+pub const DEFAULT_CABIN_DOOR_THICKNESS: f32 = 0.05;
 pub const DEFAULT_CABIN_GAP: f32 = 0.01;
 pub const DEFAULT_CABIN_WIDTH: f32 = 1.5;
 pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Lift<T: RefTrait> {
+    /// The cabin doors that the lift cabin has
+    pub cabin_doors: BTreeMap<T, LiftCabinDoor>,
+    /// Properties that define the lift
     pub properties: LiftProperties<T>,
     /// Anchors that are inside the cabin of the lift and exist in the map of
     /// the cabin's interior.
-    pub cabin_anchors: BTreeMap<T, [f32; 2]>,
+    pub cabin_anchors: BTreeMap<T, Anchor>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct LiftCabinDoor {
+    /// What kind of door is this
+    pub kind: DoorType,
+    #[serde(skip)]
+    pub marker: LiftCabinDoorMarker,
+}
+
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct LiftCabinDoorMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -44,57 +61,87 @@ pub struct LiftProperties<T: RefTrait> {
     /// Name of this lift. This must be unique within the site.
     pub name: NameInSite,
     /// These anchors define the canonical reference frame of the lift. Both
-    /// anchors must belong to the same level.
+    /// anchors must be site-wide anchors.
     pub reference_anchors: Edge<T>,
     /// Description of the cabin for the lift.
-    pub cabin: LiftCabin,
-    /// A map from the ID of a level that this lift can visit to the door that
-    /// the lift opens on that level. key: level, value: door. The lift can only
-    /// visit levels that are included in this map.
-    pub level_doors: LevelDoors<T>,
-    /// For each level (key of the map, given as its ID in the [`Site`]::levels
-    /// map), specify two anchors that correct the positioning of this lift on
-    /// that level. These will act like [`Fiducial`] when the site levels are
-    /// being aligned.
-    ///
-    /// Finalized site files should not have this field because it should become
-    /// unnecessary after levels have been scaled and aligned.
-    #[serde(skip_serializing_if = "Corrections::is_empty")]
-    pub corrections: Corrections<T>,
+    pub cabin: LiftCabin<T>,
+    /// Descriptions of the doors used at each level
+    pub level_doors: LevelDoors,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
     pub is_static: IsStatic,
+    /// What is the initial level for this lift. If nothing is specified, the
+    /// lift will start on the lowest level.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub initial_level: Option<T>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct LevelDoors<T: RefTrait> {
+    /// A map from the ID of a level that this lift can visit to the door(s) that
+    /// the lift opens on that level. key: level, value: door. The lift can only
+    /// visit levels that are included in this map.
+    pub visit: BTreeMap<T, Vec<T>>,
+
+    /// Anchors that define the level door positioning for level doors.
+    /// The key of this map is the cabin door ID and the value is a pair of
+    /// anchor IDs associated with that cabin door, used to mark the location of
+    /// where a level door is (or would be) located.
+    pub reference_anchors: BTreeMap<T, Edge<T>>,
+}
+
+#[cfg(feature="bevy")]
+impl LevelDoors<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LevelDoors<Entity> {
+        Self {
+            visit: self.visit.iter().map(|(level, doors)| {
+                (
+                    id_to_entity.get(level).unwrap(),
+                    doors.iter().map(|door| id_to_entity.get(door).unwrap()).collect()
+                )
+            }).collect(),
+            reference_anchors: self.reference_anchors.iter().map(|(door, edge)| {
+                (
+                    id_to_entity.get(door).unwrap(),
+                    edge.to_ecs(id_to_entity)
+                )
+            }).collect(),
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum LiftCabin {
+pub enum LiftCabin<T: RefTrait> {
     /// The lift cabin is defined by some parameters.
-    Params(ParameterizedLiftCabin),
+    Rect(RectangularLiftCabin<T>),
+    // TODO(MXG): Support Models as lift cabins
     /// The model pose is relative to the center point of the two Lift anchors,
     /// with the y-axis facing the left anchor. The lift doors should open along
     /// the +/- y-axis, and agents should exit the lift along the positive x-axis.
-    Model(Model),
+    // Model(Model),
 }
 
 impl Default for LiftCabin {
     fn default() -> Self {
-        LiftCabin::Params(Default::default())
+        LiftCabin::Rect(Default::default())
     }
 }
 
 /// A lift cabin that is defined entirely by a standard set of parameters.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct ParameterizedLiftCabin {
+pub struct RectangularLiftCabin<T: RefTrait> {
     /// How wide is the interior of the cabin, along the axis formed by the
     /// anchor points.
     pub width: f32,
     /// How deep is the cabin, i.e. interior distance from the front wall to
     /// the back wall of the cabin.
     pub depth: f32,
-    /// What type of door is attached to the cabin.
-    pub door: LiftCabinDoor,
-    /// How thick are the walls of the cabin. Default is 0.05m.
+    /// How thick are the walls of the cabin. Default is DEFAULT_CABIN_WALL_THICKNESS.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub wall_thickness: Option<f32>,
     /// How large is the gap between the line formed by the anchor points
@@ -106,37 +153,57 @@ pub struct ParameterizedLiftCabin {
     /// from the anchor points. Default is 0.0m.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shift: Option<f32>,
+    /// The placement of the cabin's front door, if it has one
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub front_door: Option<LiftCabinDoorPlacement<T>>,
+    /// The placement of the cabin's back door, if it has one
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub back_door: Option<LiftCabinDoorPlacement<T>>,
+    /// The placement of the cabin's left door, if it has one
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub left_door: Option<LiftCabinDoorPlacement<T>>,
+    /// The placement of the cabin's right door, if it has one
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub right_door: Option<LiftCabinDoorPlacement<T>>,
 }
 
-impl Default for ParameterizedLiftCabin {
+impl Default for RectangularLiftCabin {
     fn default() -> Self {
         Self {
             width: DEFAULT_CABIN_WIDTH,
             depth: DEFAULT_CABIN_DEPTH,
-            door: LiftCabinDoor {
-                width: 0.75 * DEFAULT_CABIN_WIDTH,
-                kind: DoubleSlidingDoor {
-                    left_right_ratio: 0.5,
-                }
-                .into(),
-                shifted: None,
-            },
             wall_thickness: None,
             gap: None,
             shift: None,
+            front_door: None,
+            back_door: None,
+            left_door: None,
+            right_door: None,
         }
     }
 }
 
+impl<T: RefTrait> RectangularLiftCabin<T> {
+    pub fn thickness(&self) -> f32 {
+        self.wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS)
+    }
+
+    pub fn gap(&self) -> f32 {
+        self.gap.unwrap_or(DEFAULT_CABIN_GAP)
+    }
+
+    pub fn shift(&self) -> f32 {
+        self.shift.unwrap_or(0.0)
+    }
+}
+
 #[cfg(feature = "bevy")]
-impl ParameterizedLiftCabin {
+impl<T: RefTrait> RectangularLiftCabin<T> {
     pub fn aabb(&self) -> Aabb {
-        let thick = self.wall_thickness.unwrap_or(DEFAULT_CABIN_WALL_THICKNESS);
-        let gap = self.gap.unwrap_or(DEFAULT_CABIN_GAP);
         Aabb {
             center: Vec3A::new(
-                -self.depth / 2.0 - thick - gap,
-                self.shift.unwrap_or(0.),
+                -self.depth / 2.0 - self.thickness() - self.gap(),
+                self.shift(),
                 DEFAULT_LEVEL_HEIGHT / 2.0,
             ),
             half_extents: Vec3A::new(
@@ -148,40 +215,21 @@ impl ParameterizedLiftCabin {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct LiftCabinDoor {
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+pub struct LiftCabinDoorPlacement<T: RefTrait> {
+    /// Reference to the actual door entity
+    pub door: T,
     /// How wide is the lift cabin door
     pub width: f32,
-    /// What kind of door is this
-    pub kind: DoorType,
+    /// Set the thickness of the door. If set to None, 10cm will be used.
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub thickness: Option<f32>,
     /// Shift the door off-center to the left (positive) or right (negative)
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub shifted: Option<f32>,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct LevelDoors<T: RefTrait>(pub BTreeMap<T, T>);
-impl<T: RefTrait> Default for LevelDoors<T> {
-    fn default() -> Self {
-        LevelDoors(BTreeMap::new())
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct Corrections<T: RefTrait>(pub BTreeMap<T, Edge<T>>);
-impl<T: RefTrait> Default for Corrections<T> {
-    fn default() -> Self {
-        Corrections(BTreeMap::new())
-    }
-}
-impl<T: RefTrait> Corrections<T> {
-    pub fn is_empty(&self) -> bool {
-        self.0.is_empty()
-    }
+    /// Use a different gap than the one for the parent LiftCabin
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub custom_gap: Option<f32>,
 }
 
 #[cfg(feature = "bevy")]
@@ -193,27 +241,12 @@ impl LiftProperties<u32> {
         LiftProperties {
             name: self.name.clone(),
             reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
-            cabin: self.cabin.clone(),
-            level_doors: LevelDoors(
-                self.level_doors
-                    .iter()
-                    .map(|(level, door)| {
-                        (
-                            *id_to_entity.get(level).unwrap(),
-                            *id_to_entity.get(door).unwrap(),
-                        )
-                    })
-                    .collect(),
-            ),
-            corrections: Corrections(
-                self.corrections
-                    .iter()
-                    .map(|(level, edge)| {
-                        (*id_to_entity.get(level).unwrap(), edge.to_ecs(id_to_entity))
-                    })
-                    .collect(),
-            ),
+            cabin: self.cabin.to_ecs(id_to_entity),
+            level_doors: self.level_doors.to_ecs(id_to_entity),
             is_static: self.is_static,
+            initial_level: self.initial_level.map(
+                |id| id_to_entity.get(&id).unwrap()
+            ),
         }
     }
 }
@@ -221,12 +254,60 @@ impl LiftProperties<u32> {
 impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
     fn from(edge: Edge<T>) -> Self {
         LiftProperties {
-            reference_anchors: edge,
             name: Default::default(),
-            cabin: Default::default(),
+            reference_anchors: edge,
+            cabin: LiftCabin::default(),
             level_doors: Default::default(),
-            corrections: Default::default(),
             is_static: Default::default(),
+            initial_level: None,
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl LiftCabin<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LiftCabin<Entity> {
+        match self {
+            LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_ecs(id_to_entity)),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl RectangularLiftCabin<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> RectangularLiftCabin<Entity> {
+        RectangularLiftCabin {
+            width: self.width,
+            depth: self.depth,
+            wall_thickness: self.wall_thickness,
+            gap: self.gap,
+            shift: self.shift,
+            front_door: self.front_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
+            back_door: self.back_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
+            left_door: self.left_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
+            right_door: self.right_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl LiftCabinDoorPlacement<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LiftCabinDoorPlacement<Entity> {
+        LiftCabinDoorPlacement {
+            door: *id_to_entity.get(&self.door).unwrap(),
+            width: self.width,
+            thickness: self.thickness,
+            shifted: self.shifted,
+            custom_gap: self.custom_gap
         }
     }
 }

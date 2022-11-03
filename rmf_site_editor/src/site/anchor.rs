@@ -17,31 +17,31 @@
 
 use crate::site::*;
 use bevy::{prelude::*, render::primitives::Sphere};
-use rmf_site_format::{LevelProperties, LiftCabin};
+use rmf_site_format::{LevelProperties, LiftCabin, Anchor};
 use std::collections::HashSet;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
     anchor: Anchor,
+    transform: Transform,
+    global_transform: GlobalTransform,
     dependents: AnchorDependents,
     visibility: Visibility,
     computed: ComputedVisibility,
-    transform: Transform,
-    global_transform: GlobalTransform,
     category: Category,
 }
 
 impl AnchorBundle {
-    pub fn new(anchor: [f32; 2]) -> Self {
+    pub fn new(anchor: Anchor) -> Self {
         let transform = Transform::from_translation([anchor[0], anchor[1], 0.].into());
         Self {
+            anchor,
             transform,
             global_transform: transform.into(),
-            anchor: Default::default(),
             dependents: Default::default(),
             visibility: Default::default(),
             computed: Default::default(),
-            category: Category("Anchor".to_string()),
+            category: Category::Anchor,
         }
     }
 
@@ -74,9 +74,6 @@ impl AnchorBundle {
         Self { dependents, ..self }
     }
 }
-
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct Anchor;
 
 #[derive(Component, Debug, Default, Clone)]
 pub struct AnchorDependents {
@@ -116,7 +113,7 @@ pub fn assign_orphan_anchors_to_parent(
         // First check if the new anchor is inside the footprint of any lift cabins
         for (e_lift, cabin, global_lift_tf) in &mut lifts {
             let cabin_aabb = match cabin {
-                LiftCabin::Params(params) => params.aabb(),
+                LiftCabin::Rect(params) => params.aabb(),
                 LiftCabin::Model(_) => {
                     // TODO(MXG): Support models as lift cabins
                     continue;

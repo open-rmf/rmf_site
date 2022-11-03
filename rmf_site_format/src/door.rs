@@ -20,6 +20,8 @@ use crate::*;
 use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 
+pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Door<T: RefTrait> {

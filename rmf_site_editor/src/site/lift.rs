@@ -52,7 +52,7 @@ fn make_lift_transforms(
     };
 
     let cabin_tf = match &cabin {
-        LiftCabin::Params(params) => {
+        LiftCabin::Rect(params) => {
             let Aabb {
                 center,
                 half_extents,
@@ -101,7 +101,7 @@ pub fn add_lift_visuals(
                 ..default()
             })
             .insert(LiftSegments { cabin: child })
-            .insert(Category("Lift".to_string()))
+            .insert(Category::Lift)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {

@@ -82,16 +82,6 @@ use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
-/// The Category component is added to site entities so they can easily express
-/// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
-/// set by the respective site system that decorates its entities with
-/// components, e.g. add_door_visuals, add_lane_visuals, etc.
-///
-/// The information in this component is intended to be presented to humans to
-/// read, and is not meant to be a key for identifying the type of an entity.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Component, Deref, DerefMut)]
-pub struct Category(pub String);
-
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
     Off,

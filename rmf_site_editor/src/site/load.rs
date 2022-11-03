@@ -54,6 +54,16 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     })
     .insert(site_data.properties.clone())
     .with_children(|site| {
+        for (anchor_id, anchor) in &site_data.anchors {
+            let anchor_entity = site
+                .spawn()
+                .insert_bundle(AnchorBundle::new(*anchor))
+                .insert(SiteID(*anchor_id))
+                .id();
+            id_to_entity.insert(*anchor_id, anchor_entity);
+            consider_id(*anchor_id);
+        }
+
         for (level_id, level_data) in &site_data.levels {
             let level_entity = site
                 .spawn_bundle(SpatialBundle {
@@ -62,7 +72,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 })
                 .insert(level_data.properties.clone())
                 .insert(SiteID(*level_id))
-                .insert(Category("Level".to_string()))
+                .insert(Category::Level)
                 .with_children(|level| {
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level
@@ -155,7 +165,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
         for (lift_id, lift_data) in &site_data.lifts {
             site.spawn_bundle(SpatialBundle::default())
-                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
                 .insert(SiteID(*lift_id))
                 .with_children(|lift| {
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
@@ -167,7 +176,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         id_to_entity.insert(*anchor_id, anchor_entity);
                         consider_id(*anchor_id);
                     }
-                });
+                })
+                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity));
             consider_id(*lift_id);
         }
 

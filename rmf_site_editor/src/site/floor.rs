@@ -181,7 +181,7 @@ pub fn add_floor_visuals(
                 ..default()
             })
             .insert(Selectable::new(e))
-            .insert(Category("Floor".to_string()))
+            .insert(Category::Floor)
             .insert(PathBehavior::for_floor());
 
         for anchor in &new_floor.0 {
