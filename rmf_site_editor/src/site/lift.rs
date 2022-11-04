@@ -26,7 +26,7 @@ pub struct LiftSegments {
 
 fn make_lift_transforms(
     reference_anchors: &Edge<Entity>,
-    cabin: &LiftCabin,
+    cabin: &LiftCabin<Entity>,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
 ) -> (Transform, Transform) {
     let start_anchor = anchors.get(reference_anchors.start()).unwrap();
@@ -63,10 +63,10 @@ fn make_lift_transforms(
                 ..default()
             }
         }
-        LiftCabin::Model(_) => {
-            // TODO(MXG): Add proper support for model lifts
-            Transform::default()
-        }
+        // LiftCabin::Model(_) => {
+        //     // TODO(MXG): Add proper support for model lifts
+        //     Transform::default()
+        // }
     };
 
     (lift_tf, cabin_tf)
@@ -74,7 +74,7 @@ fn make_lift_transforms(
 
 pub fn add_lift_visuals(
     mut commands: Commands,
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin), Added<LiftCabin>>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>), Added<LiftCabin<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
@@ -114,7 +114,7 @@ pub fn add_lift_visuals(
 fn update_lift_visuals(
     entity: Entity,
     edge: &Edge<Entity>,
-    cabin: &LiftCabin,
+    cabin: &LiftCabin<Entity>,
     segments: &LiftSegments,
     anchors: &Query<&GlobalTransform, With<Anchor>>,
     transforms: &mut Query<&mut Transform>,
@@ -127,7 +127,7 @@ fn update_lift_visuals(
 }
 
 pub fn update_changed_lift(
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin, &LiftSegments), Changed<Edge<Entity>>>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>, &LiftSegments), Changed<Edge<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     mut transforms: Query<&mut Transform>,
 ) {
@@ -137,7 +137,7 @@ pub fn update_changed_lift(
 }
 
 pub fn update_lift_for_changed_anchor(
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin, &LiftSegments)>,
+    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>, &LiftSegments)>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
     mut transforms: Query<&mut Transform>,

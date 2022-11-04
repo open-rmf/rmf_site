@@ -34,7 +34,7 @@ pub fn add_misc_visual_cues(
             Added<WallMarker>,
             Added<ModelMarker>,
             Added<DoorType>,
-            Added<LiftCabin>,
+            Added<LiftCabin<Entity>>,
             Added<MeasurementMarker>,
         )>,
     >,

@@ -43,9 +43,6 @@ pub struct SaveSite {
     pub to_file: Option<PathBuf>,
 }
 
-#[derive(Component, Debug, Clone, Copy)]
-struct SiteID(u32);
-
 #[derive(ThisError, Debug, Clone)]
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
@@ -56,10 +53,10 @@ pub enum SiteGenerationError {
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a door that does not exist")]
     BrokenDoorReference(Entity),
-    #[error("level {level:?} is being referenced by an object in site {site:?} but does not belong to that site")]
-    InvalidLevelReference { site: Entity, level: Entity },
-    #[error("anchor {anchor:?} is being referenced for level {level:?} but does not belong to that level")]
-    InvalidAnchorReference { level: Entity, anchor: Entity },
+    #[error("lift {lift:?} has a reference anchor that does not belong to its site {site:?}")]
+    InvalidLiftRefAnchor { site: Entity, lift: Entity },
+    #[error("anchor {anchor:?} is being referenced for site {site:?} but does not belong to that level")]
+    InvalidAnchorReference { site: Entity, anchor: Entity },
     #[error(
         "door {door:?} is being referenced for level {level:?} but does not belong to that level"
     )]
@@ -92,7 +89,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<Entity, (Or<(With<LaneMarker>, With<LocationTags>)>, Without<Pending>)>,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
         Query<Entity, (With<NavGraphProperties>, Without<Pending>)>,
-        Query<Entity, (With<LiftCabin>, Without<Pending>)>,
+        Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
         Query<&mut NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
@@ -183,12 +180,34 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
     Ok(())
 }
 
+fn collect_site_anchors(
+    world: &mut World,
+    site: Entity
+) -> BTreeMap<u32, Anchor> {
+    let mut state: SystemState<(
+        Query<&Children>,
+        Query<(&SiteID, &Anchor)>,
+    )> = SystemState::new(world);
+
+    let mut site_anchors = BTreeMap::new();
+    let (q_children, q_anchors) = state.get(world);
+    if let Ok(children) = q_children.get(site) {
+        for child in children {
+            if let Ok((site_id, anchor)) = q_anchors.get(*child) {
+                site_anchors.insert(site_id.0, anchor.clone());
+            }
+        }
+    }
+
+    site_anchors
+}
+
 fn generate_levels(
     world: &mut World,
     site: Entity,
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Transform, &SiteID, &Parent), With<Anchor>>,
+        Query<(&Anchor, &SiteID, &Parent)>,
         Query<(
             &Edge<Entity>,
             Option<&Original<Edge<Entity>>>,
@@ -295,11 +314,10 @@ fn generate_levels(
         Ok(Path(anchor_ids))
     };
 
-    for (anchor_tf, id, parent) in &q_anchors {
+    for (anchor, id, parent) in &q_anchors {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                let p = anchor_tf.translation;
-                level.anchors.insert(id.0, [p.x, p.y]);
+                level.anchors.insert(id.0, anchor.clone());
             }
         }
     }
@@ -462,10 +480,10 @@ type QueryLift<'w, 's> = Query<
         Entity,
         &'static NameInSite,
         &'static Edge<Entity>,
-        &'static LiftCabin,
+        &'static LiftCabin<Entity>,
         &'static LevelDoors<Entity>,
-        &'static Corrections<Entity>,
         &'static IsStatic,
+        &'static InitialLevel<Entity>,
         &'static SiteID,
         &'static Parent,
     ),
@@ -476,8 +494,8 @@ fn generate_lifts(
     site: Entity,
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Transform, &SiteID), With<Anchor>>,
-        Query<&SiteID, With<DoorType>>,
+        Query<(&SiteID, &Anchor)>,
+        Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
         Query<&SiteID, With<LevelProperties>>,
         QueryLift,
         Query<&Parent>,
@@ -489,13 +507,13 @@ fn generate_lifts(
     let mut lifts = BTreeMap::new();
 
     let get_anchor_id = |entity| {
-        let (_, site_id) = q_anchors
+        let (site_id, _) = q_anchors
             .get(entity)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
         Ok(site_id.0)
     };
 
-    let get_level_id = |entity| {
+    let get_level_id = |entity| -> Result<u32, SiteGenerationError> {
         let site_id = q_levels
             .get(entity)
             .map_err(|_| SiteGenerationError::BrokenLevelReference(entity))?;
@@ -515,7 +533,7 @@ fn generate_lifts(
         Ok(Edge::new(left, right))
     };
 
-    let confirm_entity_level = |level, child| {
+    let confirm_entity_parent = |level, child| {
         if let Ok(parent) = q_parents.get(child) {
             if parent.get() == level {
                 return true;
@@ -525,91 +543,83 @@ fn generate_lifts(
         return false;
     };
 
-    let confirm_level_on_site = |level| {
-        if let Ok(parent) = q_parents.get(level) {
-            if parent.get() == site {
-                return Ok(());
-            }
-        }
-        Err(SiteGenerationError::InvalidLevelReference { site, level })
-    };
-
-    let confirm_anchor_level = |level, anchor| {
-        if confirm_entity_level(level, anchor) {
+    let validate_ref_anchor = |anchor| {
+        if confirm_entity_parent(site, anchor) {
             return Ok(());
         }
 
-        Err(SiteGenerationError::InvalidAnchorReference { level, anchor })
+        Err(SiteGenerationError::InvalidAnchorReference { site, anchor })
     };
 
-    let confirm_anchors_level = |level, edge: &Edge<Entity>| {
-        confirm_anchor_level(level, edge.left())?;
-        confirm_anchor_level(level, edge.right())?;
-        confirm_level_on_site(level)?;
+    let validate_ref_anchors = |edge: &Edge<Entity>| {
+        validate_ref_anchor(edge.left())?;
+        validate_ref_anchor(edge.right())?;
         Ok(())
     };
 
-    let confirm_door_level = |level, door| {
-        if confirm_entity_level(level, door) {
-            confirm_level_on_site(level)?;
-            return Ok(());
-        }
-
-        Err(SiteGenerationError::InvalidDoorReference { level, door })
-    };
-
-    let get_corrections_map = |entity_map: &BTreeMap<Entity, Edge<Entity>>| {
-        let mut id_map = BTreeMap::new();
-        for (level, anchors) in entity_map {
-            confirm_anchors_level(*level, anchors)?;
-            let anchors = get_anchor_id_edge(anchors)?;
-            let level = get_level_id(*level)?;
-            id_map.insert(level, anchors);
-        }
-        Ok(Corrections(id_map))
-    };
-
-    for (entity, name, edge, cabin, e_level_doors, corrections, is_static, id, parent) in &q_lifts {
+    for (lift_entity, name, edge, cabin, e_level_doors, is_static, initial_level, id, parent) in &q_lifts {
         if parent.get() != site {
             continue;
         }
 
-        if let Ok(canon_level) = q_parents.get(edge.left()) {
-            confirm_anchors_level(canon_level.get(), edge)?;
-        } else {
-            return Err(SiteGenerationError::BrokenAnchorReference(edge.left()));
-        }
+        validate_ref_anchors(edge)?;
 
         let mut cabin_anchors = BTreeMap::new();
-        if let Ok(children) = q_children.get(entity) {
+        let mut cabin_doors = BTreeMap::new();
+        if let Ok(children) = q_children.get(lift_entity) {
             for child in children {
-                if let Ok((anchor_tf, site_id)) = q_anchors.get(*child) {
-                    let p = anchor_tf.translation;
-                    cabin_anchors.insert(site_id.0, [p.x, p.y]);
+                if let Ok((site_id, anchor)) = q_anchors.get(*child) {
+                    cabin_anchors.insert(site_id.0, anchor.clone());
+                }
+
+                if let Ok((site_id, door_type)) = q_doors.get(*child) {
+                    cabin_doors.insert(site_id.0, LiftCabinDoor {
+                        kind: door_type.clone(),
+                        marker: Default::default(),
+                    });
                 }
             }
         }
 
-        let mut level_doors = BTreeMap::new();
-        for (level, door) in &e_level_doors.0 {
-            confirm_door_level(*level, *door)?;
+        let mut level_visit_doors = BTreeMap::new();
+        for (level, doors) in &e_level_doors.visit {
             let level_id = get_level_id(*level)?;
-            let door_id = get_door_id(*door)?;
-            level_doors.insert(level_id, door_id);
+            let mut door_ids = Vec::new();
+            for door in doors {
+                let door_id = get_door_id(*door)?;
+                door_ids.push(**door_id);
+            }
+            level_visit_doors.insert(level_id, door_ids);
+        }
+
+        let mut level_doors_ref_anchors = BTreeMap::new();
+        for (level, edge) in &e_level_doors.reference_anchors {
+            let level_id = get_level_id(*level)?;
+            let edge_id = get_anchor_id_edge(edge)?;
+            level_doors_ref_anchors.insert(level_id, edge_id);
         }
 
         let reference_anchors = get_anchor_id_edge(edge)?;
-        let corrections = get_corrections_map(&corrections.0)?;
         lifts.insert(
             id.0,
             Lift {
+                cabin_doors,
                 properties: LiftProperties {
                     name: name.clone(),
                     reference_anchors,
-                    cabin: cabin.clone(),
-                    level_doors: LevelDoors(level_doors),
-                    corrections,
+                    cabin: cabin.to_u32(&q_doors),
+                    level_doors: LevelDoors{
+                        visit: level_visit_doors,
+                        reference_anchors: level_doors_ref_anchors,
+                    },
                     is_static: is_static.clone(),
+                    initial_level: InitialLevel({
+                        if let Some(initial_level) = initial_level.0 {
+                            Some(get_level_id(initial_level)?)
+                        } else {
+                            None
+                        }
+                    }),
                 },
                 cabin_anchors,
             },
@@ -715,6 +725,7 @@ pub fn generate_site(
     site: Entity,
 ) -> Result<rmf_site_format::Site, SiteGenerationError> {
     assign_site_ids(world, site)?;
+    let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
     let lifts = generate_lifts(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
@@ -728,6 +739,7 @@ pub fn generate_site(
 
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
+        anchors,
         properties: props.clone(),
         levels,
         lifts,

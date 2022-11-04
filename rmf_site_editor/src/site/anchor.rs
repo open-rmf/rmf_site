@@ -33,7 +33,7 @@ pub struct AnchorBundle {
 
 impl AnchorBundle {
     pub fn new(anchor: Anchor) -> Self {
-        let transform = Transform::from_translation([anchor[0], anchor[1], 0.].into());
+        let transform = anchor.relative_transform(Category::General);
         Self {
             anchor,
             transform,
@@ -47,7 +47,7 @@ impl AnchorBundle {
 
     pub fn at_transform(tf: &GlobalTransform) -> Self {
         let translation = tf.translation();
-        Self::new([translation.x, translation.y])
+        Self::new([translation.x, translation.y].into())
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
@@ -98,7 +98,7 @@ pub fn assign_orphan_anchors_to_parent(
     >,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    mut lifts: Query<(Entity, &LiftCabin, &GlobalTransform)>,
+    mut lifts: Query<(Entity, &LiftCabin<Entity>, &GlobalTransform)>,
 ) {
     for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
         let p_anchor = {
@@ -114,10 +114,10 @@ pub fn assign_orphan_anchors_to_parent(
         for (e_lift, cabin, global_lift_tf) in &mut lifts {
             let cabin_aabb = match cabin {
                 LiftCabin::Rect(params) => params.aabb(),
-                LiftCabin::Model(_) => {
-                    // TODO(MXG): Support models as lift cabins
-                    continue;
-                }
+                // LiftCabin::Model(_) => {
+                //     // TODO(MXG): Support models as lift cabins
+                //     continue;
+                // }
             };
 
             let sphere = Sphere {
@@ -156,7 +156,7 @@ pub fn assign_orphan_anchors_to_parent(
                     name: "<Unnamed>".to_string(),
                     elevation: 0.,
                 })
-                .insert(Category("Level".to_string()))
+                .insert(Category::Level)
                 .id();
 
             current_level.0 = Some(new_level_id);

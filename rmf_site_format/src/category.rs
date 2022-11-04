@@ -15,14 +15,16 @@
  *
 */
 
+use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
+use std::collections::BTreeMap;
 
 /// The Category component is added to site entities so they can easily express
 /// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
 /// set by the respective site system that decorates its entities with
 /// components, e.g. add_door_visuals, add_lane_visuals, etc.
-#[derive(Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Category {
     General,
@@ -56,7 +58,7 @@ impl Category {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
 pub struct Categorized<T>(BTreeMap<Category, T>);
 

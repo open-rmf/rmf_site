@@ -19,11 +19,6 @@ use crate::site::*;
 use bevy::prelude::*;
 use std::{collections::HashMap, path::PathBuf};
 
-/// This component is applied to each site element that gets loaded in order to
-/// remember what its original ID within the Site file was.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct SiteID(pub u32);
-
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.
 #[derive(Component, Clone, Debug)]
@@ -57,7 +52,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         for (anchor_id, anchor) in &site_data.anchors {
             let anchor_entity = site
                 .spawn()
-                .insert_bundle(AnchorBundle::new(*anchor))
+                .insert_bundle(AnchorBundle::new(anchor.clone()))
                 .insert(SiteID(*anchor_id))
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
@@ -77,7 +72,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level
                             .spawn()
-                            .insert_bundle(AnchorBundle::new(*anchor))
+                            .insert_bundle(AnchorBundle::new(anchor.clone()))
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
@@ -170,11 +165,20 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
                         let anchor_entity = lift
                             .spawn()
-                            .insert_bundle(AnchorBundle::new(*anchor))
+                            .insert_bundle(AnchorBundle::new(anchor.clone()))
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
                         consider_id(*anchor_id);
+                    }
+
+                    for (door_id, door) in &lift_data.cabin_doors {
+                        let door_entity = lift
+                            .spawn()
+                            .insert_bundle(door.clone())
+                            .id();
+                        id_to_entity.insert(*door_id, door_entity);
+                        consider_id(*door_id);
                     }
                 })
                 .insert_bundle(lift_data.properties.to_ecs(&id_to_entity));

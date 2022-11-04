@@ -78,7 +78,7 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-use rmf_site_format::*;
+pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 

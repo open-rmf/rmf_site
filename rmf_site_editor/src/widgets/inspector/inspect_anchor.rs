@@ -143,11 +143,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
         ui: &mut Ui,
     ) {
         ui.heading("Dependents");
-        let mut category_map: BTreeMap<String, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
+        let mut category_map: BTreeMap<Category, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
         for e in dependents {
             if let Ok((category, site_id)) = params.info.get(*e) {
                 category_map
-                    .entry(category.0.clone())
+                    .entry(*category)
                     .or_default()
                     .insert(*e, site_id.map(|s| s.0));
             } else {
@@ -156,7 +156,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
         }
 
         for (category, entities) in &category_map {
-            ui.label(category);
+            ui.label(category.label());
 
             for (e, site_id) in entities {
                 ui.horizontal(|ui| {

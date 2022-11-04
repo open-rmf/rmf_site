@@ -125,7 +125,7 @@ impl FromWorld for Cursor {
 
         let anchor_placement = world
             .spawn()
-            .insert_bundle(AnchorBundle::new([0., 0.]).visible(false))
+            .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
             .with_children(|parent| {

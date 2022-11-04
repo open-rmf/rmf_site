@@ -4,7 +4,7 @@ use crate::{
     Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelDoors, LevelProperties as SiteLevelProperties, Lift as SiteLift,
     LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
-    ReverseLane, Site, SiteProperties,
+    ReverseLane, Site, SiteProperties, Anchor, Category,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -100,25 +100,26 @@ impl BuildingMap {
         // out at RMF runtime.
         let mut locations = BTreeMap::new();
 
-        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, [f32; 2])>> = BTreeMap::new();
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut anchors = BTreeMap::new();
+            let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
                     let anchor_id = site_id.next().unwrap();
                     let anchor = [v.0 as f32, v.1 as f32];
-                    anchors.insert(anchor_id, anchor);
+                    anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
                     let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
-                    if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, [x, y])| {
-                        let dx = v.0 as f32 - *x;
-                        let dy = v.1 as f32 - *y;
+                    if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, anchor)| {
+                        let [x, y] = *anchor.translation_for_category(Category::General);
+                        let dx = v.0 as f32 - x;
+                        let dy = v.1 as f32 - y;
                         (dx * dx + dy * dy).sqrt() < 0.01
                     }) {
                         // This is a duplicate cabin anchor so we return its
@@ -128,7 +129,7 @@ impl BuildingMap {
                         // This is a new cabin anchor so we need to create an
                         // ID for it
                         let anchor_id = site_id.next().unwrap();
-                        lift_cabin_anchors.push((anchor_id, [v.0 as f32, v.1 as f32]));
+                        lift_cabin_anchors.push((anchor_id, [v.0 as f32, v.1 as f32].into()));
                         anchor_id
                     }
                 };
@@ -160,7 +161,7 @@ impl BuildingMap {
             let mut fiducials = BTreeMap::new();
             for fiducial in &level.fiducials {
                 let anchor_id = site_id.next().unwrap();
-                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32]);
+                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
                 // Do not add this anchor to the vertex_to_anchor_id map because
                 // this fiducial is not really recognized as a vertex to the
                 // building format.

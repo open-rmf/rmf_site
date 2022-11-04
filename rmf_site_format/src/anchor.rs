@@ -20,11 +20,11 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{Component, GlobalTransform},
+    prelude::{Component, Transform, GlobalTransform},
     math::{Vec2, Vec3, Affine3A},
 };
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Anchor {
@@ -39,7 +39,7 @@ impl From<[f32; 2]> for Anchor {
 }
 
 impl Anchor {
-    pub fn for_category(&self, category: Category) -> &[f32; 2] {
+    pub fn translation_for_category(&self, category: Category) -> &[f32; 2] {
         match self {
             Self::Translate2D(v) => v,
             Self::CategorizedTranslate2D(v) => v.for_category(category),
@@ -55,9 +55,26 @@ impl Anchor {
                 tf.translation()
             }
             category => {
-                let dp = Vec2::from(self.for_category(category)) - Vec2::from(self.for_category(Category::General));
-                tf.affine().transform_point3([dp.x, dp.y, 0.0])
+                let dp = Vec2::from(*self.translation_for_category(category)) - Vec2::from(*self.translation_for_category(Category::General));
+                tf.affine().transform_point3([dp.x, dp.y, 0.0].into())
             }
         }
+    }
+
+    pub fn relative_transform(&self, category: Category) -> Transform {
+        match self {
+            Anchor::Translate2D(p) => Transform::from_translation([p[0], p[1], 0.0].into()),
+            Anchor::CategorizedTranslate2D(categorized) => {
+                let p = categorized.for_category(category);
+                Transform::from_translation([p[0], p[1], 0.0].into())
+            }
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl From<Anchor> for Transform {
+    fn from(anchor: Anchor) -> Self {
+        anchor.relative_transform(Category::General)
     }
 }

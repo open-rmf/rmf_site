@@ -100,7 +100,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     fn heading(&self, selection: Entity, ui: &mut Ui) {
         let (label, site_id) = if let Ok((category, site_id)) = self.params.heading.get(selection) {
             (
-                category.map(|x| x.0.as_str()).unwrap_or("<Unknown Type>"),
+                category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
                 site_id,
             )
         } else {
