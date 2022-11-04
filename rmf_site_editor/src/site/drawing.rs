@@ -16,11 +16,20 @@
 */
 
 use crate::{
+    interaction::Selectable,
+    shapes::{make_flat_square_mesh, make_flat_rectangle_mesh},
     site::{Category, PreventDeletion},
 };
 use bevy::{prelude::*};
+use bevy::utils::HashMap;
 use rmf_site_format::{Drawing, DrawingMarker, DrawingSource, Pose};
 use rmf_site_format::{Rotation, Angle};
+
+// We need to keep track of the drawing data until the image is loaded
+// since we will need to scale the mesh according to the size of the image
+// TODO Loading textures might need similar behavior if they are not square
+#[derive(Default)]
+pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose)>);
 
 pub fn add_drawing_visuals(
     mut commands: Commands,
@@ -28,48 +37,50 @@ pub fn add_drawing_visuals(
     asset_server: Res<AssetServer>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut loading_drawings: ResMut<LoadingDrawings>,
 ) {
-    /*
-    unsafe {
-        static mut done: bool = false;
-        if !done {
-            done = true;
-            //let angle = Angle::Rad(0.0);
-            let e = commands.spawn_bundle(Drawing {
-                        source: DrawingSource::Filename("test.png".to_string()),
-                        pose: Pose {rot: Rotation::Yaw(Angle::Rad(0.0)), trans: [0.0, 0.0, 0.0]},
-                        marker: DrawingMarker,
-
-                });
-            println!("Spawning testing bundle with entity {:?}", e.id()); 
-        }
-    }
-    */
-    // Spawn it
     for (e, source, pose) in &new_drawings {
         let texture_path = match source {
             DrawingSource::Filename(name) => name
         };
-        println!("Texture path for entity {:?} is {}", e, texture_path);
+        // TODO texture path local to map file
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
-        let mesh = 
-            commands.entity(e).insert_bundle(PbrBundle {
-            mesh: meshes.add(Mesh::from(shape::Cube { size: 1000.0 })),
-            material: materials.add(StandardMaterial {
-                    //base_color_texture: Some(texture_handle),
-                    base_color: Color::rgb(1.0, 0.3, 0.3).into(),
-                    ..default()
-                }),
-            ..default()
-        });
+        (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
     }
 }
 
-// TODO implement
-pub fn update_changed_drawing(
-    mut commands: Commands,
-    // TODO change detection instead of only detecting drawing marker
-    changed_drawings: Query<(Entity, &DrawingSource, &Pose), With<DrawingMarker>>,
+// Asset event handler for loaded drawings
+pub fn handle_loaded_drawing(mut commands: Commands,
+    mut ev_asset: EventReader<AssetEvent<Image>>,
+    mut assets: ResMut<Assets<Image>>,
+    mut loading_drawings: ResMut<LoadingDrawings>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-
+    for ev in ev_asset.iter() {
+        if let AssetEvent::Created { handle } = ev {
+            if let Some((entity, pose)) = (*loading_drawings).0.get(handle) {
+                let img = assets.get(handle).unwrap();
+                let width = img.texture_descriptor.size.width as f32;
+                let height = img.texture_descriptor.size.height as f32;
+                let aspect_ratio = width / height;
+                // TODO pixel per meter conversion to set scale
+                let mut mesh = Mesh::from(make_flat_rectangle_mesh(10.0, 10.0 * aspect_ratio));
+                let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]].into_iter().cycle().take(8).collect();
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                commands.entity(entity.clone()).insert_bundle(PbrBundle {
+                    mesh: meshes.add(mesh),
+                    material: materials.add(StandardMaterial {
+                            base_color_texture: Some(handle.clone()),
+                            ..default()
+                        }),
+                    // TODO Set Z to avoid z fighting on ground plane
+                    transform: pose.transform(),
+                    ..default()
+                })
+                .insert(Selectable::new(*entity))
+                .insert(Category("Drawing".to_string()));
+            }
+        }
+    }
 }

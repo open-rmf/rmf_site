@@ -646,11 +646,15 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
 }
 
 pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
+    return make_flat_rectangle_mesh(extent, extent);
+}
+
+pub(crate) fn make_flat_rectangle_mesh(width: f32, height: f32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = [
-        [-extent, -extent, 0.],
-        [extent, -extent, 0.],
-        [extent, extent, 0.],
-        [-extent, extent, 0.],
+        [-width, -height, 0.],
+        [width, -height, 0.],
+        [width, height, 0.],
+        [-width, height, 0.],
     ]
     .into_iter()
     .cycle()
