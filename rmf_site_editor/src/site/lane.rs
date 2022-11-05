@@ -78,7 +78,7 @@ pub fn add_lane_visuals(
             let is_visible = should_display_lane(
                 new_lane,
                 &computed_visibility,
-                cursor.as_ref().map(|c| c.anchor_placement),
+                cursor.as_ref().map(|c| c.level_anchor_placement),
             );
 
             let mut commands = commands.entity(e);
@@ -162,7 +162,7 @@ pub fn update_changed_lane(
         let is_visible = should_display_lane(
             lane,
             &computed_visibility,
-            cursor.as_ref().map(|c| c.anchor_placement),
+            cursor.as_ref().map(|c| c.level_anchor_placement),
         );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
@@ -197,7 +197,7 @@ pub fn update_visibility_for_lanes(
             let is_visible = should_display_lane(
                 edge,
                 &computed_visibility,
-                cursor.as_ref().map(|c| c.anchor_placement),
+                cursor.as_ref().map(|c| c.level_anchor_placement),
             );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;

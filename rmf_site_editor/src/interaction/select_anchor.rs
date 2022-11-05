@@ -482,7 +482,7 @@ impl Placement for EdgePlacement {
                     }
                 }
 
-                let anchors = Edge::new(anchor_selection.entity(), params.cursor.anchor_placement);
+                let anchors = Edge::new(anchor_selection.entity(), params.cursor.level_anchor_placement);
                 let target = (*self.create)(params, anchors);
                 for anchor in anchors.array() {
                     params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
@@ -1141,7 +1141,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
     fn cleanup(&mut self) {
         self.cursor
             .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
-        set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
+        set_visibility(self.cursor.site_anchor_placement, &mut self.visibility, false);
+        set_visibility(self.cursor.level_anchor_placement, &mut self.visibility, false);
     }
 }
 
@@ -1619,7 +1620,12 @@ pub fn handle_select_anchor_mode(
         }
 
         /// Make the anchor placement component of the cursor visible
-        set_visibility(params.cursor.anchor_placement, &mut params.visibility, true);
+        if request.site_scope() {
+            println!("Setting site anchor placement visibile to true!");
+            set_visibility(params.cursor.site_anchor_placement, &mut params.visibility, true);
+        } else {
+            set_visibility(params.cursor.level_anchor_placement, &mut params.visibility, true);
+        }
 
         // If we are creating a new object, then we should deselect anything
         // that might be currently selected.
@@ -1730,7 +1736,7 @@ pub fn handle_select_anchor_mode(
             *mode = InteractionMode::SelectAnchor(request);
         } else {
             // Offer a preview based on the current hovering status
-            let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
+            let hovered = hovering.0.unwrap_or(params.cursor.level_anchor_placement);
             let current = request
                 .target
                 .map(|target| request.placement.current(target, &params))
