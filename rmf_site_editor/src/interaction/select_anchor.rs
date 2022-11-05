@@ -17,7 +17,10 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending},
+    site::{
+        Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending,
+        CurrentSite,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
@@ -1154,6 +1157,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1162,6 +1166,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1170,6 +1175,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1178,6 +1184,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Door<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1186,6 +1193,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::Site,
         }
     }
 }
@@ -1201,6 +1209,7 @@ impl SelectAnchorPointBuilder {
             target: self.for_element,
             placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 }
@@ -1217,11 +1226,27 @@ impl SelectAnchorPathBuilder {
             target: self.for_element,
             placement: PathPlacement::new::<Floor<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 }
 
 type PlacementArc = Arc<dyn Placement + Send + Sync>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Scope {
+    General,
+    Site,
+}
+
+impl Scope {
+    pub fn is_site(&self) -> bool {
+        match self {
+            Scope::Site => true,
+            _ => false,
+        }
+    }
+}
 
 /// This enum requests that the next selection should be an anchor, and that
 /// selection should be provided to one of the enumerated entities. When the
@@ -1232,9 +1257,14 @@ pub struct SelectAnchor {
     target: Option<Entity>,
     placement: PlacementArc,
     continuity: SelectAnchorContinuity,
+    scope: Scope,
 }
 
 impl SelectAnchor {
+    pub fn site_scope(&self) -> bool {
+        self.scope.is_site()
+    }
+
     pub fn replace_side(edge: Entity, side: Side) -> SelectAnchorEdgeBuilder {
         SelectAnchorEdgeBuilder {
             for_element: Some(edge),
@@ -1388,6 +1418,7 @@ impl SelectAnchor {
                         target: next_target,
                         placement: next_placement,
                         continuity: self.continuity,
+                        scope: self.scope,
                     });
                 }
             }
@@ -1405,6 +1436,7 @@ impl SelectAnchor {
                         // the previous continuity.
                         self.continuity.clone()
                     },
+                    scope: self.scope,
                 });
             }
         }
@@ -1443,6 +1475,7 @@ impl SelectAnchor {
                 target: Some(target),
                 placement: new_placement.clone(),
                 continuity: self.continuity,
+                scope: self.scope,
             });
         }
 
@@ -1456,6 +1489,7 @@ impl SelectAnchor {
             target: Some(target),
             placement: self.placement.clone(),
             continuity: self.continuity,
+            scope: self.scope,
         });
     }
 
@@ -1499,6 +1533,7 @@ impl SelectAnchor {
                             target: None,
                             placement: transition.placement.next,
                             continuity: SelectAnchorContinuity::InsertElement,
+                            scope: self.scope,
                         });
                     }
                 }
@@ -1507,6 +1542,7 @@ impl SelectAnchor {
                         target: None,
                         placement: transition.placement.next,
                         continuity: SelectAnchorContinuity::Continuous { previous: None },
+                        scope: self.scope,
                     });
                 }
             }
@@ -1541,6 +1577,7 @@ pub fn handle_select_anchor_mode(
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
+    site: Res<CurrentSite>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -1662,6 +1699,13 @@ pub fn handle_select_anchor_mode(
                 .commands
                 .spawn_bundle(AnchorBundle::at_transform(tf))
                 .id();
+            if request.scope.is_site() {
+                if let Some(site) = site.0 {
+                    params.commands.entity(site).add_child(new_anchor);
+                } else {
+                    panic!("No current site??");
+                }
+            }
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
                 Some(next_mode) => next_mode,

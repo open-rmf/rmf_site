@@ -20,7 +20,7 @@ use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
 pub struct CurrentSite(pub Option<Entity>);
 
 /// Used as an event to command that a new site should be made the current one
