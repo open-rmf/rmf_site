@@ -15,6 +15,8 @@
  *
 */
 
+use crate::site::SiteUpdateStage;
+
 pub mod anchor;
 pub use anchor::*;
 
@@ -60,9 +62,22 @@ pub enum InteractionState {
     Disable,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum InteractionUpdateStage {
+    /// Since parentage can have an effect on visuals, we should wait to add
+    /// the visuals until after any orphans have been assigned.
+    AddVisuals,
+}
+
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_state(InteractionState::Disable)
+            .add_stage_after(
+                SiteUpdateStage::AssignOrphans,
+                InteractionUpdateStage::AddVisuals,
+                SystemStage::parallel(),
+            )
+            .add_state_to_stage(InteractionUpdateStage::AddVisuals, InteractionState::Disable)
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
@@ -90,12 +105,9 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))
                     .with_system(maintain_selected_entities.after(maintain_hovered_entities))
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
-                    .with_system(add_anchor_visual_cues)
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
                     .with_system(remove_deleted_supports_from_visual_cues)
-                    .with_system(add_lane_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
-                    .with_system(add_misc_visual_cues)
                     .with_system(update_misc_visual_cues.after(maintain_selected_entities))
                     .with_system(update_drag_click_start.after(maintain_selected_entities))
                     .with_system(update_drag_release)
@@ -104,6 +116,13 @@ impl Plugin for InteractionPlugin {
                             .after(update_drag_click_start)
                             .after(update_drag_release),
                     ),
+            )
+            .add_system_set_to_stage(
+                InteractionUpdateStage::AddVisuals,
+                SystemSet::on_update(InteractionState::Enable)
+                    .with_system(add_anchor_visual_cues)
+                    .with_system(add_lane_visual_cues)
+                    .with_system(add_misc_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(

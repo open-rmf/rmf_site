@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{Anchor, Delete, SiteAssets},
+    site::{Anchor, Delete, SiteAssets, NameInSite, Category},
 };
 use bevy::prelude::*;
 
@@ -32,11 +32,18 @@ pub struct AnchorVisualCue {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<Entity, (Added<Anchor>, Without<Preview>)>,
+    new_anchors: Query<(Entity, &Parent), (Added<Anchor>, Without<Preview>)>,
+    categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for e in &new_anchors {
+    for (e, parent) in &new_anchors {
+        let body_mesh = match categories.get(parent.get()).unwrap() {
+            Category::Level => site_assets.level_anchor_mesh.clone(),
+            Category::Lift => site_assets.lift_anchor_mesh.clone(),
+            _ => site_assets.site_anchor_mesh.clone()
+        };
+
         let mut commands = commands.entity(e);
         let (dagger, halo, body) = commands.add_children(|parent| {
             let dagger = parent
@@ -63,14 +70,13 @@ pub fn add_anchor_visual_cues(
 
             let body = parent
                 .spawn_bundle(PbrBundle {
-                    mesh: site_assets.anchor_mesh.clone(),
+                    mesh: body_mesh,
                     material: site_assets.passive_anchor_material.clone(),
-                    transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
                     ..default()
                 })
                 .insert(Selectable::new(e))
                 .insert(DragPlane {
-                    in_plane: Vec3::new(0., 1., 0.),
+                    in_plane: Vec3::new(0., 0., 1.),
                 })
                 .insert(Draggable::new(e, None))
                 .id();

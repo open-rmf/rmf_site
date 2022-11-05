@@ -28,6 +28,7 @@ use std::collections::BTreeMap;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Category {
     General,
+    Site,
     Anchor,
     Door,
     Wall,
@@ -44,6 +45,7 @@ impl Category {
     pub fn label(&self) -> &'static str {
         match self {
             Self::General => "General",
+            Self::Site => "Site",
             Self::Anchor => "Anchor",
             Self::Door => "Door",
             Self::Wall => "Wall",

@@ -96,7 +96,7 @@ impl FromWorld for Cursor {
         let halo_material = interaction_assets.halo_material.clone();
         let dagger_mesh = interaction_assets.dagger_mesh.clone();
         let dagger_material = interaction_assets.dagger_material.clone();
-        let anchor_mesh = site_assets.anchor_mesh.clone();
+        let anchor_mesh = site_assets.level_anchor_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
 
         let halo = world

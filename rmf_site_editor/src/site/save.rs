@@ -608,18 +608,17 @@ fn generate_lifts(
                     name: name.clone(),
                     reference_anchors,
                     cabin: cabin.to_u32(&q_doors),
-                    level_doors: LevelDoors{
+                    level_doors: LevelDoors {
                         visit: level_visit_doors,
                         reference_anchors: level_doors_ref_anchors,
                     },
                     is_static: is_static.clone(),
-                    initial_level: InitialLevel({
-                        if let Some(initial_level) = initial_level.0 {
-                            Some(get_level_id(initial_level)?)
-                        } else {
-                            None
-                        }
-                    }),
+                    initial_level: InitialLevel(initial_level.0
+                        .map_or(
+                            Ok(None),
+                            |level| get_level_id(level).map(|id| Some(id)),
+                        )?
+                    ),
                 },
                 cabin_anchors,
             },

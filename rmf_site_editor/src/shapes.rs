@@ -369,15 +369,15 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
 
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
-        .take(resolution as usize - 1) // skip the vertex which would close the circle
+        .take(resolution as usize) // skip the vertex which would close the circle
         .chain([[0., 0., circle.height]].into_iter())
         .collect();
 
     let peak = positions.len() as u32 - 1;
-    let indices: Vec<u32> = (0..resolution - 1)
+    let indices: Vec<u32> = (0..=peak - 2)
         .into_iter()
         .flat_map(|i| [i, peak, i + 1].into_iter())
-        .chain([resolution - 1, peak, 0])
+        .chain([peak - 1, peak, 0])
         .collect();
 
     let normals: Vec<[f32; 3]> = [[0., 0., -1.]]
@@ -410,6 +410,23 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
         )))
         .merge_into(&mut mesh);
     return mesh;
+}
+
+pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
+    let top_circle = Circle{height, radius};
+    let mid_circle = Circle{height: 0.0, radius};
+    let bottom_circle = Circle{height: -height, radius};
+    let resolution = 32;
+    make_smooth_wrap([top_circle, bottom_circle], resolution).merge_with(
+        make_bottom_circle(mid_circle, resolution)
+        .transform_by(Affine3A::from_translation([0.0, 0., -height].into()))
+    ).merge_with(
+        make_bottom_circle(mid_circle, resolution)
+        .transform_by(
+            Affine3A::from_translation([0., 0., height].into())
+            * Affine3A::from_rotation_x(180_f32.to_radians())
+        )
+    )
 }
 
 pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
@@ -643,6 +660,16 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     .merge_into(&mut mesh);
 
     mesh
+}
+
+pub(crate) fn make_diamond(
+    tip: f32,
+    width: f32,
+) -> MeshBuffer {
+    make_pyramid(Circle{radius: width, height: 0.0}, [0.0, 0.0, tip], 4).merge_with(
+        make_pyramid(Circle{radius: width, height: 0.0}, [0.0, 0.0, tip], 4)
+        .transform_by(Affine3A::from_rotation_x(180_f32.to_radians()))
+    )
 }
 
 pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {

@@ -47,6 +47,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         visibility: Visibility { is_visible: false },
         ..default()
     })
+    .insert(Category::Site)
     .insert(site_data.properties.clone())
     .with_children(|site| {
         for (anchor_id, anchor) in &site_data.anchors {

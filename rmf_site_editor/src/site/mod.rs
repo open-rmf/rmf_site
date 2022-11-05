@@ -94,7 +94,7 @@ pub enum SiteUpdateLabel {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum SiteCustomStage {
+pub enum SiteUpdateStage {
     /// We need a custom stage for assigning orphan elements because the
     /// commands from CoreStage::Update need to flush before the AssignOrphan
     /// systems are run, and the AssignOrphan commands need to flush before the
@@ -106,15 +106,16 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state(SiteState::Off)
+        app
+            .add_state(SiteState::Off)
             .add_stage_after(
                 CoreStage::Update,
-                SiteCustomStage::AssignOrphans,
+                SiteUpdateStage::AssignOrphans,
                 SystemStage::parallel(),
             )
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
-            .add_state_to_stage(SiteCustomStage::AssignOrphans, SiteState::Off)
+            .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
@@ -150,7 +151,7 @@ impl Plugin for SitePlugin {
                     .with_system(change_site),
             )
             .add_system_set_to_stage(
-                SiteCustomStage::AssignOrphans,
+                SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphans_to_nav_graph),

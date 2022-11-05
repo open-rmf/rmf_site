@@ -16,7 +16,7 @@
 */
 
 use crate::{shapes::*, site::*};
-use bevy::prelude::*;
+use bevy::{prelude::*, math::Affine3A};
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
@@ -31,7 +31,9 @@ pub struct SiteAssets {
     pub select_material: Handle<StandardMaterial>,
     pub hover_select_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
-    pub anchor_mesh: Handle<Mesh>,
+    pub level_anchor_mesh: Handle<Mesh>,
+    pub lift_anchor_mesh: Handle<Mesh>,
+    pub site_anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
@@ -89,21 +91,26 @@ impl FromWorld for SiteAssets {
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let anchor_mesh = meshes.add(Mesh::from(shape::Capsule {
+        let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
             radius: 0.15, // TODO(MXG): Make the vertex radius configurable
-            rings: 2,
-            depth: 0.05,
-            latitudes: 8,
-            longitudes: 16,
-            uv_profile: shape::CapsuleUvProfile::Fixed,
+            ..Default::default()
         }));
+        let lift_anchor_mesh = meshes.add(Mesh::from(
+            make_diamond(0.15/2.0, 0.15)
+            .transform_by(Affine3A::from_translation([0.0, 0.0, 0.15/2.0].into()))
+        ));
+        let site_anchor_mesh = meshes.add(Mesh::from(
+            make_cylinder(0.15, 0.15)
+        ));
         let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
-            anchor_mesh,
+            level_anchor_mesh,
+            lift_anchor_mesh,
+            site_anchor_mesh,
             default_floor_material,
             lane_mid_mesh,
             lane_end_mesh,
