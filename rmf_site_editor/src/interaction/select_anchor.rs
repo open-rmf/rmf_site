@@ -19,7 +19,7 @@ use crate::{
     interaction::*,
     site::{
         Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending,
-        CurrentSite,
+        CurrentSite, Category,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -1194,6 +1194,17 @@ impl SelectAnchorEdgeBuilder {
             placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
             scope: Scope::Site,
+        }
+    }
+
+    pub fn for_category(self, category: Category) -> Option<SelectAnchor> {
+        match category {
+            Category::Lane => Some(self.for_lane()),
+            Category::Measurement => Some(self.for_measurement()),
+            Category::Wall => Some(self.for_wall()),
+            Category::Door => Some(self.for_door()),
+            Category::Lift => Some(self.for_lift()),
+            _ => None,
         }
     }
 }

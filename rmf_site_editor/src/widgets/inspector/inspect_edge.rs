@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, InteractionMode, SelectAnchor},
-    site::{EdgeLabels, Original, SiteID},
+    site::{EdgeLabels, Original, SiteID, Category},
     widgets::{
         inspector::{InspectAnchorParams, InspectAnchorWidget},
         AppEvents,
@@ -29,6 +29,7 @@ use rmf_site_format::{Edge, Side};
 
 pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub entity: Entity,
+    pub category: &'a Category,
     pub edge: &'a Edge<Entity>,
     pub original: Option<&'a Original<Edge<Entity>>>,
     pub labels: Option<&'a EdgeLabels>,
@@ -39,6 +40,7 @@ pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
 impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         entity: Entity,
+        category: &'a Category,
         edge: &'a Edge<Entity>,
         original: Option<&'a Original<Edge<Entity>>>,
         labels: Option<&'a EdgeLabels>,
@@ -47,6 +49,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     ) -> Self {
         Self {
             entity,
+            category,
             edge,
             original,
             labels,
@@ -93,11 +96,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .show(ui);
             ui.end_row();
             if start_response.replace {
-                self.events
-                    .change_mode
-                    .send(ChangeMode::To(InteractionMode::SelectAnchor(
-                        SelectAnchor::replace_side(self.entity, Side::Left).for_lane(),
-                    )));
+                if let Some(request) = SelectAnchor::replace_side(
+                    self.entity, Side::Left
+                ).for_category(*self.category) {
+                    self.events.change_mode.send(ChangeMode::To(request.into()));
+                }
             }
 
             ui.label(self.end_text());
@@ -107,11 +110,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .show(ui);
             ui.end_row();
             if end_response.replace {
-                self.events
-                    .change_mode
-                    .send(ChangeMode::To(InteractionMode::SelectAnchor(
-                        SelectAnchor::replace_side(self.entity, Side::Right).for_lane(),
-                    )));
+                if let Some(request) = SelectAnchor::replace_side(
+                    self.entity, Side::Right
+                ).for_category(*self.category) {
+                    self.events.change_mode.send(ChangeMode::To(request.into()));
+                }
             }
         });
     }
