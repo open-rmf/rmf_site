@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*};
+use crate::{interaction::Selectable, site::*, shapes::*};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
 
@@ -24,20 +24,16 @@ pub struct LiftSegments {
     pub cabin: Entity,
 }
 
-fn make_lift_transforms(
+fn make_lift_transform(
     reference_anchors: &Edge<Entity>,
-    cabin: &LiftCabin<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
-) -> (Transform, Transform) {
-    let start_anchor = anchors.get(reference_anchors.start()).unwrap();
-    let end_anchor = anchors.get(reference_anchors.end()).unwrap();
+    anchors: &Query<(&Anchor, &GlobalTransform)>,
+) -> Transform {
+    let p_start = Anchor::point_q(reference_anchors.start(), Category::Lift, anchors).unwrap();
+    let p_end = Anchor::point_q(reference_anchors.end(), Category::Lift, anchors).unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
-        (
-            start_anchor.translation(),
-            start_anchor.translation() + DEFAULT_CABIN_WIDTH * Vec3::Y,
-        )
+        (p_start, p_start + DEFAULT_CABIN_WIDTH * Vec3::Y)
     } else {
-        (start_anchor.translation(), end_anchor.translation())
+        (p_start, p_end)
     };
 
     let dp = p_start - p_end;
@@ -45,107 +41,129 @@ fn make_lift_transforms(
     let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start + p_end) / 2.0;
 
-    let lift_tf = Transform {
+    Transform {
         translation: Vec3::new(center.x, center.y, 0.),
         rotation: Quat::from_rotation_z(yaw),
         ..default()
-    };
+    }
 
-    let cabin_tf = match &cabin {
-        LiftCabin::Rect(params) => {
-            let Aabb {
-                center,
-                half_extents,
-            } = params.aabb();
-            Transform {
-                translation: center.into(),
-                scale: (2.0 * half_extents).into(),
-                ..default()
-            }
-        }
-        // LiftCabin::Model(_) => {
-        //     // TODO(MXG): Add proper support for model lifts
-        //     Transform::default()
-        // }
-    };
+    // let cabin_tf = match &cabin {
+    //     LiftCabin::Rect(params) => {
+    //         let Aabb {
+    //             center,
+    //             half_extents,
+    //         } = params.aabb();
+    //         Transform {
+    //             translation: center.into(),
+    //             scale: (2.0 * half_extents).into(),
+    //             ..default()
+    //         }
+    //     }
+    //     // LiftCabin::Model(_) => {
+    //     //     // TODO(MXG): Add proper support for model lifts
+    //     //     Transform::default()
+    //     // }
+    // };
 
-    (lift_tf, cabin_tf)
+    // (lift_tf, cabin_tf)
 }
 
-pub fn add_lift_visuals(
+pub fn add_tags_to_lift(
     mut commands: Commands,
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>), Added<LiftCabin<Entity>>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependents: Query<&mut AnchorDependents>,
-    assets: Res<SiteAssets>,
+    lifts: Query<Entity, Added<LiftCabin<Entity>>>,
 ) {
-    for (e, edge, cabin) in &lifts {
-        let (pose_tf, shape_tf) = make_lift_transforms(edge, cabin, &anchors);
-
-        let mut commands = commands.entity(e);
-        let child = commands.add_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.box_mesh.clone(),
-                    material: assets.door_body_material.clone(),
-                    transform: shape_tf,
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .id()
-        });
-
-        commands
-            .insert_bundle(SpatialBundle {
-                transform: pose_tf,
-                ..default()
-            })
-            .insert(LiftSegments { cabin: child })
+    for e in &lifts {
+        commands.entity(e)
             .insert(Category::Lift)
             .insert(EdgeLabels::LeftRight);
+    }
+}
 
-        for anchor in edge.array() {
-            let mut dep = dependents.get_mut(anchor).unwrap();
-            dep.dependents.insert(e);
+pub fn update_lift_cabin(
+    mut commands: Commands,
+    lifts: Query<(
+        Entity,
+        &LiftCabin<Entity>,
+        &LevelDoors<Entity>,
+        Option<&LiftSegments>
+    ), Or<(Changed<LiftCabin<Entity>>, Changed<LevelDoors<Entity>>)>>,
+    assets: Res<SiteAssets>,
+    mut meshes: ResMut<Assets<Mesh>>,
+) {
+    for (e, cabin, level_doors, segments) in &lifts {
+        // Despawn the previous cabin
+        if let Some(segments) = segments {
+            commands.entity(segments.cabin).despawn_recursive();
+        }
+        // else {
+        //     let mut lift_commands = commands.entity(e);
+        //     let cabin_entity = lift_commands.add_children(
+        //         |parent| {
+        //             parent.spawn_bundle(SpatialBundle::default())
+        //                 .insert(Selectable::new(e))
+        //                 .id()
+        //         }
+        //     );
+
+        //     lift_commands.insert(LiftSegments { cabin: cabin_entity });
+        // }
+
+        match cabin {
+            LiftCabin::Rect(params) => {
+                let Aabb { center, half_extents } = params.aabb();
+                let cabin_tf = Transform::from_translation(center.into());
+                let floor_mesh: Mesh = make_flat_rect_mesh(params.depth, params.width).into();
+                let wall_mesh: Mesh = params.cabin_wall_coordinates().into_iter().map(
+                    |wall| {
+                        make_wall_mesh(wall[0], wall[1], params.thickness(), DEFAULT_LEVEL_HEIGHT/3.0)
+                    }
+                ).fold(MeshBuffer::default(), |sum, next| {
+                    sum.merge_with(next)
+                }).into();
+
+                let cabin_entity = commands
+                    .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
+                    .with_children(|parent| {
+                        parent.spawn_bundle(PbrBundle {
+                            mesh: meshes.add(floor_mesh),
+                            material: assets.default_floor_material.clone(),
+                            ..default()
+                        });
+
+                        parent.spawn_bundle(PbrBundle {
+                            mesh: meshes.add(wall_mesh),
+                            material: assets.lift_wall_material.clone(),
+                            ..default()
+                        });
+                    })
+                    .id();
+
+                commands.entity(e)
+                    .insert(LiftSegments{ cabin: cabin_entity })
+                    .add_child(cabin_entity);
+            }
         }
     }
 }
 
-fn update_lift_visuals(
-    entity: Entity,
-    edge: &Edge<Entity>,
-    cabin: &LiftCabin<Entity>,
-    segments: &LiftSegments,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
-    transforms: &mut Query<&mut Transform>,
+pub fn update_lift_edge(
+    mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), (Changed<Edge<Entity>>, With<LiftCabin<Entity>>)>,
+    anchors: Query<(&Anchor, &GlobalTransform)>,
 ) {
-    let (pose_tf, shape_tf) = make_lift_transforms(edge, cabin, anchors);
-    let mut lift_transform = transforms.get_mut(entity).unwrap();
-    *lift_transform = pose_tf;
-    let mut cabin_transform = transforms.get_mut(segments.cabin).unwrap();
-    *cabin_transform = shape_tf;
-}
-
-pub fn update_changed_lift(
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>, &LiftSegments), Changed<Edge<Entity>>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut transforms: Query<&mut Transform>,
-) {
-    for (entity, edge, cabin, segments) in &lifts {
-        update_lift_visuals(entity, edge, cabin, segments, &anchors, &mut transforms);
+    for (e, edge, mut tf) in &mut lifts {
+        *tf = make_lift_transform(edge, &anchors);
     }
 }
 
-pub fn update_lift_for_changed_anchor(
-    lifts: Query<(Entity, &Edge<Entity>, &LiftCabin<Entity>, &LiftSegments)>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+pub fn update_lift_for_moved_anchors(
+    mut lifts: Query<(&Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
+    anchors: Query<(&Anchor, &GlobalTransform)>,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
-    mut transforms: Query<&mut Transform>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((entity, edge, cabin, segments)) = lifts.get(*dependent).ok() {
-                update_lift_visuals(entity, edge, cabin, segments, &anchors, &mut transforms);
+            if let Ok((edge, mut tf)) = lifts.get_mut(*dependent) {
+                *tf = make_lift_transform(edge, &anchors);
             }
         }
     }

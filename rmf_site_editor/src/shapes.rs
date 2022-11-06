@@ -19,6 +19,7 @@ use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
+    render::mesh::shape::Box,
 };
 use rmf_site_format::Angle;
 
@@ -28,20 +29,42 @@ pub(crate) struct MeshBuffer {
     normals: Vec<[f32; 3]>,
     indices: Vec<u32>,
     outline: Vec<u32>,
+    uv: Option<Vec<[f32; 2]>>,
 }
 
 impl MeshBuffer {
     pub(crate) fn new(positions: Vec<[f32; 3]>, normals: Vec<[f32; 3]>, indices: Vec<u32>) -> Self {
+        if positions.len() != normals.len() {
+            panic!(
+                "Inconsistent positions {} vs normals {}",
+                positions.len(),
+                normals.len(),
+            );
+        }
+
         Self {
             positions,
             normals,
             indices,
             outline: Vec::new(),
+            uv: None,
         }
     }
 
     pub(crate) fn with_outline(mut self, outline: Vec<u32>) -> Self {
         self.outline = outline;
+        self
+    }
+
+    pub(crate) fn with_uv(mut self, uv: Vec<[f32; 2]>) -> Self {
+        if uv.len() != self.positions.len() {
+            panic!(
+                "Inconsistent positions {} vs uv {}",
+                self.positions.len(),
+                uv.len()
+            );
+        }
+        self.uv = Some(uv);
         self
     }
 
@@ -65,6 +88,15 @@ impl MeshBuffer {
             .extend(other.outline.into_iter().map(|i| i + offset as u32));
         self.positions.extend(other.positions.into_iter());
         self.normals.extend(other.normals.into_iter());
+
+        // Only keep the UV property if both meshes contain it. Otherwise drop it.
+        if let (Some(mut uv), Some(other_uv)) = (self.uv, other.uv) {
+            uv.extend(other_uv);
+            self.uv = Some(uv);
+        } else {
+            self.uv = None;
+        }
+
         self
     }
 
@@ -119,10 +151,23 @@ impl MeshBuffer {
             } else {
                 panic!("Unsupported position type while merging mesh");
             }
+
+            if let Some(VertexAttributeValues::Float32x2(current_uvs)) =
+                mesh.attribute_mut(Mesh::ATTRIBUTE_UV_0)
+            {
+                if let Some(new_uvs) = self.uv {
+                    current_uvs.extend(new_uvs);
+                } else {
+                    panic!("Mesh needs UV values but the buffer does not have any!");
+                }
+            }
         } else {
             // The mesh currently has no positions in it (and should therefore have no normals or indices either)
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, self.positions);
             mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, self.normals);
+            if let Some(uv) = self.uv {
+                mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+            }
 
             match mesh.primitive_topology() {
                 PrimitiveTopology::TriangleList => {
@@ -161,6 +206,9 @@ impl From<MeshBuffer> for Mesh {
         mesh.set_indices(Some(Indices::U32(buffer.indices)));
         mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, buffer.positions);
         mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, buffer.normals);
+        if let Some(uv) = buffer.uv {
+            mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+        }
         mesh
     }
 }
@@ -365,6 +413,114 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     }
 
     return MeshBuffer::new(positions, normals, indices);
+}
+
+pub(crate) fn make_box(
+    x_extent: f32,
+    y_extent: f32,
+    z_extent: f32,
+) -> MeshBuffer {
+    let (min_x, max_x) = (-x_extent, x_extent);
+    let (min_y, max_y) = (-y_extent, y_extent);
+    let (min_z, max_z) = (-z_extent, z_extent);
+    let vertices = &[
+        // Top
+        ([min_x, min_y, max_z], [0., 0., 1.]),
+        ([max_x, min_y, max_z], [0., 0., 1.]),
+        ([max_x, max_y, max_z], [0., 0., 1.]),
+        ([min_x, max_y, max_z], [0., 0., 1.]),
+        // Bottom
+        ([min_x, max_y, min_z], [0., 0., -1.]),
+        ([max_x, max_y, min_z], [0., 0., -1.]),
+        ([max_x, min_y, min_z], [0., 0., -1.]),
+        ([min_x, min_y, min_z], [0., 0., -1.]),
+        // Right
+        ([max_x, min_y, min_z], [1., 0., 0.]),
+        ([max_x, max_y, min_z], [1., 0., 0.]),
+        ([max_x, max_y, max_z], [1., 0., 0.]),
+        ([max_x, min_y, max_z], [1., 0., 0.]),
+        // Left
+        ([min_x, min_y, max_z], [-1., 0., 0.]),
+        ([min_x, max_y, max_z], [-1., 0., 0.]),
+        ([min_x, max_y, min_z], [-1., 0., 0.]),
+        ([min_x, min_y, min_z], [-1., 0., 0.]),
+        // Front
+        ([max_x, max_y, min_z], [0., 1., 0.]),
+        ([min_x, max_y, min_z], [0., 1., 0.]),
+        ([min_x, max_y, max_z], [0., 1., 0.]),
+        ([max_x, max_y, max_z], [0., 1., 0.]),
+        // Back
+        ([max_x, min_y, max_z], [0., -1., 0.]),
+        ([min_x, min_y, max_z], [0., -1., 0.]),
+        ([min_x, min_y, min_z], [0., -1., 0.]),
+        ([max_x, min_y, min_z], [0., -1., 0.]),
+    ];
+
+    let positions: Vec<_> = vertices.iter().map(|(p, _)| *p).collect();
+    let normals: Vec<_> = vertices.iter().map(|(p, _)| *p).collect();
+    let indices = vec![
+        0, 1, 2, 2, 3, 0, // Top
+        4, 5, 6, 6, 7, 4, // Bottom
+        8, 9, 10, 10, 11, 8, // Right
+        12, 13, 14, 14, 15, 12, // Left
+        16, 17, 18, 18, 19, 16, // Front
+        20, 21, 22, 22, 23, 20, // Back
+    ];
+
+    MeshBuffer::new(positions, normals, indices)
+}
+
+pub(crate) fn make_wall_mesh(
+    p_start: Vec3,
+    p_end: Vec3,
+    thickness: f32,
+    height: f32,
+) -> MeshBuffer {
+    let dp = p_end - p_start;
+    let length = dp.length();
+    let yaw = dp.y.atan2(dp.x);
+    let center = (p_start + p_end) / 2.0;
+
+    // The default UV coordinates made by bevy do not work well for walls,
+    // so we customize them here
+    let uv = vec![
+        // Top
+        [0., 0.], // 0
+        [0., 0.], // 1
+        [0., 0.], // 2
+        [0., 0.], // 3
+        // Bottom
+        [0., 1.], // 4
+        [0., 1.], // 5
+        [0., 1.], // 6
+        [0., 1.], // 7
+        // Right
+        [length, 1.], // 8
+        [0., 1.],     // 9
+        [0., 0.],     // 10
+        [length, 0.], // 11
+        // Left
+        [0., 0.],     // 12
+        [length, 0.], // 13
+        [length, 1.], // 14
+        [0., 1.],     // 15
+        // Front
+        [0., 1.],     // 16
+        [length, 1.], // 17
+        [length, 0.], // 18
+        [0., 0.],     // 19
+        // Back
+        [length, 0.], // 20
+        [0., 0.],     // 21
+        [0., 1.],     // 22
+        [length, 1.], // 23
+    ];
+    make_box(length/2.0, thickness/2.0, height/2.0)
+        .with_uv(uv)
+        .transform_by(
+            Affine3A::from_translation(Vec3::new(center.x, center.y, height/2.0))
+            * Affine3A::from_rotation_z(yaw)
+        )
 }
 
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
@@ -672,12 +828,12 @@ pub(crate) fn make_diamond(
     )
 }
 
-pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
+pub(crate) fn make_flat_rect_mesh(x_extent: f32, y_extent: f32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = [
-        [-extent, -extent, 0.],
-        [extent, -extent, 0.],
-        [extent, extent, 0.],
-        [-extent, extent, 0.],
+        [-x_extent, -y_extent, 0.],
+        [x_extent, -y_extent, 0.],
+        [x_extent, y_extent, 0.],
+        [-x_extent, y_extent, 0.],
     ]
     .into_iter()
     .cycle()
@@ -694,6 +850,10 @@ pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
         .collect();
 
     return MeshBuffer::new(positions, normals, indices);
+}
+
+pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
+    make_flat_rect_mesh(extent, extent)
 }
 
 pub(crate) fn make_halo_mesh() -> Mesh {

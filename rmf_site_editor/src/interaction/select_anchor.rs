@@ -1619,7 +1619,7 @@ pub fn handle_select_anchor_mode(
                 .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
 
-        /// Make the anchor placement component of the cursor visible
+        // Make the anchor placement component of the cursor visible
         if request.site_scope() {
             println!("Setting site anchor placement visibile to true!");
             set_visibility(params.cursor.site_anchor_placement, &mut params.visibility, true);

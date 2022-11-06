@@ -171,9 +171,10 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(update_visibility_for_lanes)
-                    .with_system(add_lift_visuals)
-                    .with_system(update_changed_lift)
-                    .with_system(update_lift_for_changed_anchor)
+                    .with_system(add_tags_to_lift)
+                    .with_system(update_lift_cabin)
+                    .with_system(update_lift_edge)
+                    .with_system(update_lift_for_moved_anchors)
                     .with_system(add_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
@@ -182,8 +183,8 @@ impl Plugin for SitePlugin {
                     .with_system(make_models_selectable)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
-                    .with_system(update_changed_wall)
-                    .with_system(update_wall_for_changed_anchor)
+                    .with_system(update_wall_edge)
+                    .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses),
             );
     }

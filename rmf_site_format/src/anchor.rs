@@ -20,8 +20,9 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{Component, Transform, GlobalTransform},
+    prelude::{Component, Transform, GlobalTransform, Query, Entity},
     math::{Vec2, Vec3, Affine3A},
+    ecs::query::QueryEntityError,
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -49,6 +50,15 @@ impl Anchor {
 
 #[cfg(feature = "bevy")]
 impl Anchor {
+    pub fn point_q(
+        entity: Entity,
+        category: Category,
+        q: &Query<(&Anchor, &GlobalTransform)>
+    ) -> Result<Vec3, QueryEntityError> {
+        let (anchor, tf) = q.get(entity)?;
+        Ok(anchor.point(category, tf))
+    }
+
     pub fn point(&self, category: Category, tf: &GlobalTransform) -> Vec3 {
         match category {
             Category::General => {

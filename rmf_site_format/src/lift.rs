@@ -18,7 +18,7 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
-    math::Vec3A,
+    math::{Vec3, Vec3A},
     prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With},
     render::primitives::Aabb,
 };
@@ -210,22 +210,34 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         self.shift.unwrap_or(0.0)
     }
 
-    pub fn doors(&self) -> [&Option<LiftCabinDoorPlacement<T>>; 4] {
+    pub fn doors(&self) -> [(&Option<LiftCabinDoorPlacement<T>>, Vec3, Vec3); 4] {
         [
-            &self.front_door,
-            &self.back_door,
-            &self.left_door,
-            &self.right_door,
+            (&self.front_door, Vec3::X, Vec3::Y),
+            (&self.back_door, Vec3::NEG_X, Vec3::NEG_Y),
+            (&self.left_door, Vec3::Y, Vec3::NEG_X),
+            (&self.right_door, Vec3::NEG_Y, Vec3::X),
         ]
     }
 
-    pub fn doors_mut(&self) -> [&Option<LiftCabinDoorPlacement<T>>; 4] {
-        [
-            &self.front_door,
-            &self.back_door,
-            &self.left_door,
-            &self.right_door,
-        ]
+    pub fn cabin_wall_coordinates(&self) -> Vec<[Vec3; 2]> {
+        let n = Vec3::new(
+            self.depth/2.0 + self.thickness()/2.0,
+            self.width/2.0 + self.thickness()/2.0,
+            0.0,
+        );
+        self.doors().into_iter().flat_map(
+            |(params, u, v)| {
+                let start = n.dot(u)*u + n.dot(v)*v;
+                let end = n.dot(u)*u - n.dot(v)*v;
+                if let Some(params) = params {
+                    let door_left = n.dot(u)*u + params.left_coordinate()*v;
+                    let door_right = n.dot(u)*u + params.right_coordinate()*v;
+                    vec![[start, door_left], [door_right, end]]
+                } else {
+                    vec![[start, end]]
+                }
+            }
+        ).collect()
     }
 }
 
@@ -389,5 +401,15 @@ impl LiftCabinDoorPlacement<Entity> {
             shifted: self.shifted,
             custom_gap: self.custom_gap,
         }
+    }
+}
+
+impl<T: RefTrait> LiftCabinDoorPlacement<T> {
+    pub fn left_coordinate(&self) -> f32 {
+        self.width/2.0 + self.shifted.unwrap_or(0.0)
+    }
+
+    pub fn right_coordinate(&self) -> f32 {
+        -self.width/2.0 + self.shifted.unwrap_or(0.0)
     }
 }

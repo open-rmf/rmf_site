@@ -35,6 +35,7 @@ pub struct SiteAssets {
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
+    pub lift_wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
     pub translucent_white: Handle<StandardMaterial>,
@@ -66,6 +67,11 @@ impl FromWorld for SiteAssets {
         let wall_material = materials.add(StandardMaterial {
             base_color_texture: Some(wall_texture),
             unlit: false,
+            ..default()
+        });
+        let lift_wall_material = materials.add(StandardMaterial {
+            base_color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+            perceptual_roughness: 0.3,
             ..default()
         });
         let default_floor_material = materials.add(StandardMaterial {
@@ -124,6 +130,7 @@ impl FromWorld for SiteAssets {
             passive_anchor_material,
             preview_anchor_material,
             wall_material,
+            lift_wall_material,
             door_body_material,
             translucent_black,
             translucent_white,
