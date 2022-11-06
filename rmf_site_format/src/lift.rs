@@ -227,8 +227,10 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         );
         self.doors().into_iter().flat_map(
             |(params, u, v)| {
-                let start = n.dot(u)*u + n.dot(v)*v;
-                let end = n.dot(u)*u - n.dot(v)*v;
+                let du = n.dot(u).abs();
+                let dv = n.dot(v).abs() + self.thickness()/2.0;
+                let start = u*du + v*dv;
+                let end = u*du - v*dv;
                 if let Some(params) = params {
                     let door_left = n.dot(u)*u + params.left_coordinate()*v;
                     let door_right = n.dot(u)*u + params.right_coordinate()*v;

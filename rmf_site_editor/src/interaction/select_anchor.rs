@@ -1621,7 +1621,6 @@ pub fn handle_select_anchor_mode(
 
         // Make the anchor placement component of the cursor visible
         if request.site_scope() {
-            println!("Setting site anchor placement visibile to true!");
             set_visibility(params.cursor.site_anchor_placement, &mut params.visibility, true);
         } else {
             set_visibility(params.cursor.level_anchor_placement, &mut params.visibility, true);

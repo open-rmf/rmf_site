@@ -457,7 +457,7 @@ pub(crate) fn make_box(
     ];
 
     let positions: Vec<_> = vertices.iter().map(|(p, _)| *p).collect();
-    let normals: Vec<_> = vertices.iter().map(|(p, _)| *p).collect();
+    let normals: Vec<_> = vertices.iter().map(|(_, n)| *n).collect();
     let indices = vec![
         0, 1, 2, 2, 3, 0, // Top
         4, 5, 6, 6, 7, 4, // Bottom
@@ -828,12 +828,14 @@ pub(crate) fn make_diamond(
     )
 }
 
-pub(crate) fn make_flat_rect_mesh(x_extent: f32, y_extent: f32) -> MeshBuffer {
+pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
+    let x = x_size/2.0;
+    let y = y_size/2.0;
     let positions: Vec<[f32; 3]> = [
-        [-x_extent, -y_extent, 0.],
-        [x_extent, -y_extent, 0.],
-        [x_extent, y_extent, 0.],
-        [-x_extent, y_extent, 0.],
+        [-x, -y, 0.],
+        [x, -y, 0.],
+        [x, y, 0.],
+        [-x, y, 0.],
     ]
     .into_iter()
     .cycle()

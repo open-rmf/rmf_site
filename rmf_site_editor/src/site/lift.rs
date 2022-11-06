@@ -46,36 +46,23 @@ fn make_lift_transform(
         rotation: Quat::from_rotation_z(yaw),
         ..default()
     }
-
-    // let cabin_tf = match &cabin {
-    //     LiftCabin::Rect(params) => {
-    //         let Aabb {
-    //             center,
-    //             half_extents,
-    //         } = params.aabb();
-    //         Transform {
-    //             translation: center.into(),
-    //             scale: (2.0 * half_extents).into(),
-    //             ..default()
-    //         }
-    //     }
-    //     // LiftCabin::Model(_) => {
-    //     //     // TODO(MXG): Add proper support for model lifts
-    //     //     Transform::default()
-    //     // }
-    // };
-
-    // (lift_tf, cabin_tf)
 }
 
 pub fn add_tags_to_lift(
     mut commands: Commands,
-    lifts: Query<Entity, Added<LiftCabin<Entity>>>,
+    lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
+    mut dependents: Query<&mut AnchorDependents>,
 ) {
-    for e in &lifts {
+    for (e, edge) in &lifts {
         commands.entity(e)
             .insert(Category::Lift)
             .insert(EdgeLabels::LeftRight);
+
+        for anchor in edge.array() {
+            if let Ok(mut dep) = dependents.get_mut(anchor) {
+                dep.dependents.insert(e);
+            }
+        }
     }
 }
 
@@ -95,23 +82,11 @@ pub fn update_lift_cabin(
         if let Some(segments) = segments {
             commands.entity(segments.cabin).despawn_recursive();
         }
-        // else {
-        //     let mut lift_commands = commands.entity(e);
-        //     let cabin_entity = lift_commands.add_children(
-        //         |parent| {
-        //             parent.spawn_bundle(SpatialBundle::default())
-        //                 .insert(Selectable::new(e))
-        //                 .id()
-        //         }
-        //     );
-
-        //     lift_commands.insert(LiftSegments { cabin: cabin_entity });
-        // }
 
         match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, half_extents } = params.aabb();
-                let cabin_tf = Transform::from_translation(center.into());
+                let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
                 let floor_mesh: Mesh = make_flat_rect_mesh(params.depth, params.width).into();
                 let wall_mesh: Mesh = params.cabin_wall_coordinates().into_iter().map(
                     |wall| {
@@ -124,17 +99,21 @@ pub fn update_lift_cabin(
                 let cabin_entity = commands
                     .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
                     .with_children(|parent| {
-                        parent.spawn_bundle(PbrBundle {
-                            mesh: meshes.add(floor_mesh),
-                            material: assets.default_floor_material.clone(),
-                            ..default()
-                        });
+                        parent
+                            .spawn_bundle(PbrBundle {
+                                mesh: meshes.add(floor_mesh),
+                                material: assets.default_floor_material.clone(),
+                                ..default()
+                            })
+                            .insert(Selectable::new(e));
 
-                        parent.spawn_bundle(PbrBundle {
-                            mesh: meshes.add(wall_mesh),
-                            material: assets.lift_wall_material.clone(),
-                            ..default()
-                        });
+                        parent
+                            .spawn_bundle(PbrBundle {
+                                mesh: meshes.add(wall_mesh),
+                                material: assets.lift_wall_material.clone(),
+                                ..default()
+                            })
+                            .insert(Selectable::new(e));
                     })
                     .id();
 

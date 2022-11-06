@@ -217,8 +217,8 @@ pub fn add_door_visuals(
             .insert(Category::Door)
             .insert(EdgeLabels::LeftRight);
 
-        for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
+        for anchor in edge.array() {
+            if let Ok(mut dep) = dependents.get_mut(anchor) {
                 dep.dependents.insert(e);
             }
         }
