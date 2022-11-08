@@ -44,12 +44,13 @@ impl LaneSegments {
 
 fn should_display_lane(
     edge: &Edge<Entity>,
-    computed_visibility: &Query<&ComputedVisibility, With<Anchor>>,
-    anchor_placement: Option<Entity>,
+    parents: &Query<&Parent>,
+    levels: &Query<(), With<LevelProperties>>,
+    current_level: &Res<CurrentLevel>,
 ) -> bool {
     for anchor in edge.array() {
-        if let Ok(cv) = computed_visibility.get(anchor) {
-            if !cv.is_visible_in_hierarchy() && Some(anchor) != anchor_placement {
+        if let Ok(parent) = parents.get(anchor) {
+            if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
                 return false;
             }
         }
@@ -62,10 +63,11 @@ pub fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Edge<Entity>), Added<LaneMarker>>,
     transforms: Query<&GlobalTransform, With<Anchor>>,
-    computed_visibility: Query<&ComputedVisibility, With<Anchor>>,
+    parents: Query<&Parent>,
+    levels: Query<(), With<LevelProperties>>,
     mut dependents: Query<&mut AnchorDependents, With<Anchor>>,
     assets: Res<SiteAssets>,
-    cursor: Option<Res<Cursor>>,
+    current_level: Res<CurrentLevel>,
 ) {
     for (e, new_lane) in &lanes {
         for mut anchor in &new_lane.array() {
@@ -77,8 +79,9 @@ pub fn add_lane_visuals(
         if let Ok([start_anchor, end_anchor]) = transforms.get_many(new_lane.array()) {
             let is_visible = should_display_lane(
                 new_lane,
-                &computed_visibility,
-                cursor.as_ref().map(|c| c.level_anchor_placement),
+                &parents,
+                &levels,
+                &current_level,
             );
 
             let mut commands = commands.entity(e);
@@ -152,17 +155,19 @@ fn update_lane_visuals(
 pub fn update_changed_lane(
     mut lanes: Query<(&Edge<Entity>, &LaneSegments, &mut Visibility), Changed<Edge<Entity>>>,
     anchors: Query<&GlobalTransform, With<Anchor>>,
-    computed_visibility: Query<&ComputedVisibility, With<Anchor>>,
+    parents: Query<&Parent>,
+    levels: Query<(), With<LevelProperties>>,
     mut transforms: Query<&mut Transform>,
-    cursor: Option<Res<Cursor>>,
+    current_level: Res<CurrentLevel>,
 ) {
     for (lane, segments, mut visibility) in &mut lanes {
         update_lane_visuals(lane, segments, &anchors, &mut transforms);
 
         let is_visible = should_display_lane(
             lane,
-            &computed_visibility,
-            cursor.as_ref().map(|c| c.level_anchor_placement),
+            &parents,
+            &levels,
+            &current_level,
         );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
@@ -188,16 +193,17 @@ pub fn update_lane_for_moved_anchor(
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
     mut lanes: Query<(&Edge<Entity>, &mut Visibility), With<LaneMarker>>,
-    computed_visibility: Query<&ComputedVisibility, With<Anchor>>,
+    parents: Query<&Parent>,
+    levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
-    cursor: Option<Res<Cursor>>,
 ) {
     if current_level.is_changed() {
         for (edge, mut visibility) in &mut lanes {
             let is_visible = should_display_lane(
                 edge,
-                &computed_visibility,
-                cursor.as_ref().map(|c| c.level_anchor_placement),
+                &parents,
+                &levels,
+                &current_level,
             );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;

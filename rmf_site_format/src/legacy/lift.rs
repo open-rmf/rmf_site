@@ -60,7 +60,7 @@ impl Lift {
         };
         let (dx_0, dy_0) = rotate(d, w);
         let (dx_1, dy_1) = rotate(d, -w);
-        return [[x + dx_0, y + dy_0], [x + dx_1, y + dy_1]];
+        return dbg!([[x + dx_0, y + dy_0], [x + dx_1, y + dy_1]]);
     }
 
     pub fn to_site(

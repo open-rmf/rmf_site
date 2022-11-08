@@ -162,6 +162,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         for (lift_id, lift_data) in &site_data.lifts {
             site.spawn_bundle(SpatialBundle::default())
                 .insert(SiteID(*lift_id))
+                .insert(Category::Lift)
                 .with_children(|lift| {
                     for (anchor_id, anchor) in &lift_data.cabin_anchors {
                         let anchor_entity = lift

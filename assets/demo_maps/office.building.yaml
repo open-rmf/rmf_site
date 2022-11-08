@@ -235,18 +235,4 @@ levels:
       - [25, 38, {alpha: [3, 1], texture_name: [1, default]}]
       - [38, 24, {alpha: [3, 1], texture_name: [1, default]}]
       - [37, 38, {alpha: [3, 1], texture_name: [1, default]}]
-lifts:
-  main_lift:
-    x: -0.185
-    y: 5.511
-    yaw: -1.57079
-    depth: 1.895
-    width: 1.895
-    doors: {}
-    lowest_floor: L1
-    highest_floor: L1
-    initial_floor_name: L1
-    level_doors: {}
-    plugins: false
-    reference_floor_name: L1
 name: building

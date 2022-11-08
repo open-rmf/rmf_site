@@ -17,11 +17,11 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select},
-    site::{Change, SiteState, SiteUpdateLabel},
+    site::{Change, SiteState, SiteUpdateLabel, CurrentLevel},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, CollapsingHeader},
+    egui::{self, CollapsingHeader, ComboBox},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -71,6 +71,7 @@ pub struct AppEvents<'w, 's> {
     pub change_pose: EventWriter<'w, 's, Change<Pose>>,
     pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
+    pub current_level: ResMut<'w, CurrentLevel>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -97,6 +98,19 @@ fn standard_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                for (entity, level) in &inspector_params.levels {
+                                    if ui.radio(
+                                        Some(entity) == **events.current_level,
+                                        &level.name,
+                                    ).clicked() {
+                                        events.current_level.0 = Some(entity);
+                                    }
+                                }
                             });
                     });
                 });

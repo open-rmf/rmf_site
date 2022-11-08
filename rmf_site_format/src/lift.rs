@@ -232,8 +232,8 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
                 let start = u*du + v*dv;
                 let end = u*du - v*dv;
                 if let Some(params) = params {
-                    let door_left = n.dot(u)*u + params.left_coordinate()*v;
-                    let door_right = n.dot(u)*u + params.right_coordinate()*v;
+                    let door_left = u*du + params.left_coordinate()*v;
+                    let door_right = u*du + params.right_coordinate()*v;
                     vec![[start, door_left], [door_right, end]]
                 } else {
                     vec![[start, end]]

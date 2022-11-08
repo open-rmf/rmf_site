@@ -45,7 +45,8 @@ impl BuildingMap {
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
     fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
-        for (_, level) in map.levels.iter_mut() {
+        let mut tf_map: BTreeMap<String, (f64, f64, f64)> = Default::default();
+        for (level_name, level) in map.levels.iter_mut() {
             // todo: calculate scale and inter-level alignment
             let mut ofs_x = 0.0;
             let mut ofs_y = 0.0;
@@ -84,7 +85,18 @@ impl BuildingMap {
                 m.x = (m.x - ofs_x) * scale;
                 m.y = (-m.y - ofs_y) * scale;
             }
+
+            tf_map.insert(level_name.clone(), (ofs_x, ofs_y, scale));
         }
+
+        for (_, lift) in map.lifts.iter_mut() {
+            let (ofs_x, ofs_y, scale) = tf_map.get(&lift.reference_floor_name).unwrap();
+            dbg!(&lift.reference_floor_name, ofs_x, ofs_y, scale, lift.x, lift.y);
+            lift.x = (lift.x - *ofs_x) * scale;
+            lift.y = (-lift.y - *ofs_y) * scale;
+            dbg!(lift.x, lift.y);
+        }
+
         map.coordinate_system = CoordinateSystem::CartesianMeters;
         map
     }

@@ -85,6 +85,10 @@ impl Cursor {
     pub fn should_be_visible(&self) -> bool {
         !self.dependents.is_empty() || !self.modes.is_empty()
     }
+
+    pub fn is_placement_anchor(&self, entity: Entity) -> bool {
+        self.level_anchor_placement == entity || self.site_anchor_placement == entity
+    }
 }
 
 impl FromWorld for Cursor {

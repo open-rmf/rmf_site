@@ -36,6 +36,9 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
+pub mod level;
+pub use level::*;
+
 pub mod lift;
 pub use lift::*;
 
@@ -168,6 +171,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_changed_anchor)
                     .with_system(add_lane_visuals)
+                    .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(update_visibility_for_lanes)

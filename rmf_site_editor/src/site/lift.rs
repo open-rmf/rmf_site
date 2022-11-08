@@ -55,7 +55,6 @@ pub fn add_tags_to_lift(
 ) {
     for (e, edge) in &lifts {
         commands.entity(e)
-            .insert(Category::Lift)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
