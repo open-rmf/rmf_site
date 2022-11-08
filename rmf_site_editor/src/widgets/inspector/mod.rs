@@ -27,6 +27,9 @@ pub use inspect_door::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
+pub mod inspect_asset_source;
+pub use inspect_asset_source::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -82,6 +85,7 @@ pub struct InspectorParams<'w, 's> {
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
+    pub asset_sources: Query<'w, 's, (&'static DrawingSource, &'static RecallDrawingSource)>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -215,6 +219,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .change_door
                         .send(Change::new(new_door, selection));
                 }
+            }
+
+            if let Ok((source, recall)) = self.params.asset_sources.get(selection) {
+                if let Some(new_asset_source) = InspectAssetSource::new(source, recall).show(ui) {
+                    self.events
+                        .change_asset_source
+                        .send(Change::new(new_asset_source, selection));
+                }
+                ui.add_space(10.0);
             }
         } else {
             ui.label("Nothing selected");

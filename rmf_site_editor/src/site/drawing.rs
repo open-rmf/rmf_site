@@ -18,12 +18,13 @@
 use crate::{
     interaction::Selectable,
     shapes::{make_flat_square_mesh, make_flat_rectangle_mesh},
-    site::{Category, PreventDeletion},
+    site::{Category, CurrentSite, DefaultFile},
 };
 use bevy::{prelude::*};
 use bevy::utils::HashMap;
 use rmf_site_format::{Drawing, DrawingMarker, DrawingSource, Pose};
-use rmf_site_format::{Rotation, Angle};
+
+use std::path::PathBuf;
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
@@ -31,19 +32,35 @@ use rmf_site_format::{Rotation, Angle};
 #[derive(Default)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose)>);
 
+fn get_current_file_path(
+    current_site: Res<CurrentSite>,
+    site_files: Query<(Entity, &DefaultFile)>,
+) -> Option<PathBuf> {
+    let site_entity = (*current_site).0.unwrap();
+    let site_file = site_files.iter().find(| &el | el.0 == site_entity);
+    match site_file {
+        Some((_, file_path)) => Some(file_path.0.clone()),
+        None => None
+    }
+}
+
 pub fn add_drawing_visuals(
-    mut commands: Commands,
-    new_drawings: Query<(Entity, &DrawingSource, &Pose), Added<DrawingMarker>>,
+    new_drawings: Query<(Entity, &DrawingSource, &Pose), Added<DrawingSource>>,
     asset_server: Res<AssetServer>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut loading_drawings: ResMut<LoadingDrawings>,
+    current_site: Res<CurrentSite>,
+    site_files: Query<(Entity, &DefaultFile)>,
 ) {
+    let file_path = get_current_file_path(current_site, site_files);
+    if file_path.is_none() {
+        return;
+    }
     for (e, source, pose) in &new_drawings {
         let texture_path = match source {
-            DrawingSource::Filename(name) => name
+            DrawingSource::Filename(name) => {
+                file_path.as_ref().unwrap().with_file_name(name)
+            }
         };
-        // TODO texture path local to map file
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
     }
@@ -59,7 +76,7 @@ pub fn handle_loaded_drawing(mut commands: Commands,
 ) {
     for ev in ev_asset.iter() {
         if let AssetEvent::Created { handle } = ev {
-            if let Some((entity, pose)) = (*loading_drawings).0.get(handle) {
+            if let Some((entity, pose)) = (*loading_drawings).0.remove(handle) {
                 let img = assets.get(handle).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
@@ -78,9 +95,35 @@ pub fn handle_loaded_drawing(mut commands: Commands,
                     transform: pose.transform(),
                     ..default()
                 })
-                .insert(Selectable::new(*entity))
+                .insert(Selectable::new(entity))
                 .insert(Category("Drawing".to_string()));
             }
         }
+    }
+}
+
+pub fn update_drawing_visuals(
+    changed_drawings: Query<(Entity, &DrawingSource, &Pose), Changed<DrawingSource>>,
+    asset_server: Res<AssetServer>,
+    mut loading_drawings: ResMut<LoadingDrawings>,
+    current_site: Res<CurrentSite>,
+    site_files: Query<(Entity, &DefaultFile)>,
+) {
+    let file_path = get_current_file_path(current_site, site_files);
+    if file_path.is_none() {
+        return;
+    }
+    for (e, source, pose) in &changed_drawings {
+        let texture_path = match source {
+            DrawingSource::Filename(name) => name
+        };
+        /*
+        let texture_path = match texture_path.is_absolute() {
+            true => texture_path,
+            false => file_path.with_file_name(texture_path),
+        };
+        */
+        let texture_handle: Handle<Image> = asset_server.load(texture_path);
+        (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
     }
 }
