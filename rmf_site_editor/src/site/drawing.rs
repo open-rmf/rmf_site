@@ -57,7 +57,7 @@ pub fn add_drawing_visuals(
     }
     for (e, source, pose) in &new_drawings {
         let texture_path = match source {
-            AssetSource::Filename(name) => file_path.as_ref().unwrap().with_file_name(name),
+            AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings)
@@ -126,7 +126,7 @@ pub fn update_drawing_visuals(
     // hence it can be loaded straightaway
     for (e, source, pose) in &changed_drawings {
         let texture_path = match source {
-            AssetSource::Filename(name) => name,
+            AssetSource::Local(name) => name,
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings)

@@ -148,7 +148,7 @@ impl BuildingMap {
                 drawings.insert(
                     site_id.next().unwrap(),
                     SiteDrawing {
-                        source: AssetSource::Filename(level.drawing.filename.clone()),
+                        source: AssetSource::Local(level.drawing.filename.clone()),
                         pose: Pose::default(),
                         marker: DrawingMarker,
                     },

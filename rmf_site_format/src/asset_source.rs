@@ -23,20 +23,20 @@ use serde::{Deserialize, Serialize};
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum AssetSource {
-    Filename(String),
+    Local(String),
 }
 
 impl AssetSource {
     pub fn label(&self) -> &str {
         match self {
-            Self::Filename(_) => "Filename",
+            Self::Local(_) => "Local",
         }
     }
 }
 
 impl Default for AssetSource {
     fn default() -> Self {
-        AssetSource::Filename(String::new()).into()
+        AssetSource::Local(String::new()).into()
     }
 }
 
@@ -51,7 +51,7 @@ impl Recall for RecallAssetSource {
 
     fn remember(&mut self, source: &AssetSource) {
         match source {
-            AssetSource::Filename(name) => {
+            AssetSource::Local(name) => {
                 self.filename = Some(name.clone());
             }
         }
