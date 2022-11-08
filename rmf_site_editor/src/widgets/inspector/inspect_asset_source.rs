@@ -37,7 +37,7 @@ impl<'a> InspectAssetSource<'a> {
         let assumed_source = match self.source {
             DrawingSource::Filename(filename) => filename
         };
-        ui.vertical(|ui| {
+        ui.horizontal(|ui| {
             ui.label("Source");
             ComboBox::from_id_source("Asset Source")
                 .selected_text(new_source.label())
@@ -47,29 +47,24 @@ impl<'a> InspectAssetSource<'a> {
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
+                    ui.end_row();
                 });
-            match &mut new_source {
-                DrawingSource::Filename(name) => {
-                    Grid::new("asset_source_filename").show(ui, |ui| {
-                        ui.end_row();
-                        ui.label("filename");
-                        ui.text_edit_singleline(name);
-                        // Button to load from file
-                        if ui.button("Browse").clicked() {
-                            if let Some(file) = FileDialog::new().pick_file() {
-                                if let Some(src) = file.to_str() {
-                                    *name = String::from(src);
-                                }
-                            };
-                        }
-                        ui.end_row();
-
-                    });
-
-                }
+        });
+        match &mut new_source {
+            DrawingSource::Filename(name) => {
+                Grid::new("asset_source_filename").show(ui, |ui| {
+                    // Button to load from file
+                    if ui.button("Browse").clicked() {
+                        if let Some(file) = FileDialog::new().pick_file() {
+                            if let Some(src) = file.to_str() {
+                                *name = String::from(src);
+                            }
+                        };
+                    }
+                    ui.text_edit_singleline(name);
+                });
             }
-        })
-        .inner;
+        }
         if (&new_source != self.source) {
             Some(new_source)
         }
