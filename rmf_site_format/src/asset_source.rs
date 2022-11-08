@@ -70,4 +70,3 @@ pub struct Drawing {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct DrawingMarker;
-

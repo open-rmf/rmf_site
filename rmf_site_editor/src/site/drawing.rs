@@ -17,12 +17,12 @@
 
 use crate::{
     interaction::Selectable,
-    shapes::{make_flat_square_mesh, make_flat_rectangle_mesh},
+    shapes::{make_flat_rectangle_mesh, make_flat_square_mesh},
     site::{Category, CurrentSite, DefaultFile},
 };
-use bevy::{prelude::*};
+use bevy::prelude::*;
 use bevy::utils::HashMap;
-use rmf_site_format::{Drawing, DrawingMarker, AssetSource, Pose};
+use rmf_site_format::{AssetSource, Drawing, DrawingMarker, Pose};
 
 use std::path::PathBuf;
 
@@ -37,10 +37,10 @@ fn get_current_site_path(
     site_files: Query<(Entity, &DefaultFile)>,
 ) -> Option<PathBuf> {
     let site_entity = (*current_site).0.unwrap();
-    let site_file = site_files.iter().find(| &el | el.0 == site_entity);
+    let site_file = site_files.iter().find(|&el| el.0 == site_entity);
     match site_file {
         Some((_, file_path)) => Some(file_path.0.clone()),
-        None => None
+        None => None,
     }
 }
 
@@ -57,17 +57,18 @@ pub fn add_drawing_visuals(
     }
     for (e, source, pose) in &new_drawings {
         let texture_path = match source {
-            AssetSource::Filename(name) => {
-                file_path.as_ref().unwrap().with_file_name(name)
-            }
+            AssetSource::Filename(name) => file_path.as_ref().unwrap().with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
-        (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
+        (*loading_drawings)
+            .0
+            .insert(texture_handle, (e, pose.clone()));
     }
 }
 
 // Asset event handler for loaded drawings
-pub fn handle_loaded_drawing(mut commands: Commands,
+pub fn handle_loaded_drawing(
+    mut commands: Commands,
     mut ev_asset: EventReader<AssetEvent<Image>>,
     mut assets: ResMut<Assets<Image>>,
     mut loading_drawings: ResMut<LoadingDrawings>,
@@ -83,22 +84,28 @@ pub fn handle_loaded_drawing(mut commands: Commands,
                 let aspect_ratio = width / height;
                 // TODO pixel per meter conversion to set scale
                 let mut mesh = Mesh::from(make_flat_rectangle_mesh(10.0, 10.0 * aspect_ratio));
-                let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]].into_iter().cycle().take(8).collect();
+                let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]
+                    .into_iter()
+                    .cycle()
+                    .take(8)
+                    .collect();
                 // TODO Actual Z layering instead of hardcoded Z
                 let mut pose = pose.clone();
                 pose.trans[2] -= 0.01;
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
-                commands.entity(entity.clone()).insert_bundle(PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material: materials.add(StandardMaterial {
+                commands
+                    .entity(entity.clone())
+                    .insert_bundle(PbrBundle {
+                        mesh: meshes.add(mesh),
+                        material: materials.add(StandardMaterial {
                             base_color_texture: Some(handle.clone()),
                             ..default()
                         }),
-                    transform: pose.transform(),
-                    ..default()
-                })
-                .insert(Selectable::new(entity))
-                .insert(Category("Drawing".to_string()));
+                        transform: pose.transform(),
+                        ..default()
+                    })
+                    .insert(Selectable::new(entity))
+                    .insert(Category("Drawing".to_string()));
             }
         }
     }
@@ -119,9 +126,11 @@ pub fn update_drawing_visuals(
     // hence it can be loaded straightaway
     for (e, source, pose) in &changed_drawings {
         let texture_path = match source {
-            AssetSource::Filename(name) => name
+            AssetSource::Filename(name) => name,
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
-        (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
+        (*loading_drawings)
+            .0
+            .insert(texture_handle, (e, pose.clone()));
     }
 }

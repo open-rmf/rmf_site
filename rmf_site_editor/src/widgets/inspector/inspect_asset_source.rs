@@ -34,16 +34,14 @@ impl<'a> InspectAssetSource<'a> {
         let mut new_source = self.source.clone();
         // TODO recall plugin once multiple sources exist
         let assumed_source = match self.source {
-            AssetSource::Filename(filename) => filename
+            AssetSource::Filename(filename) => filename,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
             ComboBox::from_id_source("Asset Source")
                 .selected_text(new_source.label())
                 .show_ui(ui, |ui| {
-                    for variant in &[
-                        AssetSource::Filename(assumed_source.clone()),
-                    ] {
+                    for variant in &[AssetSource::Filename(assumed_source.clone())] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
                     ui.end_row();
@@ -66,10 +64,8 @@ impl<'a> InspectAssetSource<'a> {
         }
         if &new_source != self.source {
             Some(new_source)
-        }
-        else {
+        } else {
             None
         }
-
     }
 }

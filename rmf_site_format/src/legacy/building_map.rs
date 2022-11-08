@@ -1,10 +1,9 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, AssetSource,
-    Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelDoors, LevelProperties as SiteLevelProperties, Lift as SiteLift,
-    LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
-    ReverseLane, Site, SiteProperties,
+    AssetSource, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial,
+    FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelDoors,
+    LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
+    NavGraph, NavGraphProperties, OrientationConstraint, Pose, ReverseLane, Site, SiteProperties,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
