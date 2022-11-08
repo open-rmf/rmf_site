@@ -28,7 +28,6 @@ use std::path::PathBuf;
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
-// TODO Loading textures might need similar behavior if they are not square
 #[derive(Default)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose)>);
 
