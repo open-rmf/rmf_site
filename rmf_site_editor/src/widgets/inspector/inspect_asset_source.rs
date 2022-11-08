@@ -18,6 +18,7 @@
 use bevy_egui::egui::{ComboBox, Grid, Ui};
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
 pub struct InspectAssetSource<'a> {
@@ -51,6 +52,8 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Local(name) => {
                 Grid::new("asset_source_filename").show(ui, |ui| {
                     // Button to load from file
+                    // TODO implement async file loading in wasm
+                    #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
                         if let Some(file) = FileDialog::new().pick_file() {
                             if let Some(src) = file.to_str() {
