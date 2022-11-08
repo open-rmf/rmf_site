@@ -84,6 +84,9 @@ pub fn handle_loaded_drawing(mut commands: Commands,
                 // TODO pixel per meter conversion to set scale
                 let mut mesh = Mesh::from(make_flat_rectangle_mesh(10.0, 10.0 * aspect_ratio));
                 let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]].into_iter().cycle().take(8).collect();
+                // TODO Actual Z layering instead of hardcoded Z
+                let mut pose = pose.clone();
+                pose.trans[2] -= 0.01;
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
                 commands.entity(entity.clone()).insert_bundle(PbrBundle {
                     mesh: meshes.add(mesh),
@@ -91,7 +94,6 @@ pub fn handle_loaded_drawing(mut commands: Commands,
                             base_color_texture: Some(handle.clone()),
                             ..default()
                         }),
-                    // TODO Set Z to avoid z fighting on ground plane
                     transform: pose.transform(),
                     ..default()
                 })
