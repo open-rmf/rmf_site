@@ -22,7 +22,7 @@ use crate::{
 };
 use bevy::{prelude::*};
 use bevy::utils::HashMap;
-use rmf_site_format::{Drawing, DrawingMarker, DrawingSource, Pose};
+use rmf_site_format::{Drawing, DrawingMarker, AssetSource, Pose};
 
 use std::path::PathBuf;
 
@@ -32,7 +32,7 @@ use std::path::PathBuf;
 #[derive(Default)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose)>);
 
-fn get_current_file_path(
+fn get_current_site_path(
     current_site: Res<CurrentSite>,
     site_files: Query<(Entity, &DefaultFile)>,
 ) -> Option<PathBuf> {
@@ -45,19 +45,19 @@ fn get_current_file_path(
 }
 
 pub fn add_drawing_visuals(
-    new_drawings: Query<(Entity, &DrawingSource, &Pose), Added<DrawingSource>>,
+    new_drawings: Query<(Entity, &AssetSource, &Pose), Added<DrawingMarker>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
     site_files: Query<(Entity, &DefaultFile)>,
 ) {
-    let file_path = get_current_file_path(current_site, site_files);
+    let file_path = get_current_site_path(current_site, site_files);
     if file_path.is_none() {
         return;
     }
     for (e, source, pose) in &new_drawings {
         let texture_path = match source {
-            DrawingSource::Filename(name) => {
+            AssetSource::Filename(name) => {
                 file_path.as_ref().unwrap().with_file_name(name)
             }
         };
@@ -103,26 +103,22 @@ pub fn handle_loaded_drawing(mut commands: Commands,
 }
 
 pub fn update_drawing_visuals(
-    changed_drawings: Query<(Entity, &DrawingSource, &Pose), Changed<DrawingSource>>,
+    changed_drawings: Query<(Entity, &AssetSource, &Pose), Changed<AssetSource>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
     site_files: Query<(Entity, &DefaultFile)>,
 ) {
-    let file_path = get_current_file_path(current_site, site_files);
+    let file_path = get_current_site_path(current_site, site_files);
     if file_path.is_none() {
         return;
     }
+    // If the file source was updated through the UI it will be an absolute path
+    // hence it can be loaded straightaway
     for (e, source, pose) in &changed_drawings {
         let texture_path = match source {
-            DrawingSource::Filename(name) => name
+            AssetSource::Filename(name) => name
         };
-        /*
-        let texture_path = match texture_path.is_absolute() {
-            true => texture_path,
-            false => file_path.with_file_name(texture_path),
-        };
-        */
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings).0.insert(texture_handle, (e, pose.clone()));
     }

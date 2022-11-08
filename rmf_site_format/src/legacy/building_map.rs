@@ -1,6 +1,6 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, DrawingSource,
+    Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, AssetSource,
     Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelDoors, LevelProperties as SiteLevelProperties, Lift as SiteLift,
     LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
@@ -149,7 +149,7 @@ impl BuildingMap {
                 drawings.insert(
                     site_id.next().unwrap(),
                     SiteDrawing {
-                        source: DrawingSource::Filename(level.drawing.filename.clone()),
+                        source: AssetSource::Filename(level.drawing.filename.clone()),
                         pose: Pose::default(),
                         marker: DrawingMarker,
                     },

@@ -16,26 +16,25 @@
 */
 
 use bevy_egui::egui::{ComboBox, Grid, Ui};
-use rmf_site_format::{DrawingSource, RecallDrawingSource};
+use rmf_site_format::{AssetSource, RecallAssetSource};
 
 use rfd::FileDialog;
 
-// TODO DrawingSource -> AssetSource
 pub struct InspectAssetSource<'a> {
-    pub source: &'a DrawingSource,
-    pub recall: &'a RecallDrawingSource,
+    pub source: &'a AssetSource,
+    pub recall: &'a RecallAssetSource,
 }
 
 impl<'a> InspectAssetSource<'a> {
-    pub fn new(source: &'a DrawingSource, recall: &'a RecallDrawingSource) -> Self {
+    pub fn new(source: &'a AssetSource, recall: &'a RecallAssetSource) -> Self {
         Self { source, recall }
     }
 
-    pub fn show(self, ui: &mut Ui) -> Option<DrawingSource> {
+    pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
         // TODO recall plugin once multiple sources exist
         let assumed_source = match self.source {
-            DrawingSource::Filename(filename) => filename
+            AssetSource::Filename(filename) => filename
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -43,7 +42,7 @@ impl<'a> InspectAssetSource<'a> {
                 .selected_text(new_source.label())
                 .show_ui(ui, |ui| {
                     for variant in &[
-                        DrawingSource::Filename(assumed_source.clone()),
+                        AssetSource::Filename(assumed_source.clone()),
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
@@ -51,7 +50,7 @@ impl<'a> InspectAssetSource<'a> {
                 });
         });
         match &mut new_source {
-            DrawingSource::Filename(name) => {
+            AssetSource::Filename(name) => {
                 Grid::new("asset_source_filename").show(ui, |ui| {
                     // Button to load from file
                     if ui.button("Browse").clicked() {
@@ -65,7 +64,7 @@ impl<'a> InspectAssetSource<'a> {
                 });
             }
         }
-        if (&new_source != self.source) {
+        if &new_source != self.source {
             Some(new_source)
         }
         else {

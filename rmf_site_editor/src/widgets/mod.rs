@@ -71,7 +71,7 @@ pub struct AppEvents<'w, 's> {
     pub change_pose: EventWriter<'w, 's, Change<Pose>>,
     pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
-    pub change_asset_source: EventWriter<'w, 's, Change<DrawingSource>>,
+    pub change_asset_source: EventWriter<'w, 's, Change<AssetSource>>,
     _ignore: Query<'w, 's, ()>,
 }
 

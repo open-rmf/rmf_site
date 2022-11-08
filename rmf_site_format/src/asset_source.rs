@@ -20,6 +20,44 @@ use crate::*;
 use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum AssetSource {
+    Filename(String),
+}
+
+impl AssetSource {
+    pub fn label(&self) -> &str {
+        match self {
+            Self::Filename(_) => "Filename",
+        }
+    }
+}
+
+impl Default for AssetSource {
+    fn default() -> Self {
+        AssetSource::Filename(String::new()).into()
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallAssetSource {
+    pub filename: Option<String>,
+}
+
+impl Recall for RecallAssetSource {
+    type Source = AssetSource;
+
+    fn remember(&mut self, source: &AssetSource) {
+        match source {
+            AssetSource::Filename(name) => {
+                self.filename = Some(name.clone());
+            }
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Drawing {
@@ -32,3 +70,4 @@ pub struct Drawing {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct DrawingMarker;
+

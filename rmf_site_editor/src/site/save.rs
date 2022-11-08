@@ -197,7 +197,7 @@ fn generate_levels(
             &SiteID,
             &Parent,
         )>,
-        Query<(&DrawingSource, &Pose, &SiteID, &Parent), With<DrawingMarker>>,
+        Query<(&AssetSource, &Pose, &SiteID, &Parent), With<DrawingMarker>>,
         Query<
             (
                 &Point<Entity>,

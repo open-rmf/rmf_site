@@ -85,7 +85,7 @@ pub struct InspectorParams<'w, 's> {
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
-    pub asset_sources: Query<'w, 's, (&'static DrawingSource, &'static RecallDrawingSource)>,
+    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
