@@ -25,6 +25,7 @@ use serde::{Deserialize, Serialize};
 pub struct Drawing {
     pub source: AssetSource,
     pub pose: Pose,
+    pub opacity: DrawingOpacity,
     #[serde(skip)]
     pub marker: DrawingMarker,
 }
@@ -32,3 +33,16 @@ pub struct Drawing {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct DrawingMarker;
+
+#[derive(Serialize, Deserialize, Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct DrawingOpacity {
+    #[serde(default = "DrawingOpacity::default_opacity")]
+    pub opacity: f32,
+}
+
+impl DrawingOpacity {
+    fn default_opacity() -> f32 {
+        0.1
+    }
+}

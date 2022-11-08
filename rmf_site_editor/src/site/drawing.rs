@@ -90,16 +90,20 @@ pub fn handle_loaded_drawing(
                     .collect();
                 // TODO Actual Z layering instead of hardcoded Z
                 let mut pose = pose.clone();
-                pose.trans[2] -= 0.01;
+                pose.trans[2] += 0.01;
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+                let material = materials.add(StandardMaterial {
+                    base_color: Color::rgba(1.0, 1.0, 1.0, 0.1),
+                    base_color_texture: Some(handle.clone()),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                });
                 commands
                     .entity(entity.clone())
                     .insert_bundle(PbrBundle {
                         mesh: meshes.add(mesh),
-                        material: materials.add(StandardMaterial {
-                            base_color_texture: Some(handle.clone()),
-                            ..default()
-                        }),
+                        material: material,
                         transform: pose.transform(),
                         ..default()
                     })
