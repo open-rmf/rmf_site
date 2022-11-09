@@ -21,14 +21,17 @@ pub use inspect_anchor::*;
 pub mod inspect_angle;
 pub use inspect_angle::*;
 
+pub mod inspect_asset_source;
+pub use inspect_asset_source::*;
+
 pub mod inspect_door;
 pub use inspect_door::*;
 
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
-pub mod inspect_asset_source;
-pub use inspect_asset_source::*;
+pub mod inspect_f32;
+pub use inspect_f32::*;
 
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
@@ -86,6 +89,7 @@ pub struct InspectorParams<'w, 's> {
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    pub pixels_per_meters: Query<'w, 's, &'static PixelsPerMeter>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -226,6 +230,19 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change_asset_source
                         .send(Change::new(new_asset_source, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(ppm) = self.params.pixels_per_meters.get(selection) {
+                if let Some(new_ppm) = InspectF32::new(String::from("Pixels per meter"), ppm.0)
+                    .clamp_range(0.0..=std::f32::INFINITY)
+                    .tooltip("How many image pixels per meter".to_string())
+                    .show(ui)
+                {
+                    self.events
+                        .change_pixels_per_meter
+                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
                 }
                 ui.add_space(10.0);
             }

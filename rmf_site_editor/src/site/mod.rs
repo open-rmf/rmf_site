@@ -156,6 +156,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
             .add_plugin(RecallPlugin::<RecallAssetSource>::default())
+            .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))

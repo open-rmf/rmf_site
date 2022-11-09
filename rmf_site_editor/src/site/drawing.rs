@@ -125,11 +125,9 @@ pub fn update_drawing_visuals(
     if file_path.is_none() {
         return;
     }
-    // If the file source was updated through the UI it will be an absolute path
-    // hence it can be loaded straightaway
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
         let texture_path = match source {
-            AssetSource::Local(name) => name,
+            AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings)
