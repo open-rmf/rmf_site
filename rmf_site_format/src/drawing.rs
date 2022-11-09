@@ -21,10 +21,21 @@ use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PixelsPerMeter(pub f32);
+
+impl Default for PixelsPerMeter {
+    fn default() -> Self {
+        PixelsPerMeter(100.0)
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Drawing {
     pub source: AssetSource,
     pub pose: Pose,
+    pub pixels_per_meter: PixelsPerMeter,
     #[serde(skip)]
     pub marker: DrawingMarker,
 }

@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -57,16 +57,3 @@ impl Recall for RecallAssetSource {
         }
     }
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Drawing {
-    pub source: AssetSource,
-    pub pose: Pose,
-    #[serde(skip)]
-    pub marker: DrawingMarker,
-}
-
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct DrawingMarker;

@@ -3,7 +3,8 @@ use crate::{
     AssetSource, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial,
     FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelDoors,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, Pose, ReverseLane, Site, SiteProperties,
+    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Site,
+    SiteProperties,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -150,6 +151,7 @@ impl BuildingMap {
                     SiteDrawing {
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose: Pose::default(),
+                        pixels_per_meter: PixelsPerMeter::default(),
                         marker: DrawingMarker,
                     },
                 );

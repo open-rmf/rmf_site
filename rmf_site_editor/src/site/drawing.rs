@@ -22,14 +22,14 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use rmf_site_format::{AssetSource, Drawing, DrawingMarker, Pose};
+use rmf_site_format::{AssetSource, Drawing, DrawingMarker, PixelsPerMeter, Pose};
 
 use std::path::PathBuf;
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
 #[derive(Default)]
-pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose)>);
+pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
 
 fn get_current_site_path(
     current_site: Res<CurrentSite>,
@@ -44,7 +44,7 @@ fn get_current_site_path(
 }
 
 pub fn add_drawing_visuals(
-    new_drawings: Query<(Entity, &AssetSource, &Pose), Added<DrawingMarker>>,
+    new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
@@ -54,14 +54,14 @@ pub fn add_drawing_visuals(
     if file_path.is_none() {
         return;
     }
-    for (e, source, pose) in &new_drawings {
+    for (e, source, pose, pixels_per_meter) in &new_drawings {
         let texture_path = match source {
             AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings)
             .0
-            .insert(texture_handle, (e, pose.clone()));
+            .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
     }
 }
 
@@ -76,13 +76,14 @@ pub fn handle_loaded_drawing(
 ) {
     for ev in ev_asset.iter() {
         if let AssetEvent::Created { handle } = ev {
-            if let Some((entity, pose)) = (*loading_drawings).0.remove(handle) {
+            if let Some((entity, pose, pixels_per_meter)) = (*loading_drawings).0.remove(handle) {
                 let img = assets.get(handle).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
-                let aspect_ratio = width / height;
-                // TODO pixel per meter conversion to set scale
-                let mut mesh = Mesh::from(make_flat_rectangle_mesh(10.0, 10.0 * aspect_ratio));
+                let mut mesh = Mesh::from(make_flat_rectangle_mesh(
+                    height / pixels_per_meter.0,
+                    width / pixels_per_meter.0,
+                ));
                 let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]
                     .into_iter()
                     .cycle()
@@ -111,7 +112,10 @@ pub fn handle_loaded_drawing(
 }
 
 pub fn update_drawing_visuals(
-    changed_drawings: Query<(Entity, &AssetSource, &Pose), Changed<AssetSource>>,
+    changed_drawings: Query<
+        (Entity, &AssetSource, &Pose, &PixelsPerMeter),
+        Or<(Changed<AssetSource>, Changed<PixelsPerMeter>)>,
+    >,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
@@ -123,13 +127,13 @@ pub fn update_drawing_visuals(
     }
     // If the file source was updated through the UI it will be an absolute path
     // hence it can be loaded straightaway
-    for (e, source, pose) in &changed_drawings {
+    for (e, source, pose, pixels_per_meter) in &changed_drawings {
         let texture_path = match source {
             AssetSource::Local(name) => name,
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         (*loading_drawings)
             .0
-            .insert(texture_handle, (e, pose.clone()));
+            .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
     }
 }
