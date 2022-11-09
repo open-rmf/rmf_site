@@ -164,15 +164,19 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {
-                    for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                        let anchor_entity = lift
-                            .spawn()
-                            .insert_bundle(AnchorBundle::new(anchor.clone()))
-                            .insert(SiteID(*anchor_id))
-                            .id();
-                        id_to_entity.insert(*anchor_id, anchor_entity);
-                        consider_id(*anchor_id);
-                    }
+                    lift.spawn_bundle(SpatialBundle::default())
+                        .insert_bundle(CabinAnchorGroupBundle::default())
+                        .with_children(|anchor_group| {
+                            for (anchor_id, anchor) in &lift_data.cabin_anchors {
+                                let anchor_entity = anchor_group
+                                    .spawn()
+                                    .insert_bundle(AnchorBundle::new(anchor.clone()))
+                                    .insert(SiteID(*anchor_id))
+                                    .id();
+                                id_to_entity.insert(*anchor_id, anchor_entity);
+                                consider_id(*anchor_id);
+                            }
+                        });
 
                     for (door_id, door) in &lift_data.cabin_doors {
                         let door_entity = lift

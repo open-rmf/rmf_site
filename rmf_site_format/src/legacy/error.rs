@@ -23,6 +23,8 @@ pub enum PortingError {
     InvalidVertex(usize),
     #[error("a non-existent level {0} was referenced")]
     InvalidLevelName(String),
+    #[error("a non-existent lift {0} was referenced")]
+    InvalidLiftName(String),
     #[error("wrong number [{door_count}] of lift cabin doors for lift [{lift}]; must be no greater than 4")]
     InvalidLiftCabinDoorCount { lift: String, door_count: usize },
     #[error("lift [{lift}] has more than one cabin door on {face} side")]

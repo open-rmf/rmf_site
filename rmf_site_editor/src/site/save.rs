@@ -498,11 +498,12 @@ fn generate_lifts(
         Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
         Query<&SiteID, With<LevelProperties>>,
         QueryLift,
+        Query<Entity, With<CabinAnchorGroup>>,
         Query<&Parent>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (q_anchors, q_doors, q_levels, q_lifts, q_parents, q_children) = state.get(world);
+    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children) = state.get(world);
 
     let mut lifts = BTreeMap::new();
 
@@ -568,8 +569,14 @@ fn generate_lifts(
         let mut cabin_doors = BTreeMap::new();
         if let Ok(children) = q_children.get(lift_entity) {
             for child in children {
-                if let Ok((site_id, anchor)) = q_anchors.get(*child) {
-                    cabin_anchors.insert(site_id.0, anchor.clone());
+                if let Ok(anchor_group) = q_cabin_anchor_groups.get(*child) {
+                    if let Ok(anchor_children) = q_children.get(anchor_group) {
+                        for anchor_child in anchor_children {
+                            if let Ok((site_id, anchor)) = q_anchors.get(*anchor_child) {
+                                cabin_anchors.insert(site_id.0, anchor.clone());
+                            }
+                        }
+                    }
                 }
 
                 if let Ok((site_id, door_type)) = q_doors.get(*child) {

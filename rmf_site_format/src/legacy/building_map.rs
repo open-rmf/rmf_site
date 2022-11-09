@@ -77,8 +77,14 @@ impl BuildingMap {
 
             // convert to meters
             for v in level.vertices.iter_mut() {
+                if !v.4.lift_cabin.1.is_empty() {
+                    dbg!(&level_name, &v.4.lift_cabin.1, v.0, v.1, ofs_x, ofs_y, scale);
+                }
                 v.0 = (v.0 - ofs_x) * scale;
                 v.1 = (-v.1 - ofs_y) * scale;
+                if !v.4.lift_cabin.1.is_empty() {
+                    dbg!(v.0, v.1);
+                }
             }
 
             for m in level.models.iter_mut() {
@@ -89,9 +95,9 @@ impl BuildingMap {
             tf_map.insert(level_name.clone(), (ofs_x, ofs_y, scale));
         }
 
-        for (_, lift) in map.lifts.iter_mut() {
+        for (lift_name, lift) in map.lifts.iter_mut() {
             let (ofs_x, ofs_y, scale) = tf_map.get(&lift.reference_floor_name).unwrap();
-            dbg!(&lift.reference_floor_name, ofs_x, ofs_y, scale, lift.x, lift.y);
+            dbg!(&lift_name, &lift.reference_floor_name, ofs_x, ofs_y, scale, lift.x, lift.y);
             lift.x = (lift.x - *ofs_x) * scale;
             lift.y = (-lift.y - *ofs_y) * scale;
             dbg!(lift.x, lift.y);
@@ -125,13 +131,18 @@ impl BuildingMap {
                     anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
+                    let lift = self.lifts.get(&v.4.lift_cabin.1).ok_or(
+                        PortingError::InvalidLiftName(v.4.lift_cabin.1.clone())
+                    )?;
                     let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
+                    let x = v.0 as f32 - lift.x as f32;
+                    let y = v.1 as f32 - lift.y as f32;
                     if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, anchor)| {
-                        let [x, y] = *anchor.translation_for_category(Category::General);
-                        let dx = v.0 as f32 - x;
-                        let dy = v.1 as f32 - y;
+                        let [other_x, other_y] = *anchor.translation_for_category(Category::General);
+                        let dx = x - other_x;
+                        let dy = y - other_y;
                         (dx * dx + dy * dy).sqrt() < 0.01
                     }) {
                         // This is a duplicate cabin anchor so we return its
@@ -141,7 +152,7 @@ impl BuildingMap {
                         // This is a new cabin anchor so we need to create an
                         // ID for it
                         let anchor_id = site_id.next().unwrap();
-                        lift_cabin_anchors.push((anchor_id, [v.0 as f32, v.1 as f32].into()));
+                        lift_cabin_anchors.push((anchor_id, [x, y].into()));
                         anchor_id
                     }
                 };

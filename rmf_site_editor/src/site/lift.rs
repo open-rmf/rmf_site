@@ -19,9 +19,28 @@ use crate::{interaction::Selectable, site::*, shapes::*};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
 
-#[derive(Clone, Copy, Debug, Component)]
-pub struct LiftSegments {
-    pub cabin: Entity,
+#[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
+pub struct ChildLiftCabinGroup(pub Entity);
+
+#[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
+pub struct ChildCabinAnchorGroup(pub Entity);
+
+#[derive(Clone, Copy, Debug, Component, Default)]
+pub struct CabinAnchorGroup;
+
+#[derive(Clone, Copy, Debug, Bundle)]
+pub struct CabinAnchorGroupBundle {
+    tag: CabinAnchorGroup,
+    category: Category,
+}
+
+impl Default for CabinAnchorGroupBundle {
+    fn default() -> Self {
+        Self {
+            tag: Default::default(),
+            category: Category::Lift,
+        }
+    }
 }
 
 fn make_lift_transform(
@@ -71,18 +90,21 @@ pub fn update_lift_cabin(
         Entity,
         &LiftCabin<Entity>,
         &LevelDoors<Entity>,
-        Option<&LiftSegments>
+        Option<&ChildCabinAnchorGroup>,
+        Option<&ChildLiftCabinGroup>,
     ), Or<(Changed<LiftCabin<Entity>>, Changed<LevelDoors<Entity>>)>>,
+    mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
+    children: Query<&Children>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, cabin, level_doors, segments) in &lifts {
+    for (e, cabin, level_doors, child_anchor_group, child_cabin_group) in &lifts {
         // Despawn the previous cabin
-        if let Some(segments) = segments {
-            commands.entity(segments.cabin).despawn_recursive();
+        if let Some(cabin_group) = child_cabin_group {
+            commands.entity(cabin_group.0).despawn_recursive();
         }
 
-        match cabin {
+        let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, half_extents } = params.aabb();
                 let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
@@ -117,10 +139,43 @@ pub fn update_lift_cabin(
                     .id();
 
                 commands.entity(e)
-                    .insert(LiftSegments{ cabin: cabin_entity })
+                    .insert(ChildLiftCabinGroup(cabin_entity))
                     .add_child(cabin_entity);
+
+                cabin_tf
             }
-        }
+        };
+
+        let cabin_anchor_group = if let Some(child_anchor_group) = child_anchor_group {
+            Some(**child_anchor_group)
+        } else if let Ok(children) = children.get(e) {
+            let found_group = children.iter().find(|c| {
+                cabin_anchor_groups.contains(**c)
+            }).copied();
+
+            if let Some(group) = found_group {
+                commands.entity(e).insert(ChildCabinAnchorGroup(group));
+            }
+
+            found_group
+        } else {
+            None
+        };
+
+        match cabin_anchor_group {
+            Some(group) => {
+                *cabin_anchor_groups.get_mut(group).unwrap() = cabin_tf;
+            },
+            None => {
+                let group = commands.entity(e).add_children(
+                    |p| p
+                        .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
+                        .insert_bundle(CabinAnchorGroupBundle::default())
+                        .id()
+                );
+                commands.entity(e).insert(ChildCabinAnchorGroup(group));
+            }
+        };
     }
 }
 

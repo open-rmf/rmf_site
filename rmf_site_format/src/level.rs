@@ -24,6 +24,7 @@ use std::collections::BTreeMap;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct LevelProperties {
+    // TODO(MXG): Change this to a NameInSite component
     pub name: String,
     pub elevation: f32,
 }

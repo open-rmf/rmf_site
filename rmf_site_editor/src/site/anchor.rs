@@ -98,7 +98,8 @@ pub fn assign_orphan_anchors_to_parent(
     >,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    mut lifts: Query<(Entity, &LiftCabin<Entity>, &GlobalTransform)>,
+    lifts: Query<(Entity, &LiftCabin<Entity>, &ChildCabinAnchorGroup, &GlobalTransform)>,
+    lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
     for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
         let p_anchor = {
@@ -111,7 +112,7 @@ pub fn assign_orphan_anchors_to_parent(
 
         let mut assigned_to_lift: bool = false;
         // First check if the new anchor is inside the footprint of any lift cabins
-        for (e_lift, cabin, global_lift_tf) in &mut lifts {
+        for (e_lift, cabin, anchor_group, global_lift_tf) in &lifts {
             let cabin_aabb = match cabin {
                 LiftCabin::Rect(params) => params.aabb(),
                 // LiftCabin::Model(_) => {
@@ -125,18 +126,20 @@ pub fn assign_orphan_anchors_to_parent(
                 radius: 0.0,
             };
             if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.compute_matrix()) {
-                // The anchor is inside the lift cabin, so we should
-                // make it the anchor's parent.
-                commands.entity(e_lift).add_child(anchor);
-                assigned_to_lift = true;
+                if let Ok(anchor_group_tf) = lift_anchor_groups.get(anchor_group.0) {
+                    // The anchor is inside the lift cabin, so we should
+                    // make it the anchor's parent.
+                    commands.entity(anchor_group.0).add_child(anchor);
+                    assigned_to_lift = true;
 
-                // Since the anchor will be in the frame of the lift, we need
-                // to update its local transform.
-                *local_anchor_tf = Transform::from_matrix(
-                    (global_lift_tf.affine().inverse() * global_anchor_tf.affine()).into(),
-                );
+                    // Since the anchor will be in the frame of the lift, we need
+                    // to update its local transform.
+                    *local_anchor_tf = Transform::from_matrix(
+                        (anchor_group_tf.affine().inverse() * global_anchor_tf.affine()).into(),
+                    );
 
-                break;
+                    break;
+                }
             }
         }
 
