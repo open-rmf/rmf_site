@@ -17,12 +17,12 @@
 
 use crate::{
     interaction::Selectable,
-    shapes::{make_flat_rectangle_mesh, make_flat_square_mesh},
+    shapes::make_flat_rectangle_mesh,
     site::{Category, CurrentSite, DefaultFile},
 };
 use bevy::prelude::*;
 use bevy::utils::HashMap;
-use rmf_site_format::{AssetSource, Drawing, DrawingMarker, PixelsPerMeter, Pose};
+use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
 use std::path::PathBuf;
 
@@ -69,7 +69,7 @@ pub fn add_drawing_visuals(
 pub fn handle_loaded_drawing(
     mut commands: Commands,
     mut ev_asset: EventReader<AssetEvent<Image>>,
-    mut assets: ResMut<Assets<Image>>,
+    assets: Res<Assets<Image>>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
