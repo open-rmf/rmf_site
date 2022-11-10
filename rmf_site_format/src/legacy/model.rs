@@ -1,5 +1,6 @@
 use crate::{Angle, IsStatic, Kind, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation};
 use serde::{Deserialize, Serialize};
+use glam::DVec2;
 
 #[derive(Deserialize, Serialize, Clone, Default, Debug)]
 pub struct Model {
@@ -16,6 +17,11 @@ pub struct Model {
 }
 
 impl Model {
+
+    pub fn to_vec(&self) -> DVec2 {
+        DVec2::new(self.x, self.y)
+    }
+
     pub fn to_site(&self) -> SiteModel {
         SiteModel {
             name: NameInSite(self.instance_name.clone()),

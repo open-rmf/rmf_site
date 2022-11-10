@@ -6,7 +6,7 @@ use crate::{
     DEFAULT_CABIN_WALL_THICKNESS, DEFAULT_CABIN_DOOR_THICKNESS,
 };
 use serde::{Deserialize, Serialize};
-use glam::Vec2;
+use glam::{Vec2, DVec2};
 use std::{
     collections::{BTreeMap, HashMap},
     ops::RangeFrom,
@@ -45,6 +45,10 @@ enum CabinFace {
 }
 
 impl Lift {
+    pub fn to_vec(&self) -> DVec2 {
+        DVec2::new(self.x, self.y)
+    }
+
     pub fn calculate_anchors(&self) -> [[f32; 2]; 2] {
         // TODO(MXG): Rewrite this with glam now that we've accepted it as a dependency
         let x = self.x as f32;

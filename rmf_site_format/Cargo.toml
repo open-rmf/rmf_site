@@ -9,6 +9,7 @@ crate-type = ["rlib"]
 
 [dependencies]
 serde = { version = "1.0", features = ["derive"] }
+optimization_engine = "0.7"
 serde_yaml = "0.8.23"
 serde_json = "*"
 ron = "0.7"

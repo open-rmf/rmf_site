@@ -5,9 +5,11 @@ use crate::{
     Level as SiteLevel, LevelDoors, LevelProperties as SiteLevelProperties, Lift as SiteLift,
     LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
     ReverseLane, Site, SiteProperties, Anchor, Category,
+    legacy::optimization::align_building,
 };
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use glam::{DAffine2, DMat3, DQuat, DVec3, EulerRot};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -45,62 +47,55 @@ impl BuildingMap {
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
     fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
-        let mut tf_map: BTreeMap<String, (f64, f64, f64)> = Default::default();
+        let alignments = align_building(&map);
+
+        let get_delta_yaw = |tf: &DAffine2| {
+            DQuat::from_mat3(&DMat3::from_cols(
+                tf.matrix2.col(0).extend(0.0).normalize(),
+                tf.matrix2.col(1).extend(0.0).normalize(),
+                DVec3::Z,
+            )).to_euler(EulerRot::ZYX).0
+        };
+
         for (level_name, level) in map.levels.iter_mut() {
-            // todo: calculate scale and inter-level alignment
-            let mut ofs_x = 0.0;
-            let mut ofs_y = 0.0;
-            let mut num_v = 0;
-            for v in &level.vertices {
-                ofs_x += v.0;
-                ofs_y += -v.1;
-                num_v += 1;
-            }
-            ofs_x /= num_v as f64;
-            ofs_y /= num_v as f64;
-
-            // try to guess the scale by averaging the measurement distances.
-            let mut n_dist = 0;
-            let mut sum_dist = 0.;
-            for meas in &level.measurements {
-                let dx_raw = level.vertices[meas.0].0 - level.vertices[meas.1].0;
-                let dy_raw = level.vertices[meas.0].1 - level.vertices[meas.1].1;
-                let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
-                let dist_meters = *meas.2.distance;
-                sum_dist += dist_meters / dist_raw;
-                n_dist += 1;
-            }
-            let scale = match n_dist {
-                0 => 1.0,
-                _ => sum_dist / n_dist as f64,
-            };
-
-            // convert to meters
-            for v in level.vertices.iter_mut() {
-                if !v.4.lift_cabin.1.is_empty() {
-                    dbg!(&level_name, &v.4.lift_cabin.1, v.0, v.1, ofs_x, ofs_y, scale);
-                }
-                v.0 = (v.0 - ofs_x) * scale;
-                v.1 = (-v.1 - ofs_y) * scale;
-                if !v.4.lift_cabin.1.is_empty() {
-                    dbg!(v.0, v.1);
-                }
+            let tf = alignments.get(level_name).unwrap();
+            for v in &mut level.vertices {
+                let p = tf.transform_point2(v.to_vec());
+                v.0 = p.x as f64;
+                v.1 = -p.y as f64;
             }
 
-            for m in level.models.iter_mut() {
-                m.x = (m.x - ofs_x) * scale;
-                m.y = (-m.y - ofs_y) * scale;
+            let delta_yaw = get_delta_yaw(tf);
+
+            for model in &mut level.models {
+                let p = tf.transform_point2(model.to_vec());
+                model.x = p.x;
+                model.y = -p.y;
+                model.yaw -= delta_yaw;
             }
 
-            tf_map.insert(level_name.clone(), (ofs_x, ofs_y, scale));
+            for camera in &mut level.physical_cameras {
+                let p = tf.transform_point2(camera.to_vec());
+                camera.x = p.x;
+                camera.y = -p.y;
+                camera.yaw -= delta_yaw;
+            }
+
+            for fiducial in &mut level.fiducials {
+                let p = tf.transform_point2(fiducial.to_vec());
+                fiducial.0 = p.x;
+                fiducial.1 = -p.y;
+            }
         }
 
         for (lift_name, lift) in map.lifts.iter_mut() {
-            let (ofs_x, ofs_y, scale) = tf_map.get(&lift.reference_floor_name).unwrap();
-            dbg!(&lift_name, &lift.reference_floor_name, ofs_x, ofs_y, scale, lift.x, lift.y);
-            lift.x = (lift.x - *ofs_x) * scale;
-            lift.y = (-lift.y - *ofs_y) * scale;
-            dbg!(lift.x, lift.y);
+            let tf = alignments.get(&lift.reference_floor_name).unwrap();
+            dbg!(&lift_name, &lift.reference_floor_name, lift.x, lift.y, lift.yaw);
+            let p = tf.transform_point2(lift.to_vec());
+            lift.x = p.x;
+            lift.y = -p.y;
+            lift.yaw -= get_delta_yaw(tf);
+            dbg!(lift.x, lift.y, lift.yaw);
         }
 
         map.coordinate_system = CoordinateSystem::CartesianMeters;

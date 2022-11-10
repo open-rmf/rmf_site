@@ -3,6 +3,7 @@ use crate::{
     Rotation,
 };
 use serde::{Deserialize, Serialize};
+use glam::DVec2;
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct PhysicalCamera {
@@ -21,6 +22,10 @@ pub struct PhysicalCamera {
 }
 
 impl PhysicalCamera {
+    pub fn to_vec(&self) -> DVec2 {
+        DVec2::new(self.x, self.y)
+    }
+
     pub fn to_site(&self) -> SitePhysicalCamera {
         SitePhysicalCamera {
             name: NameInSite(self.name.clone()),
