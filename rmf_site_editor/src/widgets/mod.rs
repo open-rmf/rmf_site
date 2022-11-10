@@ -32,6 +32,9 @@ use inspector::{InspectorParams, InspectorWidget};
 pub mod create;
 use create::CreateWidget;
 
+pub mod view_levels;
+use view_levels::{ViewLevels, LevelDisplay};
+
 pub mod icons;
 pub use icons::*;
 
@@ -46,6 +49,7 @@ pub struct StandardUiLayout;
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
+            .init_resource::<LevelDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -60,6 +64,7 @@ impl Plugin for StandardUiLayout {
 /// parameter at least makes the EventWriters easy to pass around.
 #[derive(SystemParam)]
 pub struct AppEvents<'w, 's> {
+    pub commands: Commands<'w, 's>,
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
@@ -72,13 +77,16 @@ pub struct AppEvents<'w, 's> {
     pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub current_level: ResMut<'w, CurrentLevel>,
+    pub level_display: ResMut<'w, LevelDisplay>,
+    pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     _ignore: Query<'w, 's, ()>,
 }
 
 fn standard_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    mut inspector_params: InspectorParams,
+    inspector_params: InspectorParams,
+    levels: Query<(Entity, &'static LevelProperties)>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -91,7 +99,7 @@ fn standard_ui_layout(
                         CollapsingHeader::new("Inspect")
                             .default_open(true)
                             .show(ui, |ui| {
-                                InspectorWidget::new(&mut inspector_params, &mut events).show(ui);
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Create")
@@ -103,14 +111,7 @@ fn standard_ui_layout(
                         CollapsingHeader::new("Levels")
                             .default_open(true)
                             .show(ui, |ui| {
-                                for (entity, level) in &inspector_params.levels {
-                                    if ui.radio(
-                                        Some(entity) == **events.current_level,
-                                        &level.name,
-                                    ).clicked() {
-                                        events.current_level.0 = Some(entity);
-                                    }
-                                }
+                                ViewLevels::new(&levels, &mut events).show(ui);
                             });
                     });
                 });

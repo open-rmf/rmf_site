@@ -33,7 +33,7 @@ pub struct InspectAnchorParams<'w, 's> {
 
 pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub anchor: Entity,
-    pub params: &'a mut InspectAnchorParams<'w1, 's1>,
+    pub params: &'a InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
     pub is_dependency: bool,
 }
@@ -41,7 +41,7 @@ pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
 impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         anchor: Entity,
-        params: &'a mut InspectAnchorParams<'w1, 's1>,
+        params: &'a InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
@@ -119,14 +119,14 @@ pub struct InspectAnchorDependentsParams<'w, 's> {
 
 pub struct InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub anchor: Entity,
-    pub params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+    pub params: &'a InspectAnchorDependentsParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         anchor: Entity,
-        params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+        params: &'a InspectAnchorDependentsParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {

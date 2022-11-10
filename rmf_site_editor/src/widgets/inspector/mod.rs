@@ -83,17 +83,16 @@ pub struct InspectorParams<'w, 's> {
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
-    pub levels: Query<'w, 's, (Entity, &'static LevelProperties)>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub params: &'a mut InspectorParams<'w1, 's1>,
+    pub params: &'a InspectorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
-        params: &'a mut InspectorParams<'w1, 's1>,
+        params: &'a InspectorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self { params, events }
@@ -123,7 +122,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.horizontal(|ui| {
                     InspectAnchorWidget::new(
                         selection,
-                        &mut self.params.anchor_params,
+                        &self.params.anchor_params,
                         self.events,
                     )
                     .show(ui);
@@ -131,7 +130,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.separator();
                 InspectAnchorDependentsWidget::new(
                     selection,
-                    &mut self.params.anchor_dependents_params,
+                    &self.params.anchor_dependents_params,
                     self.events,
                 )
                 .show(ui);
@@ -145,7 +144,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     edge,
                     original,
                     labels,
-                    &mut self.params.anchor_params,
+                    &self.params.anchor_params,
                     self.events,
                 )
                 .show(ui);

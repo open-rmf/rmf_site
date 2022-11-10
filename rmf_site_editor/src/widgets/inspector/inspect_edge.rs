@@ -33,7 +33,7 @@ pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub edge: &'a Edge<Entity>,
     pub original: Option<&'a Original<Edge<Entity>>>,
     pub labels: Option<&'a EdgeLabels>,
-    pub anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
+    pub anchor_params: &'a InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
@@ -44,7 +44,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
         edge: &'a Edge<Entity>,
         original: Option<&'a Original<Edge<Entity>>>,
         labels: Option<&'a EdgeLabels>,
-        anchor_params: &'a mut InspectAnchorParams<'w1, 's1>,
+        anchor_params: &'a InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {

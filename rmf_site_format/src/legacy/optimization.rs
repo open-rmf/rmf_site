@@ -65,14 +65,7 @@ pub fn align_building(
         };
         let problem = Problem::new(&constraints, df, f);
         let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
-        match panoc.solve(&mut u) {
-            Err(err) => {
-                println!("Error while trying to fit the building levels: {err:?}");
-            }
-            Ok(status) => {
-                println!("Ok: {status:?}\nResult: {u:?}");
-            }
-        };
+        panoc.solve(&mut u);
     }
 
     calculate_yaw_adjustment(&measurements, &fiducials, &mut u);
