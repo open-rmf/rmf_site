@@ -30,9 +30,6 @@ pub use inspect_door::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
-pub mod inspect_f32;
-pub use inspect_f32::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -53,6 +50,9 @@ pub use inspect_pose::*;
 
 pub mod inspect_side;
 pub use inspect_side::*;
+
+pub mod inspect_value;
+pub use inspect_value::*;
 
 pub mod selection_widget;
 pub use selection_widget::*;
@@ -235,8 +235,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok(ppm) = self.params.pixels_per_meters.get(selection) {
-                if let Some(new_ppm) = InspectF32::new(String::from("Pixels per meter"), ppm.0)
-                    .clamp_range(0.0..=std::f32::INFINITY)
+                if let Some(new_ppm) = InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
+                    .clamp_range(0.0..=std::f32::MAX)
                     .tooltip("How many image pixels per meter".to_string())
                     .show(ui)
                 {

@@ -16,12 +16,13 @@
 */
 
 use bevy_egui::egui::{DragValue, Ui};
+use bevy_egui::egui::emath::Numeric;
 use std::ops::RangeInclusive;
 
-pub struct InspectF32 {
+pub struct InspectValue<T> {
     title: String,
-    current_value: f32,
-    range: RangeInclusive<f32>,
+    current_value: T,
+    range: RangeInclusive<T>,
     min_decimals: usize,
     max_decimals: Option<usize>,
     speed: f64,
@@ -29,12 +30,12 @@ pub struct InspectF32 {
     tooltip: Option<String>,
 }
 
-impl InspectF32 {
-    pub fn new(title: String, current_value: f32) -> Self {
+impl<T: Numeric> InspectValue<T> {
+    pub fn new(title: String, current_value: T) -> Self {
         Self {
             title,
             current_value,
-            range: std::f32::NEG_INFINITY..=std::f32::INFINITY,
+            range: T::MIN..=T::MAX,
             min_decimals: 0,
             max_decimals: None,
             speed: 1.0,
@@ -43,7 +44,7 @@ impl InspectF32 {
         }
     }
 
-    pub fn clamp_range(mut self, range: RangeInclusive<f32>) -> Self {
+    pub fn clamp_range(mut self, range: RangeInclusive<T>) -> Self {
         self.range = range;
         self
     }
@@ -73,7 +74,7 @@ impl InspectF32 {
         self
     }
 
-    pub fn show(self, ui: &mut Ui) -> Option<f32> {
+    pub fn show(self, ui: &mut Ui) -> Option<T> {
         ui.horizontal(|ui| {
             let mut new_value = self.current_value;
             ui.label(self.title);
