@@ -131,9 +131,6 @@ levels:
       - {model_name: OpenRobotics/TeleportDispenser, name: coke_dispenser, static: true, x: 2091.359, y: 624.821, yaw: 1.5708, z: 0}
       - {model_name: OpenRobotics/Coke, name: Coke, static: false, x: 2091.359, y: 625.071, yaw: 1.5708, z: 0}
       - {model_name: OpenRobotics/TeleportIngestor, name: coke_ingestor, static: true, x: 2662.887, y: 898.996, yaw: 1.5708, z: 0.805}
-    physical_cameras:
-      - [camera1, 0.0, 2.4, 2.0, 0.3, 1.57, 2.0, 640, 480, 30]
-      - [camera2, -7.5, -3.8, 2.0, 0.3, 0.4, 2.0, 1600, 1280, 30]
     vertices:
       - [80.27, 1024.974, 0, ""]
       - [580.795, 43.396, 0, ""]

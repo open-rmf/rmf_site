@@ -90,12 +90,10 @@ impl BuildingMap {
 
         for (lift_name, lift) in map.lifts.iter_mut() {
             let tf = alignments.get(&lift.reference_floor_name).unwrap();
-            dbg!(&lift_name, &lift.reference_floor_name, lift.x, lift.y, lift.yaw);
             let p = tf.transform_point2(lift.to_vec());
             lift.x = p.x;
             lift.y = -p.y;
             lift.yaw -= get_delta_yaw(tf);
-            dbg!(lift.x, lift.y, lift.yaw);
         }
 
         map.coordinate_system = CoordinateSystem::CartesianMeters;

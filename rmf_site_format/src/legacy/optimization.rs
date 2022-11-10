@@ -77,16 +77,7 @@ pub fn align_building(
 
     calculate_yaw_adjustment(&measurements, &fiducials, &mut u);
     calculate_displacement_adjustment(&measurements, &fiducials, &mut u);
-
-    // let yaw_adjustment = calculate_yaw_adjustment(&measurements, &fiducials, &u);
-    // for (v, a) in u.iter_mut().zip(yaw_adjustment.iter()) {
-    //     *v += *a;
-    // }
-
-    // let delta_adjustment = calculate_displacement_adjustment(&measurements, &fiducials, &u);
-    // for (v, a) in u.iter_mut().zip(delta_adjustment.iter()) {
-    //     *v += *a;
-    // }
+    calculate_center_adjustment(building, &mut u);
 
     names.into_iter().zip(
         AllVariables::new(&u).map(|vars| vars.to_affine())
@@ -311,48 +302,6 @@ fn calculate_scale_gradient(
     }
 }
 
-fn calculate_yaw_cost(
-    measurements: &Vec<Vec<Measurement>>,
-    fiducials: &Vec<Vec<Option<DVec2>>>,
-    u: &[f64],
-) -> f64 {
-    let mut cost = 0.0;
-    for vars_i in AllVariables::new(u) {
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_ki) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_ki) = phi_ki {
-                            if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-                                let f_ki = vars_i.transform(*phi_ki);
-                                let f_kj = vars_j.transform(*phi_kj);
-                                let delta = f_ki - f_kj;
-
-                                for (m, phi_mi) in fiducials_i[k+1..].iter().enumerate() {
-                                    let m = m + k+1;
-                                    if let Some(phi_mi) = phi_mi {
-                                        if let Some(Some(phi_mj)) = fiducials_j.get(m) {
-                                            let f_mi = vars_i.transform(*phi_mi);
-                                            let f_mj = vars_j.transform(*phi_mj);
-                                            let df_i = f_ki - f_mi;
-                                            let df_j = f_kj - f_mj;
-                                            let yaw_i = df_i.y.atan2(df_i.x);
-                                            let yaw_j = df_j.y.atan2(df_j.x);
-                                            cost += (yaw_i - yaw_j).powi(2);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    dbg!(u, cost).1
-}
-
 fn calculate_yaw_adjustment(
     measurements: &Vec<Vec<Measurement>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
@@ -404,34 +353,6 @@ fn calculate_yaw_adjustment(
             }
         }
     }
-
-    dbg!(adjustment.iter().zip(weight.iter()).collect::<Vec<_>>());
-}
-
-fn calculate_displacement_cost(
-    measurements: &Vec<Vec<Measurement>>,
-    fiducials: &Vec<Vec<Option<DVec2>>>,
-    u: &[f64],
-) -> f64 {
-    let mut cost = 0.0;
-    for vars_i in AllVariables::new(u) {
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_i) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_i) = phi_i {
-                            if let Some(Some(phi_j)) = fiducials_j.get(k) {
-                                let delta = vars_i.transform(*phi_i) - vars_j.transform(*phi_j);
-                                cost += delta.dot(delta);
-                            }
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    cost
 }
 
 fn calculate_displacement_adjustment(
@@ -473,106 +394,31 @@ fn calculate_displacement_adjustment(
             }
         }
     }
-
-    dbg!(adjustment.iter().zip(weight.iter()).collect::<Vec<_>>());
 }
 
-// fn calculate_cost(
-//     measurements: &Vec<Vec<Measurement>>,
-//     fiducials: &Vec<Vec<Option<DVec2>>>,
-//     u: &[f64],
-// ) -> f64 {
-//     println!(" ------------------ ");
-//     let mut cost = 0.0;
-//     for vars_i in AllVariables::new(u) {
-//         if let Some(measurements_i) = measurements.get(vars_i.level) {
-//             for m in measurements_i {
-//                 cost += dbg!((m.in_pixels*vars_i.scale() - m.in_meters).powi(2), vars_i.level).0;
-//             }
-//         }
+fn calculate_center_adjustment(
+    building: &BuildingMap,
+    u: &mut [f64],
+) {
+    let mut center = DVec2::ZERO;
+    let mut weight = 0.0;
+    for (i, level) in building.levels.values().enumerate() {
+        let range = 4*i..4*(i+1);
+        let vars = LevelVariables::new(&u[range], i);
+        for v in &level.vertices {
+            let v = vars.transform(v.to_vec());
+            center += v;
+            weight += 1.0;
+        }
+    }
 
-//         if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-//             for vars_j in AllVariables::after(vars_i.level, u) {
-//                 if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-//                     for (k, phi_i) in fiducials_i.iter().enumerate() {
-//                         if let Some(phi_i) = phi_i {
-//                             if let Some(Some(phi_j)) = fiducials_j.get(k) {
-//                                 let delta = vars_i.transform(*phi_i) - vars_j.transform(*phi_j);
-//                                 cost += dbg!(delta.dot(delta), vars_i.level, vars_j.level, k).0;
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     dbg!(cost)
-// }
-
-
-
-// fn calculate_gradient(
-//     measurements: &Vec<Vec<Measurement>>,
-//     fiducials: &Vec<Vec<Option<DVec2>>>,
-//     u: &[f64],
-//     gradient: &mut [f64]
-// ) {
-//     println!(" vvvvvvvvvvvvvvvv ");
-//     for vars_i in AllVariables::new(u) {
-//         let mut grad = LevelGradient::new(vars_i.level, gradient);
-//         *grad.dx() = 0.0;
-//         *grad.dy() = 0.0;
-//         *grad.theta() = 0.0;
-//         *grad.scale() = 0.0;
-
-//         if let Some(measurements_i) = measurements.get(vars_i.level) {
-//             for m in measurements_i {
-//                 *grad.scale() += dbg!(2.0 * (m.in_pixels*vars_i.scale() - m.in_meters) * m.in_pixels, vars_i.level).0;
-//             }
-//         }
-
-//         if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-//             for vars_j in AllVariables::after(vars_i.level, u) {
-//                 if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-//                     for (k, phi_ki) in fiducials_i.iter().enumerate() {
-//                         if let Some(phi_ki) = phi_ki {
-//                             if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-//                                 let f_ki = vars_i.transform(*phi_ki);
-//                                 let f_kj = vars_j.transform(*phi_kj);
-//                                 let delta = f_ki - f_kj;
-//                                 *grad.dx() += 2.0 * delta.x;
-//                                 *grad.dy() += 2.0 * delta.y;
-//                                 // dbg!(vars_i.scale(), delta, vars_i.rotation_deriv(), phi_i);
-//                                 // *grad.theta() += dbg!(2.0 * *vars_i.scale() * delta.dot(vars_i.rotation_deriv() * *phi_i), vars_i.level, vars_j.level, k).0;
-//                                 // *grad.scale() += dbg!(2.0 * delta.dot(vars_i.rotation() * *phi_i), vars_i.level, vars_j.level, k).0;
-
-//                                 for (m, phi_mi) in fiducials_i[k+1..].iter().enumerate() {
-//                                     let m = m + k+1;
-//                                     if let Some(phi_mi) = phi_mi {
-//                                         if let Some(Some(phi_mj)) = fiducials_j.get(m) {
-//                                             let f_mi = vars_i.transform(*phi_mi);
-//                                             let f_mj = vars_j.transform(*phi_mj);
-//                                             let df_i = f_ki - f_mi;
-//                                             let df_j = f_kj - f_mj;
-
-//                                             let yaw_i = df_i.y.atan2(df_i.x);
-//                                             let yaw_j = df_j.y.atan2(df_j.x);
-//                                             *grad.theta() += 2.0*(yaw_i - yaw_j);
-
-//                                             let length2_i = df_i.dot(df_i);
-//                                             let length2_j = df_j.dot(df_j);
-//                                             *grad.scale() += 4.0 * (length2_i - length2_j) * length2_i / *vars_i.scale();
-//                                         }
-//                                     }
-//                                 }
-//                             }
-//                         }
-//                     }
-//                 }
-//             }
-//         }
-//     }
-
-//     dbg!(gradient);
-// }
+    if weight >= 0.0 {
+        center /= weight;
+        for level in 0..u.len()/4 {
+            let x = 4*level;
+            let y = 4*level + 1;
+            u[x] -= center.x;
+            u[y] -= center.y;
+        }
+    }
+}
