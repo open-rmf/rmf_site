@@ -15,8 +15,8 @@
  *
 */
 
-use bevy_egui::egui::{DragValue, Ui};
 use bevy_egui::egui::emath::Numeric;
+use bevy_egui::egui::{DragValue, Ui};
 use std::ops::RangeInclusive;
 
 pub struct InspectValue<T> {
