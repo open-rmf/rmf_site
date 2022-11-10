@@ -35,7 +35,7 @@ impl PhysicalCamera {
             properties: PhysicalCameraProperties {
                 width: self.image_width,
                 height: self.image_height,
-                horizontal_fov: self.image_fov as f32,
+                horizontal_fov: Angle::Rad(self.image_fov as f32),
                 frame_rate: self.update_rate as f32,
             },
         }

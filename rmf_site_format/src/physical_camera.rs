@@ -33,6 +33,17 @@ pub struct PhysicalCamera {
 pub struct PhysicalCameraProperties {
     pub width: u32,
     pub height: u32,
-    pub horizontal_fov: f32,
+    pub horizontal_fov: Angle,
     pub frame_rate: f32,
+}
+
+impl Default for PhysicalCameraProperties {
+    fn default() -> Self {
+        PhysicalCameraProperties {
+            width: 1280,
+            height: 720,
+            horizontal_fov: Angle::Deg(90.0),
+            frame_rate: 30.0,
+        }
+    }
 }

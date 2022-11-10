@@ -73,6 +73,7 @@ pub struct AppEvents<'w, 's> {
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub change_asset_source: EventWriter<'w, 's, Change<AssetSource>>,
     pub change_pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
+    pub change_physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
     _ignore: Query<'w, 's, ()>,
 }
 
