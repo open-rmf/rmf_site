@@ -61,7 +61,7 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    interaction::Selection,
+    interaction::{Selection, SpawnPreview},
     site::{Category, Change, EdgeLabels, Original, SiteID},
     widgets::AppEvents,
 };
@@ -94,6 +94,7 @@ pub struct InspectorParams<'w, 's> {
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
     pub pixels_per_meters: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
+    pub previewable: Query<'w, 's, &'static PreviewableMarker>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -259,6 +260,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change_physical_camera_properties
                         .send(Change::new(new_camera_properties, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(previewable) = self.params.previewable.get(selection) {
+                if ui.button("Preview").clicked() {
+                    println!("Spawning preview");
+                    self.events
+                        .spawn_preview
+                        .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
             }

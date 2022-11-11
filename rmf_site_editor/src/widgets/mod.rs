@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select},
+    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
     site::{Change, SiteState, SiteUpdateLabel},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -74,6 +74,7 @@ pub struct AppEvents<'w, 's> {
     pub change_asset_source: EventWriter<'w, 's, Change<AssetSource>>,
     pub change_pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
     pub change_physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
+    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     _ignore: Query<'w, 's, ()>,
 }
 
