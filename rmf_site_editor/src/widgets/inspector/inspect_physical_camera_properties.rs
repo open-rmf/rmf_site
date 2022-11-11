@@ -35,6 +35,7 @@ impl<'a> InspectPhysicalCameraProperties<'a> {
         Grid::new("physical_camera_properties").show(ui, |ui| {
             if let Some(new_width) =
                 InspectValue::<u32>::new(String::from("Width"), new_properties.width)
+                    .clamp_range(1..=std::u32::MAX)
                     .tooltip("Image width in pixels".to_string())
                     .show(ui)
             {
@@ -43,6 +44,7 @@ impl<'a> InspectPhysicalCameraProperties<'a> {
             ui.end_row();
             if let Some(new_height) =
                 InspectValue::<u32>::new(String::from("Height"), new_properties.height)
+                    .clamp_range(1..=std::u32::MAX)
                     .tooltip("Image height in pixels".to_string())
                     .show(ui)
             {
