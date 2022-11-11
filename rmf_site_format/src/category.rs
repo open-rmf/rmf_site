@@ -62,7 +62,7 @@ impl Category {
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(transparent)]
-pub struct Categorized<T>(BTreeMap<Category, T>);
+pub struct Categorized<T>(pub(crate) BTreeMap<Category, T>);
 
 impl<T> Categorized<T> {
     pub fn new(general: T) -> Self {

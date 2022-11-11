@@ -80,6 +80,21 @@ impl Anchor {
             }
         }
     }
+
+    pub fn move_to(&mut self, tf: &Transform) {
+        match self {
+            Anchor::Translate2D(p) => {
+                p[0] = tf.translation.x;
+                p[1] = tf.translation.y;
+            }
+            Anchor::CategorizedTranslate2D(categorized) => {
+                let delta = tf.translation.truncate() - Vec2::from(*categorized.for_category(Category::General));
+                for (_, v) in &mut categorized.0 {
+                    *v = (Vec2::from(*v) + delta).into();
+                }
+            }
+        }
+    }
 }
 
 #[cfg(feature = "bevy")]

@@ -19,7 +19,7 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::{BTreeMap, BTreeSet}, path::PathBuf};
 use thiserror::Error as ThisError;
 
 use crate::site::*;
@@ -591,10 +591,10 @@ fn generate_lifts(
         let mut level_visit_doors = BTreeMap::new();
         for (level, doors) in &e_level_doors.visit {
             let level_id = get_level_id(*level)?;
-            let mut door_ids = Vec::new();
+            let mut door_ids = BTreeSet::new();
             for door in doors {
                 let door_id = get_door_id(*door)?;
-                door_ids.push(**door_id);
+                door_ids.insert(**door_id);
             }
             level_visit_doors.insert(level_id, door_ids);
         }

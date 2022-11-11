@@ -18,12 +18,12 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
-    math::{Vec3, Vec3A},
+    math::{Vec2, Vec3, Vec3A},
     prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With},
     render::primitives::Aabb,
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.1;
 pub const DEFAULT_CABIN_DOOR_THICKNESS: f32 = 0.05;
@@ -87,7 +87,7 @@ pub struct LevelDoors<T: RefTrait> {
     /// A map from the ID of a level that this lift can visit to the door(s) that
     /// the lift opens on that level. key: level, value: door. The lift can only
     /// visit levels that are included in this map.
-    pub visit: BTreeMap<T, Vec<T>>,
+    pub visit: BTreeMap<T, BTreeSet<T>>,
 
     /// Anchors that define the level door positioning for level doors.
     /// The key of this map is the cabin door ID and the value is a pair of
@@ -140,6 +140,50 @@ pub enum LiftCabin<T: RefTrait> {
     // Model(Model),
 }
 
+impl<T: RefTrait> LiftCabin<T> {
+    pub fn remove_door(&mut self, door: T) {
+        match self {
+            Self::Rect(params) => {
+                for face in RectFace::iter_all() {
+                    let placement = params.door_mut(face);
+                    if placement.filter(|p| p.door == door).is_some() {
+                        *placement = None;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallLiftCabin {
+    pub rect_doors: [Option<LiftCabinDoorPlacement<Entity>>; 4],
+}
+
+impl Recall for RecallLiftCabin {
+    type Source = LiftCabin<Entity>;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match source {
+            LiftCabin::Rect(params) => {
+                for (face, door) in params.doors() {
+                    if let Some(door) = door {
+                        self.rect_doors[face as usize] = Some(*door);
+                    }
+                }
+            }
+        }
+    }
+}
+
+impl RecallLiftCabin {
+    pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<Entity>> {
+        &self.rect_doors[face as usize]
+    }
+}
+
 impl<T: RefTrait> Default for LiftCabin<T> {
     fn default() -> Self {
         LiftCabin::Rect(Default::default())
@@ -167,6 +211,9 @@ pub struct RectangularLiftCabin<T: RefTrait> {
     /// from the anchor points. Default is 0.0m.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub shift: Option<f32>,
+    // NOTE(MXG): We explicitly list out the four doors instead of using an
+    // array so the serialization looks nicer. Use doors() to get these fields
+    // as an array.
     /// The placement of the cabin's front door, if it has one
     #[serde(skip_serializing_if = "Option::is_none")]
     pub front_door: Option<LiftCabinDoorPlacement<T>>,
@@ -210,13 +257,38 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         self.shift.unwrap_or(0.0)
     }
 
-    pub fn doors(&self) -> [(&Option<LiftCabinDoorPlacement<T>>, Vec3, Vec3); 4] {
+    pub fn face_size(&self, face: RectFace) -> f32 {
+        match face {
+            RectFace::Front | RectFace::Back => self.width,
+            RectFace::Left | RectFace::Right => self.depth,
+        }
+    }
+
+    pub fn doors(&self) -> [(RectFace, &Option<LiftCabinDoorPlacement<T>>); 4] {
         [
-            (&self.front_door, Vec3::X, Vec3::Y),
-            (&self.back_door, Vec3::NEG_X, Vec3::NEG_Y),
-            (&self.left_door, Vec3::Y, Vec3::NEG_X),
-            (&self.right_door, Vec3::NEG_Y, Vec3::X),
+            (RectFace::Front, &self.front_door),
+            (RectFace::Back, &self.back_door),
+            (RectFace::Left, &self.left_door),
+            (RectFace::Right, &self.right_door),
         ]
+    }
+
+    pub fn door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<T>> {
+        match face {
+            RectFace::Front => &self.front_door,
+            RectFace::Back => &self.back_door,
+            RectFace::Left => &self.left_door,
+            RectFace::Right => &self.right_door,
+        }
+    }
+
+    pub fn door_mut(&mut self, face: RectFace) -> &mut Option<LiftCabinDoorPlacement<T>> {
+        match face {
+            RectFace::Front => &mut self.front_door,
+            RectFace::Back => &mut self.back_door,
+            RectFace::Left => &mut self.left_door,
+            RectFace::Right => &mut self.right_door,
+        }
     }
 
     pub fn cabin_wall_coordinates(&self) -> Vec<[Vec3; 2]> {
@@ -226,7 +298,8 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
             0.0,
         );
         self.doors().into_iter().flat_map(
-            |(params, u, v)| {
+            |(face, params)| {
+                let (u, v) = face.uv();
                 let du = n.dot(u).abs();
                 let dv = n.dot(v).abs() + self.thickness()/2.0;
                 let start = u*du + v*dv;
@@ -240,6 +313,27 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
                 }
             }
         ).collect()
+    }
+
+    pub fn level_door_anchors(&self, face: RectFace) -> Option<[Anchor; 2]> {
+        let door = self.door(face).as_ref()?;
+        let (u, v) = face.uv2();
+        let n = Vec2::new(self.depth/2.0, self.width/2.0);
+        let delta = self.thickness() + door.custom_gap.unwrap_or(self.gap()) + door.thickness();
+        let base = (n.dot(u) + delta) * u;
+        let left = base + door.left_coordinate() * v;
+        let right = base + door.right_coordinate() * v;
+        let d_floor = door.thickness() * u;
+        Some([
+            Anchor::CategorizedTranslate2D(
+                Categorized::new(left.into())
+                .with_category(Category::Floor, (left - d_floor).into())
+            ),
+            Anchor::CategorizedTranslate2D(
+                Categorized::new(right.into())
+                .with_category(Category::Floor, (right - d_floor).into())
+            )
+        ])
     }
 }
 
@@ -258,6 +352,31 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
                 DEFAULT_LEVEL_HEIGHT / 2.0,
             ),
         }
+    }
+
+    /// This gives a set of "placemats" that can be laid in front of each lift
+    /// cabin door to be used as visual cues.
+    pub fn level_door_placemats(
+        &self,
+        length: f32
+    ) -> [(RectFace, &Option<LiftCabinDoorPlacement<T>>, Aabb); 4] {
+        let n = Vec3::new(
+            self.depth/2.0 + 1.5*self.thickness() + length/2.0,
+            self.width/2.0 + 1.5*self.thickness() + length/2.0,
+            0.0,
+        );
+        self.doors().map(|(face, params)| {
+            let (u, v) = face.uv();
+            let gap = params.map(|p| p.custom_gap).flatten().unwrap_or(self.gap());
+            let du = n.dot(u).abs() + gap;
+            let shift = params.map(|p| p.shifted).flatten().unwrap_or(0.0);
+            let width = params.map(|p| p.width).unwrap_or(self.width/2.0);
+            let aabb = Aabb {
+                center: (u*du + shift*v).into(),
+                half_extents: (length*u/2.0 + width*v/2.0).into(),
+            };
+            (face, params, aabb)
+        })
     }
 }
 
@@ -407,11 +526,25 @@ impl LiftCabinDoorPlacement<Entity> {
 }
 
 impl<T: RefTrait> LiftCabinDoorPlacement<T> {
+    pub fn new(door: T, width: f32) -> Self {
+        LiftCabinDoorPlacement {
+            door,
+            width,
+            thickness: None,
+            shifted: None,
+            custom_gap: None
+        }
+    }
+
     pub fn left_coordinate(&self) -> f32 {
         self.width/2.0 + self.shifted.unwrap_or(0.0)
     }
 
     pub fn right_coordinate(&self) -> f32 {
         -self.width/2.0 + self.shifted.unwrap_or(0.0)
+    }
+
+    pub fn thickness(&self) -> f32 {
+        self.thickness.unwrap_or(DEFAULT_CABIN_DOOR_THICKNESS)
     }
 }

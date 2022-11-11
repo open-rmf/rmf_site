@@ -38,6 +38,7 @@ pub struct Cursor {
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
     modes: HashSet<&'static str>,
+    blockers: HashSet<Entity>,
 }
 
 impl Cursor {
@@ -73,6 +74,22 @@ impl Cursor {
         }
     }
 
+    pub fn add_blocker(&mut self, e: Entity, visibility: &mut Query<&mut Visibility>) {
+        if self.blockers.insert(e) {
+            if self.blockers.len() == 1 {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
+    pub fn remove_blocker(&mut self, e: Entity, visibility: &mut Query<&mut Visibility>) {
+        if self.blockers.remove(&e) {
+            if self.blockers.is_empty() {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
     fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.frame) {
             let visible = self.should_be_visible();
@@ -83,7 +100,7 @@ impl Cursor {
     }
 
     pub fn should_be_visible(&self) -> bool {
-        !self.dependents.is_empty() || !self.modes.is_empty()
+        (!self.dependents.is_empty() || !self.modes.is_empty()) && self.blockers.is_empty()
     }
 
     pub fn is_placement_anchor(&self, entity: Entity) -> bool {
@@ -172,6 +189,7 @@ impl FromWorld for Cursor {
             site_anchor_placement,
             dependents: Default::default(),
             modes: Default::default(),
+            blockers: Default::default(),
         }
     }
 }

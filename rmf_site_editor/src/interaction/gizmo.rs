@@ -27,13 +27,13 @@ pub struct InitialDragConditions {
 }
 
 #[derive(Debug, Clone)]
-pub struct DraggableMaterialSet {
+pub struct GizmoMaterialSet {
     pub passive: Handle<StandardMaterial>,
     pub hover: Handle<StandardMaterial>,
     pub drag: Handle<StandardMaterial>,
 }
 
-impl DraggableMaterialSet {
+impl GizmoMaterialSet {
     pub fn make_x_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
             passive: materials.add(Color::rgb(1., 0., 0.).into()),
@@ -60,28 +60,64 @@ impl DraggableMaterialSet {
 }
 
 #[derive(Component, Debug, Clone)]
-pub struct Draggable {
-    pub for_entity: Entity,
+pub struct Gizmo {
     /// If the material of the draggable entity should change when interacted
     /// with, this field can be given the desired material set.
-    pub materials: Option<DraggableMaterialSet>,
-    pub initial: Option<InitialDragConditions>,
+    pub materials: Option<GizmoMaterialSet>,
+}
+
+impl Gizmo {
+    pub fn new() -> Self {
+        Self { materials: None }
+    }
+
+    pub fn with_materials(mut self, materials: GizmoMaterialSet) -> Self {
+        self.materials = Some(materials);
+        self
+    }
+}
+
+#[derive(Component, Debug, Clone)]
+pub struct Draggable {
+    pub for_entity: Entity,
+    pub drag: Option<InitialDragConditions>,
 }
 
 impl Draggable {
-    pub fn new(for_entity: Entity, materials: Option<DraggableMaterialSet>) -> Self {
-        Self {
-            for_entity,
-            materials,
-            initial: None,
-        }
+    pub fn new(for_entity: Entity) -> Self {
+        Self { for_entity, drag: None }
     }
 }
+
+#[derive(Debug, Clone, Copy)]
+pub struct GizmoClicked(pub Entity);
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DragAxis {
     /// The gizmo can only be dragged along this axis
     pub along: Vec3,
+}
+
+#[derive(Bundle)]
+pub struct DragAxisBundle {
+    pub gizmo: Gizmo,
+    pub draggable: Draggable,
+    pub axis: DragAxis,
+}
+
+impl DragAxisBundle {
+    pub fn new(for_entity: Entity, along: Vec3) -> Self {
+        Self{
+            gizmo: Gizmo::new(),
+            draggable: Draggable::new(for_entity),
+            axis: DragAxis { along }
+        }
+    }
+
+    pub fn with_materials(mut self, materials: GizmoMaterialSet) -> Self {
+        self.gizmo = self.gizmo.with_materials(materials);
+        self
+    }
 }
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -90,23 +126,45 @@ pub struct DragPlane {
     pub in_plane: Vec3,
 }
 
+#[derive(Bundle)]
+pub struct DragPlaneBundle {
+    pub gizmo: Gizmo,
+    pub draggable: Draggable,
+    pub plane: DragPlane,
+}
+
+impl DragPlaneBundle {
+    pub fn new(for_entity: Entity, in_plane: Vec3) -> Self {
+        Self{
+            gizmo: Gizmo::new(),
+            draggable: Draggable::new(for_entity),
+            plane: DragPlane { in_plane }
+        }
+    }
+
+    pub fn with_materials(mut self, materials: GizmoMaterialSet) -> Self {
+        self.gizmo = self.gizmo.with_materials(materials);
+        self
+    }
+}
+
 /// Used as a resource to keep track of which draggable is currently hovered
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum DragState {
+pub enum GizmoState {
     Dragging(Entity),
     Hovering(Entity),
     None,
 }
 
-impl DragState {
+impl GizmoState {
     pub fn is_dragging(&self) -> bool {
-        return matches!(self, DragState::Dragging(_));
+        return matches!(self, GizmoState::Dragging(_));
     }
 }
 
-impl Default for DragState {
+impl Default for GizmoState {
     fn default() -> Self {
-        DragState::None
+        GizmoState::None
     }
 }
 
@@ -120,50 +178,56 @@ pub struct MoveTo {
 
 pub fn make_gizmos_pickable(
     mut commands: Commands,
-    drag_axis: Query<Entity, Added<DragAxis>>,
-    drag_plane: Query<Entity, Added<DragPlane>>,
+    new_gizmos: Query<Entity, Added<Gizmo>>,
 ) {
-    for e in drag_axis.iter().chain(drag_plane.iter()) {
+    for e in &new_gizmos {
         commands.entity(e).insert_bundle(PickableBundle::default());
     }
 }
 
-pub fn update_drag_click_start(
-    mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
+pub fn update_gizmo_click_start(
+    mut gizmos: Query<(&Gizmo, Option<&mut Draggable>, &mut Handle<StandardMaterial>)>,
     mut selection_blocker: ResMut<SelectionBlockers>,
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     transforms: Query<&GlobalTransform>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
-    cursor: Res<Cursor>,
-    mut drag_state: ResMut<DragState>,
+    mut cursor: ResMut<Cursor>,
+    mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
+    mut click: EventWriter<GizmoClicked>,
+    removed_gizmos: RemovedComponents<Gizmo>
 ) {
+    for e in removed_gizmos.iter() {
+        cursor.remove_blocker(e, &mut visibility);
+    }
+
     for pick in picks.iter() {
         if let Some(previous_pick) = pick.from {
-            if *drag_state == DragState::Hovering(previous_pick) {
-                if let Ok((drag, mut material)) = draggables.get_mut(previous_pick) {
-                    if let Some(drag_materials) = &drag.materials {
-                        *material = drag_materials.passive.clone();
+            cursor.remove_blocker(previous_pick, &mut visibility);
+            if *gizmo_state == GizmoState::Hovering(previous_pick) {
+                if let Ok((gizmo, _, mut material)) = gizmos.get_mut(previous_pick) {
+                    if let Some(gizmo_materials) = &gizmo.materials {
+                        dbg!(previous_pick);
+                        *material = gizmo_materials.passive.clone();
                     }
                 }
 
-                *drag_state = DragState::None;
+                *gizmo_state = GizmoState::None;
             }
         }
 
-        if !drag_state.is_dragging() {
+        if !gizmo_state.is_dragging() {
             if let Some(new_pick) = pick.to {
-                if let Ok((drag, mut material)) = draggables.get_mut(new_pick) {
-                    if drag.initial.is_none() {
-                        set_visibility(cursor.frame, &mut visibility, false);
-                        if let Some(drag_materials) = &drag.materials {
-                            *material = drag_materials.hover.clone();
-                        }
+                if let Ok((gizmo, _, mut material)) = gizmos.get_mut(new_pick) {
+                    cursor.add_blocker(new_pick, &mut visibility);
+                    if let Some(gizmo_materials) = &gizmo.materials {
+                        dbg!(new_pick);
+                        *material = gizmo_materials.hover.clone();
                     }
 
-                    *drag_state = DragState::Hovering(new_pick);
+                    *gizmo_state = GizmoState::Hovering(new_pick);
                 }
             }
         }
@@ -173,48 +237,51 @@ pub fn update_drag_click_start(
         || touch_input.iter_just_pressed().next().is_some();
 
     if clicked {
-        if let DragState::Hovering(e) = *drag_state {
+        if let GizmoState::Hovering(e) = *gizmo_state {
+            click.send(GizmoClicked(e));
             if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
-                if let Ok((mut drag, mut material)) = draggables.get_mut(e) {
-                    if let Ok(tf) = transforms.get(drag.for_entity) {
+                if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
+                    if let Ok(tf) = transforms.get(draggable.for_entity) {
                         selection_blocker.dragging = true;
-                        drag.initial = Some(InitialDragConditions {
+                        draggable.drag = Some(InitialDragConditions {
                             click_point: intersection.clone(),
                             entity_tf: tf.compute_transform(),
                         });
-                        if let Some(drag_materials) = &drag.materials {
+                        if let Some(drag_materials) = &gizmo.materials {
                             *material = drag_materials.drag.clone();
                         }
-                        *drag_state = DragState::Dragging(e);
+                        *gizmo_state = GizmoState::Dragging(e);
+                    } else {
+                        *gizmo_state = GizmoState::None;
                     }
                 } else {
                     // The hovered draggable is no longer draggable, so change the
                     // drag state to none
-                    *drag_state = DragState::None;
+                    *gizmo_state = GizmoState::None;
                 }
             }
         }
     }
 }
 
-pub fn update_drag_release(
-    mut draggables: Query<(&mut Draggable, &mut Handle<StandardMaterial>)>,
+pub fn update_gizmo_release(
+    mut draggables: Query<(&Gizmo, &mut Draggable, &mut Handle<StandardMaterial>)>,
     mut selection_blockers: ResMut<SelectionBlockers>,
-    mut drag_state: ResMut<DragState>,
+    mut gizmo_state: ResMut<GizmoState>,
     mouse_button_input: Res<Input<MouseButton>>,
     picked: Res<Picked>,
     mut change_pick: EventWriter<ChangePick>,
 ) {
     if mouse_button_input.just_released(MouseButton::Left) {
-        if let DragState::Dragging(e) = *drag_state {
-            if let Ok((mut draggable, mut material)) = draggables.get_mut(e) {
-                draggable.initial = None;
-                if let Some(drag_materials) = &draggable.materials {
-                    *material = drag_materials.passive.clone();
+        if let GizmoState::Dragging(e) = *gizmo_state {
+            if let Ok((gizmo, mut draggable, mut material)) = draggables.get_mut(e) {
+                draggable.drag = None;
+                if let Some(gizmo_materials) = &gizmo.materials {
+                    *material = gizmo_materials.passive.clone();
                 }
             }
 
-            *drag_state = DragState::None;
+            *gizmo_state = GizmoState::None;
             selection_blockers.dragging = false;
             // Refresh the latest pick since some pick responders were blocked
             // during the dragging activity. Without this event, users will have
@@ -235,11 +302,11 @@ pub fn update_drag_motions(
     transforms: Query<(&Transform, &GlobalTransform)>,
     cameras: Query<&Camera>,
     camera_controls: Res<CameraControls>,
-    drag_state: Res<DragState>,
+    drag_state: Res<GizmoState>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
 ) {
-    if let DragState::Dragging(dragging) = *drag_state {
+    if let GizmoState::Dragging(dragging) = *drag_state {
         let cursor_position = match cursor_motion.iter().last() {
             Some(m) => m.position,
             None => {
@@ -267,7 +334,7 @@ pub fn update_drag_motions(
         };
 
         if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging) {
-            if let Some(initial) = &draggable.initial {
+            if let Some(initial) = &draggable.drag {
                 if let Some((for_local_tf, for_global_tf)) =
                     transforms.get(draggable.for_entity).ok()
                 {
@@ -305,7 +372,7 @@ pub fn update_drag_motions(
         }
 
         if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging) {
-            if let Some(initial) = &draggable.initial {
+            if let Some(initial) = &draggable.drag {
                 if let Some((for_local_tf, for_global_tf)) =
                     transforms.get(draggable.for_entity).ok()
                 {
@@ -316,8 +383,8 @@ pub fn update_drag_motions(
                     let n_r = ray.direction();
                     let denom = n_p.dot(n_r);
                     if denom.abs() < 1e-3 {
-                        // The rays are nearly parallel so we should not attempt moving
-                        // because the motion will be too extreme
+                        // The rays are nearly parallel so we should not attempt
+                        // moving because the motion will be too extreme
                         return;
                     }
 

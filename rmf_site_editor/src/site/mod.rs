@@ -132,6 +132,7 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
+            .add_event::<ToggleLiftDoorAvailability>()
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
@@ -145,6 +146,8 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
             .add_plugin(ChangePlugin::<LevelProperties>::default())
+            .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
+            .add_plugin(RecallPlugin::<RecallLiftCabin>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
@@ -158,7 +161,8 @@ impl Plugin for SitePlugin {
                 SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphans_to_nav_graph),
+                    .with_system(assign_orphans_to_nav_graph)
+                    .with_system(add_tags_to_lift),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -176,10 +180,11 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(update_visibility_for_lanes)
-                    .with_system(add_tags_to_lift)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_lift_for_moved_anchors)
+                    .with_system(update_lift_door_availability)
+                    .with_system(update_anchors_for_level_doors)
                     .with_system(add_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)

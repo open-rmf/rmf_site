@@ -18,8 +18,13 @@
 use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
-    render::mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
-    render::mesh::shape::Box,
+    render::{
+        mesh::{
+            Indices, PrimitiveTopology, VertexAttributeValues,
+            shape::Box,
+        },
+        primitives::Aabb,
+    }
 };
 use rmf_site_format::Angle;
 
@@ -852,6 +857,11 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
         .collect();
 
     return MeshBuffer::new(positions, normals, indices);
+}
+
+pub(crate) fn make_flat_mesh_for_aabb(aabb: Aabb) -> MeshBuffer {
+    make_flat_rect_mesh(2.0*aabb.half_extents.x, 2.0*aabb.half_extents.y)
+        .transform_by(Affine3A::from_translation(aabb.center.into()))
 }
 
 pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {

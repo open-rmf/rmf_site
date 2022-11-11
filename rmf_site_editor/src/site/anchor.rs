@@ -80,6 +80,13 @@ pub struct AnchorDependents {
     pub dependents: HashSet<Entity>,
 }
 
+/// This component is used to indicate that an anchor is controlled by another
+/// entity and therefore cannot be interacted with directly by users. Optionally
+/// the entity that controls the anchor can be specified so that users can be
+/// guided towards how to modify the anchor or understand its purpose.
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct Subordinate(pub Option<Entity>);
+
 /// The PreviewAnchor component is held by exactly one Anchor entity that will
 /// follow the cursor when the interaction mode is to add a new Anchor.
 #[derive(Component)]

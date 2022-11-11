@@ -3,12 +3,12 @@ use crate::{
     DoorType, DoubleSlidingDoor, LiftCabin, LiftCabinDoor, RectangularLiftCabin,
     LiftCabinDoorPlacement, Level, Lift as SiteLift, LiftProperties, Anchor,
     Category, Categorized, LevelDoors, InitialLevel, IsStatic, Edge, NameInSite,
-    DEFAULT_CABIN_WALL_THICKNESS, DEFAULT_CABIN_DOOR_THICKNESS,
+    DEFAULT_CABIN_WALL_THICKNESS, DEFAULT_CABIN_DOOR_THICKNESS, RectFace,
 };
 use serde::{Deserialize, Serialize};
 use glam::{Vec2, DVec2};
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ops::RangeFrom,
 };
 
@@ -35,13 +35,6 @@ pub struct Lift {
     pub x: f64,
     pub y: f64,
     pub yaw: f64,
-}
-
-enum CabinFace {
-    Front,
-    Back,
-    Left,
-    Right,
 }
 
 impl Lift {
@@ -119,10 +112,10 @@ impl Lift {
                 // Very small x value means the door must be on the left or right face
                 if dy >= half_width {
                     // Positive y means left door
-                    CabinFace::Left
+                    RectFace::Left
                 } else if dy <= -half_width {
                     // Negative y means right door
-                    CabinFace::Right
+                    RectFace::Right
                 } else {
                     return Err(PortingError::InvalidLiftCabinDoorPlacement { lift: lift_name.clone(), door: door_name.clone() });
                 }
@@ -133,18 +126,18 @@ impl Lift {
                     // The door must be on the front or back face
                     if dx >= half_depth {
                         // Positive x means front door
-                        CabinFace::Front
+                        RectFace::Front
                     } else if dx <= -half_depth {
-                        CabinFace::Back
+                        RectFace::Back
                     } else {
                         return Err(PortingError::InvalidLiftCabinDoorPlacement { lift: lift_name.clone(), door: door_name.clone() });
                     }
                 } else {
                     // The door must be on the left or right face
                     if dy >= half_width {
-                        CabinFace::Left
+                        RectFace::Left
                     } else if dy <= half_width {
-                        CabinFace::Right
+                        RectFace::Right
                     } else {
                         return Err(PortingError::InvalidLiftCabinDoorPlacement { lift: lift_name.clone(), door: door_name.clone() });
                     }
@@ -153,7 +146,7 @@ impl Lift {
 
             let width = door.width as f32;
             match cabin_face {
-                CabinFace::Front => {
+                RectFace::Front => {
                     if front_door.is_some() {
                         return Err(PortingError::DuplicateLiftCabinDoor { lift: lift_name.clone(), face: "front" });
                     }
@@ -165,7 +158,7 @@ impl Lift {
                         custom_gap: Some(dx - half_depth),
                     });
                 }
-                CabinFace::Back => {
+                RectFace::Back => {
                     if back_door.is_some() {
                         return Err(PortingError::DuplicateLiftCabinDoor { lift: lift_name.clone(), face: "back" });
                     }
@@ -177,7 +170,7 @@ impl Lift {
                         custom_gap: Some(-dx - half_depth),
                     })
                 }
-                CabinFace::Left => {
+                RectFace::Left => {
                     if left_door.is_some() {
                         return Err(PortingError::DuplicateLiftCabinDoor { lift: lift_name.clone(), face: "left" });
                     }
@@ -189,7 +182,7 @@ impl Lift {
                         custom_gap: Some((dy - half_width) as f32),
                     });
                 }
-                CabinFace::Right => {
+                RectFace::Right => {
                     if right_door.is_some() {
                         return Err(PortingError::DuplicateLiftCabinDoor { lift: lift_name.clone(), face: "right" });
                     }
@@ -206,7 +199,7 @@ impl Lift {
 
         let width = self.width as f32;
         let depth = self.depth as f32;
-        let cabin = LiftCabin::Rect(RectangularLiftCabin {
+        let cabin = RectangularLiftCabin {
             width,
             depth,
             wall_thickness: None,
@@ -216,7 +209,7 @@ impl Lift {
             back_door,
             left_door,
             right_door,
-        });
+        };
 
         let level_visit_doors = {
             let mut level_visit_doors = BTreeMap::new();
@@ -226,9 +219,9 @@ impl Lift {
                         PortingError::InvalidLevelName(level_name.clone())
                     )?,
                     {
-                        let mut doors = Vec::new();
+                        let mut doors = BTreeSet::new();
                         for door_name in door_names {
-                            doors.push(*cabin_door_name_to_id.get(door_name).ok_or(
+                            doors.insert(*cabin_door_name_to_id.get(door_name).ok_or(
                                 PortingError::InvalidLiftCabinDoorName {
                                     lift: lift_name.clone(),
                                     door: door_name.clone()
@@ -250,43 +243,21 @@ impl Lift {
             .collect();
 
         let level_door_anchors = {
-            let doors = [
-                (front_door, Vec2::new(1.0, 0.0), Vec2::new(0.0, 1.0)),
-                (back_door, Vec2::new(-1.0, 0.0), Vec2::new(0.0, -1.0)),
-                (left_door, Vec2::new(0.0, 1.0), Vec2::new(-1.0, 0.0)),
-                (right_door, Vec2::new(0.0, -1.0), Vec2::new(1.0, 0.0)),
-            ];
-
             let mut level_door_anchors = BTreeMap::new();
-            for (placement, u, v) in doors.into_iter().filter_map(|(p, g, s)| p.map(|p| (p, g, s))) {
-                let gap = placement.custom_gap.unwrap();
-                let forward = Vec2::new(
-                    depth/2.0 + DEFAULT_CABIN_WALL_THICKNESS + gap,
-                    width/2.0 + DEFAULT_CABIN_WALL_THICKNESS + gap,
-                );
-                let center = forward.dot(u) * u + placement.shifted.unwrap_or(0.0) * v;
-                let l_anchor = center + placement.width/2.0*v;
-                let r_anchor = center - placement.width/2.0*v;
-                let d_floor = DEFAULT_CABIN_DOOR_THICKNESS/2.0 * u;
-
-                let left_id = site_id.next().unwrap();
-                cabin_anchors.insert(left_id, Anchor::CategorizedTranslate2D(
-                    Categorized::new(l_anchor.into())
-                    .with_category(Category::Floor, (l_anchor - d_floor).to_array())
-                ));
-
-                let right_id = site_id.next().unwrap();
-                cabin_anchors.insert(right_id, Anchor::CategorizedTranslate2D(
-                    Categorized::new(r_anchor.into())
-                    .with_category(Category::Floor, (r_anchor - d_floor).to_array())
-                ));
-
-                level_door_anchors.insert(placement.door, [left_id, right_id].into());
+            for face in RectFace::iter_all() {
+                if let (Some(placement), Some([left, right])) = (cabin.door(face), cabin.level_door_anchors(face)) {
+                    let left_id = site_id.next().unwrap();
+                    let right_id = site_id.next().unwrap();
+                    cabin_anchors.insert(left_id, left);
+                    cabin_anchors.insert(right_id, right);
+                    level_door_anchors.insert(placement.door, [left_id, right_id].into());
+                }
             }
 
             level_door_anchors
         };
 
+        let cabin = LiftCabin::Rect(cabin);
         Ok(SiteLift {
             cabin_doors,
             properties: LiftProperties {

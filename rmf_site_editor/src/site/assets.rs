@@ -40,6 +40,8 @@ pub struct SiteAssets {
     pub translucent_black: Handle<StandardMaterial>,
     pub translucent_white: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
+    pub lift_door_available_material: Handle<StandardMaterial>,
+    pub lift_door_unavailable_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -95,6 +97,8 @@ impl FromWorld for SiteAssets {
             ..default()
         });
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
+        let lift_door_available_material = materials.add(Color::rgb(0.1, 0.95, 0.1).into());
+        let lift_door_unavailable_material = materials.add(Color::rgb(0.95, 0.1, 0.1).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
@@ -135,6 +139,18 @@ impl FromWorld for SiteAssets {
             translucent_black,
             translucent_white,
             physical_camera_material,
+            lift_door_available_material,
+            lift_door_unavailable_material,
+        }
+    }
+}
+
+impl SiteAssets {
+    pub fn lift_door_material(&self, available: bool) -> Handle<StandardMaterial> {
+        if available {
+            self.lift_door_available_material.clone()
+        } else {
+            self.lift_door_unavailable_material.clone()
         }
     }
 }

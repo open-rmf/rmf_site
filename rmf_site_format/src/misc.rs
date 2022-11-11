@@ -19,6 +19,7 @@ use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use serde::{Deserialize, Serialize};
+use glam::Vec3;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
@@ -64,6 +65,63 @@ impl Side {
     /// when it is closed.
     pub fn pivot_closed_angle(&self) -> Angle {
         Angle::Deg(self.index() as f32 * 180.0 - 90.0)
+    }
+}
+
+/// Enumeration for the faces of a rectangle. Conventionally:
+/// Front: +x
+/// Back: -x
+/// Left: +y
+/// Right: -y
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RectFace {
+    Front,
+    Back,
+    Left,
+    Right,
+}
+
+impl RectFace {
+    pub fn iter_all() -> impl Iterator<Item=RectFace> {
+        [Self::Front, Self::Back, Self::Left, Self::Right].into_iter()
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Front => "Front",
+            Self::Back => "Back",
+            Self::Left => "Left",
+            Self::Right => "Right",
+        }
+    }
+
+    /// A vector from the center of the rectangle towards this face.
+    pub fn u(&self) -> Vec3 {
+        match self {
+            Self::Front => Vec3::X,
+            Self::Back => Vec3::NEG_X,
+            Self::Left => Vec3::Y,
+            Self::Right => Vec3::NEG_Y,
+        }
+    }
+
+    /// A vector from the center of the rectange towards your "left-hand"
+    /// direction while looking at this face.
+    pub fn v(&self) -> Vec3 {
+        match self {
+            Self::Front => Vec3::Y,
+            Self::Back => Vec3::NEG_Y,
+            Self::Left => Vec3::NEG_X,
+            Self::Right => Vec3::X,
+        }
+    }
+
+    pub fn uv(&self) -> (Vec3, Vec3) {
+        (self.u(), self.v())
+    }
+
+    pub fn uv2(&self) -> (Vec2, Vec2) {
+        (self.u().truncate(), self.v().truncate())
     }
 }
 

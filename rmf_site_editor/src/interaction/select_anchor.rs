@@ -621,7 +621,7 @@ impl Placement for EdgePlacement {
         } else {
             // Delete the target because it is unfinished, then restart from
             // the beginning.
-            let equal_points = if let Ok((mut edge, _)) = params.edges.get(target) {
+            let equal_points = if let Ok((edge, _)) = params.edges.get(target) {
                 for anchor in edge.array() {
                     if let Ok(mut dep) = params.dependents.get_mut(anchor) {
                         dep.dependents.remove(&target);
