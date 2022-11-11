@@ -110,7 +110,8 @@ impl Plugin for InteractionPlugin {
                             .after(update_drag_release),
                     )
                     .with_system(manage_previews)
-                    .with_system(update_physical_camera_preview),
+                    .with_system(update_physical_camera_preview)
+                    .with_system(handle_preview_window_close),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(

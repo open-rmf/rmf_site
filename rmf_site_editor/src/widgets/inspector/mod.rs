@@ -264,7 +264,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(previewable) = self.params.previewable.get(selection) {
+            if let Ok(_previewable) = self.params.previewable.get(selection) {
                 if ui.button("Preview").clicked() {
                     self.events
                         .spawn_preview

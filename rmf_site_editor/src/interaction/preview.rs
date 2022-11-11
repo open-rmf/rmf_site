@@ -18,11 +18,12 @@
 use bevy::prelude::*;
 use bevy::render::camera::{Projection, RenderTarget};
 use bevy::utils::HashMap;
-use bevy::window::{CreateWindow, PresentMode, WindowId, Windows};
+use bevy::window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows};
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
 /// Instruction to spawn a preview for the given entity
+/// TODO None to encode "Clear all"
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct SpawnPreview {
     pub entity: Option<Entity>,
@@ -39,11 +40,11 @@ impl SpawnPreview {
 pub struct CameraPreviewWindows(HashMap<Entity, WindowId>);
 
 fn create_camera_window(
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     entity: Entity,
     camera_name: &String,
     camera_properties: &PhysicalCameraProperties,
-    mut create_window_events: &mut EventWriter<CreateWindow>,
+    create_window_events: &mut EventWriter<CreateWindow>,
 ) -> WindowId {
     let window_id = WindowId::new();
     create_window_events.send(CreateWindow {
@@ -80,16 +81,18 @@ pub fn manage_previews(
         With<PreviewableMarker>,
     >,
     mut camera_children: Query<(Entity, &mut Projection), With<Camera>>,
-    mut current_preview: Local<SpawnPreview>,
     mut create_window_events: EventWriter<CreateWindow>,
     mut preview_windows: ResMut<CameraPreviewWindows>,
 ) {
-    // TODO populate current_preview
     for event in preview_events.iter() {
-        if *event != *current_preview {
-            // TODO Strategy for cleanup
+        if let None = event.entity {
+            // TODO clear all previews
         }
         if let Some(e) = event.entity {
+            if let Some(open_window) = preview_windows.0.get_mut(&e) {
+                // Preview window already exists, skip creating it
+                continue;
+            }
             if let Ok((_, children, camera_name, camera_option)) = previewable.get(e) {
                 if let Some(camera_properties) = camera_option {
                     // Get the child of the root entity
@@ -125,14 +128,14 @@ pub fn update_physical_camera_preview(
         (Entity, &Children, &PhysicalCameraProperties),
         Changed<PhysicalCameraProperties>,
     >,
-    mut camera_children: Query<(Entity, &mut Projection), With<Camera>>,
+    mut camera_children: Query<&mut Projection, With<Camera>>,
     mut windows: ResMut<Windows>,
 ) {
     for (entity, children, camera_properties) in updated_cameras.iter() {
         if let Some(window_id) = preview_windows.0.get(&entity) {
             if let Some(window) = windows.get_mut(window_id.clone()) {
                 // Update fov first
-                if let Ok((child_entity, mut projection)) = camera_children.get_mut(children[0]) {
+                if let Ok(mut projection) = camera_children.get_mut(children[0]) {
                     if let Projection::Perspective(perspective_projection) = &mut (*projection) {
                         let aspect_ratio =
                             (camera_properties.width as f32) / (camera_properties.height as f32);
@@ -146,5 +149,18 @@ pub fn update_physical_camera_preview(
                 );
             }
         }
+    }
+}
+
+/// Do housekeeping to clear the hashmap of window IDs when a preview is closed
+pub fn handle_preview_window_close(
+    mut preview_windows: ResMut<CameraPreviewWindows>,
+    mut preview_events: EventReader<WindowClosed>,
+) {
+    for event in preview_events.iter() {
+        // Find and remove the matching key, if any, in preview_windows
+        preview_windows
+            .0
+            .retain(|_, window_id| window_id != &event.id);
     }
 }
