@@ -96,6 +96,12 @@ fn standard_ui_layout(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewLevels::new(&levels, &mut events).show(ui);
+                            });
+                        ui.separator();
                         CollapsingHeader::new("Inspect")
                             .default_open(true)
                             .show(ui, |ui| {
@@ -106,12 +112,6 @@ fn standard_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
-                            });
-                        ui.separator();
-                        CollapsingHeader::new("Levels")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                ViewLevels::new(&levels, &mut events).show(ui);
                             });
                     });
                 });

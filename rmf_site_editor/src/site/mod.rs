@@ -152,6 +152,13 @@ impl Plugin for SitePlugin {
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
             .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .after(SiteUpdateLabel::ProcessChanges)
+                    .with_system(update_lift_cabin)
+                    .with_system(update_lift_edge)
+            )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
@@ -180,8 +187,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(update_visibility_for_lanes)
-                    .with_system(update_lift_cabin)
-                    .with_system(update_lift_edge)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)
                     .with_system(update_anchors_for_level_doors)

@@ -139,34 +139,40 @@ impl FromWorld for InteractionAssets {
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
         let lift_placemat_available_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.1, 0.9, 0.1),
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.1),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.9, 0.1, 0.4),
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.9, 0.7, 0.1),
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
         };
         let lift_placemat_unavailable_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.9, 0.1, 0.1),
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.1),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.1, 0.9, 0.6),
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
-                base_color: Color::rgb(0.9, 0.7, 0.1),
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 ..default()
             }),
