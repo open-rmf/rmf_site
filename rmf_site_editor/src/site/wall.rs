@@ -22,11 +22,12 @@ use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
 fn make_wall(
+    entity: Entity,
     wall: &Edge<Entity>,
-    anchors: &Query<(&Anchor, &GlobalTransform)>,
+    anchors: &AnchorParams,
 ) -> Option<Mesh> {
-    let p_start = Anchor::point_q(wall.start(), Category::Wall, anchors).ok()?;
-    let p_end = Anchor::point_q(wall.end(), Category::Wall, anchors).ok()?;
+    let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity).ok()?;
+    let p_end = anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity).ok()?;
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
@@ -42,13 +43,13 @@ fn make_wall(
 pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
-    anchors: Query<(&Anchor, &GlobalTransform)>,
+    anchors: AnchorParams,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge) in &walls {
-        if let Some(mesh) = make_wall(edge, &anchors) {
+        if let Some(mesh) = make_wall(e, edge, &anchors) {
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
@@ -73,12 +74,13 @@ pub fn add_wall_visual(
 }
 
 fn update_wall_visuals(
-    wall: &Edge<Entity>,
-    anchors: &Query<(&Anchor, &GlobalTransform)>,
+    entity: Entity,
+    edge: &Edge<Entity>,
+    anchors: &AnchorParams,
     mesh: &mut Handle<Mesh>,
     meshes: &mut Assets<Mesh>,
 ) {
-    *mesh = meshes.add(make_wall(wall, anchors).unwrap());
+    *mesh = meshes.add(make_wall(entity, edge, anchors).unwrap());
 }
 
 pub fn update_wall_edge(
@@ -86,24 +88,24 @@ pub fn update_wall_edge(
         (Entity, &Edge<Entity>, &mut Handle<Mesh>),
         (With<WallMarker>, Changed<Edge<Entity>>),
     >,
-    anchors: Query<(&Anchor, &GlobalTransform)>,
+    anchors: AnchorParams,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge, mut mesh) in &mut walls {
-        update_wall_visuals(edge, &anchors, mesh.as_mut(), meshes.as_mut());
+        update_wall_visuals(e, edge, &anchors, mesh.as_mut(), meshes.as_mut());
     }
 }
 
 pub fn update_wall_for_moved_anchors(
-    mut walls: Query<(&Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
-    anchors: Query<(&Anchor, &GlobalTransform)>,
+    mut walls: Query<(Entity, &Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
+    anchors: AnchorParams,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Some((wall, mut mesh)) = walls.get_mut(*dependent).ok() {
-                update_wall_visuals(wall, &anchors, mesh.as_mut(), meshes.as_mut());
+            if let Some((e, wall, mut mesh)) = walls.get_mut(*dependent).ok() {
+                update_wall_visuals(e, wall, &anchors, mesh.as_mut(), meshes.as_mut());
             }
         }
     }

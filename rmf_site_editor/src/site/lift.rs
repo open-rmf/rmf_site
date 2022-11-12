@@ -78,11 +78,12 @@ pub struct ToggleLiftDoorAvailability {
 }
 
 fn make_lift_transform(
+    entity: Entity,
     reference_anchors: &Edge<Entity>,
-    anchors: &Query<(&Anchor, &GlobalTransform)>,
+    anchors: &AnchorParams
 ) -> Transform {
-    let p_start = Anchor::point_q(reference_anchors.start(), Category::Lift, anchors).unwrap();
-    let p_end = Anchor::point_q(reference_anchors.end(), Category::Lift, anchors).unwrap();
+    let p_start = anchors.point_in_parent_frame_of(reference_anchors.start(), Category::Lift, entity).unwrap();
+    let p_end = anchors.point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity).unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
         (p_start, p_start + DEFAULT_CABIN_WIDTH * Vec3::Y)
     } else {
@@ -103,12 +104,27 @@ fn make_lift_transform(
 
 pub fn add_tags_to_lift(
     mut commands: Commands,
-    lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
+    new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
+    orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
     mut dependents: Query<&mut AnchorDependents>,
+    current_site: Res<CurrentSite>,
 ) {
-    for (e, edge) in &lifts {
-        commands.entity(e)
-            .insert(EdgeLabels::LeftRight);
+    for (e, edge) in &new_lifts {
+        let mut lift_cmds = commands.entity(e);
+        lift_cmds
+            .insert_bundle(SpatialBundle::default())
+            .insert(EdgeLabels::LeftRight)
+            .insert(Category::Lift);
+
+        if orphan_lifts.contains(e) {
+            // Assume that a newly created lift that doesn't have a parent
+            // belongs in whatever the current site happens to be.
+            if let Some(current_site) = current_site.0 {
+                commands.entity(current_site).add_child(e);
+            } else {
+                println!("Could not find a current site to put a newly created lift inside of!");
+            }
+        }
 
         for anchor in edge.array() {
             if let Ok(mut dep) = dependents.get_mut(anchor) {
@@ -128,7 +144,7 @@ pub fn update_lift_cabin(
         Option<&ChildCabinAnchorGroup>,
         Option<&ChildLiftCabinGroup>,
         &Parent,
-    ), Or<(Changed<LiftCabin<Entity>>, Changed<LevelDoors<Entity>>)>>,
+    ), Or<(Changed<LiftCabin<Entity>>, Changed<LevelDoors<Entity>>, Changed<Parent>)>>,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
     children: Query<&Children>,
     assets: Res<SiteAssets>,
@@ -158,6 +174,7 @@ pub fn update_lift_cabin(
                     sum.merge_with(next)
                 }).into();
 
+                dbg!();
                 let cabin_entity = commands
                     .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
                     .with_children(|parent| {
@@ -209,6 +226,7 @@ pub fn update_lift_cabin(
                     })
                     .id();
 
+                dbg!();
                 commands.entity(e)
                     .insert(ChildLiftCabinGroup(cabin_entity))
                     .add_child(cabin_entity);
@@ -252,22 +270,22 @@ pub fn update_lift_cabin(
 
 pub fn update_lift_edge(
     mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), (Changed<Edge<Entity>>, With<LiftCabin<Entity>>)>,
-    anchors: Query<(&Anchor, &GlobalTransform)>,
+    anchors: AnchorParams,
 ) {
     for (e, edge, mut tf) in &mut lifts {
-        *tf = make_lift_transform(edge, &anchors);
+        *tf = make_lift_transform(e, edge, &anchors);
     }
 }
 
 pub fn update_lift_for_moved_anchors(
-    mut lifts: Query<(&Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
-    anchors: Query<(&Anchor, &GlobalTransform)>,
+    mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
+    anchors: AnchorParams,
     changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in &changed_anchor.dependents {
-            if let Ok((edge, mut tf)) = lifts.get_mut(*dependent) {
-                *tf = make_lift_transform(edge, &anchors);
+            if let Ok((e, edge, mut tf)) = lifts.get_mut(*dependent) {
+                *tf = make_lift_transform(e, edge, &anchors);
             }
         }
     }
@@ -333,6 +351,7 @@ pub fn update_lift_door_availability(
                     commands.entity(anchor_group.0).add_child(*anchor);
                 }
                 level_doors.reference_anchors.insert(cabin_door, anchors.into());
+                commands.entity(cabin_door).insert(Edge::from(anchors));
             }
 
             level_doors.visit.entry(toggle.on_level).or_default().insert(cabin_door);

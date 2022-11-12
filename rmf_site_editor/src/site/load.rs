@@ -160,7 +160,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (lift_id, lift_data) in &site_data.lifts {
-            site.spawn_bundle(SpatialBundle::default())
+            site.spawn()
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {

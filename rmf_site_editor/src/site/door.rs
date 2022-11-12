@@ -37,15 +37,14 @@ pub struct DoorSegments {
 }
 
 fn make_door_visuals(
+    entity: Entity,
     edge: &Edge<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
+    anchors: &AnchorParams,
     kind: &DoorType,
 ) -> (Transform, Transform, Mesh, Mesh) {
-    let start_anchor = anchors.get(edge.left()).unwrap();
-    let end_anchor = anchors.get(edge.right()).unwrap();
+    let p_start = anchors.point_in_parent_frame_of(edge.left(), Category::Door, entity).unwrap();
+    let p_end = anchors.point_in_parent_frame_of(edge.right(), Category::Door, entity).unwrap();
 
-    let p_start = start_anchor.translation();
-    let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
@@ -163,15 +162,18 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), Added<DoorType>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), (
+        Or<(Added<DoorType>, Added<Edge<Entity>>)>,
+        Without<DoorSegments>
+    )>,
+    anchors: AnchorParams,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge, kind) in &new_doors {
         let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
-            make_door_visuals(edge, &anchors, kind);
+            make_door_visuals(e, edge, &anchors, kind);
 
         let mut commands = commands.entity(e);
         let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
@@ -230,13 +232,13 @@ fn update_door_visuals(
     edge: &Edge<Entity>,
     kind: &DoorType,
     segments: &DoorSegments,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
+    anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
 ) {
     let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
-        make_door_visuals(edge, anchors, kind);
+        make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
     let mut shape_transform = transforms.get_mut(segments.body).unwrap();
@@ -252,7 +254,7 @@ pub fn update_changed_door(
         (Entity, &Edge<Entity>, &DoorType, &DoorSegments),
         Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
     >,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
@@ -273,7 +275,7 @@ pub fn update_changed_door(
 
 pub fn update_door_for_changed_anchor(
     doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    anchors: AnchorParams,
     changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,

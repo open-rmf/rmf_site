@@ -33,7 +33,7 @@ pub struct AnchorBundle {
 
 impl AnchorBundle {
     pub fn new(anchor: Anchor) -> Self {
-        let transform = anchor.relative_transform(Category::General);
+        let transform = anchor.local_transform(Category::General);
         Self {
             anchor,
             transform,

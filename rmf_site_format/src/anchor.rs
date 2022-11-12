@@ -20,9 +20,12 @@ use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 #[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{Component, Transform, GlobalTransform, Query, Entity},
+    prelude::{Component, Transform, GlobalTransform, Parent, Query, Entity},
     math::{Vec2, Vec3, Affine3A},
-    ecs::query::QueryEntityError,
+    ecs::{
+        system::SystemParam,
+        query::QueryEntityError,
+    },
 };
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -50,15 +53,6 @@ impl Anchor {
 
 #[cfg(feature = "bevy")]
 impl Anchor {
-    pub fn point_q(
-        entity: Entity,
-        category: Category,
-        q: &Query<(&Anchor, &GlobalTransform)>
-    ) -> Result<Vec3, QueryEntityError> {
-        let (anchor, tf) = q.get(entity)?;
-        Ok(anchor.point(category, tf))
-    }
-
     pub fn point(&self, category: Category, tf: &GlobalTransform) -> Vec3 {
         match category {
             Category::General => {
@@ -71,7 +65,7 @@ impl Anchor {
         }
     }
 
-    pub fn relative_transform(&self, category: Category) -> Transform {
+    pub fn local_transform(&self, category: Category) -> Transform {
         match self {
             Anchor::Translate2D(p) => Transform::from_translation([p[0], p[1], 0.0].into()),
             Anchor::CategorizedTranslate2D(categorized) => {
@@ -98,8 +92,53 @@ impl Anchor {
 }
 
 #[cfg(feature = "bevy")]
+#[derive(SystemParam)]
+pub struct AnchorParams<'w, 's> {
+    anchors: Query<'w, 's, (&'static Anchor, &'static GlobalTransform)>,
+    parents: Query<'w, 's, &'static Parent>,
+    global_tfs: Query<'w, 's, &'static GlobalTransform>,
+}
+
+#[cfg(feature = "bevy")]
+impl<'w, 's> AnchorParams<'w, 's> {
+    pub fn point(&self, anchor: Entity, category: Category) -> Result<Vec3, QueryEntityError> {
+        let (anchor, tf) = self.anchors.get(anchor)?;
+        Ok(anchor.point(category, tf))
+    }
+
+    pub fn relative_point(
+        &self,
+        anchor: Entity,
+        category: Category,
+        relative_to: Entity
+    ) -> Result<Vec3, QueryEntityError> {
+        let (anchor, tf) = self.anchors.get(anchor)?;
+        let relative_to_tf = self.global_tfs.get(relative_to)?;
+        let global_p = anchor.point(category, tf);
+        Ok(relative_to_tf.affine().inverse().transform_point3(global_p))
+    }
+
+    pub fn point_in_parent_frame_of(
+        &self,
+        anchor: Entity,
+        category: Category,
+        in_parent_frame_of: Entity
+    ) -> Result<Vec3, QueryEntityError> {
+        match self.parents.get(in_parent_frame_of) {
+            Ok(parent) => self.relative_point(anchor, category, parent.get()),
+            Err(_) => self.point(anchor, category),
+        }
+    }
+
+    pub fn local_transform(&self, entity: Entity, category: Category) -> Result<Transform, QueryEntityError> {
+        let (anchor, _) = self.anchors.get(entity)?;
+        Ok(anchor.local_transform(category))
+    }
+}
+
+#[cfg(feature = "bevy")]
 impl From<Anchor> for Transform {
     fn from(anchor: Anchor) -> Self {
-        anchor.relative_transform(Category::General)
+        anchor.local_transform(Category::General)
     }
 }
