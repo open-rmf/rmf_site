@@ -209,7 +209,6 @@ pub fn update_gizmo_click_start(
             if *gizmo_state == GizmoState::Hovering(previous_pick) {
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(previous_pick) {
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        dbg!(previous_pick);
                         *material = gizmo_materials.passive.clone();
                     }
                 }
@@ -223,7 +222,6 @@ pub fn update_gizmo_click_start(
                 if let Ok((gizmo, _, mut material)) = gizmos.get_mut(new_pick) {
                     cursor.add_blocker(new_pick, &mut visibility);
                     if let Some(gizmo_materials) = &gizmo.materials {
-                        dbg!(new_pick);
                         *material = gizmo_materials.hover.clone();
                     }
 

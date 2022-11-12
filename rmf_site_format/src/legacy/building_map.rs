@@ -132,12 +132,7 @@ impl BuildingMap {
                         .or_default();
                     let x = v.0 as f32 - lift.x as f32;
                     let y = v.1 as f32 - lift.y as f32;
-                    if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, anchor)| {
-                        let [other_x, other_y] = *anchor.translation_for_category(Category::General);
-                        let dx = x - other_x;
-                        let dy = y - other_y;
-                        (dx * dx + dy * dy).sqrt() < 0.01
-                    }) {
+                    if let Some(duplicate) = lift_cabin_anchors.iter().next() {
                         // This is a duplicate cabin anchor so we return its
                         // existing ID
                         duplicate.0

@@ -154,16 +154,36 @@ impl<T: RefTrait> LiftCabin<T> {
             }
         }
     }
+
+    pub fn level_door_anchors(&self, door: T) -> Option<[Anchor; 2]> {
+        match self {
+            Self::Rect(params) => {
+                for (face, placement) in &params.doors() {
+                    if placement.filter(|p| p.door == door).is_some() {
+                        return params.level_door_anchors(*face);
+                    }
+                }
+            }
+        }
+
+        None
+    }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallLiftCabin {
-    pub rect_doors: [Option<LiftCabinDoorPlacement<Entity>>; 4],
+pub struct RecallLiftCabin<T: RefTrait> {
+    pub rect_doors: [Option<LiftCabinDoorPlacement<T>>; 4],
 }
 
-impl Recall for RecallLiftCabin {
-    type Source = LiftCabin<Entity>;
+impl<T: RefTrait> Default for RecallLiftCabin<T> {
+    fn default() -> Self {
+        Self { rect_doors: Default::default() }
+    }
+}
+
+impl<T: RefTrait> Recall for RecallLiftCabin<T> {
+    type Source = LiftCabin<T>;
 
     fn remember(&mut self, source: &Self::Source) {
         match source {
@@ -178,8 +198,8 @@ impl Recall for RecallLiftCabin {
     }
 }
 
-impl RecallLiftCabin {
-    pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<Entity>> {
+impl<T: RefTrait> RecallLiftCabin<T> {
+    pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<T>> {
         &self.rect_doors[face as usize]
     }
 }
@@ -320,7 +340,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         let (u, v) = face.uv2();
         let n = Vec2::new(self.depth/2.0, self.width/2.0);
         let delta = self.thickness() + door.custom_gap.unwrap_or(self.gap()) + door.thickness();
-        let base = (n.dot(u) + delta) * u;
+        let base = (n.dot(u).abs() + delta) * u;
         let left = base + door.left_coordinate() * v;
         let right = base + door.right_coordinate() * v;
         let d_floor = door.thickness() * u;
@@ -358,14 +378,16 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
     /// cabin door to be used as visual cues.
     pub fn level_door_placemats(
         &self,
-        length: f32
-    ) -> [(RectFace, &Option<LiftCabinDoorPlacement<T>>, Aabb); 4] {
+        length: f32,
+        recall: Option<&RecallLiftCabin<T>>,
+    ) -> [(RectFace, Option<T>, Aabb); 4] {
         let n = Vec3::new(
             self.depth/2.0 + 1.5*self.thickness() + length/2.0,
             self.width/2.0 + 1.5*self.thickness() + length/2.0,
             0.0,
         );
         self.doors().map(|(face, params)| {
+            let params = params.as_ref().or(recall.map(|r| r.rect_door(face).as_ref()).flatten());
             let (u, v) = face.uv();
             let gap = params.map(|p| p.custom_gap).flatten().unwrap_or(self.gap());
             let du = n.dot(u).abs() + gap;
@@ -375,7 +397,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
                 center: (u*du + shift*v).into(),
                 half_extents: (length*u/2.0 + width*v/2.0).into(),
             };
-            (face, params, aabb)
+            (face, params.map(|p| p.door), aabb)
         })
     }
 }

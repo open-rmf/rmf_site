@@ -138,14 +138,38 @@ impl FromWorld for InteractionAssets {
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
         let lift_placemat_available_materials = GizmoMaterialSet {
-            passive: materials.add(Color::rgb(0.1, 0.9, 0.1).into()),
-            hover: materials.add(Color::rgb(0.9, 0.1, 0.4).into()),
-            drag: materials.add(Color::rgb(0.9, 0.7, 0.1).into()),
+            passive: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.1, 0.9, 0.1),
+                unlit: true,
+                ..default()
+            }),
+            hover: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.9, 0.1, 0.4),
+                unlit: true,
+                ..default()
+            }),
+            drag: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.9, 0.7, 0.1),
+                unlit: true,
+                ..default()
+            }),
         };
         let lift_placemat_unavailable_materials = GizmoMaterialSet {
-            passive: materials.add(Color::rgb(0.9, 0.1, 0.1).into()),
-            hover: materials.add(Color::rgb(0.1, 0.9, 0.6).into()),
-            drag: materials.add(Color::rgb(0.9, 0.7, 0.1).into()),
+            passive: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.9, 0.1, 0.1),
+                unlit: true,
+                ..default()
+            }),
+            hover: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.1, 0.9, 0.6),
+                unlit: true,
+                ..default()
+            }),
+            drag: materials.add(StandardMaterial {
+                base_color: Color::rgb(0.9, 0.7, 0.1),
+                unlit: true,
+                ..default()
+            }),
         };
 
         Self {
