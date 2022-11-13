@@ -52,6 +52,8 @@ pub struct LiftCabinDoor<T: RefTrait> {
     /// anchor IDs associated with that cabin door, used to mark the location of
     /// where a level door is (or would be) located.
     pub reference_anchors: Edge<T>,
+    /// The IDs of the levels that this door can visit
+    pub visits: LevelVisits<T>,
     #[serde(skip)]
     pub marker: LiftCabinDoorMarker,
 }
@@ -65,8 +67,34 @@ impl LiftCabinDoor<u32> {
         LiftCabinDoor {
             kind: self.kind.clone(),
             reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
+            visits: self.visits.to_ecs(id_to_entity),
             marker: Default::default(),
         }
+    }
+}
+
+#[derive(Serialize, Deserialize, Clone, Debug, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct LevelVisits<T: RefTrait>(pub BTreeSet<T>);
+
+impl<T: RefTrait> Default for LevelVisits<T> {
+    fn default() -> Self {
+        Self(BTreeSet::new())
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl LevelVisits<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LevelVisits<Entity> {
+        LevelVisits(
+            self.0.iter().map(
+                |level| id_to_entity.get(level).unwrap()
+            ).copied().collect()
+        )
     }
 }
 
@@ -84,8 +112,6 @@ pub struct LiftProperties<T: RefTrait> {
     pub reference_anchors: Edge<T>,
     /// Description of the cabin for the lift.
     pub cabin: LiftCabin<T>,
-    /// Descriptions of the doors used at each level
-    pub level_doors: LevelDoors<T>,
     /// When this is true, the lift is only for decoration and will not be
     /// responsive during a simulation.
     pub is_static: IsStatic,
@@ -99,40 +125,6 @@ pub struct LiftProperties<T: RefTrait> {
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct InitialLevel<T: RefTrait>(pub Option<T>);
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct LevelDoors<T: RefTrait> {
-    /// A map from the ID of a level that this lift can visit to the door(s) that
-    /// the lift opens on that level. key: level, value: door. The lift can only
-    /// visit levels that are included in this map.
-    pub visit: BTreeMap<T, BTreeSet<T>>,
-}
-
-impl<T: RefTrait> Default for LevelDoors<T> {
-    fn default() -> Self {
-        Self {
-            visit: Default::default(),
-        }
-    }
-}
-
-#[cfg(feature="bevy")]
-impl LevelDoors<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LevelDoors<Entity> {
-        LevelDoors {
-            visit: self.visit.iter().map(|(level, doors)| {
-                (
-                    *id_to_entity.get(level).unwrap(),
-                    doors.iter().map(|door| id_to_entity.get(door).unwrap()).copied().collect()
-                )
-            }).collect(),
-        }
-    }
-}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -435,7 +427,6 @@ impl LiftProperties<u32> {
             name: self.name.clone(),
             reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
             cabin: self.cabin.to_ecs(id_to_entity),
-            level_doors: self.level_doors.to_ecs(id_to_entity),
             is_static: self.is_static,
             initial_level: InitialLevel(self.initial_level.map(
                 |id| id_to_entity.get(&id).unwrap()
@@ -450,7 +441,6 @@ impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
             name: Default::default(),
             reference_anchors: edge,
             cabin: LiftCabin::default(),
-            level_doors: Default::default(),
             is_static: Default::default(),
             initial_level: InitialLevel(None),
         }
@@ -474,7 +464,8 @@ pub type QueryLiftDoor<'w, 's> = Query<'w, 's, (
     &'static SiteID,
     &'static DoorType,
     &'static Edge<Entity>,
-    Option<&'static Original<Edge<Entity>>>
+    Option<&'static Original<Edge<Entity>>>,
+    &'static LevelVisits<Entity>,
 ), (With<LiftCabinDoorMarker>, Without<Pending>)>;
 
 #[cfg(feature="bevy")]

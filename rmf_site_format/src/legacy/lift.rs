@@ -2,7 +2,7 @@ use super::{PortingError, Result};
 use crate::{
     DoorType, DoubleSlidingDoor, LiftCabin, LiftCabinDoor, RectangularLiftCabin,
     LiftCabinDoorPlacement, Level, Lift as SiteLift, LiftProperties, Anchor,
-    Category, Categorized, LevelDoors, InitialLevel, IsStatic, Edge, NameInSite,
+    Category, Categorized, InitialLevel, IsStatic, Edge, NameInSite, LevelVisits,
     DEFAULT_CABIN_WALL_THICKNESS, DEFAULT_CABIN_DOOR_THICKNESS, RectFace,
 };
 use serde::{Deserialize, Serialize};
@@ -203,28 +203,25 @@ impl Lift {
             right_door,
         };
 
-        let level_visit_doors = {
-            let mut level_visit_doors = BTreeMap::new();
+        let door_level_visits = {
+            let mut door_level_visits: BTreeMap<u32, LevelVisits<u32>> = BTreeMap::new();
             for (level_name, door_names) in &self.level_doors {
-                level_visit_doors.insert(
-                    *level_name_to_id.get(level_name).ok_or(
-                        PortingError::InvalidLevelName(level_name.clone())
-                    )?,
-                    {
-                        let mut doors = BTreeSet::new();
-                        for door_name in door_names {
-                            doors.insert(*cabin_door_name_to_id.get(door_name).ok_or(
-                                PortingError::InvalidLiftCabinDoorName {
-                                    lift: lift_name.clone(),
-                                    door: door_name.clone()
-                                }
-                            )?);
+                let level = *level_name_to_id.get(level_name).ok_or(
+                    PortingError::InvalidLevelName(level_name.clone())
+                )?;
+
+                for door_name in door_names {
+                    let door = cabin_door_name_to_id.get(door_name).ok_or(
+                        PortingError::InvalidLiftCabinDoorName {
+                            lift: lift_name.clone(),
+                            door: door_name.clone()
                         }
-                        doors
-                    }
-                );
+                    )?;
+
+                    door_level_visits.entry(*door).or_default().insert(level);
+                }
             }
-            level_visit_doors
+            door_level_visits
         };
 
         let mut cabin_anchors: BTreeMap<u32, Anchor> = [all_lift_cabin_anchors.get(lift_name)]
@@ -248,6 +245,7 @@ impl Lift {
                         LiftCabinDoor {
                             kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                             reference_anchors: [left_id, right_id].into(),
+                            visits: door_level_visits.get(&p.door).cloned().unwrap_or(LevelVisits::default()),
                             marker: Default::default(),
                         }
                     );
@@ -263,9 +261,6 @@ impl Lift {
                 name: NameInSite(lift_name.clone()),
                 reference_anchors,
                 cabin,
-                level_doors: LevelDoors {
-                    visit: level_visit_doors,
-                },
                 is_static: IsStatic(!self.plugins),
                 initial_level: InitialLevel(level_name_to_id.get(&self.initial_floor_name).copied()),
             },

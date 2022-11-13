@@ -483,7 +483,6 @@ type QueryLift<'w, 's> = Query<
         &'static Edge<Entity>,
         Option<&'static Original<Edge<Entity>>>,
         &'static LiftCabin<Entity>,
-        &'static LevelDoors<Entity>,
         &'static IsStatic,
         &'static InitialLevel<Entity>,
         &'static SiteID,
@@ -523,13 +522,6 @@ fn generate_lifts(
         Ok(site_id.0)
     };
 
-    let get_door_id = |entity| {
-        let site_id = q_doors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenDoorReference(entity))?;
-        Ok(site_id.0)
-    };
-
     let get_anchor_id_edge = |edge: &Edge<Entity>| {
         let left = get_anchor_id(edge.left())?;
         let right = get_anchor_id(edge.right())?;
@@ -560,7 +552,7 @@ fn generate_lifts(
         Ok(())
     };
 
-    for (lift_entity, name, edge, o_edge, cabin, e_level_doors, is_static, initial_level, id, parent) in &q_lifts {
+    for (lift_entity, name, edge, o_edge, cabin, is_static, initial_level, id, parent) in &q_lifts {
         if parent.get() != site {
             continue;
         }
@@ -596,26 +588,18 @@ fn generate_lifts(
                     }
                 }
 
-                if let Ok((site_id, door_type, edge, o_edge)) = q_doors.get(*child) {
+                if let Ok((site_id, door_type, edge, o_edge, visits)) = q_doors.get(*child) {
                     let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                     cabin_doors.insert(site_id.0, LiftCabinDoor {
                         kind: door_type.clone(),
                         reference_anchors: validate_level_door_anchors(*child, edge)?,
+                        visits: LevelVisits(visits.iter().map(
+                            |level| get_level_id(*level)
+                        ).collect::<Result<_, _>>()?),
                         marker: Default::default(),
                     });
                 }
             }
-        }
-
-        let mut level_visit_doors = BTreeMap::new();
-        for (level, doors) in &e_level_doors.visit {
-            let level_id = get_level_id(*level)?;
-            let mut door_ids = BTreeSet::new();
-            for door in doors {
-                let door_id = get_door_id(*door)?;
-                door_ids.insert(**door_id);
-            }
-            level_visit_doors.insert(level_id, door_ids);
         }
 
         let reference_anchors = get_anchor_id_edge(edge)?;
@@ -627,9 +611,6 @@ fn generate_lifts(
                     name: name.clone(),
                     reference_anchors,
                     cabin: cabin.to_u32(&q_doors),
-                    level_doors: LevelDoors {
-                        visit: level_visit_doors,
-                    },
                     is_static: is_static.clone(),
                     initial_level: InitialLevel(initial_level.0
                         .map_or(
