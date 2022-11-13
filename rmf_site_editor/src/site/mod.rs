@@ -148,6 +148,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LevelProperties>::default())
             .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
+            .add_plugin(RecallPlugin::<RecallLevelDoors<Entity>>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))

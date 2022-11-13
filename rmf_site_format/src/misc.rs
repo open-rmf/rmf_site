@@ -358,3 +358,11 @@ impl Default for IsStatic {
 #[derive(Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct SiteID(pub u32);
+
+/// The Pending component indicates that an element is not yet ready to be
+/// saved to file. We will filter out these elements while assigning SiteIDs,
+/// and that will prevent them from being included while collecting elements
+/// into the Site data structure.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Pending;

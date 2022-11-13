@@ -162,16 +162,16 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), (
+    new_doors: Query<(Entity, &Edge<Entity>, &DoorType, Option<&Visibility>), (
         Or<(Added<DoorType>, Added<Edge<Entity>>)>,
-        Without<DoorSegments>
+        Without<DoorSegments>,
     )>,
     anchors: AnchorParams,
     mut dependents: Query<&mut AnchorDependents>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, kind) in &new_doors {
+    for (e, edge, kind, visibility) in &new_doors {
         let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
             make_door_visuals(e, edge, &anchors, kind);
 
@@ -206,9 +206,19 @@ pub fn add_door_visuals(
             (body, cue_inner, cue_outline)
         });
 
+        // Level doors for lifts may have already been given a Visibility
+        // component upon creation, in which case we should respect whatever
+        // value was set for it.
+        let is_visible = if let Some(v) = visibility {
+            v.is_visible
+        } else {
+            true
+        };
+
         commands
             .insert_bundle(SpatialBundle {
                 transform: pose_tf,
+                visibility: Visibility{ is_visible },
                 ..default()
             })
             .insert(DoorSegments {

@@ -25,13 +25,6 @@ use thiserror::Error as ThisError;
 use crate::site::*;
 use rmf_site_format::*;
 
-/// The Pending component indicates that an element is not yet ready to be
-/// saved to file. We will filter out these elements while assigning SiteIDs,
-/// and that will prevent them from being included while collecting elements
-/// into the Site data structure.
-#[derive(Component, Debug, Clone, Copy)]
-pub struct Pending;
-
 /// The Original component indicates that an element is being modified but not
 /// yet in a state where it can be correctly saved. We should save the original
 /// value instead of the apparent current value.
@@ -186,7 +179,7 @@ fn collect_site_anchors(
 ) -> BTreeMap<u32, Anchor> {
     let mut state: SystemState<(
         Query<&Children>,
-        Query<(&SiteID, &Anchor)>,
+        Query<(&SiteID, &Anchor), Without<Pending>>,
     )> = SystemState::new(world);
 
     let mut site_anchors = BTreeMap::new();
@@ -215,8 +208,13 @@ fn generate_levels(
             &DoorType,
             &SiteID,
             &Parent,
-        )>,
-        Query<(&DrawingSource, &Pose, &SiteID, &Parent), With<DrawingMarker>>,
+        ), Without<Pending>>,
+        Query<(
+            &DrawingSource,
+            &Pose,
+            &SiteID,
+            &Parent
+        ), (With<DrawingMarker>, Without<Pending>)>,
         Query<
             (
                 &Point<Entity>,
@@ -225,7 +223,7 @@ fn generate_levels(
                 &SiteID,
                 &Parent,
             ),
-            With<FiducialMarker>,
+            (With<FiducialMarker>, Without<Pending>),
         >,
         Query<
             (
@@ -235,7 +233,7 @@ fn generate_levels(
                 &SiteID,
                 &Parent,
             ),
-            With<FloorMarker>,
+            (With<FloorMarker>, Without<Pending>),
         >,
         Query<(&LightType, &Pose, &SiteID, &Parent)>,
         Query<
@@ -247,16 +245,23 @@ fn generate_levels(
                 &SiteID,
                 &Parent,
             ),
-            With<MeasurementMarker>,
+            (With<MeasurementMarker>, Without<Pending>),
         >,
-        Query<(&NameInSite, &Kind, &Pose, &IsStatic, &SiteID, &Parent), With<ModelMarker>>,
+        Query<(
+            &NameInSite,
+            &Kind,
+            &Pose,
+            &IsStatic,
+            &SiteID,
+            &Parent
+        ), (With<ModelMarker>, Without<Pending>)>,
         Query<(
             &NameInSite,
             &Pose,
             &PhysicalCameraProperties,
             &SiteID,
             &Parent,
-        )>,
+        ), Without<Pending>>,
         Query<
             (
                 &Edge<Entity>,
@@ -265,9 +270,9 @@ fn generate_levels(
                 &SiteID,
                 &Parent,
             ),
-            With<WallMarker>,
+            (With<WallMarker>, Without<Pending>),
         >,
-        Query<(&LevelProperties, &SiteID, &Parent)>,
+        Query<(&LevelProperties, &SiteID, &Parent), Without<Pending>>,
     )> = SystemState::new(world);
 
     let (
@@ -480,13 +485,14 @@ type QueryLift<'w, 's> = Query<
         Entity,
         &'static NameInSite,
         &'static Edge<Entity>,
+        Option<&'static Original<Edge<Entity>>>,
         &'static LiftCabin<Entity>,
         &'static LevelDoors<Entity>,
         &'static IsStatic,
         &'static InitialLevel<Entity>,
         &'static SiteID,
         &'static Parent,
-    ),
+    ), Without<Pending>,
 >;
 
 fn generate_lifts(
@@ -494,12 +500,12 @@ fn generate_lifts(
     site: Entity,
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&SiteID, &Anchor)>,
-        Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
-        Query<&SiteID, With<LevelProperties>>,
+        Query<(&SiteID, &Anchor), Without<Pending>>,
+        Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
+        Query<&SiteID, (With<LevelProperties>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
-        Query<&Parent>,
+        Query<&Parent, Without<Pending>>,
         Query<&Children>,
     )> = SystemState::new(world);
 
@@ -558,11 +564,12 @@ fn generate_lifts(
         Ok(())
     };
 
-    for (lift_entity, name, edge, cabin, e_level_doors, is_static, initial_level, id, parent) in &q_lifts {
+    for (lift_entity, name, edge, o_edge, cabin, e_level_doors, is_static, initial_level, id, parent) in &q_lifts {
         if parent.get() != site {
             continue;
         }
 
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         validate_ref_anchors(edge)?;
 
         let mut cabin_anchors = BTreeMap::new();
@@ -649,14 +656,14 @@ fn generate_nav_graphs(
                 &ReverseLane,
                 &SiteID,
             ),
-            With<LaneMarker>,
+            (With<LaneMarker>, Without<Pending>),
         >,
         Query<(
             &Point<Entity>,
             Option<&Original<Point<Entity>>>,
             &LocationTags,
             &SiteID,
-        )>,
+        ), Without<Pending>>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 

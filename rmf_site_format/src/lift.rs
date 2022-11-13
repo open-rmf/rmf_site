@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
     math::{Vec2, Vec3, Vec3A},
-    prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With},
+    prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With, Without},
     render::primitives::Aabb,
 };
 use serde::{Deserialize, Serialize};
@@ -128,6 +128,28 @@ impl LevelDoors<u32> {
     }
 }
 
+#[derive(Clone, Debug)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallLevelDoors<T: RefTrait> {
+    pub reference_anchors: BTreeMap<T, Edge<T>>,
+}
+
+impl<T: RefTrait> Recall for RecallLevelDoors<T> {
+    type Source = LevelDoors<T>;
+
+    fn remember(&mut self, source: &Self::Source) {
+        for (door, edge) in &source.reference_anchors {
+            self.reference_anchors.insert(*door, *edge);
+        }
+    }
+}
+
+impl<T: RefTrait> Default for RecallLevelDoors<T> {
+    fn default() -> Self {
+        Self { reference_anchors: Default::default() }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LiftCabin<T: RefTrait> {
@@ -138,6 +160,12 @@ pub enum LiftCabin<T: RefTrait> {
     // with the y-axis facing the left anchor. The lift doors should open along
     // the +/- y-axis, and agents should exit the lift along the positive x-axis.
     // Model(Model),
+}
+
+impl<T: RefTrait> Default for LiftCabin<T> {
+    fn default() -> Self {
+        LiftCabin::Rect(Default::default())
+    }
 }
 
 impl<T: RefTrait> LiftCabin<T> {
@@ -201,12 +229,6 @@ impl<T: RefTrait> Recall for RecallLiftCabin<T> {
 impl<T: RefTrait> RecallLiftCabin<T> {
     pub fn rect_door(&self, face: RectFace) -> &Option<LiftCabinDoorPlacement<T>> {
         &self.rect_doors[face as usize]
-    }
-}
-
-impl<T: RefTrait> Default for LiftCabin<T> {
-    fn default() -> Self {
-        LiftCabin::Rect(Default::default())
     }
 }
 
@@ -467,7 +489,7 @@ impl LiftCabin<u32> {
 impl LiftCabin<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
+        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
     ) -> LiftCabin<u32> {
         match self {
             LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_u32(doors)),
@@ -499,7 +521,7 @@ impl RectangularLiftCabin<u32> {
 impl RectangularLiftCabin<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
+        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
     ) -> RectangularLiftCabin<u32> {
         RectangularLiftCabin {
             width: self.width,
@@ -535,7 +557,7 @@ impl LiftCabinDoorPlacement<u32> {
 impl LiftCabinDoorPlacement<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), With<LiftCabinDoorMarker>>,
+        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
     ) -> LiftCabinDoorPlacement<u32> {
         LiftCabinDoorPlacement {
             door: doors.get(self.door).unwrap().0.0,
