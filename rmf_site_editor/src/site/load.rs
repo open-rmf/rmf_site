@@ -164,6 +164,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {
+                    let lift_entity = lift.parent_entity();
                     lift.spawn_bundle(SpatialBundle::default())
                         .insert_bundle(CabinAnchorGroupBundle::default())
                         .with_children(|anchor_group| {
@@ -171,6 +172,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 let anchor_entity = anchor_group
                                     .spawn()
                                     .insert_bundle(AnchorBundle::new(anchor.clone()))
+                                    .insert(Subordinate(Some(lift_entity)))
                                     .insert(SiteID(*anchor_id))
                                     .id();
                                 id_to_entity.insert(*anchor_id, anchor_entity);
