@@ -85,7 +85,6 @@ impl Lift {
             });
         }
 
-        let mut cabin_doors = BTreeMap::new();
         let mut cabin_door_name_to_id = HashMap::new();
         let mut front_door = None;
         let mut back_door = None;
@@ -95,13 +94,6 @@ impl Lift {
         for (door_name, door) in &self.doors {
             let id = site_id.next().unwrap();
             cabin_door_name_to_id.insert(door_name.clone(), id);
-            cabin_doors.insert(
-                id,
-                LiftCabinDoor {
-                    kind: DoorType::DoubleSliding(DoubleSlidingDoor { left_right_ratio: 0.5 }),
-                    marker: Default::default(),
-                }
-            );
 
             let dx = door.x as f32;
             let dy = door.y as f32;
@@ -242,19 +234,26 @@ impl Lift {
             .cloned()
             .collect();
 
-        let level_door_anchors = {
-            let mut level_door_anchors = BTreeMap::new();
+
+        let cabin_doors = {
+            let mut cabin_doors = BTreeMap::new();
             for face in RectFace::iter_all() {
-                if let (Some(placement), Some([left, right])) = (cabin.door(face), cabin.level_door_anchors(face)) {
+                if let (Some([left, right]), Some(p)) = (cabin.level_door_anchors(face), cabin.door(face)) {
                     let left_id = site_id.next().unwrap();
                     let right_id = site_id.next().unwrap();
                     cabin_anchors.insert(left_id, left);
                     cabin_anchors.insert(right_id, right);
-                    level_door_anchors.insert(placement.door, [left_id, right_id].into());
+                    cabin_doors.insert(
+                        p.door,
+                        LiftCabinDoor {
+                            kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
+                            reference_anchors: [left_id, right_id].into(),
+                            marker: Default::default(),
+                        }
+                    );
                 }
             }
-
-            level_door_anchors
+            cabin_doors
         };
 
         let cabin = LiftCabin::Rect(cabin);
@@ -266,7 +265,6 @@ impl Lift {
                 cabin,
                 level_doors: LevelDoors {
                     visit: level_visit_doors,
-                    reference_anchors: level_door_anchors,
                 },
                 is_static: IsStatic(!self.plugins),
                 initial_level: InitialLevel(level_name_to_id.get(&self.initial_floor_name).copied()),

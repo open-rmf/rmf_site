@@ -25,12 +25,6 @@ use thiserror::Error as ThisError;
 use crate::site::*;
 use rmf_site_format::*;
 
-/// The Original component indicates that an element is being modified but not
-/// yet in a state where it can be correctly saved. We should save the original
-/// value instead of the apparent current value.
-#[derive(Component, Debug, Clone, Copy, Deref, DerefMut)]
-pub struct Original<T>(pub T);
-
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: Option<PathBuf>,
@@ -48,8 +42,10 @@ pub enum SiteGenerationError {
     BrokenDoorReference(Entity),
     #[error("lift {lift:?} has a reference anchor that does not belong to its site {site:?}")]
     InvalidLiftRefAnchor { site: Entity, lift: Entity },
-    #[error("anchor {anchor:?} is being referenced for site {site:?} but does not belong to that level")]
+    #[error("anchor {anchor:?} is being referenced for site {site:?} but does not belong to that site")]
     InvalidAnchorReference { site: Entity, anchor: Entity },
+    #[error("lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}")]
+    InvalidLiftDoorReference { door: Entity, anchor: Entity },
     #[error(
         "door {door:?} is being referenced for level {level:?} but does not belong to that level"
     )]
@@ -501,7 +497,7 @@ fn generate_lifts(
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&SiteID, &Anchor), Without<Pending>>,
-        Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
+        QueryLiftDoor,
         Query<&SiteID, (With<LevelProperties>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
@@ -540,9 +536,9 @@ fn generate_lifts(
         Ok(Edge::new(left, right))
     };
 
-    let confirm_entity_parent = |level, child| {
-        if let Ok(parent) = q_parents.get(child) {
-            if parent.get() == level {
+    let confirm_entity_parent = |intended_parent, child| {
+        if let Ok(actual_parent) = q_parents.get(child) {
+            if actual_parent.get() == intended_parent {
                 return true;
             }
         }
@@ -550,7 +546,7 @@ fn generate_lifts(
         return false;
     };
 
-    let validate_ref_anchor = |anchor| {
+    let validate_site_anchor = |anchor| {
         if confirm_entity_parent(site, anchor) {
             return Ok(());
         }
@@ -558,9 +554,9 @@ fn generate_lifts(
         Err(SiteGenerationError::InvalidAnchorReference { site, anchor })
     };
 
-    let validate_ref_anchors = |edge: &Edge<Entity>| {
-        validate_ref_anchor(edge.left())?;
-        validate_ref_anchor(edge.right())?;
+    let validate_site_anchors = |edge: &Edge<Entity>| {
+        validate_site_anchor(edge.left())?;
+        validate_site_anchor(edge.right())?;
         Ok(())
     };
 
@@ -570,7 +566,21 @@ fn generate_lifts(
         }
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        validate_ref_anchors(edge)?;
+        validate_site_anchors(edge)?;
+
+        let validate_level_door_anchor = |door: Entity, anchor: Entity| {
+            if confirm_entity_parent(lift_entity, anchor) {
+                return Ok(());
+            }
+
+            Err(SiteGenerationError::InvalidLiftDoorReference { door, anchor })
+        };
+
+        let validate_level_door_anchors = |door: Entity, edge: &Edge<Entity>| {
+            validate_level_door_anchor(door, edge.left())?;
+            validate_level_door_anchor(door, edge.right())?;
+            get_anchor_id_edge(edge)
+        };
 
         let mut cabin_anchors = BTreeMap::new();
         let mut cabin_doors = BTreeMap::new();
@@ -586,9 +596,11 @@ fn generate_lifts(
                     }
                 }
 
-                if let Ok((site_id, door_type)) = q_doors.get(*child) {
+                if let Ok((site_id, door_type, edge, o_edge)) = q_doors.get(*child) {
+                    let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                     cabin_doors.insert(site_id.0, LiftCabinDoor {
                         kind: door_type.clone(),
+                        reference_anchors: validate_level_door_anchors(*child, edge)?,
                         marker: Default::default(),
                     });
                 }
@@ -606,13 +618,6 @@ fn generate_lifts(
             level_visit_doors.insert(level_id, door_ids);
         }
 
-        let mut level_doors_ref_anchors = BTreeMap::new();
-        for (level, edge) in &e_level_doors.reference_anchors {
-            let level_id = get_level_id(*level)?;
-            let edge_id = get_anchor_id_edge(edge)?;
-            level_doors_ref_anchors.insert(level_id, edge_id);
-        }
-
         let reference_anchors = get_anchor_id_edge(edge)?;
         lifts.insert(
             id.0,
@@ -624,7 +629,6 @@ fn generate_lifts(
                     cabin: cabin.to_u32(&q_doors),
                     level_doors: LevelDoors {
                         visit: level_visit_doors,
-                        reference_anchors: level_doors_ref_anchors,
                     },
                     is_static: is_static.clone(),
                     initial_level: InitialLevel(initial_level.0

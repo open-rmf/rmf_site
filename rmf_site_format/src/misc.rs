@@ -366,3 +366,10 @@ pub struct SiteID(pub u32);
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Pending;
+
+/// The Original component indicates that an element is being modified but not
+/// yet in a state where it can be correctly saved. We should save the original
+/// value instead of the apparent current value.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct Original<T>(pub T);

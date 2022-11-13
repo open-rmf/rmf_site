@@ -34,7 +34,7 @@ pub const DEFAULT_CABIN_DEPTH: f32 = 1.65;
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Lift<T: RefTrait> {
     /// The cabin doors that the lift cabin has
-    pub cabin_doors: BTreeMap<T, LiftCabinDoor>,
+    pub cabin_doors: BTreeMap<T, LiftCabinDoor<T>>,
     /// Properties that define the lift
     pub properties: LiftProperties<T>,
     /// Anchors that are inside the cabin of the lift and exist in the map of
@@ -44,11 +44,30 @@ pub struct Lift<T: RefTrait> {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct LiftCabinDoor {
+pub struct LiftCabinDoor<T: RefTrait> {
     /// What kind of door is this
     pub kind: DoorType,
+    /// Anchors that define the level door positioning for level doors.
+    /// The key of this map is the cabin door ID and the value is a pair of
+    /// anchor IDs associated with that cabin door, used to mark the location of
+    /// where a level door is (or would be) located.
+    pub reference_anchors: Edge<T>,
     #[serde(skip)]
     pub marker: LiftCabinDoorMarker,
+}
+
+#[cfg(feature = "bevy")]
+impl LiftCabinDoor<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> LiftCabinDoor<Entity> {
+        LiftCabinDoor {
+            kind: self.kind.clone(),
+            reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
+            marker: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default, PartialEq)]
@@ -88,19 +107,12 @@ pub struct LevelDoors<T: RefTrait> {
     /// the lift opens on that level. key: level, value: door. The lift can only
     /// visit levels that are included in this map.
     pub visit: BTreeMap<T, BTreeSet<T>>,
-
-    /// Anchors that define the level door positioning for level doors.
-    /// The key of this map is the cabin door ID and the value is a pair of
-    /// anchor IDs associated with that cabin door, used to mark the location of
-    /// where a level door is (or would be) located.
-    pub reference_anchors: BTreeMap<T, Edge<T>>,
 }
 
 impl<T: RefTrait> Default for LevelDoors<T> {
     fn default() -> Self {
         Self {
             visit: Default::default(),
-            reference_anchors: Default::default(),
         }
     }
 }
@@ -118,35 +130,7 @@ impl LevelDoors<u32> {
                     doors.iter().map(|door| id_to_entity.get(door).unwrap()).copied().collect()
                 )
             }).collect(),
-            reference_anchors: self.reference_anchors.iter().map(|(door, edge)| {
-                (
-                    *id_to_entity.get(door).unwrap(),
-                    edge.to_ecs(id_to_entity)
-                )
-            }).collect(),
         }
-    }
-}
-
-#[derive(Clone, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallLevelDoors<T: RefTrait> {
-    pub reference_anchors: BTreeMap<T, Edge<T>>,
-}
-
-impl<T: RefTrait> Recall for RecallLevelDoors<T> {
-    type Source = LevelDoors<T>;
-
-    fn remember(&mut self, source: &Self::Source) {
-        for (door, edge) in &source.reference_anchors {
-            self.reference_anchors.insert(*door, *edge);
-        }
-    }
-}
-
-impl<T: RefTrait> Default for RecallLevelDoors<T> {
-    fn default() -> Self {
-        Self { reference_anchors: Default::default() }
     }
 }
 
@@ -485,11 +469,19 @@ impl LiftCabin<u32> {
     }
 }
 
+#[cfg(feature = "bevy")]
+pub type QueryLiftDoor<'w, 's> = Query<'w, 's, (
+    &'static SiteID,
+    &'static DoorType,
+    &'static Edge<Entity>,
+    Option<&'static Original<Edge<Entity>>>
+), (With<LiftCabinDoorMarker>, Without<Pending>)>;
+
 #[cfg(feature="bevy")]
 impl LiftCabin<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
+        doors: &QueryLiftDoor,
     ) -> LiftCabin<u32> {
         match self {
             LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_u32(doors)),
@@ -521,7 +513,7 @@ impl RectangularLiftCabin<u32> {
 impl RectangularLiftCabin<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
+        doors: &QueryLiftDoor,
     ) -> RectangularLiftCabin<u32> {
         RectangularLiftCabin {
             width: self.width,
@@ -557,7 +549,7 @@ impl LiftCabinDoorPlacement<u32> {
 impl LiftCabinDoorPlacement<Entity> {
     pub fn to_u32(
         &self,
-        doors: &Query<(&SiteID, &DoorType), (With<LiftCabinDoorMarker>, Without<Pending>)>,
+        doors: &QueryLiftDoor,
     ) -> LiftCabinDoorPlacement<u32> {
         LiftCabinDoorPlacement {
             door: doors.get(self.door).unwrap().0.0,

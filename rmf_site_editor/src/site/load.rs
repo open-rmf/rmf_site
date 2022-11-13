@@ -181,7 +181,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     for (door_id, door) in &lift_data.cabin_doors {
                         let door_entity = lift
                             .spawn()
-                            .insert_bundle(door.clone())
+                            .insert_bundle(door.to_ecs(&id_to_entity))
                             .id();
                         id_to_entity.insert(*door_id, door_entity);
                         consider_id(*door_id);
