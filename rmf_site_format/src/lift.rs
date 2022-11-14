@@ -178,11 +178,19 @@ impl<T: RefTrait> LiftCabin<T> {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallLiftCabin<T: RefTrait> {
     pub rect_doors: [Option<LiftCabinDoorPlacement<T>>; 4],
+    pub wall_thickness: Option<f32>,
+    pub gap: Option<f32>,
+    pub shift: Option<f32>,
 }
 
 impl<T: RefTrait> Default for RecallLiftCabin<T> {
     fn default() -> Self {
-        Self { rect_doors: Default::default() }
+        Self {
+            rect_doors: Default::default(),
+            wall_thickness: None,
+            gap: None,
+            shift: None,
+        }
     }
 }
 
@@ -196,6 +204,15 @@ impl<T: RefTrait> Recall for RecallLiftCabin<T> {
                     if let Some(door) = door {
                         self.rect_doors[face as usize] = Some(*door);
                     }
+                }
+                if let Some(t) = params.wall_thickness {
+                    self.wall_thickness = Some(t);
+                }
+                if let Some(gap) = params.gap {
+                    self.gap = Some(gap);
+                }
+                if let Some(shift) = params.shift {
+                    self.shift = Some(shift);
                 }
             }
         }
@@ -288,6 +305,15 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
             (RectFace::Back, &self.back_door),
             (RectFace::Left, &self.left_door),
             (RectFace::Right, &self.right_door),
+        ]
+    }
+
+    pub fn doors_mut(&mut self) -> [(RectFace, &mut Option<LiftCabinDoorPlacement<T>>); 4] {
+        [
+            (RectFace::Front, &mut self.front_door),
+            (RectFace::Back, &mut self.back_door),
+            (RectFace::Left, &mut self.left_door),
+            (RectFace::Right, &mut self.right_door),
         ]
     }
 

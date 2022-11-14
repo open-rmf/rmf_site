@@ -21,7 +21,7 @@ use crate::{
     widgets::{AppEvents, Icons},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{Button, ImageButton, Ui};
+use bevy_egui::egui::{Button, Ui};
 
 pub struct SelectionWidget<'a, 'w, 's> {
     entity: Entity,

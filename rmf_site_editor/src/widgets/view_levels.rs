@@ -21,10 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Ui};
-use std::{
-    cmp::{Reverse, Ordering},
-    collections::BTreeMap,
-};
+use std::cmp::{Reverse, Ordering};
 
 pub struct LevelDisplay {
     pub new_elevation: f32,

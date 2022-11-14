@@ -147,10 +147,11 @@ pub fn update_lift_cabin(
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
     level_visits: Query<&LevelVisits<Entity>>,
     children: Query<&Children>,
+    doors: Query<&Edge<Entity>, With<LiftCabinDoorMarker>>,
+    mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     levels: Query<(Entity, &Parent), With<LevelProperties>>,
-    current_level: Res<CurrentLevel>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -160,7 +161,7 @@ pub fn update_lift_cabin(
 
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
-                let Aabb { center, half_extents } = params.aabb();
+                let Aabb { center, .. } = params.aabb();
                 let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0*params.thickness(),
@@ -229,6 +230,22 @@ pub fn update_lift_cabin(
                 commands.entity(e)
                     .insert(ChildLiftCabinGroup(cabin_entity))
                     .add_child(cabin_entity);
+
+                // Update transforms for door anchors
+                for face in RectFace::iter_all() {
+                    if let (Some(p), Some(new_edge)) = (
+                        params.door(face),
+                        params.level_door_anchors(face),
+                    ) {
+                        if let Ok(edge) = doors.get(p.door) {
+                            for (a, new_anchor) in edge.array().into_iter().zip(new_edge.into_iter()) {
+                                if let Ok(mut anchor) = anchors.get_mut(a) {
+                                    *anchor = new_anchor;
+                                }
+                            }
+                        }
+                    }
+                }
 
                 cabin_tf
             }
@@ -307,7 +324,7 @@ pub fn update_lift_door_availability(
     current_level: Res<CurrentLevel>,
 ) {
     for toggle in toggles.iter() {
-        let (mut cabin, mut recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
+        let (mut cabin, recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
             Ok(lift) => lift,
             Err(_) => continue,
         };
@@ -364,12 +381,14 @@ pub fn update_lift_door_availability(
 
             if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.insert(toggle.on_level);
+                if let Some(current_level) = **current_level {
+                    commands.entity(cabin_door).insert(Visibility{
+                        is_visible: visits.contains(&current_level),
+                    });
+                }
             }
 
-            let show_door_now = Some(toggle.on_level) == **current_level;
-            commands.entity(cabin_door)
-                .insert(Visibility{ is_visible: show_door_now })
-                .remove::<Pending>();
+            commands.entity(cabin_door).remove::<Pending>();
 
             if let Ok((_, existing_anchors, _)) = doors.get(cabin_door) {
                 // Make sure visibility is turned on for the anchors and
@@ -398,16 +417,17 @@ pub fn update_lift_door_availability(
                 None => continue,
             };
 
-            let remove_door = if let Ok((_, anchors, mut visits)) = doors.get_mut(cabin_door) {
+            let remove_door = if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.remove(&toggle.on_level);
+                if let Some(current_level) = **current_level {
+                    commands.entity(cabin_door).insert(Visibility {
+                        is_visible: visits.contains(&current_level),
+                    });
+                }
                 visits.is_empty()
             } else {
                 false
             };
-
-            if **current_level == Some(toggle.on_level) {
-                commands.entity(cabin_door).insert(Visibility { is_visible: false });
-            }
 
             if remove_door {
                 cabin.remove_door(cabin_door);
@@ -461,11 +481,7 @@ pub fn update_lift_door_availability(
         // to change.
         if let Some(current_level) = **current_level {
             for (e, _, visits) in &doors {
-                if visits.contains(&current_level) {
-                    commands.entity(e).insert(Visibility { is_visible: true });
-                } else {
-                    commands.entity(e).insert(Visibility { is_visible: false });
-                }
+                commands.entity(e).insert(Visibility { is_visible: visits.contains(&current_level) });
             }
         }
     }

@@ -160,11 +160,10 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (lift_id, lift_data) in &site_data.lifts {
-            site.spawn()
+            let lift = site.spawn()
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {
-                    let lift_entity = lift.parent_entity();
                     lift.spawn_bundle(SpatialBundle::default())
                         .insert_bundle(CabinAnchorGroupBundle::default())
                         .with_children(|anchor_group| {
@@ -172,7 +171,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 let anchor_entity = anchor_group
                                     .spawn()
                                     .insert_bundle(AnchorBundle::new(anchor.clone()))
-                                    .insert(Subordinate(Some(lift_entity)))
                                     .insert(SiteID(*anchor_id))
                                     .id();
                                 id_to_entity.insert(*anchor_id, anchor_entity);
@@ -189,7 +187,9 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         consider_id(*door_id);
                     }
                 })
-                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity));
+                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
+                .id();
+            id_to_entity.insert(*lift_id, lift);
             consider_id(*lift_id);
         }
 
@@ -218,7 +218,19 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     });
 
     site.insert(NextSiteID(highest_id + 1));
-    return site.id();
+    let site_id = site.id();
+
+    // Make the lift cabin anchors that are used by doors subordinate
+    for (lift_id, lift_data) in &site_data.lifts {
+        for (_, door) in &lift_data.cabin_doors {
+            for anchor in door.reference_anchors.array() {
+                commands.entity(*id_to_entity.get(&anchor).unwrap())
+                    .insert(Subordinate(Some(*id_to_entity.get(lift_id).unwrap())));
+            }
+        }
+    }
+
+    return site_id;
 }
 
 pub fn load_site(

@@ -16,7 +16,6 @@
 */
 
 use crate::widgets::inspector::{InspectAngle, InspectSide};
-use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, DragValue, Ui};
 use rmf_site_format::{DoorType, RecallDoorType, Swing};
 
@@ -79,7 +78,7 @@ impl<'a> InspectDoorType<'a> {
             DoorType::DoubleSwing(door) => {
                 InspectSwing::new(&mut door.swing).show(ui);
             }
-            DoorType::Model(door) => {
+            DoorType::Model(_) => {
                 ui.label("Not yet supported");
             }
         }

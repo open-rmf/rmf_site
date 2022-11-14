@@ -17,11 +17,11 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select},
-    site::{Change, SiteState, SiteUpdateLabel, CurrentLevel},
+    site::{Change, SiteState, CurrentLevel, ToggleLiftDoorAvailability},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, CollapsingHeader, ComboBox},
+    egui::{self, CollapsingHeader},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -58,6 +58,18 @@ impl Plugin for StandardUiLayout {
     }
 }
 
+#[derive(SystemParam)]
+pub struct ChangeEvents<'w, 's> {
+    pub lane_motion: EventWriter<'w, 's, Change<Motion>>,
+    pub lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
+    pub name: EventWriter<'w, 's, Change<NameInSite>>,
+    pub kind: EventWriter<'w, 's, Change<Kind>>,
+    pub label: EventWriter<'w, 's, Change<Label>>,
+    pub pose: EventWriter<'w, 's, Change<Pose>>,
+    pub door: EventWriter<'w, 's, Change<DoorType>>,
+    pub lift_cabin: EventWriter<'w, 's, Change<LiftCabin<Entity>>>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -67,19 +79,13 @@ pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
+    pub change: ChangeEvents<'w, 's>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
-    pub change_lane_motion: EventWriter<'w, 's, Change<Motion>>,
-    pub change_lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
-    pub change_name: EventWriter<'w, 's, Change<NameInSite>>,
-    pub change_kind: EventWriter<'w, 's, Change<Kind>>,
-    pub change_label: EventWriter<'w, 's, Change<Label>>,
-    pub change_pose: EventWriter<'w, 's, Change<Pose>>,
-    pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub current_level: ResMut<'w, CurrentLevel>,
     pub level_display: ResMut<'w, LevelDisplay>,
     pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
-    _ignore: Query<'w, 's, ()>,
+    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
 }
 
 fn standard_ui_layout(
