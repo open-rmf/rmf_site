@@ -21,6 +21,7 @@ use crate::{
 };
 use bevy::prelude::*;
 use rmf_site_format::{Edge, Path, Point};
+use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
 // deletion buffer will be to preserve deleted entities so that they can be
@@ -61,30 +62,83 @@ fn perform_deletions(
     paths: Query<&Path<Entity>>,
     mut dependents: Query<&mut AnchorDependents>,
     mut deletions: EventReader<Delete>,
+    children: Query<&Children>,
     selection: Res<Selection>,
     mut select: EventWriter<Select>,
 ) {
     for delete in deletions.iter() {
-        if let Ok(anchor) = dependents.get(delete.element) {
-            if !anchor.dependents.is_empty() {
-                println!(
-                    "Cannot delete anchor {:?} because it has {} dependents. \
-                    Only anchors with no dependents can be deleted.",
-                    delete.element,
-                    anchor.dependents.len(),
-                );
-                continue;
+        let okay_to_delete = {
+            let mut all_descendents = HashSet::new();
+            let mut queue = Vec::new();
+            queue.push(delete.element);
+            while let Some(top) = queue.pop() {
+                all_descendents.insert(top);
+                if let Ok(children) = children.get(top) {
+                    for child in children {
+                        queue.push(*child);
+                    }
+                }
             }
-        }
 
-        if let Ok(prevent) = preventions.get(delete.element) {
-            if let Some(reason) = &prevent.reason {
-                println!(
-                    "Element {:?} cannot be deleted because: {}",
-                    delete.element, reason,
-                );
-                continue;
+            let mut okay_to_delete = true;
+            'outer: for descendent in &all_descendents {
+                if let Ok(prevent) = preventions.get(*descendent) {
+                    if *descendent == delete.element {
+                        println!(
+                            "Element {:?} cannot be deleted because: {}",
+                            delete.element,
+                            prevent.reason.as_ref().unwrap_or(
+                                &".. no reason given".to_string()
+                            ),
+                        );
+                    } else {
+                        println!(
+                            "Element {:?} is an ancestor of {:?} which cannot be \
+                            deleted because: {}",
+                            delete.element,
+                            descendent,
+                            prevent.reason.as_ref().unwrap_or(
+                                &".. no reason given".to_string()
+                            ),
+                        );
+                    }
+                    okay_to_delete = false;
+                    break;
+                }
+
+                if let Ok(anchor) = dependents.get(*descendent) {
+                    for dep in &anchor.dependents {
+                        if !all_descendents.contains(dep) {
+                            if *descendent == delete.element {
+                                println!(
+                                    "Cannot delete anchor {:?} because it has \
+                                    {} dependents. Only anchors with no \
+                                    dependents can be deleted.",
+                                    delete.element,
+                                    anchor.dependents.len(),
+                                );
+                            } else {
+                                println!(
+                                    "Element {:?} is an ancestor of anchor {:?} \
+                                    which cannot be deleted because {:?} depends \
+                                    on it.",
+                                    delete.element,
+                                    descendent,
+                                    dep,
+                                );
+                            }
+                            okay_to_delete = false;
+                            break 'outer;
+                        }
+                    }
+                }
             }
+
+            okay_to_delete
+        };
+
+        if !okay_to_delete {
+            continue;
         }
 
         if let Ok(edge) = edges.get(delete.element) {

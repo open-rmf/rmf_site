@@ -42,10 +42,12 @@ pub fn handle_lift_placemat_clicks(
     placemats: Query<&LiftDoorPlacemat>,
     mut clicks: EventReader<GizmoClicked>,
     mut toggle: EventWriter<ToggleLiftDoorAvailability>,
+    mut select: EventWriter<Select>,
 ) {
     for click in clicks.iter() {
         if let Ok(placemat) = placemats.get(click.0) {
             toggle.send(placemat.toggle_availability());
+            select.send(Select(Some(placemat.for_lift)));
         }
     }
 }

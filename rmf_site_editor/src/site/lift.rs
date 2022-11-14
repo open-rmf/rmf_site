@@ -351,8 +351,7 @@ pub fn update_lift_door_availability(
                                         reference_anchors: anchors.into(),
                                         visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),
                                         marker: Default::default(),
-                                    })
-                                    .insert(PreventDeletion::because("used for a lift level door".to_string()));
+                                    });
                                 commands.entity(toggle.for_lift).add_child(new_door);
 
                                 new_door
