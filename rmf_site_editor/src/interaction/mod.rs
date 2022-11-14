@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::SiteUpdateStage;
+use crate::site::{SiteUpdateStage, update_anchor_transforms};
 
 pub mod anchor;
 pub use anchor::*;
@@ -136,7 +136,7 @@ impl Plugin for InteractionPlugin {
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(InteractionState::Enable)
-                    .with_system(move_anchor)
+                    .with_system(move_anchor.before(update_anchor_transforms))
                     .with_system(make_gizmos_pickable),
             )
             .add_system_set_to_stage(

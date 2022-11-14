@@ -176,6 +176,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
+                    .with_system(update_anchor_transforms)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
                     .with_system(update_door_for_changed_anchor)

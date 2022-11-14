@@ -98,6 +98,14 @@ pub struct PreviewAnchor {
     replacing: Option<Entity>,
 }
 
+pub fn update_anchor_transforms(
+    mut changed_anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
+) {
+    for (anchor, mut tf) in &mut changed_anchors {
+        *tf = anchor.local_transform(Category::General);
+    }
+}
+
 pub fn assign_orphan_anchors_to_parent(
     mut orphan_anchors: Query<
         (Entity, &GlobalTransform, &mut Transform),

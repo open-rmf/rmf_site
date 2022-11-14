@@ -107,14 +107,12 @@ pub fn remove_interaction_for_subordinate_anchors(
 }
 
 pub fn move_anchor(
-    mut anchors: Query<(&mut Anchor, &mut Transform), Without<Subordinate>>,
+    mut anchors: Query<&mut Anchor, Without<Subordinate>>,
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
-        if let Ok((mut anchor, mut tf)) = anchors.get_mut(move_to.entity) {
+        if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
             anchor.move_to(&move_to.transform);
-            tf.translation.x = move_to.transform.translation.x;
-            tf.translation.y = move_to.transform.translation.y;
         }
     }
 }

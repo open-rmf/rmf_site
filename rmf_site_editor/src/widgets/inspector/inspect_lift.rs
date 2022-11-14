@@ -155,7 +155,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                     .clamp_range(0.001..=cabin_width-0.001)
                                     .min_decimals(2)
                                     .max_decimals(4)
-                                    .speed(0.001)
+                                    .speed(0.005)
                                 );
                             });
 
@@ -167,7 +167,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                 .suffix("m".to_string())
                                 .min_decimals(2)
                                 .max_decimals(4)
-                                .speed(0.01)
+                                .speed(0.005)
                                 .show(ui)
                             {
                                 placement.shifted = new_shift;
