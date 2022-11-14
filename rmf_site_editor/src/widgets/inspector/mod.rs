@@ -118,7 +118,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn show(self, ui: &mut Ui) {
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
-            if self.params.anchor_params.transforms.contains(selection) {
+            if self.params.anchor_params.anchors.contains(selection) {
                 ui.horizontal(|ui| {
                     InspectAnchorWidget::new(
                         selection,
