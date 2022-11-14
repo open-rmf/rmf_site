@@ -164,6 +164,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {
+                    let lift_entity = lift.parent_entity();
                     lift.spawn_bundle(SpatialBundle::default())
                         .insert_bundle(CabinAnchorGroupBundle::default())
                         .with_children(|anchor_group| {
@@ -182,6 +183,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         let door_entity = lift
                             .spawn()
                             .insert_bundle(door.to_ecs(&id_to_entity))
+                            .insert(Dependents::single(lift_entity))
                             .id();
                         id_to_entity.insert(*door_id, door_entity);
                         consider_id(*door_id);

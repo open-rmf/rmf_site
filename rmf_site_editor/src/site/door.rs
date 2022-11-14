@@ -167,7 +167,7 @@ pub fn add_door_visuals(
         Without<DoorSegments>,
     )>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -230,8 +230,8 @@ pub fn add_door_visuals(
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(anchor) {
+                deps.insert(e);
             }
         }
     }
@@ -286,13 +286,13 @@ pub fn update_changed_door(
 pub fn update_door_for_changed_anchor(
     doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
             if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
                 update_door_visuals(
                     entity,

@@ -17,6 +17,7 @@
 
 use crate::site::*;
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 pub fn line_stroke_transform(
     p_start: &Vec3,
@@ -64,5 +65,14 @@ impl EdgeLabels {
             Self::StartEnd => "end",
             Self::LeftRight => "right",
         }
+    }
+}
+
+#[derive(Component, Debug, Default, Clone, Deref, DerefMut)]
+pub struct Dependents(pub HashSet<Entity>);
+
+impl Dependents {
+    pub fn single(dependent: Entity) -> Self {
+        Dependents(HashSet::from_iter([dependent]))
     }
 }

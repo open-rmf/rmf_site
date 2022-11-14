@@ -65,14 +65,14 @@ pub fn add_lane_visuals(
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
-    mut dependents: Query<&mut AnchorDependents, With<Anchor>>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, new_lane) in &lanes {
         for mut anchor in &new_lane.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                deps.insert(e);
             }
         }
 
@@ -177,11 +177,11 @@ pub fn update_changed_lane(
 pub fn update_lane_for_moved_anchor(
     lanes: Query<(Entity, &Edge<Entity>, &LaneSegments)>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
             if let Some((e, edge, segments)) = lanes.get(*dependent).ok() {
                 update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
             }

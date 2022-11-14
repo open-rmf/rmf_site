@@ -23,7 +23,7 @@ pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, edge) in &measurements {
@@ -44,8 +44,8 @@ pub fn add_measurement_visuals(
             .insert(EdgeLabels::StartEnd);
 
         for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                deps.insert(e);
             }
         }
     }
@@ -77,10 +77,10 @@ pub fn update_changed_measurement(
 pub fn update_measurement_for_changed_anchor(
     mut measurements: Query<(Entity, &Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
 ) {
     for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+        for dependent in changed_anchor.iter() {
             if let Some((e, measurement, mut tf)) = measurements.get_mut(*dependent).ok() {
                 update_measurement_visual(e, measurement, &anchors, tf.as_mut());
             }

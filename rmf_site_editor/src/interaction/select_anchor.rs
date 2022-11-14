@@ -18,7 +18,7 @@
 use crate::{
     interaction::*,
     site::{
-        Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending,
+        Anchor, AnchorBundle, Dependents, Original, PathBehavior, Pending,
         CurrentSite, Category,
     },
 };
@@ -243,7 +243,7 @@ enum AnchorSelection {
     Existing(Entity),
     New {
         entity: Entity,
-        dependents: AnchorDependents,
+        dependents: Dependents,
     },
 }
 
@@ -272,7 +272,7 @@ impl AnchorSelection {
     ) -> Result<(), ()> {
         match self {
             Self::Existing(e) => {
-                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
                         // The entity was not a proper anchor
@@ -280,11 +280,11 @@ impl AnchorSelection {
                         return Err(());
                     }
                 };
-                dep.dependents.insert(dependent);
+                deps.insert(dependent);
                 Ok(())
             }
             Self::New { entity, dependents } => {
-                dependents.dependents.insert(dependent);
+                dependents.insert(dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
             }
@@ -298,18 +298,18 @@ impl AnchorSelection {
     ) -> Result<(), ()> {
         match self {
             Self::Existing(e) => {
-                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
                         println!("DEV ERROR: Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
-                dep.dependents.remove(&dependent);
+                deps.remove(&dependent);
                 Ok(())
             }
             Self::New { entity, dependents } => {
-                dependents.dependents.remove(&dependent);
+                dependents.remove(&dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
             }
@@ -623,8 +623,8 @@ impl Placement for EdgePlacement {
             // the beginning.
             let equal_points = if let Ok((edge, _)) = params.edges.get(target) {
                 for anchor in edge.array() {
-                    if let Ok(mut dep) = params.dependents.get_mut(anchor) {
-                        dep.dependents.remove(&target);
+                    if let Ok(mut deps) = params.dependents.get_mut(anchor) {
+                        deps.remove(&target);
                     }
                 }
                 edge.start() == edge.end()
@@ -763,14 +763,14 @@ impl Placement for PointPlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
         if let Ok(mut point) = params.points.get_mut(target) {
-            if let Ok(mut dep) = params.dependents.get_mut(**point) {
-                dep.dependents.remove(&target);
+            if let Ok(mut deps) = params.dependents.get_mut(**point) {
+                deps.remove(&target);
             }
 
             if let Some(replacing) = continuity.replacing() {
                 // Restore the target to the original
-                if let Ok(mut dep) = params.dependents.get_mut(replacing) {
-                    dep.dependents.insert(target);
+                if let Ok(mut deps) = params.dependents.get_mut(replacing) {
+                    deps.insert(target);
                 }
 
                 point.0 = replacing;
@@ -1003,9 +1003,9 @@ impl Placement for PathPlacement {
             if let Some(index) = self.index {
                 let (mut path, _) = params.paths.get_mut(target).map_err(|_| ())?;
                 if let Some(anchor) = path.get_mut(index) {
-                    let mut dep = params.dependents.get_mut(*anchor).map_err(|_| ())?;
-                    dep.dependents.remove(&target);
-                    dep.dependents.insert(replacing);
+                    let mut deps = params.dependents.get_mut(*anchor).map_err(|_| ())?;
+                    deps.remove(&target);
+                    deps.insert(replacing);
                     *anchor = replacing;
 
                     return Ok((TargetTransition::finished(), self.restart()).into());
@@ -1038,8 +1038,8 @@ impl Placement for PathPlacement {
             // We're backing out when the path is too small, so we will delete
             // the object.
             for anchor in path.iter() {
-                if let Ok(mut dep) = params.dependents.get_mut(*anchor) {
-                    dep.dependents.remove(&target);
+                if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
+                    deps.remove(&target);
                 }
             }
 
@@ -1057,8 +1057,8 @@ impl Placement for PathPlacement {
             // if the user selects + backs out in the same update cycle, but if
             // they're giving conflicting inputs in such a small window then
             // it's not unreasonable for us to permit that race condition.
-            let mut dep = params.dependents.get_mut(*last).unwrap();
-            dep.dependents.remove(last);
+            let mut deps = params.dependents.get_mut(*last).unwrap();
+            deps.remove(last);
             path.pop();
         }
 
@@ -1078,7 +1078,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
-    dependents: Query<'w, 's, &'static mut AnchorDependents>,
+    dependents: Query<'w, 's, &'static mut Dependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
@@ -1097,7 +1097,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             }
         }
 
-        let mut dep = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
+        let mut deps = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
                 println!(
@@ -1107,7 +1107,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
                 return Err(());
             }
         };
-        dep.dependents.insert(dependent);
+        deps.insert(dependent);
         Ok(())
     }
 
@@ -1123,7 +1123,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             }
         }
 
-        let mut dep = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
+        let mut deps = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
                 println!(
@@ -1133,7 +1133,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
                 return Err(());
             }
         };
-        dep.dependents.remove(&dependent);
+        deps.remove(&dependent);
         Ok(())
     }
 

@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, AnchorDependents, Category, SiteID, Subordinate},
+    site::{Anchor, Dependents, Category, SiteID, Subordinate},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -133,7 +133,7 @@ pub struct InspectAnchorResponse {
 
 #[derive(SystemParam)]
 pub struct InspectAnchorDependentsParams<'w, 's> {
-    pub dependents: Query<'w, 's, &'static AnchorDependents>,
+    pub dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
     pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
     pub icons: Res<'w, Icons>,
 }
@@ -190,11 +190,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
 
     pub fn show(mut self, ui: &mut Ui) {
         ui.vertical(|ui| {
-            if let Ok(d) = self.params.dependents.get(self.anchor) {
-                if d.dependents.is_empty() {
+            if let Ok(dependents) = self.params.dependents.get(self.anchor) {
+                if dependents.is_empty() {
                     ui.label("No dependents");
                 } else {
-                    Self::show_dependents(&d.dependents, &self.params, &mut self.events, ui);
+                    Self::show_dependents(&dependents.0, &self.params, &mut self.events, ui);
                 }
             } else {
                 ui.label("ERROR: Unable to find dependents info for this anchor");

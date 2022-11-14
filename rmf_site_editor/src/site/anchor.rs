@@ -25,7 +25,7 @@ pub struct AnchorBundle {
     anchor: Anchor,
     transform: Transform,
     global_transform: GlobalTransform,
-    dependents: AnchorDependents,
+    dependents: Dependents,
     visibility: Visibility,
     computed: ComputedVisibility,
     category: Category,
@@ -70,14 +70,9 @@ impl AnchorBundle {
         }
     }
 
-    pub fn dependents(self, dependents: AnchorDependents) -> Self {
+    pub fn dependents(self, dependents: Dependents) -> Self {
         Self { dependents, ..self }
     }
-}
-
-#[derive(Component, Debug, Default, Clone)]
-pub struct AnchorDependents {
-    pub dependents: HashSet<Entity>,
 }
 
 /// This component is used to indicate that an anchor is controlled by another

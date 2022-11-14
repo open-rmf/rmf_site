@@ -44,7 +44,7 @@ pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -66,8 +66,8 @@ pub fn add_wall_visual(
         }
 
         for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                deps.insert(e);
             }
         }
     }
@@ -99,11 +99,11 @@ pub fn update_wall_edge(
 pub fn update_wall_for_moved_anchors(
     mut walls: Query<(Entity, &Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
             if let Some((e, wall, mut mesh)) = walls.get_mut(*dependent).ok() {
                 update_wall_visuals(e, wall, &anchors, mesh.as_mut(), meshes.as_mut());
             }

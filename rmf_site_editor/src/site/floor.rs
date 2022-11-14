@@ -164,7 +164,7 @@ pub fn add_floor_visuals(
     mut commands: Commands,
     floors: Query<(Entity, &Path<Entity>), Added<FloorMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -183,8 +183,8 @@ pub fn add_floor_visuals(
             .insert(PathBehavior::for_floor());
 
         for anchor in &new_floor.0 {
-            let mut dep = dependents.get_mut(*anchor).unwrap();
-            dep.dependents.insert(e);
+            let mut deps = dependents.get_mut(*anchor).unwrap();
+            deps.insert(e);
         }
     }
 }
@@ -206,11 +206,11 @@ pub fn update_changed_floor(
 pub fn update_floor_for_changed_anchor(
     mut floors: Query<(Entity, &mut Handle<Mesh>, &Path<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
+    changed_anchors: Query<&Dependents, (Changed<GlobalTransform>, With<Anchor>)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
             if let Some((e, mut mesh, path)) = floors.get_mut(*dependent).ok() {
                 *mesh = meshes.add(make_floor_mesh(e, path, &anchors));
             }

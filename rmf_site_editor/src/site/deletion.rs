@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Select, Selection},
-    site::AnchorDependents,
+    site::Dependents,
 };
 use bevy::prelude::*;
 use rmf_site_format::{Edge, Path, Point};
@@ -60,7 +60,7 @@ fn perform_deletions(
     edges: Query<&Edge<Entity>>,
     points: Query<&Point<Entity>>,
     paths: Query<&Path<Entity>>,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents>,
     mut deletions: EventReader<Delete>,
     children: Query<&Children>,
     selection: Res<Selection>,
@@ -106,8 +106,8 @@ fn perform_deletions(
                     break;
                 }
 
-                if let Ok(anchor) = dependents.get(*descendent) {
-                    for dep in &anchor.dependents {
+                if let Ok(dependents) = dependents.get(*descendent) {
+                    for dep in dependents.iter() {
                         if !all_descendents.contains(dep) {
                             if *descendent == delete.element {
                                 println!(
@@ -115,7 +115,7 @@ fn perform_deletions(
                                     {} dependents. Only anchors with no \
                                     dependents can be deleted.",
                                     delete.element,
-                                    anchor.dependents.len(),
+                                    dependents.len(),
                                 );
                             } else {
                                 println!(
@@ -143,22 +143,22 @@ fn perform_deletions(
 
         if let Ok(edge) = edges.get(delete.element) {
             for anchor in edge.array() {
-                if let Ok(mut dep) = dependents.get_mut(anchor) {
-                    dep.dependents.remove(&delete.element);
+                if let Ok(mut deps) = dependents.get_mut(anchor) {
+                    deps.remove(&delete.element);
                 }
             }
         }
 
         if let Ok(point) = points.get(delete.element) {
-            if let Ok(mut dep) = dependents.get_mut(point.0) {
-                dep.dependents.remove(&delete.element);
+            if let Ok(mut deps) = dependents.get_mut(point.0) {
+                deps.remove(&delete.element);
             }
         }
 
         if let Ok(path) = paths.get(delete.element) {
             for anchor in &path.0 {
-                if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                    dep.dependents.remove(&delete.element);
+                if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                    deps.remove(&delete.element);
                 }
             }
         }

@@ -106,7 +106,7 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
-    mut dependents: Query<&mut AnchorDependents>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_site: Res<CurrentSite>,
 ) {
     for (e, edge) in &new_lifts {
@@ -127,8 +127,8 @@ pub fn add_tags_to_lift(
         }
 
         for anchor in edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(anchor) {
+                deps.insert(e);
             }
         }
     }
@@ -296,10 +296,10 @@ pub fn update_lift_edge(
 pub fn update_lift_for_moved_anchors(
     mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&AnchorDependents, Changed<GlobalTransform>>,
+    changed_anchors: Query<&Dependents, (Changed<GlobalTransform>, With<Anchor>)>,
 ) {
     for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+        for dependent in changed_anchor.iter() {
             if let Ok((e, edge, mut tf)) = lifts.get_mut(*dependent) {
                 *tf = make_lift_transform(e, edge, &anchors);
             }
@@ -320,7 +320,7 @@ pub fn update_lift_door_availability(
         &Edge<Entity>,
         &mut LevelVisits<Entity>,
     ), With<LiftCabinDoorMarker>>,
-    dependents: Query<&AnchorDependents>,
+    dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
 ) {
     for toggle in toggles.iter() {
@@ -368,7 +368,8 @@ pub fn update_lift_door_availability(
                                         reference_anchors: anchors.into(),
                                         visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),
                                         marker: Default::default(),
-                                    });
+                                    })
+                                    .insert(Dependents::single(toggle.for_lift));
                                 commands.entity(toggle.for_lift).add_child(new_door);
 
                                 new_door
@@ -440,7 +441,7 @@ pub fn update_lift_door_availability(
                     let mut remove_anchors = true;
                     'outer: for anchor in anchors.array() {
                         if let Ok(deps) = dependents.get(anchor) {
-                            for dependent in &deps.dependents {
+                            for dependent in deps.iter() {
                                 if *dependent != cabin_door {
                                     remove_anchors = false;
                                     break 'outer;

@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, AnchorDependents, Pending, SiteAssets},
+    site::{AnchorBundle, Dependents, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
