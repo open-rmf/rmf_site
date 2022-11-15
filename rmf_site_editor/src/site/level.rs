@@ -28,3 +28,21 @@ pub fn update_level_visibility(
         }
     }
 }
+
+pub fn assign_orphan_levels_to_site(
+    mut commands: Commands,
+    new_levels: Query<Entity, Added<LevelProperties>>,
+    current_site: Res<CurrentSite>,
+) {
+    for level in &new_levels {
+        if let Some(site) = **current_site {
+            commands.entity(site).add_child(level);
+        } else {
+            println!(
+                "Unable to assign level {:?} to any site because there is no \
+                current site",
+                level,
+            );
+        }
+    }
+}

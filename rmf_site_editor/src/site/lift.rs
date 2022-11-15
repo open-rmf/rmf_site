@@ -152,6 +152,7 @@ pub fn update_lift_cabin(
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     levels: Query<(Entity, &Parent), With<LevelProperties>>,
+    new_levels: Query<(), Added<LevelProperties>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -322,6 +323,7 @@ pub fn update_lift_door_availability(
     ), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
+    new_levels: Query<(), Added<LevelProperties>>,
 ) {
     for toggle in toggles.iter() {
         let (mut cabin, recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
@@ -484,6 +486,15 @@ pub fn update_lift_door_availability(
             for (e, _, visits) in &doors {
                 commands.entity(e).insert(Visibility { is_visible: visits.contains(&current_level) });
             }
+        }
+    }
+
+    if !new_levels.is_empty() {
+        // A silly dirty hack to force lift cabins to update their placemats
+        // when a new level is added.
+        for (mut cabin, _, _) in &mut lifts {
+            dbg!("Triggering dirty cabin for new level");
+            cabin.set_changed();
         }
     }
 }
