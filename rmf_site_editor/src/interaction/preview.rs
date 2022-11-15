@@ -124,7 +124,7 @@ pub fn update_physical_camera_preview(
         (
             &Children,
             &PhysicalCameraProperties,
-            Option<&CameraPreviewWindow>,
+            &CameraPreviewWindow,
         ),
         Changed<PhysicalCameraProperties>,
     >,
@@ -132,22 +132,20 @@ pub fn update_physical_camera_preview(
     mut windows: ResMut<Windows>,
 ) {
     for (children, camera_properties, preview_window) in updated_cameras.iter() {
-        if let Some(window_id) = preview_window {
-            if let Some(window) = windows.get_mut(window_id.0) {
-                // Update fov first
-                if let Ok(mut projection) = camera_children.get_mut(children[0]) {
-                    if let Projection::Perspective(perspective_projection) = &mut (*projection) {
-                        let aspect_ratio =
-                            (camera_properties.width as f32) / (camera_properties.height as f32);
-                        perspective_projection.fov =
-                            camera_properties.horizontal_fov.radians() / aspect_ratio;
-                    }
+        if let Some(window) = windows.get_mut(preview_window.0) {
+            // Update fov first
+            if let Ok(mut projection) = camera_children.get_mut(children[0]) {
+                if let Projection::Perspective(perspective_projection) = &mut (*projection) {
+                    let aspect_ratio =
+                        (camera_properties.width as f32) / (camera_properties.height as f32);
+                    perspective_projection.fov =
+                        camera_properties.horizontal_fov.radians() / aspect_ratio;
                 }
-                window.set_resolution(
-                    camera_properties.width as f32,
-                    camera_properties.height as f32,
-                );
             }
+            window.set_resolution(
+                camera_properties.width as f32,
+                camera_properties.height as f32,
+            );
         }
     }
 }
