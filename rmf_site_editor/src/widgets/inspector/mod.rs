@@ -242,7 +242,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(ppm) = self.params.pixels_per_meters.get(selection) {
                 if let Some(new_ppm) =
                     InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
-                        .clamp_range(0.0..=std::f32::MAX)
+                        .clamp_range(0.0..=std::f32::INFINITY)
                         .tooltip("How many image pixels per meter".to_string())
                         .show(ui)
                 {
