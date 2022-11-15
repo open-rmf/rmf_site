@@ -33,14 +33,10 @@ pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMe
 
 fn get_current_site_path(
     current_site: Res<CurrentSite>,
-    site_files: Query<(Entity, &DefaultFile)>,
+    site_files: Query<&DefaultFile>,
 ) -> Option<PathBuf> {
-    let site_entity = (*current_site).0.unwrap();
-    let site_file = site_files.iter().find(|&el| el.0 == site_entity);
-    match site_file {
-        Some((_, file_path)) => Some(file_path.0.clone()),
-        None => None,
-    }
+    let site_entity = (*current_site).0?;
+    site_files.get(site_entity).map(|f| f.0.clone()).ok()
 }
 
 pub fn add_drawing_visuals(
@@ -48,7 +44,7 @@ pub fn add_drawing_visuals(
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
-    site_files: Query<(Entity, &DefaultFile)>,
+    site_files: Query<&DefaultFile>,
 ) {
     let file_path = get_current_site_path(current_site, site_files);
     if file_path.is_none() {
@@ -119,7 +115,7 @@ pub fn update_drawing_visuals(
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
-    site_files: Query<(Entity, &DefaultFile)>,
+    site_files: Query<&DefaultFile>,
 ) {
     let file_path = get_current_site_path(current_site, site_files);
     if file_path.is_none() {
