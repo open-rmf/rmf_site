@@ -46,13 +46,13 @@ pub fn add_drawing_visuals(
     current_site: Res<CurrentSite>,
     site_files: Query<&DefaultFile>,
 ) {
-    let file_path = get_current_site_path(current_site, site_files);
-    if file_path.is_none() {
-        return;
-    }
+    let file_path = match get_current_site_path(current_site, site_files) {
+        Some(file_path) => file_path,
+        None => return,
+    };
     for (e, source, pose, pixels_per_meter) in &new_drawings {
         let texture_path = match source {
-            AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
+            AssetSource::Local(name) => file_path.with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
         loading_drawings
