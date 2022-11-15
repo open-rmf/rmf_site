@@ -121,11 +121,7 @@ pub fn manage_previews(
 
 pub fn update_physical_camera_preview(
     updated_cameras: Query<
-        (
-            &Children,
-            &PhysicalCameraProperties,
-            &CameraPreviewWindow,
-        ),
+        (&Children, &PhysicalCameraProperties, &CameraPreviewWindow),
         Changed<PhysicalCameraProperties>,
     >,
     mut camera_children: Query<&mut Projection, With<Camera>>,
