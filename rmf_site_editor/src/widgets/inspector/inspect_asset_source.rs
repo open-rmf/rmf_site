@@ -15,7 +15,7 @@
  *
 */
 
-use bevy_egui::egui::{ComboBox, Grid, Ui};
+use bevy_egui::egui::{ComboBox, Ui};
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -50,7 +50,7 @@ impl<'a> InspectAssetSource<'a> {
         });
         match &mut new_source {
             AssetSource::Local(name) => {
-                Grid::new("asset_source_filename").show(ui, |ui| {
+                ui.horizontal(|ui| {
                     // Button to load from file
                     // TODO implement async file loading in wasm
                     #[cfg(not(target_arch = "wasm32"))]

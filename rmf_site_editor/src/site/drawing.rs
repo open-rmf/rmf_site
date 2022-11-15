@@ -55,7 +55,7 @@ pub fn add_drawing_visuals(
             AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
-        (*loading_drawings)
+        loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
     }
@@ -72,14 +72,11 @@ pub fn handle_loaded_drawing(
 ) {
     for ev in ev_asset.iter() {
         if let AssetEvent::Created { handle } = ev {
-            if let Some((entity, pose, pixels_per_meter)) = (*loading_drawings).0.remove(handle) {
+            if let Some((entity, pose, pixels_per_meter)) = loading_drawings.0.remove(handle) {
                 let img = assets.get(handle).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
-                let mut mesh = Mesh::from(make_flat_rectangle_mesh(
-                    height / pixels_per_meter.0,
-                    width / pixels_per_meter.0,
-                ));
+                let mut mesh = Mesh::from(make_flat_rectangle_mesh(height, width));
                 let uvs: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]
                     .into_iter()
                     .cycle()
@@ -88,6 +85,8 @@ pub fn handle_loaded_drawing(
                 // TODO Actual Z layering instead of hardcoded Z
                 let mut pose = pose.clone();
                 pose.trans[2] -= 0.01;
+                let mut transform = pose.transform();
+                transform.scale = Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.);
                 mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
                 commands
                     .entity(entity.clone())
@@ -97,7 +96,7 @@ pub fn handle_loaded_drawing(
                             base_color_texture: Some(handle.clone()),
                             ..default()
                         }),
-                        transform: pose.transform(),
+                        transform: transform,
                         ..default()
                     })
                     .insert(Selectable::new(entity))
@@ -107,27 +106,32 @@ pub fn handle_loaded_drawing(
     }
 }
 
-pub fn update_drawing_visuals(
-    changed_drawings: Query<
-        (Entity, &AssetSource, &Pose, &PixelsPerMeter),
-        Or<(Changed<AssetSource>, Changed<PixelsPerMeter>)>,
-    >,
+pub fn update_drawing_asset_source(
+    changed_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Changed<AssetSource>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
     site_files: Query<&DefaultFile>,
 ) {
-    let file_path = get_current_site_path(current_site, site_files);
-    if file_path.is_none() {
-        return;
-    }
+    let file_path = match get_current_site_path(current_site, site_files) {
+        Some(file_path) => file_path,
+        None => return,
+    };
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
         let texture_path = match source {
-            AssetSource::Local(name) => file_path.as_ref().unwrap().with_file_name(name),
+            AssetSource::Local(name) => file_path.with_file_name(name),
         };
         let texture_handle: Handle<Image> = asset_server.load(texture_path);
-        (*loading_drawings)
+        loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
+    }
+}
+
+pub fn update_drawing_pixels_per_meter(
+    mut changed_drawings: Query<(&mut Transform, &PixelsPerMeter), Changed<PixelsPerMeter>>,
+) {
+    for (mut tf, pixels_per_meter) in &mut changed_drawings {
+        tf.scale = Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.);
     }
 }
