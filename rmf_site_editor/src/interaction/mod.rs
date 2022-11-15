@@ -42,6 +42,9 @@ pub use mode::*;
 pub mod picking;
 pub use picking::*;
 
+pub mod preview;
+pub use preview::*;
+
 pub mod select;
 pub use select::*;
 
@@ -79,6 +82,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<Hover>()
             .add_event::<MoveTo>()
             .add_event::<ChangeMode>()
+            .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
@@ -103,7 +107,9 @@ impl Plugin for InteractionPlugin {
                         update_drag_motions
                             .after(update_drag_click_start)
                             .after(update_drag_release),
-                    ),
+                    )
+                    .with_system(manage_previews)
+                    .with_system(update_physical_camera_preview),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(

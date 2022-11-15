@@ -294,3 +294,8 @@ impl Default for IsStatic {
         IsStatic(false)
     }
 }
+
+/// Marker component for previewable entities
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct PreviewableMarker;
