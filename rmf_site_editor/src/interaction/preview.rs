@@ -17,7 +17,7 @@
 
 use bevy::prelude::*;
 use bevy::render::camera::{Projection, RenderTarget};
-use bevy::window::{CreateWindow, PresentMode, WindowId, Windows, WindowClosed};
+use bevy::window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows};
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
