@@ -21,6 +21,9 @@ pub use inspect_anchor::*;
 pub mod inspect_angle;
 pub use inspect_angle::*;
 
+pub mod inspect_asset_source;
+pub use inspect_asset_source::*;
+
 pub mod inspect_door;
 pub use inspect_door::*;
 
@@ -47,6 +50,9 @@ pub use inspect_pose::*;
 
 pub mod inspect_side;
 pub use inspect_side::*;
+
+pub mod inspect_value;
+pub use inspect_value::*;
 
 pub mod selection_widget;
 pub use selection_widget::*;
@@ -82,6 +88,8 @@ pub struct InspectorParams<'w, 's> {
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub poses: Query<'w, 's, &'static Pose>,
+    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    pub pixels_per_meters: Query<'w, 's, &'static PixelsPerMeter>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -215,6 +223,29 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .change_door
                         .send(Change::new(new_door, selection));
                 }
+            }
+
+            if let Ok((source, recall)) = self.params.asset_sources.get(selection) {
+                if let Some(new_asset_source) = InspectAssetSource::new(source, recall).show(ui) {
+                    self.events
+                        .change_asset_source
+                        .send(Change::new(new_asset_source, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(ppm) = self.params.pixels_per_meters.get(selection) {
+                if let Some(new_ppm) =
+                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
+                        .clamp_range(0.0..=std::f32::INFINITY)
+                        .tooltip("How many image pixels per meter".to_string())
+                        .show(ui)
+                {
+                    self.events
+                        .change_pixels_per_meter
+                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                }
+                ui.add_space(10.0);
             }
         } else {
             ui.label("Nothing selected");

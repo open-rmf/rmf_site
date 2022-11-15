@@ -17,29 +17,43 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component};
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct PixelsPerMeter(pub f32);
+pub enum AssetSource {
+    Local(String),
+}
 
-impl Default for PixelsPerMeter {
-    fn default() -> Self {
-        PixelsPerMeter(100.0)
+impl AssetSource {
+    pub fn label(&self) -> &str {
+        match self {
+            Self::Local(_) => "Local",
+        }
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Drawing {
-    pub source: AssetSource,
-    pub pose: Pose,
-    pub pixels_per_meter: PixelsPerMeter,
-    #[serde(skip)]
-    pub marker: DrawingMarker,
+impl Default for AssetSource {
+    fn default() -> Self {
+        AssetSource::Local(String::new()).into()
+    }
 }
 
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct DrawingMarker;
+pub struct RecallAssetSource {
+    pub filename: Option<String>,
+}
+
+impl Recall for RecallAssetSource {
+    type Source = AssetSource;
+
+    fn remember(&mut self, source: &AssetSource) {
+        match source {
+            AssetSource::Local(name) => {
+                self.filename = Some(name.clone());
+            }
+        }
+    }
+}

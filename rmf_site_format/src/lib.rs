@@ -18,6 +18,9 @@
 pub mod agent;
 pub use agent::*;
 
+pub mod asset_source;
+pub use asset_source::*;
+
 pub mod dock;
 pub use dock::*;
 
