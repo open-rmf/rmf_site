@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select},
-    site::{Change, CurrentLevel, SiteState, ToggleLiftDoorAvailability},
+    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
+    site::{Change, CurrentLevel, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -68,6 +68,9 @@ pub struct ChangeEvents<'w, 's> {
     pub pose: EventWriter<'w, 's, Change<Pose>>,
     pub door: EventWriter<'w, 's, Change<DoorType>>,
     pub lift_cabin: EventWriter<'w, 's, Change<LiftCabin<Entity>>>,
+    pub asset_source: EventWriter<'w, 's, Change<AssetSource>>,
+    pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
+    pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -86,6 +89,7 @@ pub struct AppEvents<'w, 's> {
     pub level_display: ResMut<'w, LevelDisplay>,
     pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
 }
 
 fn standard_ui_layout(

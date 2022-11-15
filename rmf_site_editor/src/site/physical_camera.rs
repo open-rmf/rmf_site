@@ -35,5 +35,25 @@ pub fn add_physical_camera_visuals(
             })
             .insert(Selectable::new(e))
             .insert(Category::Camera);
+        // Now insert the camera as a child, needed to transform it
+        let camera_sensor_transform = Pose {
+            trans: [0., 0., 0.],
+            rot: Rotation::EulerExtrinsicXYZ([
+                Angle::Deg(90.0),
+                Angle::Deg(0.0),
+                Angle::Deg(-90.0),
+            ]),
+        };
+        let child = commands
+            .spawn_bundle(Camera3dBundle {
+                transform: camera_sensor_transform.transform(),
+                camera: Camera {
+                    is_active: false,
+                    ..default()
+                },
+                ..default()
+            })
+            .id();
+        commands.entity(e).push_children(&[child]);
     }
 }

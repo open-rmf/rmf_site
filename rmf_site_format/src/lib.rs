@@ -21,6 +21,9 @@ pub use agent::*;
 pub mod anchor;
 pub use anchor::*;
 
+pub mod asset_source;
+pub use asset_source::*;
+
 pub mod category;
 pub use category::*;
 

@@ -212,7 +212,10 @@ fn generate_levels(
             ),
             Without<Pending>,
         >,
-        Query<(&DrawingSource, &Pose, &SiteID, &Parent), (With<DrawingMarker>, Without<Pending>)>,
+        Query<
+            (&AssetSource, &Pose, &PixelsPerMeter, &SiteID, &Parent),
+            (With<DrawingMarker>, Without<Pending>)
+        >,
         Query<
             (
                 &Point<Entity>,
@@ -342,7 +345,7 @@ fn generate_levels(
         }
     }
 
-    for (source, pose, id, parent) in &q_drawings {
+    for (source, pose, pixels_per_meter, id, parent) in &q_drawings {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.drawings.insert(
@@ -350,6 +353,7 @@ fn generate_levels(
                     Drawing {
                         source: source.clone(),
                         pose: pose.clone(),
+                        pixels_per_meter: pixels_per_meter.clone(),
                         marker: DrawingMarker,
                     },
                 );
@@ -449,6 +453,7 @@ fn generate_levels(
                         name: name.clone(),
                         pose: pose.clone(),
                         properties: properties.clone(),
+                        previewable: PreviewableMarker,
                     },
                 );
             }

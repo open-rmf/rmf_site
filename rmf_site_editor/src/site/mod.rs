@@ -30,6 +30,9 @@ pub use deletion::*;
 pub mod door;
 pub use door::*;
 
+pub mod drawing;
+pub use drawing::*;
+
 pub mod floor;
 pub use floor::*;
 
@@ -123,6 +126,7 @@ impl Plugin for SitePlugin {
             .init_resource::<SiteAssets>()
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
+            .init_resource::<LoadingDrawings>()
             .init_resource::<OpenSites>()
             .init_resource::<CurrentSite>()
             .init_resource::<CurrentLevel>()
@@ -147,6 +151,10 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LevelProperties>::default())
             .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
+            .add_plugin(ChangePlugin::<AssetSource>::default())
+            .add_plugin(RecallPlugin::<RecallAssetSource>::default())
+            .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
+            .add_plugin(ChangePlugin::<PhysicalCameraProperties>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
@@ -196,6 +204,10 @@ impl Plugin for SitePlugin {
                     .with_system(update_measurement_for_changed_anchor)
                     .with_system(update_model_scenes)
                     .with_system(make_models_selectable)
+                    .with_system(add_drawing_visuals)
+                    .with_system(handle_loaded_drawing)
+                    .with_system(update_drawing_asset_source)
+                    .with_system(update_drawing_pixels_per_meter)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)

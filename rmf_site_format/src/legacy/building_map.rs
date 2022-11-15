@@ -1,10 +1,10 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, Category, Dock as SiteDock,
-    Drawing as SiteDrawing, DrawingMarker, DrawingSource, Fiducial as SiteFiducial, FiducialMarker,
+    AssetSource, legacy::optimization::align_building, Anchor, Category, Dock as SiteDock,
+    Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker,
     IsStatic, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, Pose, ReverseLane, Site, SiteProperties,
+    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Site, SiteProperties,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -164,8 +164,9 @@ impl BuildingMap {
                 drawings.insert(
                     site_id.next().unwrap(),
                     SiteDrawing {
-                        source: DrawingSource::Filename(level.drawing.filename.clone()),
+                        source: AssetSource::Local(level.drawing.filename.clone()),
                         pose: Pose::default(),
+                        pixels_per_meter: PixelsPerMeter::default(),
                         marker: DrawingMarker,
                     },
                 );

@@ -843,6 +843,10 @@ pub(crate) fn make_diamond(tip: f32, width: f32) -> MeshBuffer {
     )
 }
 
+pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
+    return make_flat_rect_mesh(extent, extent);
+}
+
 pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
     let x = x_size / 2.0;
     let y = y_size / 2.0;
@@ -861,16 +865,18 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
         .chain([[0., 0., -1.]].into_iter().cycle().take(4))
         .collect();
 
-    return MeshBuffer::new(positions, normals, indices);
+    let uv: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]
+        .into_iter()
+        .cycle()
+        .take(8)
+        .collect();
+
+    return MeshBuffer::new(positions, normals, indices).with_uv(uv);
 }
 
 pub(crate) fn make_flat_mesh_for_aabb(aabb: Aabb) -> MeshBuffer {
     make_flat_rect_mesh(2.0 * aabb.half_extents.x, 2.0 * aabb.half_extents.y)
         .transform_by(Affine3A::from_translation(aabb.center.into()))
-}
-
-pub(crate) fn make_flat_square_mesh(extent: f32) -> MeshBuffer {
-    make_flat_rect_mesh(extent, extent)
 }
 
 pub(crate) fn make_halo_mesh() -> Mesh {
