@@ -22,6 +22,8 @@ pub fn update_transforms_for_changed_poses(
     mut poses: Query<(&Pose, &mut Transform), Changed<Pose>>,
 ) {
     for (pose, mut tf) in &mut poses {
-        *tf = pose.transform();
+        let transform = pose.transform();
+        tf.translation = transform.translation;
+        tf.rotation = transform.rotation;
     }
 }
