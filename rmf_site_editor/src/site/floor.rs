@@ -31,9 +31,9 @@ use rmf_site_format::{FloorMarker, Path};
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 
 fn make_fallback_floor_mesh(p: Vec3) -> Mesh {
-    make_flat_square_mesh(0.5)
+    make_flat_square_mesh(1.0)
         .transform_by(Affine3A::from_scale_rotation_translation(
-            Vec3::splat(FALLBACK_FLOOR_SIZE),
+            Vec3::splat(0.5),
             Quat::from_rotation_z(0.0),
             p,
         ))
