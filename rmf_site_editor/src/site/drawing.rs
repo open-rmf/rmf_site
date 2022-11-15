@@ -83,7 +83,7 @@ pub fn handle_loaded_drawing(
                 let transform = pose.transform().with_scale(Vec3::new(
                     1.0 / pixels_per_meter.0,
                     1.0 / pixels_per_meter.0,
-                    1.
+                    1.,
                 ));
                 commands
                     .entity(entity.clone())

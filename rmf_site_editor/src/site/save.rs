@@ -214,7 +214,7 @@ fn generate_levels(
         >,
         Query<
             (&AssetSource, &Pose, &PixelsPerMeter, &SiteID, &Parent),
-            (With<DrawingMarker>, Without<Pending>)
+            (With<DrawingMarker>, Without<Pending>),
         >,
         Query<
             (

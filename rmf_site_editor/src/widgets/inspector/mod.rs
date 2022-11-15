@@ -156,7 +156,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok((edge, original, labels, category)) = self.params.component.edges.get(selection) {
+            if let Ok((edge, original, labels, category)) =
+                self.params.component.edges.get(selection)
+            {
                 InspectEdgeWidget::new(
                     selection,
                     category,
@@ -270,7 +272,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(camera_properties) = self.params.component.physical_camera_properties.get(selection) {
+            if let Ok(camera_properties) = self
+                .params
+                .component
+                .physical_camera_properties
+                .get(selection)
+            {
                 if let Some(new_camera_properties) =
                     InspectPhysicalCameraProperties::new(camera_properties).show(ui)
                 {
@@ -282,9 +289,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Some(new_cabin) = InspectLiftCabin::new(
-                selection, &self.params.component.lifts, &mut self.events
-            ).show(ui) {
+            if let Some(new_cabin) =
+                InspectLiftCabin::new(selection, &self.params.component.lifts, &mut self.events)
+                    .show(ui)
+            {
                 self.events.change.lift_cabin.send(Change {
                     to_value: new_cabin,
                     for_element: selection,
