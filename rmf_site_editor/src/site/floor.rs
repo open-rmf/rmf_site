@@ -28,7 +28,7 @@ use lyon::{
 };
 use rmf_site_format::{FloorMarker, Path};
 
-pub const FALLBACK_FLOOR_SIZE: f32 = 0.5;
+pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 
 fn make_fallback_floor_mesh(p: Vec3) -> Mesh {
     make_flat_square_mesh(0.5)
