@@ -133,7 +133,7 @@ pub fn update_physical_camera_preview(
 ) {
     for (children, camera_properties, preview_window) in updated_cameras.iter() {
         if let Some(window_id) = preview_window {
-            if let Some(window) = windows.get_mut(window_id.0.clone()) {
+            if let Some(window) = windows.get_mut(window_id.0) {
                 // Update fov first
                 if let Ok(mut projection) = camera_children.get_mut(children[0]) {
                     if let Projection::Perspective(perspective_projection) = &mut (*projection) {
