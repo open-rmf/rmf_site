@@ -77,7 +77,6 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<DragState>()
             .init_resource::<InteractionMode>()
-            .init_resource::<CameraPreviewWindows>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -110,8 +109,7 @@ impl Plugin for InteractionPlugin {
                             .after(update_drag_release),
                     )
                     .with_system(manage_previews)
-                    .with_system(update_physical_camera_preview)
-                    .with_system(handle_preview_window_close),
+                    .with_system(update_physical_camera_preview),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(

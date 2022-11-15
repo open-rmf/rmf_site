@@ -17,8 +17,7 @@
 
 use bevy::prelude::*;
 use bevy::render::camera::{Projection, RenderTarget};
-use bevy::utils::HashMap;
-use bevy::window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows};
+use bevy::window::{CreateWindow, PresentMode, WindowId, Windows};
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
@@ -36,8 +35,8 @@ impl SpawnPreview {
 }
 
 /// Used to keep track of what Camera is being previewed in what window for runtime updates
-#[derive(Default)]
-pub struct CameraPreviewWindows(HashMap<Entity, WindowId>);
+#[derive(Component)]
+pub struct CameraPreviewWindow(pub WindowId);
 
 fn create_camera_window(
     commands: &mut Commands,
@@ -72,49 +71,47 @@ pub fn manage_previews(
     mut commands: Commands,
     mut preview_events: EventReader<SpawnPreview>,
     previewable: Query<
-        (
-            Entity,
-            &Children,
-            &NameInSite,
-            Option<&PhysicalCameraProperties>,
-        ),
+        (&Children, &NameInSite, Option<&PhysicalCameraProperties>),
         With<PreviewableMarker>,
     >,
+    preview_windows: Query<&CameraPreviewWindow>,
     mut camera_children: Query<(Entity, &mut Projection), With<Camera>>,
     mut create_window_events: EventWriter<CreateWindow>,
-    mut preview_windows: ResMut<CameraPreviewWindows>,
 ) {
     for event in preview_events.iter() {
-        if let None = event.entity {
-            // TODO clear all previews
-        }
-        if let Some(e) = event.entity {
-            if let Some(open_window) = preview_windows.0.get_mut(&e) {
-                // Preview window already exists, skip creating it
-                continue;
+        match event.entity {
+            None => { // TODO clear all previews
             }
-            if let Ok((_, children, camera_name, camera_option)) = previewable.get(e) {
-                if let Some(camera_properties) = camera_option {
-                    // Get the child of the root entity
-                    // Assumes each physical camera has one and only one child for the sensor
-                    if let Ok((child_entity, mut projection)) = camera_children.get_mut(children[0])
-                    {
-                        // Update the camera to the right fov first
-                        if let Projection::Perspective(perspective_projection) = &mut (*projection)
-                        {
-                            let aspect_ratio = (camera_properties.width as f32)
-                                / (camera_properties.height as f32);
-                            perspective_projection.fov =
-                                camera_properties.horizontal_fov.radians() / aspect_ratio;
+            Some(e) => {
+                if let Ok((children, camera_name, camera_option)) = previewable.get(e) {
+                    if let Some(camera_properties) = camera_option {
+                        if preview_windows.get(e).is_ok() {
+                            // Preview window already exists, skip creating it
+                            continue;
                         }
-                        let window_id = create_camera_window(
-                            &mut commands,
-                            child_entity,
-                            &camera_name,
-                            &camera_properties,
-                            &mut create_window_events,
-                        );
-                        preview_windows.0.insert(e, window_id);
+                        // Get the child of the root entity
+                        // Assumes each physical camera has one and only one child for the sensor
+                        if let Ok((child_entity, mut projection)) =
+                            camera_children.get_mut(children[0])
+                        {
+                            // Update the camera to the right fov first
+                            if let Projection::Perspective(perspective_projection) =
+                                &mut (*projection)
+                            {
+                                let aspect_ratio = (camera_properties.width as f32)
+                                    / (camera_properties.height as f32);
+                                perspective_projection.fov =
+                                    camera_properties.horizontal_fov.radians() / aspect_ratio;
+                            }
+                            let window_id = create_camera_window(
+                                &mut commands,
+                                child_entity,
+                                &camera_name,
+                                &camera_properties,
+                                &mut create_window_events,
+                            );
+                            commands.entity(e).insert(CameraPreviewWindow(window_id));
+                        }
                     }
                 }
             }
@@ -123,17 +120,20 @@ pub fn manage_previews(
 }
 
 pub fn update_physical_camera_preview(
-    preview_windows: Res<CameraPreviewWindows>,
     updated_cameras: Query<
-        (Entity, &Children, &PhysicalCameraProperties),
+        (
+            &Children,
+            &PhysicalCameraProperties,
+            Option<&CameraPreviewWindow>,
+        ),
         Changed<PhysicalCameraProperties>,
     >,
     mut camera_children: Query<&mut Projection, With<Camera>>,
     mut windows: ResMut<Windows>,
 ) {
-    for (entity, children, camera_properties) in updated_cameras.iter() {
-        if let Some(window_id) = preview_windows.0.get(&entity) {
-            if let Some(window) = windows.get_mut(window_id.clone()) {
+    for (children, camera_properties, preview_window) in updated_cameras.iter() {
+        if let Some(window_id) = preview_window {
+            if let Some(window) = windows.get_mut(window_id.0.clone()) {
                 // Update fov first
                 if let Ok(mut projection) = camera_children.get_mut(children[0]) {
                     if let Projection::Perspective(perspective_projection) = &mut (*projection) {
@@ -149,18 +149,5 @@ pub fn update_physical_camera_preview(
                 );
             }
         }
-    }
-}
-
-/// Do housekeeping to clear the hashmap of window IDs when a preview is closed
-pub fn handle_preview_window_close(
-    mut preview_windows: ResMut<CameraPreviewWindows>,
-    mut preview_events: EventReader<WindowClosed>,
-) {
-    for event in preview_events.iter() {
-        // Find and remove the matching key, if any, in preview_windows
-        preview_windows
-            .0
-            .retain(|_, window_id| window_id != &event.id);
     }
 }
