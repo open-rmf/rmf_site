@@ -45,6 +45,9 @@ pub use inspect_name::*;
 pub mod inspect_option_f32;
 pub use inspect_option_f32::*;
 
+pub mod inspect_physical_camera_properties;
+pub use inspect_physical_camera_properties::*;
+
 pub mod inspect_pose;
 pub use inspect_pose::*;
 
@@ -58,7 +61,7 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    interaction::Selection,
+    interaction::{Selection, SpawnPreview},
     site::{Category, Change, EdgeLabels, Original, SiteID},
     widgets::AppEvents,
 };
@@ -90,6 +93,8 @@ pub struct InspectorParams<'w, 's> {
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
     pub pixels_per_meters: Query<'w, 's, &'static PixelsPerMeter>,
+    pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
+    pub previewable: Query<'w, 's, &'static PreviewableMarker>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -244,6 +249,26 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change_pixels_per_meter
                         .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(camera_properties) = self.params.physical_camera_properties.get(selection) {
+                if let Some(new_camera_properties) =
+                    InspectPhysicalCameraProperties::new(camera_properties).show(ui)
+                {
+                    self.events
+                        .change_physical_camera_properties
+                        .send(Change::new(new_camera_properties, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(_previewable) = self.params.previewable.get(selection) {
+                if ui.button("Preview").clicked() {
+                    self.events
+                        .spawn_preview
+                        .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
             }
