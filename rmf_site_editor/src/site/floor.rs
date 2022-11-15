@@ -83,7 +83,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
         }
 
         let tf = line_stroke_transform(&positions[0], &positions[1], FALLBACK_FLOOR_SIZE);
-        return make_flat_square_mesh(0.5)
+        return make_flat_square_mesh(1.0)
             .transform_by(tf.compute_affine())
             .into();
     }
