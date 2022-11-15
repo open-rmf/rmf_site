@@ -18,8 +18,8 @@
 use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use serde::{Deserialize, Serialize};
 use glam::Vec3;
+use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
@@ -82,7 +82,7 @@ pub enum RectFace {
 }
 
 impl RectFace {
-    pub fn iter_all() -> impl Iterator<Item=RectFace> {
+    pub fn iter_all() -> impl Iterator<Item = RectFace> {
         [Self::Front, Self::Back, Self::Left, Self::Right].into_iter()
     }
 

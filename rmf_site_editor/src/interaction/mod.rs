@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteUpdateStage, update_anchor_transforms};
+use crate::site::{update_anchor_transforms, SiteUpdateStage};
 
 pub mod anchor;
 pub use anchor::*;
@@ -80,7 +80,10 @@ impl Plugin for InteractionPlugin {
                 InteractionUpdateStage::AddVisuals,
                 SystemStage::parallel(),
             )
-            .add_state_to_stage(InteractionUpdateStage::AddVisuals, InteractionState::Disable)
+            .add_state_to_stage(
+                InteractionUpdateStage::AddVisuals,
+                InteractionState::Disable,
+            )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()

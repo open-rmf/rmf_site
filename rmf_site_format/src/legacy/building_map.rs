@@ -1,15 +1,14 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, DrawingSource,
-    Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelProperties as SiteLevelProperties, Lift as SiteLift,
-    LiftProperties, Motion, NameInSite, NavGraph, NavGraphProperties, OrientationConstraint, Pose,
-    ReverseLane, Site, SiteProperties, Anchor, Category,
-    legacy::optimization::align_building,
+    legacy::optimization::align_building, Anchor, Category, Dock as SiteDock,
+    Drawing as SiteDrawing, DrawingMarker, DrawingSource, Fiducial as SiteFiducial, FiducialMarker,
+    IsStatic, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
+    NavGraph, NavGraphProperties, OrientationConstraint, Pose, ReverseLane, Site, SiteProperties,
 };
+use glam::{DAffine2, DMat3, DQuat, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
-use glam::{DAffine2, DMat3, DQuat, DVec3, EulerRot};
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -54,7 +53,9 @@ impl BuildingMap {
                 tf.matrix2.col(0).extend(0.0).normalize(),
                 tf.matrix2.col(1).extend(0.0).normalize(),
                 DVec3::Z,
-            )).to_euler(EulerRot::ZYX).0
+            ))
+            .to_euler(EulerRot::ZYX)
+            .0
         };
 
         for (level_name, level) in map.levels.iter_mut() {
@@ -124,9 +125,10 @@ impl BuildingMap {
                     anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
-                    let lift = self.lifts.get(&v.4.lift_cabin.1).ok_or(
-                        PortingError::InvalidLiftName(v.4.lift_cabin.1.clone())
-                    )?;
+                    let lift = self
+                        .lifts
+                        .get(&v.4.lift_cabin.1)
+                        .ok_or(PortingError::InvalidLiftName(v.4.lift_cabin.1.clone()))?;
                     let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
@@ -332,8 +334,8 @@ impl BuildingMap {
                     &mut site_anchors,
                     &levels,
                     &level_name_to_id,
-                    &lift_cabin_anchors
-                )?
+                    &lift_cabin_anchors,
+                )?,
             );
         }
 

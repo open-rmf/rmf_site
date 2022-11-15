@@ -18,8 +18,7 @@
 use crate::{
     interaction::*,
     site::{
-        Anchor, AnchorBundle, Dependents, Original, PathBehavior, Pending,
-        CurrentSite, Category,
+        Anchor, AnchorBundle, Category, CurrentSite, Dependents, Original, PathBehavior, Pending,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -482,7 +481,10 @@ impl Placement for EdgePlacement {
                     }
                 }
 
-                let anchors = Edge::new(anchor_selection.entity(), params.cursor.level_anchor_placement);
+                let anchors = Edge::new(
+                    anchor_selection.entity(),
+                    params.cursor.level_anchor_placement,
+                );
                 let target = (*self.create)(params, anchors);
                 for anchor in anchors.array() {
                     params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
@@ -1141,8 +1143,16 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
     fn cleanup(&mut self) {
         self.cursor
             .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
-        set_visibility(self.cursor.site_anchor_placement, &mut self.visibility, false);
-        set_visibility(self.cursor.level_anchor_placement, &mut self.visibility, false);
+        set_visibility(
+            self.cursor.site_anchor_placement,
+            &mut self.visibility,
+            false,
+        );
+        set_visibility(
+            self.cursor.level_anchor_placement,
+            &mut self.visibility,
+            false,
+        );
     }
 }
 
@@ -1621,9 +1631,17 @@ pub fn handle_select_anchor_mode(
 
         // Make the anchor placement component of the cursor visible
         if request.site_scope() {
-            set_visibility(params.cursor.site_anchor_placement, &mut params.visibility, true);
+            set_visibility(
+                params.cursor.site_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
         } else {
-            set_visibility(params.cursor.level_anchor_placement, &mut params.visibility, true);
+            set_visibility(
+                params.cursor.level_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
         }
 
         // If we are creating a new object, then we should deselect anything

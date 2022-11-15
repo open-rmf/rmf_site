@@ -91,9 +91,11 @@ impl LevelVisits<u32> {
         id_to_entity: &std::collections::HashMap<u32, Entity>,
     ) -> LevelVisits<Entity> {
         LevelVisits(
-            self.0.iter().map(
-                |level| id_to_entity.get(level).unwrap()
-            ).copied().collect()
+            self.0
+                .iter()
+                .map(|level| id_to_entity.get(level).unwrap())
+                .copied()
+                .collect(),
         )
     }
 }
@@ -337,32 +339,33 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
 
     pub fn cabin_wall_coordinates(&self) -> Vec<[Vec3; 2]> {
         let n = Vec3::new(
-            self.depth/2.0 + self.thickness()/2.0,
-            self.width/2.0 + self.thickness()/2.0,
+            self.depth / 2.0 + self.thickness() / 2.0,
+            self.width / 2.0 + self.thickness() / 2.0,
             0.0,
         );
-        self.doors().into_iter().flat_map(
-            |(face, params)| {
+        self.doors()
+            .into_iter()
+            .flat_map(|(face, params)| {
                 let (u, v) = face.uv();
                 let du = n.dot(u).abs();
-                let dv = n.dot(v).abs() + self.thickness()/2.0;
-                let start = u*du + v*dv;
-                let end = u*du - v*dv;
+                let dv = n.dot(v).abs() + self.thickness() / 2.0;
+                let start = u * du + v * dv;
+                let end = u * du - v * dv;
                 if let Some(params) = params {
-                    let door_left = u*du + params.left_coordinate()*v;
-                    let door_right = u*du + params.right_coordinate()*v;
+                    let door_left = u * du + params.left_coordinate() * v;
+                    let door_right = u * du + params.right_coordinate() * v;
                     vec![[start, door_left], [door_right, end]]
                 } else {
                     vec![[start, end]]
                 }
-            }
-        ).collect()
+            })
+            .collect()
     }
 
     pub fn level_door_anchors(&self, face: RectFace) -> Option<[Anchor; 2]> {
         let door = self.door(face).as_ref()?;
         let (u, v) = face.uv2();
-        let n = Vec2::new(self.depth/2.0, self.width/2.0);
+        let n = Vec2::new(self.depth / 2.0, self.width / 2.0);
         let delta = self.thickness() + door.custom_gap.unwrap_or(self.gap()) + door.thickness();
         let base = (n.dot(u).abs() + delta) * u;
         let left = base + door.left_coordinate() * v;
@@ -371,12 +374,12 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         Some([
             Anchor::CategorizedTranslate2D(
                 Categorized::new(left.into())
-                .with_category(Category::Floor, (left - d_floor).into())
+                    .with_category(Category::Floor, (left - d_floor).into()),
             ),
             Anchor::CategorizedTranslate2D(
                 Categorized::new(right.into())
-                .with_category(Category::Floor, (right - d_floor).into())
-            )
+                    .with_category(Category::Floor, (right - d_floor).into()),
+            ),
         ])
     }
 }
@@ -406,20 +409,22 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         recall: Option<&RecallLiftCabin<T>>,
     ) -> [(RectFace, Option<T>, Aabb); 4] {
         let n = Vec3::new(
-            self.depth/2.0 + 1.5*self.thickness() + length/2.0,
-            self.width/2.0 + 1.5*self.thickness() + length/2.0,
+            self.depth / 2.0 + 1.5 * self.thickness() + length / 2.0,
+            self.width / 2.0 + 1.5 * self.thickness() + length / 2.0,
             0.0,
         );
         self.doors().map(|(face, params)| {
-            let params = params.as_ref().or(recall.map(|r| r.rect_door(face).as_ref()).flatten());
+            let params = params
+                .as_ref()
+                .or(recall.map(|r| r.rect_door(face).as_ref()).flatten());
             let (u, v) = face.uv();
             let gap = params.map(|p| p.custom_gap).flatten().unwrap_or(self.gap());
             let du = n.dot(u).abs() + gap;
             let shift = params.map(|p| p.shifted).flatten().unwrap_or(0.0);
-            let width = params.map(|p| p.width).unwrap_or(self.width/2.0);
+            let width = params.map(|p| p.width).unwrap_or(self.width / 2.0);
             let aabb = Aabb {
-                center: (u*du + shift*v).into(),
-                half_extents: (length*u/2.0 + width*v/2.0).into(),
+                center: (u * du + shift * v).into(),
+                half_extents: (length * u / 2.0 + width * v / 2.0).into(),
             };
             (face, params.map(|p| p.door), aabb)
         })
@@ -454,9 +459,11 @@ impl LiftProperties<u32> {
             reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
             cabin: self.cabin.to_ecs(id_to_entity),
             is_static: self.is_static,
-            initial_level: InitialLevel(self.initial_level.map(
-                |id| id_to_entity.get(&id).unwrap()
-            ).copied()),
+            initial_level: InitialLevel(
+                self.initial_level
+                    .map(|id| id_to_entity.get(&id).unwrap())
+                    .copied(),
+            ),
         }
     }
 }
@@ -486,20 +493,22 @@ impl LiftCabin<u32> {
 }
 
 #[cfg(feature = "bevy")]
-pub type QueryLiftDoor<'w, 's> = Query<'w, 's, (
-    &'static SiteID,
-    &'static DoorType,
-    &'static Edge<Entity>,
-    Option<&'static Original<Edge<Entity>>>,
-    &'static LevelVisits<Entity>,
-), (With<LiftCabinDoorMarker>, Without<Pending>)>;
+pub type QueryLiftDoor<'w, 's> = Query<
+    'w,
+    's,
+    (
+        &'static SiteID,
+        &'static DoorType,
+        &'static Edge<Entity>,
+        Option<&'static Original<Edge<Entity>>>,
+        &'static LevelVisits<Entity>,
+    ),
+    (With<LiftCabinDoorMarker>, Without<Pending>),
+>;
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl LiftCabin<Entity> {
-    pub fn to_u32(
-        &self,
-        doors: &QueryLiftDoor,
-    ) -> LiftCabin<u32> {
+    pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabin<u32> {
         match self {
             LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_u32(doors)),
         }
@@ -528,10 +537,7 @@ impl RectangularLiftCabin<u32> {
 
 #[cfg(feature = "bevy")]
 impl RectangularLiftCabin<Entity> {
-    pub fn to_u32(
-        &self,
-        doors: &QueryLiftDoor,
-    ) -> RectangularLiftCabin<u32> {
+    pub fn to_u32(&self, doors: &QueryLiftDoor) -> RectangularLiftCabin<u32> {
         RectangularLiftCabin {
             width: self.width,
             depth: self.depth,
@@ -564,12 +570,9 @@ impl LiftCabinDoorPlacement<u32> {
 
 #[cfg(feature = "bevy")]
 impl LiftCabinDoorPlacement<Entity> {
-    pub fn to_u32(
-        &self,
-        doors: &QueryLiftDoor,
-    ) -> LiftCabinDoorPlacement<u32> {
+    pub fn to_u32(&self, doors: &QueryLiftDoor) -> LiftCabinDoorPlacement<u32> {
         LiftCabinDoorPlacement {
-            door: doors.get(self.door).unwrap().0.0,
+            door: doors.get(self.door).unwrap().0 .0,
             width: self.width,
             thickness: self.thickness,
             shifted: self.shifted,
@@ -585,16 +588,16 @@ impl<T: RefTrait> LiftCabinDoorPlacement<T> {
             width,
             thickness: None,
             shifted: None,
-            custom_gap: None
+            custom_gap: None,
         }
     }
 
     pub fn left_coordinate(&self) -> f32 {
-        self.width/2.0 + self.shifted.unwrap_or(0.0)
+        self.width / 2.0 + self.shifted.unwrap_or(0.0)
     }
 
     pub fn right_coordinate(&self) -> f32 {
-        -self.width/2.0 + self.shifted.unwrap_or(0.0)
+        -self.width / 2.0 + self.shifted.unwrap_or(0.0)
     }
 
     pub fn thickness(&self) -> f32 {

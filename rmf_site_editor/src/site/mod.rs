@@ -109,8 +109,7 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_state(SiteState::Off)
+        app.add_state(SiteState::Off)
             .add_stage_after(
                 CoreStage::Update,
                 SiteUpdateStage::AssignOrphans,
@@ -157,7 +156,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
-                    .with_system(update_lift_edge)
+                    .with_system(update_lift_edge),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)

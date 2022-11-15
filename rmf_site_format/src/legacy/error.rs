@@ -38,10 +38,7 @@ pub enum PortingError {
         door_count: usize,
     },
     #[error("unable to find a cabin door named {door} for lift {lift}")]
-    InvalidLiftCabinDoorName {
-        lift: String,
-        door: String,
-    },
+    InvalidLiftCabinDoorName { lift: String, door: String },
     #[error("A door had an invalid motion axis value: {0}")]
     InvalidMotionAxis(String),
     #[error("the data contained a known type which has been deprecated: {0}")]

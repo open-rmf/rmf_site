@@ -15,10 +15,10 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*, shapes::*};
+use crate::{interaction::Selectable, shapes::*, site::*};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
-use std::collections::{BTreeSet, btree_map::Entry};
+use std::collections::{btree_map::Entry, BTreeSet};
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);
@@ -64,7 +64,7 @@ impl LiftDoorPlacemat {
             for_lift: self.for_lift,
             on_level: self.on_level,
             cabin_door: self.cabin_door,
-            door_available: !self.door_available
+            door_available: !self.door_available,
         }
     }
 }
@@ -80,10 +80,14 @@ pub struct ToggleLiftDoorAvailability {
 fn make_lift_transform(
     entity: Entity,
     reference_anchors: &Edge<Entity>,
-    anchors: &AnchorParams
+    anchors: &AnchorParams,
 ) -> Transform {
-    let p_start = anchors.point_in_parent_frame_of(reference_anchors.start(), Category::Lift, entity).unwrap();
-    let p_end = anchors.point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity).unwrap();
+    let p_start = anchors
+        .point_in_parent_frame_of(reference_anchors.start(), Category::Lift, entity)
+        .unwrap();
+    let p_end = anchors
+        .point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity)
+        .unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
         (p_start, p_start + DEFAULT_CABIN_WIDTH * Vec3::Y)
     } else {
@@ -136,14 +140,17 @@ pub fn add_tags_to_lift(
 
 pub fn update_lift_cabin(
     mut commands: Commands,
-    lifts: Query<(
-        Entity,
-        &LiftCabin<Entity>,
-        Option<&RecallLiftCabin<Entity>>,
-        Option<&ChildCabinAnchorGroup>,
-        Option<&ChildLiftCabinGroup>,
-        &Parent,
-    ), Or<(Changed<LiftCabin<Entity>>, Changed<Parent>)>>,
+    lifts: Query<
+        (
+            Entity,
+            &LiftCabin<Entity>,
+            Option<&RecallLiftCabin<Entity>>,
+            Option<&ChildCabinAnchorGroup>,
+            Option<&ChildLiftCabinGroup>,
+            &Parent,
+        ),
+        Or<(Changed<LiftCabin<Entity>>, Changed<Parent>)>,
+    >,
     mut cabin_anchor_groups: Query<&mut Transform, With<CabinAnchorGroup>>,
     level_visits: Query<&LevelVisits<Entity>>,
     children: Query<&Children>,
@@ -165,16 +172,23 @@ pub fn update_lift_cabin(
                 let Aabb { center, .. } = params.aabb();
                 let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
-                    params.depth + 2.0*params.thickness(),
-                    params.width + 2.0*params.thickness(),
-                ).into();
-                let wall_mesh: Mesh = params.cabin_wall_coordinates().into_iter().map(
-                    |wall| {
-                        make_wall_mesh(wall[0], wall[1], params.thickness(), DEFAULT_LEVEL_HEIGHT/3.0)
-                    }
-                ).fold(MeshBuffer::default(), |sum, next| {
-                    sum.merge_with(next)
-                }).into();
+                    params.depth + 2.0 * params.thickness(),
+                    params.width + 2.0 * params.thickness(),
+                )
+                .into();
+                let wall_mesh: Mesh = params
+                    .cabin_wall_coordinates()
+                    .into_iter()
+                    .map(|wall| {
+                        make_wall_mesh(
+                            wall[0],
+                            wall[1],
+                            params.thickness(),
+                            DEFAULT_LEVEL_HEIGHT / 3.0,
+                        )
+                    })
+                    .fold(MeshBuffer::default(), |sum, next| sum.merge_with(next))
+                    .into();
 
                 let cabin_entity = commands
                     .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
@@ -201,20 +215,24 @@ pub fn update_lift_cabin(
                             }
 
                             for (face, door, mut aabb) in params.level_door_placemats(0.3, recall) {
-                                let door_available = door.filter(
-                                    |d| level_visits.get(*d).ok().unwrap_or(
-                                        &LevelVisits::default()
-                                    ).contains(&level)
-                                ).is_some();
-                                aabb.center.z = PASSIVE_LANE_HEIGHT/2.0;
+                                let door_available = door
+                                    .filter(|d| {
+                                        level_visits
+                                            .get(*d)
+                                            .ok()
+                                            .unwrap_or(&LevelVisits::default())
+                                            .contains(&level)
+                                    })
+                                    .is_some();
+                                aabb.center.z = PASSIVE_LANE_HEIGHT / 2.0;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
-                                    .spawn_bundle(PbrBundle{
+                                    .spawn_bundle(PbrBundle {
                                         mesh: meshes.add(mesh.into()),
                                         // Placemats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.
-                                        visibility: Visibility{ is_visible: false },
+                                        visibility: Visibility { is_visible: false },
                                         ..default()
                                     })
                                     .insert(LiftDoorPlacemat {
@@ -228,18 +246,20 @@ pub fn update_lift_cabin(
                     })
                     .id();
 
-                commands.entity(e)
+                commands
+                    .entity(e)
                     .insert(ChildLiftCabinGroup(cabin_entity))
                     .add_child(cabin_entity);
 
                 // Update transforms for door anchors
                 for face in RectFace::iter_all() {
-                    if let (Some(p), Some(new_edge)) = (
-                        params.door(face),
-                        params.level_door_anchors(face),
-                    ) {
+                    if let (Some(p), Some(new_edge)) =
+                        (params.door(face), params.level_door_anchors(face))
+                    {
                         if let Ok(edge) = doors.get(p.door) {
-                            for (a, new_anchor) in edge.array().into_iter().zip(new_edge.into_iter()) {
+                            for (a, new_anchor) in
+                                edge.array().into_iter().zip(new_edge.into_iter())
+                            {
                                 if let Ok(mut anchor) = anchors.get_mut(a) {
                                     *anchor = new_anchor;
                                 }
@@ -255,9 +275,10 @@ pub fn update_lift_cabin(
         let cabin_anchor_group = if let Some(child_anchor_group) = child_anchor_group {
             Some(**child_anchor_group)
         } else if let Ok(children) = children.get(e) {
-            let found_group = children.iter().find(|c| {
-                cabin_anchor_groups.contains(**c)
-            }).copied();
+            let found_group = children
+                .iter()
+                .find(|c| cabin_anchor_groups.contains(**c))
+                .copied();
 
             if let Some(group) = found_group {
                 commands.entity(e).insert(ChildCabinAnchorGroup(group));
@@ -271,14 +292,13 @@ pub fn update_lift_cabin(
         match cabin_anchor_group {
             Some(group) => {
                 *cabin_anchor_groups.get_mut(group).unwrap() = cabin_tf;
-            },
+            }
             None => {
-                let group = commands.entity(e).add_children(
-                    |p| p
-                        .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
+                let group = commands.entity(e).add_children(|p| {
+                    p.spawn_bundle(SpatialBundle::from_transform(cabin_tf))
                         .insert_bundle(CabinAnchorGroupBundle::default())
                         .id()
-                );
+                });
                 commands.entity(e).insert(ChildCabinAnchorGroup(group));
             }
         };
@@ -286,7 +306,10 @@ pub fn update_lift_cabin(
 }
 
 pub fn update_lift_edge(
-    mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), (Changed<Edge<Entity>>, With<LiftCabin<Entity>>)>,
+    mut lifts: Query<
+        (Entity, &Edge<Entity>, &mut Transform),
+        (Changed<Edge<Entity>>, With<LiftCabin<Entity>>),
+    >,
     anchors: AnchorParams,
 ) {
     for (e, edge, mut tf) in &mut lifts {
@@ -314,13 +337,9 @@ pub fn update_lift_door_availability(
     mut lifts: Query<(
         &mut LiftCabin<Entity>,
         Option<&RecallLiftCabin<Entity>>,
-        &ChildCabinAnchorGroup
+        &ChildCabinAnchorGroup,
     )>,
-    mut doors: Query<(
-        Entity,
-        &Edge<Entity>,
-        &mut LevelVisits<Entity>,
-    ), With<LiftCabinDoorMarker>>,
+    mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelProperties>>,
@@ -337,10 +356,11 @@ pub fn update_lift_door_availability(
                 CabinDoorId::RectFace(face) => {
                     match cabin.as_mut() {
                         LiftCabin::Rect(params) => {
-                            if let Some(cabin_door) = params.door(face).map(|p| p.door)
-                            {
+                            if let Some(cabin_door) = params.door(face).map(|p| p.door) {
                                 cabin_door
-                            } else if let Some(old_cabin_door) = recall_cabin.map(|r| r.rect_door(face).as_ref()).flatten() {
+                            } else if let Some(old_cabin_door) =
+                                recall_cabin.map(|r| r.rect_door(face).as_ref()).flatten()
+                            {
                                 // A cabin door used to exist but was removed by
                                 // the user in the past. We should revive it
                                 // instead of creating a whole new one.
@@ -350,10 +370,11 @@ pub fn update_lift_door_availability(
                                 // Create a new door with new anchors
                                 let new_door = commands.spawn().id();
                                 *params.door_mut(face) = Some(LiftCabinDoorPlacement::new(
-                                    new_door, params.width.min(params.depth)/2.0
+                                    new_door,
+                                    params.width.min(params.depth) / 2.0,
                                 ));
-                                let anchors = params.level_door_anchors(face).unwrap().map(
-                                    |anchor| {
+                                let anchors =
+                                    params.level_door_anchors(face).unwrap().map(|anchor| {
                                         commands
                                             .spawn_bundle(AnchorBundle::new(anchor))
                                             .insert(Subordinate(Some(toggle.for_lift)))
@@ -364,7 +385,8 @@ pub fn update_lift_door_availability(
                                     commands.entity(**anchor_group).add_child(anchor);
                                 }
 
-                                commands.entity(new_door)
+                                commands
+                                    .entity(new_door)
                                     .insert_bundle(LiftCabinDoor {
                                         kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                                         reference_anchors: anchors.into(),
@@ -376,7 +398,7 @@ pub fn update_lift_door_availability(
 
                                 new_door
                             }
-                        },
+                        }
                         _ => continue,
                     }
                 }
@@ -385,7 +407,7 @@ pub fn update_lift_door_availability(
             if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.insert(toggle.on_level);
                 if let Some(current_level) = **current_level {
-                    commands.entity(cabin_door).insert(Visibility{
+                    commands.entity(cabin_door).insert(Visibility {
                         is_visible: visits.contains(&current_level),
                     });
                 }
@@ -397,7 +419,8 @@ pub fn update_lift_door_availability(
                 // Make sure visibility is turned on for the anchors and
                 // the Pending is removed.
                 for anchor in existing_anchors.array() {
-                    commands.entity(anchor)
+                    commands
+                        .entity(anchor)
                         .remove::<Pending>()
                         .insert(Visibility { is_visible: true });
                 }
@@ -405,12 +428,10 @@ pub fn update_lift_door_availability(
         } else {
             let cabin_door = match toggle.cabin_door {
                 CabinDoorId::Entity(e) => Some(e),
-                CabinDoorId::RectFace(face) => {
-                    match &*cabin {
-                        LiftCabin::Rect(params) => params.door(face).map(|p| p.door),
-                        _ => None,
-                    }
-                }
+                CabinDoorId::RectFace(face) => match &*cabin {
+                    LiftCabin::Rect(params) => params.door(face).map(|p| p.door),
+                    _ => None,
+                },
             };
 
             // If the cabin door that's being removed cannot be found then there
@@ -434,7 +455,8 @@ pub fn update_lift_door_availability(
 
             if remove_door {
                 cabin.remove_door(cabin_door);
-                commands.entity(cabin_door)
+                commands
+                    .entity(cabin_door)
                     .insert(Pending)
                     .insert(Visibility { is_visible: false });
 
@@ -463,7 +485,8 @@ pub fn update_lift_door_availability(
 
                 if let Some(anchors) = remove_anchors {
                     for anchor in anchors.array() {
-                        commands.entity(anchor)
+                        commands
+                            .entity(anchor)
                             .insert(Pending)
                             .insert(Visibility { is_visible: false });
                     }
@@ -484,7 +507,9 @@ pub fn update_lift_door_availability(
         // to change.
         if let Some(current_level) = **current_level {
             for (e, _, visits) in &doors {
-                commands.entity(e).insert(Visibility { is_visible: visits.contains(&current_level) });
+                commands.entity(e).insert(Visibility {
+                    is_visible: visits.contains(&current_level),
+                });
             }
         }
     }

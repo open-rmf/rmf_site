@@ -95,10 +95,7 @@ pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        params: &'a InspectorParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a InspectorParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
@@ -124,12 +121,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             self.heading(selection, ui);
             if self.params.anchor_params.anchors.contains(selection) {
                 ui.horizontal(|ui| {
-                    InspectAnchorWidget::new(
-                        selection,
-                        &self.params.anchor_params,
-                        self.events,
-                    )
-                    .show(ui);
+                    InspectAnchorWidget::new(selection, &self.params.anchor_params, self.events)
+                        .show(ui);
                 });
                 ui.separator();
                 InspectAnchorDependentsWidget::new(
@@ -158,7 +151,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok((motion, recall)) = self.params.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
-                    self.events.change.lane_motion
+                    self.events
+                        .change
+                        .lane_motion
                         .send(Change::new(new_motion, selection));
                 }
                 ui.add_space(10.0);
@@ -168,7 +163,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.separator();
                 ui.push_id("Reverse Motion", |ui| {
                     if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
-                        self.events.change.lane_reverse
+                        self.events
+                            .change
+                            .lane_reverse
                             .send(Change::new(new_reverse, selection));
                     }
                 });
@@ -177,7 +174,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok(name) = self.params.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {
-                    self.events.change.name
+                    self.events
+                        .change
+                        .name
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
@@ -187,7 +186,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if let Some(new_kind) =
                     InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui)
                 {
-                    self.events.change.kind
+                    self.events
+                        .change
+                        .kind
                         .send(Change::new(Kind(new_kind), selection));
                 }
             }
@@ -196,14 +197,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if let Some(new_label) =
                     InspectOptionString::new("Label", &label.0, &recall.value).show(ui)
                 {
-                    self.events.change.label
+                    self.events
+                        .change
+                        .label
                         .send(Change::new(Label(new_label), selection));
                 }
             }
 
             if let Ok(pose) = self.params.poses.get(selection) {
                 if let Some(new_pose) = InspectPose::new(pose).show(ui) {
-                    self.events.change.pose
+                    self.events
+                        .change
+                        .pose
                         .send(Change::new(new_pose, selection));
                 }
                 ui.add_space(10.0);
@@ -211,14 +216,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok((door, recall)) = self.params.doors.get(selection) {
                 if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
-                    self.events.change.door
+                    self.events
+                        .change
+                        .door
                         .send(Change::new(new_door, selection));
                 }
             }
 
-            if let Some(new_cabin) = InspectLiftCabin::new(
-                selection, &self.params.lifts, &mut self.events,
-            ).show(ui) {
+            if let Some(new_cabin) =
+                InspectLiftCabin::new(selection, &self.params.lifts, &mut self.events).show(ui)
+            {
                 self.events.change.lift_cabin.send(Change {
                     to_value: new_cabin,
                     for_element: selection,

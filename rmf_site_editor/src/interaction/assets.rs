@@ -56,9 +56,9 @@ impl InteractionAssets {
                     material: material_set.passive.clone(),
                     ..default()
                 })
-                .insert_bundle(DragAxisBundle::new(
-                    for_entity, Vec3::Z
-                ).with_materials(material_set))
+                .insert_bundle(
+                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
+                )
                 .id()
         });
     }

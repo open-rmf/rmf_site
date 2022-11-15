@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{Anchor, Delete, SiteAssets, Subordinate, NameInSite, Category},
+    site::{Anchor, Category, Delete, NameInSite, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
@@ -41,7 +41,7 @@ pub fn add_anchor_visual_cues(
         let body_mesh = match categories.get(parent.get()).unwrap() {
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
-            _ => site_assets.site_anchor_mesh.clone()
+            _ => site_assets.site_anchor_mesh.clone(),
         };
 
         let mut commands = commands.entity(e);
@@ -68,12 +68,11 @@ pub fn add_anchor_visual_cues(
                 .insert(Spinning::default())
                 .id();
 
-            let mut body = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: body_mesh,
-                    material: site_assets.passive_anchor_material.clone(),
-                    ..default()
-                });
+            let mut body = parent.spawn_bundle(PbrBundle {
+                mesh: body_mesh,
+                material: site_assets.passive_anchor_material.clone(),
+                ..default()
+            });
             body.insert(Selectable::new(e));
             if subordinate.is_none() {
                 body.insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
@@ -98,7 +97,8 @@ pub fn remove_interaction_for_subordinate_anchors(
 ) {
     for children in &new_subordinates {
         for child in children {
-            commands.entity(*child)
+            commands
+                .entity(*child)
                 .remove::<Gizmo>()
                 .remove::<Draggable>()
                 .remove::<DragPlane>();

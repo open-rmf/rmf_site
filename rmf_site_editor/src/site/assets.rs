@@ -16,7 +16,7 @@
 */
 
 use crate::{shapes::*, site::*};
-use bevy::{prelude::*, math::Affine3A};
+use bevy::{math::Affine3A, prelude::*};
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
@@ -105,13 +105,11 @@ impl FromWorld for SiteAssets {
             radius: 0.15, // TODO(MXG): Make the vertex radius configurable
             ..Default::default()
         }));
-        let lift_anchor_mesh = meshes.add(Mesh::from(
-            make_diamond(0.15/2.0, 0.15)
-            .transform_by(Affine3A::from_translation([0.0, 0.0, 0.15/2.0].into()))
-        ));
-        let site_anchor_mesh = meshes.add(Mesh::from(
-            make_cylinder(0.15, 0.15)
-        ));
+        let lift_anchor_mesh = meshes
+            .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
+                Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
+            )));
+        let site_anchor_mesh = meshes.add(Mesh::from(make_cylinder(0.15, 0.15)));
         let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());

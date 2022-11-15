@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, InteractionMode, SelectAnchor},
-    site::{EdgeLabels, Original, SiteID, Category},
+    site::{Category, EdgeLabels, Original, SiteID},
     widgets::{
         inspector::{InspectAnchorParams, InspectAnchorWidget},
         AppEvents,
@@ -96,9 +96,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .show(ui);
             ui.end_row();
             if start_response.replace {
-                if let Some(request) = SelectAnchor::replace_side(
-                    self.entity, Side::Left
-                ).for_category(*self.category) {
+                if let Some(request) =
+                    SelectAnchor::replace_side(self.entity, Side::Left).for_category(*self.category)
+                {
                     self.events.change_mode.send(ChangeMode::To(request.into()));
                 }
             }
@@ -110,9 +110,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .show(ui);
             ui.end_row();
             if end_response.replace {
-                if let Some(request) = SelectAnchor::replace_side(
-                    self.entity, Side::Right
-                ).for_category(*self.category) {
+                if let Some(request) = SelectAnchor::replace_side(self.entity, Side::Right)
+                    .for_category(*self.category)
+                {
                     self.events.change_mode.send(ChangeMode::To(request.into()));
                 }
             }

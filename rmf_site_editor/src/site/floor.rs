@@ -59,17 +59,13 @@ fn make_fallback_floor_mesh_near_path(
     return make_fallback_floor_mesh_at_avg(positions);
 }
 
-fn make_floor_mesh(
-    entity: Entity,
-    anchor_path: &Path<Entity>,
-    anchors: &AnchorParams,
-) -> Mesh {
+fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorParams) -> Mesh {
     if anchor_path.len() == 0 {
         return Mesh::new(PrimitiveTopology::TriangleList);
     } else if anchor_path.len() == 1 {
-        let p = anchors.point_in_parent_frame_of(
-            anchor_path[0], Category::Floor, entity
-        ).unwrap_or(Vec3::ZERO);
+        let p = anchors
+            .point_in_parent_frame_of(anchor_path[0], Category::Floor, entity)
+            .unwrap_or(Vec3::ZERO);
         return make_fallback_floor_mesh(p);
     } else if anchor_path.len() == 2 {
         let mut positions: Vec<Vec3> = Vec::new();

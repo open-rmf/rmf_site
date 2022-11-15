@@ -1,13 +1,9 @@
 use super::building_map::BuildingMap;
+use glam::{DAffine2, DMat2, DVec2};
 use optimization_engine::{panoc::*, *};
-use glam::{DVec2, DMat2, DAffine2};
-use std::{
-    collections::HashMap, ops::RangeFrom,
-};
+use std::{collections::HashMap, ops::RangeFrom};
 
-pub fn align_building(
-    building: &BuildingMap,
-) -> HashMap<String, DAffine2> {
+pub fn align_building(building: &BuildingMap) -> HashMap<String, DAffine2> {
     let mut names = Vec::new();
     let mut measurements = Vec::new();
     let mut fiducials = Vec::new();
@@ -39,13 +35,18 @@ pub fn align_building(
             let f_num = f_map.len();
             let index = *f_map.entry(fiducial.2.clone()).or_insert(f_num);
             if level_fiducials.len() <= index {
-                level_fiducials.resize(index+1, None);
+                level_fiducials.resize(index + 1, None);
             }
             *level_fiducials.get_mut(index).unwrap() = Some(fiducial.to_vec());
         }
         fiducials.push(level_fiducials);
 
-        u.extend([0.0, 0.0, 0.0, initial_scale_numerator/level.measurements.len() as f64]);
+        u.extend([
+            0.0,
+            0.0,
+            0.0,
+            initial_scale_numerator / level.measurements.len() as f64,
+        ]);
         min_vals.extend([neg_inf, neg_inf, -45_f64.to_radians(), 1e-12]);
         max_vals.extend([inf, inf, 45_f64.to_radians(), 1000.0]);
     }
@@ -72,9 +73,10 @@ pub fn align_building(
     calculate_displacement_adjustment(&measurements, &fiducials, &mut u);
     calculate_center_adjustment(building, &mut u);
 
-    names.into_iter().zip(
-        AllVariables::new(&u).map(|vars| vars.to_affine())
-    ).collect()
+    names
+        .into_iter()
+        .zip(AllVariables::new(&u).map(|vars| vars.to_affine()))
+        .collect()
 }
 
 struct LevelVariables<'a> {
@@ -127,7 +129,9 @@ impl<'a> LevelVariables<'a> {
 
     fn to_affine(&self) -> DAffine2 {
         DAffine2::from_scale_angle_translation(
-            DVec2::splat(*self.scale()), *self.theta(), self.dp()
+            DVec2::splat(*self.scale()),
+            *self.theta(),
+            self.dp(),
         )
     }
 }
@@ -140,11 +144,17 @@ struct AllVariables<'a> {
 
 impl<'a> AllVariables<'a> {
     fn new(slice: &'a [f64]) -> Self {
-        Self { slice, next_level: 0 }
+        Self {
+            slice,
+            next_level: 0,
+        }
     }
 
     fn after(level: usize, slice: &'a [f64]) -> Self {
-        Self { slice, next_level: level+1 }
+        Self {
+            slice,
+            next_level: level + 1,
+        }
     }
 }
 
@@ -152,10 +162,10 @@ impl<'a> Iterator for AllVariables<'a> {
     type Item = LevelVariables<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
-        if 4*(self.next_level+1) <= self.slice.len() {
+        if 4 * (self.next_level + 1) <= self.slice.len() {
             let level = self.next_level;
             self.next_level += 1;
-            let output = &self.slice[4*level..4*(level+1)];
+            let output = &self.slice[4 * level..4 * (level + 1)];
             Some(LevelVariables::new(output, level))
         } else {
             None
@@ -175,7 +185,9 @@ struct LevelGradient<'a> {
 
 impl<'a> LevelGradient<'a> {
     fn new(level: usize, slice: &'a mut [f64]) -> Self {
-        Self { slice: &mut slice[4*level..4*(level+1)] }
+        Self {
+            slice: &mut slice[4 * level..4 * (level + 1)],
+        }
     }
 
     fn dx(&mut self) -> &mut f64 {
@@ -204,7 +216,7 @@ fn calculate_scale_cost(
     for vars_i in AllVariables::new(u) {
         if let Some(measurements_i) = measurements.get(vars_i.level) {
             for m in measurements_i {
-                cost += (m.in_pixels*vars_i.scale() - m.in_meters).powi(2);
+                cost += (m.in_pixels * vars_i.scale() - m.in_meters).powi(2);
             }
         }
 
@@ -218,8 +230,8 @@ fn calculate_scale_cost(
                                 let f_kj = vars_j.transform(*phi_kj);
                                 let delta = f_ki - f_kj;
 
-                                for (m, phi_mi) in fiducials_i[k+1..].iter().enumerate() {
-                                    let m = m + k+1;
+                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                                    let m = m + k + 1;
                                     if let Some(phi_mi) = phi_mi {
                                         if let Some(Some(phi_mj)) = fiducials_j.get(m) {
                                             let f_mi = vars_i.transform(*phi_mi);
@@ -227,7 +239,8 @@ fn calculate_scale_cost(
                                             let df_i = f_ki - f_mi;
                                             let df_j = f_kj - f_mj;
 
-                                            cost += (df_i.dot(df_i).sqrt() - df_j.dot(df_j).sqrt()).powi(2);
+                                            cost += (df_i.dot(df_i).sqrt() - df_j.dot(df_j).sqrt())
+                                                .powi(2);
                                         }
                                     }
                                 }
@@ -257,7 +270,7 @@ fn calculate_scale_gradient(
 
         if let Some(measurements_i) = measurements.get(vars_i.level) {
             for m in measurements_i {
-                *grad.scale() += 2.0 * (m.in_pixels*vars_i.scale() - m.in_meters) * m.in_pixels;
+                *grad.scale() += 2.0 * (m.in_pixels * vars_i.scale() - m.in_meters) * m.in_pixels;
             }
         }
 
@@ -271,8 +284,8 @@ fn calculate_scale_gradient(
                                 let f_kj = vars_j.transform(*phi_kj);
                                 let delta = f_ki - f_kj;
 
-                                for (m, phi_mi) in fiducials_i[k+1..].iter().enumerate() {
-                                    let m = m + k+1;
+                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                                    let m = m + k + 1;
                                     if let Some(phi_mi) = phi_mi {
                                         if let Some(Some(phi_mj)) = fiducials_j.get(m) {
                                             let f_mi = vars_i.transform(*phi_mi);
@@ -282,7 +295,8 @@ fn calculate_scale_gradient(
 
                                             let s_m_i = df_i.dot(df_i).sqrt();
                                             let s_m_j = df_j.dot(df_j).sqrt();
-                                            *grad.scale() += 2.0 * (s_m_i - s_m_j) * s_m_i/vars_i.scale();
+                                            *grad.scale() +=
+                                                2.0 * (s_m_i - s_m_j) * s_m_i / vars_i.scale();
                                         }
                                     }
                                 }
@@ -298,14 +312,18 @@ fn calculate_scale_gradient(
 fn calculate_yaw_adjustment(
     measurements: &Vec<Vec<Measurement>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
-    u: &mut[f64],
+    u: &mut [f64],
 ) {
     let mut adjustment = vec![0.0; u.len()];
     let mut weight = vec![0.0; u.len()];
 
-    for level in 0..u.len()/4 {
-        let range = 4*level..4*(level+1);
-        for (v, (a, w)) in u[range.clone()].iter_mut().zip(adjustment[range.clone()].iter().zip(weight[range.clone()].iter())) {
+    for level in 0..u.len() / 4 {
+        let range = 4 * level..4 * (level + 1);
+        for (v, (a, w)) in u[range.clone()].iter_mut().zip(
+            adjustment[range.clone()]
+                .iter()
+                .zip(weight[range.clone()].iter()),
+        ) {
             if *w > 0.0 {
                 *v += *a / *w;
             }
@@ -323,8 +341,8 @@ fn calculate_yaw_adjustment(
                                 let f_ki = vars_i.transform(*phi_ki);
                                 let f_kj = vars_j.transform(*phi_kj);
 
-                                for (m, phi_mi) in fiducials_i[k+1..].iter().enumerate() {
-                                    let m = m + k+1;
+                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                                    let m = m + k + 1;
                                     if let Some(phi_mi) = phi_mi {
                                         if let Some(Some(phi_mj)) = fiducials_j.get(m) {
                                             let f_mi = vars_i.transform(*phi_mi);
@@ -355,9 +373,13 @@ fn calculate_displacement_adjustment(
 ) {
     let mut adjustment = vec![0.0; u.len()];
     let mut weight = vec![0.0; u.len()];
-    for level in 0..u.len()/4 {
-        let range = 4*level..4*(level+1);
-        for (v, (a, w)) in u[range.clone()].iter_mut().zip(adjustment[range.clone()].iter().zip(weight[range.clone()].iter())) {
+    for level in 0..u.len() / 4 {
+        let range = 4 * level..4 * (level + 1);
+        for (v, (a, w)) in u[range.clone()].iter_mut().zip(
+            adjustment[range.clone()]
+                .iter()
+                .zip(weight[range.clone()].iter()),
+        ) {
             if *w > 0.0 {
                 *v += *a / *w;
             }
@@ -389,14 +411,11 @@ fn calculate_displacement_adjustment(
     }
 }
 
-fn calculate_center_adjustment(
-    building: &BuildingMap,
-    u: &mut [f64],
-) {
+fn calculate_center_adjustment(building: &BuildingMap, u: &mut [f64]) {
     let mut center = DVec2::ZERO;
     let mut weight = 0.0;
     for (i, level) in building.levels.values().enumerate() {
-        let range = 4*i..4*(i+1);
+        let range = 4 * i..4 * (i + 1);
         let vars = LevelVariables::new(&u[range], i);
         for v in &level.vertices {
             let v = vars.transform(v.to_vec());
@@ -407,9 +426,9 @@ fn calculate_center_adjustment(
 
     if weight >= 0.0 {
         center /= weight;
-        for level in 0..u.len()/4 {
-            let x = 4*level;
-            let y = 4*level + 1;
+        for level in 0..u.len() / 4 {
+            let x = 4 * level;
+            let y = 4 * level + 1;
             u[x] -= center.x;
             u[y] -= center.y;
         }

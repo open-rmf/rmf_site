@@ -160,7 +160,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (lift_id, lift_data) in &site_data.lifts {
-            let lift = site.spawn()
+            let lift = site
+                .spawn()
                 .insert(SiteID(*lift_id))
                 .insert(Category::Lift)
                 .with_children(|lift| {
@@ -226,7 +227,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     for (lift_id, lift_data) in &site_data.lifts {
         for (_, door) in &lift_data.cabin_doors {
             for anchor in door.reference_anchors.array() {
-                commands.entity(*id_to_entity.get(&anchor).unwrap())
+                commands
+                    .entity(*id_to_entity.get(&anchor).unwrap())
                     .insert(Subordinate(Some(*id_to_entity.get(lift_id).unwrap())));
             }
         }

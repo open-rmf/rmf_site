@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, Dependents, Category, SiteID, Subordinate},
+    site::{Anchor, Category, Dependents, SiteID, Subordinate},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -84,21 +84,20 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {
-                        ui.label("Subordinate to ")
-                            .on_hover_text(
-                                "The position of a subordinate anchor is \
-                                managed by the properties of another entity."
-                            );
+                        ui.label("Subordinate to ").on_hover_text(
+                            "The position of a subordinate anchor is \
+                                managed by the properties of another entity.",
+                        );
                         SelectionWidget::new(
                             boss,
                             self.params.site_id.get(boss).ok().copied(),
                             self.params.icons.as_ref(),
-                            self.events
-                        ).show(ui);
+                            self.events,
+                        )
+                        .show(ui);
                     } else {
                         ui.label("Anonymous subordinate");
                     }
-
                 });
             } else {
                 if !self.is_dependency {

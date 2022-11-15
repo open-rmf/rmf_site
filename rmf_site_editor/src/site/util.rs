@@ -19,11 +19,7 @@ use crate::site::*;
 use bevy::prelude::*;
 use std::collections::HashSet;
 
-pub fn line_stroke_transform(
-    p_start: &Vec3,
-    p_end: &Vec3,
-    width: f32,
-) -> Transform {
+pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transform {
     let dp = *p_end - *p_start;
     let length = dp.length();
 

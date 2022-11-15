@@ -17,7 +17,7 @@
 
 use crate::site::*;
 use bevy::{prelude::*, render::primitives::Sphere};
-use rmf_site_format::{LevelProperties, LiftCabin, Anchor};
+use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
 use std::collections::HashSet;
 
 #[derive(Bundle, Debug)]
@@ -108,7 +108,12 @@ pub fn assign_orphan_anchors_to_parent(
     >,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    lifts: Query<(Entity, &LiftCabin<Entity>, &ChildCabinAnchorGroup, &GlobalTransform)>,
+    lifts: Query<(
+        Entity,
+        &LiftCabin<Entity>,
+        &ChildCabinAnchorGroup,
+        &GlobalTransform,
+    )>,
     lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
     for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {

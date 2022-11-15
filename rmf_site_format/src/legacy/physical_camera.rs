@@ -2,8 +2,8 @@ use crate::{
     Angle, NameInSite, PhysicalCamera as SitePhysicalCamera, PhysicalCameraProperties, Pose,
     Rotation,
 };
-use serde::{Deserialize, Serialize};
 use glam::DVec2;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone)]
 pub struct PhysicalCamera {

@@ -76,15 +76,14 @@ pub fn add_lane_visuals(
             }
         }
 
-        let is_visible = should_display_lane(
-            new_lane,
-            &parents,
-            &levels,
-            &current_level,
-        );
+        let is_visible = should_display_lane(new_lane, &parents, &levels, &current_level);
 
-        let start_anchor = anchors.point_in_parent_frame_of(new_lane.start(), Category::Lane, e).unwrap();
-        let end_anchor = anchors.point_in_parent_frame_of(new_lane.end(), Category::Lane, e).unwrap();
+        let start_anchor = anchors
+            .point_in_parent_frame_of(new_lane.start(), Category::Lane, e)
+            .unwrap();
+        let end_anchor = anchors
+            .point_in_parent_frame_of(new_lane.end(), Category::Lane, e)
+            .unwrap();
         let mut commands = commands.entity(e);
         let (start, mid, end) = commands.add_children(|parent| {
             let start = parent
@@ -137,8 +136,12 @@ fn update_lane_visuals(
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
 ) {
-    let start_anchor = anchors.point_in_parent_frame_of(edge.left(), Category::Lane, entity).unwrap();
-    let end_anchor = anchors.point_in_parent_frame_of(edge.right(), Category::Lane, entity).unwrap();
+    let start_anchor = anchors
+        .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
+        .unwrap();
+    let end_anchor = anchors
+        .point_in_parent_frame_of(edge.right(), Category::Lane, entity)
+        .unwrap();
 
     if let Some(mut tf) = transforms.get_mut(segments.start).ok() {
         *tf = Transform::from_translation(start_anchor);
@@ -152,7 +155,10 @@ fn update_lane_visuals(
 }
 
 pub fn update_changed_lane(
-    mut lanes: Query<(Entity, &Edge<Entity>, &LaneSegments, &mut Visibility), Changed<Edge<Entity>>>,
+    mut lanes: Query<
+        (Entity, &Edge<Entity>, &LaneSegments, &mut Visibility),
+        Changed<Edge<Entity>>,
+    >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
@@ -162,12 +168,7 @@ pub fn update_changed_lane(
     for (e, edge, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible = should_display_lane(
-            edge,
-            &parents,
-            &levels,
-            &current_level,
-        );
+        let is_visible = should_display_lane(edge, &parents, &levels, &current_level);
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
         }
@@ -198,12 +199,7 @@ pub fn update_visibility_for_lanes(
 ) {
     if current_level.is_changed() {
         for (edge, mut visibility) in &mut lanes {
-            let is_visible = should_display_lane(
-                edge,
-                &parents,
-                &levels,
-                &current_level,
-            );
+            let is_visible = should_display_lane(edge, &parents, &levels, &current_level);
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
             }

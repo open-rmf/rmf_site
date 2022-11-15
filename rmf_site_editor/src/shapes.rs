@@ -19,12 +19,9 @@ use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
     render::{
-        mesh::{
-            Indices, PrimitiveTopology, VertexAttributeValues,
-            shape::Box,
-        },
+        mesh::{shape::Box, Indices, PrimitiveTopology, VertexAttributeValues},
         primitives::Aabb,
-    }
+    },
 };
 use rmf_site_format::Angle;
 
@@ -420,11 +417,7 @@ fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_box(
-    x_extent: f32,
-    y_extent: f32,
-    z_extent: f32,
-) -> MeshBuffer {
+pub(crate) fn make_box(x_extent: f32, y_extent: f32, z_extent: f32) -> MeshBuffer {
     let (min_x, max_x) = (-x_extent, x_extent);
     let (min_y, max_y) = (-y_extent, y_extent);
     let (min_z, max_z) = (-z_extent, z_extent);
@@ -520,11 +513,11 @@ pub(crate) fn make_wall_mesh(
         [0., 1.],     // 22
         [length, 1.], // 23
     ];
-    make_box(length/2.0, thickness/2.0, height/2.0)
+    make_box(length / 2.0, thickness / 2.0, height / 2.0)
         .with_uv(uv)
         .transform_by(
-            Affine3A::from_translation(Vec3::new(center.x, center.y, height/2.0))
-            * Affine3A::from_rotation_z(yaw)
+            Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
+                * Affine3A::from_rotation_z(yaw),
         )
 }
 
@@ -574,20 +567,25 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
 }
 
 pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
-    let top_circle = Circle{height, radius};
-    let mid_circle = Circle{height: 0.0, radius};
-    let bottom_circle = Circle{height: -height, radius};
+    let top_circle = Circle { height, radius };
+    let mid_circle = Circle {
+        height: 0.0,
+        radius,
+    };
+    let bottom_circle = Circle {
+        height: -height,
+        radius,
+    };
     let resolution = 32;
-    make_smooth_wrap([top_circle, bottom_circle], resolution).merge_with(
-        make_bottom_circle(mid_circle, resolution)
-        .transform_by(Affine3A::from_translation([0.0, 0., -height].into()))
-    ).merge_with(
-        make_bottom_circle(mid_circle, resolution)
-        .transform_by(
-            Affine3A::from_translation([0., 0., height].into())
-            * Affine3A::from_rotation_x(180_f32.to_radians())
+    make_smooth_wrap([top_circle, bottom_circle], resolution)
+        .merge_with(
+            make_bottom_circle(mid_circle, resolution)
+                .transform_by(Affine3A::from_translation([0.0, 0., -height].into())),
         )
-    )
+        .merge_with(make_bottom_circle(mid_circle, resolution).transform_by(
+            Affine3A::from_translation([0., 0., height].into())
+                * Affine3A::from_rotation_x(180_f32.to_radians()),
+        ))
 }
 
 pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
@@ -823,29 +821,36 @@ pub(crate) fn make_physical_camera_mesh() -> Mesh {
     mesh
 }
 
-pub(crate) fn make_diamond(
-    tip: f32,
-    width: f32,
-) -> MeshBuffer {
-    make_pyramid(Circle{radius: width, height: 0.0}, [0.0, 0.0, tip], 4).merge_with(
-        make_pyramid(Circle{radius: width, height: 0.0}, [0.0, 0.0, tip], 4)
-        .transform_by(Affine3A::from_rotation_x(180_f32.to_radians()))
+pub(crate) fn make_diamond(tip: f32, width: f32) -> MeshBuffer {
+    make_pyramid(
+        Circle {
+            radius: width,
+            height: 0.0,
+        },
+        [0.0, 0.0, tip],
+        4,
+    )
+    .merge_with(
+        make_pyramid(
+            Circle {
+                radius: width,
+                height: 0.0,
+            },
+            [0.0, 0.0, tip],
+            4,
+        )
+        .transform_by(Affine3A::from_rotation_x(180_f32.to_radians())),
     )
 }
 
 pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
-    let x = x_size/2.0;
-    let y = y_size/2.0;
-    let positions: Vec<[f32; 3]> = [
-        [-x, -y, 0.],
-        [x, -y, 0.],
-        [x, y, 0.],
-        [-x, y, 0.],
-    ]
-    .into_iter()
-    .cycle()
-    .take(8)
-    .collect();
+    let x = x_size / 2.0;
+    let y = y_size / 2.0;
+    let positions: Vec<[f32; 3]> = [[-x, -y, 0.], [x, -y, 0.], [x, y, 0.], [-x, y, 0.]]
+        .into_iter()
+        .cycle()
+        .take(8)
+        .collect();
 
     let indices = [0, 1, 2, 0, 2, 3, 4, 6, 5, 4, 7, 6].into_iter().collect();
 
@@ -860,7 +865,7 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
 }
 
 pub(crate) fn make_flat_mesh_for_aabb(aabb: Aabb) -> MeshBuffer {
-    make_flat_rect_mesh(2.0*aabb.half_extents.x, 2.0*aabb.half_extents.y)
+    make_flat_rect_mesh(2.0 * aabb.half_extents.x, 2.0 * aabb.half_extents.y)
         .transform_by(Affine3A::from_translation(aabb.center.into()))
 }
 

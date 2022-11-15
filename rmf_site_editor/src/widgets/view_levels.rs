@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    site::{LevelProperties, Change, Category},
+    site::{Category, Change, LevelProperties},
     widgets::AppEvents,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Ui};
-use std::cmp::{Reverse, Ordering};
+use std::cmp::{Ordering, Reverse};
 
 pub struct LevelDisplay {
     pub new_elevation: f32,
@@ -55,20 +55,20 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-
         ui.horizontal(|ui| {
             let make_new_level = ui.button("Add").clicked();
             let mut show_elevation = self.events.level_display.new_elevation;
-            ui.add(
-                DragValue::new(&mut show_elevation).suffix("m")
-            ).on_hover_text("Elevation for the new level");
+            ui.add(DragValue::new(&mut show_elevation).suffix("m"))
+                .on_hover_text("Elevation for the new level");
 
             let mut show_name = self.events.level_display.new_name.clone();
             ui.text_edit_singleline(&mut show_name)
                 .on_hover_text("Name for the new level");
 
             if make_new_level {
-                let new_level = self.events.commands
+                let new_level = self
+                    .events
+                    .commands
                     .spawn_bundle(SpatialBundle::default())
                     .insert(LevelProperties {
                         elevation: show_elevation,
@@ -87,9 +87,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
             let mut ordered_level_list: Vec<_> = self
                 .levels
                 .iter()
-                .map(|(e, props)| {
-                    (Reverse(props.elevation), e)
-                })
+                .map(|(e, props)| (Reverse(props.elevation), e))
                 .collect();
 
             ordered_level_list.sort_by(|(h_a, e_a), (h_b, e_b)| {
@@ -103,9 +101,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 }
             });
 
-            self.events.level_display.order = ordered_level_list.into_iter().map(
-                |(_, e)| e
-            ).collect();
+            self.events.level_display.order =
+                ordered_level_list.into_iter().map(|(_, e)| e).collect();
         }
 
         let mut any_dragging = false;
@@ -113,16 +110,16 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
             if let Ok((_, props)) = self.levels.get(e) {
                 let mut shown_props = props.clone();
                 ui.horizontal(|ui| {
-                    if ui.radio(
-                        Some(e) == **self.events.current_level,
-                        "",
-                    ).clicked() {
+                    if ui
+                        .radio(Some(e) == **self.events.current_level, "")
+                        .clicked()
+                    {
                         self.events.current_level.0 = Some(e);
                     }
 
-                    let r = ui.add(
-                        DragValue::new(&mut shown_props.elevation).suffix("m")
-                    ).on_hover_text("Elevation of the level");
+                    let r = ui
+                        .add(DragValue::new(&mut shown_props.elevation).suffix("m"))
+                        .on_hover_text("Elevation of the level");
                     if r.dragged() || r.has_focus() {
                         any_dragging = true;
                     }
@@ -132,9 +129,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 });
 
                 if shown_props != *props {
-                    self.events.change_level_props.send(
-                        Change::new(shown_props, e)
-                    );
+                    self.events
+                        .change_level_props
+                        .send(Change::new(shown_props, e));
                 }
             }
         }

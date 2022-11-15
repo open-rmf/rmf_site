@@ -16,21 +16,31 @@
 */
 
 use crate::{
-    site::{LiftDoorPlacemat, CurrentLevel, ToggleLiftDoorAvailability},
     interaction::*,
+    site::{CurrentLevel, LiftDoorPlacemat, ToggleLiftDoorAvailability},
 };
 use bevy::prelude::*;
 
 pub fn make_lift_placemat_gizmo(
     mut commands: Commands,
-    mut new_placemats: Query<(Entity, &LiftDoorPlacemat, &mut Visibility, &mut Handle<StandardMaterial>), Added<LiftDoorPlacemat>>,
+    mut new_placemats: Query<
+        (
+            Entity,
+            &LiftDoorPlacemat,
+            &mut Visibility,
+            &mut Handle<StandardMaterial>,
+        ),
+        Added<LiftDoorPlacemat>,
+    >,
     current_level: Res<CurrentLevel>,
     assets: Res<InteractionAssets>,
 ) {
     for (e, placemat, mut visible, mut material) in &mut new_placemats {
         let materials = assets.lift_placemat_materials(placemat.door_available);
         *material = materials.passive.clone();
-        commands.entity(e).insert(Gizmo::new().with_materials(materials));
+        commands
+            .entity(e)
+            .insert(Gizmo::new().with_materials(materials));
 
         if Some(placemat.on_level) == current_level.0 {
             visible.is_visible = true;

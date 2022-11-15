@@ -33,8 +33,12 @@ pub fn add_measurement_visuals(
                 mesh: assets.lane_mid_mesh.clone(),
                 material: assets.measurement_material.clone(),
                 transform: line_stroke_transform(
-                    &anchors.point_in_parent_frame_of(edge.start(), Category::Measurement, e).unwrap(),
-                    &anchors.point_in_parent_frame_of(edge.end(), Category::Measurement, e).unwrap(),
+                    &anchors
+                        .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
+                        .unwrap(),
+                    &anchors
+                        .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
+                        .unwrap(),
                     LANE_WIDTH,
                 ),
                 ..default()
@@ -57,8 +61,12 @@ fn update_measurement_visual(
     anchors: &AnchorParams,
     transform: &mut Transform,
 ) {
-    let start_anchor = anchors.point_in_parent_frame_of(edge.start(), Category::Measurement, entity).unwrap();
-    let end_anchor = anchors.point_in_parent_frame_of(edge.end(), Category::Measurement, entity).unwrap();
+    let start_anchor = anchors
+        .point_in_parent_frame_of(edge.start(), Category::Measurement, entity)
+        .unwrap();
+    let end_anchor = anchors
+        .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
+        .unwrap();
     *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
 }
 

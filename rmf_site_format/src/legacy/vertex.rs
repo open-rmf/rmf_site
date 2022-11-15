@@ -3,8 +3,8 @@ use crate::{
     is_default, IsStatic, Kind, Location, LocationTag, LocationTags, Model, ModelMarker,
     NameInSite, Pose,
 };
-use serde::{Deserialize, Serialize};
 use glam::DVec2;
+use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct VertexProperties {

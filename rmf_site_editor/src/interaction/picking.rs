@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{interaction::*, site::{Anchor, CurrentSite}};
+use crate::{
+    interaction::*,
+    site::{Anchor, CurrentSite},
+};
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 
@@ -108,7 +111,7 @@ pub fn update_picked(
 
     let current_site = match current_site.0 {
         Some(current_site) => current_site,
-        None => return
+        None => return,
     };
 
     let mut current_picked = None;

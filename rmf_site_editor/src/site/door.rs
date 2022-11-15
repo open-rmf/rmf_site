@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use rmf_site_format::{DoorMarker, DoorType, Edge, Category, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Category, DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
@@ -42,8 +42,12 @@ fn make_door_visuals(
     anchors: &AnchorParams,
     kind: &DoorType,
 ) -> (Transform, Transform, Mesh, Mesh) {
-    let p_start = anchors.point_in_parent_frame_of(edge.left(), Category::Door, entity).unwrap();
-    let p_end = anchors.point_in_parent_frame_of(edge.right(), Category::Door, entity).unwrap();
+    let p_start = anchors
+        .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+        .unwrap();
+    let p_end = anchors
+        .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+        .unwrap();
 
     let dp = p_start - p_end;
     let length = dp.length();
@@ -162,10 +166,13 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    new_doors: Query<(Entity, &Edge<Entity>, &DoorType, Option<&Visibility>), (
-        Or<(Added<DoorType>, Added<Edge<Entity>>)>,
-        Without<DoorSegments>,
-    )>,
+    new_doors: Query<
+        (Entity, &Edge<Entity>, &DoorType, Option<&Visibility>),
+        (
+            Or<(Added<DoorType>, Added<Edge<Entity>>)>,
+            Without<DoorSegments>,
+        ),
+    >,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
@@ -218,7 +225,7 @@ pub fn add_door_visuals(
         commands
             .insert_bundle(SpatialBundle {
                 transform: pose_tf,
-                visibility: Visibility{ is_visible },
+                visibility: Visibility { is_visible },
                 ..default()
             })
             .insert(DoorSegments {

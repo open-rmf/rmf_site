@@ -16,19 +16,14 @@
 */
 
 use crate::{
-    site::{ToggleLiftDoorAvailability, CabinDoorId, SiteID, LevelProperties},
+    site::{CabinDoorId, LevelProperties, SiteID, ToggleLiftDoorAvailability},
     widgets::{
+        inspector::{InspectOptionF32, SelectionWidget},
         AppEvents, Icons,
-        inspector::{
-            InspectOptionF32, SelectionWidget,
-        },
     },
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{Ui, DragValue, CollapsingHeader};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 use rmf_site_format::lift::*;
 
 #[derive(SystemParam)]
@@ -52,7 +47,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
         params: &'a InspectLiftParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { lift, params, events }
+        Self {
+            lift,
+            params,
+            events,
+        }
     }
 
     pub fn show(mut self, ui: &mut Ui) -> Option<LiftCabin<Entity>> {
@@ -70,7 +69,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                             .suffix("m")
                             .clamp_range(0.01..=std::f32::INFINITY)
                             .fixed_decimals(2)
-                            .speed(0.01)
+                            .speed(0.01),
                     );
                 });
 
@@ -81,23 +80,23 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                             .suffix("m")
                             .clamp_range(0.01..=std::f32::INFINITY)
                             .fixed_decimals(2)
-                            .speed(0.01)
+                            .speed(0.01),
                     );
                 });
 
                 if let Some(new_t) = InspectOptionF32::new(
                     "Wall Thickness".to_string(),
                     params.wall_thickness,
-                    recall.wall_thickness.unwrap_or(
-                        DEFAULT_CABIN_WALL_THICKNESS
-                    ),
+                    recall
+                        .wall_thickness
+                        .unwrap_or(DEFAULT_CABIN_WALL_THICKNESS),
                 )
-                    .clamp_range(0.001..=std::f32::INFINITY)
-                    .suffix("m".to_string())
-                    .min_decimals(2)
-                    .max_decimals(4)
-                    .speed(0.001)
-                    .show(ui)
+                .clamp_range(0.001..=std::f32::INFINITY)
+                .suffix("m".to_string())
+                .min_decimals(2)
+                .max_decimals(4)
+                .speed(0.001)
+                .show(ui)
                 {
                     params.wall_thickness = new_t;
                 }
@@ -105,16 +104,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                 if let Some(new_gap) = InspectOptionF32::new(
                     "Gap".to_string(),
                     params.gap,
-                    recall.gap.unwrap_or(
-                        DEFAULT_CABIN_GAP
-                    ),
+                    recall.gap.unwrap_or(DEFAULT_CABIN_GAP),
                 )
-                    .clamp_range(0.001..=std::f32::INFINITY)
-                    .suffix("m".to_string())
-                    .min_decimals(2)
-                    .max_decimals(4)
-                    .speed(0.001)
-                    .show(ui)
+                .clamp_range(0.001..=std::f32::INFINITY)
+                .suffix("m".to_string())
+                .min_decimals(2)
+                .max_decimals(4)
+                .speed(0.001)
+                .show(ui)
                 {
                     params.gap = new_gap;
                 }
@@ -124,11 +121,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                     params.shift,
                     recall.shift.unwrap_or(0.0),
                 )
-                    .suffix("m".to_string())
-                    .min_decimals(2)
-                    .max_decimals(4)
-                    .speed(0.001)
-                    .show(ui)
+                .suffix("m".to_string())
+                .min_decimals(2)
+                .max_decimals(4)
+                .speed(0.001)
+                .show(ui)
                 {
                     params.shift = new_shift;
                 }
@@ -139,101 +136,111 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                     if let Some(placement) = placement {
                         CollapsingHeader::new(format!("{} Door", face.label()))
                             .default_open(false)
-                            .show(ui, |ui|
-                        {
-                            SelectionWidget::new(
-                                placement.door,
-                                self.params.site_id.get(placement.door).copied().ok(),
-                                &self.params.icons,
-                                &mut self.events,
-                            ).show(ui);
+                            .show(ui, |ui| {
+                                SelectionWidget::new(
+                                    placement.door,
+                                    self.params.site_id.get(placement.door).copied().ok(),
+                                    &self.params.icons,
+                                    &mut self.events,
+                                )
+                                .show(ui);
 
-                            ui.horizontal(|ui| {
-                                ui.label("width");
-                                ui.add(DragValue::new(&mut placement.width)
-                                    .suffix("m")
-                                    .clamp_range(0.001..=cabin_width-0.001)
-                                    .min_decimals(2)
-                                    .max_decimals(4)
-                                    .speed(0.005)
-                                );
-                            });
+                                ui.horizontal(|ui| {
+                                    ui.label("width");
+                                    ui.add(
+                                        DragValue::new(&mut placement.width)
+                                            .suffix("m")
+                                            .clamp_range(0.001..=cabin_width - 0.001)
+                                            .min_decimals(2)
+                                            .max_decimals(4)
+                                            .speed(0.005),
+                                    );
+                                });
 
-                            if let Some(new_shift) = InspectOptionF32::new(
-                                "Shifted".to_string(),
-                                placement.shifted,
-                                0.0
-                            )
+                                if let Some(new_shift) = InspectOptionF32::new(
+                                    "Shifted".to_string(),
+                                    placement.shifted,
+                                    0.0,
+                                )
                                 .suffix("m".to_string())
                                 .min_decimals(2)
                                 .max_decimals(4)
                                 .speed(0.005)
                                 .show(ui)
-                            {
-                                placement.shifted = new_shift;
-                            }
+                                {
+                                    placement.shifted = new_shift;
+                                }
 
-                            if let Some(new_gap) = InspectOptionF32::new(
-                                "Custom Gap".to_string(),
-                                placement.custom_gap,
-                                cabin_gap,
-                            )
+                                if let Some(new_gap) = InspectOptionF32::new(
+                                    "Custom Gap".to_string(),
+                                    placement.custom_gap,
+                                    cabin_gap,
+                                )
                                 .suffix("m".to_string())
                                 .clamp_range(0.0..=std::f32::INFINITY)
                                 .min_decimals(2)
                                 .max_decimals(4)
                                 .speed(0.001)
                                 .show(ui)
-                            {
-                                placement.custom_gap = new_gap;
-                            }
+                                {
+                                    placement.custom_gap = new_gap;
+                                }
 
-                            if let Some(new_t) = InspectOptionF32::new(
-                                "Thickness".to_string(),
-                                placement.thickness,
-                                DEFAULT_CABIN_DOOR_THICKNESS,
-                            )
+                                if let Some(new_t) = InspectOptionF32::new(
+                                    "Thickness".to_string(),
+                                    placement.thickness,
+                                    DEFAULT_CABIN_DOOR_THICKNESS,
+                                )
                                 .suffix("m".to_string())
                                 .clamp_range(0.001..=std::f32::INFINITY)
                                 .min_decimals(2)
                                 .max_decimals(4)
                                 .speed(0.001)
                                 .show(ui)
-                            {
-                                placement.thickness = new_t;
-                            }
+                                {
+                                    placement.thickness = new_t;
+                                }
 
-                            if let Ok(visits) = self.params.doors.get(placement.door) {
-                                CollapsingHeader::new(format!("Level Access"))
-                                    .default_open(true)
-                                    .show(ui, |ui| {
-                                        for level in &self.events.level_display.order {
-                                            let mut visits_level = visits.contains(level);
-                                            if ui.checkbox(
-                                                &mut visits_level,
-                                                self.params.levels.get(*level)
-                                                    .map(|n| &n.name)
-                                                    .unwrap_or(&"<Unknown>".to_string()),
-                                            ).changed() {
-                                                self.events.toggle_door_levels.send(ToggleLiftDoorAvailability {
-                                                    for_lift: self.lift,
-                                                    on_level: *level,
-                                                    cabin_door: CabinDoorId::RectFace(face),
-                                                    door_available: visits_level,
-                                                });
+                                if let Ok(visits) = self.params.doors.get(placement.door) {
+                                    CollapsingHeader::new(format!("Level Access"))
+                                        .default_open(true)
+                                        .show(ui, |ui| {
+                                            for level in &self.events.level_display.order {
+                                                let mut visits_level = visits.contains(level);
+                                                if ui
+                                                    .checkbox(
+                                                        &mut visits_level,
+                                                        self.params
+                                                            .levels
+                                                            .get(*level)
+                                                            .map(|n| &n.name)
+                                                            .unwrap_or(&"<Unknown>".to_string()),
+                                                    )
+                                                    .changed()
+                                                {
+                                                    self.events.toggle_door_levels.send(
+                                                        ToggleLiftDoorAvailability {
+                                                            for_lift: self.lift,
+                                                            on_level: *level,
+                                                            cabin_door: CabinDoorId::RectFace(face),
+                                                            door_available: visits_level,
+                                                        },
+                                                    );
+                                                }
                                             }
-                                        }
-                                    });
-                            }
-                        });
+                                        });
+                                }
+                            });
                     } else if let Some(current_level) = **self.events.current_level {
                         if ui.button(format!("Add {} Door", face.label())).clicked() {
-                            self.events.toggle_door_levels.send(ToggleLiftDoorAvailability {
-                                for_lift: self.lift,
-                                on_level: current_level,
-                                cabin_door: CabinDoorId::RectFace(face),
-                                door_available: true,
-                            });
+                            self.events
+                                .toggle_door_levels
+                                .send(ToggleLiftDoorAvailability {
+                                    for_lift: self.lift,
+                                    on_level: current_level,
+                                    cabin_door: CabinDoorId::RectFace(face),
+                                    door_available: true,
+                                });
                         }
                     }
                 }

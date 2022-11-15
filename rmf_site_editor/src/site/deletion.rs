@@ -87,9 +87,10 @@ fn perform_deletions(
                         println!(
                             "Element {:?} cannot be deleted because: {}",
                             delete.element,
-                            prevent.reason.as_ref().unwrap_or(
-                                &".. no reason given".to_string()
-                            ),
+                            prevent
+                                .reason
+                                .as_ref()
+                                .unwrap_or(&".. no reason given".to_string()),
                         );
                     } else {
                         println!(
@@ -97,9 +98,10 @@ fn perform_deletions(
                             deleted because: {}",
                             delete.element,
                             descendent,
-                            prevent.reason.as_ref().unwrap_or(
-                                &".. no reason given".to_string()
-                            ),
+                            prevent
+                                .reason
+                                .as_ref()
+                                .unwrap_or(&".. no reason given".to_string()),
                         );
                     }
                     okay_to_delete = false;
@@ -122,9 +124,7 @@ fn perform_deletions(
                                     "Element {:?} is an ancestor of anchor {:?} \
                                     which cannot be deleted because {:?} depends \
                                     on it.",
-                                    delete.element,
-                                    descendent,
-                                    dep,
+                                    delete.element, descendent, dep,
                                 );
                             }
                             okay_to_delete = false;

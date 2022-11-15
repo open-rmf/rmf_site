@@ -85,7 +85,10 @@ pub struct Draggable {
 
 impl Draggable {
     pub fn new(for_entity: Entity) -> Self {
-        Self { for_entity, drag: None }
+        Self {
+            for_entity,
+            drag: None,
+        }
     }
 }
 
@@ -107,10 +110,10 @@ pub struct DragAxisBundle {
 
 impl DragAxisBundle {
     pub fn new(for_entity: Entity, along: Vec3) -> Self {
-        Self{
+        Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            axis: DragAxis { along }
+            axis: DragAxis { along },
         }
     }
 
@@ -135,10 +138,10 @@ pub struct DragPlaneBundle {
 
 impl DragPlaneBundle {
     pub fn new(for_entity: Entity, in_plane: Vec3) -> Self {
-        Self{
+        Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            plane: DragPlane { in_plane }
+            plane: DragPlane { in_plane },
         }
     }
 
@@ -176,17 +179,18 @@ pub struct MoveTo {
     pub transform: Transform,
 }
 
-pub fn make_gizmos_pickable(
-    mut commands: Commands,
-    new_gizmos: Query<Entity, Added<Gizmo>>,
-) {
+pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
     for e in &new_gizmos {
         commands.entity(e).insert_bundle(PickableBundle::default());
     }
 }
 
 pub fn update_gizmo_click_start(
-    mut gizmos: Query<(&Gizmo, Option<&mut Draggable>, &mut Handle<StandardMaterial>)>,
+    mut gizmos: Query<(
+        &Gizmo,
+        Option<&mut Draggable>,
+        &mut Handle<StandardMaterial>,
+    )>,
     mut selection_blocker: ResMut<SelectionBlockers>,
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
@@ -197,7 +201,7 @@ pub fn update_gizmo_click_start(
     mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
     mut click: EventWriter<GizmoClicked>,
-    removed_gizmos: RemovedComponents<Gizmo>
+    removed_gizmos: RemovedComponents<Gizmo>,
 ) {
     for e in removed_gizmos.iter() {
         cursor.remove_blocker(e, &mut visibility);

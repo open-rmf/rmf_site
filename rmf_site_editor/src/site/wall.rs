@@ -15,19 +15,19 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*, shapes::*};
+use crate::{interaction::Selectable, shapes::*, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
-fn make_wall(
-    entity: Entity,
-    wall: &Edge<Entity>,
-    anchors: &AnchorParams,
-) -> Option<Mesh> {
-    let p_start = anchors.point_in_parent_frame_of(wall.start(), Category::Wall, entity).ok()?;
-    let p_end = anchors.point_in_parent_frame_of(wall.end(), Category::Wall, entity).ok()?;
+fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Option<Mesh> {
+    let p_start = anchors
+        .point_in_parent_frame_of(wall.start(), Category::Wall, entity)
+        .ok()?;
+    let p_end = anchors
+        .point_in_parent_frame_of(wall.end(), Category::Wall, entity)
+        .ok()?;
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,

@@ -15,9 +15,9 @@
  *
 */
 
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
+use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 /// The Category component is added to site entities so they can easily express
@@ -77,9 +77,10 @@ impl<T> Categorized<T> {
     pub fn for_category(&self, category: Category) -> &T {
         match category {
             Category::General => self.0.get(&Category::General).unwrap(),
-            category => self.0.get(&category).unwrap_or_else(
-                || self.0.get(&Category::General).unwrap()
-            ),
+            category => self
+                .0
+                .get(&category)
+                .unwrap_or_else(|| self.0.get(&Category::General).unwrap()),
         }
     }
 }

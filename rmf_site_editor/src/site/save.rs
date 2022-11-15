@@ -19,7 +19,10 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{collections::{BTreeMap, BTreeSet}, path::PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 use crate::site::*;
@@ -42,9 +45,13 @@ pub enum SiteGenerationError {
     BrokenDoorReference(Entity),
     #[error("lift {lift:?} has a reference anchor that does not belong to its site {site:?}")]
     InvalidLiftRefAnchor { site: Entity, lift: Entity },
-    #[error("anchor {anchor:?} is being referenced for site {site:?} but does not belong to that site")]
+    #[error(
+        "anchor {anchor:?} is being referenced for site {site:?} but does not belong to that site"
+    )]
     InvalidAnchorReference { site: Entity, anchor: Entity },
-    #[error("lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}")]
+    #[error(
+        "lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}"
+    )]
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
     #[error(
         "door {door:?} is being referenced for level {level:?} but does not belong to that level"
@@ -169,10 +176,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
     Ok(())
 }
 
-fn collect_site_anchors(
-    world: &mut World,
-    site: Entity
-) -> BTreeMap<u32, Anchor> {
+fn collect_site_anchors(world: &mut World, site: Entity) -> BTreeMap<u32, Anchor> {
     let mut state: SystemState<(
         Query<&Children>,
         Query<(&SiteID, &Anchor), Without<Pending>>,
@@ -197,20 +201,18 @@ fn generate_levels(
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Anchor, &SiteID, &Parent)>,
-        Query<(
-            &Edge<Entity>,
-            Option<&Original<Edge<Entity>>>,
-            &NameInSite,
-            &DoorType,
-            &SiteID,
-            &Parent,
-        ), Without<Pending>>,
-        Query<(
-            &DrawingSource,
-            &Pose,
-            &SiteID,
-            &Parent
-        ), (With<DrawingMarker>, Without<Pending>)>,
+        Query<
+            (
+                &Edge<Entity>,
+                Option<&Original<Edge<Entity>>>,
+                &NameInSite,
+                &DoorType,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
+        Query<(&DrawingSource, &Pose, &SiteID, &Parent), (With<DrawingMarker>, Without<Pending>)>,
         Query<
             (
                 &Point<Entity>,
@@ -243,21 +245,20 @@ fn generate_levels(
             ),
             (With<MeasurementMarker>, Without<Pending>),
         >,
-        Query<(
-            &NameInSite,
-            &Kind,
-            &Pose,
-            &IsStatic,
-            &SiteID,
-            &Parent
-        ), (With<ModelMarker>, Without<Pending>)>,
-        Query<(
-            &NameInSite,
-            &Pose,
-            &PhysicalCameraProperties,
-            &SiteID,
-            &Parent,
-        ), Without<Pending>>,
+        Query<
+            (&NameInSite, &Kind, &Pose, &IsStatic, &SiteID, &Parent),
+            (With<ModelMarker>, Without<Pending>),
+        >,
+        Query<
+            (
+                &NameInSite,
+                &Pose,
+                &PhysicalCameraProperties,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
         Query<
             (
                 &Edge<Entity>,
@@ -487,7 +488,8 @@ type QueryLift<'w, 's> = Query<
         &'static InitialLevel<Entity>,
         &'static SiteID,
         &'static Parent,
-    ), Without<Pending>,
+    ),
+    Without<Pending>,
 >;
 
 fn generate_lifts(
@@ -504,7 +506,8 @@ fn generate_lifts(
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children) = state.get(world);
+    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children) =
+        state.get(world);
 
     let mut lifts = BTreeMap::new();
 
@@ -590,14 +593,20 @@ fn generate_lifts(
 
                 if let Ok((site_id, door_type, edge, o_edge, visits)) = q_doors.get(*child) {
                     let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                    cabin_doors.insert(site_id.0, LiftCabinDoor {
-                        kind: door_type.clone(),
-                        reference_anchors: validate_level_door_anchors(*child, edge)?,
-                        visits: LevelVisits(visits.iter().map(
-                            |level| get_level_id(*level)
-                        ).collect::<Result<_, _>>()?),
-                        marker: Default::default(),
-                    });
+                    cabin_doors.insert(
+                        site_id.0,
+                        LiftCabinDoor {
+                            kind: door_type.clone(),
+                            reference_anchors: validate_level_door_anchors(*child, edge)?,
+                            visits: LevelVisits(
+                                visits
+                                    .iter()
+                                    .map(|level| get_level_id(*level))
+                                    .collect::<Result<_, _>>()?,
+                            ),
+                            marker: Default::default(),
+                        },
+                    );
                 }
             }
         }
@@ -612,11 +621,10 @@ fn generate_lifts(
                     reference_anchors,
                     cabin: cabin.to_u32(&q_doors),
                     is_static: is_static.clone(),
-                    initial_level: InitialLevel(initial_level.0
-                        .map_or(
-                            Ok(None),
-                            |level| get_level_id(level).map(|id| Some(id)),
-                        )?
+                    initial_level: InitialLevel(
+                        initial_level
+                            .0
+                            .map_or(Ok(None), |level| get_level_id(level).map(|id| Some(id)))?,
                     ),
                 },
                 cabin_anchors,
@@ -643,12 +651,15 @@ fn generate_nav_graphs(
             ),
             (With<LaneMarker>, Without<Pending>),
         >,
-        Query<(
-            &Point<Entity>,
-            Option<&Original<Point<Entity>>>,
-            &LocationTags,
-            &SiteID,
-        ), Without<Pending>>,
+        Query<
+            (
+                &Point<Entity>,
+                Option<&Original<Point<Entity>>>,
+                &LocationTags,
+                &SiteID,
+            ),
+            Without<Pending>,
+        >,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
