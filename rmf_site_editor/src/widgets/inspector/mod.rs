@@ -39,6 +39,9 @@ pub use inspect_option_string::*;
 pub mod inspect_lane;
 pub use inspect_lane::*;
 
+pub mod inspect_lift;
+pub use inspect_lift::*;
+
 pub mod inspect_name;
 pub use inspect_name::*;
 
@@ -69,12 +72,21 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{RichText, Ui};
 use rmf_site_format::*;
 
+// Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
+// some of the InspectorParams fields into the InspectorComponentParams struct.
 #[derive(SystemParam)]
 pub struct InspectorParams<'w, 's> {
     pub selection: Res<'w, Selection>,
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
+    pub component: InspectorComponentParams<'w, 's>,
+}
+
+// NOTE: We may need to split this struct into multiple structs if we ever need
+// it to have more than 16 fields.
+#[derive(SystemParam)]
+pub struct InspectorComponentParams<'w, 's> {
     pub edges: Query<
         'w,
         's,
@@ -82,6 +94,7 @@ pub struct InspectorParams<'w, 's> {
             &'static Edge<Entity>,
             Option<&'static Original<Edge<Entity>>>,
             Option<&'static EdgeLabels>,
+            &'static Category,
         ),
     >,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
@@ -90,30 +103,28 @@ pub struct InspectorParams<'w, 's> {
     pub kinds: Query<'w, 's, (&'static Kind, &'static RecallKind)>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
+    pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
-    pub pixels_per_meters: Query<'w, 's, &'static PixelsPerMeter>,
+    pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub params: &'a mut InspectorParams<'w1, 's1>,
+    pub params: &'a InspectorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        params: &'a mut InspectorParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a InspectorParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
     fn heading(&self, selection: Entity, ui: &mut Ui) {
         let (label, site_id) = if let Ok((category, site_id)) = self.params.heading.get(selection) {
             (
-                category.map(|x| x.0.as_str()).unwrap_or("<Unknown Type>"),
+                category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
                 site_id,
             )
         } else {
@@ -127,144 +138,169 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
         }
     }
 
-    pub fn show(self, ui: &mut Ui) {
+    pub fn show(mut self, ui: &mut Ui) {
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
-            if self.params.anchor_params.transforms.contains(selection) {
+            if self.params.anchor_params.anchors.contains(selection) {
                 ui.horizontal(|ui| {
-                    InspectAnchorWidget::new(
-                        selection,
-                        &mut self.params.anchor_params,
-                        self.events,
-                    )
-                    .show(ui);
+                    InspectAnchorWidget::new(selection, &self.params.anchor_params, self.events)
+                        .show(ui);
                 });
                 ui.separator();
                 InspectAnchorDependentsWidget::new(
                     selection,
-                    &mut self.params.anchor_dependents_params,
+                    &self.params.anchor_dependents_params,
                     self.events,
                 )
                 .show(ui);
                 ui.add_space(10.0);
             }
 
-            if let Ok((edge, original, labels)) = self.params.edges.get(selection) {
+            if let Ok((edge, original, labels, category)) =
+                self.params.component.edges.get(selection)
+            {
                 InspectEdgeWidget::new(
                     selection,
+                    category,
                     edge,
                     original,
                     labels,
-                    &mut self.params.anchor_params,
+                    &self.params.anchor_params,
                     self.events,
                 )
                 .show(ui);
                 ui.add_space(10.0);
             }
 
-            if let Ok((motion, recall)) = self.params.motions.get(selection) {
+            if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
                     self.events
-                        .change_lane_motion
+                        .change
+                        .lane_motion
                         .send(Change::new(new_motion, selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok((reverse, recall)) = self.params.reverse_motions.get(selection) {
+            if let Ok((reverse, recall)) = self.params.component.reverse_motions.get(selection) {
                 ui.separator();
                 ui.push_id("Reverse Motion", |ui| {
                     if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
                         self.events
-                            .change_lane_reverse
+                            .change
+                            .lane_reverse
                             .send(Change::new(new_reverse, selection));
                     }
                 });
                 ui.add_space(10.0);
             }
 
-            if let Ok(name) = self.params.names.get(selection) {
+            if let Ok(name) = self.params.component.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {
                     self.events
-                        .change_name
+                        .change
+                        .name
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok((kind, recall)) = self.params.kinds.get(selection) {
+            if let Ok((kind, recall)) = self.params.component.kinds.get(selection) {
                 if let Some(new_kind) =
                     InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui)
                 {
                     self.events
-                        .change_kind
+                        .change
+                        .kind
                         .send(Change::new(Kind(new_kind), selection));
                 }
             }
 
-            if let Ok((label, recall)) = self.params.labels.get(selection) {
+            if let Ok((label, recall)) = self.params.component.labels.get(selection) {
                 if let Some(new_label) =
                     InspectOptionString::new("Label", &label.0, &recall.value).show(ui)
                 {
                     self.events
-                        .change_label
+                        .change
+                        .label
                         .send(Change::new(Label(new_label), selection));
                 }
             }
 
-            if let Ok(pose) = self.params.poses.get(selection) {
+            if let Ok(pose) = self.params.component.poses.get(selection) {
                 if let Some(new_pose) = InspectPose::new(pose).show(ui) {
                     self.events
-                        .change_pose
+                        .change
+                        .pose
                         .send(Change::new(new_pose, selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok((door, recall)) = self.params.doors.get(selection) {
+            if let Ok((door, recall)) = self.params.component.doors.get(selection) {
                 if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
                     self.events
-                        .change_door
+                        .change
+                        .door
                         .send(Change::new(new_door, selection));
                 }
             }
 
-            if let Ok((source, recall)) = self.params.asset_sources.get(selection) {
+            if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {
                 if let Some(new_asset_source) = InspectAssetSource::new(source, recall).show(ui) {
                     self.events
-                        .change_asset_source
+                        .change
+                        .asset_source
                         .send(Change::new(new_asset_source, selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok(ppm) = self.params.pixels_per_meters.get(selection) {
+            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
                 if let Some(new_ppm) =
                     InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
-                        .clamp_range(0.0..=std::f32::INFINITY)
+                        .clamp_range(0.0001..=std::f32::INFINITY)
                         .tooltip("How many image pixels per meter".to_string())
                         .show(ui)
                 {
                     self.events
-                        .change_pixels_per_meter
+                        .change
+                        .pixels_per_meter
                         .send(Change::new(PixelsPerMeter(new_ppm), selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok(camera_properties) = self.params.physical_camera_properties.get(selection) {
+            if let Ok(camera_properties) = self
+                .params
+                .component
+                .physical_camera_properties
+                .get(selection)
+            {
                 if let Some(new_camera_properties) =
                     InspectPhysicalCameraProperties::new(camera_properties).show(ui)
                 {
                     self.events
-                        .change_physical_camera_properties
+                        .change
+                        .physical_camera_properties
                         .send(Change::new(new_camera_properties, selection));
                 }
                 ui.add_space(10.0);
             }
 
-            if let Ok(_previewable) = self.params.previewable.get(selection) {
+            if let Some(new_cabin) =
+                InspectLiftCabin::new(selection, &self.params.component.lifts, &mut self.events)
+                    .show(ui)
+            {
+                self.events.change.lift_cabin.send(Change {
+                    to_value: new_cabin,
+                    for_element: selection,
+                });
+                ui.add_space(10.0);
+            }
+
+            if let Ok(_previewable) = self.params.component.previewable.get(selection) {
                 if ui.button("Preview").clicked() {
                     self.events
                         .spawn_preview

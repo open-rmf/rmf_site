@@ -17,7 +17,9 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, AnchorDependents, Original, PathBehavior, Pending},
+    site::{
+        Anchor, AnchorBundle, Category, CurrentSite, Dependents, Original, PathBehavior, Pending,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
@@ -240,7 +242,7 @@ enum AnchorSelection {
     Existing(Entity),
     New {
         entity: Entity,
-        dependents: AnchorDependents,
+        dependents: Dependents,
     },
 }
 
@@ -269,7 +271,7 @@ impl AnchorSelection {
     ) -> Result<(), ()> {
         match self {
             Self::Existing(e) => {
-                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
                         // The entity was not a proper anchor
@@ -277,11 +279,11 @@ impl AnchorSelection {
                         return Err(());
                     }
                 };
-                dep.dependents.insert(dependent);
+                deps.insert(dependent);
                 Ok(())
             }
             Self::New { entity, dependents } => {
-                dependents.dependents.insert(dependent);
+                dependents.insert(dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
             }
@@ -295,18 +297,18 @@ impl AnchorSelection {
     ) -> Result<(), ()> {
         match self {
             Self::Existing(e) => {
-                let mut dep = match params.dependents.get_mut(*e).map_err(|_| ()) {
+                let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
                         println!("DEV ERROR: Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
-                dep.dependents.remove(&dependent);
+                deps.remove(&dependent);
                 Ok(())
             }
             Self::New { entity, dependents } => {
-                dependents.dependents.remove(&dependent);
+                dependents.remove(&dependent);
                 params.commands.entity(*entity).insert(dependents.clone());
                 Ok(())
             }
@@ -479,7 +481,10 @@ impl Placement for EdgePlacement {
                     }
                 }
 
-                let anchors = Edge::new(anchor_selection.entity(), params.cursor.anchor_placement);
+                let anchors = Edge::new(
+                    anchor_selection.entity(),
+                    params.cursor.level_anchor_placement,
+                );
                 let target = (*self.create)(params, anchors);
                 for anchor in anchors.array() {
                     params.add_dependent(target, anchor, &mut Some(&mut anchor_selection))?;
@@ -618,10 +623,10 @@ impl Placement for EdgePlacement {
         } else {
             // Delete the target because it is unfinished, then restart from
             // the beginning.
-            let equal_points = if let Ok((mut edge, _)) = params.edges.get(target) {
+            let equal_points = if let Ok((edge, _)) = params.edges.get(target) {
                 for anchor in edge.array() {
-                    if let Ok(mut dep) = params.dependents.get_mut(anchor) {
-                        dep.dependents.remove(&target);
+                    if let Ok(mut deps) = params.dependents.get_mut(anchor) {
+                        deps.remove(&target);
                     }
                 }
                 edge.start() == edge.end()
@@ -760,14 +765,14 @@ impl Placement for PointPlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
         if let Ok(mut point) = params.points.get_mut(target) {
-            if let Ok(mut dep) = params.dependents.get_mut(**point) {
-                dep.dependents.remove(&target);
+            if let Ok(mut deps) = params.dependents.get_mut(**point) {
+                deps.remove(&target);
             }
 
             if let Some(replacing) = continuity.replacing() {
                 // Restore the target to the original
-                if let Ok(mut dep) = params.dependents.get_mut(replacing) {
-                    dep.dependents.insert(target);
+                if let Ok(mut deps) = params.dependents.get_mut(replacing) {
+                    deps.insert(target);
                 }
 
                 point.0 = replacing;
@@ -1000,9 +1005,9 @@ impl Placement for PathPlacement {
             if let Some(index) = self.index {
                 let (mut path, _) = params.paths.get_mut(target).map_err(|_| ())?;
                 if let Some(anchor) = path.get_mut(index) {
-                    let mut dep = params.dependents.get_mut(*anchor).map_err(|_| ())?;
-                    dep.dependents.remove(&target);
-                    dep.dependents.insert(replacing);
+                    let mut deps = params.dependents.get_mut(*anchor).map_err(|_| ())?;
+                    deps.remove(&target);
+                    deps.insert(replacing);
                     *anchor = replacing;
 
                     return Ok((TargetTransition::finished(), self.restart()).into());
@@ -1035,8 +1040,8 @@ impl Placement for PathPlacement {
             // We're backing out when the path is too small, so we will delete
             // the object.
             for anchor in path.iter() {
-                if let Ok(mut dep) = params.dependents.get_mut(*anchor) {
-                    dep.dependents.remove(&target);
+                if let Ok(mut deps) = params.dependents.get_mut(*anchor) {
+                    deps.remove(&target);
                 }
             }
 
@@ -1054,8 +1059,8 @@ impl Placement for PathPlacement {
             // if the user selects + backs out in the same update cycle, but if
             // they're giving conflicting inputs in such a small window then
             // it's not unreasonable for us to permit that race condition.
-            let mut dep = params.dependents.get_mut(*last).unwrap();
-            dep.dependents.remove(last);
+            let mut deps = params.dependents.get_mut(*last).unwrap();
+            deps.remove(last);
             path.pop();
         }
 
@@ -1075,7 +1080,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
-    dependents: Query<'w, 's, &'static mut AnchorDependents>,
+    dependents: Query<'w, 's, &'static mut Dependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
@@ -1094,7 +1099,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             }
         }
 
-        let mut dep = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
+        let mut deps = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
                 println!(
@@ -1104,7 +1109,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
                 return Err(());
             }
         };
-        dep.dependents.insert(dependent);
+        deps.insert(dependent);
         Ok(())
     }
 
@@ -1120,7 +1125,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             }
         }
 
-        let mut dep = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
+        let mut deps = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
                 println!(
@@ -1130,7 +1135,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
                 return Err(());
             }
         };
-        dep.dependents.remove(&dependent);
+        deps.remove(&dependent);
         Ok(())
     }
 
@@ -1138,7 +1143,16 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
     fn cleanup(&mut self) {
         self.cursor
             .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut self.visibility);
-        set_visibility(self.cursor.anchor_placement, &mut self.visibility, false);
+        set_visibility(
+            self.cursor.site_anchor_placement,
+            &mut self.visibility,
+            false,
+        );
+        set_visibility(
+            self.cursor.level_anchor_placement,
+            &mut self.visibility,
+            false,
+        );
     }
 }
 
@@ -1154,6 +1168,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1162,6 +1177,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1170,6 +1186,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1178,6 +1195,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Door<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 
@@ -1186,6 +1204,18 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<LiftProperties<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::Site,
+        }
+    }
+
+    pub fn for_category(self, category: Category) -> Option<SelectAnchor> {
+        match category {
+            Category::Lane => Some(self.for_lane()),
+            Category::Measurement => Some(self.for_measurement()),
+            Category::Wall => Some(self.for_wall()),
+            Category::Door => Some(self.for_door()),
+            Category::Lift => Some(self.for_lift()),
+            _ => None,
         }
     }
 }
@@ -1201,6 +1231,7 @@ impl SelectAnchorPointBuilder {
             target: self.for_element,
             placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 }
@@ -1217,11 +1248,27 @@ impl SelectAnchorPathBuilder {
             target: self.for_element,
             placement: PathPlacement::new::<Floor<Entity>>(self.placement),
             continuity: self.continuity,
+            scope: Scope::General,
         }
     }
 }
 
 type PlacementArc = Arc<dyn Placement + Send + Sync>;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum Scope {
+    General,
+    Site,
+}
+
+impl Scope {
+    pub fn is_site(&self) -> bool {
+        match self {
+            Scope::Site => true,
+            _ => false,
+        }
+    }
+}
 
 /// This enum requests that the next selection should be an anchor, and that
 /// selection should be provided to one of the enumerated entities. When the
@@ -1232,9 +1279,14 @@ pub struct SelectAnchor {
     target: Option<Entity>,
     placement: PlacementArc,
     continuity: SelectAnchorContinuity,
+    scope: Scope,
 }
 
 impl SelectAnchor {
+    pub fn site_scope(&self) -> bool {
+        self.scope.is_site()
+    }
+
     pub fn replace_side(edge: Entity, side: Side) -> SelectAnchorEdgeBuilder {
         SelectAnchorEdgeBuilder {
             for_element: Some(edge),
@@ -1388,6 +1440,7 @@ impl SelectAnchor {
                         target: next_target,
                         placement: next_placement,
                         continuity: self.continuity,
+                        scope: self.scope,
                     });
                 }
             }
@@ -1405,6 +1458,7 @@ impl SelectAnchor {
                         // the previous continuity.
                         self.continuity.clone()
                     },
+                    scope: self.scope,
                 });
             }
         }
@@ -1443,6 +1497,7 @@ impl SelectAnchor {
                 target: Some(target),
                 placement: new_placement.clone(),
                 continuity: self.continuity,
+                scope: self.scope,
             });
         }
 
@@ -1456,6 +1511,7 @@ impl SelectAnchor {
             target: Some(target),
             placement: self.placement.clone(),
             continuity: self.continuity,
+            scope: self.scope,
         });
     }
 
@@ -1499,6 +1555,7 @@ impl SelectAnchor {
                             target: None,
                             placement: transition.placement.next,
                             continuity: SelectAnchorContinuity::InsertElement,
+                            scope: self.scope,
                         });
                     }
                 }
@@ -1507,6 +1564,7 @@ impl SelectAnchor {
                         target: None,
                         placement: transition.placement.next,
                         continuity: SelectAnchorContinuity::Continuous { previous: None },
+                        scope: self.scope,
                     });
                 }
             }
@@ -1541,6 +1599,7 @@ pub fn handle_select_anchor_mode(
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
+    site: Res<CurrentSite>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -1570,8 +1629,20 @@ pub fn handle_select_anchor_mode(
                 .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
 
-        /// Make the anchor placement component of the cursor visible
-        set_visibility(params.cursor.anchor_placement, &mut params.visibility, true);
+        // Make the anchor placement component of the cursor visible
+        if request.site_scope() {
+            set_visibility(
+                params.cursor.site_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
+        } else {
+            set_visibility(
+                params.cursor.level_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
+        }
 
         // If we are creating a new object, then we should deselect anything
         // that might be currently selected.
@@ -1662,6 +1733,13 @@ pub fn handle_select_anchor_mode(
                 .commands
                 .spawn_bundle(AnchorBundle::at_transform(tf))
                 .id();
+            if request.scope.is_site() {
+                if let Some(site) = site.0 {
+                    params.commands.entity(site).add_child(new_anchor);
+                } else {
+                    panic!("No current site??");
+                }
+            }
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
                 Some(next_mode) => next_mode,
@@ -1675,7 +1753,7 @@ pub fn handle_select_anchor_mode(
             *mode = InteractionMode::SelectAnchor(request);
         } else {
             // Offer a preview based on the current hovering status
-            let hovered = hovering.0.unwrap_or(params.cursor.anchor_placement);
+            let hovered = hovering.0.unwrap_or(params.cursor.level_anchor_placement);
             let current = request
                 .target
                 .map(|target| request.placement.current(target, &params))

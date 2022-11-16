@@ -26,9 +26,11 @@ pub struct InteractionAssets {
     pub halo_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
     pub flat_square_mesh: Handle<Mesh>,
-    pub x_axis_materials: DraggableMaterialSet,
-    pub y_axis_materials: DraggableMaterialSet,
-    pub z_plane_materials: DraggableMaterialSet,
+    pub x_axis_materials: GizmoMaterialSet,
+    pub y_axis_materials: GizmoMaterialSet,
+    pub z_plane_materials: GizmoMaterialSet,
+    pub lift_doormat_available_materials: GizmoMaterialSet,
+    pub lift_doormat_unavailable_materials: GizmoMaterialSet,
 }
 
 impl InteractionAssets {
@@ -39,7 +41,7 @@ impl InteractionAssets {
         for_entity: Entity,
         // What entity should be the parent frame of this gizmo
         parent: Entity,
-        material_set: DraggableMaterialSet,
+        material_set: GizmoMaterialSet,
         offset: Vec3,
         rotation: Quat,
         scale: f32,
@@ -54,10 +56,9 @@ impl InteractionAssets {
                     material: material_set.passive.clone(),
                     ..default()
                 })
-                .insert(DragAxis {
-                    along: [0., 0., 1.].into(),
-                })
-                .insert(Draggable::new(for_entity, Some(material_set)))
+                .insert_bundle(
+                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
+                )
                 .id()
         });
     }
@@ -102,6 +103,14 @@ impl InteractionAssets {
 
         cue.drag = Some(drag_parent);
     }
+
+    pub fn lift_doormat_materials(&self, available: bool) -> GizmoMaterialSet {
+        if available {
+            self.lift_doormat_available_materials.clone()
+        } else {
+            self.lift_doormat_unavailable_materials.clone()
+        }
+    }
 }
 
 impl FromWorld for InteractionAssets {
@@ -125,9 +134,49 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             ..default()
         });
-        let x_axis_materials = DraggableMaterialSet::make_x_axis(&mut materials);
-        let y_axis_materials = DraggableMaterialSet::make_y_axis(&mut materials);
-        let z_plane_materials = DraggableMaterialSet::make_z_plane(&mut materials);
+        let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
+        let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
+        let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
+        let lift_doormat_available_materials = GizmoMaterialSet {
+            passive: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.1),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+            hover: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+            drag: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+        };
+        let lift_doormat_unavailable_materials = GizmoMaterialSet {
+            passive: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.1),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+            hover: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+            drag: materials.add(StandardMaterial {
+                base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
+                alpha_mode: AlphaMode::Blend,
+                unlit: true,
+                ..default()
+            }),
+        };
 
         Self {
             dagger_mesh,
@@ -139,6 +188,8 @@ impl FromWorld for InteractionAssets {
             x_axis_materials,
             y_axis_materials,
             z_plane_materials,
+            lift_doormat_available_materials,
+            lift_doormat_unavailable_materials,
         }
     }
 }

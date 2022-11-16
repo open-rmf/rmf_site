@@ -15,150 +15,97 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*};
-use bevy::{prelude::*, render::mesh::shape::Box};
+use crate::{interaction::Selectable, shapes::*, site::*};
+use bevy::prelude::*;
 use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
-fn make_wall_components(
-    wall: &Edge<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
-) -> Option<(Mesh, Transform)> {
-    if let (Ok(start_anchor), Ok(end_anchor)) =
-        (anchors.get(wall.left()), anchors.get(wall.right()))
-    {
-        let p_start = start_anchor.translation();
-        let p_end = end_anchor.translation();
-        let (p_start, p_end) = if wall.left() == wall.right() {
-            (
-                p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
-                p_start + DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
-            )
-        } else {
-            (p_start, p_end)
-        };
-        let dp = p_end - p_start;
-        let length = dp.length();
-        let yaw = dp.y.atan2(dp.x);
-        let center = (p_start + p_end) / 2.0;
+fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Option<Mesh> {
+    let p_start = anchors
+        .point_in_parent_frame_of(wall.start(), Category::Wall, entity)
+        .ok()?;
+    let p_end = anchors
+        .point_in_parent_frame_of(wall.end(), Category::Wall, entity)
+        .ok()?;
+    let (p_start, p_end) = if wall.start() == wall.end() {
+        (
+            p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
+            p_start + DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
+        )
+    } else {
+        (p_start, p_end)
+    };
 
-        let mut mesh: Mesh = Box::new(length, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT).into();
-        // The default UV coordinates made by bevy do not work well for walls,
-        // so we customize them here
-        let uv = vec![
-            // Top
-            [0., 0.], // 0
-            [0., 0.], // 1
-            [0., 0.], // 2
-            [0., 0.], // 3
-            // Bottom
-            [0., 1.], // 4
-            [0., 1.], // 5
-            [0., 1.], // 6
-            [0., 1.], // 7
-            // right
-            [length, 1.], // 8
-            [0., 1.],     // 9
-            [0., 0.],     // 10
-            [length, 0.], // 11
-            // left
-            [0., 0.],     // 12
-            [length, 0.], // 13
-            [length, 1.], // 14
-            [0., 1.],     // 15
-            // front
-            [0., 1.],     // 16
-            [length, 1.], // 17
-            [length, 0.], // 18
-            [0., 0.],     // 19
-            // back
-            [length, 0.], // 20
-            [0., 0.],     // 21
-            [0., 1.],     // 22
-            [length, 1.], // 23
-        ];
-        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
-
-        let tf = Transform {
-            translation: Vec3::new(center.x, center.y, DEFAULT_LEVEL_HEIGHT / 2.0),
-            rotation: Quat::from_rotation_z(yaw),
-            ..default()
-        };
-        return Some((mesh.into(), tf));
-    }
-
-    None
+    Some(make_wall_mesh(p_start, p_end, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT).into())
 }
 
 pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependents: Query<&mut AnchorDependents>,
+    anchors: AnchorParams,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge) in &walls {
-        if let Some((mesh, tf)) = make_wall_components(edge, &anchors) {
+        if let Some(mesh) = make_wall(e, edge, &anchors) {
             commands
                 .entity(e)
                 .insert_bundle(PbrBundle {
                     mesh: meshes.add(mesh),
-                    material: assets.wall_material.clone(), // TODO(MXG): load the user-specified texture when one is given
-                    transform: tf,
+                    // TODO(MXG): load the user-specified texture when one is given
+                    material: assets.wall_material.clone(),
                     ..default()
                 })
                 .insert(Selectable::new(e))
-                .insert(Category("Wall".to_string()))
+                .insert(Category::Wall)
                 .insert(EdgeLabels::StartEnd);
         } else {
             panic!("Anchor was not initialized correctly");
         }
 
         for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                deps.insert(e);
             }
         }
     }
 }
 
 fn update_wall_visuals(
-    wall: &Edge<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
-    transform: &mut Transform,
+    entity: Entity,
+    edge: &Edge<Entity>,
+    anchors: &AnchorParams,
     mesh: &mut Handle<Mesh>,
     meshes: &mut Assets<Mesh>,
 ) {
-    let (new_mesh, new_tf) = make_wall_components(wall, anchors).unwrap();
-    *mesh = meshes.add(new_mesh);
-    *transform = new_tf;
+    *mesh = meshes.add(make_wall(entity, edge, anchors).unwrap());
 }
 
-pub fn update_changed_wall(
+pub fn update_wall_edge(
     mut walls: Query<
-        (&Edge<Entity>, &mut Transform, &mut Handle<Mesh>),
+        (Entity, &Edge<Entity>, &mut Handle<Mesh>),
         (With<WallMarker>, Changed<Edge<Entity>>),
     >,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    anchors: AnchorParams,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (wall, mut tf, mut mesh) in &mut walls {
-        update_wall_visuals(wall, &anchors, tf.as_mut(), mesh.as_mut(), meshes.as_mut());
+    for (e, edge, mut mesh) in &mut walls {
+        update_wall_visuals(e, edge, &anchors, mesh.as_mut(), meshes.as_mut());
     }
 }
 
-pub fn update_wall_for_changed_anchor(
-    mut walls: Query<(&Edge<Entity>, &mut Transform, &mut Handle<Mesh>), With<WallMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+pub fn update_wall_for_moved_anchors(
+    mut walls: Query<(Entity, &Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
+    anchors: AnchorParams,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
-            if let Some((wall, mut tf, mut mesh)) = walls.get_mut(*dependent).ok() {
-                update_wall_visuals(wall, &anchors, tf.as_mut(), mesh.as_mut(), meshes.as_mut());
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
+            if let Some((e, wall, mut mesh)) = walls.get_mut(*dependent).ok() {
+                update_wall_visuals(e, wall, &anchors, mesh.as_mut(), meshes.as_mut());
             }
         }
     }

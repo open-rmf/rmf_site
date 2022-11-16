@@ -16,7 +16,7 @@
 */
 
 use crate::{shapes::*, site::*};
-use bevy::prelude::*;
+use bevy::{math::Affine3A, prelude::*};
 
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
@@ -31,12 +31,17 @@ pub struct SiteAssets {
     pub select_material: Handle<StandardMaterial>,
     pub hover_select_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
-    pub anchor_mesh: Handle<Mesh>,
+    pub level_anchor_mesh: Handle<Mesh>,
+    pub lift_anchor_mesh: Handle<Mesh>,
+    pub site_anchor_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
+    pub lift_wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
     pub translucent_white: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
+    pub lift_door_available_material: Handle<StandardMaterial>,
+    pub lift_door_unavailable_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -66,6 +71,11 @@ impl FromWorld for SiteAssets {
             unlit: false,
             ..default()
         });
+        let lift_wall_material = materials.add(StandardMaterial {
+            base_color: Color::rgba(0.7, 0.7, 0.7, 1.0),
+            perceptual_roughness: 0.3,
+            ..default()
+        });
         let default_floor_material = materials.add(StandardMaterial {
             base_color: Color::rgb(0.3, 0.3, 0.3).into(),
             perceptual_roughness: 0.5,
@@ -87,23 +97,28 @@ impl FromWorld for SiteAssets {
             ..default()
         });
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
+        let lift_door_available_material = materials.add(Color::rgb(0.1, 0.95, 0.1).into());
+        let lift_door_unavailable_material = materials.add(Color::rgb(0.95, 0.1, 0.1).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let anchor_mesh = meshes.add(Mesh::from(shape::Capsule {
+        let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
             radius: 0.15, // TODO(MXG): Make the vertex radius configurable
-            rings: 2,
-            depth: 0.05,
-            latitudes: 8,
-            longitudes: 16,
-            uv_profile: shape::CapsuleUvProfile::Fixed,
+            ..Default::default()
         }));
+        let lift_anchor_mesh = meshes
+            .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
+                Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
+            )));
+        let site_anchor_mesh = meshes.add(Mesh::from(make_cylinder(0.15, 0.15)));
         let lane_mid_mesh = meshes.add(shape::Quad::new(Vec2::from([1., 1.])).into());
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
-            anchor_mesh,
+            level_anchor_mesh,
+            lift_anchor_mesh,
+            site_anchor_mesh,
             default_floor_material,
             lane_mid_mesh,
             lane_end_mesh,
@@ -117,10 +132,23 @@ impl FromWorld for SiteAssets {
             passive_anchor_material,
             preview_anchor_material,
             wall_material,
+            lift_wall_material,
             door_body_material,
             translucent_black,
             translucent_white,
             physical_camera_material,
+            lift_door_available_material,
+            lift_door_unavailable_material,
+        }
+    }
+}
+
+impl SiteAssets {
+    pub fn lift_door_material(&self, available: bool) -> Handle<StandardMaterial> {
+        if available {
+            self.lift_door_available_material.clone()
+        } else {
+            self.lift_door_unavailable_material.clone()
         }
     }
 }

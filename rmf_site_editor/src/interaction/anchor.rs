@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{Anchor, Delete, SiteAssets},
+    site::{Anchor, Category, Delete, NameInSite, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
@@ -32,11 +32,18 @@ pub struct AnchorVisualCue {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<Entity, (Added<Anchor>, Without<Preview>)>,
+    new_anchors: Query<(Entity, &Parent, Option<&Subordinate>), (Added<Anchor>, Without<Preview>)>,
+    categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for e in &new_anchors {
+    for (e, parent, subordinate) in &new_anchors {
+        let body_mesh = match categories.get(parent.get()).unwrap() {
+            Category::Level => site_assets.level_anchor_mesh.clone(),
+            Category::Lift => site_assets.lift_anchor_mesh.clone(),
+            _ => site_assets.site_anchor_mesh.clone(),
+        };
+
         let mut commands = commands.entity(e);
         let (dagger, halo, body) = commands.add_children(|parent| {
             let dagger = parent
@@ -61,19 +68,16 @@ pub fn add_anchor_visual_cues(
                 .insert(Spinning::default())
                 .id();
 
-            let body = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: site_assets.anchor_mesh.clone(),
-                    material: site_assets.passive_anchor_material.clone(),
-                    transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .insert(DragPlane {
-                    in_plane: Vec3::new(0., 1., 0.),
-                })
-                .insert(Draggable::new(e, None))
-                .id();
+            let mut body = parent.spawn_bundle(PbrBundle {
+                mesh: body_mesh,
+                material: site_assets.passive_anchor_material.clone(),
+                ..default()
+            });
+            body.insert(Selectable::new(e));
+            if subordinate.is_none() {
+                body.insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+            }
+            let body = body.id();
 
             (dagger, halo, body)
         });
@@ -87,14 +91,28 @@ pub fn add_anchor_visual_cues(
     }
 }
 
+pub fn remove_interaction_for_subordinate_anchors(
+    mut commands: Commands,
+    new_subordinates: Query<&Children, (With<Anchor>, Added<Subordinate>)>,
+) {
+    for children in &new_subordinates {
+        for child in children {
+            commands
+                .entity(*child)
+                .remove::<Gizmo>()
+                .remove::<Draggable>()
+                .remove::<DragPlane>();
+        }
+    }
+}
+
 pub fn move_anchor(
-    mut anchors: Query<&mut Transform, With<Anchor>>,
+    mut anchors: Query<&mut Anchor, Without<Subordinate>>,
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
-        if let Ok(mut tf) = anchors.get_mut(move_to.entity) {
-            tf.translation.x = move_to.transform.translation.x;
-            tf.translation.y = move_to.transform.translation.y;
+        if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
+            anchor.move_to(&move_to.transform);
         }
     }
 }
@@ -107,6 +125,7 @@ pub fn update_anchor_visual_cues(
             &Hovered,
             &Selected,
             &mut AnchorVisualCue,
+            Option<&Subordinate>,
             ChangeTrackers<Selected>,
         ),
         Or<(Changed<Hovered>, Changed<Selected>)>,
@@ -118,7 +137,7 @@ pub fn update_anchor_visual_cues(
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (v, hovered, selected, mut cue, select_tracker) in &mut anchors {
+    for (v, hovered, selected, mut cue, subordinate, select_tracker) in &mut anchors {
         if hovered.cue() || selected.cue() {
             set_visibility(cue.dagger, &mut visibility, true);
         }
@@ -158,7 +177,7 @@ pub fn update_anchor_visual_cues(
 
         if select_tracker.is_changed() {
             if selected.cue() {
-                if cue.drag.is_none() {
+                if cue.drag.is_none() && subordinate.is_none() {
                     interaction_assets.add_anchor_draggable_arrows(&mut command, v, cue.as_mut());
                 }
             } else {

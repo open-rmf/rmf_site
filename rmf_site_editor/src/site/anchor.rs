@@ -17,37 +17,37 @@
 
 use crate::site::*;
 use bevy::{prelude::*, render::primitives::Sphere};
-use rmf_site_format::{LevelProperties, LiftCabin};
+use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
 use std::collections::HashSet;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
     anchor: Anchor,
-    dependents: AnchorDependents,
-    visibility: Visibility,
-    computed: ComputedVisibility,
     transform: Transform,
     global_transform: GlobalTransform,
+    dependents: Dependents,
+    visibility: Visibility,
+    computed: ComputedVisibility,
     category: Category,
 }
 
 impl AnchorBundle {
-    pub fn new(anchor: [f32; 2]) -> Self {
-        let transform = Transform::from_translation([anchor[0], anchor[1], 0.].into());
+    pub fn new(anchor: Anchor) -> Self {
+        let transform = anchor.local_transform(Category::General);
         Self {
+            anchor,
             transform,
             global_transform: transform.into(),
-            anchor: Default::default(),
             dependents: Default::default(),
             visibility: Default::default(),
             computed: Default::default(),
-            category: Category("Anchor".to_string()),
+            category: Category::Anchor,
         }
     }
 
     pub fn at_transform(tf: &GlobalTransform) -> Self {
         let translation = tf.translation();
-        Self::new([translation.x, translation.y])
+        Self::new([translation.x, translation.y].into())
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
@@ -70,18 +70,17 @@ impl AnchorBundle {
         }
     }
 
-    pub fn dependents(self, dependents: AnchorDependents) -> Self {
+    pub fn dependents(self, dependents: Dependents) -> Self {
         Self { dependents, ..self }
     }
 }
 
-#[derive(Component, Clone, Copy, Debug, Default)]
-pub struct Anchor;
-
-#[derive(Component, Debug, Default, Clone)]
-pub struct AnchorDependents {
-    pub dependents: HashSet<Entity>,
-}
+/// This component is used to indicate that an anchor is controlled by another
+/// entity and therefore cannot be interacted with directly by users. Optionally
+/// the entity that controls the anchor can be specified so that users can be
+/// guided towards how to modify the anchor or understand its purpose.
+#[derive(Component, Debug, Default, Clone, Copy)]
+pub struct Subordinate(pub Option<Entity>);
 
 /// The PreviewAnchor component is held by exactly one Anchor entity that will
 /// follow the cursor when the interaction mode is to add a new Anchor.
@@ -94,18 +93,30 @@ pub struct PreviewAnchor {
     replacing: Option<Entity>,
 }
 
+pub fn update_anchor_transforms(
+    mut changed_anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
+) {
+    for (anchor, mut tf) in &mut changed_anchors {
+        *tf = anchor.local_transform(Category::General);
+    }
+}
+
 pub fn assign_orphan_anchors_to_parent(
-    mut orphan_anchors: Query<
-        (Entity, &GlobalTransform, &mut Transform),
-        (Added<Anchor>, Without<Parent>),
-    >,
+    mut orphan_anchors: Query<(Entity, &mut Anchor), Without<Parent>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
-    mut lifts: Query<(Entity, &LiftCabin, &GlobalTransform)>,
+    lifts: Query<(
+        Entity,
+        &LiftCabin<Entity>,
+        &ChildCabinAnchorGroup,
+        &GlobalTransform,
+    )>,
+    lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
-    for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
+    for (e_anchor, mut anchor) in &mut orphan_anchors {
+        let global_anchor_tf = anchor.local_transform(Category::General).compute_affine();
         let p_anchor = {
-            let mut p = global_anchor_tf.translation();
+            let mut p = global_anchor_tf.translation;
             // Add a little height to make sure that the anchor isn't
             // numerically unstable, right on the floor of the lift cabin.
             p.z = 0.01;
@@ -114,13 +125,13 @@ pub fn assign_orphan_anchors_to_parent(
 
         let mut assigned_to_lift: bool = false;
         // First check if the new anchor is inside the footprint of any lift cabins
-        for (e_lift, cabin, global_lift_tf) in &mut lifts {
+        for (e_lift, cabin, anchor_group, global_lift_tf) in &lifts {
             let cabin_aabb = match cabin {
-                LiftCabin::Params(params) => params.aabb(),
-                LiftCabin::Model(_) => {
-                    // TODO(MXG): Support models as lift cabins
-                    continue;
-                }
+                LiftCabin::Rect(params) => params.aabb(),
+                // LiftCabin::Model(_) => {
+                //     // TODO(MXG): Support models as lift cabins
+                //     continue;
+                // }
             };
 
             let sphere = Sphere {
@@ -128,18 +139,20 @@ pub fn assign_orphan_anchors_to_parent(
                 radius: 0.0,
             };
             if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.compute_matrix()) {
-                // The anchor is inside the lift cabin, so we should
-                // make it the anchor's parent.
-                commands.entity(e_lift).add_child(anchor);
-                assigned_to_lift = true;
+                if let Ok(anchor_group_tf) = lift_anchor_groups.get(anchor_group.0) {
+                    // The anchor is inside the lift cabin, so we should
+                    // make it the anchor's parent.
+                    commands.entity(anchor_group.0).add_child(e_anchor);
+                    assigned_to_lift = true;
 
-                // Since the anchor will be in the frame of the lift, we need
-                // to update its local transform.
-                *local_anchor_tf = Transform::from_matrix(
-                    (global_lift_tf.affine().inverse() * global_anchor_tf.affine()).into(),
-                );
+                    // Since the anchor will be in the frame of the lift, we need
+                    // to update its local transform.
+                    anchor.move_to(&Transform::from_matrix(
+                        (anchor_group_tf.affine().inverse() * global_anchor_tf).into(),
+                    ));
 
-                break;
+                    break;
+                }
             }
         }
 
@@ -159,13 +172,13 @@ pub fn assign_orphan_anchors_to_parent(
                     name: "<Unnamed>".to_string(),
                     elevation: 0.,
                 })
-                .insert(Category("Level".to_string()))
+                .insert(Category::Level)
                 .id();
 
             current_level.0 = Some(new_level_id);
             new_level_id
         };
 
-        commands.entity(parent).add_child(anchor);
+        commands.entity(parent).add_child(e_anchor);
     }
 }

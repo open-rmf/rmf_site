@@ -21,17 +21,27 @@ use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct LevelProperties {
+    // TODO(MXG): Change this to a NameInSite component
     pub name: String,
     pub elevation: f32,
+}
+
+impl Default for LevelProperties {
+    fn default() -> Self {
+        Self {
+            name: "<Unnamed>".to_string(),
+            elevation: 0.0,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Level {
     pub properties: LevelProperties,
-    pub anchors: BTreeMap<u32, [f32; 2]>,
+    pub anchors: BTreeMap<u32, Anchor>,
     pub doors: BTreeMap<u32, Door<u32>>,
     pub drawings: BTreeMap<u32, Drawing>,
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,

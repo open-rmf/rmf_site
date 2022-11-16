@@ -20,7 +20,7 @@ use crate::*;
 use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct PixelsPerMeter(pub f32);
 

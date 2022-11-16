@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{interaction::*, site::Anchor};
+use crate::{
+    interaction::*,
+    site::{Anchor, CurrentSite},
+};
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 
@@ -84,11 +87,12 @@ pub fn update_picking_cam(
 pub fn update_picked(
     mode: Res<InteractionMode>,
     selectable: Query<&Selectable>,
-    anchors: Query<(), (With<Anchor>, Without<Preview>)>,
+    anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&PickingCamera>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
+    current_site: Res<CurrentSite>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
@@ -105,15 +109,24 @@ pub fn update_picked(
         }
     }
 
+    let current_site = match current_site.0 {
+        Some(current_site) => current_site,
+        None => return,
+    };
+
     let mut current_picked = None;
     for pick_source in &pick_source_query {
         if let Some(picks) = pick_source.intersect_list() {
             for (topmost_entity, _) in picks.iter() {
-                match *mode {
-                    InteractionMode::SelectAnchor(_) => {
+                match &*mode {
+                    InteractionMode::SelectAnchor(request) => {
                         if let Ok(sel) = selectable.get(*topmost_entity) {
                             if sel.is_selectable {
-                                if !anchors.contains(sel.element) {
+                                if let Ok(parent) = anchors.get(sel.element) {
+                                    if request.site_scope() && parent.get() != current_site {
+                                        continue;
+                                    }
+                                } else {
                                     continue;
                                 }
                             } else {

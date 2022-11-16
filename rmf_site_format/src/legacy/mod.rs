@@ -26,6 +26,7 @@ pub mod level;
 pub mod lift;
 pub mod measurement;
 pub mod model;
+pub(crate) mod optimization;
 pub mod physical_camera;
 pub mod rbmf;
 pub mod vertex;

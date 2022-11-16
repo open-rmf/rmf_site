@@ -34,7 +34,7 @@ pub fn add_physical_camera_visuals(
                 ..default()
             })
             .insert(Selectable::new(e))
-            .insert(Category("Camera".to_string()));
+            .insert(Category::Camera);
         // Now insert the camera as a child, needed to transform it
         let camera_sensor_transform = Pose {
             trans: [0., 0., 0.],

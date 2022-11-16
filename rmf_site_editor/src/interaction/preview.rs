@@ -17,7 +17,7 @@
 
 use bevy::prelude::*;
 use bevy::render::camera::{Projection, RenderTarget};
-use bevy::window::{CreateWindow, PresentMode, WindowId, Windows};
+use bevy::window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows};
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
@@ -142,6 +142,20 @@ pub fn update_physical_camera_preview(
                 camera_properties.width as f32,
                 camera_properties.height as f32,
             );
+        }
+    }
+}
+
+pub fn handle_preview_window_close(
+    mut commands: Commands,
+    preview_windows: Query<(Entity, &CameraPreviewWindow)>,
+    mut closed_windows: EventReader<WindowClosed>,
+) {
+    for closed in closed_windows.iter() {
+        for (e, window) in &preview_windows {
+            if window.0 == closed.id {
+                commands.entity(e).remove::<CameraPreviewWindow>();
+            }
         }
     }
 }

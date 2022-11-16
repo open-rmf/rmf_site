@@ -20,9 +20,8 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use rmf_site_format::{DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Category, DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
-pub const DEFAULT_DOOR_THICKNESS: f32 = 0.1;
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
 pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
@@ -38,15 +37,18 @@ pub struct DoorSegments {
 }
 
 fn make_door_visuals(
+    entity: Entity,
     edge: &Edge<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
+    anchors: &AnchorParams,
     kind: &DoorType,
 ) -> (Transform, Transform, Mesh, Mesh) {
-    let start_anchor = anchors.get(edge.left()).unwrap();
-    let end_anchor = anchors.get(edge.right()).unwrap();
+    let p_start = anchors
+        .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+        .unwrap();
+    let p_end = anchors
+        .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+        .unwrap();
 
-    let p_start = start_anchor.translation();
-    let p_end = end_anchor.translation();
     let dp = p_start - p_end;
     let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
@@ -164,15 +166,21 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 
 pub fn add_door_visuals(
     mut commands: Commands,
-    new_doors: Query<(Entity, &Edge<Entity>, &DoorType), Added<DoorMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependents: Query<&mut AnchorDependents>,
+    new_doors: Query<
+        (Entity, &Edge<Entity>, &DoorType, Option<&Visibility>),
+        (
+            Or<(Added<DoorType>, Added<Edge<Entity>>)>,
+            Without<DoorSegments>,
+        ),
+    >,
+    anchors: AnchorParams,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, kind) in &new_doors {
+    for (e, edge, kind, visibility) in &new_doors {
         let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
-            make_door_visuals(edge, &anchors, kind);
+            make_door_visuals(e, edge, &anchors, kind);
 
         let mut commands = commands.entity(e);
         let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
@@ -205,9 +213,19 @@ pub fn add_door_visuals(
             (body, cue_inner, cue_outline)
         });
 
+        // Level doors for lifts may have already been given a Visibility
+        // component upon creation, in which case we should respect whatever
+        // value was set for it.
+        let is_visible = if let Some(v) = visibility {
+            v.is_visible
+        } else {
+            true
+        };
+
         commands
             .insert_bundle(SpatialBundle {
                 transform: pose_tf,
+                visibility: Visibility { is_visible },
                 ..default()
             })
             .insert(DoorSegments {
@@ -215,12 +233,12 @@ pub fn add_door_visuals(
                 cue_inner,
                 cue_outline,
             })
-            .insert(Category("Door".to_string()))
+            .insert(Category::Door)
             .insert(EdgeLabels::LeftRight);
 
-        for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+        for anchor in edge.array() {
+            if let Ok(mut deps) = dependents.get_mut(anchor) {
+                deps.insert(e);
             }
         }
     }
@@ -231,13 +249,13 @@ fn update_door_visuals(
     edge: &Edge<Entity>,
     kind: &DoorType,
     segments: &DoorSegments,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
+    anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
 ) {
     let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
-        make_door_visuals(edge, anchors, kind);
+        make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
     let mut shape_transform = transforms.get_mut(segments.body).unwrap();
@@ -253,7 +271,7 @@ pub fn update_changed_door(
         (Entity, &Edge<Entity>, &DoorType, &DoorSegments),
         Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
     >,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
@@ -273,15 +291,15 @@ pub fn update_changed_door(
 }
 
 pub fn update_door_for_changed_anchor(
-    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments), With<DoorMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
+    anchors: AnchorParams,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
-    for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
+    for dependents in &changed_anchors {
+        for dependent in dependents.iter() {
             if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
                 update_door_visuals(
                     entity,

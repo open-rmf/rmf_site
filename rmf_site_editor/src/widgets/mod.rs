@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
-    site::{Change, SiteState, SiteUpdateLabel},
+    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -31,6 +31,9 @@ use inspector::{InspectorParams, InspectorWidget};
 
 pub mod create;
 use create::CreateWidget;
+
+pub mod view_levels;
+use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 
 pub mod icons;
 pub use icons::*;
@@ -46,6 +49,7 @@ pub struct StandardUiLayout;
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
+            .init_resource::<LevelDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -54,34 +58,46 @@ impl Plugin for StandardUiLayout {
     }
 }
 
+#[derive(SystemParam)]
+pub struct ChangeEvents<'w, 's> {
+    pub lane_motion: EventWriter<'w, 's, Change<Motion>>,
+    pub lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
+    pub name: EventWriter<'w, 's, Change<NameInSite>>,
+    pub kind: EventWriter<'w, 's, Change<Kind>>,
+    pub label: EventWriter<'w, 's, Change<Label>>,
+    pub pose: EventWriter<'w, 's, Change<Pose>>,
+    pub door: EventWriter<'w, 's, Change<DoorType>>,
+    pub lift_cabin: EventWriter<'w, 's, Change<LiftCabin<Entity>>>,
+    pub asset_source: EventWriter<'w, 's, Change<AssetSource>>,
+    pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
+    pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
 /// parameter at least makes the EventWriters easy to pass around.
 #[derive(SystemParam)]
 pub struct AppEvents<'w, 's> {
+    pub commands: Commands<'w, 's>,
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
+    pub change: ChangeEvents<'w, 's>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
-    pub change_lane_motion: EventWriter<'w, 's, Change<Motion>>,
-    pub change_lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
-    pub change_name: EventWriter<'w, 's, Change<NameInSite>>,
-    pub change_kind: EventWriter<'w, 's, Change<Kind>>,
-    pub change_label: EventWriter<'w, 's, Change<Label>>,
-    pub change_pose: EventWriter<'w, 's, Change<Pose>>,
-    pub change_door: EventWriter<'w, 's, Change<DoorType>>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
-    pub change_asset_source: EventWriter<'w, 's, Change<AssetSource>>,
-    pub change_pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
-    pub change_physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
+    pub current_level: ResMut<'w, CurrentLevel>,
+    pub level_display: ResMut<'w, LevelDisplay>,
+    pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
+    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
-    _ignore: Query<'w, 's, ()>,
+    pub delete: EventWriter<'w, 's, Delete>,
 }
 
 fn standard_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    mut inspector_params: InspectorParams,
+    inspector_params: InspectorParams,
+    levels: LevelParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -91,10 +107,16 @@ fn standard_ui_layout(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewLevels::new(&levels, &mut events).show(ui);
+                            });
+                        ui.separator();
                         CollapsingHeader::new("Inspect")
                             .default_open(true)
                             .show(ui, |ui| {
-                                InspectorWidget::new(&mut inspector_params, &mut events).show(ui);
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Create")

@@ -20,14 +20,14 @@ use bevy::prelude::*;
 use rmf_site_format::Recall;
 
 #[derive(Default)]
-pub struct RecallPlugin<T: Recall + Component>
+pub struct RecallPlugin<T: Recall + Component + Default>
 where
     T::Source: Component,
 {
     _ignore: std::marker::PhantomData<T>,
 }
 
-impl<T: Recall + Component> Plugin for RecallPlugin<T>
+impl<T: Recall + Component + Default> Plugin for RecallPlugin<T>
 where
     T::Source: Component,
 {
@@ -42,9 +42,9 @@ where
     }
 }
 
-fn add_recaller<Recaller: Recall + Component>(
+fn add_recaller<Recaller: Recall + Component + Default>(
     mut commands: Commands,
-    new_sources: Query<(Entity, &Recaller::Source), Added<Recaller::Source>>,
+    new_sources: Query<(Entity, &Recaller::Source), (Added<Recaller::Source>, Without<Recaller>)>,
 ) where
     Recaller::Source: Component,
 {
@@ -55,7 +55,7 @@ fn add_recaller<Recaller: Recall + Component>(
     }
 }
 
-fn update_recaller<Recaller: Recall + Component>(
+fn update_recaller<Recaller: Recall + Component + Default>(
     mut changed_sources: Query<(&Recaller::Source, &mut Recaller), Changed<Recaller::Source>>,
 ) where
     Recaller::Source: Component,

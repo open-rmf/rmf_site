@@ -31,11 +31,21 @@ pub struct SiteProperties {
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Site {
+    /// The site data format that is being used
     pub format_version: SemVer,
+    /// Anchors that are relevant across all levels
+    // TODO(MXG): Should we use a different name for this to distinguish it
+    // from level anchors, or does the grouping make the intent obvious enough?
+    pub anchors: BTreeMap<u32, Anchor>,
+    /// Properties that are tied to the whole site
     pub properties: SiteProperties,
+    /// Properties of each level
     pub levels: BTreeMap<u32, Level>,
+    /// Properties of each lift
     pub lifts: BTreeMap<u32, Lift<u32>>,
+    /// Properties of each nav graph
     pub nav_graphs: BTreeMap<u32, NavGraph>,
+    /// Properties that describe simulated agents in the site
     pub agents: BTreeMap<u32, Agent>,
 }
 

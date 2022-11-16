@@ -1,11 +1,13 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    AssetSource, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial,
-    FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelDoors,
+    legacy::optimization::align_building, Anchor, Angle, AssetSource, Category, Dock as SiteDock,
+    Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker, IsStatic,
+    Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Site,
-    SiteProperties,
+    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
+    Rotation, Site, SiteProperties,
 };
+use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -45,52 +47,69 @@ impl BuildingMap {
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
     fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
-        for (_, level) in map.levels.iter_mut() {
-            // todo: calculate scale and inter-level alignment
-            let mut ofs_x = 0.0;
-            let mut ofs_y = 0.0;
-            let mut num_v = 0;
-            for v in &level.vertices {
-                ofs_x += v.0;
-                ofs_y += -v.1;
-                num_v += 1;
-            }
-            ofs_x /= num_v as f64;
-            ofs_y /= num_v as f64;
+        let alignments = align_building(&map);
 
-            // try to guess the scale by averaging the measurement distances.
-            let mut n_dist = 0;
-            let mut sum_dist = 0.;
-            for meas in &level.measurements {
-                let dx_raw = level.vertices[meas.0].0 - level.vertices[meas.1].0;
-                let dy_raw = level.vertices[meas.0].1 - level.vertices[meas.1].1;
-                let dist_raw = (dx_raw * dx_raw + dy_raw * dy_raw).sqrt();
-                let dist_meters = *meas.2.distance;
-                sum_dist += dist_meters / dist_raw;
-                n_dist += 1;
-            }
-            let scale = match n_dist {
-                0 => 1.0,
-                _ => sum_dist / n_dist as f64,
-            };
+        let get_delta_yaw = |tf: &DAffine2| {
+            DQuat::from_mat3(&DMat3::from_cols(
+                tf.matrix2.col(0).extend(0.0).normalize(),
+                tf.matrix2.col(1).extend(0.0).normalize(),
+                DVec3::Z,
+            ))
+            .to_euler(EulerRot::ZYX)
+            .0
+        };
 
-            // convert to meters
-            for v in level.vertices.iter_mut() {
-                v.0 = (v.0 - ofs_x) * scale;
-                v.1 = (-v.1 - ofs_y) * scale;
+        for (level_name, level) in map.levels.iter_mut() {
+            let alignment = alignments.get(level_name).unwrap();
+            let tf = alignment.to_affine();
+            level.alignment = Some(alignment.clone());
+            for v in &mut level.vertices {
+                let p = tf.transform_point2(v.to_vec());
+                v.0 = p.x as f64;
+                v.1 = -p.y as f64;
             }
 
-            for m in level.models.iter_mut() {
-                m.x = (m.x - ofs_x) * scale;
-                m.y = (-m.y - ofs_y) * scale;
+            let delta_yaw = get_delta_yaw(&tf);
+
+            for model in &mut level.models {
+                let p = tf.transform_point2(model.to_vec());
+                model.x = p.x;
+                model.y = -p.y;
+                model.yaw -= delta_yaw;
+            }
+
+            for camera in &mut level.physical_cameras {
+                let p = tf.transform_point2(camera.to_vec());
+                camera.x = p.x;
+                camera.y = -p.y;
+                camera.yaw -= delta_yaw;
+            }
+
+            for fiducial in &mut level.fiducials {
+                let p = tf.transform_point2(fiducial.to_vec());
+                fiducial.0 = p.x;
+                fiducial.1 = -p.y;
             }
         }
+
+        for (lift_name, lift) in map.lifts.iter_mut() {
+            let tf = alignments
+                .get(&lift.reference_floor_name)
+                .unwrap()
+                .to_affine();
+            let p = tf.transform_point2(lift.to_vec());
+            lift.x = p.x;
+            lift.y = -p.y;
+            lift.yaw -= get_delta_yaw(&tf);
+        }
+
         map.coordinate_system = CoordinateSystem::CartesianMeters;
         map
     }
 
     pub fn to_site(&self) -> Result<Site> {
         let mut site_id = 0_u32..;
+        let mut site_anchors = BTreeMap::new();
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut nav_graph_lanes = HashMap::<i64, Vec<SiteLane<u32>>>::new();
@@ -99,27 +118,29 @@ impl BuildingMap {
         // out at RMF runtime.
         let mut locations = BTreeMap::new();
 
-        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, [f32; 2])>> = BTreeMap::new();
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut anchors = BTreeMap::new();
+            let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
                     let anchor_id = site_id.next().unwrap();
                     let anchor = [v.0 as f32, v.1 as f32];
-                    anchors.insert(anchor_id, anchor);
+                    anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
+                    let lift = self
+                        .lifts
+                        .get(&v.4.lift_cabin.1)
+                        .ok_or(PortingError::InvalidLiftName(v.4.lift_cabin.1.clone()))?;
                     let lift_cabin_anchors = lift_cabin_anchors
                         .entry(v.4.lift_cabin.1.clone())
                         .or_default();
-                    if let Some(duplicate) = lift_cabin_anchors.iter().find(|(_, [x, y])| {
-                        let dx = v.0 as f32 - *x;
-                        let dy = v.1 as f32 - *y;
-                        (dx * dx + dy * dy).sqrt() < 0.01
-                    }) {
+                    let x = v.0 as f32 - lift.x as f32;
+                    let y = v.1 as f32 - lift.y as f32;
+                    if let Some(duplicate) = lift_cabin_anchors.iter().next() {
                         // This is a duplicate cabin anchor so we return its
                         // existing ID
                         duplicate.0
@@ -127,7 +148,7 @@ impl BuildingMap {
                         // This is a new cabin anchor so we need to create an
                         // ID for it
                         let anchor_id = site_id.next().unwrap();
-                        lift_cabin_anchors.push((anchor_id, [v.0 as f32, v.1 as f32]));
+                        lift_cabin_anchors.push((anchor_id, [x, y].into()));
                         anchor_id
                     }
                 };
@@ -146,12 +167,22 @@ impl BuildingMap {
 
             let mut drawings = BTreeMap::new();
             if !level.drawing.filename.is_empty() {
+                let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
+                    let p = a.translation;
+                    let pose = Pose {
+                        trans: [p.x as f32, -p.y as f32, 0.0001 as f32],
+                        rot: Rotation::Yaw(Angle::Rad(a.rotation as f32)),
+                    };
+                    (pose, PixelsPerMeter((1.0 / a.scale) as f32))
+                } else {
+                    (Pose::default(), PixelsPerMeter::default())
+                };
                 drawings.insert(
                     site_id.next().unwrap(),
                     SiteDrawing {
                         source: AssetSource::Local(level.drawing.filename.clone()),
-                        pose: Pose::default(),
-                        pixels_per_meter: PixelsPerMeter::default(),
+                        pose,
+                        pixels_per_meter,
                         marker: DrawingMarker,
                     },
                 );
@@ -160,7 +191,7 @@ impl BuildingMap {
             let mut fiducials = BTreeMap::new();
             for fiducial in &level.fiducials {
                 let anchor_id = site_id.next().unwrap();
-                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32]);
+                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
                 // Do not add this anchor to the vertex_to_anchor_id map because
                 // this fiducial is not really recognized as a vertex to the
                 // building format.
@@ -311,77 +342,23 @@ impl BuildingMap {
 
         let mut lifts = BTreeMap::new();
         for (name, lift) in &self.lifts {
-            let anchors = lift.calculate_anchors();
-            let anchor_level_id = level_name_to_id.get(&lift.reference_floor_name).ok_or(
-                PortingError::InvalidLevelName(lift.reference_floor_name.clone()),
-            )?;
-            let level_anchors = &mut levels.get_mut(anchor_level_id).unwrap().anchors;
-            let anchors = {
-                let left = site_id.next().unwrap();
-                let right = site_id.next().unwrap();
-                level_anchors.insert(left, anchors[0]);
-                level_anchors.insert(right, anchors[1]);
-                [left, right]
-            };
-
-            let cabin = lift.make_cabin(name)?;
-            let mut level_doors = BTreeMap::new();
-            for (level, doors) in &lift.level_doors {
-                let level_id = level_name_to_id
-                    .get(level)
-                    .ok_or(PortingError::InvalidLevelName(level.clone()))?;
-
-                if doors.len() != 1 {
-                    return Err(PortingError::InvalidLiftLevelDoorCount {
-                        lift: name.clone(),
-                        level: level.clone(),
-                        door_count: doors.len(),
-                    });
-                }
-
-                let door_name = doors.iter().last().unwrap();
-                let door_id = levels
-                    .get(level_id)
-                    .unwrap()
-                    .doors
-                    .iter()
-                    .find(|(_, door)| door.name.0 == *door_name)
-                    .ok_or(PortingError::InvalidLiftLevelDoorName {
-                        lift: name.clone(),
-                        level: level.clone(),
-                        door: door_name.clone(),
-                    })?
-                    .0;
-
-                level_doors.insert(*level_id, *door_id);
-            }
-            let level_doors = LevelDoors(level_doors);
-
-            let cabin_anchors: BTreeMap<u32, [f32; 2]> = [lift_cabin_anchors.get(name)]
-                .into_iter()
-                .filter_map(|x| x)
-                .flat_map(|x| x)
-                .copied()
-                .collect();
-
+            let lift_id = site_id.next().unwrap();
             lifts.insert(
-                site_id.next().unwrap(),
-                SiteLift {
-                    properties: LiftProperties {
-                        name: NameInSite(name.clone()),
-                        reference_anchors: anchors.into(),
-                        cabin,
-                        level_doors,
-                        corrections: Default::default(),
-                        is_static: IsStatic(!lift.plugins),
-                    },
-                    cabin_anchors,
-                },
+                lift_id,
+                lift.to_site(
+                    name,
+                    &mut site_id,
+                    &mut site_anchors,
+                    &levels,
+                    &level_name_to_id,
+                    &lift_cabin_anchors,
+                )?,
             );
         }
 
         Ok(Site {
             format_version: Default::default(),
+            anchors: site_anchors,
             properties: SiteProperties {
                 name: self.name.clone(),
             },

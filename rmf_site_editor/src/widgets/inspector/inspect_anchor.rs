@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, AnchorDependents, Category, SiteID},
+    site::{Anchor, Category, Dependents, SiteID, Subordinate},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -26,14 +26,14 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub transforms: Query<'w, 's, &'static Transform, With<Anchor>>,
+    pub anchors: Query<'w, 's, (&'static Transform, Option<&'static Subordinate>), With<Anchor>>,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
 
 pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub anchor: Entity,
-    pub params: &'a mut InspectAnchorParams<'w1, 's1>,
+    pub params: &'a InspectAnchorParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
     pub is_dependency: bool,
 }
@@ -41,7 +41,7 @@ pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
 impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         anchor: Entity,
-        params: &'a mut InspectAnchorParams<'w1, 's1>,
+        params: &'a InspectAnchorParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
@@ -80,25 +80,45 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok(tf) = self.params.transforms.get(self.anchor) {
-            if !self.is_dependency {
-                ui.label("x");
-            }
-            let mut x = tf.translation.x;
-            ui.add(DragValue::new(&mut x).speed(0.01));
-            // TODO(MXG): Make the drag speed a user-defined setting
-
-            if !self.is_dependency {
-                ui.label("y");
-            }
-            let mut y = tf.translation.y;
-            ui.add(DragValue::new(&mut y).speed(0.01));
-
-            if x != tf.translation.x || y != tf.translation.y {
-                self.events.move_to.send(MoveTo {
-                    entity: self.anchor,
-                    transform: Transform::from_translation([x, y, 0.0].into()),
+        if let Ok((tf, subordinate)) = self.params.anchors.get(self.anchor) {
+            if let Some(subordinate) = subordinate {
+                ui.horizontal(|ui| {
+                    if let Some(boss) = subordinate.0 {
+                        ui.label("Subordinate to ").on_hover_text(
+                            "The position of a subordinate anchor is \
+                                managed by the properties of another entity.",
+                        );
+                        SelectionWidget::new(
+                            boss,
+                            self.params.site_id.get(boss).ok().copied(),
+                            self.params.icons.as_ref(),
+                            self.events,
+                        )
+                        .show(ui);
+                    } else {
+                        ui.label("Anonymous subordinate");
+                    }
                 });
+            } else {
+                if !self.is_dependency {
+                    ui.label("x");
+                }
+                let mut x = tf.translation.x;
+                ui.add(DragValue::new(&mut x).speed(0.01));
+                // TODO(MXG): Make the drag speed a user-defined setting
+
+                if !self.is_dependency {
+                    ui.label("y");
+                }
+                let mut y = tf.translation.y;
+                ui.add(DragValue::new(&mut y).speed(0.01));
+
+                if x != tf.translation.x || y != tf.translation.y {
+                    self.events.move_to.send(MoveTo {
+                        entity: self.anchor,
+                        transform: Transform::from_translation([x, y, 0.0].into()),
+                    });
+                }
             }
         }
 
@@ -112,21 +132,21 @@ pub struct InspectAnchorResponse {
 
 #[derive(SystemParam)]
 pub struct InspectAnchorDependentsParams<'w, 's> {
-    pub dependents: Query<'w, 's, &'static AnchorDependents>,
+    pub dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
     pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
     pub icons: Res<'w, Icons>,
 }
 
 pub struct InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub anchor: Entity,
-    pub params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+    pub params: &'a InspectAnchorDependentsParams<'w1, 's1>,
     pub events: &'a mut AppEvents<'w2, 's2>,
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         anchor: Entity,
-        params: &'a mut InspectAnchorDependentsParams<'w1, 's1>,
+        params: &'a InspectAnchorDependentsParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
@@ -143,11 +163,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
         ui: &mut Ui,
     ) {
         ui.heading("Dependents");
-        let mut category_map: BTreeMap<String, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
+        let mut category_map: BTreeMap<Category, BTreeMap<Entity, Option<u32>>> = BTreeMap::new();
         for e in dependents {
             if let Ok((category, site_id)) = params.info.get(*e) {
                 category_map
-                    .entry(category.0.clone())
+                    .entry(*category)
                     .or_default()
                     .insert(*e, site_id.map(|s| s.0));
             } else {
@@ -156,7 +176,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
         }
 
         for (category, entities) in &category_map {
-            ui.label(category);
+            ui.label(category.label());
 
             for (e, site_id) in entities {
                 ui.horizontal(|ui| {
@@ -169,11 +189,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorDependentsWidget<'a, 'w1, 'w2, 's1, 's
 
     pub fn show(mut self, ui: &mut Ui) {
         ui.vertical(|ui| {
-            if let Ok(d) = self.params.dependents.get(self.anchor) {
-                if d.dependents.is_empty() {
+            if let Ok(dependents) = self.params.dependents.get(self.anchor) {
+                if dependents.is_empty() {
                     ui.label("No dependents");
                 } else {
-                    Self::show_dependents(&d.dependents, &self.params, &mut self.events, ui);
+                    Self::show_dependents(&dependents.0, &self.params, &mut self.events, ui);
                 }
             } else {
                 ui.label("ERROR: Unable to find dependents info for this anchor");

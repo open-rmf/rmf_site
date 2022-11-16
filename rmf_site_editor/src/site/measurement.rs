@@ -22,66 +22,75 @@ use rmf_site_format::{Edge, MeasurementMarker};
 pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    mut dependents: Query<&mut AnchorDependents>,
+    anchors: AnchorParams,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, edge) in &measurements {
-        if let Ok([start_anchor, end_anchor]) = anchors.get_many(edge.array()) {
-            commands
-                .entity(e)
-                .insert_bundle(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: assets.measurement_material.clone(),
-                    transform: line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .insert(Category("Measurement".to_string()))
-                .insert(EdgeLabels::StartEnd);
-        } else {
-            panic!("Anchor was not initialized correctly");
-        }
+        commands
+            .entity(e)
+            .insert_bundle(PbrBundle {
+                mesh: assets.lane_mid_mesh.clone(),
+                material: assets.measurement_material.clone(),
+                transform: line_stroke_transform(
+                    &anchors
+                        .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
+                        .unwrap(),
+                    &anchors
+                        .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
+                        .unwrap(),
+                    LANE_WIDTH,
+                ),
+                ..default()
+            })
+            .insert(Selectable::new(e))
+            .insert(Category::Measurement)
+            .insert(EdgeLabels::StartEnd);
 
         for anchor in &edge.array() {
-            if let Ok(mut dep) = dependents.get_mut(*anchor) {
-                dep.dependents.insert(e);
+            if let Ok(mut deps) = dependents.get_mut(*anchor) {
+                deps.insert(e);
             }
         }
     }
 }
 
 fn update_measurement_visual(
+    entity: Entity,
     edge: &Edge<Entity>,
-    anchors: &Query<&GlobalTransform, With<Anchor>>,
+    anchors: &AnchorParams,
     transform: &mut Transform,
 ) {
-    let start_anchor = anchors.get(edge.start()).unwrap();
-    let end_anchor = anchors.get(edge.end()).unwrap();
-    *transform = line_stroke_transform(start_anchor, end_anchor, LANE_WIDTH);
+    let start_anchor = anchors
+        .point_in_parent_frame_of(edge.start(), Category::Measurement, entity)
+        .unwrap();
+    let end_anchor = anchors
+        .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
+        .unwrap();
+    *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
 }
 
 pub fn update_changed_measurement(
     mut measurements: Query<
-        (&Edge<Entity>, &mut Transform),
+        (Entity, &Edge<Entity>, &mut Transform),
         (Changed<Edge<Entity>>, With<MeasurementMarker>),
     >,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
+    anchors: AnchorParams,
 ) {
-    for (edge, mut tf) in &mut measurements {
-        update_measurement_visual(edge, &anchors, tf.as_mut());
+    for (e, edge, mut tf) in &mut measurements {
+        update_measurement_visual(e, edge, &anchors, tf.as_mut());
     }
 }
 
 pub fn update_measurement_for_changed_anchor(
-    mut measurements: Query<(&Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
-    anchors: Query<&GlobalTransform, With<Anchor>>,
-    changed_anchors: Query<&AnchorDependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    mut measurements: Query<(Entity, &Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
+    anchors: AnchorParams,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
 ) {
     for changed_anchor in &changed_anchors {
-        for dependent in &changed_anchor.dependents {
-            if let Some((measurement, mut tf)) = measurements.get_mut(*dependent).ok() {
-                update_measurement_visual(measurement, &anchors, tf.as_mut());
+        for dependent in changed_anchor.iter() {
+            if let Some((e, measurement, mut tf)) = measurements.get_mut(*dependent).ok() {
+                update_measurement_visual(e, measurement, &anchors, tf.as_mut());
             }
         }
     }

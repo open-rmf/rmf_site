@@ -18,6 +18,7 @@
 use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
@@ -64,6 +65,63 @@ impl Side {
     /// when it is closed.
     pub fn pivot_closed_angle(&self) -> Angle {
         Angle::Deg(self.index() as f32 * 180.0 - 90.0)
+    }
+}
+
+/// Enumeration for the faces of a rectangle. Conventionally:
+/// Front: +x
+/// Back: -x
+/// Left: +y
+/// Right: -y
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+pub enum RectFace {
+    Front,
+    Back,
+    Left,
+    Right,
+}
+
+impl RectFace {
+    pub fn iter_all() -> impl Iterator<Item = RectFace> {
+        [Self::Front, Self::Back, Self::Left, Self::Right].into_iter()
+    }
+
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::Front => "Front",
+            Self::Back => "Back",
+            Self::Left => "Left",
+            Self::Right => "Right",
+        }
+    }
+
+    /// A vector from the center of the rectangle towards this face.
+    pub fn u(&self) -> Vec3 {
+        match self {
+            Self::Front => Vec3::X,
+            Self::Back => Vec3::NEG_X,
+            Self::Left => Vec3::Y,
+            Self::Right => Vec3::NEG_Y,
+        }
+    }
+
+    /// A vector from the center of the rectange towards your "left-hand"
+    /// direction while looking at this face.
+    pub fn v(&self) -> Vec3 {
+        match self {
+            Self::Front => Vec3::Y,
+            Self::Back => Vec3::NEG_Y,
+            Self::Left => Vec3::NEG_X,
+            Self::Right => Vec3::X,
+        }
+    }
+
+    pub fn uv(&self) -> (Vec3, Vec3) {
+        (self.u(), self.v())
+    }
+
+    pub fn uv2(&self) -> (Vec2, Vec2) {
+        (self.u().truncate(), self.v().truncate())
     }
 }
 
@@ -284,7 +342,7 @@ impl Recall for RecallKind {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct IsStatic(pub bool);
@@ -299,3 +357,24 @@ impl Default for IsStatic {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct PreviewableMarker;
+
+/// This component is applied to each site element that gets loaded in order to
+/// remember what its original ID within the Site file was.
+#[derive(Clone, Copy, Debug)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct SiteID(pub u32);
+
+/// The Pending component indicates that an element is not yet ready to be
+/// saved to file. We will filter out these elements while assigning SiteIDs,
+/// and that will prevent them from being included while collecting elements
+/// into the Site data structure.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Pending;
+
+/// The Original component indicates that an element is being modified but not
+/// yet in a state where it can be correctly saved. We should save the original
+/// value instead of the apparent current value.
+#[derive(Debug, Clone, Copy)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct Original<T>(pub T);

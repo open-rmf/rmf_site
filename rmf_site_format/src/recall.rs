@@ -15,7 +15,7 @@
  *
 */
 
-pub trait Recall: Default {
+pub trait Recall {
     type Source;
     fn remember(&mut self, source: &Self::Source);
 }

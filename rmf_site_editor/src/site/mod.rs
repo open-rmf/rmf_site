@@ -39,6 +39,9 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
+pub mod level;
+pub use level::*;
+
 pub mod lift;
 pub use lift::*;
 
@@ -81,19 +84,9 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-use rmf_site_format::*;
+pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
-
-/// The Category component is added to site entities so they can easily express
-/// what kind of thing they are, e.g. Anchor, Lane, Model, etc. This should be
-/// set by the respective site system that decorates its entities with
-/// components, e.g. add_door_visuals, add_lane_visuals, etc.
-///
-/// The information in this component is intended to be presented to humans to
-/// read, and is not meant to be a key for identifying the type of an entity.
-#[derive(Debug, Clone, Hash, PartialEq, Eq, Component, Deref, DerefMut)]
-pub struct Category(pub String);
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
@@ -107,12 +100,15 @@ pub enum SiteUpdateLabel {
 }
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum SiteCustomStage {
+pub enum SiteUpdateStage {
     /// We need a custom stage for assigning orphan elements because the
     /// commands from CoreStage::Update need to flush before the AssignOrphan
     /// systems are run, and the AssignOrphan commands need to flush before the
     /// PostUpdate systems are run.
     AssignOrphans,
+    /// Use a custom stage for deletions to make sure that all commands are
+    /// flushed before and after deleting things.
+    Deletion,
 }
 
 pub struct SitePlugin;
@@ -122,12 +118,12 @@ impl Plugin for SitePlugin {
         app.add_state(SiteState::Off)
             .add_stage_after(
                 CoreStage::Update,
-                SiteCustomStage::AssignOrphans,
+                SiteUpdateStage::AssignOrphans,
                 SystemStage::parallel(),
             )
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
-            .add_state_to_stage(SiteCustomStage::AssignOrphans, SiteState::Off)
+            .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<SiteAssets>()
@@ -142,6 +138,7 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
+            .add_event::<ToggleLiftDoorAvailability>()
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
@@ -154,6 +151,9 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
+            .add_plugin(ChangePlugin::<LevelProperties>::default())
+            .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
+            .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
             .add_plugin(RecallPlugin::<RecallAssetSource>::default())
             .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
@@ -162,22 +162,32 @@ impl Plugin for SitePlugin {
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
             .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .after(SiteUpdateLabel::ProcessChanges)
+                    .with_system(update_lift_cabin)
+                    .with_system(update_lift_edge),
+            )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
                     .with_system(change_site),
             )
             .add_system_set_to_stage(
-                SiteCustomStage::AssignOrphans,
+                SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphans_to_nav_graph),
+                    .with_system(assign_orphans_to_nav_graph)
+                    .with_system(assign_orphan_levels_to_site)
+                    .with_system(add_tags_to_lift),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
+                    .with_system(update_anchor_transforms)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
                     .with_system(update_door_for_changed_anchor)
@@ -185,12 +195,12 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_changed_anchor)
                     .with_system(add_lane_visuals)
+                    .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(update_visibility_for_lanes)
-                    .with_system(add_lift_visuals)
-                    .with_system(update_changed_lift)
-                    .with_system(update_lift_for_changed_anchor)
+                    .with_system(update_lift_for_moved_anchors)
+                    .with_system(update_lift_door_availability)
                     .with_system(add_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
@@ -203,8 +213,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
-                    .with_system(update_changed_wall)
-                    .with_system(update_wall_for_changed_anchor)
+                    .with_system(update_wall_edge)
+                    .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses),
             );
     }

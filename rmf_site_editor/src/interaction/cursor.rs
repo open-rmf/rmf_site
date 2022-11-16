@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, AnchorDependents, Pending, SiteAssets},
+    site::{AnchorBundle, Dependents, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
@@ -32,10 +32,13 @@ pub struct Cursor {
     pub frame: Entity,
     pub halo: Entity,
     pub dagger: Entity,
-    pub anchor_placement: Entity,
+    // TODO(MXG): Switch the anchor preview when the anchor enters a lift
+    pub level_anchor_placement: Entity,
+    pub site_anchor_placement: Entity,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
     modes: HashSet<&'static str>,
+    blockers: HashSet<Entity>,
 }
 
 impl Cursor {
@@ -71,6 +74,22 @@ impl Cursor {
         }
     }
 
+    pub fn add_blocker(&mut self, e: Entity, visibility: &mut Query<&mut Visibility>) {
+        if self.blockers.insert(e) {
+            if self.blockers.len() == 1 {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
+    pub fn remove_blocker(&mut self, e: Entity, visibility: &mut Query<&mut Visibility>) {
+        if self.blockers.remove(&e) {
+            if self.blockers.is_empty() {
+                self.toggle_visibility(visibility);
+            }
+        }
+    }
+
     fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.frame) {
             let visible = self.should_be_visible();
@@ -81,7 +100,11 @@ impl Cursor {
     }
 
     pub fn should_be_visible(&self) -> bool {
-        !self.dependents.is_empty() || !self.modes.is_empty()
+        (!self.dependents.is_empty() || !self.modes.is_empty()) && self.blockers.is_empty()
+    }
+
+    pub fn is_placement_anchor(&self, entity: Entity) -> bool {
+        self.level_anchor_placement == entity || self.site_anchor_placement == entity
     }
 }
 
@@ -96,7 +119,8 @@ impl FromWorld for Cursor {
         let halo_material = interaction_assets.halo_material.clone();
         let dagger_mesh = interaction_assets.dagger_mesh.clone();
         let dagger_material = interaction_assets.dagger_material.clone();
-        let anchor_mesh = site_assets.anchor_mesh.clone();
+        let level_anchor_mesh = site_assets.level_anchor_mesh.clone();
+        let site_anchor_mesh = site_assets.site_anchor_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
@@ -123,16 +147,29 @@ impl FromWorld for Cursor {
             .insert(Bobbing::default())
             .id();
 
-        let anchor_placement = world
+        let level_anchor_placement = world
             .spawn()
-            .insert_bundle(AnchorBundle::new([0., 0.]).visible(false))
+            .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
             .with_children(|parent| {
                 parent.spawn_bundle(PbrBundle {
-                    mesh: anchor_mesh,
+                    mesh: level_anchor_mesh,
+                    material: preview_anchor_material.clone(),
+                    ..default()
+                });
+            })
+            .id();
+
+        let site_anchor_placement = world
+            .spawn()
+            .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
+            .insert(Pending)
+            .insert(Preview)
+            .with_children(|parent| {
+                parent.spawn_bundle(PbrBundle {
+                    mesh: site_anchor_mesh,
                     material: preview_anchor_material,
-                    transform: Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians())),
                     ..default()
                 });
             })
@@ -140,7 +177,7 @@ impl FromWorld for Cursor {
 
         let cursor = world
             .spawn()
-            .push_children(&[halo, dagger, anchor_placement])
+            .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
             .insert_bundle(SpatialBundle::default())
             .id();
 
@@ -148,9 +185,11 @@ impl FromWorld for Cursor {
             frame: cursor,
             halo,
             dagger,
-            anchor_placement,
+            level_anchor_placement,
+            site_anchor_placement,
             dependents: Default::default(),
             modes: Default::default(),
+            blockers: Default::default(),
         }
     }
 }

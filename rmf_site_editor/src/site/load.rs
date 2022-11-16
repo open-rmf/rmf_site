@@ -19,11 +19,6 @@ use crate::site::*;
 use bevy::prelude::*;
 use std::{collections::HashMap, path::PathBuf};
 
-/// This component is applied to each site element that gets loaded in order to
-/// remember what its original ID within the Site file was.
-#[derive(Component, Clone, Copy, Debug)]
-pub struct SiteID(pub u32);
-
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.
 #[derive(Component, Clone, Debug)]
@@ -52,8 +47,19 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         visibility: Visibility { is_visible: false },
         ..default()
     })
+    .insert(Category::Site)
     .insert(site_data.properties.clone())
     .with_children(|site| {
+        for (anchor_id, anchor) in &site_data.anchors {
+            let anchor_entity = site
+                .spawn()
+                .insert_bundle(AnchorBundle::new(anchor.clone()))
+                .insert(SiteID(*anchor_id))
+                .id();
+            id_to_entity.insert(*anchor_id, anchor_entity);
+            consider_id(*anchor_id);
+        }
+
         for (level_id, level_data) in &site_data.levels {
             let level_entity = site
                 .spawn_bundle(SpatialBundle {
@@ -62,12 +68,12 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 })
                 .insert(level_data.properties.clone())
                 .insert(SiteID(*level_id))
-                .insert(Category("Level".to_string()))
+                .insert(Category::Level)
                 .with_children(|level| {
                     for (anchor_id, anchor) in &level_data.anchors {
                         let anchor_entity = level
                             .spawn()
-                            .insert_bundle(AnchorBundle::new(*anchor))
+                            .insert_bundle(AnchorBundle::new(anchor.clone()))
                             .insert(SiteID(*anchor_id))
                             .id();
                         id_to_entity.insert(*anchor_id, anchor_entity);
@@ -154,20 +160,39 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (lift_id, lift_data) in &site_data.lifts {
-            site.spawn_bundle(SpatialBundle::default())
-                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
+            let lift = site
+                .spawn()
                 .insert(SiteID(*lift_id))
+                .insert(Category::Lift)
                 .with_children(|lift| {
-                    for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                        let anchor_entity = lift
+                    let lift_entity = lift.parent_entity();
+                    lift.spawn_bundle(SpatialBundle::default())
+                        .insert_bundle(CabinAnchorGroupBundle::default())
+                        .with_children(|anchor_group| {
+                            for (anchor_id, anchor) in &lift_data.cabin_anchors {
+                                let anchor_entity = anchor_group
+                                    .spawn()
+                                    .insert_bundle(AnchorBundle::new(anchor.clone()))
+                                    .insert(SiteID(*anchor_id))
+                                    .id();
+                                id_to_entity.insert(*anchor_id, anchor_entity);
+                                consider_id(*anchor_id);
+                            }
+                        });
+
+                    for (door_id, door) in &lift_data.cabin_doors {
+                        let door_entity = lift
                             .spawn()
-                            .insert_bundle(AnchorBundle::new(*anchor))
-                            .insert(SiteID(*anchor_id))
+                            .insert_bundle(door.to_ecs(&id_to_entity))
+                            .insert(Dependents::single(lift_entity))
                             .id();
-                        id_to_entity.insert(*anchor_id, anchor_entity);
-                        consider_id(*anchor_id);
+                        id_to_entity.insert(*door_id, door_entity);
+                        consider_id(*door_id);
                     }
-                });
+                })
+                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
+                .id();
+            id_to_entity.insert(*lift_id, lift);
             consider_id(*lift_id);
         }
 
@@ -196,7 +221,20 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     });
 
     site.insert(NextSiteID(highest_id + 1));
-    return site.id();
+    let site_id = site.id();
+
+    // Make the lift cabin anchors that are used by doors subordinate
+    for (lift_id, lift_data) in &site_data.lifts {
+        for (_, door) in &lift_data.cabin_doors {
+            for anchor in door.reference_anchors.array() {
+                commands
+                    .entity(*id_to_entity.get(&anchor).unwrap())
+                    .insert(Subordinate(Some(*id_to_entity.get(lift_id).unwrap())));
+            }
+        }
+    }
+
+    return site_id;
 }
 
 pub fn load_site(

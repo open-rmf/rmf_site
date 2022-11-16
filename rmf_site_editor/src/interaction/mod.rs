@@ -15,6 +15,8 @@
  *
 */
 
+use crate::site::{update_anchor_transforms, SiteUpdateStage};
+
 pub mod anchor;
 pub use anchor::*;
 
@@ -27,11 +29,14 @@ pub use camera_controls::*;
 pub mod cursor;
 pub use cursor::*;
 
-pub mod drag;
-pub use drag::*;
+pub mod gizmo;
+pub use gizmo::*;
 
 pub mod lane;
 pub use lane::*;
+
+pub mod lift;
+pub use lift::*;
 
 pub mod misc;
 pub use misc::*;
@@ -63,9 +68,25 @@ pub enum InteractionState {
     Disable,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
+pub enum InteractionUpdateStage {
+    /// Since parentage can have an effect on visuals, we should wait to add
+    /// the visuals until after any orphans have been assigned.
+    AddVisuals,
+}
+
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_state(InteractionState::Disable)
+            .add_stage_after(
+                SiteUpdateStage::AssignOrphans,
+                InteractionUpdateStage::AddVisuals,
+                SystemStage::parallel(),
+            )
+            .add_state_to_stage(
+                InteractionUpdateStage::AddVisuals,
+                InteractionState::Disable,
+            )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
@@ -75,18 +96,21 @@ impl Plugin for InteractionPlugin {
             .init_resource::<SelectionBlockers>()
             .init_resource::<Selection>()
             .init_resource::<Hovering>()
-            .init_resource::<DragState>()
+            .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
             .add_event::<MoveTo>()
             .add_event::<ChangeMode>()
+            .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
+                    .with_system(make_lift_doormat_gizmo)
+                    .with_system(update_doormats_for_level_change)
                     .with_system(update_cursor_transform)
                     .with_system(update_picking_cam)
                     .with_system(make_selectable_entities_pickable)
@@ -94,28 +118,35 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))
                     .with_system(maintain_selected_entities.after(maintain_hovered_entities))
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
-                    .with_system(add_anchor_visual_cues)
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
                     .with_system(remove_deleted_supports_from_visual_cues)
-                    .with_system(add_lane_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
-                    .with_system(add_misc_visual_cues)
                     .with_system(update_misc_visual_cues.after(maintain_selected_entities))
-                    .with_system(update_drag_click_start.after(maintain_selected_entities))
-                    .with_system(update_drag_release)
+                    .with_system(update_gizmo_click_start.after(maintain_selected_entities))
+                    .with_system(update_gizmo_release)
                     .with_system(
                         update_drag_motions
-                            .after(update_drag_click_start)
-                            .after(update_drag_release),
+                            .after(update_gizmo_click_start)
+                            .after(update_gizmo_release),
                     )
+                    .with_system(handle_lift_doormat_clicks.after(update_gizmo_click_start))
                     .with_system(manage_previews)
-                    .with_system(update_physical_camera_preview),
+                    .with_system(update_physical_camera_preview)
+                    .with_system(handle_preview_window_close),
+            )
+            .add_system_set_to_stage(
+                InteractionUpdateStage::AddVisuals,
+                SystemSet::on_update(InteractionState::Enable)
+                    .with_system(add_anchor_visual_cues)
+                    .with_system(remove_interaction_for_subordinate_anchors)
+                    .with_system(add_lane_visual_cues)
+                    .with_system(add_misc_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(InteractionState::Enable)
-                    .with_system(move_anchor)
+                    .with_system(move_anchor.before(update_anchor_transforms))
                     .with_system(make_gizmos_pickable),
             )
             .add_system_set_to_stage(

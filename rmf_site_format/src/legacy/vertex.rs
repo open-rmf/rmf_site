@@ -3,6 +3,7 @@ use crate::{
     is_default, IsStatic, Kind, Location, LocationTag, LocationTags, Model, ModelMarker,
     NameInSite, Pose,
 };
+use glam::DVec2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize, Clone, Default)]
@@ -37,6 +38,10 @@ pub struct Vertex(
 );
 
 impl Vertex {
+    pub fn to_vec(&self) -> DVec2 {
+        DVec2::new(self.0, self.1)
+    }
+
     pub fn make_location(&self, anchor: u32) -> Option<Location<u32>> {
         let mut tags = Vec::new();
         let me = &self.4;
