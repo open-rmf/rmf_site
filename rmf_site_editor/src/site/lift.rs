@@ -360,9 +360,7 @@ pub fn update_lift_door_availability(
                 println!(
                     "DEV ERROR: Asking to turn on lift {:?} door {:?} availability \
                     for a level {:?} that does not exist.",
-                    toggle.for_lift,
-                    toggle.cabin_door,
-                    toggle.on_level,
+                    toggle.for_lift, toggle.cabin_door, toggle.on_level,
                 );
                 continue;
             }
@@ -538,19 +536,11 @@ pub fn update_lift_door_availability(
             let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
                 Ok(cabin) => cabin,
                 Err(_) => {
-                    println!(
-                        "DEV ERROR: Unable to find cabin for lift {e_lift:?}"
-                    );
+                    println!("DEV ERROR: Unable to find cabin for lift {e_lift:?}");
                     continue;
                 }
             };
-            remove_door(
-                e_door,
-                &mut commands,
-                cabin.as_mut(),
-                &doors,
-                &dependents,
-            );
+            remove_door(e_door, &mut commands, cabin.as_mut(), &doors, &dependents);
         }
     }
 }

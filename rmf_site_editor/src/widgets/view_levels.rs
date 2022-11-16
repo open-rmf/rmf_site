@@ -16,11 +16,11 @@
 */
 
 use crate::{
-    site::{Category, Change, LevelProperties, Delete},
+    site::{Category, Change, Delete, LevelProperties},
     widgets::{AppEvents, Icons},
 };
-use bevy::{prelude::*, ecs::system::SystemParam};
-use bevy_egui::egui::{DragValue, Ui, ImageButton};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
 pub struct LevelDisplay {
@@ -55,10 +55,7 @@ pub struct ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
 }
 
 impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(
-        params: &'a LevelParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a LevelParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
@@ -136,10 +133,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 let mut shown_props = props.clone();
                 ui.horizontal(|ui| {
                     if self.events.level_display.removing {
-                        if ui.add(ImageButton::new(
-                            self.params.icons.egui_trash,
-                            [18., 18.],
-                        )).on_hover_text("Remove this level").clicked() {
+                        if ui
+                            .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                            .on_hover_text("Remove this level")
+                            .clicked()
+                        {
                             self.events.delete.send(Delete::new(e).and_dependents());
                         }
                     } else {

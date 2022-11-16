@@ -18,11 +18,11 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Dependents, CurrentLevel, LevelProperties, Category, SiteUpdateStage,
-        LiftCabin, LevelVisits, ToggleLiftDoorAvailability,
+        Category, CurrentLevel, Dependents, LevelProperties, LevelVisits, LiftCabin,
+        SiteUpdateStage, ToggleLiftDoorAvailability,
     },
 };
-use bevy::{prelude::*, ecs::system::SystemParam};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{Edge, Path, Point};
 use std::collections::HashSet;
 
@@ -61,7 +61,10 @@ pub struct Delete {
 
 impl Delete {
     pub fn new(element: Entity) -> Self {
-        Self { element, and_dependents: false }
+        Self {
+            element,
+            and_dependents: false,
+        }
     }
 
     pub fn and_dependents(mut self) -> Self {
@@ -89,21 +92,17 @@ pub struct DeletionPlugin;
 
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_stage_after(
-                CoreStage::First,
-                SiteUpdateStage::Deletion,
-                SystemStage::parallel()
-            )
-            .add_event::<Delete>()
-            .add_system_to_stage(SiteUpdateStage::Deletion, handle_deletion_requests);
+        app.add_stage_after(
+            CoreStage::First,
+            SiteUpdateStage::Deletion,
+            SystemStage::parallel(),
+        )
+        .add_event::<Delete>()
+        .add_system_to_stage(SiteUpdateStage::Deletion, handle_deletion_requests);
     }
 }
 
-fn handle_deletion_requests(
-    mut deletions: EventReader<Delete>,
-    mut params: DeletionParams,
-) {
+fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: DeletionParams) {
     for delete in deletions.iter() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
@@ -113,10 +112,7 @@ fn handle_deletion_requests(
     }
 }
 
-fn cautious_delete(
-    element: Entity,
-    params: &mut DeletionParams,
-) {
+fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     let mut all_descendents = HashSet::new();
     let mut queue = Vec::new();
     queue.push(element);
@@ -211,15 +207,11 @@ fn cautious_delete(
     params.commands.entity(element).despawn_recursive();
 }
 
-fn recursive_dependent_delete(
-    element: Entity,
-    params: &mut DeletionParams,
-) {
+fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     let mut all_to_delete = HashSet::new();
     let mut queue = Vec::new();
     queue.push(element);
     while let Some(top) = queue.pop() {
-
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
                 println!(
@@ -270,10 +262,7 @@ fn recursive_dependent_delete(
     perform_deletions(all_to_delete, params);
 }
 
-fn perform_deletions(
-    all_to_delete: HashSet<Entity>,
-    mut params: &mut DeletionParams,
-) {
+fn perform_deletions(all_to_delete: HashSet<Entity>, mut params: &mut DeletionParams) {
     for e in all_to_delete.iter().copied() {
         // TODO(MXG): Consider refactoring some of this bookkeeping to separate
         // systems that use the RemovedComponents system parameter.
@@ -326,7 +315,8 @@ fn perform_deletions(
             if !found_level {
                 // We need to make a whole new level and set it as the current
                 // level because all the existing levels are being deleted.
-                let new_level = params.commands
+                let new_level = params
+                    .commands
                     .spawn_bundle(SpatialBundle::default())
                     .insert(LevelProperties {
                         elevation: 0.0,

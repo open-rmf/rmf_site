@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
-    site::{Change, CurrentLevel, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability, Delete},
+    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -33,7 +33,7 @@ pub mod create;
 use create::CreateWidget;
 
 pub mod view_levels;
-use view_levels::{LevelDisplay, ViewLevels, LevelParams};
+use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 
 pub mod icons;
 pub use icons::*;
