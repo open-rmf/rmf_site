@@ -401,9 +401,9 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         }
     }
 
-    /// This gives a set of "placemats" that can be laid in front of each lift
+    /// This gives a set of "doormats" that can be laid in front of each lift
     /// cabin door to be used as visual cues.
-    pub fn level_door_placemats(
+    pub fn level_doormats(
         &self,
         length: f32,
         recall: Option<&RecallLiftCabin<T>>,

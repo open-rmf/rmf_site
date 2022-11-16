@@ -51,14 +51,14 @@ pub enum CabinDoorId {
 }
 
 #[derive(Clone, Copy, Debug, Component)]
-pub struct LiftDoorPlacemat {
+pub struct LiftDoormat {
     pub for_lift: Entity,
     pub on_level: Entity,
     pub cabin_door: CabinDoorId,
     pub door_available: bool,
 }
 
-impl LiftDoorPlacemat {
+impl LiftDoormat {
     pub fn toggle_availability(&self) -> ToggleLiftDoorAvailability {
         ToggleLiftDoorAvailability {
             for_lift: self.for_lift,
@@ -214,7 +214,7 @@ pub fn update_lift_cabin(
                                 continue;
                             }
 
-                            for (face, door, mut aabb) in params.level_door_placemats(0.3, recall) {
+                            for (face, door, mut aabb) in params.level_doormats(0.3, recall) {
                                 let door_available = door
                                     .filter(|d| {
                                         level_visits
@@ -229,13 +229,13 @@ pub fn update_lift_cabin(
                                 parent
                                     .spawn_bundle(PbrBundle {
                                         mesh: meshes.add(mesh.into()),
-                                        // Placemats are not visible by default.
+                                        // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.
                                         visibility: Visibility { is_visible: false },
                                         ..default()
                                     })
-                                    .insert(LiftDoorPlacemat {
+                                    .insert(LiftDoormat {
                                         for_lift: e,
                                         on_level: level,
                                         cabin_door: CabinDoorId::RectFace(face),
@@ -478,9 +478,9 @@ pub fn update_lift_door_availability(
 
             // This is a silly hack to dirty the change tracker for this
             // lift and force it to be refreshed in the update_lift_cabin
-            // system. We do that so the lift door placemats can be updated
+            // system. We do that so the lift door doormats can be updated
             // to reflect their new state. When time allows, it would be worth
-            // considering a more efficient strategy for updating the placemats.
+            // considering a more efficient strategy for updating the doormats.
             cabin.set_changed();
         }
     }
@@ -498,7 +498,7 @@ pub fn update_lift_door_availability(
     }
 
     if !new_levels.is_empty() {
-        // A silly dirty hack to force lift cabins to update their placemats
+        // A silly dirty hack to force lift cabins to update their doormats
         // when a new level is added.
         for (mut cabin, _, _) in &mut lifts {
             cabin.set_changed();

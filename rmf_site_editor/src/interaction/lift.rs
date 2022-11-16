@@ -17,58 +17,58 @@
 
 use crate::{
     interaction::*,
-    site::{CurrentLevel, LiftDoorPlacemat, ToggleLiftDoorAvailability},
+    site::{CurrentLevel, LiftDoormat, ToggleLiftDoorAvailability},
 };
 use bevy::prelude::*;
 
-pub fn make_lift_placemat_gizmo(
+pub fn make_lift_doormat_gizmo(
     mut commands: Commands,
-    mut new_placemats: Query<
+    mut new_doormats: Query<
         (
             Entity,
-            &LiftDoorPlacemat,
+            &LiftDoormat,
             &mut Visibility,
             &mut Handle<StandardMaterial>,
         ),
-        Added<LiftDoorPlacemat>,
+        Added<LiftDoormat>,
     >,
     current_level: Res<CurrentLevel>,
     assets: Res<InteractionAssets>,
 ) {
-    for (e, placemat, mut visible, mut material) in &mut new_placemats {
-        let materials = assets.lift_placemat_materials(placemat.door_available);
+    for (e, doormat, mut visible, mut material) in &mut new_doormats {
+        let materials = assets.lift_doormat_materials(doormat.door_available);
         *material = materials.passive.clone();
         commands
             .entity(e)
             .insert(Gizmo::new().with_materials(materials));
 
-        if Some(placemat.on_level) == current_level.0 {
+        if Some(doormat.on_level) == current_level.0 {
             visible.is_visible = true;
         }
     }
 }
 
-pub fn handle_lift_placemat_clicks(
-    placemats: Query<&LiftDoorPlacemat>,
+pub fn handle_lift_doormat_clicks(
+    doormats: Query<&LiftDoormat>,
     mut clicks: EventReader<GizmoClicked>,
     mut toggle: EventWriter<ToggleLiftDoorAvailability>,
     mut select: EventWriter<Select>,
 ) {
     for click in clicks.iter() {
-        if let Ok(placemat) = placemats.get(click.0) {
-            toggle.send(placemat.toggle_availability());
-            select.send(Select(Some(placemat.for_lift)));
+        if let Ok(doormat) = doormats.get(click.0) {
+            toggle.send(doormat.toggle_availability());
+            select.send(Select(Some(doormat.for_lift)));
         }
     }
 }
 
-pub fn update_placemats_for_level_change(
-    mut placemats: Query<(&LiftDoorPlacemat, &mut Visibility)>,
+pub fn update_doormats_for_level_change(
+    mut doormats: Query<(&LiftDoormat, &mut Visibility)>,
     current_level: Res<CurrentLevel>,
 ) {
     if current_level.is_changed() {
-        for (placemat, mut visibility) in &mut placemats {
-            visibility.is_visible = Some(placemat.on_level) == current_level.0;
+        for (doormat, mut visibility) in &mut doormats {
+            visibility.is_visible = Some(doormat.on_level) == current_level.0;
         }
     }
 }

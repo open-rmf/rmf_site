@@ -95,7 +95,7 @@ pub fn handle_loaded_drawing(
                             base_color_texture: Some(handle.clone()),
                             ..default()
                         }),
-                        transform: transform,
+                        transform,
                         ..default()
                     })
                     .insert(Selectable::new(entity))

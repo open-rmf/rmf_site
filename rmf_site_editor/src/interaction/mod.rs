@@ -109,8 +109,8 @@ impl Plugin for InteractionPlugin {
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
-                    .with_system(make_lift_placemat_gizmo)
-                    .with_system(update_placemats_for_level_change)
+                    .with_system(make_lift_doormat_gizmo)
+                    .with_system(update_doormats_for_level_change)
                     .with_system(update_cursor_transform)
                     .with_system(update_picking_cam)
                     .with_system(make_selectable_entities_pickable)
@@ -129,7 +129,7 @@ impl Plugin for InteractionPlugin {
                             .after(update_gizmo_click_start)
                             .after(update_gizmo_release),
                     )
-                    .with_system(handle_lift_placemat_clicks.after(update_gizmo_click_start))
+                    .with_system(handle_lift_doormat_clicks.after(update_gizmo_click_start))
                     .with_system(manage_previews)
                     .with_system(update_physical_camera_preview)
                     .with_system(handle_preview_window_close),

@@ -29,8 +29,8 @@ pub struct InteractionAssets {
     pub x_axis_materials: GizmoMaterialSet,
     pub y_axis_materials: GizmoMaterialSet,
     pub z_plane_materials: GizmoMaterialSet,
-    pub lift_placemat_available_materials: GizmoMaterialSet,
-    pub lift_placemat_unavailable_materials: GizmoMaterialSet,
+    pub lift_doormat_available_materials: GizmoMaterialSet,
+    pub lift_doormat_unavailable_materials: GizmoMaterialSet,
 }
 
 impl InteractionAssets {
@@ -104,11 +104,11 @@ impl InteractionAssets {
         cue.drag = Some(drag_parent);
     }
 
-    pub fn lift_placemat_materials(&self, available: bool) -> GizmoMaterialSet {
+    pub fn lift_doormat_materials(&self, available: bool) -> GizmoMaterialSet {
         if available {
-            self.lift_placemat_available_materials.clone()
+            self.lift_doormat_available_materials.clone()
         } else {
-            self.lift_placemat_unavailable_materials.clone()
+            self.lift_doormat_unavailable_materials.clone()
         }
     }
 }
@@ -137,7 +137,7 @@ impl FromWorld for InteractionAssets {
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
-        let lift_placemat_available_materials = GizmoMaterialSet {
+        let lift_doormat_available_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.1, 0.9, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
@@ -157,7 +157,7 @@ impl FromWorld for InteractionAssets {
                 ..default()
             }),
         };
-        let lift_placemat_unavailable_materials = GizmoMaterialSet {
+        let lift_doormat_unavailable_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.9, 0.1, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
@@ -188,8 +188,8 @@ impl FromWorld for InteractionAssets {
             x_axis_materials,
             y_axis_materials,
             z_plane_materials,
-            lift_placemat_available_materials,
-            lift_placemat_unavailable_materials,
+            lift_doormat_available_materials,
+            lift_doormat_unavailable_materials,
         }
     }
 }
