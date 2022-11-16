@@ -102,10 +102,7 @@ pub fn update_anchor_transforms(
 }
 
 pub fn assign_orphan_anchors_to_parent(
-    mut orphan_anchors: Query<
-        (Entity, &GlobalTransform, &mut Transform),
-        (Added<Anchor>, Without<Parent>),
-    >,
+    mut orphan_anchors: Query<(Entity, &mut Anchor), Without<Parent>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     lifts: Query<(
@@ -116,9 +113,10 @@ pub fn assign_orphan_anchors_to_parent(
     )>,
     lift_anchor_groups: Query<&GlobalTransform, With<CabinAnchorGroup>>,
 ) {
-    for (anchor, global_anchor_tf, mut local_anchor_tf) in &mut orphan_anchors {
+    for (e_anchor, mut anchor) in &mut orphan_anchors {
+        let global_anchor_tf = anchor.local_transform(Category::General).compute_affine();
         let p_anchor = {
-            let mut p = global_anchor_tf.translation();
+            let mut p = global_anchor_tf.translation;
             // Add a little height to make sure that the anchor isn't
             // numerically unstable, right on the floor of the lift cabin.
             p.z = 0.01;
@@ -144,14 +142,14 @@ pub fn assign_orphan_anchors_to_parent(
                 if let Ok(anchor_group_tf) = lift_anchor_groups.get(anchor_group.0) {
                     // The anchor is inside the lift cabin, so we should
                     // make it the anchor's parent.
-                    commands.entity(anchor_group.0).add_child(anchor);
+                    commands.entity(anchor_group.0).add_child(e_anchor);
                     assigned_to_lift = true;
 
                     // Since the anchor will be in the frame of the lift, we need
                     // to update its local transform.
-                    *local_anchor_tf = Transform::from_matrix(
-                        (anchor_group_tf.affine().inverse() * global_anchor_tf.affine()).into(),
-                    );
+                    anchor.move_to(&Transform::from_matrix(
+                        (anchor_group_tf.affine().inverse() * global_anchor_tf).into()
+                    ));
 
                     break;
                 }
@@ -181,6 +179,6 @@ pub fn assign_orphan_anchors_to_parent(
             new_level_id
         };
 
-        commands.entity(parent).add_child(anchor);
+        commands.entity(parent).add_child(e_anchor);
     }
 }
