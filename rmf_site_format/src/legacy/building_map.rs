@@ -5,9 +5,9 @@ use crate::{
     Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
     NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Site,
-    SiteProperties,
+    SiteProperties, Rotation, Angle,
 };
-use glam::{DAffine2, DMat3, DQuat, DVec3, EulerRot};
+use glam::{DAffine2, DMat3, DQuat, DVec3, DVec2, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -60,14 +60,16 @@ impl BuildingMap {
         };
 
         for (level_name, level) in map.levels.iter_mut() {
-            let tf = alignments.get(level_name).unwrap();
+            let alignment = alignments.get(level_name).unwrap();
+            let tf = alignment.to_affine();
+            level.alignment = Some(alignment.clone());
             for v in &mut level.vertices {
                 let p = tf.transform_point2(v.to_vec());
                 v.0 = p.x as f64;
                 v.1 = -p.y as f64;
             }
 
-            let delta_yaw = get_delta_yaw(tf);
+            let delta_yaw = get_delta_yaw(&tf);
 
             for model in &mut level.models {
                 let p = tf.transform_point2(model.to_vec());
@@ -91,11 +93,11 @@ impl BuildingMap {
         }
 
         for (lift_name, lift) in map.lifts.iter_mut() {
-            let tf = alignments.get(&lift.reference_floor_name).unwrap();
+            let tf = alignments.get(&lift.reference_floor_name).unwrap().to_affine();
             let p = tf.transform_point2(lift.to_vec());
             lift.x = p.x;
             lift.y = -p.y;
-            lift.yaw -= get_delta_yaw(tf);
+            lift.yaw -= get_delta_yaw(&tf);
         }
 
         map.coordinate_system = CoordinateSystem::CartesianMeters;
@@ -162,12 +164,22 @@ impl BuildingMap {
 
             let mut drawings = BTreeMap::new();
             if !level.drawing.filename.is_empty() {
+                let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
+                    let p = a.translation;
+                    let pose = Pose {
+                        trans: [p.x as f32, -p.y as f32, 0.0001 as f32],
+                        rot: Rotation::Yaw(Angle::Rad(a.rotation as f32)),
+                    };
+                    (pose, PixelsPerMeter((1.0/a.scale) as f32))
+                } else {
+                    (Pose::default(), PixelsPerMeter::default())
+                };
                 drawings.insert(
                     site_id.next().unwrap(),
                     SiteDrawing {
                         source: AssetSource::Local(level.drawing.filename.clone()),
-                        pose: Pose::default(),
-                        pixels_per_meter: PixelsPerMeter::default(),
+                        pose,
+                        pixels_per_meter,
                         marker: DrawingMarker,
                     },
                 );

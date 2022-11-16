@@ -865,7 +865,7 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
         .chain([[0., 0., -1.]].into_iter().cycle().take(4))
         .collect();
 
-    let uv: Vec<[f32; 2]> = [[1.0, 1.0], [1.0, 0.0], [0.0, 0.0], [0.0, 1.0]]
+    let uv: Vec<[f32; 2]> = [[0.0, 1.0], [1.0, 1.0], [1.0, 0.0], [0.0, 0.0]]
         .into_iter()
         .cycle()
         .take(8)

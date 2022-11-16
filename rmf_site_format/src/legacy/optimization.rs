@@ -1,9 +1,12 @@
-use super::building_map::BuildingMap;
+use super::{
+    building_map::BuildingMap,
+    level::Alignment,
+};
 use glam::{DAffine2, DMat2, DVec2};
 use optimization_engine::{panoc::*, *};
 use std::{collections::HashMap, ops::RangeFrom};
 
-pub fn align_building(building: &BuildingMap) -> HashMap<String, DAffine2> {
+pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
     let mut names = Vec::new();
     let mut measurements = Vec::new();
     let mut fiducials = Vec::new();
@@ -75,7 +78,7 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, DAffine2> {
 
     names
         .into_iter()
-        .zip(AllVariables::new(&u).map(|vars| vars.to_affine()))
+        .zip(AllVariables::new(&u).map(|vars| vars.to_alignment()))
         .collect()
 }
 
@@ -127,12 +130,12 @@ impl<'a> LevelVariables<'a> {
         scale * self.rotation() * point + self.dp()
     }
 
-    fn to_affine(&self) -> DAffine2 {
-        DAffine2::from_scale_angle_translation(
-            DVec2::splat(*self.scale()),
-            *self.theta(),
-            self.dp(),
-        )
+    fn to_alignment(&self) -> Alignment {
+        Alignment {
+            translation: self.dp(),
+            rotation: *self.theta(),
+            scale: *self.scale(),
+        }
     }
 }
 
