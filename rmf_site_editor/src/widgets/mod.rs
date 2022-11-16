@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
-    site::{Change, CurrentLevel, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
+    site::{Change, CurrentLevel, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability, Delete},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -33,7 +33,7 @@ pub mod create;
 use create::CreateWidget;
 
 pub mod view_levels;
-use view_levels::{LevelDisplay, ViewLevels};
+use view_levels::{LevelDisplay, ViewLevels, LevelParams};
 
 pub mod icons;
 pub use icons::*;
@@ -90,13 +90,14 @@ pub struct AppEvents<'w, 's> {
     pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
+    pub delete: EventWriter<'w, 's, Delete>,
 }
 
 fn standard_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    levels: Query<(Entity, &'static LevelProperties)>,
+    levels: LevelParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")

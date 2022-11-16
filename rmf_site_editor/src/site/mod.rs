@@ -106,6 +106,9 @@ pub enum SiteUpdateStage {
     /// systems are run, and the AssignOrphan commands need to flush before the
     /// PostUpdate systems are run.
     AssignOrphans,
+    /// Use a custom stage for deletions to make sure that all commands are
+    /// flushed before and after deleting things.
+    Deletion,
 }
 
 pub struct SitePlugin;

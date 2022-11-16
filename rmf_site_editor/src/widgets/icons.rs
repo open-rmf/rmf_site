@@ -24,6 +24,8 @@ pub struct Icons {
     pub egui_select: egui::TextureId,
     pub bevy_edit: Handle<Image>,
     pub egui_edit: egui::TextureId,
+    pub bevy_trash: Handle<Image>,
+    pub egui_trash: egui::TextureId,
 }
 
 impl FromWorld for Icons {
@@ -31,16 +33,20 @@ impl FromWorld for Icons {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let bevy_select = asset_server.load("rmf-site://textures/select.png");
         let bevy_edit = asset_server.load("rmf-site://textures/edit.png");
+        let bevy_trash = asset_server.load("rmf-site://textures/trash.png");
 
         let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
         let egui_select = egui_context.add_image(bevy_select.clone());
         let egui_edit = egui_context.add_image(bevy_edit.clone());
+        let egui_trash = egui_context.add_image(bevy_trash.clone());
 
         Self {
             bevy_select,
             egui_select,
             bevy_edit,
             egui_edit,
+            bevy_trash,
+            egui_trash,
         }
     }
 }

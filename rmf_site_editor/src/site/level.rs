@@ -17,6 +17,7 @@
 
 use crate::site::*;
 use bevy::prelude::*;
+use std::collections::HashSet;
 
 pub fn update_level_visibility(
     mut levels: Query<(Entity, &mut Visibility), With<LevelProperties>>,

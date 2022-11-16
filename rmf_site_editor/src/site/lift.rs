@@ -343,6 +343,9 @@ pub fn update_lift_door_availability(
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelProperties>>,
+    all_levels: Query<(), With<LevelProperties>>,
+    removed_levels: RemovedComponents<LevelProperties>,
+    parents: Query<&Parent>,
 ) {
     for toggle in toggles.iter() {
         let (mut cabin, recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
@@ -351,6 +354,18 @@ pub fn update_lift_door_availability(
         };
 
         if toggle.door_available {
+            if !all_levels.contains(toggle.on_level) {
+                // If we're being asked to toggle availability on for something
+                // that isn't a level, then ignore this request.
+                println!(
+                    "DEV ERROR: Asking to turn on lift {:?} door {:?} availability \
+                    for a level {:?} that does not exist.",
+                    toggle.for_lift,
+                    toggle.cabin_door,
+                    toggle.on_level,
+                );
+                continue;
+            }
             let cabin_door = match toggle.cabin_door {
                 CabinDoorId::Entity(e) => e,
                 CabinDoorId::RectFace(face) => {
@@ -441,7 +456,7 @@ pub fn update_lift_door_availability(
                 None => continue,
             };
 
-            let remove_door = if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
+            let need_to_remove_door = if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.remove(&toggle.on_level);
                 if let Some(current_level) = **current_level {
                     commands.entity(cabin_door).insert(Visibility {
@@ -453,44 +468,14 @@ pub fn update_lift_door_availability(
                 false
             };
 
-            if remove_door {
-                cabin.remove_door(cabin_door);
-                commands
-                    .entity(cabin_door)
-                    .insert(Pending)
-                    .insert(Visibility { is_visible: false });
-
-                // Clear out the anchors if nothing besides the cabin door depends on them
-                let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
-                    let mut remove_anchors = true;
-                    'outer: for anchor in anchors.array() {
-                        if let Ok(deps) = dependents.get(anchor) {
-                            for dependent in deps.iter() {
-                                if *dependent != cabin_door {
-                                    remove_anchors = false;
-                                    break 'outer;
-                                }
-                            }
-                        }
-                    }
-
-                    if remove_anchors {
-                        Some(*anchors)
-                    } else {
-                        None
-                    }
-                } else {
-                    None
-                };
-
-                if let Some(anchors) = remove_anchors {
-                    for anchor in anchors.array() {
-                        commands
-                            .entity(anchor)
-                            .insert(Pending)
-                            .insert(Visibility { is_visible: false });
-                    }
-                }
+            if need_to_remove_door {
+                remove_door(
+                    cabin_door,
+                    &mut commands,
+                    cabin.as_mut(),
+                    &doors,
+                    &dependents,
+                );
             }
 
             // This is a silly hack to dirty the change tracker for this
@@ -518,8 +503,100 @@ pub fn update_lift_door_availability(
         // A silly dirty hack to force lift cabins to update their placemats
         // when a new level is added.
         for (mut cabin, _, _) in &mut lifts {
-            dbg!("Triggering dirty cabin for new level");
             cabin.set_changed();
+        }
+    }
+
+    for removed_level in removed_levels.iter() {
+        // When a level is removed, we should clear it from all visitation
+        // information and redo the cabin rendering.
+        let mut doors_to_remove = Vec::new();
+        for (e_door, _, mut visits) in &mut doors {
+            let mut need_to_remove_door = false;
+            if visits.remove(&removed_level) {
+                if visits.is_empty() {
+                    need_to_remove_door = true;
+                }
+            }
+
+            if need_to_remove_door {
+                doors_to_remove.push(e_door);
+            }
+        }
+
+        for e_door in doors_to_remove {
+            let e_lift = match parents.get(e_door) {
+                Ok(e_lift) => e_lift,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Unable to find parent for lift door \
+                        {e_door:?} while handling a removed level"
+                    );
+                    continue;
+                }
+            };
+            let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
+                Ok(cabin) => cabin,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Unable to find cabin for lift {e_lift:?}"
+                    );
+                    continue;
+                }
+            };
+            remove_door(
+                e_door,
+                &mut commands,
+                cabin.as_mut(),
+                &doors,
+                &dependents,
+            );
+        }
+    }
+}
+
+fn remove_door(
+    cabin_door: Entity,
+    commands: &mut Commands,
+    cabin: &mut LiftCabin<Entity>,
+    doors: &Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
+    dependents: &Query<&Dependents, With<Anchor>>,
+) {
+    cabin.remove_door(cabin_door);
+    commands
+        .entity(cabin_door)
+        .insert(Pending)
+        .insert(Visibility { is_visible: false });
+
+    // Clear out the anchors if nothing besides the cabin door depends on them
+    let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
+        let mut remove_anchors = true;
+        'outer: for anchor in anchors.array() {
+            if let Ok(deps) = dependents.get(anchor) {
+                for dependent in deps.iter() {
+                    if *dependent != cabin_door {
+                        remove_anchors = false;
+                        break 'outer;
+                    }
+                }
+            }
+        }
+
+        if remove_anchors {
+            Some(*anchors)
+        } else {
+            None
+        }
+    } else {
+        None
+    };
+
+    if let Some(anchors) = remove_anchors {
+        for anchor in anchors.array() {
+            commands
+                .entity(anchor)
+                .insert(Pending)
+                .insert(Visibility { is_visible: false });
         }
     }
 }

@@ -16,11 +16,11 @@
 */
 
 use crate::{
-    site::{Category, Change, LevelProperties},
-    widgets::AppEvents,
+    site::{Category, Change, LevelProperties, Delete},
+    widgets::{AppEvents, Icons},
 };
-use bevy::prelude::*;
-use bevy_egui::egui::{DragValue, Ui};
+use bevy::{prelude::*, ecs::system::SystemParam};
+use bevy_egui::egui::{DragValue, Ui, ImageButton};
 use std::cmp::{Ordering, Reverse};
 
 pub struct LevelDisplay {
@@ -28,6 +28,7 @@ pub struct LevelDisplay {
     pub new_name: String,
     pub order: Vec<Entity>,
     pub freeze: bool,
+    pub removing: bool,
 }
 
 impl Default for LevelDisplay {
@@ -37,21 +38,28 @@ impl Default for LevelDisplay {
             new_name: "<Unnamed>".to_string(),
             order: Vec::new(),
             freeze: false,
+            removing: false,
         }
     }
 }
 
+#[derive(SystemParam)]
+pub struct LevelParams<'w, 's> {
+    pub levels: Query<'w, 's, (Entity, &'static LevelProperties)>,
+    pub icons: Res<'w, Icons>,
+}
+
 pub struct ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
-    levels: &'a Query<'w1, 's1, (Entity, &'static LevelProperties)>,
+    params: &'a LevelParams<'w1, 's1>,
     events: &'a mut AppEvents<'w2, 's2>,
 }
 
 impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
     pub fn new(
-        levels: &'a Query<'w1, 's1, (Entity, &'static LevelProperties)>,
+        params: &'a LevelParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { levels, events }
+        Self { params, events }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -85,6 +93,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
 
         if !self.events.level_display.freeze {
             let mut ordered_level_list: Vec<_> = self
+                .params
                 .levels
                 .iter()
                 .map(|(e, props)| (Reverse(props.elevation), e))
@@ -105,16 +114,41 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 ordered_level_list.into_iter().map(|(_, e)| e).collect();
         }
 
+        if self.events.level_display.removing {
+            ui.horizontal(|ui| {
+                if ui.button("Select").clicked() {
+                    self.events.level_display.removing = false;
+                }
+                ui.label("Remove");
+            });
+        } else {
+            ui.horizontal(|ui| {
+                ui.label("Select");
+                if ui.button("Remove").clicked() {
+                    self.events.level_display.removing = true;
+                }
+            });
+        }
+
         let mut any_dragging = false;
         for e in self.events.level_display.order.iter().copied() {
-            if let Ok((_, props)) = self.levels.get(e) {
+            if let Ok((_, props)) = self.params.levels.get(e) {
                 let mut shown_props = props.clone();
                 ui.horizontal(|ui| {
-                    if ui
-                        .radio(Some(e) == **self.events.current_level, "")
-                        .clicked()
-                    {
-                        self.events.current_level.0 = Some(e);
+                    if self.events.level_display.removing {
+                        if ui.add(ImageButton::new(
+                            self.params.icons.egui_trash,
+                            [18., 18.],
+                        )).on_hover_text("Remove this level").clicked() {
+                            self.events.delete.send(Delete::new(e).and_dependents());
+                        }
+                    } else {
+                        if ui
+                            .radio(Some(e) == **self.events.current_level, "")
+                            .clicked()
+                        {
+                            self.events.current_level.0 = Some(e);
+                        }
                     }
 
                     let r = ui
