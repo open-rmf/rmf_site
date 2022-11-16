@@ -20,11 +20,7 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{Category, CurrentSite, DefaultFile},
 };
-use bevy::{
-    prelude::*,
-    utils::HashMap,
-    math::Affine3A,
-};
+use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
 use std::path::PathBuf;
@@ -80,10 +76,9 @@ pub fn handle_loaded_drawing(
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
                 // We set this up so that the origin of the drawing is in
-                let mut mesh = make_flat_rect_mesh(width, height)
-                    .transform_by(Affine3A::from_translation(
-                        Vec3::new(width/2.0, -height/2.0, 0.0)
-                    ));
+                let mut mesh = make_flat_rect_mesh(width, height).transform_by(
+                    Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
+                );
                 // TODO Z layering
                 let mut pose = pose.clone();
                 let transform = pose.transform().with_scale(Vec3::new(

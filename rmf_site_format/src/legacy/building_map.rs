@@ -1,13 +1,13 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, AssetSource, Category, Dock as SiteDock,
+    legacy::optimization::align_building, Anchor, Angle, AssetSource, Category, Dock as SiteDock,
     Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker, IsStatic,
     Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Site,
-    SiteProperties, Rotation, Angle,
+    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
+    Rotation, Site, SiteProperties,
 };
-use glam::{DAffine2, DMat3, DQuat, DVec3, DVec2, EulerRot};
+use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
 
@@ -93,7 +93,10 @@ impl BuildingMap {
         }
 
         for (lift_name, lift) in map.lifts.iter_mut() {
-            let tf = alignments.get(&lift.reference_floor_name).unwrap().to_affine();
+            let tf = alignments
+                .get(&lift.reference_floor_name)
+                .unwrap()
+                .to_affine();
             let p = tf.transform_point2(lift.to_vec());
             lift.x = p.x;
             lift.y = -p.y;
@@ -170,7 +173,7 @@ impl BuildingMap {
                         trans: [p.x as f32, -p.y as f32, 0.0001 as f32],
                         rot: Rotation::Yaw(Angle::Rad(a.rotation as f32)),
                     };
-                    (pose, PixelsPerMeter((1.0/a.scale) as f32))
+                    (pose, PixelsPerMeter((1.0 / a.scale) as f32))
                 } else {
                     (Pose::default(), PixelsPerMeter::default())
                 };

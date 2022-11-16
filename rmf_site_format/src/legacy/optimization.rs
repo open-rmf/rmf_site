@@ -1,7 +1,4 @@
-use super::{
-    building_map::BuildingMap,
-    level::Alignment,
-};
+use super::{building_map::BuildingMap, level::Alignment};
 use glam::{DAffine2, DMat2, DVec2};
 use optimization_engine::{panoc::*, *};
 use std::{collections::HashMap, ops::RangeFrom};
