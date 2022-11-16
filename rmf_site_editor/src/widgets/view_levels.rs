@@ -128,6 +128,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
         }
 
         let mut any_dragging = false;
+        let mut any_deleted = false;
         for e in self.events.level_display.order.iter().copied() {
             if let Ok((_, props)) = self.params.levels.get(e) {
                 let mut shown_props = props.clone();
@@ -139,6 +140,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                             .clicked()
                         {
                             self.events.delete.send(Delete::new(e).and_dependents());
+                            any_deleted = true;
                         }
                     } else {
                         if ui
@@ -169,5 +171,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
         }
 
         self.events.level_display.freeze = any_dragging;
+        if any_deleted {
+            self.events.level_display.removing = false;
+        }
     }
 }
