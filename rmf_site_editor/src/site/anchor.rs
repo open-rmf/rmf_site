@@ -148,7 +148,7 @@ pub fn assign_orphan_anchors_to_parent(
                     // Since the anchor will be in the frame of the lift, we need
                     // to update its local transform.
                     anchor.move_to(&Transform::from_matrix(
-                        (anchor_group_tf.affine().inverse() * global_anchor_tf).into()
+                        (anchor_group_tf.affine().inverse() * global_anchor_tf).into(),
                     ));
 
                     break;
