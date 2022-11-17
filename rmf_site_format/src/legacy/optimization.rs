@@ -51,10 +51,18 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
         max_vals.extend([inf, inf, 45_f64.to_radians(), 1000.0]);
     }
 
-    let constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
-    let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
-
+    // There seems to be an issue in optimization_engine's wasm support:
+    // https://github.com/alphaville/optimization-engine/issues/248#issuecomment-986323803
+    // As a result this optimization doesn't work when compiled in wasm. We'll
+    // disable it for wasm architecture, which means the scaling fit won't be
+    // globally optimized across the different levels, instead levels will only
+    // be scaled according to their individual measurements. This likely means
+    // that scaling won't be quite as accurate overall, but everything should
+    // basically work.
+    #[cfg(not(target_arch = "wasm32"))]
     {
+        let constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
+        let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
         let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
             *c = calculate_scale_cost(&measurements, &fiducials, u);
             Ok(())
