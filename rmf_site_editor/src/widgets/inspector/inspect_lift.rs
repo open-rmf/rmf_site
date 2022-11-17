@@ -248,6 +248,22 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
         }
 
         if new_cabin != *cabin {
+            if let (
+                LiftCabin::Rect(new_params),
+                LiftCabin::Rect(old_params)
+            ) = (&mut new_cabin, cabin) {
+                if new_params.width != old_params.width {
+                    if let Some(shift) = &mut new_params.shift {
+                        // The user has already assigned a shift to the cabin,
+                        // so any change to the width should be half-applied to
+                        // the shift so that the two parameters aren't fighting
+                        // against each other.
+                        let delta = (new_params.width - old_params.width)/2.0;
+                        *shift -= delta;
+                    }
+                }
+            }
+
             return Some(new_cabin);
         }
 
