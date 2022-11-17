@@ -310,38 +310,6 @@ impl Recall for RecallLabel {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
-#[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct Kind(pub Option<String>);
-
-impl Default for Kind {
-    fn default() -> Self {
-        Kind(None)
-    }
-}
-
-#[derive(Default, Debug, Clone, PartialEq, Eq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallKind {
-    pub value: Option<String>,
-}
-
-impl Recall for RecallKind {
-    type Source = Kind;
-
-    fn remember(&mut self, source: &Self::Source) {
-        match &source.0 {
-            Some(value) => {
-                self.value = Some(value.clone());
-            }
-            None => {
-                // Do nothing
-            }
-        }
-    }
-}
-
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
