@@ -72,7 +72,7 @@ impl AssetIo for SiteAssetIo {
                     Ok(bytes)
                 })
             } 
-            AssetSource::Local(_) => {
+            AssetSource::Local(filename) => {
                 //let 'a filename = filename.clone()
                 self.default_io.load_path(&Path::new(&filename))
             }
