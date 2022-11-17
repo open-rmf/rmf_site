@@ -58,7 +58,7 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
     // globally optimized across the different levels, instead levels will only
     // be scaled according to their individual measurements. This likely means
     // that scaling won't be quite as accurate overall, but everything should
-    // basically work.
+    // basically work as long as each level has one or more measurements.
     #[cfg(not(target_arch = "wasm32"))]
     {
         let constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));

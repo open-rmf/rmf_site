@@ -89,7 +89,7 @@ fn make_lift_transform(
         .point_in_parent_frame_of(reference_anchors.end(), Category::Lift, entity)
         .unwrap();
     let (p_start, p_end) = if reference_anchors.left() == reference_anchors.right() {
-        (p_start, p_start + DEFAULT_CABIN_WIDTH * Vec3::Y)
+        (p_start, p_start - DEFAULT_CABIN_WIDTH * Vec3::Y)
     } else {
         (p_start, p_end)
     };
