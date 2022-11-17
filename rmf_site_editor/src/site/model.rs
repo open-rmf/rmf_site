@@ -20,9 +20,10 @@ use crate::{
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
-use rmf_site_format::{Kind, ModelMarker, Pose};
+use rmf_site_format::{AssetSource, Kind, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Default, Debug, Clone, Deref, DerefMut)]
 pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
@@ -69,8 +70,10 @@ pub fn update_model_scenes(
             .insert(Category::Model);
 
         if let Some(kind) = &kind.0 {
-            let bundle_path = String::from("rmf-site://") + kind + &".glb#Scene0".to_string();
-            let scene: Handle<Scene> = asset_server.load(&bundle_path);
+            // TODO Search instead of Remote
+            let path = String::from(kind) + &".glb#Scene0".to_string();
+            let asset_source = AssetSource::Remote(path);
+            let scene: Handle<Scene> = asset_server.load(&String::from(asset_source));
             loading_models.insert(e, scene.clone());
             commands.insert(PreventDeletion::because(
                 "Waiting for model to spawn".to_string(),

@@ -9,6 +9,8 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
+use rmf_site_format::AssetSource;
+
 pub fn cache_path() -> PathBuf {
     let mut p = dirs::cache_dir().unwrap();
     p.push("open-robotics");
@@ -24,52 +26,56 @@ const SITE_EDITOR_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models
 
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        if path.starts_with("rmf-site://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("rmf-site://").unwrap();
-            let uri = String::from(SITE_EDITOR_MODELS_URI) + without_prefix;
-
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                let mut asset_path = cache_path();
-                asset_path.push(PathBuf::from(without_prefix));
-                if asset_path.exists() {
-                    return Box::pin(async move {
-                        let mut bytes = Vec::new();
-                        match fs::File::open(&asset_path) {
-                            Ok(mut file) => {
-                                file.read_to_end(&mut bytes)?;
-                            }
-                            Err(e) => {
-                                return if e.kind() == std::io::ErrorKind::NotFound {
-                                    Err(AssetIoError::NotFound(asset_path))
-                                } else {
-                                    Err(e.into())
-                                }
-                            }
-                        }
-                        Ok(bytes)
-                    });
-                }
-            }
-
-            Box::pin(async move {
-                let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
-                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                })?;
+        let asset_source = AssetSource::from(path);
+        match asset_source {
+            AssetSource::Remote(remote_url) => {
+                let uri = String::from(SITE_EDITOR_MODELS_URI) + &remote_url;
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
-                    asset_path.push(PathBuf::from(without_prefix));
-                    fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
-                    if bytes.len() > 0 {
-                        fs::write(asset_path, &bytes).expect("unable to write to file");
+                    asset_path.push(PathBuf::from(&remote_url));
+                    if asset_path.exists() {
+                        return Box::pin(async move {
+                            let mut bytes = Vec::new();
+                            match fs::File::open(&asset_path) {
+                                Ok(mut file) => {
+                                    file.read_to_end(&mut bytes)?;
+                                }
+                                Err(e) => {
+                                    return if e.kind() == std::io::ErrorKind::NotFound {
+                                        Err(AssetIoError::NotFound(asset_path))
+                                    } else {
+                                        Err(e.into())
+                                    }
+                                }
+                            }
+                            Ok(bytes)
+                        });
                     }
                 }
-                Ok(bytes)
-            })
-        } else {
-            self.default_io.load_path(path)
+
+                Box::pin(async move {
+                    let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
+                        AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+                    })?;
+
+                    #[cfg(not(target_arch = "wasm32"))]
+                    {
+                        let mut asset_path = cache_path();
+                        asset_path.push(PathBuf::from(&remote_url));
+                        fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
+                        if bytes.len() > 0 {
+                            fs::write(asset_path, &bytes).expect("unable to write to file");
+                        }
+                    }
+                    Ok(bytes)
+                })
+            } 
+            AssetSource::Local(_) => {
+                //let 'a filename = filename.clone()
+                self.default_io.load_path(&Path::new(&filename))
+            }
         }
     }
 
