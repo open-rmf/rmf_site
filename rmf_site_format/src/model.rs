@@ -25,9 +25,8 @@ use serde::{Deserialize, Serialize};
 pub struct Model {
     /// Name of the model instance
     pub name: NameInSite,
-    /// What kind of model is this (i.e. its SDF Model name). If None, nothing
-    /// will be loaded for it.
-    pub kind: Kind,
+    /// Where the model should be loaded from
+    pub source: AssetSource,
     /// Pose of the model relative to the level it is on.
     pub pose: Pose,
     #[serde(skip_serializing_if = "is_default")]
@@ -46,7 +45,7 @@ impl Default for Model {
     fn default() -> Self {
         Self {
             name: NameInSite("<Unnamed>".to_string()),
-            kind: Kind(None),
+            source: AssetSource::default(),
             pose: Pose::default(),
             is_static: IsStatic(false),
             marker: ModelMarker,
