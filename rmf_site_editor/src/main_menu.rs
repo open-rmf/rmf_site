@@ -155,10 +155,12 @@ fn egui_ui(
                     }
                 }
 
-                if ui.button("Warehouse generator").clicked() {
-                    println!("Entering warehouse generator");
-                    app_state.set(AppState::WarehouseGenerator).unwrap();
-                }
+                // TODO(MXG): Bring this back when we have time to fix the
+                // warehouse generator.
+                // if ui.button("Warehouse generator").clicked() {
+                //     println!("Entering warehouse generator");
+                //     app_state.set(AppState::WarehouseGenerator).unwrap();
+                // }
             });
 
             #[cfg(not(target_arch = "wasm32"))]
