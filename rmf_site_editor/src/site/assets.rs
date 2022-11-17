@@ -47,7 +47,7 @@ pub struct SiteAssets {
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let wall_texture = asset_server.load("rmf-site://textures/default.png");
+        let wall_texture = asset_server.load(&String::from(AssetSource::Remote("textures/default.png".to_string())));
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()

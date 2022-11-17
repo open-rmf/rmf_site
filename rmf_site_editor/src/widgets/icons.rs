@@ -17,6 +17,7 @@
 
 use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
+use rmf_site_format::AssetSource;
 
 #[derive(Clone, Debug)]
 pub struct Icons {
@@ -31,9 +32,9 @@ pub struct Icons {
 impl FromWorld for Icons {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let bevy_select = asset_server.load("rmf-site://textures/select.png");
-        let bevy_edit = asset_server.load("rmf-site://textures/edit.png");
-        let bevy_trash = asset_server.load("rmf-site://textures/trash.png");
+        let bevy_select = asset_server.load(&String::from(AssetSource::Remote("textures/select.png".to_string())));
+        let bevy_edit = asset_server.load(&String::from(AssetSource::Remote("textures/edit.png".to_string())));
+        let bevy_trash = asset_server.load(&String::from(AssetSource::Remote("textures/trash.png".to_string())));
 
         let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
         let egui_select = egui_context.add_image(bevy_select.clone());

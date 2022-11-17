@@ -25,6 +25,25 @@ struct SiteAssetIo {
 
 const SITE_EDITOR_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
 
+impl SiteAssetIo {
+    fn load_from_file(&self, path: PathBuf) -> Result<Vec<u8>, AssetIoError> {
+        let mut bytes = Vec::new();
+        match fs::File::open(&path) {
+            Ok(mut file) => {
+                file.read_to_end(&mut bytes)?;
+            }
+            Err(e) => {
+                return if e.kind() == std::io::ErrorKind::NotFound {
+                    Err(AssetIoError::NotFound(path))
+                } else {
+                    Err(e.into())
+                }
+            }
+        }
+        Ok(bytes)
+    }
+}
+
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         let asset_source = AssetSource::from(path);
@@ -32,30 +51,19 @@ impl AssetIo for SiteAssetIo {
             AssetSource::Remote(remote_url) => {
                 let uri = String::from(SITE_EDITOR_MODELS_URI) + &remote_url;
 
+                // Try local cache first
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
                     asset_path.push(PathBuf::from(&remote_url));
                     if asset_path.exists() {
                         return Box::pin(async move {
-                            let mut bytes = Vec::new();
-                            match fs::File::open(&asset_path) {
-                                Ok(mut file) => {
-                                    file.read_to_end(&mut bytes)?;
-                                }
-                                Err(e) => {
-                                    return if e.kind() == std::io::ErrorKind::NotFound {
-                                        Err(AssetIoError::NotFound(asset_path))
-                                    } else {
-                                        Err(e.into())
-                                    }
-                                }
-                            }
-                            Ok(bytes)
+                            self.load_from_file(asset_path)
                         });
                     }
                 }
 
+                // Get from remote server
                 Box::pin(async move {
                     let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
                         AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
@@ -75,22 +83,9 @@ impl AssetIo for SiteAssetIo {
             } 
             AssetSource::Local(filename) => {
                 Box::pin(async move {
-                    let mut bytes = Vec::new();
-                    let full_path = Path::new(&filename);
-                    //let full_path = self.root_path.join(path);
-                    match File::open(&full_path) {
-                        Ok(mut file) => {
-                            file.read_to_end(&mut bytes)?;
-                        }
-                        Err(e) => {
-                            return if e.kind() == std::io::ErrorKind::NotFound {
-                                Err(AssetIoError::NotFound(full_path.to_path_buf()))
-                            } else {
-                                Err(e.into())
-                            }
-                        }
-                    }
-                    Ok(bytes)
+                    let mut full_path = PathBuf::new();
+                    full_path.push(filename);
+                    self.load_from_file(full_path)
                 })
             }
         }
