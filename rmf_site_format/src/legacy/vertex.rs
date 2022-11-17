@@ -60,8 +60,7 @@ impl Vertex {
         if !me.spawn_robot_name.is_empty() && !me.spawn_robot_type.is_empty() {
             tags.push(LocationTag::SpawnRobot(Model {
                 name: NameInSite(me.spawn_robot_name.1.clone()),
-                // TODO Search instead of Remote
-                source: AssetSource::Remote(me.spawn_robot_type.1.clone()),
+                source: AssetSource::Search(me.spawn_robot_type.1.clone()),
                 pose: Pose::default(),
                 is_static: IsStatic(false),
                 marker: ModelMarker,

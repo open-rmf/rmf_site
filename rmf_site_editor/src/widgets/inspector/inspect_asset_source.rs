@@ -37,6 +37,7 @@ impl<'a> InspectAssetSource<'a> {
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,
+            AssetSource::Search(name) => name,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -46,6 +47,7 @@ impl<'a> InspectAssetSource<'a> {
                     for variant in &[
                         AssetSource::Local(assumed_source.clone()),
                         AssetSource::Remote(assumed_source.clone()),
+                        AssetSource::Search(assumed_source.clone()),
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
@@ -70,6 +72,9 @@ impl<'a> InspectAssetSource<'a> {
             }
             AssetSource::Remote(uri) => {
                 ui.text_edit_singleline(uri);
+            }
+            AssetSource::Search(name) => {
+                ui.text_edit_singleline(name);
             }
         }
         if &new_source != self.source {

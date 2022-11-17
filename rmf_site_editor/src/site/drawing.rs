@@ -56,6 +56,7 @@ pub fn add_drawing_visuals(
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(file_path.with_file_name(name).to_str().unwrap())),
             AssetSource::Remote(uri) => source.clone(),
+            AssetSource::Search(name) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(asset_source));
         loading_drawings
@@ -125,6 +126,7 @@ pub fn update_drawing_asset_source(
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(file_path.with_file_name(name).to_str().unwrap())),
             AssetSource::Remote(uri) => source.clone(),
+            AssetSource::Search(name) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(asset_source));
         loading_drawings

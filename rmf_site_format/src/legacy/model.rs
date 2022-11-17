@@ -24,8 +24,7 @@ impl Model {
     pub fn to_site(&self) -> SiteModel {
         SiteModel {
             name: NameInSite(self.instance_name.clone()),
-            // TODO change to Search
-            source: AssetSource::Remote(self.model_name.clone()),
+            source: AssetSource::Search(self.model_name.clone()),
             pose: Pose {
                 trans: [self.x as f32, self.y as f32, self.z_offset as f32],
                 rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),

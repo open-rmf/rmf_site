@@ -69,13 +69,18 @@ pub fn update_model_scenes(
             })
             .insert(Category::Model);
 
-        // TODO Search instead of Remote
         // TODO remove glb hardcoding? might create havoc with supported formats though
-        let path = match source {
-            AssetSource::Remote(path) => path.to_owned() + &".glb#Scene0".to_string(),
-            AssetSource::Local(filename) => filename.to_owned()+ &".glb#Scene0".to_string(),
+        // TODO is there a cleaner way to do this?
+        let asset_source = match source {
+            AssetSource::Remote(path) => AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string()),
+            AssetSource::Local(filename) => AssetSource::Local(filename.to_owned()+ &"#Scene0".to_string()),
+            AssetSource::Search(name) => AssetSource::Search(name.to_owned()+ &".glb#Scene0".to_string()),
         };
-        let asset_source = AssetSource::Remote(path);
+        /*
+        if let AssetSource::Search(file) = &asset_source {
+            println!("File is {}", file);
+        }
+        */
         let scene: Handle<Scene> = asset_server.load(&String::from(asset_source));
         loading_models.insert(e, scene.clone());
         commands.insert(PreventDeletion::because(

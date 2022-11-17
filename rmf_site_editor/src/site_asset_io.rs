@@ -88,6 +88,32 @@ impl AssetIo for SiteAssetIo {
                     self.load_from_file(full_path)
                 })
             }
+            AssetSource::Search(name) => {
+                // Order should be:
+                // Relative to the building.yaml location
+                // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
+                // Relative to a cache directory
+                // Attempt to fetch from the server and save it to the cache directory
+
+
+                // Try local cache
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let mut asset_path = cache_path();
+                    asset_path.push(PathBuf::from(&name));
+                    if asset_path.exists() {
+                        return Box::pin(async move {
+                            self.load_from_file(asset_path)
+                        });
+                    }
+                }
+
+                Box::pin(async move {
+                    let mut full_path = PathBuf::new();
+                    full_path.push(name);
+                    self.load_from_file(full_path)
+                })
+            }
         }
     }
 
