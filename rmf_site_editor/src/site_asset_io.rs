@@ -5,6 +5,7 @@ use bevy::{
 };
 use dirs;
 use std::fs;
+use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
@@ -73,8 +74,24 @@ impl AssetIo for SiteAssetIo {
                 })
             } 
             AssetSource::Local(filename) => {
-                //let 'a filename = filename.clone()
-                self.default_io.load_path(&Path::new(&filename))
+                Box::pin(async move {
+                    let mut bytes = Vec::new();
+                    let full_path = Path::new(&filename);
+                    //let full_path = self.root_path.join(path);
+                    match File::open(&full_path) {
+                        Ok(mut file) => {
+                            file.read_to_end(&mut bytes)?;
+                        }
+                        Err(e) => {
+                            return if e.kind() == std::io::ErrorKind::NotFound {
+                                Err(AssetIoError::NotFound(full_path.to_path_buf()))
+                            } else {
+                                Err(e.into())
+                            }
+                        }
+                    }
+                    Ok(bytes)
+                })
             }
         }
     }

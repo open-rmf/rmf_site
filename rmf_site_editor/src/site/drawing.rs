@@ -57,8 +57,6 @@ pub fn add_drawing_visuals(
             AssetSource::Local(name) => AssetSource::Local(String::from(file_path.with_file_name(name).to_str().unwrap())),
             AssetSource::Remote(uri) => source.clone(),
         };
-        let texture_path = String::from(asset_source.clone());
-        println!("Loading texture path {}", &texture_path);
         let texture_handle: Handle<Image> = asset_server.load(&String::from(asset_source));
         loading_drawings
             .0

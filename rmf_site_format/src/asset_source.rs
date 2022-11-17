@@ -51,36 +51,12 @@ impl From<&Path> for AssetSource {
             return AssetSource::Remote(String::from(without_prefix));
         }
         else if path.starts_with("file://") {
-            println!("Prestripping {}", path.to_str().unwrap());
             let without_prefix = path.to_str().unwrap().strip_prefix("file://").unwrap();
-            println!("Poststripping {}", without_prefix);
             return AssetSource::Local(String::from(without_prefix));
         }
         AssetSource::default()
     }
 }
-
-/*
-impl From<AssetSource> for PathBuf {
-    fn from(asset_source: AssetSource) -> PathBuf {
-        match asset_source {
-            AssetSource::Remote(uri) => { 
-                let mut buf = PathBuf::new();
-                buf.push("rmf-server://");
-                buf.push(uri);
-                println!("Buf is {}", buf.display().to_string());
-                buf
-            }
-            AssetSource::Local(filename) => { 
-                let mut buf = PathBuf::new();
-                buf.push("file://");
-                buf.push(filename);
-                buf
-            }
-        }
-    }
-}
-*/
 
 impl From<AssetSource> for String {
     fn from(asset_source: AssetSource) -> String {
@@ -89,9 +65,7 @@ impl From<AssetSource> for String {
                 String::from("rmf-server://") + &uri
             }
             AssetSource::Local(filename) => { 
-                let ret = String::from("file://") + &filename;
-                println!("Converted local path is {}", ret);
-                ret
+                String::from("file://") + &filename
             }
         }
     }
