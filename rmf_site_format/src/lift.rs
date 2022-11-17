@@ -366,7 +366,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
         let door = self.door(face).as_ref()?;
         let (u, v) = face.uv2();
         let n = Vec2::new(self.depth / 2.0, self.width / 2.0);
-        let half_door_t = door.thickness()/2.0;
+        let half_door_t = door.thickness() / 2.0;
         let delta = self.thickness() + door.custom_gap.unwrap_or(self.gap()) + half_door_t;
         let base = (n.dot(u).abs() + delta) * u;
         let left = base + door.left_coordinate() * v;
@@ -388,12 +388,15 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
 #[cfg(feature = "bevy")]
 impl<T: RefTrait> RectangularLiftCabin<T> {
     pub fn aabb(&self) -> Aabb {
-        let front_door_t = self.front_door.as_ref().map(|d| d.thickness())
+        let front_door_t = self
+            .front_door
+            .as_ref()
+            .map(|d| d.thickness())
             .unwrap_or(DEFAULT_CABIN_DOOR_THICKNESS);
 
         Aabb {
             center: Vec3A::new(
-                -self.depth / 2.0 - self.thickness() - self.gap() - front_door_t/2.0,
+                -self.depth / 2.0 - self.thickness() - self.gap() - front_door_t / 2.0,
                 self.shift(),
                 DEFAULT_LEVEL_HEIGHT / 2.0,
             ),
