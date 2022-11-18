@@ -33,7 +33,7 @@ impl<'a> InspectAssetSource<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
-        // TODO recall plugin once multiple sources exist
+        // TODO implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,

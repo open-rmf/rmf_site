@@ -50,14 +50,16 @@ impl From<&Path> for AssetSource {
     fn from(path: &Path) -> Self {
         // TODO pattern matching here would make sure unimplemented variants are a compile error
         if path.starts_with("rmf-server://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("rmf-server://").unwrap();
+            let without_prefix = path
+                .to_str()
+                .unwrap()
+                .strip_prefix("rmf-server://")
+                .unwrap();
             return AssetSource::Remote(String::from(without_prefix));
-        }
-        else if path.starts_with("file://") {
+        } else if path.starts_with("file://") {
             let without_prefix = path.to_str().unwrap().strip_prefix("file://").unwrap();
             return AssetSource::Local(String::from(without_prefix));
-        }
-        else if path.starts_with("search://") {
+        } else if path.starts_with("search://") {
             let without_prefix = path.to_str().unwrap().strip_prefix("search://").unwrap();
             return AssetSource::Search(String::from(without_prefix));
         }
@@ -68,15 +70,9 @@ impl From<&Path> for AssetSource {
 impl From<AssetSource> for String {
     fn from(asset_source: AssetSource) -> String {
         match asset_source {
-            AssetSource::Remote(uri) => { 
-                String::from("rmf-server://") + &uri
-            }
-            AssetSource::Local(filename) => { 
-                String::from("file://") + &filename
-            }
-            AssetSource::Search(name) => { 
-                String::from("search://") + &name
-            }
+            AssetSource::Remote(uri) => String::from("rmf-server://") + &uri,
+            AssetSource::Local(filename) => String::from("file://") + &filename,
+            AssetSource::Search(name) => String::from("search://") + &name,
         }
     }
 }

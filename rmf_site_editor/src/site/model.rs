@@ -43,7 +43,10 @@ pub struct ModelSceneRoot;
 
 pub fn update_model_scenes(
     mut commands: Commands,
-    mut changed_models: Query<(Entity, &AssetSource, &Pose), (Changed<AssetSource>, With<ModelMarker>)>,
+    mut changed_models: Query<
+        (Entity, &AssetSource, &Pose),
+        (Changed<AssetSource>, With<ModelMarker>),
+    >,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
@@ -72,9 +75,15 @@ pub fn update_model_scenes(
         // TODO remove glb hardcoding? might create havoc with supported formats though
         // TODO is there a cleaner way to do this?
         let asset_source = match source {
-            AssetSource::Remote(path) => AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string()),
-            AssetSource::Local(filename) => AssetSource::Local(filename.to_owned()+ &"#Scene0".to_string()),
-            AssetSource::Search(name) => AssetSource::Search(name.to_owned()+ &".glb#Scene0".to_string()),
+            AssetSource::Remote(path) => {
+                AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string())
+            }
+            AssetSource::Local(filename) => {
+                AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
+            }
+            AssetSource::Search(name) => {
+                AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
+            }
         };
         /*
         if let AssetSource::Search(file) = &asset_source {

@@ -249,7 +249,14 @@ fn generate_levels(
             (With<MeasurementMarker>, Without<Pending>),
         >,
         Query<
-            (&NameInSite, &AssetSource, &Pose, &IsStatic, &SiteID, &Parent),
+            (
+                &NameInSite,
+                &AssetSource,
+                &Pose,
+                &IsStatic,
+                &SiteID,
+                &Parent,
+            ),
             (With<ModelMarker>, Without<Pending>),
         >,
         Query<

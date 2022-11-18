@@ -1,6 +1,6 @@
 use super::rbmf::*;
 use crate::{
-    AssetSource, is_default, IsStatic, Location, LocationTag, LocationTags, Model, ModelMarker,
+    is_default, AssetSource, IsStatic, Location, LocationTag, LocationTags, Model, ModelMarker,
     NameInSite, Pose,
 };
 use glam::DVec2;

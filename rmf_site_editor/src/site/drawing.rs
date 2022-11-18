@@ -54,7 +54,9 @@ pub fn add_drawing_visuals(
         // Append file name to path if it's a local file
         // TODO cleanup
         let asset_source = match source {
-            AssetSource::Local(name) => AssetSource::Local(String::from(file_path.with_file_name(name).to_str().unwrap())),
+            AssetSource::Local(name) => AssetSource::Local(String::from(
+                file_path.with_file_name(name).to_str().unwrap(),
+            )),
             AssetSource::Remote(uri) => source.clone(),
             AssetSource::Search(name) => source.clone(),
         };
@@ -124,7 +126,9 @@ pub fn update_drawing_asset_source(
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
         // TODO cleanup
         let asset_source = match source {
-            AssetSource::Local(name) => AssetSource::Local(String::from(file_path.with_file_name(name).to_str().unwrap())),
+            AssetSource::Local(name) => AssetSource::Local(String::from(
+                file_path.with_file_name(name).to_str().unwrap(),
+            )),
             AssetSource::Remote(uri) => source.clone(),
             AssetSource::Search(name) => source.clone(),
         };

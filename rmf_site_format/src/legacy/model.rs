@@ -1,4 +1,6 @@
-use crate::{Angle, AssetSource, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation};
+use crate::{
+    Angle, AssetSource, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation,
+};
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
 
