@@ -38,7 +38,7 @@ pub fn add_drawing_visuals(
     site_files: Query<&DefaultFile>,
 ) {
     // TODO support for remote sources
-    let mut file_path = match get_current_site_path(current_site, site_files) {
+    let file_path = match get_current_site_path(current_site, site_files).unwrap_or(PathBuf::new());
         Some(file_path) => file_path,
         None => return,
     };
