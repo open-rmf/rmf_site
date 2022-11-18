@@ -18,7 +18,7 @@
 use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
-    site::{Category, CurrentSite, DefaultFile},
+    site::{Category, CurrentSite, DefaultFile, get_current_site_path},
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
@@ -29,14 +29,6 @@ use std::path::{Path, PathBuf};
 // since we will need to scale the mesh according to the size of the image
 #[derive(Default)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
-
-fn get_current_site_path(
-    current_site: Res<CurrentSite>,
-    site_files: Query<&DefaultFile>,
-) -> Option<PathBuf> {
-    let site_entity = (*current_site).0?;
-    site_files.get(site_entity).map(|f| f.0.clone()).ok()
-}
 
 pub fn add_drawing_visuals(
     new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
@@ -60,7 +52,7 @@ pub fn add_drawing_visuals(
             AssetSource::Remote(uri) => source.clone(),
             AssetSource::Search(name) => source.clone(),
         };
-        let texture_handle: Handle<Image> = asset_server.load(&String::from(asset_source));
+        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
@@ -132,7 +124,7 @@ pub fn update_drawing_asset_source(
             AssetSource::Remote(uri) => source.clone(),
             AssetSource::Search(name) => source.clone(),
         };
-        let texture_handle: Handle<Image> = asset_server.load(&String::from(asset_source));
+        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));

@@ -85,12 +85,7 @@ pub fn update_model_scenes(
                 AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
             }
         };
-        /*
-        if let AssetSource::Search(file) = &asset_source {
-            println!("File is {}", file);
-        }
-        */
-        let scene: Handle<Scene> = asset_server.load(&String::from(asset_source));
+        let scene: Handle<Scene> = asset_server.load(&String::from(&asset_source));
         loading_models.insert(e, scene.clone());
         commands.insert(PreventDeletion::because(
             "Waiting for model to spawn".to_string(),

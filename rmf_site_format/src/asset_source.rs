@@ -67,8 +67,8 @@ impl From<&Path> for AssetSource {
     }
 }
 
-impl From<AssetSource> for String {
-    fn from(asset_source: AssetSource) -> String {
+impl From<&AssetSource> for String {
+    fn from(asset_source: &AssetSource) -> String {
         match asset_source {
             AssetSource::Remote(uri) => String::from("rmf-server://") + &uri,
             AssetSource::Local(filename) => String::from("file://") + &filename,
