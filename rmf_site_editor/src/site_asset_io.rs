@@ -54,6 +54,15 @@ impl SiteAssetIo {
             false => Err(env::VarError::NotPresent),
         }
     }
+
+    fn save_to_cache(&self, name: &String, bytes: &[u8]) {
+        let mut asset_path = cache_path();
+        asset_path.push(PathBuf::from(&name));
+        fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
+        if bytes.len() > 0 {
+            fs::write(asset_path, bytes).expect("unable to write to file");
+        }
+    }
 }
 
 impl AssetIo for SiteAssetIo {
@@ -81,12 +90,7 @@ impl AssetIo for SiteAssetIo {
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        let mut asset_path = cache_path();
-                        asset_path.push(PathBuf::from(&remote_url));
-                        fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
-                        if bytes.len() > 0 {
-                            fs::write(asset_path, &bytes).expect("unable to write to file");
-                        }
+                        self.save_to_cache(&remote_url, &bytes);
                     }
                     Ok(bytes)
                 })
@@ -134,12 +138,7 @@ impl AssetIo for SiteAssetIo {
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
-                        let mut asset_path = cache_path();
-                        asset_path.push(PathBuf::from(&name));
-                        fs::create_dir_all(asset_path.parent().unwrap()).unwrap();
-                        if bytes.len() > 0 {
-                            fs::write(asset_path, &bytes).expect("unable to write to file");
-                        }
+                        self.save_to_cache(&name, &bytes);
                     }
                     Ok(bytes)
                 })

@@ -43,7 +43,6 @@ pub fn get_current_site_path(
     site_files.get(site_entity).map(|f| f.0.clone()).ok()
 }
 
-
 /// This component indicates what labels are used to refer to the start/left
 /// end/right anchors of an edge.
 #[derive(Component, Clone, Copy, Debug)]

@@ -18,7 +18,7 @@
 use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
-    site::{Category, CurrentSite, DefaultFile, get_current_site_path},
+    site::{get_current_site_path, Category, CurrentSite, DefaultFile},
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
