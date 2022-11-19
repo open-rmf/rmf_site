@@ -239,7 +239,7 @@ impl Lift {
                         },
                     )?;
 
-                    door_level_visits.entry(*door).or_default().insert(level);
+                    door_level_visits.entry(*door).or_default().0.insert(level);
                 }
             }
             door_level_visits
