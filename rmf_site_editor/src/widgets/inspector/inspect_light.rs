@@ -79,6 +79,7 @@ impl<'a> InspectLightKind<'a> {
                             .clamp_range(0_f32..=std::f32::INFINITY)
                     );
                 });
+                ui.checkbox(&mut point.enable_shadows, "Enable Shadows");
             }
             LightKind::Spot(spot) => {
                 ui.horizontal(|ui| {
@@ -107,6 +108,7 @@ impl<'a> InspectLightKind<'a> {
                             .clamp_range(0_f32..=std::f32::INFINITY)
                     );
                 });
+                ui.checkbox(&mut spot.enable_shadows, "Enable Shadows");
             }
             LightKind::Directional(dir) => {
                 ui.horizontal(|ui| {

@@ -17,6 +17,7 @@
 
 use crate::{
     site::{Light, LightKind, RecallLightKind, SiteID, Pose, Recall, Category, Rotation, Angle},
+    interaction::Select,
     icons::Icons,
     widgets::{
         AppEvents,
@@ -69,7 +70,21 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        ui.label("New light");
+        let mut use_headlight = self.events.toggle_headlights.0;
+        ui.checkbox(&mut use_headlight, "Use Headlight");
+        if use_headlight != self.events.toggle_headlights.0 {
+            self.events.toggle_headlights.0 = use_headlight;
+        }
+
+        let mut use_physical_lights = self.events.toggle_physical_lights.0;
+        ui.checkbox(&mut use_physical_lights, "Use Physical Lights");
+        if use_physical_lights != self.events.toggle_physical_lights.0 {
+            self.events.toggle_physical_lights.0 = use_physical_lights;
+        }
+
+        ui.separator();
+
+        ui.heading("Create new light");
         if let Some(new_pose) = InspectPose::new(
             &self.events.light_display.pose
         ).show(ui) {
@@ -85,12 +100,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
             }
         });
 
+        // TODO(MXG): Add a + icon to this button to make it more visible
         if ui.button("Add").clicked() {
-            self.events.commands.spawn_bundle(Light {
+            let new_light = self.events.commands.spawn_bundle(Light {
                 pose: self.events.light_display.pose,
                 kind: self.events.light_display.kind,
             })
-            .insert(Category::Light);
+            .insert(Category::Light)
+            .id();
+            self.events.select.send(Select(Some(new_light)));
         }
 
         ui.separator();

@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
-    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
+    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview, HeadlightToggle},
+    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability, PhysicalLightToggle},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -95,6 +95,8 @@ pub struct AppEvents<'w, 's> {
     pub light_display: ResMut<'w, LightDisplay>,
     pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub toggle_headlights: ResMut<'w, HeadlightToggle>,
+    pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub delete: EventWriter<'w, 's, Delete>,
 }

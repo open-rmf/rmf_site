@@ -22,6 +22,7 @@ use bevy::{
     render::camera::{Camera, Projection, ScalingMode, WindowOrigin},
 };
 use bevy_egui::EguiContext;
+use crate::interaction::PickingBlockers;
 
 struct MouseLocation {
     previous: Vec2,
@@ -40,15 +41,37 @@ pub enum ProjectionMode {
     Orthographic,
 }
 
+impl ProjectionMode {
+    pub fn is_perspective(&self) -> bool {
+        matches!(self, Self::Perspective)
+    }
+
+    pub fn is_orthographic(&self) -> bool {
+        matches!(self, Self::Orthographic)
+    }
+}
+
 #[derive(Debug, Clone, Reflect)]
 pub struct CameraControls {
     mode: ProjectionMode,
     pub perspective_camera_entity: Entity,
+    pub perspective_headlight: Entity,
     pub orthographic_camera_entity: Entity,
+    pub orthographic_headlight: Entity,
     pub orbit_center: Vec3,
     pub orbit_radius: f32,
     pub orbit_upside_down: bool,
     pub was_oribiting: bool,
+}
+
+/// True/false for whether the headlight should be on or off
+#[derive(Clone, Copy, PartialEq, Eq, Deref, DerefMut)]
+pub struct HeadlightToggle(pub bool);
+
+impl Default for HeadlightToggle {
+    fn default() -> Self {
+        Self(true)
+    }
 }
 
 impl CameraControls {
@@ -96,54 +119,50 @@ impl CameraControls {
             ProjectionMode::Orthographic => self.orthographic_camera_entity,
         }
     }
+
+    pub fn toggle_lights(
+        &self,
+        toggle: bool,
+        visibility: &mut Query<&mut Visibility>,
+    ) {
+        if let Ok(mut v) = visibility.get_mut(self.perspective_headlight) {
+            v.is_visible = toggle && self.mode.is_perspective();
+        }
+
+        if let Ok(mut v) = visibility.get_mut(self.orthographic_headlight) {
+            v.is_visible = toggle && self.mode.is_orthographic();
+        }
+    }
 }
 
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
-        let mut perspective = world.spawn();
-        perspective.insert_bundle(Camera3dBundle {
-            transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
-            projection: Projection::Perspective(Default::default()),
-            ..default()
-        });
-        perspective
-            .insert(Visibility::visible())
-            .insert(ComputedVisibility::default());
-
-        // TODO(MXG): Change this to a user-controlled headlight on/off toggle.
-        perspective.with_children(|parent| {
-            parent.spawn_bundle(DirectionalLightBundle {
+        let persp_headlight = world.spawn()
+            .insert_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
                     illuminance: 20000.,
                     ..default()
                 },
                 ..default()
-            });
-        });
-        let perspective_id = perspective.id();
+            })
+            .id();
 
-        let mut ortho = world.spawn();
-        ortho.insert_bundle(Camera3dBundle {
-            camera: Camera {
-                is_active: false,
+        let perspective_id = world
+            .spawn()
+            .insert_bundle(Camera3dBundle {
+                transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
+                projection: Projection::Perspective(Default::default()),
                 ..default()
-            },
-            transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
-            projection: Projection::Orthographic(OrthographicProjection {
-                window_origin: WindowOrigin::Center,
-                scaling_mode: ScalingMode::FixedVertical(1.0),
-                scale: 10.0,
-                ..default()
-            }),
-            ..default()
-        });
-        ortho
+            })
             .insert(Visibility::visible())
-            .insert(ComputedVisibility::default());
+            .insert(ComputedVisibility::default())
+            .push_children(&[persp_headlight])
+            .id();
 
-        ortho.with_children(|parent| {
-            parent.spawn_bundle(DirectionalLightBundle {
+        let ortho_headlight = world
+            .spawn()
+            .insert_bundle(DirectionalLightBundle {
                 transform: Transform::from_rotation(Quat::from_axis_angle(
                     Vec3::new(1., 1., 0.).normalize(),
                     35_f32.to_radians(),
@@ -154,14 +173,36 @@ impl FromWorld for CameraControls {
                     ..default()
                 },
                 ..default()
-            });
-        });
-        let ortho_id = ortho.id();
+            })
+            .id();
+
+        let ortho_id = world
+            .spawn()
+            .insert_bundle(Camera3dBundle {
+                camera: Camera {
+                    is_active: false,
+                    ..default()
+                },
+                transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
+                projection: Projection::Orthographic(OrthographicProjection {
+                    window_origin: WindowOrigin::Center,
+                    scaling_mode: ScalingMode::FixedVertical(1.0),
+                    scale: 10.0,
+                    ..default()
+                }),
+                ..default()
+            })
+            .insert(Visibility::visible())
+            .insert(ComputedVisibility::default())
+            .push_children(&[ortho_headlight])
+            .id();
 
         CameraControls {
             mode: ProjectionMode::Perspective,
             perspective_camera_entity: perspective_id,
+            perspective_headlight: persp_headlight,
             orthographic_camera_entity: ortho_id,
+            orthographic_headlight: ortho_headlight,
             orbit_center: Vec3::ZERO,
             orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
             orbit_upside_down: false,
@@ -179,11 +220,16 @@ fn camera_controls(
     mut previous_mouse_location: ResMut<MouseLocation>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
-    mut egui_context: ResMut<EguiContext>,
+    mut visibility: Query<&mut Visibility>,
+    headlight_toggle: Res<HeadlightToggle>,
+    picking_blockers: Res<PickingBlockers>,
 ) {
+    if headlight_toggle.is_changed() {
+        controls.toggle_lights(headlight_toggle.0, &mut visibility);
+    }
+
     // give input priority to ui elements
-    let egui_ctx = egui_context.ctx_mut();
-    if egui_ctx.wants_pointer_input() || egui_ctx.wants_keyboard_input() {
+    if picking_blockers.ui {
         return;
     }
 
@@ -321,8 +367,10 @@ pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MouseLocation::default())
+        app
+            .insert_resource(MouseLocation::default())
             .init_resource::<CameraControls>()
+            .init_resource::<HeadlightToggle>()
             .add_system(camera_controls);
     }
 }

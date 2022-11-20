@@ -30,6 +30,17 @@ use bevy::{
 use rmf_site_format::LightKind;
 use crate::site::SiteAssets;
 
+/// True/false for whether the physical lights of an environment should be
+/// rendered.
+#[derive(Clone, Copy)]
+pub struct PhysicalLightToggle(pub bool);
+
+impl Default for PhysicalLightToggle {
+    fn default() -> Self {
+        Self(true)
+    }
+}
+
 #[derive(Clone, Copy, Debug, Component)]
 pub struct LightBodies {
     /// Visibility group for the point light
@@ -65,6 +76,7 @@ pub fn add_physical_lights(
     added: Query<Entity, Added<LightKind>>,
     assets: Res<SiteAssets>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    physical_light_toggle: Res<PhysicalLightToggle>,
 ) {
     for e in &added {
         // This adds all the extra components provided by all three of the
@@ -78,7 +90,7 @@ pub fn add_physical_lights(
         let bodies = commands
             .entity(e)
             .insert(light_material.clone())
-            .insert(Visibility::visible())
+            .insert(Visibility { is_visible: physical_light_toggle.0 })
             .insert(ComputedVisibility::default())
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
@@ -205,6 +217,17 @@ pub fn update_physical_lights(
             m.base_color = kind.color().into();
         } else {
             println!("DEV ERROR: Unable to get material asset for light {e:?}");
+        }
+    }
+}
+
+pub fn toggle_physical_lights(
+    mut physical_lights: Query<&mut Visibility, With<LightKind>>,
+    physical_light_toggle: Res<PhysicalLightToggle>,
+) {
+    if physical_light_toggle.is_changed() {
+        for mut v in &mut physical_lights {
+            v.is_visible = physical_light_toggle.0;
         }
     }
 }
