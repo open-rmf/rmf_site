@@ -28,7 +28,7 @@ use bevy::{
     }
 };
 use rmf_site_format::LightKind;
-use crate::site::SiteAssets;
+use crate::site::{SiteAssets, CurrentLevel};
 
 /// True/false for whether the physical lights of an environment should be
 /// rendered.
@@ -43,10 +43,11 @@ impl Default for PhysicalLightToggle {
 
 pub fn add_physical_lights(
     mut commands: Commands,
-    added: Query<Entity, Added<LightKind>>,
+    added: Query<(Entity, Option<&Parent>), Added<LightKind>>,
     physical_light_toggle: Res<PhysicalLightToggle>,
+    current_level: Res<CurrentLevel>,
 ) {
-    for e in &added {
+    for (e, parent) in &added {
         // This adds all the extra components provided by all three of the
         // possible light bundles so we can easily switch between the different
         // light types
@@ -58,6 +59,14 @@ pub fn add_physical_lights(
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
             .insert(CubemapVisibleEntities::default());
+
+        if parent.is_none() {
+            if let Some(current_level) = **current_level {
+                commands.entity(current_level).add_child(e);
+            } else {
+                println!("DEV ERROR: No current level to assign light {e:?}");
+            }
+        }
     }
 }
 
