@@ -90,6 +90,14 @@ impl LightKind {
     pub fn is_directional(&self) -> bool {
         matches!(self, Self::Directional(_))
     }
+
+    pub fn color(&self) -> [f32; 4] {
+        match self {
+            Self::Point(point) => point.color,
+            Self::Spot(spot) => spot.color,
+            Self::Directional(dir) => dir.color,
+        }
+    }
 }
 
 impl From<PointLight> for LightKind {

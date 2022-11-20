@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Light, LightKind, RecallLightKind, SiteID, Pose, Recall, Category},
+    site::{Light, LightKind, RecallLightKind, SiteID, Pose, Recall, Category, Rotation, Angle},
     icons::Icons,
     widgets::{
         AppEvents,
@@ -31,11 +31,25 @@ use bevy_egui::egui::Ui;
 use std::collections::BTreeMap;
 use std::cmp::Reverse;
 
-#[derive(Default)]
 pub struct LightDisplay {
     pub pose: Pose,
     pub kind: LightKind,
     pub recall: RecallLightKind,
+}
+
+impl Default for LightDisplay {
+    fn default() -> Self {
+        Self {
+            pose: Pose {
+                trans: [0.0, 0.0, 2.0],
+                rot: Rotation::EulerExtrinsicXYZ([
+                    Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(0.0)
+                ])
+            },
+            kind: Default::default(),
+            recall: Default::default(),
+        }
+    }
 }
 
 #[derive(SystemParam)]
