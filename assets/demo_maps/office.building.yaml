@@ -134,6 +134,10 @@ levels:
     physical_cameras:
       - [camera1, 1573, 521, 2.0, 0.3, 1.57, 2.0, 480, 320, 30]
       - [camera2, 746, 1245, 2.0, 0.3, 0.4, 2.0, 480, 320, 30]
+    lights:
+      - {pose: {trans: [1573, 783, 2.6]}, kind: {type: spot}}
+      - {pose: {trans: [1273, 783, 2.6]}, kind: {type: point, enable_shadows: false}}
+      - {pose: {trans: [1973, 633, 2.6]}, kind: {type: point, color: [0.5, 0.5, 1.0, 1.0]}}
     vertices:
       - [80.27, 1024.974, 0, ""]
       - [580.795, 43.396, 0, ""]

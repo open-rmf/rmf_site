@@ -77,6 +77,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut point.radius)
                             .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.1)
                     );
                 });
                 ui.checkbox(&mut point.enable_shadows, "Enable Shadows");
@@ -106,6 +107,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut spot.radius)
                             .clamp_range(0_f32..=std::f32::INFINITY)
+                            .speed(0.1)
                     );
                 });
                 ui.checkbox(&mut spot.enable_shadows, "Enable Shadows");

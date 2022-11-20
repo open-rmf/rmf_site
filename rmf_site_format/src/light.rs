@@ -35,10 +35,11 @@ pub struct Light {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(tag = "type", rename_all = "snake_case")]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LightKind {
     Point(PointLight),
-    Spot (SpotLight),
+    Spot(SpotLight),
     Directional(DirectionalLight),
 }
 

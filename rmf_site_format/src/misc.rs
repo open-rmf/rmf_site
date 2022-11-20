@@ -18,7 +18,7 @@
 use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use glam::{Vec2, Vec3};
+use glam::{Vec2, Vec3, Quat};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
@@ -145,6 +145,21 @@ impl Angle {
             Angle::Rad(v) => v.to_degrees(),
         }
     }
+
+    pub fn match_variant(self, other: Angle) -> Self {
+        match other {
+            Angle::Deg(_) => Angle::Deg(self.degrees()),
+            Angle::Rad(_) => Angle::Rad(self.radians()),
+        }
+    }
+
+    pub fn is_radians(&self) -> bool {
+        matches!(self, Angle::Rad(_))
+    }
+
+    pub fn is_degrees(&self) -> bool {
+        matches!(self, Angle::Deg(_))
+    }
 }
 
 impl std::ops::Mul<f32> for Angle {
@@ -174,6 +189,13 @@ impl std::ops::Add for Angle {
     }
 }
 
+impl std::ops::AddAssign for Angle {
+    fn add_assign(&mut self, rhs: Self) {
+        let result = *self + rhs;
+        *self = result;
+    }
+}
+
 impl std::ops::Sub for Angle {
     type Output = Angle;
     fn sub(self, rhs: Self) -> Self::Output {
@@ -184,11 +206,32 @@ impl std::ops::Sub for Angle {
     }
 }
 
+impl std::ops::SubAssign for Angle {
+    fn sub_assign(&mut self, rhs: Self) {
+        let result = *self - rhs;
+        *self = result;
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[serde(tag = "type")]
 pub enum Rotation {
     Yaw(Angle),
     EulerExtrinsicXYZ([Angle; 3]),
     Quat([f32; 4]),
+}
+
+impl Rotation {
+    pub fn apply_yaw(&mut self, delta: Angle) {
+        match self {
+            Self::Yaw(yaw) => *yaw += delta,
+            Self::EulerExtrinsicXYZ([_, _, yaw]) => *yaw += delta,
+            Self::Quat(quat) => {
+                let q = Quat::from_array(*quat);
+                *quat = Quat::from_rotation_z(delta.radians()).mul_quat(q).to_array();
+            }
+        }
+    }
 }
 
 #[cfg(feature = "bevy")]
@@ -237,10 +280,17 @@ impl Rotation {
     }
 }
 
+impl Default for Rotation {
+    fn default() -> Self {
+        Rotation::Yaw(Angle::Deg(0.))
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
+    #[serde(default)]
     pub rot: Rotation,
 }
 
@@ -248,7 +298,7 @@ impl Default for Pose {
     fn default() -> Self {
         Self {
             trans: [0., 0., 0.],
-            rot: Rotation::Yaw(Angle::Deg(0.)),
+            rot: Rotation::default(),
         }
     }
 }
@@ -260,6 +310,38 @@ impl Pose {
             translation: self.trans.clone().into(),
             rotation: self.rot.as_bevy_quat(),
             ..default()
+        }
+    }
+
+    pub fn align_with(&mut self, tf: &Transform) {
+        self.trans = tf.translation.into();
+
+        match self.rot {
+            Rotation::Yaw(angle) => {
+                let (yaw, pitch, roll) = tf.rotation.to_euler(EulerRot::ZYX);
+                if pitch != 0.0 || roll != 0.0 {
+                    // Automatically switch the representation if the pitch or
+                    // roll are no longer 0.0
+                    self.rot = Rotation::EulerExtrinsicXYZ([
+                        Angle::Rad(roll).match_variant(angle),
+                        Angle::Rad(pitch).match_variant(angle),
+                        Angle::Rad(yaw).match_variant(angle),
+                    ]);
+                } else {
+                    self.rot = Rotation::Yaw(Angle::Rad(yaw).match_variant(angle));
+                }
+            }
+            Rotation::EulerExtrinsicXYZ([o_roll, o_pitch, o_yaw]) => {
+                let (yaw, pitch, roll) = tf.rotation.to_euler(EulerRot::ZYX);
+                self.rot = Rotation::EulerExtrinsicXYZ([
+                    Angle::Rad(roll).match_variant(o_roll),
+                    Angle::Rad(pitch).match_variant(o_pitch),
+                    Angle::Rad(yaw).match_variant(o_yaw),
+                ]);
+            }
+            Rotation::Quat(_) => {
+                self.rot = Rotation::Quat(tf.rotation.to_array());
+            }
         }
     }
 }

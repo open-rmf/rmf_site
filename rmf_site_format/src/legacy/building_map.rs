@@ -85,6 +85,16 @@ impl BuildingMap {
                 camera.yaw -= delta_yaw;
             }
 
+            for light in &mut level.lights {
+                let p = tf.transform_point2(DVec2::new(
+                    light.pose.trans[0] as f64,
+                    light.pose.trans[1] as f64,
+                ));
+                light.pose.trans[0] = p.x as f32;
+                light.pose.trans[1] = -p.y as f32;
+                light.pose.rot.apply_yaw(Angle::Rad(-delta_yaw as f32));
+            }
+
             for fiducial in &mut level.fiducials {
                 let p = tf.transform_point2(fiducial.to_vec());
                 fiducial.0 = p.x;
@@ -231,6 +241,11 @@ impl BuildingMap {
                 physical_cameras.insert(site_id.next().unwrap(), cam.to_site());
             }
 
+            let mut lights = BTreeMap::new();
+            for light in &level.lights {
+                lights.insert(site_id.next().unwrap(), light.clone());
+            }
+
             let mut walls = BTreeMap::new();
             for wall in &level.walls {
                 let site_wall = wall.to_site(&vertex_to_anchor_id)?;
@@ -253,7 +268,7 @@ impl BuildingMap {
                     drawings,
                     fiducials,
                     floors,
-                    lights: Default::default(),
+                    lights,
                     measurements,
                     models,
                     physical_cameras,

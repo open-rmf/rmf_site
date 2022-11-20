@@ -42,7 +42,7 @@ impl Default for LightDisplay {
     fn default() -> Self {
         Self {
             pose: Pose {
-                trans: [0.0, 0.0, 2.0],
+                trans: [0.0, 0.0, 2.6],
                 rot: Rotation::EulerExtrinsicXYZ([
                     Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(0.0)
                 ])
