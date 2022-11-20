@@ -85,12 +85,24 @@ pub fn add_physical_lights(
             .insert(CubemapFrusta::default())
             .insert(CubemapVisibleEntities::default())
             .add_children(|parent| {
-                let point = parent.spawn_bundle(PbrBundle{
-                    mesh: assets.point_light_mesh.clone(),
-                    visibility: Visibility { is_visible: false },
-                    material: light_material.clone(),
-                    ..default()
-                }).id();
+                let point = parent
+                    .spawn_bundle(SpatialBundle {
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    })
+                    .with_children(|point| {
+                        point.spawn_bundle(PbrBundle {
+                            mesh: assets.point_light_socket_mesh.clone(),
+                            material: assets.physical_camera_material.clone(),
+                            ..default()
+                        });
+
+                        point.spawn_bundle(PbrBundle {
+                            mesh: assets.point_light_shine_mesh.clone(),
+                            material: light_material.clone(),
+                            ..default()
+                        });
+                    }).id();
 
                 let spot = parent
                     .spawn_bundle(SpatialBundle {

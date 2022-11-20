@@ -521,6 +521,28 @@ pub(crate) fn make_wall_mesh(
         )
 }
 
+pub(crate) fn make_top_circle(circle: Circle, resolution: u32) -> MeshBuffer {
+    let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
+        .take(resolution as usize) // skip the vertex which would close the circle
+        .chain([[0., 0., circle.height]].into_iter())
+        .collect();
+
+    let peak = positions.len() as u32 - 1;
+    let indices: Vec<u32> = (0..=peak - 2)
+        .into_iter()
+        .flat_map(|i| [i, i + 1, peak].into_iter())
+        .chain([peak - 1, 0, peak])
+        .collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    return MeshBuffer::new(positions, normals, indices);
+}
+
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
         .take(resolution as usize) // skip the vertex which would close the circle

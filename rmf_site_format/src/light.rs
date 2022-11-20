@@ -71,6 +71,54 @@ impl LightKind {
         }
     }
 
+    pub fn color(&self) -> [f32; 4] {
+        match self {
+            Self::Point(l) => l.color,
+            Self::Spot(l) => l.color,
+            Self::Directional(l) => l.color,
+        }
+    }
+
+    pub fn intensity(&self) -> Option<f32> {
+        match self {
+            Self::Point(l) => Some(l.intensity),
+            Self::Spot(l) => Some(l.intensity),
+            Self::Directional(_) => None,
+        }
+    }
+
+    pub fn range(&self) -> Option<f32> {
+        match self {
+            Self::Point(l) => Some(l.range),
+            Self::Spot(l) => Some(l.range),
+            Self::Directional(_) => None,
+        }
+    }
+
+    pub fn radius(&self) -> Option<f32> {
+        match self {
+            Self::Point(l) => Some(l.radius),
+            Self::Spot(l) => Some(l.radius),
+            Self::Directional(_) => None,
+        }
+    }
+
+    pub fn enable_shadows(&self) -> bool {
+        match self {
+            Self::Point(l) => l.enable_shadows,
+            Self::Spot(l) => l.enable_shadows,
+            Self::Directional(l) => l.enable_shadows,
+        }
+    }
+
+    pub fn illuminance(&self) -> Option<f32> {
+        match self {
+            Self::Point(_) => None,
+            Self::Spot(_) => None,
+            Self::Directional(l) => Some(l.illuminance),
+        }
+    }
+
     pub fn label(&self) -> &'static str {
         match self {
             Self::Point(_) => "Point",
@@ -89,14 +137,6 @@ impl LightKind {
 
     pub fn is_directional(&self) -> bool {
         matches!(self, Self::Directional(_))
-    }
-
-    pub fn color(&self) -> [f32; 4] {
-        match self {
-            Self::Point(point) => point.color,
-            Self::Spot(spot) => spot.color,
-            Self::Directional(dir) => dir.color,
-        }
     }
 }
 
@@ -147,6 +187,8 @@ pub struct PointLight {
     pub range: f32,
     #[serde(default="default_radius")]
     pub radius: f32,
+    #[serde(default="bool_true")]
+    pub enable_shadows: bool,
 }
 
 impl PointLight {
@@ -156,6 +198,7 @@ impl PointLight {
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
+            shadows_enabled: self.enable_shadows,
             ..Default::default()
         }
     }
@@ -168,6 +211,7 @@ impl Default for PointLight {
             intensity: 800.0,
             range: 20.0,
             radius: 0.0,
+            enable_shadows: true,
         }
     }
 }
@@ -182,6 +226,8 @@ pub struct SpotLight {
     pub range: f32,
     #[serde(default="default_radius")]
     pub radius: f32,
+    #[serde(default="bool_true")]
+    pub enable_shadows: bool,
 }
 
 impl SpotLight {
@@ -191,6 +237,7 @@ impl SpotLight {
             intensity: self.intensity,
             range: self.range,
             radius: self.radius,
+            shadows_enabled: self.enable_shadows,
             ..Default::default()
         }
     }
@@ -203,6 +250,7 @@ impl Default for SpotLight {
             intensity: 800.0,
             range: 20.0,
             radius: 0.0,
+            enable_shadows: true,
         }
     }
 }
@@ -241,34 +289,53 @@ impl Default for DirectionalLight {
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallLightKind {
-    pub point: Option<PointLight>,
-    pub spot: Option<SpotLight>,
-    pub directional: Option<DirectionalLight>,
+    pub intensity: Option<f32>,
+    pub range: Option<f32>,
+    pub radius: Option<f32>,
+    pub illuminance: Option<f32>,
 }
 
 impl RecallLightKind {
+
+    pub fn intensity(&self) -> f32 {
+        self.intensity.unwrap_or(default_intensity())
+    }
+    pub fn range(&self) -> f32 {
+        self.range.unwrap_or(default_range())
+    }
+    pub fn radius(&self) -> f32 {
+        self.radius.unwrap_or(default_radius())
+    }
+    pub fn illuminance(&self) -> f32 {
+        self.illuminance.unwrap_or(default_illuminance())
+    }
+
     pub fn assume_point(&self, current: &LightKind) -> LightKind {
-        current
-            .point()
-            .cloned()
-            .unwrap_or(self.point.clone().unwrap_or(PointLight::default()))
-            .into()
+        PointLight {
+            color: current.color(),
+            intensity: current.intensity().unwrap_or(self.intensity()),
+            range: current.range().unwrap_or(self.range()),
+            radius: current.radius().unwrap_or(self.radius()),
+            enable_shadows: current.enable_shadows(),
+        }.into()
     }
 
     pub fn assume_spot(&self, current: &LightKind) -> LightKind {
-        current
-            .spot()
-            .cloned()
-            .unwrap_or(self.spot.clone().unwrap_or(SpotLight::default()))
-            .into()
+        SpotLight {
+            color: current.color(),
+            intensity: current.intensity().unwrap_or(self.intensity()),
+            range: current.range().unwrap_or(self.range()),
+            radius: current.radius().unwrap_or(self.radius()),
+            enable_shadows: current.enable_shadows(),
+        }.into()
     }
 
     pub fn assume_directional(&self, current: &LightKind) -> LightKind {
-        current
-            .directional()
-            .cloned()
-            .unwrap_or(self.directional.clone().unwrap_or(DirectionalLight::default()))
-            .into()
+        DirectionalLight {
+            color: current.color(),
+            illuminance: current.illuminance().unwrap_or(self.illuminance()),
+            enable_shadows: current.enable_shadows(),
+        }.into()
     }
 }
 
@@ -277,9 +344,19 @@ impl Recall for RecallLightKind {
 
     fn remember(&mut self, source: &Self::Source) {
         match source {
-            LightKind::Point(light) => self.point = Some(*light),
-            LightKind::Spot(light) => self.spot = Some(*light),
-            LightKind::Directional(light) => self.directional = Some(*light),
+            LightKind::Point(light) => {
+                self.intensity = Some(light.intensity);
+                self.range = Some(light.range);
+                self.radius = Some(light.radius);
+            }
+            LightKind::Spot(light) => {
+                self.intensity = Some(light.intensity);
+                self.range = Some(light.range);
+                self.radius = Some(light.radius);
+            }
+            LightKind::Directional(light) => {
+                self.illuminance = Some(light.illuminance);
+            }
         }
     }
 }
