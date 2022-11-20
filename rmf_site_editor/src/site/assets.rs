@@ -34,6 +34,11 @@ pub struct SiteAssets {
     pub level_anchor_mesh: Handle<Mesh>,
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
+    pub point_light_mesh: Handle<Mesh>,
+    pub spot_light_cover_mesh: Handle<Mesh>,
+    pub spot_light_shine_mesh: Handle<Mesh>,
+    pub directional_light_cover_mesh: Handle<Mesh>,
+    pub directional_light_shine_mesh: Handle<Mesh>,
     pub wall_material: Handle<StandardMaterial>,
     pub lift_wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
@@ -114,6 +119,30 @@ impl FromWorld for SiteAssets {
         let lane_end_mesh = meshes.add(shape::Circle::new(LANE_WIDTH / 2.).into());
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
+        let point_light_mesh = meshes.add(Mesh::from(shape::UVSphere {
+            radius: 0.05,
+            ..Default::default()
+        }));
+        let spot_light_cover_mesh = meshes.add(make_cone(
+            Circle { radius: 0.05, height: 0.0 },
+            [0.0, 0.0, 0.05],
+            32
+        ).into());
+        let spot_light_shine_mesh = meshes.add(make_cone(
+            Circle { radius: 0.049, height: 0.0 },
+            [0.0, 0.0, 0.049],
+            32
+        ).into());
+        let directional_light_cover_mesh = meshes.add(
+            make_cylinder(0.01, 0.1)
+            .transform_by(Affine3A::from_translation(0.05*Vec3::Z))
+            .into()
+        );
+        let directional_light_shine_mesh = meshes.add(
+            make_cylinder(0.01, 0.1)
+            .transform_by(Affine3A::from_translation(-0.05*Vec3::Z))
+            .into()
+        );
 
         Self {
             level_anchor_mesh,
@@ -124,6 +153,11 @@ impl FromWorld for SiteAssets {
             lane_end_mesh,
             box_mesh,
             physical_camera_mesh,
+            point_light_mesh,
+            spot_light_cover_mesh,
+            spot_light_shine_mesh,
+            directional_light_cover_mesh,
+            directional_light_shine_mesh,
             passive_lane_material,
             hover_material,
             select_material,

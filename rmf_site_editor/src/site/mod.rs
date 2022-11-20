@@ -182,7 +182,8 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphans_to_nav_graph)
                     .with_system(assign_orphan_levels_to_site)
-                    .with_system(add_tags_to_lift),
+                    .with_system(add_tags_to_lift)
+                    .with_system(add_physical_lights),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -203,7 +204,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_visibility_for_lanes)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)
-                    .with_system(add_physical_lights)
                     .with_system(update_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)

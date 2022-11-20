@@ -376,7 +376,7 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Mes
     return MeshBuffer::new(positions, normals, indices);
 }
 
-fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
+pub(crate) fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
         .take(resolution as usize) // skip the last vertex which would close the circle
         .chain([peak].into_iter().cycle().take(resolution as usize))
