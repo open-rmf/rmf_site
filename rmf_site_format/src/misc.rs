@@ -126,6 +126,7 @@ impl RectFace {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[serde(rename_all = "snake_case")]
 pub enum Angle {
     Deg(f32),
     Rad(f32),
@@ -214,7 +215,7 @@ impl std::ops::SubAssign for Angle {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[serde(tag = "type")]
+#[serde(rename_all = "snake_case")]
 pub enum Rotation {
     Yaw(Angle),
     EulerExtrinsicXYZ([Angle; 3]),

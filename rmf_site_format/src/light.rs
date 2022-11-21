@@ -192,6 +192,7 @@ pub struct PointLight {
     pub enable_shadows: bool,
 }
 
+#[cfg(feature = "bevy")]
 impl PointLight {
     pub fn to_bevy(&self) -> BevyPointLight {
         BevyPointLight {
@@ -231,6 +232,7 @@ pub struct SpotLight {
     pub enable_shadows: bool,
 }
 
+#[cfg(feature = "bevy")]
 impl SpotLight {
     pub fn to_bevy(&self) -> BevySpotLight {
         BevySpotLight {
@@ -266,6 +268,7 @@ pub struct DirectionalLight {
     pub enable_shadows: bool,
 }
 
+#[cfg(feature = "bevy")]
 impl DirectionalLight {
     pub fn to_bevy(&self) -> BevyDirectionalLight {
         BevyDirectionalLight {
@@ -297,7 +300,6 @@ pub struct RecallLightKind {
 }
 
 impl RecallLightKind {
-
     pub fn intensity(&self) -> f32 {
         self.intensity.unwrap_or(default_intensity())
     }
@@ -310,7 +312,10 @@ impl RecallLightKind {
     pub fn illuminance(&self) -> f32 {
         self.illuminance.unwrap_or(default_illuminance())
     }
+}
 
+#[cfg(feature = "bevy")]
+impl RecallLightKind {
     pub fn assume_point(&self, current: &LightKind) -> LightKind {
         PointLight {
             color: current.color(),
