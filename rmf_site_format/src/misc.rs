@@ -218,6 +218,7 @@ impl std::ops::SubAssign for Angle {
 #[serde(rename_all = "snake_case")]
 pub enum Rotation {
     Yaw(Angle),
+    #[serde(rename="euler_xyz")]
     EulerExtrinsicXYZ([Angle; 3]),
     Quat([f32; 4]),
 }
