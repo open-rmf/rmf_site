@@ -58,9 +58,9 @@ impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
         ));
 
         if response.clicked() {
-            self.events.select.send(Select(Some(self.entity)));
+            self.events.request.select.send(Select(Some(self.entity)));
         } else if response.hovered() {
-            self.events.hover.send(Hover(Some(self.entity)));
+            self.events.request.hover.send(Hover(Some(self.entity)));
         }
 
         response.on_hover_text("Select");

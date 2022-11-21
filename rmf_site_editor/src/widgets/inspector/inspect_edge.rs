@@ -99,7 +99,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if let Some(request) =
                     SelectAnchor::replace_side(self.entity, Side::Left).for_category(*self.category)
                 {
-                    self.events.change_mode.send(ChangeMode::To(request.into()));
+                    self.events.request.change_mode.send(ChangeMode::To(request.into()));
                 }
             }
 
@@ -113,7 +113,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if let Some(request) = SelectAnchor::replace_side(self.entity, Side::Right)
                     .for_category(*self.category)
                 {
-                    self.events.change_mode.send(ChangeMode::To(request.into()));
+                    self.events.request.change_mode.send(ChangeMode::To(request.into()));
                 }
             }
         });

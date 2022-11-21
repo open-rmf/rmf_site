@@ -18,21 +18,25 @@
 use crate::{
     icons::Icons,
     interaction::Select,
-    site::{Angle, Category, Light, LightKind, Pose, Recall, RecallLightKind, Rotation, SiteID},
+    site::{Angle, Category, Light, LightKind, Pose, Recall, RecallLightKind, Rotation, SiteID, ExportLights},
     widgets::{
         inspector::{InspectLightKind, InspectPose, SelectionWidget},
         AppEvents,
     },
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::system::SystemParam, prelude::*, tasks::{Task, AsyncComputeTaskPool}};
 use bevy_egui::egui::Ui;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
+use futures_lite::future;
+use rfd::AsyncFileDialog;
 
 pub struct LightDisplay {
     pub pose: Pose,
     pub kind: LightKind,
     pub recall: RecallLightKind,
+    pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
+    pub export_file: Option<std::path::PathBuf>,
 }
 
 impl Default for LightDisplay {
@@ -48,6 +52,8 @@ impl Default for LightDisplay {
             },
             kind: Default::default(),
             recall: Default::default(),
+            choosing_file_for_export: None,
+            export_file: None,
         }
     }
 }
@@ -69,34 +75,77 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let mut use_headlight = self.events.toggle_headlights.0;
+        let mut use_headlight = self.events.request.toggle_headlights.0;
         ui.checkbox(&mut use_headlight, "Use Headlight");
-        if use_headlight != self.events.toggle_headlights.0 {
-            self.events.toggle_headlights.0 = use_headlight;
+        if use_headlight != self.events.request.toggle_headlights.0 {
+            self.events.request.toggle_headlights.0 = use_headlight;
         }
 
-        let mut use_physical_lights = self.events.toggle_physical_lights.0;
+        let mut use_physical_lights = self.events.request.toggle_physical_lights.0;
         ui.checkbox(&mut use_physical_lights, "Use Physical Lights");
-        if use_physical_lights != self.events.toggle_physical_lights.0 {
-            self.events.toggle_physical_lights.0 = use_physical_lights;
+        if use_physical_lights != self.events.request.toggle_physical_lights.0 {
+            self.events.request.toggle_physical_lights.0 = use_physical_lights;
         }
 
         ui.separator();
 
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            ui.horizontal(|ui| {
+                if ui.button("Export Lights").clicked() {
+                    if let Some(export_file) = &self.events.display.light.export_file {
+                        self.events.request.export_lights.send(ExportLights(export_file.clone()))
+                    } else {
+                        println!("ERROR: Please choose a file before trying to export the lights");
+                    }
+                }
+                if ui.button("Choose File").clicked() {
+                    match &self.events.display.light.choosing_file_for_export {
+                        Some(_) => {
+                            println!("A file is already being chosen!");
+                        }
+                        None => {
+                            let future = AsyncComputeTaskPool::get().spawn(async move {
+                                let file = match AsyncFileDialog::new().save_file().await {
+                                    Some(file) => file,
+                                    None => return None,
+                                };
+
+                                Some(file.path().to_path_buf())
+                            });
+                            self.events.display.light.choosing_file_for_export = Some(future);
+                        }
+                    }
+                }
+            });
+            match &self.events.display.light.export_file {
+                Some(path) => {
+                    match path.to_str() {
+                        Some(s) => { ui.label(s); }
+                        None => { ui.label("unable to render path"); }
+                    }
+                }
+                None => {
+                    ui.label("no file chosen");
+                }
+            }
+            ui.separator();
+        }
+
         ui.heading("Create new light");
-        if let Some(new_pose) = InspectPose::new(&self.events.light_display.pose).show(ui) {
-            self.events.light_display.pose = new_pose;
+        if let Some(new_pose) = InspectPose::new(&self.events.display.light.pose).show(ui) {
+            self.events.display.light.pose = new_pose;
         }
 
         ui.push_id("Add Light", |ui| {
             if let Some(new_kind) = InspectLightKind::new(
-                &self.events.light_display.kind,
-                &self.events.light_display.recall,
+                &self.events.display.light.kind,
+                &self.events.display.light.recall,
             )
             .show(ui)
             {
-                self.events.light_display.recall.remember(&new_kind);
-                self.events.light_display.kind = new_kind;
+                self.events.display.light.recall.remember(&new_kind);
+                self.events.display.light.kind = new_kind;
             }
         });
 
@@ -106,12 +155,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                 .events
                 .commands
                 .spawn_bundle(Light {
-                    pose: self.events.light_display.pose,
-                    kind: self.events.light_display.kind,
+                    pose: self.events.display.light.pose,
+                    kind: self.events.display.light.kind,
                 })
                 .insert(Category::Light)
                 .id();
-            self.events.select.send(Select(Some(new_light)));
+            self.events.request.select.send(Select(Some(new_light)));
         }
 
         ui.separator();
@@ -145,5 +194,24 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                 ui.label(label);
             });
         }
+    }
+}
+
+pub fn resolve_light_export_file(
+    mut light_display: ResMut<LightDisplay>,
+) {
+    let mut resolved = false;
+    if let Some(task) = &mut light_display.choosing_file_for_export {
+        if let Some(result) = future::block_on(future::poll_once(task)) {
+            resolved = true;
+
+            if let Some(result) = result {
+                light_display.export_file = Some(result);
+            }
+        }
+    }
+
+    if resolved {
+        light_display.choosing_file_for_export = None;
     }
 }

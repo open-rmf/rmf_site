@@ -318,6 +318,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(_previewable) = self.params.component.previewable.get(selection) {
                 if ui.button("Preview").clicked() {
                     self.events
+                        .request
                         .spawn_preview
                         .send(SpawnPreview::new(Some(selection)));
                 }

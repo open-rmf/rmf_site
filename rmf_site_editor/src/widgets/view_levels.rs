@@ -62,11 +62,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
     pub fn show(self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             let make_new_level = ui.button("Add").clicked();
-            let mut show_elevation = self.events.level_display.new_elevation;
+            let mut show_elevation = self.events.display.level.new_elevation;
             ui.add(DragValue::new(&mut show_elevation).suffix("m"))
                 .on_hover_text("Elevation for the new level");
 
-            let mut show_name = self.events.level_display.new_name.clone();
+            let mut show_name = self.events.display.level.new_name.clone();
             ui.text_edit_singleline(&mut show_name)
                 .on_hover_text("Name for the new level");
 
@@ -81,14 +81,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                     })
                     .insert(Category::Level)
                     .id();
-                self.events.current_level.0 = Some(new_level);
+                self.events.request.current_level.0 = Some(new_level);
             }
 
-            self.events.level_display.new_elevation = show_elevation;
-            self.events.level_display.new_name = show_name;
+            self.events.display.level.new_elevation = show_elevation;
+            self.events.display.level.new_name = show_name;
         });
 
-        if !self.events.level_display.freeze {
+        if !self.events.display.level.freeze {
             let mut ordered_level_list: Vec<_> = self
                 .params
                 .levels
@@ -107,14 +107,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 }
             });
 
-            self.events.level_display.order =
+            self.events.display.level.order =
                 ordered_level_list.into_iter().map(|(_, e)| e).collect();
         }
 
-        if self.events.level_display.removing {
+        if self.events.display.level.removing {
             ui.horizontal(|ui| {
                 if ui.button("Select").clicked() {
-                    self.events.level_display.removing = false;
+                    self.events.display.level.removing = false;
                 }
                 ui.label("Remove");
             });
@@ -122,32 +122,32 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 ui.label("Select");
                 if ui.button("Remove").clicked() {
-                    self.events.level_display.removing = true;
+                    self.events.display.level.removing = true;
                 }
             });
         }
 
         let mut any_dragging = false;
         let mut any_deleted = false;
-        for e in self.events.level_display.order.iter().copied() {
+        for e in self.events.display.level.order.iter().copied() {
             if let Ok((_, props)) = self.params.levels.get(e) {
                 let mut shown_props = props.clone();
                 ui.horizontal(|ui| {
-                    if self.events.level_display.removing {
+                    if self.events.display.level.removing {
                         if ui
                             .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
                             .on_hover_text("Remove this level")
                             .clicked()
                         {
-                            self.events.delete.send(Delete::new(e).and_dependents());
+                            self.events.request.delete.send(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
                     } else {
                         if ui
-                            .radio(Some(e) == **self.events.current_level, "")
+                            .radio(Some(e) == **self.events.request.current_level, "")
                             .clicked()
                         {
-                            self.events.current_level.0 = Some(e);
+                            self.events.request.current_level.0 = Some(e);
                         }
                     }
 
@@ -164,15 +164,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
 
                 if shown_props != *props {
                     self.events
-                        .change_level_props
+                        .change.level_props
                         .send(Change::new(shown_props, e));
                 }
             }
         }
 
-        self.events.level_display.freeze = any_dragging;
+        self.events.display.level.freeze = any_dragging;
         if any_deleted {
-            self.events.level_display.removing = false;
+            self.events.display.level.removing = false;
         }
     }
 }

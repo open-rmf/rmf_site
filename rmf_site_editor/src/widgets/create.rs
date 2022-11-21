@@ -34,37 +34,37 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
             if ui.button("Lane").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_edge_sequence().for_lane().into(),
                 ));
             }
 
             if ui.button("Wall").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_edge_sequence().for_wall().into(),
                 ));
             }
 
             if ui.button("Door").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_one_new_edge().for_door().into(),
                 ));
             }
 
             if ui.button("Lift").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_one_new_edge().for_lift().into(),
                 ));
             }
 
             if ui.button("Floor").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_path().for_floor().into(),
                 ));
             }
 
             if ui.button("Measurement").clicked() {
-                self.events.change_mode.send(ChangeMode::To(
+                self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_one_new_edge().for_measurement().into(),
                 ));
             }
