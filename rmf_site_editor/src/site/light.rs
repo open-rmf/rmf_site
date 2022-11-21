@@ -27,7 +27,7 @@ use bevy::{
         DirectionalLight as BevyDirectionalLight,
     }
 };
-use rmf_site_format::LightKind;
+use rmf_site_format::{LightKind, Category};
 use crate::site::{SiteAssets, CurrentLevel};
 
 /// True/false for whether the physical lights of an environment should be
@@ -58,7 +58,8 @@ pub fn add_physical_lights(
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
-            .insert(CubemapVisibleEntities::default());
+            .insert(CubemapVisibleEntities::default())
+            .insert(Category::Light);
 
         if parent.is_none() {
             if let Some(current_level) = **current_level {
