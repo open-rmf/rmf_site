@@ -15,20 +15,19 @@
  *
 */
 
+use crate::site::{CurrentLevel, SiteAssets};
 use bevy::{
     pbr::CubemapVisibleEntities,
+    prelude::{
+        DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
+        SpotLight as BevySpotLight, *,
+    },
     render::{
         primitives::{CubemapFrusta, Frustum},
         view::VisibleEntities,
     },
-    prelude::{
-        *, SpotLight as BevySpotLight,
-        PointLight as BevyPointLight,
-        DirectionalLight as BevyDirectionalLight,
-    }
 };
-use rmf_site_format::{LightKind, Category};
-use crate::site::{SiteAssets, CurrentLevel};
+use rmf_site_format::{Category, LightKind};
 
 /// True/false for whether the physical lights of an environment should be
 /// rendered.
@@ -53,7 +52,9 @@ pub fn add_physical_lights(
         // light types
         commands
             .entity(e)
-            .insert(Visibility { is_visible: physical_light_toggle.0 })
+            .insert(Visibility {
+                is_visible: physical_light_toggle.0,
+            })
             .insert(ComputedVisibility::default())
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
@@ -73,13 +74,16 @@ pub fn add_physical_lights(
 
 pub fn update_physical_lights(
     mut commands: Commands,
-    mut changed: Query<(
-        Entity,
-        &LightKind,
-        Option<&mut BevyPointLight>,
-        Option<&mut BevySpotLight>,
-        Option<&mut BevyDirectionalLight>,
-    ), Changed<LightKind>>,
+    mut changed: Query<
+        (
+            Entity,
+            &LightKind,
+            Option<&mut BevyPointLight>,
+            Option<&mut BevySpotLight>,
+            Option<&mut BevyDirectionalLight>,
+        ),
+        Changed<LightKind>,
+    >,
 ) {
     for (e, kind, mut b_point, mut b_spot, mut b_dir) in &mut changed {
         match kind {

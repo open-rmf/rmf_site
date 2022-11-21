@@ -15,13 +15,11 @@
  *
 */
 
-use crate::{
-    site::{LightKind, RecallLightKind},
-};
+use crate::site::{LightKind, RecallLightKind};
 use bevy::prelude::*;
 use bevy_egui::egui::{
-    Ui, ComboBox, DragValue, Rgba,
     color_picker::{color_edit_button_rgba, Alpha},
+    ComboBox, DragValue, Rgba, Ui,
 };
 
 pub struct InspectLightKind<'a> {
@@ -62,14 +60,13 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut point.intensity)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(10)
+                            .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
                     ui.add(
-                        DragValue::new(&mut point.range)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
+                        DragValue::new(&mut point.range).clamp_range(0_f32..=std::f32::INFINITY),
                     );
                 });
                 ui.horizontal(|ui| {
@@ -77,7 +74,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut point.radius)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(0.1)
+                            .speed(0.1),
                     );
                 });
                 ui.checkbox(&mut point.enable_shadows, "Enable Shadows");
@@ -92,22 +89,19 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut spot.intensity)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(10)
+                            .speed(10),
                     );
                 });
                 ui.horizontal(|ui| {
                     ui.label("Range");
-                    ui.add(
-                        DragValue::new(&mut spot.range)
-                            .clamp_range(0_f32..=std::f32::INFINITY)
-                    );
+                    ui.add(DragValue::new(&mut spot.range).clamp_range(0_f32..=std::f32::INFINITY));
                 });
                 ui.horizontal(|ui| {
                     ui.label("Radius");
                     ui.add(
                         DragValue::new(&mut spot.radius)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(0.1)
+                            .speed(0.1),
                     );
                 });
                 ui.checkbox(&mut spot.enable_shadows, "Enable Shadows");
@@ -122,7 +116,7 @@ impl<'a> InspectLightKind<'a> {
                     ui.add(
                         DragValue::new(&mut dir.illuminance)
                             .clamp_range(0_f32..=std::f32::INFINITY)
-                            .speed(1000)
+                            .speed(1000),
                     );
                 });
                 ui.checkbox(&mut dir.enable_shadows, "Enable Shadows");
@@ -138,9 +132,7 @@ impl<'a> InspectLightKind<'a> {
 }
 
 fn color_edit(ui: &mut Ui, color: &mut [f32; 4]) {
-    let mut rgba = Rgba::from_rgba_premultiplied(
-        color[0], color[1], color[2], color[3]
-    );
+    let mut rgba = Rgba::from_rgba_premultiplied(color[0], color[1], color[2], color[3]);
     color_edit_button_rgba(ui, &mut rgba, Alpha::OnlyBlend);
     *color = [rgba.r(), rgba.g(), rgba.b(), rgba.a()];
 }

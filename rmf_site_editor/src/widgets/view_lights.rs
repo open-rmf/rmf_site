@@ -16,21 +16,18 @@
 */
 
 use crate::{
-    site::{Light, LightKind, RecallLightKind, SiteID, Pose, Recall, Category, Rotation, Angle},
-    interaction::Select,
     icons::Icons,
+    interaction::Select,
+    site::{Angle, Category, Light, LightKind, Pose, Recall, RecallLightKind, Rotation, SiteID},
     widgets::{
+        inspector::{InspectLightKind, InspectPose, SelectionWidget},
         AppEvents,
-        inspector::{SelectionWidget, InspectPose, InspectLightKind},
     },
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
-use std::collections::BTreeMap;
 use std::cmp::Reverse;
+use std::collections::BTreeMap;
 
 pub struct LightDisplay {
     pub pose: Pose,
@@ -44,8 +41,10 @@ impl Default for LightDisplay {
             pose: Pose {
                 trans: [0.0, 0.0, 2.6],
                 rot: Rotation::EulerExtrinsicXYZ([
-                    Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(0.0)
-                ])
+                    Angle::Deg(0.0),
+                    Angle::Deg(0.0),
+                    Angle::Deg(0.0),
+                ]),
             },
             kind: Default::default(),
             recall: Default::default(),
@@ -85,16 +84,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
         ui.separator();
 
         ui.heading("Create new light");
-        if let Some(new_pose) = InspectPose::new(
-            &self.events.light_display.pose
-        ).show(ui) {
+        if let Some(new_pose) = InspectPose::new(&self.events.light_display.pose).show(ui) {
             self.events.light_display.pose = new_pose;
         }
 
         ui.push_id("Add Light", |ui| {
             if let Some(new_kind) = InspectLightKind::new(
-                &self.events.light_display.kind, &self.events.light_display.recall,
-            ).show(ui) {
+                &self.events.light_display.kind,
+                &self.events.light_display.recall,
+            )
+            .show(ui)
+            {
                 self.events.light_display.recall.remember(&new_kind);
                 self.events.light_display.kind = new_kind;
             }
@@ -102,12 +102,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
 
         // TODO(MXG): Add a + icon to this button to make it more visible
         if ui.button("Add").clicked() {
-            let new_light = self.events.commands.spawn_bundle(Light {
-                pose: self.events.light_display.pose,
-                kind: self.events.light_display.kind,
-            })
-            .insert(Category::Light)
-            .id();
+            let new_light = self
+                .events
+                .commands
+                .spawn_bundle(Light {
+                    pose: self.events.light_display.pose,
+                    kind: self.events.light_display.kind,
+                })
+                .insert(Category::Light)
+                .id();
             self.events.select.send(Select(Some(new_light)));
         }
 
@@ -125,9 +128,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
 
         for (e, label) in unsaved_lights {
             ui.horizontal(|ui| {
-                SelectionWidget::new(
-                    e.0, None, self.params.icons.as_ref(), self.events
-                ).show(ui);
+                SelectionWidget::new(e.0, None, self.params.icons.as_ref(), self.events).show(ui);
                 ui.label(label);
             });
         }
@@ -135,8 +136,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
         for (site_id, (e, label)) in saved_lights {
             ui.horizontal(|ui| {
                 SelectionWidget::new(
-                    e, Some(SiteID(site_id.0)), self.params.icons.as_ref(), self.events
-                ).show(ui);
+                    e,
+                    Some(SiteID(site_id.0)),
+                    self.params.icons.as_ref(),
+                    self.events,
+                )
+                .show(ui);
                 ui.label(label);
             });
         }

@@ -20,9 +20,9 @@ use crate::*;
 use bevy::{
     ecs::system::EntityCommands,
     prelude::{
-        Bundle, Component, DirectionalLight as BevyDirectionalLight,
-        DirectionalLightBundle, PointLight as BevyPointLight, PointLightBundle,
-        SpotLight as BevySpotLight, SpotLightBundle, Transform,
+        Bundle, Component, DirectionalLight as BevyDirectionalLight, DirectionalLightBundle,
+        PointLight as BevyPointLight, PointLightBundle, SpotLight as BevySpotLight,
+        SpotLightBundle, Transform,
     },
 };
 use serde::{Deserialize, Serialize};
@@ -180,15 +180,15 @@ fn bool_true() -> bool {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct PointLight {
-    #[serde(default="white")]
+    #[serde(default = "white")]
     pub color: [f32; 4],
-    #[serde(default="default_intensity")]
+    #[serde(default = "default_intensity")]
     pub intensity: f32,
-    #[serde(default="default_range")]
+    #[serde(default = "default_range")]
     pub range: f32,
-    #[serde(default="default_radius")]
+    #[serde(default = "default_radius")]
     pub radius: f32,
-    #[serde(default="bool_true")]
+    #[serde(default = "bool_true")]
     pub enable_shadows: bool,
 }
 
@@ -220,15 +220,15 @@ impl Default for PointLight {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct SpotLight {
-    #[serde(default="white")]
+    #[serde(default = "white")]
     pub color: [f32; 4],
-    #[serde(default="default_intensity")]
+    #[serde(default = "default_intensity")]
     pub intensity: f32,
-    #[serde(default="default_range")]
+    #[serde(default = "default_range")]
     pub range: f32,
-    #[serde(default="default_radius")]
+    #[serde(default = "default_radius")]
     pub radius: f32,
-    #[serde(default="bool_true")]
+    #[serde(default = "bool_true")]
     pub enable_shadows: bool,
 }
 
@@ -260,11 +260,11 @@ impl Default for SpotLight {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 pub struct DirectionalLight {
-    #[serde(default="white")]
+    #[serde(default = "white")]
     pub color: [f32; 4],
-    #[serde(default="default_illuminance")]
+    #[serde(default = "default_illuminance")]
     pub illuminance: f32,
-    #[serde(default="bool_true")]
+    #[serde(default = "bool_true")]
     pub enable_shadows: bool,
 }
 
@@ -323,7 +323,8 @@ impl RecallLightKind {
             range: current.range().unwrap_or(self.range()),
             radius: current.radius().unwrap_or(self.radius()),
             enable_shadows: current.enable_shadows(),
-        }.into()
+        }
+        .into()
     }
 
     pub fn assume_spot(&self, current: &LightKind) -> LightKind {
@@ -333,7 +334,8 @@ impl RecallLightKind {
             range: current.range().unwrap_or(self.range()),
             radius: current.radius().unwrap_or(self.radius()),
             enable_shadows: current.enable_shadows(),
-        }.into()
+        }
+        .into()
     }
 
     pub fn assume_directional(&self, current: &LightKind) -> LightKind {
@@ -341,7 +343,8 @@ impl RecallLightKind {
             color: current.color(),
             illuminance: current.illuminance().unwrap_or(self.illuminance()),
             enable_shadows: current.enable_shadows(),
-        }.into()
+        }
+        .into()
     }
 }
 

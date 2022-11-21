@@ -18,7 +18,7 @@
 use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use glam::{Vec2, Vec3, Quat};
+use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
@@ -218,7 +218,7 @@ impl std::ops::SubAssign for Angle {
 #[serde(rename_all = "snake_case")]
 pub enum Rotation {
     Yaw(Angle),
-    #[serde(rename="euler_xyz")]
+    #[serde(rename = "euler_xyz")]
     EulerExtrinsicXYZ([Angle; 3]),
     Quat([f32; 4]),
 }
@@ -230,7 +230,9 @@ impl Rotation {
             Self::EulerExtrinsicXYZ([_, _, yaw]) => *yaw += delta,
             Self::Quat(quat) => {
                 let q = Quat::from_array(*quat);
-                *quat = Quat::from_rotation_z(delta.radians()).mul_quat(q).to_array();
+                *quat = Quat::from_rotation_z(delta.radians())
+                    .mul_quat(q)
+                    .to_array();
             }
         }
     }

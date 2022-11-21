@@ -16,8 +16,13 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview, HeadlightToggle},
-    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability, PhysicalLightToggle},
+    interaction::{
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+    },
+    site::{
+        Change, CurrentLevel, Delete, PhysicalLightToggle, SiteState, SiteUpdateLabel,
+        ToggleLiftDoorAvailability,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{

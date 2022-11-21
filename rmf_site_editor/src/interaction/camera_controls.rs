@@ -15,6 +15,7 @@
  *
 */
 
+use crate::interaction::PickingBlockers;
 use bevy::{
     core_pipeline::core_3d::Camera3dBundle,
     input::mouse::{MouseButton, MouseWheel},
@@ -22,7 +23,6 @@ use bevy::{
     render::camera::{Camera, Projection, ScalingMode, WindowOrigin},
 };
 use bevy_egui::EguiContext;
-use crate::interaction::PickingBlockers;
 
 struct MouseLocation {
     previous: Vec2,
@@ -120,11 +120,7 @@ impl CameraControls {
         }
     }
 
-    pub fn toggle_lights(
-        &self,
-        toggle: bool,
-        visibility: &mut Query<&mut Visibility>,
-    ) {
+    pub fn toggle_lights(&self, toggle: bool, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.perspective_headlight) {
             v.is_visible = toggle && self.mode.is_perspective();
         }
@@ -137,7 +133,8 @@ impl CameraControls {
 
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
-        let persp_headlight = world.spawn()
+        let persp_headlight = world
+            .spawn()
             .insert_bundle(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
@@ -367,8 +364,7 @@ pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .insert_resource(MouseLocation::default())
+        app.insert_resource(MouseLocation::default())
             .init_resource::<CameraControls>()
             .init_resource::<HeadlightToggle>()
             .add_system(camera_controls);

@@ -16,10 +16,7 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{
-    prelude::*,
-    math::Affine3A,
-};
+use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Clone, Debug)]
 pub struct InteractionAssets {
@@ -131,32 +128,56 @@ impl FromWorld for InteractionAssets {
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let flat_square_mesh = meshes.add(make_flat_square_mesh(1.0).into());
         let point_light_socket_mesh = meshes.add(
-            make_cylinder(0.03, 0.02).transform_by(
-                Affine3A::from_translation(0.04*Vec3::Z)
-            ).into()
+            make_cylinder(0.03, 0.02)
+                .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
+                .into(),
         );
         let point_light_shine_mesh = meshes.add(Mesh::from(shape::UVSphere {
             radius: 0.05,
             ..Default::default()
         }));
-        let spot_light_cover_mesh = meshes.add(make_smooth_wrap([
-            Circle { radius: 0.05, height: 0.0 },
-            Circle { radius: 0.01, height: 0.04 },
-        ], 32).into());
+        let spot_light_cover_mesh = meshes.add(
+            make_smooth_wrap(
+                [
+                    Circle {
+                        radius: 0.05,
+                        height: 0.0,
+                    },
+                    Circle {
+                        radius: 0.01,
+                        height: 0.04,
+                    },
+                ],
+                32,
+            )
+            .into(),
+        );
         let spot_light_shine_mesh = meshes.add(
-            make_bottom_circle(Circle { radius: 0.05, height: 0.0 }, 32)
-            .merge_with(make_top_circle(Circle { radius: 0.01, height: 0.04 }, 32))
-            .into()
+            make_bottom_circle(
+                Circle {
+                    radius: 0.05,
+                    height: 0.0,
+                },
+                32,
+            )
+            .merge_with(make_top_circle(
+                Circle {
+                    radius: 0.01,
+                    height: 0.04,
+                },
+                32,
+            ))
+            .into(),
         );
         let directional_light_cover_mesh = meshes.add(
             make_cylinder(0.01, 0.1)
-            .transform_by(Affine3A::from_translation(0.01*Vec3::Z))
-            .into()
+                .transform_by(Affine3A::from_translation(0.01 * Vec3::Z))
+                .into(),
         );
         let directional_light_shine_mesh = meshes.add(
             make_cylinder(0.01, 0.1)
-            .transform_by(Affine3A::from_translation(-0.01*Vec3::Z))
-            .into()
+                .transform_by(Affine3A::from_translation(-0.01 * Vec3::Z))
+                .into(),
         );
 
         let mut materials = world

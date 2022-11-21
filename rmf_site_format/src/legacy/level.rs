@@ -1,7 +1,7 @@
 use super::{
-    door::Door, fiducial::Fiducial, floor::Floor, lane::Lane, measurement::Measurement,
-    model::Model, physical_camera::PhysicalCamera, vertex::Vertex, wall::Wall,
-    super::Light,
+    super::Light, door::Door, fiducial::Fiducial, floor::Floor, lane::Lane,
+    measurement::Measurement, model::Model, physical_camera::PhysicalCamera, vertex::Vertex,
+    wall::Wall,
 };
 use glam::{DAffine2, DVec2};
 use serde::{Deserialize, Serialize};

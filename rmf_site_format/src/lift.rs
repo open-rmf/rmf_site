@@ -22,9 +22,9 @@ use bevy::{
     prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With, Without},
     render::primitives::Aabb,
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
-use glam::{Vec2, Vec3};
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.1;
 pub const DEFAULT_CABIN_DOOR_THICKNESS: f32 = 0.05;
