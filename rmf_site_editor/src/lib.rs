@@ -1,3 +1,5 @@
+#![feature(array_zip)]
+
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
@@ -18,6 +20,7 @@ mod settings;
 use settings::*;
 mod widgets;
 use widgets::*;
+pub mod occupancy;
 
 mod demo_world;
 mod shapes;
