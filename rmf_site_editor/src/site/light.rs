@@ -28,7 +28,7 @@ use bevy::{
     },
 };
 use rmf_site_format::{Category, LightKind, Pose, LevelProperties, Light};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
 /// rendered.
@@ -146,10 +146,10 @@ pub fn export_lights(
     levels: Query<&LevelProperties>,
 ) {
     for export in exports.iter() {
-        let mut root: BTreeMap<String, Vec<Light>> = BTreeMap::new();
+        let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
             if let Ok(level) = levels.get(parent.get()) {
-                root.entry(level.name.clone()).or_default()
+                lights_per_level.entry(level.name.clone()).or_default()
                     .push(Light {
                         pose: pose.clone(),
                         kind: kind.clone(),
@@ -168,6 +168,13 @@ pub fn export_lights(
                 continue;
             }
         };
+
+        let mut root: BTreeMap<String, HashMap<String, Vec<Light>>> = BTreeMap::new();
+        for (level, lights) in lights_per_level {
+            let mut lights_map: HashMap<String, Vec<Light>> = HashMap::new();
+            lights_map.insert("lights".to_string(), lights);
+            root.insert(level, lights_map);
+        }
 
         serde_yaml::to_writer(out_file, &root);
     }
