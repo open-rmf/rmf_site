@@ -16,8 +16,13 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, PickingBlockers, Select, SpawnPreview},
-    site::{Change, CurrentLevel, Delete, SiteState, SiteUpdateLabel, ToggleLiftDoorAvailability},
+    interaction::{
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+    },
+    site::{
+        Change, CurrentLevel, Delete, PhysicalLightToggle, SiteState, SiteUpdateLabel,
+        ToggleLiftDoorAvailability,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -35,6 +40,9 @@ use create::CreateWidget;
 pub mod view_levels;
 use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 
+pub mod view_lights;
+use view_lights::*;
+
 pub mod icons;
 pub use icons::*;
 
@@ -50,6 +58,7 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
+            .init_resource::<LightDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -71,6 +80,7 @@ pub struct ChangeEvents<'w, 's> {
     pub asset_source: EventWriter<'w, 's, Change<AssetSource>>,
     pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
     pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
+    pub light: EventWriter<'w, 's, Change<LightKind>>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -87,8 +97,11 @@ pub struct AppEvents<'w, 's> {
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub current_level: ResMut<'w, CurrentLevel>,
     pub level_display: ResMut<'w, LevelDisplay>,
+    pub light_display: ResMut<'w, LightDisplay>,
     pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub toggle_headlights: ResMut<'w, HeadlightToggle>,
+    pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub delete: EventWriter<'w, 's, Delete>,
 }
@@ -98,6 +111,7 @@ fn standard_ui_layout(
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     levels: LevelParams,
+    lights: LightParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -123,6 +137,12 @@ fn standard_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Lights")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewLights::new(&lights, &mut events).show(ui);
                             });
                     });
                 });

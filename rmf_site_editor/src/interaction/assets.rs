@@ -16,7 +16,7 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::prelude::*;
+use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Clone, Debug)]
 pub struct InteractionAssets {
@@ -26,6 +26,13 @@ pub struct InteractionAssets {
     pub halo_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
     pub flat_square_mesh: Handle<Mesh>,
+    pub point_light_socket_mesh: Handle<Mesh>,
+    pub point_light_shine_mesh: Handle<Mesh>,
+    pub spot_light_cover_mesh: Handle<Mesh>,
+    pub spot_light_shine_mesh: Handle<Mesh>,
+    pub directional_light_cover_mesh: Handle<Mesh>,
+    pub directional_light_shine_mesh: Handle<Mesh>,
+    pub physical_light_cover_material: Handle<StandardMaterial>,
     pub x_axis_materials: GizmoMaterialSet,
     pub y_axis_materials: GizmoMaterialSet,
     pub z_plane_materials: GizmoMaterialSet,
@@ -120,6 +127,58 @@ impl FromWorld for InteractionAssets {
         let halo_mesh = meshes.add(make_halo_mesh());
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let flat_square_mesh = meshes.add(make_flat_square_mesh(1.0).into());
+        let point_light_socket_mesh = meshes.add(
+            make_cylinder(0.03, 0.02)
+                .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
+                .into(),
+        );
+        let point_light_shine_mesh = meshes.add(Mesh::from(shape::UVSphere {
+            radius: 0.05,
+            ..Default::default()
+        }));
+        let spot_light_cover_mesh = meshes.add(
+            make_smooth_wrap(
+                [
+                    Circle {
+                        radius: 0.05,
+                        height: 0.0,
+                    },
+                    Circle {
+                        radius: 0.01,
+                        height: 0.04,
+                    },
+                ],
+                32,
+            )
+            .into(),
+        );
+        let spot_light_shine_mesh = meshes.add(
+            make_bottom_circle(
+                Circle {
+                    radius: 0.05,
+                    height: 0.0,
+                },
+                32,
+            )
+            .merge_with(make_top_circle(
+                Circle {
+                    radius: 0.01,
+                    height: 0.04,
+                },
+                32,
+            ))
+            .into(),
+        );
+        let directional_light_cover_mesh = meshes.add(
+            make_cylinder(0.01, 0.1)
+                .transform_by(Affine3A::from_translation(0.01 * Vec3::Z))
+                .into(),
+        );
+        let directional_light_shine_mesh = meshes.add(
+            make_cylinder(0.01, 0.1)
+                .transform_by(Affine3A::from_translation(-0.01 * Vec3::Z))
+                .into(),
+        );
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -134,6 +193,7 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             ..default()
         });
+        let physical_light_cover_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
@@ -185,6 +245,13 @@ impl FromWorld for InteractionAssets {
             halo_material,
             arrow_mesh,
             flat_square_mesh,
+            point_light_socket_mesh,
+            point_light_shine_mesh,
+            spot_light_cover_mesh,
+            spot_light_shine_mesh,
+            directional_light_cover_mesh,
+            directional_light_shine_mesh,
+            physical_light_cover_material,
             x_axis_materials,
             y_axis_materials,
             z_plane_materials,

@@ -19,11 +19,19 @@ use bevy::prelude::*;
 use rmf_site_format::Pose;
 
 pub fn update_transforms_for_changed_poses(
-    mut poses: Query<(&Pose, &mut Transform), Changed<Pose>>,
+    mut poses: Query<(Entity, &Pose, Option<&mut Transform>), Changed<Pose>>,
+    mut commands: Commands,
 ) {
-    for (pose, mut tf) in &mut poses {
+    for (e, pose, tf) in &mut poses {
         let transform = pose.transform();
-        tf.translation = transform.translation;
-        tf.rotation = transform.rotation;
+        if let Some(mut tf) = tf {
+            tf.translation = transform.translation;
+            tf.rotation = transform.rotation;
+        } else {
+            commands
+                .entity(e)
+                .insert(transform)
+                .insert(GlobalTransform::default());
+        }
     }
 }

@@ -18,10 +18,11 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
-    math::{Vec2, Vec3, Vec3A},
+    math::Vec3A,
     prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With, Without},
     render::primitives::Aabb,
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
@@ -119,7 +120,7 @@ pub struct LiftProperties<T: RefTrait> {
     pub is_static: IsStatic,
     /// What is the initial level for this lift. If nothing is specified, the
     /// lift will start on the lowest level.
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(skip_serializing_if = "is_default")]
     pub initial_level: InitialLevel<T>,
 }
 
@@ -127,6 +128,12 @@ pub struct LiftProperties<T: RefTrait> {
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct InitialLevel<T: RefTrait>(pub Option<T>);
+
+impl<T: RefTrait> Default for InitialLevel<T> {
+    fn default() -> Self {
+        Self(None)
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
