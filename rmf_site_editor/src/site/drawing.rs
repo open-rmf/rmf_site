@@ -18,25 +18,17 @@
 use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
-    site::{Category, CurrentSite, DefaultFile},
+    site::{get_current_site_path, Category, CurrentSite, DefaultFile},
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
 #[derive(Default)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
-
-fn get_current_site_path(
-    current_site: Res<CurrentSite>,
-    site_files: Query<&DefaultFile>,
-) -> Option<PathBuf> {
-    let site_entity = (*current_site).0?;
-    site_files.get(site_entity).map(|f| f.0.clone()).ok()
-}
 
 pub fn add_drawing_visuals(
     new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
@@ -45,15 +37,22 @@ pub fn add_drawing_visuals(
     current_site: Res<CurrentSite>,
     site_files: Query<&DefaultFile>,
 ) {
+    // TODO support for remote sources
     let file_path = match get_current_site_path(current_site, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &new_drawings {
-        let texture_path = match source {
-            AssetSource::Local(name) => file_path.with_file_name(name),
+        // Append file name to path if it's a local file
+        // TODO cleanup
+        let asset_source = match source {
+            AssetSource::Local(name) => AssetSource::Local(String::from(
+                file_path.with_file_name(name).to_str().unwrap(),
+            )),
+            AssetSource::Remote(uri) => source.clone(),
+            AssetSource::Search(name) => source.clone(),
         };
-        let texture_handle: Handle<Image> = asset_server.load(texture_path);
+        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
@@ -117,10 +116,15 @@ pub fn update_drawing_asset_source(
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
-        let texture_path = match source {
-            AssetSource::Local(name) => file_path.with_file_name(name),
+        // TODO cleanup
+        let asset_source = match source {
+            AssetSource::Local(name) => AssetSource::Local(String::from(
+                file_path.with_file_name(name).to_str().unwrap(),
+            )),
+            AssetSource::Remote(uri) => source.clone(),
+            AssetSource::Search(name) => source.clone(),
         };
-        let texture_handle: Handle<Image> = asset_server.load(texture_path);
+        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));

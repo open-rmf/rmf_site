@@ -1,4 +1,6 @@
-use crate::{Angle, IsStatic, Kind, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation};
+use crate::{
+    Angle, AssetSource, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation,
+};
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
 
@@ -24,11 +26,7 @@ impl Model {
     pub fn to_site(&self) -> SiteModel {
         SiteModel {
             name: NameInSite(self.instance_name.clone()),
-            kind: if self.model_name.is_empty() {
-                Kind(None)
-            } else {
-                Kind(Some(self.model_name.clone()))
-            },
+            source: AssetSource::Search(self.model_name.clone()),
             pose: Pose {
                 trans: [self.x as f32, self.y as f32, self.z_offset as f32],
                 rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),

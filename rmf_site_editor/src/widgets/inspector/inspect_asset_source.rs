@@ -33,16 +33,22 @@ impl<'a> InspectAssetSource<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
-        // TODO recall plugin once multiple sources exist
+        // TODO implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
+            AssetSource::Remote(uri) => uri,
+            AssetSource::Search(name) => name,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
             ComboBox::from_id_source("Asset Source")
                 .selected_text(new_source.label())
                 .show_ui(ui, |ui| {
-                    for variant in &[AssetSource::Local(assumed_source.clone())] {
+                    for variant in &[
+                        AssetSource::Local(assumed_source.clone()),
+                        AssetSource::Remote(assumed_source.clone()),
+                        AssetSource::Search(assumed_source.clone()),
+                    ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
                     ui.end_row();
@@ -63,6 +69,12 @@ impl<'a> InspectAssetSource<'a> {
                     }
                     ui.text_edit_singleline(name);
                 });
+            }
+            AssetSource::Remote(uri) => {
+                ui.text_edit_singleline(uri);
+            }
+            AssetSource::Search(name) => {
+                ui.text_edit_singleline(name);
             }
         }
         if &new_source != self.source {
