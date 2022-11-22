@@ -20,8 +20,8 @@ use crate::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
     site::{
-        Change, CurrentLevel, Delete, PhysicalLightToggle, SiteState, SiteUpdateLabel,
-        ToggleLiftDoorAvailability, ExportLights,
+        Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
+        SiteUpdateLabel, ToggleLiftDoorAvailability,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -66,8 +66,7 @@ impl Plugin for StandardUiLayout {
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(resolve_light_export_file)
+                SystemSet::on_update(SiteState::Display).with_system(resolve_light_export_file),
             );
     }
 }
@@ -107,7 +106,7 @@ pub struct Requests<'w, 's> {
     pub toggle_headlights: ResMut<'w, HeadlightToggle>,
     pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
-    pub export_lights: EventWriter<'w, 's, ExportLights>
+    pub export_lights: EventWriter<'w, 's, ExportLights>,
 }
 
 /// We collect all the events into its own SystemParam because we are not

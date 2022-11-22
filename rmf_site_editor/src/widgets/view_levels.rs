@@ -139,7 +139,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                             .on_hover_text("Remove this level")
                             .clicked()
                         {
-                            self.events.request.delete.send(Delete::new(e).and_dependents());
+                            self.events
+                                .request
+                                .delete
+                                .send(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
                     } else {
@@ -164,7 +167,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
 
                 if shown_props != *props {
                     self.events
-                        .change.level_props
+                        .change
+                        .level_props
                         .send(Change::new(shown_props, e));
                 }
             }

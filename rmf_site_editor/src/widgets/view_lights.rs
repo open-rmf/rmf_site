@@ -18,18 +18,25 @@
 use crate::{
     icons::Icons,
     interaction::Select,
-    site::{Angle, Category, Light, LightKind, Pose, Recall, RecallLightKind, Rotation, SiteID, ExportLights},
+    site::{
+        Angle, Category, ExportLights, Light, LightKind, Pose, Recall, RecallLightKind, Rotation,
+        SiteID,
+    },
     widgets::{
         inspector::{InspectLightKind, InspectPose, SelectionWidget},
         AppEvents,
     },
 };
-use bevy::{ecs::system::SystemParam, prelude::*, tasks::{Task, AsyncComputeTaskPool}};
+use bevy::{
+    ecs::system::SystemParam,
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 use bevy_egui::egui::Ui;
-use std::cmp::Reverse;
-use std::collections::BTreeMap;
 use futures_lite::future;
 use rfd::AsyncFileDialog;
+use std::cmp::Reverse;
+use std::collections::BTreeMap;
 
 pub struct LightDisplay {
     pub pose: Pose,
@@ -94,7 +101,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 if ui.button("Export Lights").clicked() {
                     if let Some(export_file) = &self.events.display.light.export_file {
-                        self.events.request.export_lights.send(ExportLights(export_file.clone()))
+                        self.events
+                            .request
+                            .export_lights
+                            .send(ExportLights(export_file.clone()))
                     } else {
                         println!("ERROR: Please choose a file before trying to export the lights");
                     }
@@ -119,12 +129,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                 }
             });
             match &self.events.display.light.export_file {
-                Some(path) => {
-                    match path.to_str() {
-                        Some(s) => { ui.label(s); }
-                        None => { ui.label("unable to render path"); }
+                Some(path) => match path.to_str() {
+                    Some(s) => {
+                        ui.label(s);
                     }
-                }
+                    None => {
+                        ui.label("unable to render path");
+                    }
+                },
                 None => {
                     ui.label("no file chosen");
                 }
@@ -197,9 +209,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
     }
 }
 
-pub fn resolve_light_export_file(
-    mut light_display: ResMut<LightDisplay>,
-) {
+pub fn resolve_light_export_file(mut light_display: ResMut<LightDisplay>) {
     let mut resolved = false;
     if let Some(task) = &mut light_display.choosing_file_for_export {
         if let Some(result) = future::block_on(future::poll_once(task)) {

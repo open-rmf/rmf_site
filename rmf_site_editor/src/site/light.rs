@@ -27,7 +27,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, LightKind, Pose, LevelProperties, Light};
+use rmf_site_format::{Category, LevelProperties, Light, LightKind, Pose};
 use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
@@ -149,7 +149,9 @@ pub fn export_lights(
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
             if let Ok(level) = levels.get(parent.get()) {
-                lights_per_level.entry(level.name.clone()).or_default()
+                lights_per_level
+                    .entry(level.name.clone())
+                    .or_default()
                     .push(Light {
                         pose: pose.clone(),
                         kind: kind.clone(),
@@ -162,8 +164,7 @@ pub fn export_lights(
             Err(err) => {
                 println!(
                     "Failed to create file {:?} for exporting lights: {}",
-                    export.0,
-                    err,
+                    export.0, err,
                 );
                 continue;
             }
