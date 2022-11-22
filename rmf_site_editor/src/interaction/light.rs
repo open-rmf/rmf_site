@@ -82,7 +82,7 @@ pub fn add_physical_light_visual_cues(
                                 ..default()
                             })
                             .insert(Selectable::new(e))
-                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         point
                             .spawn_bundle(PbrBundle {
@@ -91,7 +91,7 @@ pub fn add_physical_light_visual_cues(
                                 ..default()
                             })
                             .insert(Selectable::new(e))
-                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
@@ -107,7 +107,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         spot.spawn_bundle(PbrBundle {
                             mesh: assets.spot_light_shine_mesh.clone(),
@@ -115,7 +115,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
@@ -131,7 +131,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         dir.spawn_bundle(PbrBundle {
                             mesh: assets.directional_light_shine_mesh.clone(),
@@ -139,7 +139,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
