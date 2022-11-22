@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, InteractionAssets, Selectable},
+    interaction::{DragPlaneBundle, HeadlightToggle, InteractionAssets, Selectable},
     site::LightKind,
 };
 use bevy::prelude::*;
@@ -49,16 +49,21 @@ impl LightBodies {
 
 pub fn add_physical_light_visual_cues(
     mut commands: Commands,
-    new_lights: Query<Entity, Added<LightKind>>,
+    new_lights: Query<(Entity, &LightKind), Added<LightKind>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     assets: Res<InteractionAssets>,
+    mut headlight_toggle: ResMut<HeadlightToggle>,
 ) {
-    for e in &new_lights {
+    for (e, kind) in &new_lights {
         let light_material = materials.add(StandardMaterial {
-            base_color: Color::WHITE,
+            base_color: kind.color().into(),
             unlit: true,
             ..default()
         });
+
+        if kind.is_directional() {
+            headlight_toggle.0 = false;
+        }
 
         let bodies = commands
             .entity(e)
@@ -66,7 +71,9 @@ pub fn add_physical_light_visual_cues(
             .add_children(|parent| {
                 let point = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: false },
+                        visibility: Visibility {
+                            is_visible: kind.is_point(),
+                        },
                         ..default()
                     })
                     .with_children(|point| {
@@ -77,7 +84,7 @@ pub fn add_physical_light_visual_cues(
                                 ..default()
                             })
                             .insert(Selectable::new(e))
-                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         point
                             .spawn_bundle(PbrBundle {
@@ -86,13 +93,15 @@ pub fn add_physical_light_visual_cues(
                                 ..default()
                             })
                             .insert(Selectable::new(e))
-                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                            .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
                 let spot = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: false },
+                        visibility: Visibility {
+                            is_visible: kind.is_spot(),
+                        },
                         ..default()
                     })
                     .with_children(|spot| {
@@ -102,7 +111,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         spot.spawn_bundle(PbrBundle {
                             mesh: assets.spot_light_shine_mesh.clone(),
@@ -110,23 +119,25 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
                 let directional = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: false },
+                        visibility: Visibility {
+                            is_visible: kind.is_directional(),
+                        },
                         ..default()
                     })
                     .with_children(|dir| {
                         dir.spawn_bundle(PbrBundle {
                             mesh: assets.directional_light_cover_mesh.clone(),
-                            material: assets.physical_light_cover_material.clone(),
+                            material: assets.direction_light_cover_material.clone(),
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
 
                         dir.spawn_bundle(PbrBundle {
                             mesh: assets.directional_light_shine_mesh.clone(),
@@ -134,7 +145,7 @@ pub fn add_physical_light_visual_cues(
                             ..default()
                         })
                         .insert(Selectable::new(e))
-                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                        .insert_bundle(DragPlaneBundle::new(e, Vec3::Z).globally());
                     })
                     .id();
 
@@ -150,9 +161,10 @@ pub fn add_physical_light_visual_cues(
 }
 
 pub fn update_physical_light_visual_cues(
-    changed: Query<(&LightKind, &LightBodies, &Handle<StandardMaterial>)>,
+    changed: Query<(&LightKind, &LightBodies, &Handle<StandardMaterial>), Changed<LightKind>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     mut visibilities: Query<&mut Visibility>,
+    mut headlight_toggle: ResMut<HeadlightToggle>,
 ) {
     for (kind, bodies, material) in &changed {
         bodies.switch(kind, &mut visibilities);
@@ -160,6 +172,10 @@ pub fn update_physical_light_visual_cues(
             m.base_color = kind.color().into();
         } else {
             println!("DEV ERROR: Unable to get material asset for light");
+        }
+
+        if kind.is_directional() {
+            headlight_toggle.0 = false;
         }
     }
 }

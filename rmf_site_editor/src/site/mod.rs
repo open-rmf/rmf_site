@@ -140,14 +140,13 @@ impl Plugin for SitePlugin {
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
             .add_event::<ToggleLiftDoorAvailability>()
+            .add_event::<ExportLights>()
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
-            .add_plugin(ChangePlugin::<Kind>::default())
-            .add_plugin(RecallPlugin::<RecallKind>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
@@ -220,7 +219,8 @@ impl Plugin for SitePlugin {
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)
                     .with_system(update_wall_for_moved_anchors)
-                    .with_system(update_transforms_for_changed_poses),
+                    .with_system(update_transforms_for_changed_poses)
+                    .with_system(export_lights),
             );
     }
 }

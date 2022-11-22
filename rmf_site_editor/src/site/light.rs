@@ -27,7 +27,8 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, LightKind};
+use rmf_site_format::{Category, LevelProperties, Light, LightKind, Pose};
+use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
 /// rendered.
@@ -132,5 +133,50 @@ pub fn toggle_physical_lights(
         for mut v in &mut physical_lights {
             v.is_visible = physical_light_toggle.0;
         }
+    }
+}
+
+/// Request the light layout to be exported to a file
+#[derive(Clone)]
+pub struct ExportLights(pub std::path::PathBuf);
+
+pub fn export_lights(
+    mut exports: EventReader<ExportLights>,
+    lights: Query<(&Pose, &LightKind, &Parent)>,
+    levels: Query<&LevelProperties>,
+) {
+    for export in exports.iter() {
+        let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
+        for (pose, kind, parent) in &lights {
+            if let Ok(level) = levels.get(parent.get()) {
+                lights_per_level
+                    .entry(level.name.clone())
+                    .or_default()
+                    .push(Light {
+                        pose: pose.clone(),
+                        kind: kind.clone(),
+                    })
+            }
+        }
+
+        let out_file = match std::fs::File::create(export.0.clone()) {
+            Ok(out_file) => out_file,
+            Err(err) => {
+                println!(
+                    "Failed to create file {:?} for exporting lights: {}",
+                    export.0, err,
+                );
+                continue;
+            }
+        };
+
+        let mut root: BTreeMap<String, HashMap<String, Vec<Light>>> = BTreeMap::new();
+        for (level, lights) in lights_per_level {
+            let mut lights_map: HashMap<String, Vec<Light>> = HashMap::new();
+            lights_map.insert("lights".to_string(), lights);
+            root.insert(level, lights_map);
+        }
+
+        serde_yaml::to_writer(out_file, &root);
     }
 }

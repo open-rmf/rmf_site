@@ -18,6 +18,7 @@
 use crate::site::*;
 use bevy::prelude::*;
 use std::collections::HashSet;
+use std::path::PathBuf;
 
 pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transform {
     let dp = *p_end - *p_start;
@@ -32,6 +33,14 @@ pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transf
         scale: Vec3::new(length, width, 1.),
         ..default()
     }
+}
+
+pub fn get_current_site_path(
+    current_site: Res<CurrentSite>,
+    site_files: Query<&DefaultFile>,
+) -> Option<PathBuf> {
+    let site_entity = (*current_site).0?;
+    site_files.get(site_entity).map(|f| f.0.clone()).ok()
 }
 
 /// This component indicates what labels are used to refer to the start/left

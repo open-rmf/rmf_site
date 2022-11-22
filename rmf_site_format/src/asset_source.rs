@@ -19,17 +19,22 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum AssetSource {
     Local(String),
+    Remote(String),
+    Search(String),
 }
 
 impl AssetSource {
     pub fn label(&self) -> &str {
         match self {
             Self::Local(_) => "Local",
+            Self::Remote(_) => "Remote",
+            Self::Search(_) => "Search",
         }
     }
 }
@@ -40,10 +45,44 @@ impl Default for AssetSource {
     }
 }
 
+// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
+impl From<&Path> for AssetSource {
+    fn from(path: &Path) -> Self {
+        // TODO pattern matching here would make sure unimplemented variants are a compile error
+        if path.starts_with("rmf-server://") {
+            let without_prefix = path
+                .to_str()
+                .unwrap()
+                .strip_prefix("rmf-server://")
+                .unwrap();
+            return AssetSource::Remote(String::from(without_prefix));
+        } else if path.starts_with("file://") {
+            let without_prefix = path.to_str().unwrap().strip_prefix("file://").unwrap();
+            return AssetSource::Local(String::from(without_prefix));
+        } else if path.starts_with("search://") {
+            let without_prefix = path.to_str().unwrap().strip_prefix("search://").unwrap();
+            return AssetSource::Search(String::from(without_prefix));
+        }
+        AssetSource::default()
+    }
+}
+
+impl From<&AssetSource> for String {
+    fn from(asset_source: &AssetSource) -> String {
+        match asset_source {
+            AssetSource::Remote(uri) => String::from("rmf-server://") + &uri,
+            AssetSource::Local(filename) => String::from("file://") + &filename,
+            AssetSource::Search(name) => String::from("search://") + &name,
+        }
+    }
+}
+
 #[derive(Clone, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallAssetSource {
     pub filename: Option<String>,
+    pub remote_uri: Option<String>,
+    pub search_name: Option<String>,
 }
 
 impl Recall for RecallAssetSource {
@@ -53,6 +92,12 @@ impl Recall for RecallAssetSource {
         match source {
             AssetSource::Local(name) => {
                 self.filename = Some(name.clone());
+            }
+            AssetSource::Remote(uri) => {
+                self.remote_uri = Some(uri.clone());
+            }
+            AssetSource::Search(name) => {
+                self.search_name = Some(name.clone());
             }
         }
     }
