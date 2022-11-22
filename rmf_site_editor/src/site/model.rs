@@ -20,9 +20,10 @@ use crate::{
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
-use rmf_site_format::{Kind, ModelMarker, Pose};
+use rmf_site_format::{AssetSource, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 #[derive(Default, Debug, Clone, Deref, DerefMut)]
 pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
@@ -32,7 +33,7 @@ pub struct SpawnedModels(Vec<Entity>);
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
-    kind: Kind,
+    source: AssetSource,
     scene_entity: Option<Entity>,
 }
 
@@ -42,7 +43,10 @@ pub struct ModelSceneRoot;
 
 pub fn update_model_scenes(
     mut commands: Commands,
-    mut changed_models: Query<(Entity, &Kind, &Pose), (Changed<Kind>, With<ModelMarker>)>,
+    mut changed_models: Query<
+        (Entity, &AssetSource, &Pose),
+        (Changed<AssetSource>, With<ModelMarker>),
+    >,
     asset_server: Res<AssetServer>,
     mut loading_models: ResMut<LoadingModels>,
     mut spawned_models: ResMut<SpawnedModels>,
@@ -50,7 +54,7 @@ pub fn update_model_scenes(
 ) {
     fn spawn_model(
         e: Entity,
-        kind: &Kind,
+        source: &AssetSource,
         pose: &Pose,
         asset_server: &AssetServer,
         commands: &mut Commands,
@@ -59,7 +63,7 @@ pub fn update_model_scenes(
         let mut commands = commands.entity(e);
         commands
             .insert(ModelScene {
-                kind: kind.clone(),
+                source: source.clone(),
                 scene_entity: None,
             })
             .insert_bundle(SpatialBundle {
@@ -68,14 +72,24 @@ pub fn update_model_scenes(
             })
             .insert(Category::Model);
 
-        if let Some(kind) = &kind.0 {
-            let bundle_path = String::from("rmf-site://") + kind + &".glb#Scene0".to_string();
-            let scene: Handle<Scene> = asset_server.load(&bundle_path);
-            loading_models.insert(e, scene.clone());
-            commands.insert(PreventDeletion::because(
-                "Waiting for model to spawn".to_string(),
-            ));
-        }
+        // TODO remove glb hardcoding? might create havoc with supported formats though
+        // TODO is there a cleaner way to do this?
+        let asset_source = match source {
+            AssetSource::Remote(path) => {
+                AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string())
+            }
+            AssetSource::Local(filename) => {
+                AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
+            }
+            AssetSource::Search(name) => {
+                AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
+            }
+        };
+        let scene: Handle<Scene> = asset_server.load(&String::from(&asset_source));
+        loading_models.insert(e, scene.clone());
+        commands.insert(PreventDeletion::because(
+            "Waiting for model to spawn".to_string(),
+        ));
     }
 
     // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -116,16 +130,16 @@ pub fn update_model_scenes(
     }
 
     // update changed models
-    for (e, kind, pose) in changed_models.iter_mut() {
+    for (e, source, pose) in changed_models.iter_mut() {
         if let Ok(mut current_scene) = current_scenes.get_mut(e) {
-            if current_scene.kind != *kind {
+            if current_scene.source != *source {
                 if let Some(scene_entity) = current_scene.scene_entity {
                     commands.entity(scene_entity).despawn_recursive();
                 }
                 current_scene.scene_entity = None;
                 spawn_model(
                     e,
-                    kind,
+                    source,
                     pose,
                     &asset_server,
                     &mut commands,
@@ -137,7 +151,7 @@ pub fn update_model_scenes(
             // is being added for the first time.
             spawn_model(
                 e,
-                kind,
+                source,
                 pose,
                 &asset_server,
                 &mut commands,

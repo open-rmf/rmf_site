@@ -249,7 +249,14 @@ fn generate_levels(
             (With<MeasurementMarker>, Without<Pending>),
         >,
         Query<
-            (&NameInSite, &Kind, &Pose, &IsStatic, &SiteID, &Parent),
+            (
+                &NameInSite,
+                &AssetSource,
+                &Pose,
+                &IsStatic,
+                &SiteID,
+                &Parent,
+            ),
             (With<ModelMarker>, Without<Pending>),
         >,
         Query<
@@ -427,14 +434,14 @@ fn generate_levels(
         }
     }
 
-    for (name, kind, pose, is_static, id, parent) in &q_models {
+    for (name, source, pose, is_static, id, parent) in &q_models {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
                     id.0,
                     Model {
                         name: name.clone(),
-                        kind: kind.clone(),
+                        source: source.clone(),
                         pose: pose.clone(),
                         is_static: is_static.clone(),
                         marker: ModelMarker,

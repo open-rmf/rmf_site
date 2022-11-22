@@ -103,7 +103,6 @@ pub struct InspectorComponentParams<'w, 's> {
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
-    pub kinds: Query<'w, 's, (&'static Kind, &'static RecallKind)>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub lifts: InspectLiftParams<'w, 's>,
@@ -208,17 +207,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
-            }
-
-            if let Ok((kind, recall)) = self.params.component.kinds.get(selection) {
-                if let Some(new_kind) =
-                    InspectOptionString::new("Kind", &kind.0, &recall.value).show(ui)
-                {
-                    self.events
-                        .change
-                        .kind
-                        .send(Change::new(Kind(new_kind), selection));
-                }
             }
 
             if let Ok((label, recall)) = self.params.component.labels.get(selection) {
