@@ -1,6 +1,7 @@
-[![](https://github.com/open-rmf/rmf_site/workflows/style/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/style.yaml)
-[![](https://github.com/open-rmf/rmf_site/workflows/ci_linux/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_linux.yaml)
-[![](https://github.com/open-rmf/rmf_site/workflows/ci_web/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_web.yaml)
+[![style](https://github.com/open-rmf/rmf_site/actions/workflows/style.yaml/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/style.yaml)
+[![ci_linux](https://github.com/open-rmf/rmf_site/actions/workflows/ci_linux.yaml/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_linux.yaml)
+[![ci_web](https://github.com/open-rmf/rmf_site/actions/workflows/ci_web.yaml/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_web.yaml)
+[![ci_windows](https://github.com/open-rmf/rmf_site/actions/workflows/ci_windows.yaml/badge.svg)](https://github.com/open-rmf/rmf_site/actions/workflows/ci_windows.yaml)
 
 # The RMF Site Editor
 

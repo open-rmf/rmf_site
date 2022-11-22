@@ -19,6 +19,7 @@ use crate::interaction::*;
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableBundle, PickingRaycastSet};
 use bevy_mod_raycast::{Intersection, Ray3d};
+use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
 pub struct InitialDragConditions {
@@ -405,6 +406,14 @@ pub fn update_drag_motions(
                     });
                 }
             }
+        }
+    }
+}
+
+pub fn move_pose(mut poses: Query<&mut Pose>, mut move_to: EventReader<MoveTo>) {
+    for move_to in move_to.iter() {
+        if let Ok(mut pose) = poses.get_mut(move_to.entity) {
+            pose.align_with(&move_to.transform);
         }
     }
 }

@@ -1,9 +1,9 @@
 name: ci_windows
 on:
-  push:
-    branches:
-      - master
   pull_request:
+  workflow_dispatch:
+  push:
+    branches: [main]
 
 jobs:
   build:

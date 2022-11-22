@@ -38,6 +38,9 @@ pub use lane::*;
 pub mod lift;
 pub use lift::*;
 
+pub mod light;
+pub use light::*;
+
 pub mod misc;
 pub use misc::*;
 
@@ -113,6 +116,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_doormats_for_level_change)
                     .with_system(update_cursor_transform)
                     .with_system(update_picking_cam)
+                    .with_system(update_physical_light_visual_cues)
                     .with_system(make_selectable_entities_pickable)
                     .with_system(handle_selection_picking)
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))
@@ -140,13 +144,15 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_anchor_visual_cues)
                     .with_system(remove_interaction_for_subordinate_anchors)
                     .with_system(add_lane_visual_cues)
-                    .with_system(add_misc_visual_cues),
+                    .with_system(add_misc_visual_cues)
+                    .with_system(add_physical_light_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(move_anchor.before(update_anchor_transforms))
+                    .with_system(move_pose)
                     .with_system(make_gizmos_pickable),
             )
             .add_system_set_to_stage(

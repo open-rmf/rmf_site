@@ -73,7 +73,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<DrawingMarker>,
                     With<FiducialMarker>,
                     With<FloorMarker>,
-                    With<LightType>,
+                    With<LightKind>,
                     With<MeasurementMarker>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
@@ -236,7 +236,7 @@ fn generate_levels(
             ),
             (With<FloorMarker>, Without<Pending>),
         >,
-        Query<(&LightType, &Pose, &SiteID, &Parent)>,
+        Query<(&LightKind, &Pose, &SiteID, &Parent)>,
         Query<
             (
                 &Edge<Entity>,

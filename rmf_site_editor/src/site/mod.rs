@@ -135,6 +135,7 @@ impl Plugin for SitePlugin {
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()
             .init_resource::<SelectedNavGraph>()
+            .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
@@ -156,6 +157,8 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallAssetSource>::default())
             .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
             .add_plugin(ChangePlugin::<PhysicalCameraProperties>::default())
+            .add_plugin(ChangePlugin::<LightKind>::default())
+            .add_plugin(RecallPlugin::<RecallLightKind>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
@@ -178,7 +181,8 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphans_to_nav_graph)
                     .with_system(assign_orphan_levels_to_site)
-                    .with_system(add_tags_to_lift),
+                    .with_system(add_tags_to_lift)
+                    .with_system(add_physical_lights),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -199,7 +203,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_visibility_for_lanes)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)
-                    .with_system(add_physical_lights)
+                    .with_system(update_physical_lights)
+                    .with_system(toggle_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_changed_anchor)

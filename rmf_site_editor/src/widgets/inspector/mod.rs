@@ -42,6 +42,9 @@ pub use inspect_lane::*;
 pub mod inspect_lift;
 pub use inspect_lift::*;
 
+pub mod inspect_light;
+pub use inspect_light::*;
+
 pub mod inspect_name;
 pub use inspect_name::*;
 
@@ -107,6 +110,7 @@ pub struct InspectorComponentParams<'w, 's> {
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
+    pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
 }
 
@@ -226,6 +230,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
+            if let Ok((light, recall)) = self.params.component.lights.get(selection) {
+                if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
+                    self.events
+                        .change
+                        .light
+                        .send(Change::new(new_light, selection));
+                }
+                ui.add_space(10.0);
+            }
+
             if let Ok((door, recall)) = self.params.component.doors.get(selection) {
                 if let Some(new_door) = InspectDoorType::new(door, recall).show(ui) {
                     self.events
@@ -233,6 +247,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .door
                         .send(Change::new(new_door, selection));
                 }
+                ui.add_space(10.0);
             }
 
             if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {

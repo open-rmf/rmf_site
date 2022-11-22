@@ -376,7 +376,7 @@ pub(crate) fn make_pyramid(circle: Circle, peak: [f32; 3], segments: u32) -> Mes
     return MeshBuffer::new(positions, normals, indices);
 }
 
-fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
+pub(crate) fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> MeshBuffer {
     let positions: Vec<[f32; 3]> = make_circles([circle], resolution + 1, 0.)
         .take(resolution as usize) // skip the last vertex which would close the circle
         .chain([peak].into_iter().cycle().take(resolution as usize))
@@ -519,6 +519,28 @@ pub(crate) fn make_wall_mesh(
             Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
                 * Affine3A::from_rotation_z(yaw),
         )
+}
+
+pub(crate) fn make_top_circle(circle: Circle, resolution: u32) -> MeshBuffer {
+    let positions: Vec<[f32; 3]> = make_circles([circle], resolution, 0.)
+        .take(resolution as usize) // skip the vertex which would close the circle
+        .chain([[0., 0., circle.height]].into_iter())
+        .collect();
+
+    let peak = positions.len() as u32 - 1;
+    let indices: Vec<u32> = (0..=peak - 2)
+        .into_iter()
+        .flat_map(|i| [i, i + 1, peak].into_iter())
+        .chain([peak - 1, 0, peak])
+        .collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    return MeshBuffer::new(positions, normals, indices);
 }
 
 pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer {
