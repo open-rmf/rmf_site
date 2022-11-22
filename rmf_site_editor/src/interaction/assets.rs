@@ -33,6 +33,7 @@ pub struct InteractionAssets {
     pub directional_light_cover_mesh: Handle<Mesh>,
     pub directional_light_shine_mesh: Handle<Mesh>,
     pub physical_light_cover_material: Handle<StandardMaterial>,
+    pub direction_light_cover_material: Handle<StandardMaterial>,
     pub x_axis_materials: GizmoMaterialSet,
     pub y_axis_materials: GizmoMaterialSet,
     pub z_plane_materials: GizmoMaterialSet,
@@ -193,7 +194,16 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             ..default()
         });
-        let physical_light_cover_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
+        let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
+        let physical_light_cover_material = materials.add(StandardMaterial {
+            base_color: light_cover_color,
+            ..default()
+        });
+        let direction_light_cover_material = materials.add(StandardMaterial {
+            base_color: light_cover_color,
+            unlit: true,
+            ..default()
+        });
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
@@ -252,6 +262,7 @@ impl FromWorld for InteractionAssets {
             directional_light_cover_mesh,
             directional_light_shine_mesh,
             physical_light_cover_material,
+            direction_light_cover_material,
             x_axis_materials,
             y_axis_materials,
             z_plane_materials,
