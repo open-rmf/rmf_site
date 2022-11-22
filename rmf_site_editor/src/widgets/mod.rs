@@ -23,7 +23,7 @@ use crate::{
         Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
         SiteUpdateLabel, ToggleLiftDoorAvailability,
     },
-    occupancy::{CalculateGrid, DebugOccupancy},
+    occupancy::CalculateGrid,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -114,7 +114,6 @@ pub struct Requests<'w, 's> {
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub export_lights: EventWriter<'w, 's, ExportLights>,
     pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
-    pub debug_occupancy: EventWriter<'w, 's, DebugOccupancy>,
 }
 
 /// We collect all the events into its own SystemParam because we are not

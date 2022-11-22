@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    occupancy::{CalculateGrid, DebugOccupancy},
+    occupancy::CalculateGrid,
     widgets::AppEvents,
 };
 use bevy::{
@@ -53,18 +53,19 @@ impl<'a, 'w2, 's2> ViewOccupancy<'a, 'w2, 's2> {
                     ceiling: 1.5,
                 });
             }
-            ui.add(
+            if ui.add(
                 DragValue::new(&mut self.events.display.occupancy.cell_size)
-                .clamp_range(0.001..=f32::INFINITY)
+                .clamp_range(0.01..=f32::INFINITY)
                 .speed(0.01)
-            );
+            ).changed() {
+                if self.events.display.occupancy.cell_size > 0.1 {
+                    self.events.request.calculate_grid.send(CalculateGrid {
+                        cell_size: self.events.display.occupancy.cell_size,
+                        floor: 0.01,
+                        ceiling: 1.5
+                    });
+                }
+            }
         });
-        if ui.button("Debug").clicked() {
-            self.events.request.debug_occupancy.send(DebugOccupancy {
-                cell_size: self.events.display.occupancy.cell_size,
-                floor: 0.01,
-                ceiling: 1.5
-            });
-        }
     }
 }
