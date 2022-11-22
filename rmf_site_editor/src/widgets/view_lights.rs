@@ -99,17 +99,19 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             ui.horizontal(|ui| {
-                if ui.button("Export Lights").clicked() {
-                    if let Some(export_file) = &self.events.display.light.export_file {
-                        self.events
-                            .request
-                            .export_lights
-                            .send(ExportLights(export_file.clone()))
-                    } else {
-                        println!("ERROR: Please choose a file before trying to export the lights");
+                if self.events.display.light.export_file.is_some() {
+                    if ui.button("Export").clicked() {
+                        if let Some(export_file) = &self.events.display.light.export_file {
+                            self.events
+                                .request
+                                .export_lights
+                                .send(ExportLights(export_file.clone()))
+                        } else {
+                            println!("ERROR: Please choose a file before trying to export the lights");
+                        }
                     }
                 }
-                if ui.button("Choose File").clicked() {
+                if ui.button("Export Lights As...").clicked() {
                     match &self.events.display.light.choosing_file_for_export {
                         Some(_) => {
                             println!("A file is already being chosen!");
@@ -138,7 +140,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 },
                 None => {
-                    ui.label("no file chosen");
+                    ui.label("<no file chosen>");
                 }
             }
             ui.separator();
@@ -209,13 +211,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
     }
 }
 
-pub fn resolve_light_export_file(mut light_display: ResMut<LightDisplay>) {
+pub fn resolve_light_export_file(
+    mut light_display: ResMut<LightDisplay>,
+    mut export_lights: EventWriter<ExportLights>,
+) {
     let mut resolved = false;
     if let Some(task) = &mut light_display.choosing_file_for_export {
         if let Some(result) = future::block_on(future::poll_once(task)) {
             resolved = true;
 
             if let Some(result) = result {
+                export_lights.send(ExportLights(result.clone()));
                 light_display.export_file = Some(result);
             }
         }
