@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    occupancy::CalculateGrid,
+    occupancy::{CalculateGrid, DebugOccupancy},
     widgets::AppEvents,
 };
 use bevy::{
@@ -59,5 +59,12 @@ impl<'a, 'w2, 's2> ViewOccupancy<'a, 'w2, 's2> {
                 .speed(0.01)
             );
         });
+        if ui.button("Debug").clicked() {
+            self.events.request.debug_occupancy.send(DebugOccupancy {
+                cell_size: self.events.display.occupancy.cell_size,
+                floor: 0.01,
+                ceiling: 1.5
+            });
+        }
     }
 }
