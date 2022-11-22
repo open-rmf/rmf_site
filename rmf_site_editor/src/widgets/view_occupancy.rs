@@ -15,15 +15,9 @@
  *
 */
 
-use crate::{
-    occupancy::CalculateGrid,
-    widgets::AppEvents,
-};
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{Ui, DragValue};
+use crate::{occupancy::CalculateGrid, widgets::AppEvents};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{DragValue, Ui};
 
 pub struct OccupancyDisplay {
     pub cell_size: f32,
@@ -53,16 +47,19 @@ impl<'a, 'w2, 's2> ViewOccupancy<'a, 'w2, 's2> {
                     ceiling: 1.5,
                 });
             }
-            if ui.add(
-                DragValue::new(&mut self.events.display.occupancy.cell_size)
-                .clamp_range(0.01..=f32::INFINITY)
-                .speed(0.01)
-            ).changed() {
+            if ui
+                .add(
+                    DragValue::new(&mut self.events.display.occupancy.cell_size)
+                        .clamp_range(0.01..=f32::INFINITY)
+                        .speed(0.01),
+                )
+                .changed()
+            {
                 if self.events.display.occupancy.cell_size > 0.1 {
                     self.events.request.calculate_grid.send(CalculateGrid {
                         cell_size: self.events.display.occupancy.cell_size,
                         floor: 0.01,
-                        ceiling: 1.5
+                        ceiling: 1.5,
                     });
                 }
             }

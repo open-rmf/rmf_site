@@ -16,29 +16,30 @@
 */
 
 use crate::{
-    site::{Category, SiteAssets, PASSIVE_LANE_HEIGHT, LevelProperties, SiteProperties},
-    interaction::{VisualCue, Selection},
+    interaction::{Selection, VisualCue},
     shapes::*,
+    site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
 };
 use bevy::{
+    math::{Affine3A, Mat3A, Vec3A},
     prelude::*,
-    math::{Vec3A, Mat3A, Affine3A},
-    render::{primitives::Aabb, mesh::{VertexAttributeValues, PrimitiveTopology, Indices}},
-};
-use std::{
-    collections::{HashSet, HashMap},
-    time::Instant,
+    render::{
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
+        primitives::Aabb,
+    },
 };
 use itertools::Itertools;
 pub use mapf::occupancy::Cell;
+use std::{
+    collections::{HashMap, HashSet},
+    time::Instant,
+};
 
 pub struct OccupancyPlugin;
 
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<CalculateGrid>()
-            .add_system(calculate_grid);
+        app.add_event::<CalculateGrid>().add_system(calculate_grid);
     }
 }
 
@@ -59,7 +60,10 @@ pub struct GridRange {
 
 impl GridRange {
     pub fn new() -> Self {
-        GridRange { min: [i64::MAX, i64::MAX], max: [i64::MIN, i64::MIN] }
+        GridRange {
+            min: [i64::MAX, i64::MAX],
+            max: [i64::MIN, i64::MIN],
+        }
     }
 
     pub fn include(&mut self, cell: Cell) {
@@ -112,11 +116,11 @@ fn calculate_grid(
         let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
         let mut range = GridRange::new();
         let cell_size = request.cell_size as f32;
-        let half_cell_size = cell_size/2.0;
+        let half_cell_size = cell_size / 2.0;
         let floor = request.floor;
         let ceiling = request.ceiling;
-        let mid = (floor + ceiling)/2.0;
-        let half_height = (ceiling - floor)/2.0;
+        let mid = (floor + ceiling) / 2.0;
+        let half_height = (ceiling - floor) / 2.0;
         let levels_of_sites = get_levels_of_sites(&levels, &parents);
 
         let physical_entities = collect_physical_entities(&bodies, &meta);
@@ -154,7 +158,10 @@ fn calculate_grid(
                 let indices = match mesh.indices() {
                     Some(Indices::U32(indices)) => indices,
                     _ => {
-                        println!("Unexpected index set for mesh of {e:?}:\n{:?}", mesh.indices());
+                        println!(
+                            "Unexpected index set for mesh of {e:?}:\n{:?}",
+                            mesh.indices()
+                        );
                         continue;
                     }
                 };
@@ -173,11 +180,7 @@ fn calculate_grid(
                             cell_size * (y as f32 + 0.5),
                             mid,
                         ),
-                        half_extents: Vec3A::new(
-                            half_cell_size,
-                            half_cell_size,
-                            half_height
-                        )
+                        half_extents: Vec3A::new(half_cell_size, half_cell_size, half_height),
                     };
 
                     if mesh_intersects_box(&b, positions, indices, tf) {
@@ -215,11 +218,10 @@ fn calculate_grid(
                 let p = Vec3::new(
                     cell_size * (cell.x as f32 + 0.5),
                     cell_size * (cell.y as f32 + 0.5),
-                    PASSIVE_LANE_HEIGHT/2.0,
+                    PASSIVE_LANE_HEIGHT / 2.0,
                 );
                 mesh = mesh.merge_with(
-                    make_flat_square_mesh(cell_size)
-                    .transform_by(Affine3A::from_translation(p))
+                    make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),
                 );
             }
 
@@ -335,9 +337,9 @@ fn grid_range_of_aabb(
         for y in [-1_f32, 1_f32] {
             for z in [-1_f32, 1_f32] {
                 let m = Mat3A::from_diagonal(Vec3::new(x, y, z));
-                let corner = tf.affine().transform_point3a(
-                    aabb.center + m*aabb.half_extents
-                );
+                let corner = tf
+                    .affine()
+                    .transform_point3a(aabb.center + m * aabb.half_extents);
 
                 if corner.z < floor {
                     is_below = true;
@@ -374,10 +376,10 @@ fn mesh_intersects_box(
     indices: &Vec<u32>,
     mesh_tf: &GlobalTransform,
 ) -> bool {
-    for t_index in 0..indices.len()/3 {
-        let p0: Vec3A = positions[indices[3*t_index + 0] as usize].into();
-        let p1: Vec3A = positions[indices[3*t_index + 1] as usize].into();
-        let p2: Vec3A = positions[indices[3*t_index + 2] as usize].into();
+    for t_index in 0..indices.len() / 3 {
+        let p0: Vec3A = positions[indices[3 * t_index + 0] as usize].into();
+        let p1: Vec3A = positions[indices[3 * t_index + 1] as usize].into();
+        let p2: Vec3A = positions[indices[3 * t_index + 2] as usize].into();
         let points = [
             mesh_tf.affine().transform_point3a(p0),
             mesh_tf.affine().transform_point3a(p1),
@@ -391,10 +393,7 @@ fn mesh_intersects_box(
     return false;
 }
 
-fn triangle_intersects_box(
-    b: &Aabb,
-    points: [Vec3A; 3],
-) -> bool {
+fn triangle_intersects_box(b: &Aabb, points: [Vec3A; 3]) -> bool {
     // This uses the algorithm described here:
     // https://fileadmin.cs.lth.se/cs/Personal/Tomas_Akenine-Moller/code/tribox_tam.pdf
     let points = points.map(|p| p - b.center);
@@ -412,7 +411,10 @@ fn triangle_intersects_box(
         }
     }
 
-    let n = match (points[2] - points[0]).cross(points[1] - points[0]).try_normalize() {
+    let n = match (points[2] - points[0])
+        .cross(points[1] - points[0])
+        .try_normalize()
+    {
         Some(n) => n,
         None => {
             // This triange has no volume, so lets ignore it.

@@ -19,11 +19,11 @@ use crate::{
     interaction::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
+    occupancy::CalculateGrid,
     site::{
         Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
         SiteUpdateLabel, ToggleLiftDoorAvailability,
     },
-    occupancy::CalculateGrid,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
