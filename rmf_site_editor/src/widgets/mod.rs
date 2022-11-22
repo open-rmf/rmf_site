@@ -44,6 +44,9 @@ use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 pub mod view_lights;
 use view_lights::*;
 
+pub mod view_occupancy;
+use view_occupancy::*;
+
 pub mod icons;
 pub use icons::*;
 
@@ -60,6 +63,7 @@ impl Plugin for StandardUiLayout {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<LightDisplay>()
+            .init_resource::<OccupancyDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -92,6 +96,7 @@ pub struct ChangeEvents<'w, 's> {
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub light: ResMut<'w, LightDisplay>,
+    pub occupancy: ResMut<'w, OccupancyDisplay>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -162,13 +167,11 @@ fn standard_ui_layout(
                                 ViewLights::new(&lights, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.button("Calculate Occupancy").clicked() {
-                            events.request.calculate_grid.send(CalculateGrid {
-                                cell_size: 0.5,
-                                floor: 0.01,
-                                ceiling: 1.5,
-                            });
-                        }
+                        CollapsingHeader::new("Occupancy")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewOccupancy::new(&mut events).show(ui);
+                            })
                     });
                 });
         });

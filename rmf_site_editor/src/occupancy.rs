@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Category, SiteAssets, PASSIVE_LANE_HEIGHT},
+    site::{Category, SiteAssets, PASSIVE_LANE_HEIGHT, LevelProperties, SiteProperties},
     interaction::VisualCue,
     shapes::*,
 };
@@ -25,7 +25,10 @@ use bevy::{
     math::{Vec3A, Mat3A, Affine3A},
     render::{primitives::Aabb, mesh::{VertexAttributeValues, PrimitiveTopology, Indices}},
 };
-use std::collections::HashSet;
+use std::{
+    collections::{HashSet, HashMap},
+    time::Instant,
+};
 use itertools::Itertools;
 pub use mapf::occupancy::Cell;
 
@@ -39,14 +42,8 @@ impl Plugin for OccupancyPlugin {
     }
 }
 
-pub struct Grid {
-    pub occupied: HashSet<Cell>,
-    pub cell_size: f32,
-    pub range: GridRange,
-    pub floor: f32,
-    pub ceiling: f32,
-    pub visual: Entity,
-}
+#[derive(Component)]
+pub struct GridVisual;
 
 #[derive(Clone, Copy, Debug)]
 pub struct GridRange {
@@ -78,11 +75,17 @@ impl GridRange {
 
 pub struct CalculateGrid {
     /// How large is each cell
-    pub cell_size: f64,
+    pub cell_size: f32,
     /// Ignore meshes below this height
     pub floor: f32,
     /// Ignore meshes above this height
     pub ceiling: f32,
+}
+
+enum Group {
+    Level(Entity),
+    Site(Entity),
+    None,
 }
 
 fn calculate_grid(
@@ -90,12 +93,17 @@ fn calculate_grid(
     mut request: EventReader<CalculateGrid>,
     bodies: Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
     meta: Query<(Option<&Parent>, Option<&Category>, Option<&VisualCue>)>,
+    parents: Query<&Parent>,
+    levels: Query<Entity, With<LevelProperties>>,
+    sites: Query<(), With<SiteProperties>>,
     mut meshes: ResMut<Assets<Mesh>>,
-    mut grid: Option<ResMut<Grid>>,
     assets: Res<SiteAssets>,
+    grids: Query<Entity, With<GridVisual>>,
 ) {
     if let Some(request) = request.iter().last() {
-        let mut occupied: HashSet<Cell> = HashSet::new();
+        let start_time = Instant::now();
+        // let mut occupied: HashSet<Cell> = HashSet::new();
+        let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();
         let mut range = GridRange::new();
         let cell_size = request.cell_size as f32;
         let half_cell_size = cell_size/2.0;
@@ -103,6 +111,7 @@ fn calculate_grid(
         let ceiling = request.ceiling;
         let mid = (floor + ceiling)/2.0;
         let half_height = (ceiling - floor)/2.0;
+        let levels_of_sites = get_levels_of_sites(&levels, &parents);
 
         let physical_entities = collect_physical_entities(&bodies, &meta);
         println!("Checking {:?} physical entities", physical_entities.len());
@@ -111,6 +120,13 @@ fn calculate_grid(
                 Ok(body) => body,
                 Err(_) => continue,
             };
+
+            let e_group = match get_group(*e, &parents, &levels, &sites) {
+                Group::Level(e) | Group::Site(e) => e,
+                Group::None => continue,
+            };
+
+            let group_occupied = occupied.entry(e_group).or_default();
 
             let body_range = match grid_range_of_aabb(aabb, tf, cell_size, floor, ceiling) {
                 Some(range) => range,
@@ -139,7 +155,7 @@ fn calculate_grid(
 
                 for (x, y) in range.iter() {
                     let cell = Cell::new(x, y);
-                    if occupied.contains(&cell) {
+                    if group_occupied.contains(&cell) {
                         // No reason to check this cell since we already know
                         // that it is occupied.
                         continue;
@@ -159,53 +175,96 @@ fn calculate_grid(
                     };
 
                     if mesh_intersects_box(&b, positions, indices, tf) {
-                        occupied.insert(cell);
+                        group_occupied.insert(cell);
                     }
                 }
             }
         }
 
-        let mut mesh = MeshBuffer::empty();
-        for cell in &occupied {
-            let p = Vec3::new(
-                cell_size * (cell.x as f32 + 0.5),
-                cell_size * (cell.y as f32 + 0.5),
-                PASSIVE_LANE_HEIGHT/2.0,
-            );
-            mesh = mesh.merge_with(
-                make_flat_square_mesh(cell_size)
-                .transform_by(Affine3A::from_translation(p))
-            );
+        let finish_time = Instant::now();
+        let delta = finish_time - start_time;
+        println!("Occupancy calculation time: {}", delta.as_secs_f32());
+
+        for grid in &grids {
+            commands.entity(grid).despawn_recursive();
         }
 
-        let visual = if let Some(grid) = &grid {
-            grid.visual
-        } else {
-            commands.spawn().id()
-        };
-
-        let new_grid = Grid {
-            occupied,
-            cell_size,
-            range,
-            floor,
-            ceiling,
-            visual,
-        };
-
-        if let Some(grid) = &mut grid {
-            **grid = new_grid;
-        } else {
-            commands.insert_resource(new_grid);
+        for (site, levels) in levels_of_sites {
+            let site_occupancy = occupied.get(&site).cloned().unwrap_or_default();
+            for level in levels {
+                let level_occupied = occupied.entry(level).or_default();
+                for cell in &site_occupancy {
+                    level_occupied.insert(*cell);
+                }
+            }
         }
 
-        commands
-            .entity(visual)
-            .insert_bundle(PbrBundle {
-                mesh: meshes.add(mesh.into()),
-                material: assets.occupied_material.clone(),
-                ..default()
+        for level in &levels {
+            let mut mesh = MeshBuffer::empty();
+            let level_occupied = match occupied.get(&level) {
+                Some(o) => o,
+                None => continue,
+            };
+            for cell in level_occupied {
+                let p = Vec3::new(
+                    cell_size * (cell.x as f32 + 0.5),
+                    cell_size * (cell.y as f32 + 0.5),
+                    PASSIVE_LANE_HEIGHT/2.0,
+                );
+                mesh = mesh.merge_with(
+                    make_flat_square_mesh(cell_size)
+                    .transform_by(Affine3A::from_translation(p))
+                );
+            }
+
+            commands.entity(level).add_children(|level| {
+                level
+                    .spawn_bundle(PbrBundle {
+                        mesh: meshes.add(mesh.into()),
+                        material: assets.occupied_material.clone(),
+                        ..default()
+                    })
+                    .insert(GridVisual);
             });
+        }
+    }
+}
+
+fn get_levels_of_sites(
+    levels: &Query<Entity, With<LevelProperties>>,
+    parents: &Query<&Parent>,
+) -> HashMap<Entity, Vec<Entity>> {
+    let mut levels_of_sites: HashMap<Entity, Vec<Entity>> = HashMap::new();
+    for level in levels {
+        if let Ok(parent) = parents.get(level) {
+            levels_of_sites.entry(parent.get()).or_default().push(level);
+        }
+    }
+
+    levels_of_sites
+}
+
+fn get_group(
+    e: Entity,
+    parents: &Query<&Parent>,
+    levels: &Query<Entity, With<LevelProperties>>,
+    sites: &Query<(), With<SiteProperties>>,
+) -> Group {
+    let mut e_meta = e;
+    loop {
+        if levels.contains(e_meta) {
+            return Group::Level(e_meta);
+        }
+
+        if sites.contains(e_meta) {
+            return Group::Site(e_meta);
+        }
+
+        if let Ok(parent) = parents.get(e_meta) {
+            e_meta = parent.get();
+        } else {
+            return Group::None;
+        }
     }
 }
 
