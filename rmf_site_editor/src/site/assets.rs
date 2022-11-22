@@ -42,6 +42,7 @@ pub struct SiteAssets {
     pub physical_camera_material: Handle<StandardMaterial>,
     pub lift_door_available_material: Handle<StandardMaterial>,
     pub lift_door_unavailable_material: Handle<StandardMaterial>,
+    pub occupied_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -101,6 +102,7 @@ impl FromWorld for SiteAssets {
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
         let lift_door_available_material = materials.add(Color::rgb(0.1, 0.95, 0.1).into());
         let lift_door_unavailable_material = materials.add(Color::rgb(0.95, 0.1, 0.1).into());
+        let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
@@ -141,6 +143,7 @@ impl FromWorld for SiteAssets {
             physical_camera_material,
             lift_door_available_material,
             lift_door_unavailable_material,
+            occupied_material,
         }
     }
 }

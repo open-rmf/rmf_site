@@ -80,7 +80,7 @@ pub enum InteractionUpdateStage {
 
 /// A unit component to tag entities that are only meant to be visual cues and
 /// should be excluded from visualization or analysis of physical objects.
-#[derive(Component)]
+#[derive(Component, Debug)]
 pub struct VisualCue;
 
 impl Plugin for InteractionPlugin {
