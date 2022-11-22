@@ -107,7 +107,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                                 .export_lights
                                 .send(ExportLights(export_file.clone()))
                         } else {
-                            println!("ERROR: Please choose a file before trying to export the lights");
+                            println!(
+                                "ERROR: Please choose a file before trying to export the lights"
+                            );
                         }
                     }
                 }

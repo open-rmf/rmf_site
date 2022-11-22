@@ -133,7 +133,10 @@ impl DragAxisBundle {
         Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            axis: DragAxis { along, frame: FrameOfReference::Local },
+            axis: DragAxis {
+                along,
+                frame: FrameOfReference::Local,
+            },
         }
     }
 
@@ -168,7 +171,10 @@ impl DragPlaneBundle {
         Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            plane: DragPlane { in_plane, frame: FrameOfReference::Local },
+            plane: DragPlane {
+                in_plane,
+                frame: FrameOfReference::Local,
+            },
         }
     }
 

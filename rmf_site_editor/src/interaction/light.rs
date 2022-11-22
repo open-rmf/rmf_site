@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, InteractionAssets, Selectable, HeadlightToggle},
+    interaction::{DragPlaneBundle, HeadlightToggle, InteractionAssets, Selectable},
     site::LightKind,
 };
 use bevy::prelude::*;
@@ -71,7 +71,9 @@ pub fn add_physical_light_visual_cues(
             .add_children(|parent| {
                 let point = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: kind.is_point() },
+                        visibility: Visibility {
+                            is_visible: kind.is_point(),
+                        },
                         ..default()
                     })
                     .with_children(|point| {
@@ -97,7 +99,9 @@ pub fn add_physical_light_visual_cues(
 
                 let spot = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: kind.is_spot() },
+                        visibility: Visibility {
+                            is_visible: kind.is_spot(),
+                        },
                         ..default()
                     })
                     .with_children(|spot| {
@@ -121,7 +125,9 @@ pub fn add_physical_light_visual_cues(
 
                 let directional = parent
                     .spawn_bundle(SpatialBundle {
-                        visibility: Visibility { is_visible: kind.is_directional() },
+                        visibility: Visibility {
+                            is_visible: kind.is_directional(),
+                        },
                         ..default()
                     })
                     .with_children(|dir| {
