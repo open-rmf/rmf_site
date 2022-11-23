@@ -14,6 +14,11 @@ jobs:
 
     runs-on: ubuntu-latest
 
+    strategy:
+      matrix:
+        toolchain:
+          - nightly
+
     steps:
 
     - name: rust-wasm-target

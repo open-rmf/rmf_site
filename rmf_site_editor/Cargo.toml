@@ -29,7 +29,7 @@ thread_local = "*"
 lyon = "1"
 thiserror = "*"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
-mapf = { git = "https://github.com/open-rmf/mapf" }
+mapf = { git = "https://github.com/open-rmf/mapf", branch="luca/update_cached" }
 itertools = "*"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
