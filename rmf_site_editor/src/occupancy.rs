@@ -21,7 +21,7 @@ use crate::{
     site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
 };
 use bevy::{
-    math::{Affine3A, Mat3A, Vec3A, Vec2, swizzles::*},
+    math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -81,7 +81,6 @@ impl Cell {
         }
     }
 }
-
 
 #[derive(Component)]
 pub struct Grid {
@@ -224,7 +223,10 @@ fn calculate_grid(
                     }
 
                     let b = Aabb {
-                        center: Cell::new(x, y).to_center_point(cell_size).extend(mid).into(),
+                        center: Cell::new(x, y)
+                            .to_center_point(cell_size)
+                            .extend(mid)
+                            .into(),
                         half_extents: Vec3A::new(half_cell_size, half_cell_size, half_height),
                     };
 
