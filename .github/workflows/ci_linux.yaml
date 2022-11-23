@@ -14,19 +14,14 @@ jobs:
 
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        toolchain:
-          - nightly
-
     steps:
     - name: deps
       run: |
         sudo apt-get update
         sudo apt-get install libasound2-dev libudev-dev libgtk-3-dev
     - uses: actions/checkout@v3
-    - name: Setup toolchain
-      run: rustup update ${{ matrix.toolchain }} && rustup default ${{ matrix.toolchain }}
+    - name: Setup toolchain to nightly
+      run: rustup default nightly
     - name: Build
       run: cargo build
     - name: Run tests
