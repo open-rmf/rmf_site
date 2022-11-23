@@ -21,7 +21,7 @@ use crate::{
     site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
 };
 use bevy::{
-    math::{Affine3A, Mat3A, Vec3A},
+    math::{Affine3A, Mat3A, Vec3A, Vec2, swizzles::*},
     prelude::*,
     render::{
         mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
@@ -29,7 +29,6 @@ use bevy::{
     },
 };
 use itertools::Itertools;
-pub use mapf::occupancy::Cell;
 use std::{
     collections::{HashMap, HashSet},
     time::Instant,
@@ -42,6 +41,47 @@ impl Plugin for OccupancyPlugin {
         app.add_event::<CalculateGrid>().add_system(calculate_grid);
     }
 }
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct Cell {
+    pub x: i64,
+    pub y: i64,
+}
+
+impl Cell {
+    /// Make a new cell from a pair of indices.
+    pub fn new(x: i64, y: i64) -> Self {
+        Self { x, y }
+    }
+
+    /// Get the cell that this point is inside of. Points that are perfectly on
+    /// the edge between two cells will be biased towards the cell with the
+    /// higher index value.
+    pub fn from_point(p: Vec2, cell_size: f32) -> Self {
+        Self {
+            x: (p.x / cell_size).floor() as i64,
+            y: (p.y / cell_size).floor() as i64,
+        }
+    }
+
+    /// Get the point in the center of the cell.
+    pub fn to_center_point(&self, cell_size: f32) -> Vec2 {
+        Vec2::new(
+            cell_size * (self.x as f32 + 0.5),
+            cell_size * (self.y as f32 + 0.5),
+        )
+    }
+
+    /// Get a new cell that is the same as this one, but shifted in x and y by
+    /// the given values.
+    pub fn shifted(&self, x: i64, y: i64) -> Self {
+        Self {
+            x: self.x + x,
+            y: self.y + y,
+        }
+    }
+}
+
 
 #[derive(Component)]
 pub struct Grid {
@@ -67,15 +107,24 @@ impl GridRange {
     }
 
     pub fn include(&mut self, cell: Cell) {
-        self.min = self.min.zip([cell.x, cell.y]).map(|(a, b)| a.min(b));
-        self.max = self.max.zip([cell.x, cell.y]).map(|(a, b)| a.max(b));
+        self.min[0] = self.min[0].min(cell.x);
+        self.min[1] = self.min[1].min(cell.y);
+        self.max[0] = self.max[0].max(cell.x);
+        self.max[1] = self.max[1].max(cell.y);
     }
 
-    pub fn union_with(self, other: GridRange) -> Self {
-        GridRange {
-            min: self.min.zip(other.min).map(|(a, b)| a.min(b)),
-            max: self.max.zip(other.max).map(|(a, b)| a.max(b)),
-        }
+    pub fn min_cell(&self) -> Cell {
+        Cell::new(self.min[0], self.min[1])
+    }
+
+    pub fn max_cell(&self) -> Cell {
+        Cell::new(self.max[0], self.max[1])
+    }
+
+    pub fn union_with(mut self, other: GridRange) -> Self {
+        self.include(other.min_cell());
+        self.include(other.max_cell());
+        self
     }
 
     pub fn iter(&self) -> impl Iterator<Item = (i64, i64)> {
@@ -175,11 +224,7 @@ fn calculate_grid(
                     }
 
                     let b = Aabb {
-                        center: Vec3A::new(
-                            cell_size * (x as f32 + 0.5),
-                            cell_size * (y as f32 + 0.5),
-                            mid,
-                        ),
+                        center: Cell::new(x, y).to_center_point(cell_size).extend(mid).into(),
                         half_extents: Vec3A::new(half_cell_size, half_cell_size, half_height),
                     };
 
@@ -349,10 +394,7 @@ fn grid_range_of_aabb(
                     is_inside = true;
                 }
 
-                let cell = Cell::new(
-                    (corner.x / cell_size).floor() as i64,
-                    (corner.y / cell_size).floor() as i64,
-                );
+                let cell = Cell::from_point(corner.xy(), cell_size);
 
                 range.include(cell);
             }

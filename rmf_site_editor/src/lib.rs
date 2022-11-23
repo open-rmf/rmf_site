@@ -1,5 +1,3 @@
-#![feature(array_zip)]
-
 use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
