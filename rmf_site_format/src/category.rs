@@ -62,6 +62,16 @@ impl Category {
             Self::Drawing => "Drawing",
         }
     }
+
+    /// Returns true if the category of this element has a physical presence.
+    /// Returns false if the category of this element is conceptual.
+    pub fn is_physical(&self) -> bool {
+        match self {
+            Self::Door | Self::Wall | Self::Floor | Self::Lift | Self::Model => true,
+            // TODO(MXG): Consider whether Light and Camera should be considered physical
+            _ => false,
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

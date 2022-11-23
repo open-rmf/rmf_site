@@ -19,6 +19,8 @@ mod settings;
 use settings::*;
 mod widgets;
 use widgets::*;
+pub mod occupancy;
+use occupancy::OccupancyPlugin;
 
 mod demo_world;
 mod shapes;
@@ -133,5 +135,6 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(InteractionPlugin)
         .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
+        .add_plugin(OccupancyPlugin)
         .run();
 }
