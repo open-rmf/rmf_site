@@ -19,14 +19,25 @@ use super::demo_world::demo_office;
 use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
+use rfd::{AsyncFileDialog, FileHandle};
 use rmf_site_format::{legacy::building_map::BuildingMap, Site};
-
-use {bevy::tasks::Task, futures_lite::future, rfd::AsyncFileDialog};
+use std::path::PathBuf;
+use {bevy::tasks::Task, futures_lite::future};
 
 struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
 #[derive(Component)]
 struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
+
+pub struct Autoload {
+    filename: PathBuf,
+}
+
+impl Autoload {
+    pub fn file(filename: PathBuf) -> Self {
+        Autoload { filename }
+    }
+}
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
@@ -35,7 +46,35 @@ fn egui_ui(
     mut _load_site: EventWriter<LoadSite>,
     mut _interaction_state: ResMut<State<InteractionState>>,
     mut app_state: ResMut<State<AppState>>,
+    autoload: Option<Res<Autoload>>,
+    loading_tasks: Query<(), With<LoadSiteFileTask>>,
 ) {
+    if !loading_tasks.is_empty() {
+        egui::Window::new("Welcome!")
+            .collapsible(false)
+            .resizable(false)
+            .title_bar(false)
+            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.heading("Loading...");
+            });
+        return;
+    }
+
+    if let Some(mut autoload) = autoload {
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let filename = autoload.filename.clone();
+            let future = AsyncComputeTaskPool::get().spawn(async move {
+                let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
+                Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
+            });
+            _commands.spawn().insert(LoadSiteFileTask(future));
+            _commands.remove_resource::<Autoload>();
+        }
+        return;
+    }
+
     egui::Window::new("Welcome!")
         .collapsible(false)
         .resizable(false)
@@ -120,32 +159,8 @@ fn egui_ui(
                                 }
                             };
                             println!("Loading site map");
-                            let is_legacy = file.file_name().ends_with(".building.yaml");
-                            let data = file.read().await;
-                            let site = if is_legacy {
-                                match BuildingMap::from_bytes(&data) {
-                                    Ok(building) => match building.to_site() {
-                                        Ok(site) => site,
-                                        Err(err) => {
-                                            println!("{:?}", err);
-                                            return None;
-                                        }
-                                    },
-                                    Err(err) => {
-                                        println!("{:?}", err);
-                                        return None;
-                                    }
-                                }
-                            } else {
-                                match Site::from_bytes(&data) {
-                                    Ok(site) => site,
-                                    Err(err) => {
-                                        println!("{:?}", err);
-                                        return None;
-                                    }
-                                }
-                            };
 
+                            let site = load_site_file(&file).await?;
                             Some(LoadSiteFileResult(
                                 Some(OpenedMapFile(file.path().to_path_buf())),
                                 site,
@@ -225,5 +240,33 @@ impl Plugin for MainMenuPlugin {
         app.add_system_set(
             SystemSet::on_update(AppState::MainMenu).with_system(site_file_load_complete),
         );
+    }
+}
+
+async fn load_site_file(file: &FileHandle) -> Option<Site> {
+    let is_legacy = file.file_name().ends_with(".building.yaml");
+    let data = file.read().await;
+    if is_legacy {
+        match BuildingMap::from_bytes(&data) {
+            Ok(building) => match building.to_site() {
+                Ok(site) => Some(site),
+                Err(err) => {
+                    println!("{:?}", err);
+                    return None;
+                }
+            },
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
+            }
+        }
+    } else {
+        match Site::from_bytes(&data) {
+            Ok(site) => Some(site),
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
+            }
+        }
     }
 }

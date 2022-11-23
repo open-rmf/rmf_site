@@ -182,8 +182,11 @@ impl FromWorld for Cursor {
         let cursor = world
             .spawn()
             .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
-            .insert_bundle(SpatialBundle::default())
             .insert(VisualCue)
+            .insert_bundle(SpatialBundle {
+                visibility: Visibility { is_visible: false },
+                ..default()
+            })
             .id();
 
         Self {

@@ -28,6 +28,7 @@ dirs = "4.0"
 thread_local = "*"
 lyon = "1"
 thiserror = "*"
+clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
 
