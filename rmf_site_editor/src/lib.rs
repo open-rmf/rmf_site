@@ -2,8 +2,8 @@ use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
-use wasm_bindgen::prelude::*;
 use clap::Parser;
+use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]

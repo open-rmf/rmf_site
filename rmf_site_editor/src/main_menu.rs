@@ -17,12 +17,12 @@
 
 use super::demo_world::demo_office;
 use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
-use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
 use bevy_egui::{egui, EguiContext};
-use {bevy::tasks::Task, futures_lite::future};
 use rfd::{AsyncFileDialog, FileHandle};
+use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 use std::path::PathBuf;
+use {bevy::tasks::Task, futures_lite::future};
 
 struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
@@ -67,10 +67,7 @@ fn egui_ui(
             let filename = autoload.filename.clone();
             let future = AsyncComputeTaskPool::get().spawn(async move {
                 let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
-                Some(LoadSiteFileResult(
-                    Some(OpenedMapFile(filename)),
-                    site,
-                ))
+                Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
             });
             _commands.spawn().insert(LoadSiteFileTask(future));
             _commands.remove_resource::<Autoload>();
@@ -246,9 +243,7 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-async fn load_site_file(
-    file: &FileHandle,
-) -> Option<Site> {
+async fn load_site_file(file: &FileHandle) -> Option<Site> {
     let is_legacy = file.file_name().ends_with(".building.yaml");
     let data = file.read().await;
     if is_legacy {
