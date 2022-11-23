@@ -73,7 +73,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             let assign_response = ui.add(ImageButton::new(self.params.icons.egui_edit, [18., 18.]));
 
             if assign_response.hovered() {
-                self.events.hover.send(Hover(Some(self.anchor)));
+                self.events.request.hover.send(Hover(Some(self.anchor)));
             }
 
             replace = assign_response.clicked();
@@ -114,7 +114,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add(DragValue::new(&mut y).speed(0.01));
 
                 if x != tf.translation.x || y != tf.translation.y {
-                    self.events.move_to.send(MoveTo {
+                    self.events.request.move_to.send(MoveTo {
                         entity: self.anchor,
                         transform: Transform::from_translation([x, y, 0.0].into()),
                     });

@@ -20,8 +20,8 @@ use crate::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
     site::{
-        Change, CurrentLevel, Delete, PhysicalLightToggle, SiteState, SiteUpdateLabel,
-        ToggleLiftDoorAvailability,
+        Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
+        SiteUpdateLabel, ToggleLiftDoorAvailability,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -63,6 +63,10 @@ impl Plugin for StandardUiLayout {
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set_to_stage(
+                CoreStage::PostUpdate,
+                SystemSet::on_update(SiteState::Display).with_system(resolve_light_export_file),
             );
     }
 }
@@ -80,6 +84,29 @@ pub struct ChangeEvents<'w, 's> {
     pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
     pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
     pub light: EventWriter<'w, 's, Change<LightKind>>,
+    pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
+}
+
+#[derive(SystemParam)]
+pub struct PanelResources<'w, 's> {
+    pub level: ResMut<'w, LevelDisplay>,
+    pub light: ResMut<'w, LightDisplay>,
+    _ignore: Query<'w, 's, ()>,
+}
+
+#[derive(SystemParam)]
+pub struct Requests<'w, 's> {
+    pub hover: ResMut<'w, Events<Hover>>,
+    pub select: ResMut<'w, Events<Select>>,
+    pub move_to: EventWriter<'w, 's, MoveTo>,
+    pub current_level: ResMut<'w, CurrentLevel>,
+    pub change_mode: ResMut<'w, Events<ChangeMode>>,
+    pub delete: EventWriter<'w, 's, Delete>,
+    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub toggle_headlights: ResMut<'w, HeadlightToggle>,
+    pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
+    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
+    pub export_lights: EventWriter<'w, 's, ExportLights>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -89,20 +116,9 @@ pub struct ChangeEvents<'w, 's> {
 #[derive(SystemParam)]
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
-    pub hover: ResMut<'w, Events<Hover>>,
-    pub select: ResMut<'w, Events<Select>>,
     pub change: ChangeEvents<'w, 's>,
-    pub move_to: EventWriter<'w, 's, MoveTo>,
-    pub change_mode: ResMut<'w, Events<ChangeMode>>,
-    pub current_level: ResMut<'w, CurrentLevel>,
-    pub level_display: ResMut<'w, LevelDisplay>,
-    pub light_display: ResMut<'w, LightDisplay>,
-    pub change_level_props: EventWriter<'w, 's, Change<LevelProperties>>,
-    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
-    pub toggle_headlights: ResMut<'w, HeadlightToggle>,
-    pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
-    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
-    pub delete: EventWriter<'w, 's, Delete>,
+    pub display: PanelResources<'w, 's>,
+    pub request: Requests<'w, 's>,
 }
 
 fn standard_ui_layout(
@@ -159,8 +175,8 @@ fn standard_ui_layout(
     if ui_has_focus {
         // If the UI has focus and there were no hover events emitted by the UI,
         // then we should emit a None hover event
-        if events.hover.is_empty() {
-            events.hover.send(Hover(None));
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
         }
     }
 }

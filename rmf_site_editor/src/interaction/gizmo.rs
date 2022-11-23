@@ -96,10 +96,29 @@ impl Draggable {
 #[derive(Debug, Clone, Copy)]
 pub struct GizmoClicked(pub Entity);
 
+#[derive(Clone, Copy, Debug)]
+pub enum FrameOfReference {
+    /// Use a local frame of reference for the drag constraints
+    Local,
+    /// Use a global frame of reference for the drag constraints
+    Global,
+}
+
+impl FrameOfReference {
+    pub fn is_local(&self) -> bool {
+        matches!(self, FrameOfReference::Local)
+    }
+    pub fn is_global(&self) -> bool {
+        matches!(self, FrameOfReference::Global)
+    }
+}
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct DragAxis {
     /// The gizmo can only be dragged along this axis
     pub along: Vec3,
+    /// The axis is in this frame of reference
+    pub frame: FrameOfReference,
 }
 
 #[derive(Bundle)]
@@ -114,12 +133,20 @@ impl DragAxisBundle {
         Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            axis: DragAxis { along },
+            axis: DragAxis {
+                along,
+                frame: FrameOfReference::Local,
+            },
         }
     }
 
     pub fn with_materials(mut self, materials: GizmoMaterialSet) -> Self {
         self.gizmo = self.gizmo.with_materials(materials);
+        self
+    }
+
+    pub fn globally(mut self) -> Self {
+        self.axis.frame = FrameOfReference::Global;
         self
     }
 }
@@ -128,6 +155,8 @@ impl DragAxisBundle {
 pub struct DragPlane {
     /// The gizmo can only be dragged in the plane orthogonal to this vector
     pub in_plane: Vec3,
+    /// The vector is in this frame of reference
+    pub frame: FrameOfReference,
 }
 
 #[derive(Bundle)]
@@ -142,12 +171,20 @@ impl DragPlaneBundle {
         Self {
             gizmo: Gizmo::new(),
             draggable: Draggable::new(for_entity),
-            plane: DragPlane { in_plane },
+            plane: DragPlane {
+                in_plane,
+                frame: FrameOfReference::Local,
+            },
         }
     }
 
     pub fn with_materials(mut self, materials: GizmoMaterialSet) -> Self {
         self.gizmo = self.gizmo.with_materials(materials);
+        self
+    }
+
+    pub fn globally(mut self) -> Self {
+        self.plane.frame = FrameOfReference::Global;
         self
     }
 }
@@ -341,10 +378,14 @@ pub fn update_drag_motions(
                 if let Some((for_local_tf, for_global_tf)) =
                     transforms.get(draggable.for_entity).ok()
                 {
-                    let n = drag_tf
-                        .affine()
-                        .transform_vector3(axis.along)
-                        .normalize_or_zero();
+                    let n = if axis.frame.is_local() {
+                        drag_tf
+                            .affine()
+                            .transform_vector3(axis.along)
+                            .normalize_or_zero()
+                    } else {
+                        axis.along.normalize_or_zero()
+                    };
                     let dp = ray.origin() - initial.click_point;
                     let a = ray.direction().dot(n);
                     let b = ray.direction().dot(dp);
@@ -379,10 +420,15 @@ pub fn update_drag_motions(
                 if let Some((for_local_tf, for_global_tf)) =
                     transforms.get(draggable.for_entity).ok()
                 {
-                    let n_p = drag_tf
-                        .affine()
-                        .transform_vector3(plane.in_plane)
-                        .normalize_or_zero();
+                    let n_p = if plane.frame.is_local() {
+                        drag_tf
+                            .affine()
+                            .transform_vector3(plane.in_plane)
+                            .normalize_or_zero()
+                    } else {
+                        plane.in_plane.normalize_or_zero()
+                    };
+
                     let n_r = ray.direction();
                     let denom = n_p.dot(n_r);
                     if denom.abs() < 1e-3 {

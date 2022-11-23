@@ -205,7 +205,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                     CollapsingHeader::new(format!("Level Access"))
                                         .default_open(true)
                                         .show(ui, |ui| {
-                                            for level in &self.events.level_display.order {
+                                            for level in &self.events.display.level.order {
                                                 let mut visits_level = visits.contains(level);
                                                 if ui
                                                     .checkbox(
@@ -218,7 +218,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                                     )
                                                     .changed()
                                                 {
-                                                    self.events.toggle_door_levels.send(
+                                                    self.events.request.toggle_door_levels.send(
                                                         ToggleLiftDoorAvailability {
                                                             for_lift: self.lift,
                                                             on_level: *level,
@@ -231,16 +231,16 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                         });
                                 }
                             });
-                    } else if let Some(current_level) = **self.events.current_level {
+                    } else if let Some(current_level) = **self.events.request.current_level {
                         if ui.button(format!("Add {} Door", face.label())).clicked() {
-                            self.events
-                                .toggle_door_levels
-                                .send(ToggleLiftDoorAvailability {
+                            self.events.request.toggle_door_levels.send(
+                                ToggleLiftDoorAvailability {
                                     for_lift: self.lift,
                                     on_level: current_level,
                                     cabin_door: CabinDoorId::RectFace(face),
                                     door_available: true,
-                                });
+                                },
+                            );
                         }
                     }
                 }
