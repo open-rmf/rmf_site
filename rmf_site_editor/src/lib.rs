@@ -3,6 +3,7 @@ use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
 use wasm_bindgen::prelude::*;
+use clap::Parser;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
@@ -23,6 +24,7 @@ mod demo_world;
 mod shapes;
 
 mod main_menu;
+use main_menu::Autoload;
 mod site;
 // mod warehouse_generator;
 mod interaction;
@@ -35,6 +37,12 @@ use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
 use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
+
+#[derive(Parser)]
+struct CommandLineArgs {
+    /// Filename of a Site (.site.ron) or Building (.building.yaml) file
+    filename: Option<String>,
+}
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
 pub enum AppState {
@@ -71,8 +79,17 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterIn
 }
 
 #[wasm_bindgen]
-pub fn run() {
+pub fn run_js() {
+    run(vec!["web".to_string()]);
+}
+
+pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
+
+    let command_line_args = CommandLineArgs::parse_from(command_line_args);
+    if let Some(path) = command_line_args.filename {
+        app.insert_resource(Autoload::file(path.into()));
+    }
 
     #[cfg(target_arch = "wasm32")]
     {
