@@ -133,6 +133,7 @@ impl FromWorld for Cursor {
                 ..default()
             })
             .insert(Spinning::default())
+            .insert(VisualCue)
             .id();
 
         let dagger = world
@@ -145,6 +146,7 @@ impl FromWorld for Cursor {
             })
             .insert(Spinning::default())
             .insert(Bobbing::default())
+            .insert(VisualCue)
             .id();
 
         let level_anchor_placement = world
@@ -152,6 +154,7 @@ impl FromWorld for Cursor {
             .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
+            .insert(VisualCue)
             .with_children(|parent| {
                 parent.spawn_bundle(PbrBundle {
                     mesh: level_anchor_mesh,
@@ -166,6 +169,7 @@ impl FromWorld for Cursor {
             .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
+            .insert(VisualCue)
             .with_children(|parent| {
                 parent.spawn_bundle(PbrBundle {
                     mesh: site_anchor_mesh,
@@ -179,6 +183,7 @@ impl FromWorld for Cursor {
             .spawn()
             .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
             .insert_bundle(SpatialBundle::default())
+            .insert(VisualCue)
             .id();
 
         Self {

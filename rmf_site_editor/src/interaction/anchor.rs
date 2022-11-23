@@ -55,6 +55,7 @@ pub fn add_anchor_visual_cues(
                 })
                 .insert(Bobbing::default())
                 .insert(Spinning::default())
+                .insert(VisualCue)
                 .id();
 
             let halo = parent
@@ -66,6 +67,7 @@ pub fn add_anchor_visual_cues(
                     ..default()
                 })
                 .insert(Spinning::default())
+                .insert(VisualCue)
                 .id();
 
             let mut body = parent.spawn_bundle(PbrBundle {
@@ -73,7 +75,7 @@ pub fn add_anchor_visual_cues(
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
             });
-            body.insert(Selectable::new(e));
+            body.insert(Selectable::new(e)).insert(VisualCue);
             if subordinate.is_none() {
                 body.insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
             }

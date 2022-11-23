@@ -19,6 +19,7 @@ use crate::{
     interaction::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
+    occupancy::CalculateGrid,
     site::{
         Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
         SiteUpdateLabel, ToggleLiftDoorAvailability,
@@ -43,6 +44,9 @@ use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 pub mod view_lights;
 use view_lights::*;
 
+pub mod view_occupancy;
+use view_occupancy::*;
+
 pub mod icons;
 pub use icons::*;
 
@@ -59,6 +63,7 @@ impl Plugin for StandardUiLayout {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<LightDisplay>()
+            .init_resource::<OccupancyDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -91,6 +96,7 @@ pub struct ChangeEvents<'w, 's> {
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub light: ResMut<'w, LightDisplay>,
+    pub occupancy: ResMut<'w, OccupancyDisplay>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -107,6 +113,7 @@ pub struct Requests<'w, 's> {
     pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub export_lights: EventWriter<'w, 's, ExportLights>,
+    pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -159,6 +166,12 @@ fn standard_ui_layout(
                             .show(ui, |ui| {
                                 ViewLights::new(&lights, &mut events).show(ui);
                             });
+                        ui.separator();
+                        CollapsingHeader::new("Occupancy")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewOccupancy::new(&mut events).show(ui);
+                            })
                     });
                 });
         });

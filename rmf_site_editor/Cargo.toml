@@ -29,6 +29,7 @@ thread_local = "*"
 lyon = "1"
 thiserror = "*"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
+itertools = "*"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]

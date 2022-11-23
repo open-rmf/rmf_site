@@ -53,6 +53,10 @@ impl MeshBuffer {
         }
     }
 
+    pub(crate) fn empty() -> Self {
+        Self::default()
+    }
+
     pub(crate) fn with_outline(mut self, outline: Vec<u32>) -> Self {
         self.outline = outline;
         self
@@ -82,7 +86,7 @@ impl MeshBuffer {
         self
     }
 
-    pub(crate) fn merge_with(mut self, mut other: Self) -> Self {
+    pub(crate) fn merge_with(mut self, other: Self) -> Self {
         let offset = self.positions.len();
         self.indices
             .extend(other.indices.into_iter().map(|i| i + offset as u32));
