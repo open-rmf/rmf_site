@@ -18,12 +18,12 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{Anchor, Category, Delete, NameInSite, SiteAssets, Subordinate},
+    site::{Anchor, Category, Delete, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy)]
-pub struct AnchorVisualCue {
+pub struct AnchorVisualization {
     pub dagger: Entity,
     pub halo: Entity,
     pub body: Entity,
@@ -84,7 +84,7 @@ pub fn add_anchor_visual_cues(
             (dagger, halo, body)
         });
 
-        commands.insert(AnchorVisualCue {
+        commands.insert(AnchorVisualization {
             dagger,
             halo,
             body,
@@ -126,7 +126,7 @@ pub fn update_anchor_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &mut AnchorVisualCue,
+            &mut AnchorVisualization,
             Option<&Subordinate>,
             ChangeTrackers<Selected>,
         ),
@@ -196,8 +196,8 @@ pub fn update_anchor_visual_cues(
 // to entities with AnchorVisualCues. We will need to broaden that if any other
 // visual cue types ever have a supporting role.
 pub fn remove_deleted_supports_from_visual_cues(
-    mut hovered: Query<&mut Hovered, With<AnchorVisualCue>>,
-    mut selected: Query<&mut Selected, With<AnchorVisualCue>>,
+    mut hovered: Query<&mut Hovered, With<AnchorVisualization>>,
+    mut selected: Query<&mut Selected, With<AnchorVisualization>>,
     mut deleted_elements: EventReader<Delete>,
 ) {
     for deletion in deleted_elements.iter() {

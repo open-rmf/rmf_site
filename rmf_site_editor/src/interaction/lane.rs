@@ -55,11 +55,11 @@ pub fn update_lane_visual_cues(
         ),
         (
             With<LaneMarker>,
-            Without<AnchorVisualCue>,
+            Without<AnchorVisualization>,
             Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
         ),
     >,
-    mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualCue>>,
+    mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,

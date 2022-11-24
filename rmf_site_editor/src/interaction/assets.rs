@@ -75,7 +75,7 @@ impl InteractionAssets {
         &self,
         command: &mut Commands,
         anchor: Entity,
-        cue: &mut AnchorVisualCue,
+        cue: &mut AnchorVisualization,
     ) {
         let drag_parent = command
             .entity(anchor)

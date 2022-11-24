@@ -18,8 +18,9 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, Dependents, Pending, SiteAssets},
+    site::{AnchorBundle, Pending, SiteAssets},
 };
+use rmf_site_format::{FloorMarker, WallMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
@@ -288,4 +289,44 @@ pub fn update_cursor_transform(
 
 pub fn hide_cursor(mut visibility: Query<&mut Visibility>, cursor: Res<Cursor>) {
     set_visibility(cursor.frame, &mut visibility, false);
+}
+
+#[derive(Component, Debug, Copy, Clone)]
+pub struct CursorHoverVisualization;
+
+pub fn add_cursor_hover_visualization(
+    mut commands: Commands,
+    new_entities: Query<
+        Entity,
+        Or<(
+            Added<FloorMarker>,
+            Added<WallMarker>,
+        )>
+    >,
+) {
+    for e in &new_entities {
+        commands
+            .entity(e)
+            .insert(CursorHoverVisualization)
+            .insert(Selectable::new(e));
+    }
+}
+
+pub fn update_cursor_hover_visualization(
+    entities: Query<(Entity, &Hovered), (With<CursorHoverVisualization>, Changed<Hovered>)>,
+    removed: RemovedComponents<CursorHoverVisualization>,
+    mut cursor: ResMut<Cursor>,
+    mut visibility: Query<&mut Visibility>,
+) {
+    for (e, hovering) in &entities {
+        if hovering.cue() {
+            cursor.add_dependent(e, &mut visibility);
+        } else {
+            cursor.remove_dependent(e, &mut visibility);
+        }
+    }
+
+    for e in removed.iter() {
+        cursor.remove_dependent(e, &mut visibility);
+    }
 }
