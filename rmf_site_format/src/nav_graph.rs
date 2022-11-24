@@ -21,6 +21,17 @@ use bevy::prelude::{Bundle, Component, Entity, Query, With, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
+pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 4]; 8] = [
+    [1.0, 0.5, 0.3, 1.0],
+    [0.6, 1.0, 0.5, 1.0],
+    [0.6, 0.8, 1.0, 1.0],
+    [0.6, 0.2, 0.3, 1.0],
+    [0.1, 0.0, 1.0, 1.0],
+    [0.8, 0.4, 0.5, 1.0],
+    [0.9, 1.0, 0.0, 1.0],
+    [0.7, 0.5, 0.1, 1.0],
+];
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct NavGraph {

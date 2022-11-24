@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{NavGraphMarker, NameInSite, DisplayColor, Change},
+    site::{NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, DEFAULT_NAV_GRAPH_COLORS},
     widgets::{
         inspector::color_edit,
         AppEvents,
@@ -25,6 +25,20 @@ use crate::{
 use bevy::{prelude::*, ecs::system::SystemParam};
 use bevy_egui::egui::Ui;
 use smallvec::SmallVec;
+
+pub struct NavGraphDisplay {
+    pub color: Option<[f32; 4]>,
+    pub name: String,
+}
+
+impl Default for NavGraphDisplay {
+    fn default() -> Self {
+        Self {
+            color: None,
+            name: "<Unnamed>".to_string(),
+        }
+    }
+}
 
 #[derive(SystemParam)]
 pub struct NavGraphParams<'w, 's> {
@@ -49,6 +63,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             graphs.sort_by(|(a, _, _, _), (b, _, _, _)| a.cmp(b));
             graphs
         };
+        let graph_count = graphs.len();
 
         for (e, name, color, vis) in graphs {
             ui.horizontal(|ui| {
@@ -75,5 +90,25 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 }
             });
         }
+
+        ui.horizontal(|ui| {
+            let add = ui.button("Add").clicked();
+            if self.events.display.nav_graph.color.is_none() {
+                let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
+                self.events.display.nav_graph.color = Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
+            }
+            color_edit(ui, &mut self.events.display.nav_graph.color.unwrap());
+            ui.text_edit_singleline(&mut self.events.display.nav_graph.name);
+            if add {
+                self.events.commands
+                    .spawn_bundle(SpatialBundle::default())
+                    .insert_bundle(NavGraph {
+                        name: NameInSite(self.events.display.nav_graph.name.clone()),
+                        color: DisplayColor(self.events.display.nav_graph.color.unwrap().clone()),
+                        marker: Default::default(),
+                    });
+                self.events.display.nav_graph.color = None;
+            }
+        });
     }
 }

@@ -5,7 +5,7 @@ use crate::{
     Fiducial as SiteFiducial, FiducialMarker, Label, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelProperties as SiteLevelProperties,
     Motion, NameInSite, NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
-    Rotation, Site, SiteProperties,
+    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -353,23 +353,13 @@ impl BuildingMap {
         }
 
         let mut nav_graphs = BTreeMap::new();
-        let default_nav_graph_colors = [
-            [1.0, 0.5, 0.3, 1.0],
-            [0.6, 1.0, 0.5, 1.0],
-            [0.6, 0.8, 1.0, 1.0],
-            [0.6, 0.2, 0.3, 1.0],
-            [0.1, 0.0, 1.0, 1.0],
-            [0.8, 0.4, 0.5, 1.0],
-            [0.9, 1.0, 0.0, 1.0],
-            [0.7, 0.5, 0.1, 1.0],
-        ];
         for (i, (_, graph_id)) in building_id_to_nav_graph_id.iter().enumerate() {
-            let color_index = i % default_nav_graph_colors.len();
+            let color_index = i % DEFAULT_NAV_GRAPH_COLORS.len();
             nav_graphs.insert(
                 *graph_id,
                 NavGraph {
                     name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
-                    color: DisplayColor(default_nav_graph_colors[color_index]),
+                    color: DisplayColor(DEFAULT_NAV_GRAPH_COLORS[color_index]),
                     marker: Default::default(),
                 },
             );

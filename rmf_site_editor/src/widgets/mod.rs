@@ -65,6 +65,7 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
+            .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
@@ -102,6 +103,7 @@ pub struct ChangeEvents<'w, 's> {
 #[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
+    pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
     _ignore: Query<'w, 's, ()>,

@@ -274,7 +274,7 @@ pub fn update_lane_for_moved_anchor(
 
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
-    mut lanes: Query<(&Edge<Entity>, &AssociatedGraphs<Entity>, &mut Visibility), (With<LaneMarker>, Without<NavGraphMarker>)>,
+    mut lanes: Query<(&Edge<Entity>, &AssociatedGraphs<Entity>, &LaneSegments, &mut Visibility), (With<LaneMarker>, Without<NavGraphMarker>)>,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
@@ -290,7 +290,7 @@ pub fn update_visibility_for_lanes(
 ) {
     let update_all = current_level.is_changed() || !graph_changed_visibility.is_empty();
     if update_all {
-        for (edge, associated, mut visibility) in &mut lanes {
+        for (edge, associated, _, mut visibility) in &mut lanes {
             let is_visible = should_display_lane(
                 edge, associated, &parents, &levels, &current_level, &graph_vis
             );
@@ -300,7 +300,7 @@ pub fn update_visibility_for_lanes(
         }
     } else {
         for (e, _, _) in &lanes_with_changed_association {
-            if let Ok((edge, associated, mut visibility)) = lanes.get_mut(e) {
+            if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
                 let is_visible = should_display_lane(
                     edge, associated, &parents, &levels, &current_level, &graph_vis
                 );
@@ -311,11 +311,22 @@ pub fn update_visibility_for_lanes(
         }
     }
 
-    for (_, associated_graphs, segments) in &lanes_with_changed_association {
-        let lane_material = choose_lane_material(associated_graphs, &graph_mats, &assets);
-        for e in segments.iter() {
-            if let Ok(mut m) = materials.get_mut(e) {
-                *m = lane_material.clone();
+    if !graph_changed_visibility.is_empty() {
+        for (_, associated_graphs, segments, _) in &lanes {
+            let lane_material = choose_lane_material(associated_graphs, &graph_mats, &assets);
+            for e in segments.iter() {
+                if let Ok(mut m) = materials.get_mut(e) {
+                    *m = lane_material.clone();
+                }
+            }
+        }
+    } else {
+        for (_, associated_graphs, segments) in &lanes_with_changed_association {
+            let lane_material = choose_lane_material(associated_graphs, &graph_mats, &assets);
+            for e in segments.iter() {
+                if let Ok(mut m) = materials.get_mut(e) {
+                    *m = lane_material.clone();
+                }
             }
         }
     }
@@ -323,12 +334,12 @@ pub fn update_visibility_for_lanes(
 
 #[derive(Debug, Clone, Copy)]
 pub struct ConsiderAssociatedGraph {
-    pub graph: Entity,
+    pub graph: Option<Entity>,
     pub for_element: Entity,
 }
 
 impl ConsiderAssociatedGraph {
-    pub fn new(graph: Entity, for_element: Entity) -> Self {
+    pub fn new(graph: Option<Entity>, for_element: Entity) -> Self {
         Self { graph, for_element }
     }
 }
@@ -339,7 +350,7 @@ pub fn handle_consider_associated_graph(
 ) {
     for consider in considerations.iter() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
-            recall.consider = Some(consider.graph);
+            recall.consider = consider.graph;
         }
     }
 }
