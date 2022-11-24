@@ -45,6 +45,10 @@ pub struct Site {
     pub lifts: BTreeMap<u32, Lift<u32>>,
     /// Properties of each nav graph
     pub nav_graphs: BTreeMap<u32, NavGraph>,
+    /// Properties of each robot traffic lane
+    pub lanes: BTreeMap<u32, Lane<u32>>,
+    /// Properties of each special location
+    pub locations: BTreeMap<u32, Location<u32>>,
     /// Properties that describe simulated agents in the site
     pub agents: BTreeMap<u32, Agent>,
 }

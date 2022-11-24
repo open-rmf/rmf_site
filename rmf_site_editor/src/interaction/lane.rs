@@ -22,18 +22,23 @@ use rmf_site_format::{Edge, LaneMarker};
 #[derive(Component, Default)]
 pub struct LaneVisualCue {
     /// If the lane is using support from some anchors, the entities of those
-    /// anchors will be saved here. It's important that we
+    /// anchors will be saved here.
     supporters: Option<Edge<Entity>>,
 }
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,
     new_lanes: Query<(Entity, &Edge<Entity>), (With<LaneMarker>, Without<LaneVisualCue>)>,
+    new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
 ) {
     for (e, lane) in &new_lanes {
         commands.entity(e).insert(LaneVisualCue {
             supporters: Some(*lane),
         });
+    }
+
+    for (e, segments) in &new_lane_segments {
+        commands.entity(segments.mid).insert(Selectable::new(e));
     }
 }
 
@@ -106,18 +111,19 @@ pub fn update_lane_visual_cues(
             set_visibility(cursor.frame, &mut visibility, false);
         }
 
-        let (m, h) = if hovering.cue() && selected.cue() {
-            (&site_assets.hover_select_material, HOVERED_LANE_HEIGHT)
+        let (m, h, v) = if hovering.cue() && selected.cue() {
+            (&site_assets.hover_select_material, HOVERED_LANE_HEIGHT, true)
         } else if hovering.cue() {
-            (&site_assets.hover_material, HOVERED_LANE_HEIGHT)
+            (&site_assets.hover_material, HOVERED_LANE_HEIGHT, true)
         } else if selected.cue() {
-            (&site_assets.select_material, SELECTED_LANE_HEIGHT)
+            (&site_assets.select_material, SELECTED_LANE_HEIGHT, true)
         } else {
-            (&site_assets.passive_lane_material, PASSIVE_LANE_HEIGHT)
+            (&site_assets.unassigned_lane_material, PASSIVE_LANE_HEIGHT, false)
         };
 
-        for e in pieces.iter() {
+        for e in pieces.outlines {
             set_material(e, m, &mut materials);
+            set_visibility(e, &mut visibility, v);
         }
 
         tf.translation.z = h;

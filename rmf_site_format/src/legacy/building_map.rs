@@ -4,8 +4,8 @@ use crate::{
     Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker, IsStatic,
     Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
-    Rotation, Site, SiteProperties,
+    NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
+    Rotation, Site, SiteProperties, AssociatedGraphs, DisplayColor,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -122,13 +122,12 @@ impl BuildingMap {
         let mut site_anchors = BTreeMap::new();
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
-        let mut nav_graph_lanes = HashMap::<i64, Vec<SiteLane<u32>>>::new();
-        // Note: In the old format, all Locations are effectively "visible" to
-        // all nav graphs, but may be unreachable to some, and that is figured
-        // out at RMF runtime.
+        let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
+
+        let mut building_id_to_nav_graph_id = HashMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
@@ -322,37 +321,20 @@ impl BuildingMap {
                     ReverseLane::Same
                 };
 
+                let graph_id = building_id_to_nav_graph_id
+                    .entry(lane.2.graph_idx.1)
+                    .or_insert(site_id.next().unwrap());
+
                 let site_lane = SiteLane {
                     anchors: [left, right].into(),
                     forward: motion,
                     reverse,
+                    graphs: AssociatedGraphs::Only([*graph_id].into()),
                     marker: LaneMarker,
                 };
 
-                nav_graph_lanes
-                    .entry(lane.2.graph_idx.1)
-                    .or_insert(Default::default())
-                    .push(site_lane);
+                lanes.insert(site_id.next().unwrap(), site_lane);
             }
-        }
-
-        let mut nav_graphs = BTreeMap::new();
-        for (idx, lanes) in nav_graph_lanes {
-            let lanes: BTreeMap<_, _> = lanes
-                .into_iter()
-                .map(|lane| (site_id.next().unwrap(), lane))
-                .collect();
-
-            nav_graphs.insert(
-                site_id.next().unwrap(),
-                NavGraph {
-                    properties: NavGraphProperties {
-                        name: idx.to_string(),
-                    },
-                    lanes,
-                    locations: locations.clone(),
-                },
-            );
         }
 
         let mut lifts = BTreeMap::new();
@@ -371,6 +353,26 @@ impl BuildingMap {
             );
         }
 
+        let mut nav_graphs = BTreeMap::new();
+        let default_nav_graph_colors = [
+            [1.0, 0.5, 0.3, 1.0],
+            [0.6, 1.0, 0.5, 1.0],
+            [0.6, 0.8, 1.0, 1.0],
+            [0.6, 0.2, 0.3, 1.0],
+            [0.1, 0.0, 1.0, 1.0],
+            [0.8, 0.4, 0.5, 1.0],
+            [0.9, 1.0, 0.0, 1.0],
+            [0.7, 0.5, 0.1, 1.0],
+        ];
+        for (i, (_, graph_id)) in building_id_to_nav_graph_id.iter().enumerate() {
+            let color_index = i % default_nav_graph_colors.len();
+            nav_graphs.insert(*graph_id, NavGraph {
+                name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
+                color: DisplayColor(default_nav_graph_colors[color_index]),
+                marker: Default::default(),
+            });
+        }
+
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
@@ -379,6 +381,8 @@ impl BuildingMap {
             },
             levels,
             lifts,
+            lanes,
+            locations,
             nav_graphs,
             agents: Default::default(),
         })

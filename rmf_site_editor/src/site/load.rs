@@ -197,26 +197,30 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
-            site.spawn_bundle(SpatialBundle::default())
-                .insert(nav_graph_data.properties.clone())
+            let nav_graph = site.spawn_bundle(SpatialBundle::default())
+                .insert_bundle(nav_graph_data.clone())
                 .insert(SiteID(*nav_graph_id))
-                .with_children(|nav_graph| {
-                    for (lane_id, lane) in &nav_graph_data.lanes {
-                        nav_graph
-                            .spawn()
-                            .insert_bundle(lane.to_ecs(&id_to_entity))
-                            .insert(SiteID(*lane_id));
-                        consider_id(*lane_id);
-                    }
+                .id();
+            id_to_entity.insert(*nav_graph_id, nav_graph);
+            consider_id(*nav_graph_id);
+        }
 
-                    for (location_id, location) in &nav_graph_data.locations {
-                        nav_graph
-                            .spawn()
-                            .insert_bundle(location.to_ecs(&id_to_entity))
-                            .insert(SiteID(*location_id));
-                        consider_id(*location_id);
-                    }
-                });
+        for (lane_id, lane_data) in &site_data.lanes {
+            let lane = site
+                .spawn_bundle(lane_data.to_ecs(&id_to_entity))
+                .insert(SiteID(*lane_id))
+                .id();
+            id_to_entity.insert(*lane_id, lane);
+            consider_id(*lane_id);
+        }
+
+        for (location_id, location_data) in &site_data.locations {
+            let location = site
+                .spawn_bundle(location_data.to_ecs(&id_to_entity))
+                .insert(SiteID(*location_id))
+                .id();
+            id_to_entity.insert(*location_id, location);
+            consider_id(*location_id);
         }
     });
 

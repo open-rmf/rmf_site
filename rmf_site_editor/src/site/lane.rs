@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::{Cursor, Selectable},
-    site::*,
-};
+use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
@@ -34,12 +31,7 @@ pub struct LaneSegments {
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
-}
-
-impl LaneSegments {
-    pub fn iter(&self) -> impl Iterator<Item = Entity> {
-        [self.start, self.mid, self.end].into_iter()
-    }
+    pub outlines: [Entity; 3],
 }
 
 fn should_display_lane(
@@ -61,7 +53,8 @@ fn should_display_lane(
 
 pub fn add_lane_visuals(
     mut commands: Commands,
-    lanes: Query<(Entity, &Edge<Entity>), Added<LaneMarker>>,
+    lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
+    graphs: Query<(Entity, &Handle<StandardMaterial>), With<NavGraphMarker>>,
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
@@ -69,12 +62,37 @@ pub fn add_lane_visuals(
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, new_lane) in &lanes {
-        for mut anchor in &new_lane.array() {
+    for (e, new_lane, associated_graphs) in &lanes {
+        for anchor in &new_lane.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
                 deps.insert(e);
             }
         }
+
+        let lane_material = match associated_graphs {
+            AssociatedGraphs::All => {
+                graphs
+                    .iter()
+                    .min_by(|(a, _), (b, _)| a.cmp(b))
+                    .map(|(_, m)| m)
+                    .unwrap_or(&assets.unassigned_lane_material)
+            }
+            AssociatedGraphs::Only(s) => {
+                s.iter()
+                    .next()
+                    .map(|e| graphs.get(*e).map(|(_, m)| m).ok())
+                    .flatten()
+                    .unwrap_or(&assets.unassigned_lane_material)
+            }
+            AssociatedGraphs::AllExcept(s) => {
+                graphs
+                    .iter()
+                    .filter(|(e, _)| !s.contains(e))
+                    .min_by(|(a, _), (b, _)| a.cmp(b))
+                    .map(|(_, m)| m)
+                    .unwrap_or(&assets.unassigned_lane_material)
+            }
+        };
 
         let is_visible = should_display_lane(new_lane, &parents, &levels, &current_level);
 
@@ -85,40 +103,66 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(new_lane.end(), Category::Lane, e)
             .unwrap();
         let mut commands = commands.entity(e);
-        let (start, mid, end) = commands.add_children(|parent| {
-            let start = parent
+        let (start, mid, end, outlines) = commands.add_children(|parent| {
+            let mut start = parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.lane_end_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
+                    material: lane_material.clone(),
                     transform: Transform::from_translation(start_anchor),
                     ..default()
-                })
-                .id();
+                });
+            let start_outline = start
+                .add_children(|start| {
+                    start.spawn_bundle(PbrBundle {
+                        mesh: assets.lane_end_outline.clone(),
+                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    }).id()
+                });
+            let start = start.id();
 
-            let mid = parent
+            let mut mid = parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.lane_mid_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
+                    material: lane_material.clone(),
                     transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
                     ..default()
-                })
-                .insert(Selectable::new(e))
-                .id();
+                });
+            let mid_outline = mid
+                .add_children(|mid| {
+                    mid.spawn_bundle(PbrBundle {
+                        mesh: assets.lane_mid_outline.clone(),
+                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    }).id()
+                });
+            let mid = mid.id();
 
-            let end = parent
+            let mut end = parent
                 .spawn_bundle(PbrBundle {
                     mesh: assets.lane_end_mesh.clone(),
-                    material: assets.passive_lane_material.clone(),
+                    material: lane_material.clone(),
                     transform: Transform::from_translation(end_anchor),
                     ..default()
-                })
-                .id();
+                });
+            let end_outline = end
+                .add_children(|end| {
+                    end.spawn_bundle(PbrBundle {
+                        mesh: assets.lane_end_outline.clone(),
+                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    }).id()
+                });
+            let end = end.id();
 
-            (start, mid, end)
+            (start, mid, end, [start_outline, mid_outline, end_outline])
         });
 
         commands
-            .insert(LaneSegments { start, mid, end })
+            .insert(LaneSegments { start, mid, end, outlines })
             .insert_bundle(SpatialBundle {
                 transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                 visibility: Visibility { is_visible },

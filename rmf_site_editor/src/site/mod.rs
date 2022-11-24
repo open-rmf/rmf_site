@@ -57,9 +57,6 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
-pub mod nav_graph;
-pub use nav_graph::*;
-
 pub mod path;
 pub use path::*;
 
@@ -134,7 +131,6 @@ impl Plugin for SitePlugin {
             .init_resource::<CurrentSite>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()
-            .init_resource::<SelectedNavGraph>()
             .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
@@ -180,7 +176,6 @@ impl Plugin for SitePlugin {
                 SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphans_to_nav_graph)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(add_tags_to_lift)
                     .with_system(add_physical_lights),

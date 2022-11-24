@@ -29,6 +29,8 @@ pub struct Lane<T: RefTrait> {
     pub forward: Motion,
     /// The properties of the lane when traveling in reverse
     pub reverse: ReverseLane,
+    /// What graphs this lane is associated with
+    pub graphs: AssociatedGraphs<T>,
     /// Marker that tells bevy the entity is a Lane-type
     #[serde(skip)]
     pub marker: LaneMarker,
@@ -195,6 +197,7 @@ impl Lane<u32> {
             anchors: self.anchors.to_ecs(id_to_entity),
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
+            graphs: self.graphs.to_ecs(id_to_entity),
             marker: Default::default(),
         }
     }
@@ -206,6 +209,7 @@ impl<T: RefTrait> From<Edge<T>> for Lane<T> {
             anchors: edge,
             forward: Default::default(),
             reverse: Default::default(),
+            graphs: Default::default(),
             marker: Default::default(),
         }
     }

@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
     is_default, AssetSource, IsStatic, Location, LocationTag, LocationTags, Model, ModelMarker,
-    NameInSite, Pose,
+    NameInSite, Pose, AssociatedGraphs,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -73,6 +73,7 @@ impl Vertex {
             return Some(Location {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
+                graphs: AssociatedGraphs::All,
             });
         }
     }

@@ -35,6 +35,7 @@ pub enum LocationTag {
 pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
     pub tags: LocationTags,
+    pub graphs: AssociatedGraphs<T>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -57,6 +58,7 @@ impl Location<u32> {
         Location {
             anchor: Point(*id_to_entity.get(&self.anchor).unwrap()),
             tags: self.tags.clone(),
+            graphs: self.graphs.to_ecs(id_to_entity),
         }
     }
 }
@@ -66,6 +68,7 @@ impl<T: RefTrait> From<Point<T>> for Location<T> {
         Self {
             anchor,
             tags: Default::default(),
+            graphs: AssociatedGraphs::All,
         }
     }
 }
