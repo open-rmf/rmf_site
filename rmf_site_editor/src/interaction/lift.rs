@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{CurrentLevel, LiftDoormat, ToggleLiftDoorAvailability},
+    site::{CurrentLevel, LiftDoormat, ToggleLiftDoorAvailability, LiftCabin},
 };
 use bevy::prelude::*;
 
@@ -59,6 +59,18 @@ pub fn handle_lift_doormat_clicks(
             toggle.send(doormat.toggle_availability());
             select.send(Select(Some(doormat.for_lift)));
         }
+    }
+}
+
+pub fn dirty_changed_lifts(
+    mut lifts: Query<&mut Hovered, Changed<LiftCabin<Entity>>>,
+) {
+    for mut lift in &mut lifts {
+        // This is a hack to force the outline to re-render after the lift cabin
+        // has been reconstructed since any changes to the lift cabin will lazily
+        // throw away all the entities that were previously constructed for it,
+        // and spawn entirely new entities.
+        lift.set_changed();
     }
 }
 

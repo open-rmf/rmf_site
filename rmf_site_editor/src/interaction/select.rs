@@ -130,16 +130,22 @@ impl Default for SelectionBlockers {
 pub fn make_selectable_entities_pickable(
     mut commands: Commands,
     new_selectables: Query<(Entity, &Selectable), Added<Selectable>>,
+    targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default());
 
-        commands
-            .entity(selectable.element)
-            .insert(Selected::default())
-            .insert(Hovered::default());
+        if let Ok((hovered, selected)) = targets.get(selectable.element) {
+            if hovered.is_none() {
+                commands.entity(selectable.element).insert(Hovered::default());
+            }
+
+            if selected.is_none() {
+                commands.entity(selectable.element).insert(Selected::default());
+            }
+        }
     }
 }
 

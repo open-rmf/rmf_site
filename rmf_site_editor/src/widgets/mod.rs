@@ -22,7 +22,7 @@ use crate::{
     occupancy::CalculateGrid,
     site::{
         Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
-        SiteUpdateLabel, ToggleLiftDoorAvailability,
+        ToggleLiftDoorAvailability,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -139,7 +139,7 @@ fn standard_ui_layout(
     egui::SidePanel::right("right_panel")
         .resizable(true)
         .show(egui_context.ctx_mut(), |ui| {
-            let r = egui::ScrollArea::both()
+            egui::ScrollArea::both()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {

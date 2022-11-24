@@ -67,7 +67,7 @@ pub fn update_outline_visualization(
             if hovering.cue() && selected.cue() {
                 Some(Color::rgb(1.0, 0.0, 0.3))
             } else if selected.cue() {
-                Some(Color::rgb(1., 0.3, 1.))
+                Some(Color::rgb(1.0, 0.3, 1.0))
             } else {
                 Some(Color::WHITE)
             }
