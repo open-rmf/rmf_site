@@ -15,6 +15,9 @@
  *
 */
 
+pub mod inspect_associated_graphs;
+pub use inspect_associated_graphs::*;
+
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
@@ -36,14 +39,14 @@ pub use inspect_is_static::*;
 pub mod inspect_option_string;
 pub use inspect_option_string::*;
 
-pub mod inspect_lane;
-pub use inspect_lane::*;
-
 pub mod inspect_lift;
 pub use inspect_lift::*;
 
 pub mod inspect_light;
 pub use inspect_light::*;
+
+pub mod inspect_motion;
+pub use inspect_motion::*;
 
 pub mod inspect_name;
 pub use inspect_name::*;
@@ -100,6 +103,7 @@ pub struct InspectorComponentParams<'w, 's> {
             &'static Category,
         ),
     >,
+    pub associated_graphs: InspectAssociatedGraphsParams<'w, 's>,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
@@ -174,6 +178,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 .show(ui);
                 ui.add_space(10.0);
             }
+
+            InspectAssociatedGraphsWidget::new(
+                selection, &self.params.component.associated_graphs, self.events
+            ).show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));

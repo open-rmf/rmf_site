@@ -59,6 +59,34 @@ pub enum AssociatedGraphs<T: RefTrait> {
     AllExcept(BTreeSet<T>),
 }
 
+impl<T: RefTrait> AssociatedGraphs<T> {
+    pub fn label(&self) -> &'static str {
+        match self {
+            Self::All => "All",
+            Self::Only(_) => "Only",
+            Self::AllExcept(_) => "All Except",
+        }
+    }
+
+    pub fn all(&self) -> bool {
+        matches!(self, Self::All)
+    }
+
+    pub fn only(&self) -> Option<&BTreeSet<T>> {
+        match self {
+            Self::Only(set) => Some(set),
+            _ => None,
+        }
+    }
+
+    pub fn all_except(&self) -> Option<&BTreeSet<T>> {
+        match self {
+            Self::AllExcept(set) => Some(set),
+            _ => None,
+        }
+    }
+}
+
 impl<T: RefTrait> Default for AssociatedGraphs<T> {
     fn default() -> Self {
         AssociatedGraphs::All
@@ -113,5 +141,53 @@ impl AssociatedGraphs<Entity> {
         set.iter()
             .map(|e| q_nav_graph.get(*e).map(|s| s.0).map_err(|_| *e))
             .collect()
+    }
+}
+
+#[derive(Clone, Debug, PartialEq, Eq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallAssociatedGraphs<T: RefTrait> {
+    pub only: Option<BTreeSet<T>>,
+    pub all_except: Option<BTreeSet<T>>,
+    pub consider: Option<T>,
+}
+
+impl<T: RefTrait> RecallAssociatedGraphs<T> {
+    pub fn assume_only(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
+        AssociatedGraphs::Only(
+            current.only().cloned().unwrap_or(self.only.clone().unwrap_or_default())
+        )
+    }
+
+    pub fn assume_all_except(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
+        AssociatedGraphs::AllExcept(
+            current.all_except().cloned().unwrap_or(self.all_except.clone().unwrap_or_default())
+        )
+    }
+}
+
+impl<T: RefTrait> Default for RecallAssociatedGraphs<T> {
+    fn default() -> Self {
+        Self {
+            only: None,
+            all_except: None,
+            consider: None,
+        }
+    }
+}
+
+impl<T: RefTrait> Recall for RecallAssociatedGraphs<T> {
+    type Source = AssociatedGraphs<T>;
+
+    fn remember(&mut self, source: &Self::Source) {
+        match source {
+            AssociatedGraphs::All => { }
+            AssociatedGraphs::Only(set) => {
+                self.only = Some(set.clone());
+            }
+            AssociatedGraphs::AllExcept(set) => {
+                self.all_except = Some(set.clone());
+            }
+        }
     }
 }

@@ -66,7 +66,6 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
-                    println!("Changing color to {new_color:?}");
                     self.events.change.color.send(Change::new(DisplayColor(new_color), e));
                 }
 

@@ -21,8 +21,8 @@ use crate::{
     },
     occupancy::CalculateGrid,
     site::{
-        Change, CurrentLevel, Delete, ExportLights, PhysicalLightToggle, SiteState,
-        ToggleLiftDoorAvailability,
+        AssociatedGraphs, Change, CurrentLevel, Delete, ExportLights,
+        PhysicalLightToggle, SiteState, ToggleLiftDoorAvailability, ConsiderAssociatedGraph,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -95,6 +95,8 @@ pub struct ChangeEvents<'w, 's> {
     pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub color: EventWriter<'w, 's, Change<DisplayColor>>,
     pub visibility: EventWriter<'w, 's, Change<Visibility>>,
+    pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
+    pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
 }
 
 #[derive(SystemParam)]
