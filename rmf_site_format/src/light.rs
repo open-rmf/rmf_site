@@ -18,11 +18,9 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
-    ecs::system::EntityCommands,
     prelude::{
-        Bundle, Component, DirectionalLight as BevyDirectionalLight, DirectionalLightBundle,
-        PointLight as BevyPointLight, PointLightBundle, SpotLight as BevySpotLight,
-        SpotLightBundle, Transform,
+        Bundle, Component, DirectionalLight as BevyDirectionalLight,
+        PointLight as BevyPointLight, SpotLight as BevySpotLight,
     },
 };
 use serde::{Deserialize, Serialize};

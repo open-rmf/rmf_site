@@ -18,8 +18,7 @@
 use crate::{
     interaction::{Select, Selection},
     site::{
-        Category, CurrentLevel, Dependents, LevelProperties, LevelVisits, LiftCabin,
-        SiteUpdateStage, ToggleLiftDoorAvailability,
+        Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -125,7 +124,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    'outer: for descendent in &all_descendents {
+    for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
                 println!(
@@ -262,7 +261,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     perform_deletions(all_to_delete, params);
 }
 
-fn perform_deletions(all_to_delete: HashSet<Entity>, mut params: &mut DeletionParams) {
+fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams) {
     for e in all_to_delete.iter().copied() {
         // TODO(MXG): Consider refactoring some of this bookkeeping to separate
         // systems that use the RemovedComponents system parameter.

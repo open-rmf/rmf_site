@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use rmf_site_format::{Category, DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;

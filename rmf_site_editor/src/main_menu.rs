@@ -45,7 +45,7 @@ fn egui_ui(
     mut _exit: EventWriter<AppExit>,
     mut _load_site: EventWriter<LoadSite>,
     mut _interaction_state: ResMut<State<InteractionState>>,
-    mut app_state: ResMut<State<AppState>>,
+    mut _app_state: ResMut<State<AppState>>,
     autoload: Option<Res<Autoload>>,
     loading_tasks: Query<(), With<LoadSiteFileTask>>,
 ) {
@@ -61,7 +61,7 @@ fn egui_ui(
         return;
     }
 
-    if let Some(mut autoload) = autoload {
+    if let Some(autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let filename = autoload.filename.clone();
@@ -124,7 +124,7 @@ fn egui_ui(
                                         focus: true,
                                         default_file: None,
                                     });
-                                    match app_state.set(AppState::SiteEditor) {
+                                    match _app_state.set(AppState::SiteEditor) {
                                         Ok(_) => {
                                             _interaction_state.set(InteractionState::Enable).ok();
                                         }
@@ -174,7 +174,7 @@ fn egui_ui(
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
                 //     println!("Entering warehouse generator");
-                //     app_state.set(AppState::WarehouseGenerator).unwrap();
+                //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
             });
 

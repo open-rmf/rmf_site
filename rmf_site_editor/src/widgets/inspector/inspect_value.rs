@@ -49,21 +49,25 @@ impl<T: Numeric> InspectValue<T> {
         self
     }
 
+    #[allow(dead_code)]
     pub fn min_decimals(mut self, min_decimals: usize) -> Self {
         self.min_decimals = min_decimals;
         self
     }
 
+    #[allow(dead_code)]
     pub fn max_decimals(mut self, max_decimals: usize) -> Self {
         self.max_decimals = Some(max_decimals);
         self
     }
 
+    #[allow(dead_code)]
     pub fn speed(mut self, speed: f64) -> Self {
         self.speed = speed;
         self
     }
 
+    #[allow(dead_code)]
     pub fn suffix(mut self, suffix: String) -> Self {
         self.suffix = suffix;
         self

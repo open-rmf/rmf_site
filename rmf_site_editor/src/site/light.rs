@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{CurrentLevel, SiteAssets};
+use crate::site::CurrentLevel;
 use bevy::{
     pbr::CubemapVisibleEntities,
     prelude::{
@@ -177,6 +177,8 @@ pub fn export_lights(
             root.insert(level, lights_map);
         }
 
-        serde_yaml::to_writer(out_file, &root);
+        if let Err(err) = serde_yaml::to_writer(out_file, &root) {
+            println!("Error while exporting lights: {err}");
+        }
     }
 }

@@ -244,7 +244,7 @@ impl Rotation {
         match self {
             Self::Yaw(_) => self.clone(),
             Self::EulerExtrinsicXYZ([_, _, yaw]) => Self::Yaw(*yaw),
-            Self::Quat(quat) => {
+            Self::Quat(_) => {
                 Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0))
             }
         }

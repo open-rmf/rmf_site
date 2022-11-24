@@ -19,7 +19,7 @@ use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
     render::{
-        mesh::{shape::Box, Indices, PrimitiveTopology, VertexAttributeValues},
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         primitives::Aabb,
     },
 };
@@ -573,16 +573,6 @@ pub(crate) fn make_flat_disk(circle: Circle, resolution: u32) -> MeshBuffer {
     make_top_circle(circle, resolution).merge_with(make_bottom_circle(circle, resolution))
 }
 
-pub(crate) fn half_disk_outline(resolution: u32) -> Vec<u32> {
-    let peak_top = resolution;
-    let peak_bottom = 2 * resolution + 1;
-    (0..=peak_top - 2)
-        .into_iter()
-        .flat_map(|i| [i, i + 1].into_iter())
-        .chain([peak_top - 1, 0])
-        .collect()
-}
-
 pub(crate) fn make_dagger_mesh() -> Mesh {
     let lower_ring = Circle {
         radius: 0.01,
@@ -696,7 +686,6 @@ pub(crate) fn flat_arrow_mesh_between(
     let total_length = (stop - start).length();
     let tip_length = total_length.min(tip_length);
     let handle_length = total_length - tip_length;
-    let center = (start + stop) / 2.0;
     let dp = stop - start;
     let yaw = dp.y.atan2(dp.x);
 

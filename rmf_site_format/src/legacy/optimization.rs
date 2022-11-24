@@ -1,7 +1,7 @@
 use super::{building_map::BuildingMap, level::Alignment};
-use glam::{DAffine2, DMat2, DVec2};
+use glam::{DMat2, DVec2};
 use optimization_engine::{panoc::*, *};
-use std::{collections::HashMap, ops::RangeFrom};
+use std::collections::HashMap;
 
 pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
     let mut names = Vec::new();
@@ -74,11 +74,11 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
         };
         let problem = Problem::new(&constraints, df, f);
         let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
-        panoc.solve(&mut u);
+        panoc.solve(&mut u).ok();
     }
 
-    calculate_yaw_adjustment(&measurements, &fiducials, &mut u);
-    calculate_displacement_adjustment(&measurements, &fiducials, &mut u);
+    calculate_yaw_adjustment(&fiducials, &mut u);
+    calculate_displacement_adjustment(&fiducials, &mut u);
     calculate_center_adjustment(building, &mut u);
 
     names
@@ -116,14 +116,6 @@ impl<'a> LevelVariables<'a> {
     fn rotation(&self) -> DMat2 {
         let theta = *self.theta();
         DMat2::from_angle(theta)
-    }
-
-    fn rotation_deriv(&self) -> DMat2 {
-        let theta = *self.theta();
-        DMat2::from_cols(
-            DVec2::new(-theta.sin(), theta.cos()),
-            DVec2::new(-theta.cos(), -theta.sin()),
-        )
     }
 
     fn scale(&self) -> &f64 {
@@ -236,7 +228,6 @@ fn calculate_scale_cost(
                             if let Some(Some(phi_kj)) = fiducials_j.get(k) {
                                 let f_ki = vars_i.transform(*phi_ki);
                                 let f_kj = vars_j.transform(*phi_kj);
-                                let delta = f_ki - f_kj;
 
                                 for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
                                     let m = m + k + 1;
@@ -290,7 +281,6 @@ fn calculate_scale_gradient(
                             if let Some(Some(phi_kj)) = fiducials_j.get(k) {
                                 let f_ki = vars_i.transform(*phi_ki);
                                 let f_kj = vars_j.transform(*phi_kj);
-                                let delta = f_ki - f_kj;
 
                                 for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
                                     let m = m + k + 1;
@@ -318,7 +308,6 @@ fn calculate_scale_gradient(
 }
 
 fn calculate_yaw_adjustment(
-    measurements: &Vec<Vec<Measurement>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
     u: &mut [f64],
 ) {
@@ -375,7 +364,6 @@ fn calculate_yaw_adjustment(
 }
 
 fn calculate_displacement_adjustment(
-    measurements: &Vec<Vec<Measurement>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
     u: &mut [f64],
 ) {

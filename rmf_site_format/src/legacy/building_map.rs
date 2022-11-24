@@ -1,9 +1,9 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs, Category,
+    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
-    Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties,
+    Fiducial as SiteFiducial, FiducialMarker, Label, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelProperties as SiteLevelProperties,
     Motion, NameInSite, NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
     Rotation, Site, SiteProperties,
 };
@@ -102,7 +102,7 @@ impl BuildingMap {
             }
         }
 
-        for (lift_name, lift) in map.lifts.iter_mut() {
+        for (_, lift) in map.lifts.iter_mut() {
             let tf = alignments
                 .get(&lift.reference_floor_name)
                 .unwrap()
@@ -346,7 +346,6 @@ impl BuildingMap {
                     name,
                     &mut site_id,
                     &mut site_anchors,
-                    &levels,
                     &level_name_to_id,
                     &lift_cabin_anchors,
                 )?,

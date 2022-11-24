@@ -36,6 +36,7 @@ pub struct Bobbing {
 }
 
 impl Bobbing {
+    #[allow(dead_code)]
     pub fn between(h_min: f32, h_max: f32) -> Self {
         Self {
             heights: (h_min, h_max),

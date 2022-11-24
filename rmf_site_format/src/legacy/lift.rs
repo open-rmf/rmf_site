@@ -1,14 +1,13 @@
 use super::{PortingError, Result};
 use crate::{
-    Anchor, Categorized, Category, DoorType, DoubleSlidingDoor, Edge, InitialLevel, IsStatic,
-    Level, LevelVisits, Lift as SiteLift, LiftCabin, LiftCabinDoor, LiftCabinDoorPlacement,
-    LiftProperties, NameInSite, RectFace, RectangularLiftCabin, DEFAULT_CABIN_DOOR_THICKNESS,
-    DEFAULT_CABIN_WALL_THICKNESS,
+    Anchor, DoorType, DoubleSlidingDoor, Edge, InitialLevel, IsStatic,
+    LevelVisits, Lift as SiteLift, LiftCabin, LiftCabinDoor, LiftCabinDoorPlacement,
+    LiftProperties, NameInSite, RectFace, RectangularLiftCabin,
 };
-use glam::{DVec2, Vec2};
+use glam::DVec2;
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     ops::RangeFrom,
 };
 
@@ -65,7 +64,6 @@ impl Lift {
         lift_name: &String,
         site_id: &mut RangeFrom<u32>,
         site_anchors: &mut BTreeMap<u32, Anchor>,
-        levels: &BTreeMap<u32, Level>,
         level_name_to_id: &BTreeMap<String, u32>,
         all_lift_cabin_anchors: &BTreeMap<String, Vec<(u32, Anchor)>>,
     ) -> Result<SiteLift<u32>> {

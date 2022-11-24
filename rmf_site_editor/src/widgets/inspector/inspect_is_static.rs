@@ -23,12 +23,14 @@ pub struct InspectIsStatic {
 }
 
 impl InspectIsStatic {
+    #[allow(dead_code)]
     pub fn new(is_static: &IsStatic) -> Self {
         Self {
             is_static: *is_static,
         }
     }
 
+    #[allow(dead_code)]
     pub fn show(self, ui: &mut Ui) -> Option<IsStatic> {
         let mut new_is_static = self.is_static;
         ui.checkbox(&mut new_is_static.0, "Static")

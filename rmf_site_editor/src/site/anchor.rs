@@ -18,7 +18,6 @@
 use crate::site::*;
 use bevy::{prelude::*, render::primitives::Sphere};
 use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
-use std::collections::HashSet;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {

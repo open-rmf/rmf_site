@@ -16,10 +16,9 @@
 */
 
 use crate::widgets::inspector::{InspectAngle, InspectOptionF32};
-use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, RichText, Ui};
 use rmf_site_format::{
-    Angle, Dock, LaneMarker, Motion, OrientationConstraint, RecallMotion, RecallReverseLane,
+    Angle, Dock, Motion, OrientationConstraint, RecallMotion, RecallReverseLane,
     ReverseLane,
 };
 

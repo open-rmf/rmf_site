@@ -16,7 +16,6 @@
 */
 
 use crate::{occupancy::CalculateGrid, widgets::AppEvents};
-use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, Ui};
 
 pub struct OccupancyDisplay {

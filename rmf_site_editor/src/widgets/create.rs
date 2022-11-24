@@ -16,10 +16,9 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, InteractionMode, SelectAnchor},
+    interaction::{ChangeMode, SelectAnchor},
     widgets::AppEvents,
 };
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
 pub struct CreateWidget<'a, 'w, 's> {

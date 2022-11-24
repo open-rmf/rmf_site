@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, InteractionMode, SelectAnchor},
-    site::{Category, EdgeLabels, Original, SiteID},
+    interaction::{ChangeMode, SelectAnchor},
+    site::{Category, EdgeLabels, Original},
     widgets::{
         inspector::{InspectAnchorParams, InspectAnchorWidget},
         AppEvents,

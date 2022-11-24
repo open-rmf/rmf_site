@@ -19,11 +19,10 @@ use crate::{Categorized, Category};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
-    math::{Affine3A, Vec2, Vec3},
+    math::{Vec2, Vec3},
     prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform},
 };
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
 #[serde(untagged)]
