@@ -44,6 +44,9 @@ use view_levels::{LevelDisplay, LevelParams, ViewLevels};
 pub mod view_lights;
 use view_lights::*;
 
+pub mod view_nav_graphs;
+use view_nav_graphs::*;
+
 pub mod view_occupancy;
 use view_occupancy::*;
 
@@ -90,6 +93,8 @@ pub struct ChangeEvents<'w, 's> {
     pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
     pub light: EventWriter<'w, 's, Change<LightKind>>,
     pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
+    pub color: EventWriter<'w, 's, Change<DisplayColor>>,
+    pub visibility: EventWriter<'w, 's, Change<Visibility>>,
 }
 
 #[derive(SystemParam)]
@@ -134,6 +139,7 @@ fn standard_ui_layout(
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
+    nav_graphs: NavGraphParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -161,6 +167,12 @@ fn standard_ui_layout(
                                 CreateWidget::new(&mut events).show(ui);
                             });
                         ui.separator();
+                        CollapsingHeader::new("Navigation Graphs")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
+                            });
+                        ui.separator();
                         CollapsingHeader::new("Lights")
                             .default_open(false)
                             .show(ui, |ui| {
@@ -171,7 +183,7 @@ fn standard_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
-                            })
+                            });
                     });
                 });
         });

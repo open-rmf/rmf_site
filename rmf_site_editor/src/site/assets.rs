@@ -55,7 +55,7 @@ impl FromWorld for SiteAssets {
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material = materials.add(Color::rgb(1.0, 0.5, 0.3).into());
+        let unassigned_lane_material = materials.add(Color::rgb(0.1, 0.1, 0.1).into());
         let select_material = materials.add(Color::rgb(1., 0.3, 1.).into());
         let hover_material = materials.add(Color::rgb(0.3, 1., 1.).into());
         let hover_select_material = materials.add(Color::rgb(1.0, 0.0, 0.3).into());

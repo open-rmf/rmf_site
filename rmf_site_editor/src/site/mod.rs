@@ -57,6 +57,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod display_color;
+pub use display_color::*;
+
 pub mod path;
 pub use path::*;
 
@@ -156,6 +159,8 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<PhysicalCameraProperties>::default())
             .add_plugin(ChangePlugin::<LightKind>::default())
             .add_plugin(RecallPlugin::<RecallLightKind>::default())
+            .add_plugin(ChangePlugin::<DisplayColor>::default())
+            .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
@@ -165,7 +170,8 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
-                    .with_system(update_lift_edge),
+                    .with_system(update_lift_edge)
+                    .with_system(update_material_for_display_color),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -178,6 +184,7 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(add_tags_to_lift)
+                    .with_system(add_material_for_display_colors)
                     .with_system(add_physical_lights),
             )
             .add_system_set_to_stage(
