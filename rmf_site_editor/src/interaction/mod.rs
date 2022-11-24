@@ -60,8 +60,8 @@ pub mod select_anchor;
 pub use select_anchor::*;
 
 use bevy::prelude::*;
-use bevy_mod_picking::{PickingPlugin, PickingSystem};
 use bevy_mod_outline::{AutoGenerateOutlineNormalsPlugin, OutlinePlugin};
+use bevy_mod_picking::{PickingPlugin, PickingSystem};
 
 #[derive(Default)]
 pub struct InteractionPlugin;
@@ -134,7 +134,9 @@ impl Plugin for InteractionPlugin {
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
                     .with_system(update_outline_visualization.after(maintain_selected_entities))
-                    .with_system(update_cursor_hover_visualization.after(maintain_selected_entities))
+                    .with_system(
+                        update_cursor_hover_visualization.after(maintain_selected_entities),
+                    )
                     .with_system(update_gizmo_click_start.after(maintain_selected_entities))
                     .with_system(update_gizmo_release)
                     .with_system(

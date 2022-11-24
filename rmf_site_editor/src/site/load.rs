@@ -197,7 +197,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
 
         for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
-            let nav_graph = site.spawn_bundle(SpatialBundle::default())
+            let nav_graph = site
+                .spawn_bundle(SpatialBundle::default())
                 .insert_bundle(nav_graph_data.clone())
                 .insert(SiteID(*nav_graph_id))
                 .id();

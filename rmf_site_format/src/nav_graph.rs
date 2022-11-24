@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Bundle, Entity, Query, With};
+use bevy::prelude::{Bundle, Component, Entity, Query, With};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -74,7 +74,9 @@ impl AssociatedGraphs<u32> {
         match self {
             Self::All => AssociatedGraphs::All,
             Self::Only(set) => AssociatedGraphs::Only(Self::set_to_ecs(set, id_to_entity)),
-            Self::AllExcept(set) => AssociatedGraphs::AllExcept(Self::set_to_ecs(set, id_to_entity)),
+            Self::AllExcept(set) => {
+                AssociatedGraphs::AllExcept(Self::set_to_ecs(set, id_to_entity))
+            }
         }
     }
 
@@ -82,11 +84,13 @@ impl AssociatedGraphs<u32> {
         set: &BTreeSet<u32>,
         id_to_entity: &std::collections::HashMap<u32, Entity>,
     ) -> BTreeSet<Entity> {
-        set.iter().map(|g| id_to_entity.get(g).unwrap().clone()).collect()
+        set.iter()
+            .map(|g| id_to_entity.get(g).unwrap().clone())
+            .collect()
     }
 }
 
-#[cfg(feature="bevy")]
+#[cfg(feature = "bevy")]
 impl AssociatedGraphs<Entity> {
     pub fn to_u32(
         &self,
@@ -95,7 +99,10 @@ impl AssociatedGraphs<Entity> {
         match self {
             Self::All => Ok(AssociatedGraphs::All),
             Self::Only(set) => Ok(AssociatedGraphs::Only(Self::set_to_u32(set, q_nav_graph)?)),
-            Self::AllExcept(set) => Ok(AssociatedGraphs::AllExcept(Self::set_to_u32(set, q_nav_graph)?)),
+            Self::AllExcept(set) => Ok(AssociatedGraphs::AllExcept(Self::set_to_u32(
+                set,
+                q_nav_graph,
+            )?)),
         }
     }
 
@@ -103,11 +110,8 @@ impl AssociatedGraphs<Entity> {
         set: &BTreeSet<Entity>,
         q_nav_graph: &Query<&SiteID, With<NavGraphMarker>>,
     ) -> Result<BTreeSet<u32>, Entity> {
-        set.iter().map(|e| {
-            q_nav_graph.get(*e)
-                .map(|s| s.0)
-                .map_err(|_| *e)
-        })
-        .collect()
+        set.iter()
+            .map(|e| q_nav_graph.get(*e).map(|s| s.0).map_err(|_| *e))
+            .collect()
     }
 }

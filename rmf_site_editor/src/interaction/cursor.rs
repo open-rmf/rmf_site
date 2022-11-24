@@ -20,10 +20,10 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, Pending, SiteAssets},
 };
-use rmf_site_format::{FloorMarker, WallMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
+use rmf_site_format::{FloorMarker, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -296,13 +296,7 @@ pub struct CursorHoverVisualization;
 
 pub fn add_cursor_hover_visualization(
     mut commands: Commands,
-    new_entities: Query<
-        Entity,
-        Or<(
-            Added<FloorMarker>,
-            Added<WallMarker>,
-        )>
-    >,
+    new_entities: Query<Entity, Or<(Added<FloorMarker>, Added<WallMarker>)>>,
 ) {
     for e in &new_entities {
         commands

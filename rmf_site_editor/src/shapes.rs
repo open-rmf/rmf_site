@@ -570,16 +570,15 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer 
 }
 
 pub(crate) fn make_flat_disk(circle: Circle, resolution: u32) -> MeshBuffer {
-    make_top_circle(circle, resolution)
-        .merge_with(make_bottom_circle(circle, resolution))
+    make_top_circle(circle, resolution).merge_with(make_bottom_circle(circle, resolution))
 }
 
 pub(crate) fn half_disk_outline(resolution: u32) -> Vec<u32> {
     let peak_top = resolution;
-    let peak_bottom = 2*resolution + 1;
+    let peak_bottom = 2 * resolution + 1;
     (0..=peak_top - 2)
         .into_iter()
-        .flat_map(|i| [i, i+1].into_iter())
+        .flat_map(|i| [i, i + 1].into_iter())
         .chain([peak_top - 1, 0])
         .collect()
 }
@@ -912,12 +911,7 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
         .take(8)
         .collect();
 
-    let outline = [
-        0, 1,
-        1, 2,
-        2, 3,
-        3, 0,
-    ].into_iter().collect();
+    let outline = [0, 1, 1, 2, 2, 3, 3, 0].into_iter().collect();
 
     return MeshBuffer::new(positions, normals, indices)
         .with_uv(uv)

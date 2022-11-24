@@ -1,11 +1,11 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, Angle, AssetSource, Category, Dock as SiteDock,
-    Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker, IsStatic,
-    Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
-    LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
-    Rotation, Site, SiteProperties, AssociatedGraphs, DisplayColor,
+    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs, Category,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
+    Fiducial as SiteFiducial, FiducialMarker, IsStatic, Label, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties,
+    Motion, NameInSite, NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
+    Rotation, Site, SiteProperties,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -366,11 +366,14 @@ impl BuildingMap {
         ];
         for (i, (_, graph_id)) in building_id_to_nav_graph_id.iter().enumerate() {
             let color_index = i % default_nav_graph_colors.len();
-            nav_graphs.insert(*graph_id, NavGraph {
-                name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
-                color: DisplayColor(default_nav_graph_colors[color_index]),
-                marker: Default::default(),
-            });
+            nav_graphs.insert(
+                *graph_id,
+                NavGraph {
+                    name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
+                    color: DisplayColor(default_nav_graph_colors[color_index]),
+                    marker: Default::default(),
+                },
+            );
         }
 
         Ok(Site {

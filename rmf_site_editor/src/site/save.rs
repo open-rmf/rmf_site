@@ -654,12 +654,10 @@ fn generate_nav_graphs(
     site: Entity,
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
     let mut state: SystemState<
-        Query<(
-            &NameInSite,
-            &DisplayColor,
-            &SiteID,
-            &Parent
-        ), (With<NavGraphMarker>, Without<Pending>)>,
+        Query<
+            (&NameInSite, &DisplayColor, &SiteID, &Parent),
+            (With<NavGraphMarker>, Without<Pending>),
+        >,
     > = SystemState::new(world);
 
     let q_nav_graphs = state.get(world);
@@ -727,7 +725,8 @@ fn generate_lanes(
 
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         let edge = get_anchor_id_edge(edge)?;
-        let graphs = graphs.to_u32(&q_nav_graphs)
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
 
         lanes.insert(
@@ -738,7 +737,7 @@ fn generate_lanes(
                 reverse: reverse.clone(),
                 graphs,
                 marker: LaneMarker,
-            }
+            },
         );
     }
 
@@ -747,17 +746,20 @@ fn generate_lanes(
 
 fn generate_locations(
     world: &mut World,
-    site: Entity
+    site: Entity,
 ) -> Result<BTreeMap<u32, Location<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(
-            &Point<Entity>,
-            Option<&Original<Point<Entity>>>,
-            &LocationTags,
-            &AssociatedGraphs<Entity>,
-            &SiteID,
-            &Parent,
-        ), Without<Pending>>,
+        Query<
+            (
+                &Point<Entity>,
+                Option<&Original<Point<Entity>>>,
+                &LocationTags,
+                &AssociatedGraphs<Entity>,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
         Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
@@ -779,7 +781,8 @@ fn generate_locations(
 
         let point = o_point.map(|x| &x.0).unwrap_or(point);
         let point = get_anchor_id(point.0)?;
-        let graphs = graphs.to_u32(&q_nav_graphs)
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
             .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
 
         locations.insert(
@@ -788,7 +791,7 @@ fn generate_locations(
                 anchor: Point(point),
                 tags: tags.clone(),
                 graphs,
-            }
+            },
         );
     }
 

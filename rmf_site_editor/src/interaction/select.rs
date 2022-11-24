@@ -139,11 +139,15 @@ pub fn make_selectable_entities_pickable(
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
-                commands.entity(selectable.element).insert(Hovered::default());
+                commands
+                    .entity(selectable.element)
+                    .insert(Hovered::default());
             }
 
             if selected.is_none() {
-                commands.entity(selectable.element).insert(Selected::default());
+                commands
+                    .entity(selectable.element)
+                    .insert(Selected::default());
             }
         }
     }

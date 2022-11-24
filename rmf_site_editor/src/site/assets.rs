@@ -115,10 +115,24 @@ impl FromWorld for SiteAssets {
         let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0).into());
         let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.1).into());
         let lane_end_mesh = meshes.add(
-            make_flat_disk(Circle { radius: LANE_WIDTH/2.0, height: 0.0 }, 32).into()
+            make_flat_disk(
+                Circle {
+                    radius: LANE_WIDTH / 2.0,
+                    height: 0.0,
+                },
+                32,
+            )
+            .into(),
         );
         let lane_end_outline = meshes.add(
-            make_flat_disk(Circle { radius: LANE_WIDTH/2.0+0.025, height: 0.0 }, 32).into()
+            make_flat_disk(
+                Circle {
+                    radius: LANE_WIDTH / 2.0 + 0.025,
+                    height: 0.0,
+                },
+                32,
+            )
+            .into(),
         );
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());

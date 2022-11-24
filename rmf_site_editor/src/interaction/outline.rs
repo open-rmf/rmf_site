@@ -16,11 +16,11 @@
 */
 
 use crate::interaction::*;
+use bevy_mod_outline::{Outline, OutlineBundle, OutlineStencil};
 use rmf_site_format::{
-    DoorType, LiftCabin, MeasurementMarker, ModelMarker, WallMarker,
-    PhysicalCameraProperties, LightKind,
+    DoorType, LiftCabin, LightKind, MeasurementMarker, ModelMarker, PhysicalCameraProperties,
+    WallMarker,
 };
-use bevy_mod_outline::{Outline, OutlineStencil, OutlineBundle};
 use smallvec::SmallVec;
 
 // TODO(MXG): Customize the behavior of floor, wall, and model visual cues.
@@ -53,13 +53,13 @@ pub fn add_outline_visualization(
 
 pub fn update_outline_visualization(
     mut commands: Commands,
-    outlinable: Query<(Entity, &Hovered, &Selected), (
-        With<OutlineVisualization>,
-        Or<(
-            Changed<Hovered>,
-            Changed<Selected>,
-        )>,
-    )>,
+    outlinable: Query<
+        (Entity, &Hovered, &Selected),
+        (
+            With<OutlineVisualization>,
+            Or<(Changed<Hovered>, Changed<Selected>)>,
+        ),
+    >,
     descendants: Query<Option<&Children>, Without<VisualCue>>,
 ) {
     for (e, hovering, selected) in &outlinable {
@@ -89,7 +89,8 @@ pub fn update_outline_visualization(
                         stencil: OutlineStencil,
                     });
                 } else {
-                    commands.entity(top)
+                    commands
+                        .entity(top)
                         .remove::<Outline>()
                         .remove::<OutlineStencil>();
                 }
@@ -103,4 +104,3 @@ pub fn update_outline_visualization(
         }
     }
 }
-

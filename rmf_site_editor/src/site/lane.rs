@@ -70,28 +70,23 @@ pub fn add_lane_visuals(
         }
 
         let lane_material = match associated_graphs {
-            AssociatedGraphs::All => {
-                graphs
-                    .iter()
-                    .min_by(|(a, _), (b, _)| a.cmp(b))
-                    .map(|(_, m)| m)
-                    .unwrap_or(&assets.unassigned_lane_material)
-            }
-            AssociatedGraphs::Only(s) => {
-                s.iter()
-                    .next()
-                    .map(|e| graphs.get(*e).map(|(_, m)| m).ok())
-                    .flatten()
-                    .unwrap_or(&assets.unassigned_lane_material)
-            }
-            AssociatedGraphs::AllExcept(s) => {
-                graphs
-                    .iter()
-                    .filter(|(e, _)| !s.contains(e))
-                    .min_by(|(a, _), (b, _)| a.cmp(b))
-                    .map(|(_, m)| m)
-                    .unwrap_or(&assets.unassigned_lane_material)
-            }
+            AssociatedGraphs::All => graphs
+                .iter()
+                .min_by(|(a, _), (b, _)| a.cmp(b))
+                .map(|(_, m)| m)
+                .unwrap_or(&assets.unassigned_lane_material),
+            AssociatedGraphs::Only(s) => s
+                .iter()
+                .next()
+                .map(|e| graphs.get(*e).map(|(_, m)| m).ok())
+                .flatten()
+                .unwrap_or(&assets.unassigned_lane_material),
+            AssociatedGraphs::AllExcept(s) => graphs
+                .iter()
+                .filter(|(e, _)| !s.contains(e))
+                .min_by(|(a, _), (b, _)| a.cmp(b))
+                .map(|(_, m)| m)
+                .unwrap_or(&assets.unassigned_lane_material),
         };
 
         let is_visible = should_display_lane(new_lane, &parents, &levels, &current_level);
@@ -104,65 +99,68 @@ pub fn add_lane_visuals(
             .unwrap();
         let mut commands = commands.entity(e);
         let (start, mid, end, outlines) = commands.add_children(|parent| {
-            let mut start = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(start_anchor),
-                    ..default()
-                });
-            let start_outline = start
-                .add_children(|start| {
-                    start.spawn_bundle(PbrBundle {
+            let mut start = parent.spawn_bundle(PbrBundle {
+                mesh: assets.lane_end_mesh.clone(),
+                material: lane_material.clone(),
+                transform: Transform::from_translation(start_anchor),
+                ..default()
+            });
+            let start_outline = start.add_children(|start| {
+                start
+                    .spawn_bundle(PbrBundle {
                         mesh: assets.lane_end_outline.clone(),
                         transform: Transform::from_translation(-0.000_5 * Vec3::Z),
                         visibility: Visibility { is_visible: false },
                         ..default()
-                    }).id()
-                });
+                    })
+                    .id()
+            });
             let start = start.id();
 
-            let mut mid = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+            let mut mid = parent.spawn_bundle(PbrBundle {
+                mesh: assets.lane_mid_mesh.clone(),
+                material: lane_material.clone(),
+                transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+                ..default()
+            });
+            let mid_outline = mid.add_children(|mid| {
+                mid.spawn_bundle(PbrBundle {
+                    mesh: assets.lane_mid_outline.clone(),
+                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                    visibility: Visibility { is_visible: false },
                     ..default()
-                });
-            let mid_outline = mid
-                .add_children(|mid| {
-                    mid.spawn_bundle(PbrBundle {
-                        mesh: assets.lane_mid_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    }).id()
-                });
+                })
+                .id()
+            });
             let mid = mid.id();
 
-            let mut end = parent
-                .spawn_bundle(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(end_anchor),
+            let mut end = parent.spawn_bundle(PbrBundle {
+                mesh: assets.lane_end_mesh.clone(),
+                material: lane_material.clone(),
+                transform: Transform::from_translation(end_anchor),
+                ..default()
+            });
+            let end_outline = end.add_children(|end| {
+                end.spawn_bundle(PbrBundle {
+                    mesh: assets.lane_end_outline.clone(),
+                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                    visibility: Visibility { is_visible: false },
                     ..default()
-                });
-            let end_outline = end
-                .add_children(|end| {
-                    end.spawn_bundle(PbrBundle {
-                        mesh: assets.lane_end_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    }).id()
-                });
+                })
+                .id()
+            });
             let end = end.id();
 
             (start, mid, end, [start_outline, mid_outline, end_outline])
         });
 
         commands
-            .insert(LaneSegments { start, mid, end, outlines })
+            .insert(LaneSegments {
+                start,
+                mid,
+                end,
+                outlines,
+            })
             .insert_bundle(SpatialBundle {
                 transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                 visibility: Visibility { is_visible },
