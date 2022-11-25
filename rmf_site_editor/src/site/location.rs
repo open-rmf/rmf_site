@@ -103,7 +103,7 @@ pub fn update_changed_location(
 pub fn update_location_for_moved_anchors(
     mut locations: Query<(Entity, &Point<Entity>, &mut Transform), With<LocationTags>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, Changed<Anchor>>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<GlobalTransform>)>)>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {

@@ -38,6 +38,12 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                 ));
             }
 
+            if ui.button("Location").clicked() {
+                self.events.request.change_mode.send(ChangeMode::To(
+                    SelectAnchor::create_new_point().for_location().into(),
+                ));
+            }
+
             if ui.button("Wall").clicked() {
                 self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_edge_sequence().for_wall().into(),
