@@ -21,7 +21,7 @@ use crate::{
     },
     occupancy::CalculateGrid,
     site::{
-        AssociatedGraphs, Change, CurrentLevel, Delete, ExportLights,
+        AssociatedGraphs, Change, CurrentLevel, Delete, ExportLights, ConsiderLocationTag,
         PhysicalLightToggle, SiteState, ToggleLiftDoorAvailability, ConsiderAssociatedGraph,
     },
 };
@@ -97,7 +97,7 @@ pub struct ChangeEvents<'w, 's> {
     pub color: EventWriter<'w, 's, Change<DisplayColor>>,
     pub visibility: EventWriter<'w, 's, Change<Visibility>>,
     pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
-    pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
+    pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
 }
 
 #[derive(SystemParam)]
@@ -123,6 +123,8 @@ pub struct Requests<'w, 's> {
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub export_lights: EventWriter<'w, 's, ExportLights>,
     pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
+    pub consider_tag: EventWriter<'w, 's, ConsiderLocationTag>,
+    pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
 }
 
 /// We collect all the events into its own SystemParam because we are not

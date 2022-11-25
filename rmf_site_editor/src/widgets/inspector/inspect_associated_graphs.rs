@@ -110,12 +110,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
 
                         if add_graph {
                             set.insert(choice);
-                            self.events.change.consider_graph.send(
+                            self.events.request.consider_graph.send(
                                 ConsiderAssociatedGraph::new(None, self.entity)
                             );
                         } else {
                             if Some(choice) != recall.consider {
-                                self.events.change.consider_graph.send(
+                                self.events.request.consider_graph.send(
                                     ConsiderAssociatedGraph::new(Some(choice), self.entity)
                                 );
                             }

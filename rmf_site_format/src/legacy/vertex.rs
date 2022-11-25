@@ -67,12 +67,19 @@ impl Vertex {
             }))
         }
 
-        if tags.is_empty() {
+        let name = if self.3.is_empty() {
+            None
+        } else {
+            Some(self.3.clone())
+        };
+
+        if tags.is_empty() && name.is_none() {
             return None;
         } else {
             return Some(Location {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
+                name: NameInSite(name.unwrap_or("<Unnamed>".to_string())),
                 graphs: AssociatedGraphs::All,
             });
         }

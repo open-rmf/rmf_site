@@ -23,6 +23,12 @@ pub struct Spinning {
     period: f32,
 }
 
+impl Spinning {
+    pub fn new(period: f32) -> Self {
+        Self { period }
+    }
+}
+
 impl Default for Spinning {
     fn default() -> Self {
         Self { period: 2. }

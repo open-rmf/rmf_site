@@ -51,6 +51,9 @@ pub use light::*;
 pub mod load;
 pub use load::*;
 
+pub mod location;
+pub use location::*;
+
 pub mod measurement;
 pub use measurement::*;
 
@@ -141,6 +144,7 @@ impl Plugin for SitePlugin {
             .add_event::<ToggleLiftDoorAvailability>()
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
+            .add_event::<ConsiderLocationTag>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -163,6 +167,8 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LightKind>::default())
             .add_plugin(RecallPlugin::<RecallLightKind>::default())
             .add_plugin(ChangePlugin::<DisplayColor>::default())
+            .add_plugin(ChangePlugin::<LocationTags>::default())
+            .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
@@ -186,6 +192,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphan_levels_to_site)
+                    .with_system(assign_orphan_nav_elements_to_site)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
                     .with_system(add_physical_lights),
@@ -198,11 +205,12 @@ impl Plugin for SitePlugin {
                     .with_system(update_anchor_transforms)
                     .with_system(add_door_visuals)
                     .with_system(update_changed_door)
-                    .with_system(update_door_for_changed_anchor)
+                    .with_system(update_door_for_moved_anchors)
                     .with_system(add_floor_visuals)
                     .with_system(update_changed_floor)
-                    .with_system(update_floor_for_changed_anchor)
+                    .with_system(update_floor_for_moved_anchors)
                     .with_system(add_lane_visuals)
+                    .with_system(add_location_visuals)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
@@ -211,14 +219,21 @@ impl Plugin for SitePlugin {
                         update_visibility_for_lanes
                         .after(remove_association_for_deleted_graphs)
                     )
+                    .with_system(
+                        update_visibility_for_locations
+                        .after(remove_association_for_deleted_graphs)
+                    )
+                    .with_system(update_changed_location)
+                    .with_system(update_location_for_moved_anchors)
                     .with_system(handle_consider_associated_graph)
+                    .with_system(handle_consider_location_tag)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)
                     .with_system(update_physical_lights)
                     .with_system(toggle_physical_lights)
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
-                    .with_system(update_measurement_for_changed_anchor)
+                    .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_model_scenes)
                     .with_system(make_models_selectable)
                     .with_system(add_drawing_visuals)

@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, Category, Dependents, SiteID, Subordinate},
+    site::{Anchor, Category, Dependents, SiteID, Subordinate, LocationTags, AssociatedGraphs},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -133,6 +133,7 @@ pub struct InspectAnchorResponse {
 #[derive(SystemParam)]
 pub struct InspectAnchorDependentsParams<'w, 's> {
     pub dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
+    pub locations: Query<'w, 's, &'static LocationTags, &'static AssociatedGraphs<Entity>>,
     pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
     pub icons: Res<'w, Icons>,
 }

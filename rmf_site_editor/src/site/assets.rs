@@ -25,6 +25,7 @@ pub struct SiteAssets {
     pub lane_end_mesh: Handle<Mesh>,
     pub lane_end_outline: Handle<Mesh>,
     pub box_mesh: Handle<Mesh>,
+    pub location_mesh: Handle<Mesh>,
     pub physical_camera_mesh: Handle<Mesh>,
     pub unassigned_lane_material: Handle<StandardMaterial>,
     pub passive_anchor_material: Handle<StandardMaterial>,
@@ -113,7 +114,7 @@ impl FromWorld for SiteAssets {
             )));
         let site_anchor_mesh = meshes.add(Mesh::from(make_cylinder(0.15, 0.15)));
         let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0).into());
-        let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.1).into());
+        let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.125).into());
         let lane_end_mesh = meshes.add(
             make_flat_disk(
                 Circle {
@@ -127,7 +128,7 @@ impl FromWorld for SiteAssets {
         let lane_end_outline = meshes.add(
             make_flat_disk(
                 Circle {
-                    radius: LANE_WIDTH / 2.0 + 0.025,
+                    radius: 1.125*LANE_WIDTH / 2.0,
                     height: 0.0,
                 },
                 32,
@@ -135,6 +136,9 @@ impl FromWorld for SiteAssets {
             .into(),
         );
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
+        let location_mesh = meshes.add(
+            make_icon_halo(1.1*LANE_WIDTH/2.0, 0.01, 6)
+            .transform_by(Affine3A::from_translation(0.00125*Vec3::Z)).into());
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {
@@ -147,6 +151,7 @@ impl FromWorld for SiteAssets {
             lane_end_mesh,
             lane_end_outline,
             box_mesh,
+            location_mesh,
             physical_camera_mesh,
             unassigned_lane_material,
             hover_material,

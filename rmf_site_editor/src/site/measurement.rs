@@ -82,10 +82,10 @@ pub fn update_changed_measurement(
     }
 }
 
-pub fn update_measurement_for_changed_anchor(
+pub fn update_measurement_for_moved_anchors(
     mut measurements: Query<(Entity, &Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<GlobalTransform>)>)>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {

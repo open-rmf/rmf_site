@@ -983,3 +983,61 @@ pub(crate) fn make_halo_mesh() -> Mesh {
     mesh.set_indices(Some(indices));
     return mesh;
 }
+
+pub(crate) fn make_ring(
+    inner_radius: f32,
+    outer_radius: f32,
+    resolution: usize,
+) -> MeshBuffer {
+    let positions: Vec<[f32; 3]> = make_circles(
+        [
+            (inner_radius, 0.).into(),
+            (outer_radius, 0.).into(),
+        ],
+        resolution as u32,
+        0.0,
+    ).collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.0]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    let r = resolution as u32;
+    let indices = [[0, r, r+1, 0, r+1, 1]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(cycle, values)| {
+            values.map(|s| s + cycle as u32)
+        })
+        .take(6 * (resolution - 1))
+        .chain([r-1, 2*r-1, r, r-1, r, 0])
+        .collect();
+
+    MeshBuffer::new(positions, normals, indices)
+}
+
+pub(crate) fn make_icon_halo(
+    radius: f32,
+    height: f32,
+    segments: usize,
+) -> MeshBuffer {
+    let angle = (360.0/(2.0*segments as f32)).to_radians();
+    let p0 = radius * Vec3::X;
+    let p1 = Affine3A::from_rotation_z(angle).transform_vector3(p0);
+    let width = (p1 - p0).length();
+    let mut mesh = make_ring(radius, radius+width/2.0, 32);
+    for i in 0..segments {
+        mesh = mesh.merge_with(
+            make_box(width/2.0, width/2.0, height/2.0)
+            .transform_by(Affine3A::from_translation(
+                Vec3::new(radius + width/2.0, 0.0, height/2.0)
+            ))
+            .transform_by(Affine3A::from_rotation_z(i as f32 * 2.0 * angle))
+        );
+    }
+
+    mesh
+}

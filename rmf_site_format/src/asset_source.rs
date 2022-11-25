@@ -77,7 +77,7 @@ impl From<&AssetSource> for String {
     }
 }
 
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, PartialEq, Eq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallAssetSource {
     pub filename: Option<String>,

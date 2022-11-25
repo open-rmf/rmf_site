@@ -319,7 +319,7 @@ pub fn update_lift_edge(
 pub fn update_lift_for_moved_anchors(
     mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (Changed<GlobalTransform>, With<Anchor>)>,
+    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<GlobalTransform>)>)>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {

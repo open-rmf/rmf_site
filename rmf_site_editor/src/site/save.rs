@@ -754,6 +754,7 @@ fn generate_locations(
                 &Point<Entity>,
                 Option<&Original<Point<Entity>>>,
                 &LocationTags,
+                &NameInSite,
                 &AssociatedGraphs<Entity>,
                 &SiteID,
                 &Parent,
@@ -774,7 +775,7 @@ fn generate_locations(
     };
 
     let mut locations = BTreeMap::new();
-    for (point, o_point, tags, graphs, location_id, parent) in &q_locations {
+    for (point, o_point, tags, name, graphs, location_id, parent) in &q_locations {
         if parent.get() != site {
             continue;
         }
@@ -790,6 +791,7 @@ fn generate_locations(
             Location {
                 anchor: Point(point),
                 tags: tags.clone(),
+                name: name.clone(),
                 graphs,
             },
         );
