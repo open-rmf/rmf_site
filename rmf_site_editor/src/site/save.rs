@@ -70,7 +70,6 @@ pub enum SiteGenerationError {
 /// component to any elements that do not have one already.
 fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGenerationError> {
     let mut state: SystemState<(
-        Commands,
         Query<
             Entity,
             (
@@ -89,30 +88,25 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 Without<Pending>,
             ),
         >,
-        Query<Entity, (Or<(With<LaneMarker>, With<LocationTags>)>, Without<Pending>)>,
+        Query<Entity, (Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>, Without<Pending>)>,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
-        Query<Entity, (With<NavGraphMarker>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
-        Query<&mut NextSiteID>,
+        Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
     let (
-        mut commands,
         level_children,
-        nav_graph_children,
+        nav_graph_elements,
         levels,
-        nav_graphs,
         lifts,
-        mut sites,
+        sites,
         site_ids,
         children,
     ) = state.get_mut(world);
 
-    let mut next_site_id = sites
-        .get_mut(site)
-        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?;
+    let mut new_entities = Vec::new();
 
     let site_children = match children.get(site) {
         Ok(children) => children,
@@ -124,61 +118,56 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         }
     };
 
-    let mut next_id = move || {
-        let next = next_site_id.0;
-        next_site_id.as_mut().0 += 1;
-        return next;
-    };
-
     for site_child in site_children {
         if let Ok(level) = levels.get(*site_child) {
             if !site_ids.contains(level) {
-                commands.entity(level).insert(SiteID(next_id()));
+                new_entities.push(level);
             }
 
             if let Ok(children) = children.get(level) {
                 for child in children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
+                            new_entities.push(*child);
                         }
                     }
                 }
             }
         }
 
-        if let Ok(nav_graph) = nav_graphs.get(*site_child) {
-            if !site_ids.contains(nav_graph) {
-                commands.entity(nav_graph).insert(SiteID(next_id()));
-            }
-
-            if let Ok(children) = children.get(nav_graph) {
-                for child in children {
-                    if nav_graph_children.contains(*child) {
-                        if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
-                        }
-                    }
-                }
+        if let Ok(e) = nav_graph_elements.get(*site_child) {
+            if !site_ids.contains(e) {
+                println!("Adding SiteID to {e:?}");
+                new_entities.push(e);
             }
         }
 
         if let Ok(lift) = lifts.get(*site_child) {
             if !site_ids.contains(lift) {
-                commands.entity(lift).insert(SiteID(next_id()));
+                new_entities.push(lift);
             }
 
             if let Ok(children) = children.get(lift) {
                 for child in children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
+                            new_entities.push(*child);
                         }
                     }
                 }
             }
         }
     }
+
+    let mut next_site_id = sites
+        .get(site)
+        .map(|n| n.0)
+        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?..;
+    for e in &new_entities {
+        world.entity_mut(*e).insert(SiteID(next_site_id.next().unwrap()));
+    }
+
+    world.entity_mut(site).insert(NextSiteID(next_site_id.next().unwrap()));
 
     Ok(())
 }
@@ -912,7 +901,6 @@ pub fn save_nav_graphs(world: &mut World) {
         };
 
         // Clear the elements that are not related to nav graphs
-        site.lifts.clear();
         for (_, level) in &mut site.levels {
             level.doors.clear();
             level.drawings.clear();

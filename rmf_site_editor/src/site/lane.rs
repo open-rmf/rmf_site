@@ -126,6 +126,7 @@ pub fn assign_orphan_nav_elements_to_site(
 ) {
     for e in &elements {
         if let Some(current_site) = **current_site {
+            println!("Assigning orphan {e:?} to {current_site:?}");
             commands.entity(current_site).add_child(e);
         }
     }
