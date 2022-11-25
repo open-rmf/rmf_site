@@ -40,7 +40,7 @@ impl InteractionMode {
         match self {
             Self::Inspect => true,
             Self::SelectAnchor(_) => true,
-            _ => false,
+            // _ => false,
         }
     }
 

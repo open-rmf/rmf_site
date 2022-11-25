@@ -159,6 +159,12 @@ fn standard_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
+                        CollapsingHeader::new("Navigation Graphs")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
+                            });
+                        ui.separator();
                         CollapsingHeader::new("Inspect")
                             .default_open(true)
                             .show(ui, |ui| {
@@ -169,12 +175,6 @@ fn standard_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
-                            });
-                        ui.separator();
-                        CollapsingHeader::new("Navigation Graphs")
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Lights")
