@@ -33,6 +33,11 @@ pub struct SaveSite {
     pub to_file: Option<PathBuf>,
 }
 
+pub struct SaveNavGraphs {
+    pub site: Entity,
+    pub to_file: PathBuf,
+}
+
 #[derive(ThisError, Debug, Clone)]
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
@@ -854,7 +859,7 @@ pub fn save_site(world: &mut World) {
             }
         };
 
-        println!("Saving to {}", path.to_str().unwrap());
+        println!("Saving to {}", path.to_str().unwrap_or("<failed to render??>"));
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
@@ -870,6 +875,54 @@ pub fn save_site(world: &mut World) {
                 continue;
             }
         };
+
+        match site.to_writer(f) {
+            Ok(()) => {
+                println!("Save successful");
+            }
+            Err(err) => {
+                println!("Save failed: {err}");
+            }
+        }
+    }
+}
+
+pub fn save_nav_graphs(world: &mut World) {
+    let save_events: Vec<_> = world.resource_mut::<Events<SaveNavGraphs>>().drain().collect();
+    for save_event in save_events {
+        let path = save_event.to_file;
+        println!(
+            "Saving nav graphs to {}",
+            path.to_str().unwrap_or("<failed to render??>")
+        );
+        let f = match std::fs::File::create(path) {
+            Ok(f) => f,
+            Err(err) => {
+                println!("Unable to save file: {err}");
+                continue;
+            }
+        };
+
+        let mut site = match generate_site(world, save_event.site) {
+            Ok(site) => site,
+            Err(err) => {
+                println!("Unable to compile site: {err}");
+                continue;
+            }
+        };
+
+        // Clear the elements that are not related to nav graphs
+        site.lifts.clear();
+        for (_, level) in &mut site.levels {
+            level.doors.clear();
+            level.drawings.clear();
+            level.fiducials.clear();
+            level.floors.clear();
+            level.lights.clear();
+            level.measurements.clear();
+            level.models.clear();
+            level.walls.clear();
+        }
 
         match site.to_writer(f) {
             Ok(()) => {

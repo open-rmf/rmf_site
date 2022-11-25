@@ -18,6 +18,7 @@
 use crate::site::*;
 use bevy::prelude::*;
 use std::{collections::HashMap, path::PathBuf};
+use thiserror::Error as ThisError;
 
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.
@@ -265,3 +266,28 @@ pub fn load_site(
         }
     }
 }
+
+#[derive(ThisError, Debug, Clone)]
+pub enum ImportNavGraphError {
+    #[error("The existing site is missing a level name required by the nav graphs: {0}")]
+    MissingLevelName(String)
+}
+
+// fn generate_nav_graph_entities(
+
+// ) {
+
+// }
+
+// pub fn import_nav_graphs(
+//     commands: &mut Commands,
+//     levels: Query<(&LevelProperties, &Parent)>,
+//     site_data: &rmf_site_format::Site
+// ) -> Result<(), ImportNavGraphError> {
+//     let mut level_name_to_entity = HashMap::new();
+//     for (level, parent) in &levels {
+//         // if parent.get() ==
+//     }
+
+//     Ok(())
+// }

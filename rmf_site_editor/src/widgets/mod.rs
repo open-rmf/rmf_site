@@ -23,6 +23,7 @@ use crate::{
     site::{
         AssociatedGraphs, Change, CurrentLevel, Delete, ExportLights, ConsiderLocationTag,
         PhysicalLightToggle, SiteState, ToggleLiftDoorAvailability, ConsiderAssociatedGraph,
+        SaveNavGraphs, CurrentSite,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -75,7 +76,9 @@ impl Plugin for StandardUiLayout {
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
-                SystemSet::on_update(SiteState::Display).with_system(resolve_light_export_file),
+                SystemSet::on_update(SiteState::Display)
+                    .with_system(resolve_light_export_file)
+                    .with_system(resolve_nav_graph_import_export_files),
             );
     }
 }
@@ -115,6 +118,7 @@ pub struct Requests<'w, 's> {
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
+    pub current_site: ResMut<'w, CurrentSite>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub delete: EventWriter<'w, 's, Delete>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
@@ -122,6 +126,7 @@ pub struct Requests<'w, 's> {
     pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
     pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
     pub export_lights: EventWriter<'w, 's, ExportLights>,
+    pub save_nav_graphs: EventWriter<'w, 's, SaveNavGraphs>,
     pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
     pub consider_tag: EventWriter<'w, 's, ConsiderLocationTag>,
     pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,

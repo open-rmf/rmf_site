@@ -18,20 +18,26 @@
 use crate::{
     site::{
         NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, Delete,
-        DEFAULT_NAV_GRAPH_COLORS},
+        DEFAULT_NAV_GRAPH_COLORS, SaveNavGraphs, CurrentSite,
+    },
     widgets::{
         inspector::color_edit,
         AppEvents, Icons,
     },
 };
-use bevy::{prelude::*, ecs::system::SystemParam};
+use bevy::{prelude::*, ecs::system::SystemParam, tasks::{AsyncComputeTaskPool, Task}};
 use bevy_egui::egui::{Ui, ImageButton};
+use futures_lite::future;
+use rfd::AsyncFileDialog;
 use smallvec::SmallVec;
 
 pub struct NavGraphDisplay {
     pub color: Option<[f32; 4]>,
     pub name: String,
     pub removing: bool,
+    pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
+    pub export_file: Option<std::path::PathBuf>,
+    pub choosing_file_to_import: Option<Task<Option<std::path::PathBuf>>>,
 }
 
 impl Default for NavGraphDisplay {
@@ -40,6 +46,9 @@ impl Default for NavGraphDisplay {
             color: None,
             name: "<Unnamed>".to_string(),
             removing: false,
+            choosing_file_for_export: None,
+            export_file: None,
+            choosing_file_to_import: None,
         }
     }
 }
@@ -138,5 +147,88 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 self.events.display.nav_graph.color = None;
             }
         });
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            ui.separator();
+            if ui.button("Import Graphs...").clicked() {
+                match &self.events.display.nav_graph.choosing_file_to_import {
+                    Some(_) => {
+                        println!("A file is already being chosen!");
+                    }
+                    None => {
+                        let future = AsyncComputeTaskPool::get().spawn(async move {
+                            let file = match AsyncFileDialog::new().pick_file().await {
+                                Some(file) => file,
+                                None => return None,
+                            };
+                            Some(file.path().to_path_buf())
+                        });
+                        self.events.display.nav_graph.choosing_file_to_import = Some(future);
+                    }
+                }
+            }
+            ui.separator();
+            ui.horizontal(|ui| {
+                if let Some(export_file) = &self.events.display.nav_graph.export_file {
+                    if ui.button("Export").clicked() {
+                        if let Some(current_site) = self.events.request.current_site.0 {
+                            self.events.request.save_nav_graphs.send(
+                                SaveNavGraphs {
+                                    site: current_site,
+                                    to_file: export_file.clone(),
+                                }
+                            )
+                        } else {
+                            println!("No current site??");
+                        }
+                    }
+                }
+                if ui.button("Export Graphs As...").clicked() {
+                    match &self.events.display.nav_graph.choosing_file_for_export {
+                        Some(_) => {
+                            println!("A file is already being chosen!");
+                        }
+                        None => {
+                            let future = AsyncComputeTaskPool::get().spawn(async move {
+                                let file = match AsyncFileDialog::new().save_file().await {
+                                    Some(file) => file,
+                                    None => return None,
+                                };
+                                Some(file.path().to_path_buf())
+                            });
+                            self.events.display.nav_graph.choosing_file_for_export = Some(future);
+                        }
+                    }
+                }
+            });
+        }
+    }
+}
+
+pub fn resolve_nav_graph_import_export_files(
+    mut nav_graph_display: ResMut<NavGraphDisplay>,
+    mut save_nav_graphs: EventWriter<SaveNavGraphs>,
+    current_site: Res<CurrentSite>,
+) {
+    let resolved = if let Some(task) = &mut nav_graph_display.choosing_file_for_export {
+        if let Some(result) = future::block_on(future::poll_once(task)) {
+            if let Some(result) = result {
+                if let Some(current_site) = current_site.0 {
+                    save_nav_graphs.send(SaveNavGraphs { site: current_site, to_file: result.clone() });
+                }
+                nav_graph_display.export_file = Some(result)
+            }
+
+            true
+        } else {
+            false
+        }
+    } else {
+        false
+    };
+
+    if resolved {
+        nav_graph_display.choosing_file_for_export = None;
     }
 }

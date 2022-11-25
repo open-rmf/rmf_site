@@ -99,18 +99,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
         #[cfg(not(target_arch = "wasm32"))]
         {
             ui.horizontal(|ui| {
-                if self.events.display.light.export_file.is_some() {
+                if let Some(export_file) = &self.events.display.light.export_file {
                     if ui.button("Export").clicked() {
-                        if let Some(export_file) = &self.events.display.light.export_file {
-                            self.events
-                                .request
-                                .export_lights
-                                .send(ExportLights(export_file.clone()))
-                        } else {
-                            println!(
-                                "ERROR: Please choose a file before trying to export the lights"
-                            );
-                        }
+                        self.events
+                            .request
+                            .export_lights
+                            .send(ExportLights(export_file.clone()));
                     }
                 }
                 if ui.button("Export Lights As...").clicked() {

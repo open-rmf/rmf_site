@@ -141,6 +141,7 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
+            .add_event::<SaveNavGraphs>()
             .add_event::<ToggleLiftDoorAvailability>()
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
@@ -185,6 +186,7 @@ impl Plugin for SitePlugin {
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
+                    .with_system(save_nav_graphs.exclusive_system())
                     .with_system(change_site),
             )
             .add_system_set_to_stage(
