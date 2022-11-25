@@ -16,19 +16,22 @@
 */
 
 use crate::{
-    site::{NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, DEFAULT_NAV_GRAPH_COLORS},
+    site::{
+        NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, Delete,
+        DEFAULT_NAV_GRAPH_COLORS},
     widgets::{
         inspector::color_edit,
-        AppEvents,
+        AppEvents, Icons,
     },
 };
 use bevy::{prelude::*, ecs::system::SystemParam};
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{Ui, ImageButton};
 use smallvec::SmallVec;
 
 pub struct NavGraphDisplay {
     pub color: Option<[f32; 4]>,
     pub name: String,
+    pub removing: bool,
 }
 
 impl Default for NavGraphDisplay {
@@ -36,6 +39,7 @@ impl Default for NavGraphDisplay {
         Self {
             color: None,
             name: "<Unnamed>".to_string(),
+            removing: false,
         }
     }
 }
@@ -43,6 +47,7 @@ impl Default for NavGraphDisplay {
 #[derive(SystemParam)]
 pub struct NavGraphParams<'w, 's> {
     pub graphs: Query<'w, 's, (Entity, &'static NameInSite, &'static DisplayColor, &'static Visibility), With<NavGraphMarker>>,
+    pub icons: Res<'w, Icons>,
 }
 
 pub struct ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
@@ -65,17 +70,38 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         };
         let graph_count = graphs.len();
 
+        ui.horizontal(|ui| {
+            if self.events.display.nav_graph.removing {
+                if ui.button("View").on_hover_text("Toggle visibility of graphs").clicked() {
+                    self.events.display.nav_graph.removing = false;
+                }
+                ui.label("Remove");
+            } else {
+                ui.label("View");
+                if ui.button("Remove").on_hover_text("Choose a graph to remove").clicked() {
+                    self.events.display.nav_graph.removing = true;
+                }
+            }
+        });
+
         for (e, name, color, vis) in graphs {
             ui.horizontal(|ui| {
-                let mut is_visible = vis.is_visible;
-                if ui.checkbox(&mut is_visible, "")
-                    .on_hover_text(if vis.is_visible {
-                        "Make this graph invisible"
-                    } else {
-                        "Make this graph visible"
-                    }).changed()
-                {
-                    self.events.change.visibility.send(Change::new(Visibility { is_visible }, e));
+                if self.events.display.nav_graph.removing {
+                    if ui.add(ImageButton::new(self.params.icons.egui_trash, [18., 18.])).clicked() {
+                        self.events.request.delete.send(Delete::new(e));
+                        self.events.display.nav_graph.removing = false;
+                    }
+                } else {
+                    let mut is_visible = vis.is_visible;
+                    if ui.checkbox(&mut is_visible, "")
+                        .on_hover_text(if vis.is_visible {
+                            "Make this graph invisible"
+                        } else {
+                            "Make this graph visible"
+                        }).changed()
+                    {
+                        self.events.change.visibility.send(Change::new(Visibility { is_visible }, e));
+                    }
                 }
 
                 let mut new_color = color.0;
@@ -97,7 +123,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
                 self.events.display.nav_graph.color = Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
             }
-            color_edit(ui, &mut self.events.display.nav_graph.color.unwrap());
+            if let Some(color) = &mut self.events.display.nav_graph.color {
+                color_edit(ui, color);
+            }
             ui.text_edit_singleline(&mut self.events.display.nav_graph.name);
             if add {
                 self.events.commands

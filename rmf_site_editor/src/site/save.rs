@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
 };
 use std::{
-    collections::{BTreeMap, BTreeSet},
+    collections::BTreeMap,
     path::PathBuf,
 };
 use thiserror::Error as ThisError;

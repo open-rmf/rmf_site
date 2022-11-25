@@ -206,7 +206,11 @@ impl Plugin for SitePlugin {
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
-                    .with_system(update_visibility_for_lanes)
+                    .with_system(remove_association_for_deleted_graphs)
+                    .with_system(
+                        update_visibility_for_lanes
+                        .after(remove_association_for_deleted_graphs)
+                    )
                     .with_system(handle_consider_associated_graph)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)

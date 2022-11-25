@@ -58,9 +58,9 @@ fn should_display_lane(
 
     match associated {
         AssociatedGraphs::All =>
-            graphs.iter().find(|(_, v)| v.is_visible).is_some(),
+            graphs.is_empty() || graphs.iter().find(|(_, v)| v.is_visible).is_some(),
         AssociatedGraphs::Only(set) =>
-            set.is_empty() || set.iter().find(
+            graphs.is_empty() || set.is_empty() || set.iter().find(
                 |e| graphs.get(**e).ok().filter(|(_, v)| v.is_visible
             ).is_some()).is_some(),
         AssociatedGraphs::AllExcept(set) =>
@@ -272,6 +272,25 @@ pub fn update_lane_for_moved_anchor(
     }
 }
 
+pub fn remove_association_for_deleted_graphs(
+    mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
+    removed: RemovedComponents<NavGraphMarker>,
+) {
+    for e in removed.iter() {
+        for mut associated in &mut associaged_graphs {
+            match associated.as_mut() {
+                AssociatedGraphs::All => { }
+                AssociatedGraphs::Only(set) => {
+                    set.remove(&e);
+                }
+                AssociatedGraphs::AllExcept(set) => {
+                    set.remove(&e);
+                }
+            }
+        }
+    }
+}
+
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
     mut lanes: Query<(&Edge<Entity>, &AssociatedGraphs<Entity>, &LaneSegments, &mut Visibility), (With<LaneMarker>, Without<NavGraphMarker>)>,
@@ -287,8 +306,10 @@ pub fn update_visibility_for_lanes(
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
     graph_changed_visibility: Query<(), (With<NavGraphMarker>, Changed<Visibility>)>,
     assets: Res<SiteAssets>,
+    removed: RemovedComponents<NavGraphMarker>,
 ) {
-    let update_all = current_level.is_changed() || !graph_changed_visibility.is_empty();
+    let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
+    let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
             let is_visible = should_display_lane(
@@ -311,7 +332,7 @@ pub fn update_visibility_for_lanes(
         }
     }
 
-    if !graph_changed_visibility.is_empty() {
+    if graph_change {
         for (_, associated_graphs, segments, _) in &lanes {
             let lane_material = choose_lane_material(associated_graphs, &graph_mats, &assets);
             for e in segments.iter() {
