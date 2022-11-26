@@ -82,7 +82,7 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterIn
 
 #[wasm_bindgen]
 pub fn run_js() {
-    run(vec!["web".to_string()]);
+    run(vec!["web".to_owned()]);
 }
 
 pub fn run(command_line_args: Vec<String>) {
@@ -96,7 +96,7 @@ pub fn run(command_line_args: Vec<String>) {
     #[cfg(target_arch = "wasm32")]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_string(),
+            title: "RMF Site Editor".to_owned(),
             canvas: Some(String::from("#rmf_site_editor_canvas")),
             //vsync: false,
             ..Default::default()
@@ -111,7 +111,7 @@ pub fn run(command_line_args: Vec<String>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_string(),
+            title: "RMF Site Editor".to_owned(),
             width: 1600.,
             height: 900.,
             //vsync: false,

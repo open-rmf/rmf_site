@@ -139,6 +139,7 @@ impl Plugin for SitePlugin {
             .init_resource::<CachedLevels>()
             .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
+            .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
             .add_event::<SaveSite>()
             .add_event::<SaveNavGraphs>()
@@ -173,6 +174,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
+            .add_system(import_nav_graph)
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
             .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
             .add_system_set_to_stage(

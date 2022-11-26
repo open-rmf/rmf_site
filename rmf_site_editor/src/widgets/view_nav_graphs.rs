@@ -18,7 +18,7 @@
 use crate::{
     site::{
         NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, Delete,
-        DEFAULT_NAV_GRAPH_COLORS, SaveNavGraphs, CurrentSite,
+        DEFAULT_NAV_GRAPH_COLORS, SaveNavGraphs, CurrentSite, ImportNavGraphs,
     },
     widgets::{
         inspector::color_edit,
@@ -37,7 +37,7 @@ pub struct NavGraphDisplay {
     pub removing: bool,
     pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
     pub export_file: Option<std::path::PathBuf>,
-    pub choosing_file_to_import: Option<Task<Option<std::path::PathBuf>>>,
+    pub choosing_file_to_import: Option<Task<Option<ImportNavGraphs>>>,
 }
 
 impl Default for NavGraphDisplay {
@@ -152,19 +152,35 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         {
             ui.separator();
             if ui.button("Import Graphs...").clicked() {
-                match &self.events.display.nav_graph.choosing_file_to_import {
-                    Some(_) => {
-                        println!("A file is already being chosen!");
+                match self.events.request.current_site.0 {
+                    Some(into_site) => {
+                        match &self.events.display.nav_graph.choosing_file_to_import {
+                            Some(_) => {
+                                println!("A file is already being chosen!");
+                            }
+                            None => {
+                                let future = AsyncComputeTaskPool::get().spawn(async move {
+                                    let file = match AsyncFileDialog::new().pick_file().await {
+                                        Some(file) => file,
+                                        None => return None,
+                                    };
+
+                                    match rmf_site_format::Site::from_bytes(
+                                        &file.read().await
+                                    ) {
+                                        Ok(from_site) => Some(ImportNavGraphs { into_site, from_site }),
+                                        Err(err) => {
+                                            println!("Unable to parse file:\n{err}");
+                                            None
+                                        }
+                                    }
+                                });
+                                self.events.display.nav_graph.choosing_file_to_import = Some(future);
+                            }
+                        }
                     }
                     None => {
-                        let future = AsyncComputeTaskPool::get().spawn(async move {
-                            let file = match AsyncFileDialog::new().pick_file().await {
-                                Some(file) => file,
-                                None => return None,
-                            };
-                            Some(file.path().to_path_buf())
-                        });
-                        self.events.display.nav_graph.choosing_file_to_import = Some(future);
+                        println!("DEV ERROR: No current site??");
                     }
                 }
             }
@@ -209,26 +225,39 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
 pub fn resolve_nav_graph_import_export_files(
     mut nav_graph_display: ResMut<NavGraphDisplay>,
     mut save_nav_graphs: EventWriter<SaveNavGraphs>,
+    mut import_nav_graphs: EventWriter<ImportNavGraphs>,
     current_site: Res<CurrentSite>,
 ) {
-    let resolved = if let Some(task) = &mut nav_graph_display.choosing_file_for_export {
-        if let Some(result) = future::block_on(future::poll_once(task)) {
-            if let Some(result) = result {
-                if let Some(current_site) = current_site.0 {
-                    save_nav_graphs.send(SaveNavGraphs { site: current_site, to_file: result.clone() });
+    if 'resolved: {
+        if let Some(task) = &mut nav_graph_display.choosing_file_for_export {
+            if let Some(result) = future::block_on(future::poll_once(task)) {
+                if let Some(result) = result {
+                    if let Some(current_site) = current_site.0 {
+                        save_nav_graphs.send(SaveNavGraphs { site: current_site, to_file: result.clone() });
+                    }
+                    nav_graph_display.export_file = Some(result)
                 }
-                nav_graph_display.export_file = Some(result)
+
+                break 'resolved true;
             }
-
-            true
-        } else {
-            false
         }
-    } else {
         false
-    };
-
-    if resolved {
+    } {
         nav_graph_display.choosing_file_for_export = None;
+    }
+
+    if 'resolved: {
+        if let Some(task) = &mut nav_graph_display.choosing_file_to_import {
+            if let Some(result) = future::block_on(future::poll_once(task)) {
+                if let Some(request) = result {
+                    import_nav_graphs.send(request);
+                }
+
+                break 'resolved true;
+            }
+        }
+        false
+    } {
+        nav_graph_display.choosing_file_to_import = None;
     }
 }

@@ -43,11 +43,11 @@ pub struct LaneMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Motion {
-    #[serde(skip_serializing_if = "OrientationConstraint::is_none")]
+    #[serde(default, skip_serializing_if = "OrientationConstraint::is_none")]
     pub orientation_constraint: OrientationConstraint,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed_limit: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dock: Option<Dock>,
 }
 

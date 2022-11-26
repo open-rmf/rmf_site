@@ -90,13 +90,17 @@ impl<T> Categorized<T> {
         self
     }
 
+    pub fn for_general(&self) -> &T {
+        self.0.get(&Category::General).unwrap()
+    }
+
     pub fn for_category(&self, category: Category) -> &T {
         match category {
             Category::General => self.0.get(&Category::General).unwrap(),
             category => self
                 .0
                 .get(&category)
-                .unwrap_or_else(|| self.0.get(&Category::General).unwrap()),
+                .unwrap_or_else(|| self.for_general()),
         }
     }
 }

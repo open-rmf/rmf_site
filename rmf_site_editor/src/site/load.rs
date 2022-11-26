@@ -16,7 +16,10 @@
 */
 
 use crate::site::*;
-use bevy::prelude::*;
+use bevy::{
+    prelude::*,
+    ecs::system::SystemParam,
+};
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
@@ -269,25 +272,198 @@ pub fn load_site(
 
 #[derive(ThisError, Debug, Clone)]
 pub enum ImportNavGraphError {
+    #[error("The site we are importing into has a broken reference")]
+    BrokenSiteReference,
     #[error("The existing site is missing a level name required by the nav graphs: {0}")]
-    MissingLevelName(String)
+    MissingLevelName(String),
+    #[error("The existing site is missing a lift name required by the nav graphs: {0}")]
+    MissingLiftName(String),
+    #[error("The existing site has a lift without a cabin anchor group: {0}")]
+    MissingCabinAnchorGroup(String),
 }
 
-// fn generate_nav_graph_entities(
+pub struct ImportNavGraphs {
+    pub into_site: Entity,
+    pub from_site: rmf_site_format::Site,
+}
 
-// ) {
+#[derive(SystemParam)]
+pub struct ImportNavGraphParams<'w, 's> {
+    commands: Commands<'w, 's>,
+    sites: Query<'w, 's, &'static Children, With<SiteProperties>>,
+    levels: Query<'w, 's, (Entity, &'static LevelProperties, &'static Parent, &'static Children)>,
+    lifts: Query<'w, 's, (Entity, &'static NameInSite, &'static Parent, &'static Children), With<LiftCabin<Entity>>>,
+    cabin_anchor_groups: Query<'w, 's, &'static Children, With<CabinAnchorGroup>>,
+    anchors: Query<'w, 's, (Entity, &'static Anchor)>,
+}
 
-// }
+fn generate_imported_nav_graphs(
+    params: &mut ImportNavGraphParams,
+    into_site: Entity,
+    from_site_data: &rmf_site_format::Site,
+) -> Result<(), ImportNavGraphError> {
+    let site_children = match params.sites.get(into_site) {
+        Ok(c) => c,
+        _ => return Err(ImportNavGraphError::BrokenSiteReference),
+    };
 
-// pub fn import_nav_graphs(
-//     commands: &mut Commands,
-//     levels: Query<(&LevelProperties, &Parent)>,
-//     site_data: &rmf_site_format::Site
-// ) -> Result<(), ImportNavGraphError> {
-//     let mut level_name_to_entity = HashMap::new();
-//     for (level, parent) in &levels {
-//         // if parent.get() ==
-//     }
+    let mut level_name_to_entity = HashMap::new();
+    for (e, level, parent, _) in &params.levels {
+        if parent.get() != into_site {
+            continue;
+        }
 
-//     Ok(())
-// }
+        level_name_to_entity.insert(level.name.clone(), e);
+    }
+
+    let mut lift_name_to_entity = HashMap::new();
+    for (e, name, parent, _) in &params.lifts {
+        if parent.get() != into_site {
+            continue;
+        }
+
+        lift_name_to_entity.insert(name.0.clone(), e);
+    }
+
+    let mut id_to_entity = HashMap::new();
+    for (level_id, level_data) in &from_site_data.levels {
+        if let Some(e) = level_name_to_entity.get(&level_data.properties.name) {
+            id_to_entity.insert(*level_id, *e);
+        } else {
+            return Err(ImportNavGraphError::MissingLevelName(level_data.properties.name.clone()));
+        }
+    }
+
+    let mut lift_to_anchor_group = HashMap::new();
+    for (lift_id, lift_data) in &from_site_data.lifts {
+        if let Some(e) = lift_name_to_entity.get(&lift_data.properties.name.0) {
+            id_to_entity.insert(*lift_id, *e);
+            if let Some(e_group) = params.lifts.get(*e).unwrap().3.iter().find(
+                |child| params.cabin_anchor_groups.contains(**child)
+            ) {
+                lift_to_anchor_group.insert(*e, *e_group);
+            } else {
+                return Err(ImportNavGraphError::MissingCabinAnchorGroup(lift_data.properties.name.0.clone()));
+            }
+        } else {
+            return Err(ImportNavGraphError::MissingLiftName(lift_data.properties.name.0.clone()));
+        }
+    }
+
+    let anchor_close_enough = 0.05;
+    for (lift_id, lift_data) in &from_site_data.lifts {
+        let lift_e = *id_to_entity.get(lift_id).unwrap();
+        let anchor_group = *lift_to_anchor_group.get(&lift_e).unwrap();
+        let existing_lift_anchors: Vec<(Entity, &Anchor)> = params.cabin_anchor_groups.get(anchor_group).unwrap()
+            .iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+
+        for (anchor_id, anchor) in &lift_data.cabin_anchors {
+            let mut already_existing = false;
+            for (existing_id, existing_anchor) in &existing_lift_anchors {
+                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                    id_to_entity.insert(*anchor_id, *existing_id);
+                    already_existing = true;
+                    break;
+                }
+            }
+            if !already_existing {
+                params.commands.entity(anchor_group).add_children(|group| {
+                    let e_anchor = group
+                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
+                        .id();
+                    id_to_entity.insert(*anchor_id, e_anchor);
+                });
+            }
+        }
+    }
+
+    for (level_id, level_data) in &from_site_data.levels {
+        let level_e = *id_to_entity.get(level_id).unwrap();
+        let existing_level_anchors: Vec<(Entity, &Anchor)> = params.levels.get(level_e).unwrap()
+            .3.iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+        for (anchor_id, anchor) in &level_data.anchors {
+            let mut already_existing = false;
+            for (existing_id, existing_anchor) in &existing_level_anchors {
+                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                    id_to_entity.insert(*anchor_id, *existing_id);
+                    already_existing = true;
+                    break;
+                }
+            }
+            if !already_existing {
+                params.commands.entity(level_e).add_children(|level| {
+                    let e_anchor = level
+                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
+                        .id();
+                    id_to_entity.insert(*anchor_id, e_anchor);
+                });
+            }
+        }
+    }
+
+    {
+        let existing_site_anchors: Vec<(Entity, &Anchor)> = site_children
+            .iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+        for (anchor_id, anchor) in &from_site_data.anchors {
+            let mut already_existing = false;
+            for (existing_id, existing_anchor) in &existing_site_anchors {
+                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                    id_to_entity.insert(*anchor_id, *existing_id);
+                    already_existing = true;
+                    break;
+                }
+            }
+            if !already_existing {
+                params.commands.entity(into_site).add_children(|site| {
+                    let e_anchor = site
+                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
+                        .id();
+                    id_to_entity.insert(*anchor_id, e_anchor);
+                });
+            }
+        }
+    }
+
+    for (nav_graph_id, nav_graph_data) in &from_site_data.nav_graphs {
+        params.commands.entity(into_site).add_children(|site| {
+            let e = site
+                .spawn_bundle(SpatialBundle::default())
+                .insert_bundle(nav_graph_data.clone())
+                .id();
+            id_to_entity.insert(*nav_graph_id, e);
+        });
+    }
+
+    for (lane_id, lane_data) in &from_site_data.lanes {
+        params.commands.entity(into_site).add_children(|site| {
+            let e = site
+                .spawn_bundle(lane_data.to_ecs(&id_to_entity))
+                .id();
+            id_to_entity.insert(*lane_id, e);
+        });
+    }
+
+    for (location_id, location_data) in &from_site_data.locations {
+        params.commands.entity(into_site).add_children(|site| {
+            let e = site
+                .spawn_bundle(location_data.to_ecs(&id_to_entity))
+                .id();
+            id_to_entity.insert(*location_id, e);
+        });
+    }
+
+    Ok(())
+}
+
+pub fn import_nav_graph(
+    mut params: ImportNavGraphParams,
+    mut import_requests: EventReader<ImportNavGraphs>,
+) {
+    for r in import_requests.iter() {
+        if let Err(err) = generate_imported_nav_graphs(
+            &mut params, r.into_site, &r.from_site
+        ) {
+            println!("Failed to import nav graph: {err}");
+        }
+    }
+}
