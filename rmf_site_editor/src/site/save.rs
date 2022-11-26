@@ -38,6 +38,7 @@ pub struct SaveNavGraphs {
     pub to_file: PathBuf,
 }
 
+// TODO(MXG): Change all these errors to use u32 SiteIDs instead of entities
 #[derive(ThisError, Debug, Clone)]
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
@@ -46,24 +47,18 @@ pub enum SiteGenerationError {
     BrokenAnchorReference(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
-    #[error("an object has a reference to a door that does not exist")]
-    BrokenDoorReference(Entity),
     #[error("an object has a reference to a nav graph that does not exist")]
     BrokenNavGraphReference(Entity),
-    #[error("lift {lift:?} has a reference anchor that does not belong to its site {site:?}")]
-    InvalidLiftRefAnchor { site: Entity, lift: Entity },
+    #[error("lift {0} is missing its anchor group")]
+    BrokenLift(u32),
     #[error(
         "anchor {anchor:?} is being referenced for site {site:?} but does not belong to that site"
     )]
-    InvalidAnchorReference { site: Entity, anchor: Entity },
+    InvalidAnchorReference { site: u32, anchor: u32 },
     #[error(
         "lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}"
     )]
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
-    #[error(
-        "door {door:?} is being referenced for level {level:?} but does not belong to that level"
-    )]
-    InvalidDoorReference { level: Entity, door: Entity },
 }
 
 /// Look through all the elements that we will be saving and assign a SiteID
@@ -511,9 +506,10 @@ fn generate_lifts(
         Query<Entity, With<CabinAnchorGroup>>,
         Query<&Parent, Without<Pending>>,
         Query<&Children>,
+        Query<&SiteID>,
     )> = SystemState::new(world);
 
-    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children) =
+    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children, q_site_id) =
         state.get(world);
 
     let mut lifts = BTreeMap::new();
@@ -553,7 +549,10 @@ fn generate_lifts(
             return Ok(());
         }
 
-        Err(SiteGenerationError::InvalidAnchorReference { site, anchor })
+        Err(SiteGenerationError::InvalidAnchorReference {
+            site: q_site_id.get(site).unwrap().0,
+            anchor: q_site_id.get(anchor).unwrap().0,
+        })
     };
 
     let validate_site_anchors = |edge: &Edge<Entity>| {
@@ -567,11 +566,20 @@ fn generate_lifts(
             continue;
         }
 
+        // TODO(MXG): Clean up this spaghetti
+        let anchor_group_entity = *match match q_children.get(lift_entity) {
+            Ok(children) => children,
+            Err(_) => return Err(SiteGenerationError::BrokenLift(id.0)),
+        }.iter().find(|c| q_cabin_anchor_groups.contains(**c)) {
+            Some(c) => c,
+            None => return Err(SiteGenerationError::BrokenLift(id.0)),
+        };
+
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         validate_site_anchors(edge)?;
 
         let validate_level_door_anchor = |door: Entity, anchor: Entity| {
-            if confirm_entity_parent(lift_entity, anchor) {
+            if confirm_entity_parent(anchor_group_entity, anchor) {
                 return Ok(());
             }
 

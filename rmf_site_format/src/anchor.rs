@@ -25,7 +25,9 @@ use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(untagged)]
+// TODO(MXG): Change this to untagged for a cleaner looking format once this
+// issue is resolved: https://github.com/ron-rs/ron/issues/217
+// #[serde(untagged)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Anchor {
     Translate2D([f32; 2]),
