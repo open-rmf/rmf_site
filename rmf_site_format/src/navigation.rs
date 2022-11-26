@@ -16,12 +16,12 @@
 */
 
 use crate::*;
-use std::collections::BTreeMap;
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Navigation {
-    #[serde(default, skip_serializing_if="Guided::is_empty")]
+    #[serde(default, skip_serializing_if = "Guided::is_empty")]
     pub guided: Guided,
 }
 

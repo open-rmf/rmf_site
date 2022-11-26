@@ -307,10 +307,7 @@ fn calculate_scale_gradient(
     }
 }
 
-fn calculate_yaw_adjustment(
-    fiducials: &Vec<Vec<Option<DVec2>>>,
-    u: &mut [f64],
-) {
+fn calculate_yaw_adjustment(fiducials: &Vec<Vec<Option<DVec2>>>, u: &mut [f64]) {
     let mut adjustment = vec![0.0; u.len()];
     let mut weight = vec![0.0; u.len()];
 
@@ -363,10 +360,7 @@ fn calculate_yaw_adjustment(
     }
 }
 
-fn calculate_displacement_adjustment(
-    fiducials: &Vec<Vec<Option<DVec2>>>,
-    u: &mut [f64],
-) {
+fn calculate_displacement_adjustment(fiducials: &Vec<Vec<Option<DVec2>>>, u: &mut [f64]) {
     let mut adjustment = vec![0.0; u.len()];
     let mut weight = vec![0.0; u.len()];
     for level in 0..u.len() / 4 {

@@ -146,33 +146,31 @@ impl RecallLocationTags {
         self.assume_spawn_robot()
     }
     pub fn assume_spawn_robot(&self) -> LocationTag {
-        let model = self.consider_tag
+        let model = self
+            .consider_tag
             .as_ref()
             .map(|t| t.spawn_robot())
             .flatten()
             .cloned()
-            .unwrap_or_else(
-                || Model {
-                    name: self.robot_name.clone().unwrap_or_default(),
-                    source: self.robot_asset_source.clone().unwrap_or_default(),
-                    ..Default::default()
-                }
-            );
+            .unwrap_or_else(|| Model {
+                name: self.robot_name.clone().unwrap_or_default(),
+                source: self.robot_asset_source.clone().unwrap_or_default(),
+                ..Default::default()
+            });
         LocationTag::SpawnRobot(model)
     }
     pub fn assume_workcell(&self) -> LocationTag {
-        let model = self.consider_tag
+        let model = self
+            .consider_tag
             .as_ref()
             .map(|t| t.spawn_robot())
             .flatten()
             .cloned()
-            .unwrap_or_else(
-                || Model {
-                    name: self.workcell_name.clone().unwrap_or_default(),
-                    source: self.workcell_asset_source.clone().unwrap_or_default(),
-                    ..Default::default()
-                }
-            );
+            .unwrap_or_else(|| Model {
+                name: self.workcell_name.clone().unwrap_or_default(),
+                source: self.workcell_asset_source.clone().unwrap_or_default(),
+                ..Default::default()
+            });
         LocationTag::Workcell(model)
     }
 }
@@ -194,7 +192,7 @@ impl Recall for RecallLocationTags {
                     self.workcell_asset_source = Some(cell.source.clone());
                     self.workcell_name = Some(cell.name.clone());
                 }
-                _ => { }
+                _ => {}
             }
         }
     }

@@ -26,10 +26,10 @@ pub struct Lane<T: RefTrait> {
     /// The endpoints of the lane (start, end)
     pub anchors: Edge<T>,
     /// The properties of the lane when traveling forwards
-    #[serde(default, skip_serializing_if="is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub forward: Motion,
     /// The properties of the lane when traveling in reverse
-    #[serde(default, skip_serializing_if="is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     pub reverse: ReverseLane,
     /// What graphs this lane is associated with
     pub graphs: AssociatedGraphs<T>,

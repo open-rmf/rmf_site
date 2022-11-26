@@ -45,17 +45,23 @@ pub fn should_display_graph(
     graphs: &Query<(Entity, &Visibility), With<NavGraphMarker>>,
 ) -> bool {
     match associated {
-        AssociatedGraphs::All =>
-            graphs.is_empty() || graphs.iter().find(|(_, v)| v.is_visible).is_some(),
-        AssociatedGraphs::Only(set) =>
-            graphs.is_empty() || set.is_empty() || set.iter().find(
-                |e| graphs.get(**e).ok().filter(|(_, v)| v.is_visible
-            ).is_some()).is_some(),
-        AssociatedGraphs::AllExcept(set) =>
+        AssociatedGraphs::All => {
+            graphs.is_empty() || graphs.iter().find(|(_, v)| v.is_visible).is_some()
+        }
+        AssociatedGraphs::Only(set) => {
+            graphs.is_empty()
+                || set.is_empty()
+                || set
+                    .iter()
+                    .find(|e| graphs.get(**e).ok().filter(|(_, v)| v.is_visible).is_some())
+                    .is_some()
+        }
+        AssociatedGraphs::AllExcept(set) => {
             graphs.iter().find(|(e, v)| v.is_visible && !set.contains(e)).is_some()
             // If all graphs are excluded for this lane then we want it to remain
             // visible but with the unassigned material
-            || graphs.iter().find(|(e, _)| !set.contains(e)).is_none(),
+            || graphs.iter().find(|(e, _)| !set.contains(e)).is_none()
+        }
     }
 }
 
@@ -85,43 +91,45 @@ pub fn choose_graph_material(
     assets: &Res<SiteAssets>,
 ) -> Handle<StandardMaterial> {
     match associated_graphs {
-        AssociatedGraphs::All =>
-            graph_mats
-                .iter()
-                .filter(|(_, _, v)| v.is_visible)
-                .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
-                .map(|(_, m, _)| m)
-                .unwrap_or(&assets.unassigned_lane_material)
-                .clone(),
-        AssociatedGraphs::Only(set) =>
-            set
-                .iter()
-                .find(|e| graph_mats.get(**e).ok().filter(|(_, _, v)| v.is_visible).is_some())
-                .map(|e| graph_mats.get(*e).map(|(_, m, _)| m).ok())
-                .flatten()
-                .unwrap_or(&assets.unassigned_lane_material)
-                .clone(),
-        AssociatedGraphs::AllExcept(set) =>
-            graph_mats
-                .iter()
-                .filter(|(e, _, v)| v.is_visible && !set.contains(e))
-                .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
-                .map(|(_, m, _)| m)
-                .unwrap_or(&assets.unassigned_lane_material)
-                .clone(),
+        AssociatedGraphs::All => graph_mats
+            .iter()
+            .filter(|(_, _, v)| v.is_visible)
+            .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
+            .map(|(_, m, _)| m)
+            .unwrap_or(&assets.unassigned_lane_material)
+            .clone(),
+        AssociatedGraphs::Only(set) => set
+            .iter()
+            .find(|e| {
+                graph_mats
+                    .get(**e)
+                    .ok()
+                    .filter(|(_, _, v)| v.is_visible)
+                    .is_some()
+            })
+            .map(|e| graph_mats.get(*e).map(|(_, m, _)| m).ok())
+            .flatten()
+            .unwrap_or(&assets.unassigned_lane_material)
+            .clone(),
+        AssociatedGraphs::AllExcept(set) => graph_mats
+            .iter()
+            .filter(|(e, _, v)| v.is_visible && !set.contains(e))
+            .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
+            .map(|(_, m, _)| m)
+            .unwrap_or(&assets.unassigned_lane_material)
+            .clone(),
     }
 }
 
 pub fn assign_orphan_nav_elements_to_site(
     mut commands: Commands,
-    elements: Query<Entity, (
-        Without<Parent>,
-        Or<(
-            With<LaneMarker>,
-            With<LocationTags>,
-            With<NavGraphMarker>,
-        )>,
-    )>,
+    elements: Query<
+        Entity,
+        (
+            Without<Parent>,
+            Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+        ),
+    >,
     current_site: Res<CurrentSite>,
 ) {
     for e in &elements {
@@ -153,7 +161,12 @@ pub fn add_lane_visuals(
 
         let lane_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
         let is_visible = should_display_lane(
-            edge, associated_graphs, &parents, &levels, &current_level, &graph_vis
+            edge,
+            associated_graphs,
+            &parents,
+            &levels,
+            &current_level,
+            &graph_vis,
         );
 
         let start_anchor = anchors
@@ -263,7 +276,13 @@ fn update_lane_visuals(
 
 pub fn update_changed_lane(
     mut lanes: Query<
-        (Entity, &Edge<Entity>, &AssociatedGraphs<Entity>, &LaneSegments, &mut Visibility),
+        (
+            Entity,
+            &Edge<Entity>,
+            &AssociatedGraphs<Entity>,
+            &LaneSegments,
+            &mut Visibility,
+        ),
         (Changed<Edge<Entity>>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
@@ -277,7 +296,12 @@ pub fn update_changed_lane(
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
         let is_visible = should_display_lane(
-            edge, associated, &parents, &levels, &current_level, &graph_vis
+            edge,
+            associated,
+            &parents,
+            &levels,
+            &current_level,
+            &graph_vis,
         );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
@@ -288,7 +312,13 @@ pub fn update_changed_lane(
 pub fn update_lane_for_moved_anchor(
     lanes: Query<(Entity, &Edge<Entity>, &LaneSegments)>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<GlobalTransform>)>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
     mut transforms: Query<&mut Transform>,
 ) {
     for dependents in &changed_anchors {
@@ -307,7 +337,7 @@ pub fn remove_association_for_deleted_graphs(
     for e in removed.iter() {
         for mut associated in &mut associaged_graphs {
             match associated.as_mut() {
-                AssociatedGraphs::All => { }
+                AssociatedGraphs::All => {}
                 AssociatedGraphs::Only(set) => {
                     set.remove(&e);
                 }
@@ -321,7 +351,15 @@ pub fn remove_association_for_deleted_graphs(
 
 // TODO(MXG): Generalize this to all edges
 pub fn update_visibility_for_lanes(
-    mut lanes: Query<(&Edge<Entity>, &AssociatedGraphs<Entity>, &LaneSegments, &mut Visibility), (With<LaneMarker>, Without<NavGraphMarker>)>,
+    mut lanes: Query<
+        (
+            &Edge<Entity>,
+            &AssociatedGraphs<Entity>,
+            &LaneSegments,
+            &mut Visibility,
+        ),
+        (With<LaneMarker>, Without<NavGraphMarker>),
+    >,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
@@ -329,7 +367,7 @@ pub fn update_visibility_for_lanes(
     graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
     lanes_with_changed_association: Query<
         (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
-        (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>)
+        (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
     graph_changed_visibility: Query<(), (With<NavGraphMarker>, Changed<Visibility>)>,
@@ -341,7 +379,12 @@ pub fn update_visibility_for_lanes(
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
             let is_visible = should_display_lane(
-                edge, associated, &parents, &levels, &current_level, &graph_vis
+                edge,
+                associated,
+                &parents,
+                &levels,
+                &current_level,
+                &graph_vis,
             );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
@@ -351,7 +394,12 @@ pub fn update_visibility_for_lanes(
         for (e, _, _) in &lanes_with_changed_association {
             if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
                 let is_visible = should_display_lane(
-                    edge, associated, &parents, &levels, &current_level, &graph_vis
+                    edge,
+                    associated,
+                    &parents,
+                    &levels,
+                    &current_level,
+                    &graph_vis,
                 );
                 if visibility.is_visible != is_visible {
                     visibility.is_visible = is_visible;

@@ -18,8 +18,8 @@
 use crate::interaction::*;
 use bevy_mod_outline::{Outline, OutlineBundle, OutlineStencil};
 use rmf_site_format::{
-    DoorType, LiftCabin, LightKind, MeasurementMarker, ModelMarker, PhysicalCameraProperties,
-    WallMarker, LocationTags,
+    DoorType, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
+    PhysicalCameraProperties, WallMarker,
 };
 use smallvec::SmallVec;
 

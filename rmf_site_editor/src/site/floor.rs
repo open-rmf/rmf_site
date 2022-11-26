@@ -202,7 +202,13 @@ pub fn update_changed_floor(
 pub fn update_floor_for_moved_anchors(
     mut floors: Query<(Entity, &mut Handle<Mesh>, &Path<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Or<(Changed<Anchor>, Changed<GlobalTransform>)>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for dependents in &changed_anchors {

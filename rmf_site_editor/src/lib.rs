@@ -96,7 +96,7 @@ pub fn run(command_line_args: Vec<String>) {
     if let Some(path) = command_line_args.filename {
         app.insert_resource(Autoload::file(
             path.into(),
-            command_line_args.import.map(Into::into)
+            command_line_args.import.map(Into::into),
         ));
     }
 

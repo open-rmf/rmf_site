@@ -17,11 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::{
-    prelude::{
-        Bundle, Component, DirectionalLight as BevyDirectionalLight,
-        PointLight as BevyPointLight, SpotLight as BevySpotLight,
-    },
+use bevy::prelude::{
+    Bundle, Component, DirectionalLight as BevyDirectionalLight, PointLight as BevyPointLight,
+    SpotLight as BevySpotLight,
 };
 use serde::{Deserialize, Serialize};
 

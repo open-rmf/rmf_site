@@ -1,6 +1,6 @@
 use crate::*;
-use std::collections::{HashMap, HashSet};
 use serde::Serialize;
+use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Clone)]
 pub struct NavGraph {
@@ -60,7 +60,7 @@ impl NavGraph {
                     let lane = site.navigation.guided.lanes.get(lane_id).unwrap();
                     let (v0, v1) = match (
                         anchor_to_vertex.get(&lane.anchors.start()),
-                        anchor_to_vertex.get(&lane.anchors.end())
+                        anchor_to_vertex.get(&lane.anchors.end()),
                     ) {
                         (Some(v0), Some(v1)) => (*v0, *v1),
                         _ => {
@@ -112,7 +112,7 @@ pub struct NavLane(pub usize, pub usize, pub NavLaneProperties);
 #[derive(Serialize, Clone)]
 pub struct NavLaneProperties {
     speed_limit: f32,
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     dock_name: Option<String>,
     // TODO(MXG): Add other lane properties
     // door_name,
@@ -141,13 +141,13 @@ impl NavVertex {
 
 #[derive(Serialize, Clone)]
 pub struct NavVertexProperties {
-    #[serde(skip_serializing_if="Option::is_none")]
+    #[serde(skip_serializing_if = "Option::is_none")]
     lift: Option<String>,
-    #[serde(skip_serializing_if="is_false")]
+    #[serde(skip_serializing_if = "is_false")]
     is_charger: bool,
-    #[serde(skip_serializing_if="is_false")]
+    #[serde(skip_serializing_if = "is_false")]
     is_holding_point: bool,
-    #[serde(skip_serializing_if="is_false")]
+    #[serde(skip_serializing_if = "is_false")]
     is_parking_spot: bool,
     name: String,
 }
@@ -173,7 +173,11 @@ impl NavVertexProperties {
         };
         props.name = location.name.0.clone();
         props.is_charger = location.tags.iter().find(|t| t.is_charger()).is_some();
-        props.is_holding_point = location.tags.iter().find(|t| t.is_holding_point()).is_some();
+        props.is_holding_point = location
+            .tags
+            .iter()
+            .find(|t| t.is_holding_point())
+            .is_some();
         props.is_parking_spot = location.tags.iter().find(|t| t.is_parking_spot()).is_some();
 
         props

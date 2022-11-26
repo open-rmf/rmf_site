@@ -1,8 +1,8 @@
 use super::{PortingError, Result};
 use crate::{
-    Anchor, DoorType, DoubleSlidingDoor, Edge, InitialLevel, IsStatic,
-    LevelVisits, Lift as SiteLift, LiftCabin, LiftCabinDoor, LiftCabinDoorPlacement,
-    LiftProperties, NameInSite, RectFace, RectangularLiftCabin,
+    Anchor, DoorType, DoubleSlidingDoor, Edge, InitialLevel, IsStatic, LevelVisits,
+    Lift as SiteLift, LiftCabin, LiftCabinDoor, LiftCabinDoorPlacement, LiftProperties, NameInSite,
+    RectFace, RectangularLiftCabin,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

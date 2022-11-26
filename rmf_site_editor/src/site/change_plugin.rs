@@ -45,7 +45,9 @@ pub struct ChangePlugin<T: Component + Clone + Debug> {
 
 impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
     fn default() -> Self {
-        Self { _ignore: Default::default() }
+        Self {
+            _ignore: Default::default(),
+        }
     }
 }
 

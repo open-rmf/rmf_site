@@ -21,9 +21,9 @@ use crate::{
     },
     occupancy::CalculateGrid,
     site::{
-        AssociatedGraphs, Change, CurrentLevel, Delete, ExportLights, ConsiderLocationTag,
-        PhysicalLightToggle, SiteState, ToggleLiftDoorAvailability, ConsiderAssociatedGraph,
-        SaveNavGraphs, CurrentSite,
+        AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
+        CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        ToggleLiftDoorAvailability,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

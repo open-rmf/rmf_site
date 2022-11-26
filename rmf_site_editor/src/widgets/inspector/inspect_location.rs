@@ -17,16 +17,16 @@
 
 use crate::{
     site::{
-        LocationTag, LocationTags, RecallLocationTags, Model, ConsiderLocationTag,
-        RecallAssetSource,
+        ConsiderLocationTag, LocationTag, LocationTags, Model, RecallAssetSource,
+        RecallLocationTags,
     },
     widgets::{
-        inspector::{InspectName, InspectAssetSource},
-        AppEvents, Icons
+        inspector::{InspectAssetSource, InspectName},
+        AppEvents, Icons,
     },
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{Ui, ImageButton, ComboBox, RichText};
+use bevy_egui::egui::{ComboBox, ImageButton, RichText, Ui};
 use smallvec::SmallVec;
 
 pub struct InspectLocationWidget<'a, 'w1, 'w2, 's2> {
@@ -45,7 +45,13 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         icons: &'a Res<'w1, Icons>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { entity, tags, recall, icons, events }
+        Self {
+            entity,
+            tags,
+            recall,
+            icons,
+            events,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<LocationTags> {
@@ -54,7 +60,10 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         let mut changed_tag = None;
         for (i, tag) in self.tags.0.iter().enumerate() {
             ui.horizontal(|ui| {
-                if ui.add(ImageButton::new(self.icons.egui_trash, [18., 18.])).clicked() {
+                if ui
+                    .add(ImageButton::new(self.icons.egui_trash, [18., 18.]))
+                    .clicked()
+                {
                     deleted_tag = Some(i);
                 }
                 ui.label(tag.label());
@@ -62,97 +71,110 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
             match tag {
                 LocationTag::SpawnRobot(robot) => {
                     ui.push_id(i.to_string() + " spawn robot", |ui| {
-                        if let Some(new_robot) = self.inspect_model(
-                            ui, robot, &self.recall.robot_asset_source_recall
-                        ) {
+                        if let Some(new_robot) =
+                            self.inspect_model(ui, robot, &self.recall.robot_asset_source_recall)
+                        {
                             changed_tag = Some((i, LocationTag::SpawnRobot(new_robot)));
                         }
                     });
                 }
                 LocationTag::Workcell(cell) => {
                     ui.push_id(i.to_string() + " workcell", |ui| {
-                        if let Some(new_cell) = self.inspect_model(
-                            ui, cell, &self.recall.workcell_asset_source_recall
-                        ) {
+                        if let Some(new_cell) =
+                            self.inspect_model(ui, cell, &self.recall.workcell_asset_source_recall)
+                        {
                             changed_tag = Some((i, LocationTag::Workcell(new_cell)));
                         }
                     });
-                },
-                _ => { }
+                }
+                _ => {}
             }
             ui.add_space(5.0);
             ui.separator();
             ui.add_space(5.0);
         }
 
-        let added_tag = ui.collapsing("Add...", |ui| {
-            let (add, mut consider) = ui.horizontal(|ui| {
-                let add = ui.button("Confirm").clicked();
-                let mut consider = self.recall.assume_tag(self.tags);
-                let mut variants: SmallVec<[LocationTag; 5]> = SmallVec::new();
-                if self.tags.iter().find(|t| t.is_charger()).is_none() {
-                    variants.push(LocationTag::Charger);
-                }
-                if self.tags.iter().find(|t| t.is_parking_spot()).is_none() {
-                    variants.push(LocationTag::ParkingSpot);
-                }
-                if self.tags.iter().find(|t| t.is_holding_point()).is_none() {
-                    variants.push(LocationTag::HoldingPoint);
-                }
-                variants.push(self.recall.assume_spawn_robot());
-                variants.push(self.recall.assume_workcell());
-
-                ComboBox::from_id_source("Add Location Tag")
-                    .selected_text(consider.label())
-                    .show_ui(ui, |ui| {
-                        for variant in variants {
-                            let label = variant.label();
-                            ui.selectable_value(&mut consider, variant, label);
+        let added_tag = ui
+            .collapsing("Add...", |ui| {
+                let (add, mut consider) = ui
+                    .horizontal(|ui| {
+                        let add = ui.button("Confirm").clicked();
+                        let mut consider = self.recall.assume_tag(self.tags);
+                        let mut variants: SmallVec<[LocationTag; 5]> = SmallVec::new();
+                        if self.tags.iter().find(|t| t.is_charger()).is_none() {
+                            variants.push(LocationTag::Charger);
                         }
-                    });
-
-                (add, consider)
-            }).inner;
-
-            match &mut consider {
-                LocationTag::SpawnRobot(model) => {
-                    ui.push_id("consider spawn robot", |ui| {
-                        if let Some(new_model) = self.inspect_model(
-                            ui, model, &self.recall.consider_tag_asset_source_recall
-                        ) {
-                            *model = new_model;
+                        if self.tags.iter().find(|t| t.is_parking_spot()).is_none() {
+                            variants.push(LocationTag::ParkingSpot);
                         }
-                    });
-                }
-                LocationTag::Workcell(model) => {
-                    ui.push_id("consider workcell", |ui| {
-                        if let Some(new_model) = self.inspect_model(
-                            ui, model, &self.recall.consider_tag_asset_source_recall
-                        ) {
-                            *model = new_model;
+                        if self.tags.iter().find(|t| t.is_holding_point()).is_none() {
+                            variants.push(LocationTag::HoldingPoint);
                         }
-                    });
+                        variants.push(self.recall.assume_spawn_robot());
+                        variants.push(self.recall.assume_workcell());
+
+                        ComboBox::from_id_source("Add Location Tag")
+                            .selected_text(consider.label())
+                            .show_ui(ui, |ui| {
+                                for variant in variants {
+                                    let label = variant.label();
+                                    ui.selectable_value(&mut consider, variant, label);
+                                }
+                            });
+
+                        (add, consider)
+                    })
+                    .inner;
+
+                match &mut consider {
+                    LocationTag::SpawnRobot(model) => {
+                        ui.push_id("consider spawn robot", |ui| {
+                            if let Some(new_model) = self.inspect_model(
+                                ui,
+                                model,
+                                &self.recall.consider_tag_asset_source_recall,
+                            ) {
+                                *model = new_model;
+                            }
+                        });
+                    }
+                    LocationTag::Workcell(model) => {
+                        ui.push_id("consider workcell", |ui| {
+                            if let Some(new_model) = self.inspect_model(
+                                ui,
+                                model,
+                                &self.recall.consider_tag_asset_source_recall,
+                            ) {
+                                *model = new_model;
+                            }
+                        });
+                    }
+                    _ => {}
                 }
-                _ => { }
-            }
 
-            let consider_changed = if let Some(original) = &self.recall.consider_tag {
-                consider != *original
-            } else {
-                true
-            };
-            if consider_changed {
-                self.events.request.consider_tag.send(
-                    ConsiderLocationTag::new(Some(consider.clone()), self.entity)
-                );
-            }
+                let consider_changed = if let Some(original) = &self.recall.consider_tag {
+                    consider != *original
+                } else {
+                    true
+                };
+                if consider_changed {
+                    self.events
+                        .request
+                        .consider_tag
+                        .send(ConsiderLocationTag::new(
+                            Some(consider.clone()),
+                            self.entity,
+                        ));
+                }
 
-            if add {
-                Some(consider)
-            } else {
-                None
-            }
-        }).body_returned.flatten();
+                if add {
+                    Some(consider)
+                } else {
+                    None
+                }
+            })
+            .body_returned
+            .flatten();
 
         if deleted_tag.is_some() || added_tag.is_some() || changed_tag.is_some() {
             let mut new_tags = self.tags.clone();
@@ -174,11 +196,14 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         }
     }
 
-    fn inspect_model(&self, ui: &mut Ui, model: &Model, recall_asset: &RecallAssetSource) -> Option<Model> {
+    fn inspect_model(
+        &self,
+        ui: &mut Ui,
+        model: &Model,
+        recall_asset: &RecallAssetSource,
+    ) -> Option<Model> {
         let new_name = InspectName::new(&model.name).show(ui);
-        let new_source = InspectAssetSource::new(
-            &model.source, &recall_asset,
-        ).show(ui);
+        let new_source = InspectAssetSource::new(&model.source, &recall_asset).show(ui);
 
         if new_name.is_some() || new_source.is_some() {
             let mut new_model = model.clone();

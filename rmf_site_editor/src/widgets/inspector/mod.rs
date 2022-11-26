@@ -194,13 +194,22 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             InspectAssociatedGraphsWidget::new(
-                selection, &self.params.component.associated_graphs, self.events
-            ).show(ui);
+                selection,
+                &self.params.component.associated_graphs,
+                self.events,
+            )
+            .show(ui);
 
             if let Ok((tags, recall)) = self.params.component.location_tags.get(selection) {
                 if let Some(new_tags) = InspectLocationWidget::new(
-                    selection, tags, recall, &self.params.anchor_params.icons, self.events,
-                ).show(ui) {
+                    selection,
+                    tags,
+                    recall,
+                    &self.params.anchor_params.icons,
+                    self.events,
+                )
+                .show(ui)
+                {
                     self.events
                         .change
                         .location_tags

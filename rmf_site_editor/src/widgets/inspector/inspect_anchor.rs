@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{Anchor, Category, Dependents, SiteID, Subordinate, LocationTags, AssociatedGraphs},
+    site::{Anchor, AssociatedGraphs, Category, Dependents, LocationTags, SiteID, Subordinate},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

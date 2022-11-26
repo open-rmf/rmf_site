@@ -17,9 +17,7 @@
 
 use crate::{
     interaction::{Select, Selection},
-    site::{
-        Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage,
-    },
+    site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{Edge, Path, Point};

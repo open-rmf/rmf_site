@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity, Query, With, Deref, DerefMut};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 
@@ -174,13 +174,19 @@ pub struct RecallAssociatedGraphs<T: RefTrait> {
 impl<T: RefTrait> RecallAssociatedGraphs<T> {
     pub fn assume_only(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
         AssociatedGraphs::Only(
-            current.only().cloned().unwrap_or(self.only.clone().unwrap_or_default())
+            current
+                .only()
+                .cloned()
+                .unwrap_or(self.only.clone().unwrap_or_default()),
         )
     }
 
     pub fn assume_all_except(&self, current: &AssociatedGraphs<T>) -> AssociatedGraphs<T> {
         AssociatedGraphs::AllExcept(
-            current.all_except().cloned().unwrap_or(self.all_except.clone().unwrap_or_default())
+            current
+                .all_except()
+                .cloned()
+                .unwrap_or(self.all_except.clone().unwrap_or_default()),
         )
     }
 }
@@ -200,7 +206,7 @@ impl<T: RefTrait> Recall for RecallAssociatedGraphs<T> {
 
     fn remember(&mut self, source: &Self::Source) {
         match source {
-            AssociatedGraphs::All => { }
+            AssociatedGraphs::All => {}
             AssociatedGraphs::Only(set) => {
                 self.only = Some(set.clone());
             }

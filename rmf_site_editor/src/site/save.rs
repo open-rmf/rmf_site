@@ -19,10 +19,7 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{
-    collections::BTreeMap,
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 use crate::site::*;
@@ -83,7 +80,13 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 Without<Pending>,
             ),
         >,
-        Query<Entity, (Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>, Without<Pending>)>,
+        Query<
+            Entity,
+            (
+                Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+                Without<Pending>,
+            ),
+        >,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
         Query<&NextSiteID>,
@@ -91,15 +94,8 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (
-        level_children,
-        nav_graph_elements,
-        levels,
-        lifts,
-        sites,
-        site_ids,
-        children,
-    ) = state.get_mut(world);
+    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
+        state.get_mut(world);
 
     let mut new_entities = Vec::new();
 
@@ -158,10 +154,14 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         .map(|n| n.0)
         .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?..;
     for e in &new_entities {
-        world.entity_mut(*e).insert(SiteID(next_site_id.next().unwrap()));
+        world
+            .entity_mut(*e)
+            .insert(SiteID(next_site_id.next().unwrap()));
     }
 
-    world.entity_mut(site).insert(NextSiteID(next_site_id.next().unwrap()));
+    world
+        .entity_mut(site)
+        .insert(NextSiteID(next_site_id.next().unwrap()));
 
     Ok(())
 }
@@ -509,8 +509,16 @@ fn generate_lifts(
         Query<&SiteID>,
     )> = SystemState::new(world);
 
-    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children, q_site_id) =
-        state.get(world);
+    let (
+        q_anchors,
+        q_doors,
+        q_levels,
+        q_lifts,
+        q_cabin_anchor_groups,
+        q_parents,
+        q_children,
+        q_site_id,
+    ) = state.get(world);
 
     let mut lifts = BTreeMap::new();
 
@@ -570,7 +578,10 @@ fn generate_lifts(
         let anchor_group_entity = *match match q_children.get(lift_entity) {
             Ok(children) => children,
             Err(_) => return Err(SiteGenerationError::BrokenLift(id.0)),
-        }.iter().find(|c| q_cabin_anchor_groups.contains(**c)) {
+        }
+        .iter()
+        .find(|c| q_cabin_anchor_groups.contains(**c))
+        {
             Some(c) => c,
             None => return Err(SiteGenerationError::BrokenLift(id.0)),
         };
@@ -859,7 +870,10 @@ pub fn save_site(world: &mut World) {
             }
         };
 
-        println!("Saving to {}", path.to_str().unwrap_or("<failed to render??>"));
+        println!(
+            "Saving to {}",
+            path.to_str().unwrap_or("<failed to render??>")
+        );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
@@ -888,7 +902,10 @@ pub fn save_site(world: &mut World) {
 }
 
 pub fn save_nav_graphs(world: &mut World) {
-    let save_events: Vec<_> = world.resource_mut::<Events<SaveNavGraphs>>().drain().collect();
+    let save_events: Vec<_> = world
+        .resource_mut::<Events<SaveNavGraphs>>()
+        .drain()
+        .collect();
     for save_event in save_events {
         let path = save_event.to_file;
 

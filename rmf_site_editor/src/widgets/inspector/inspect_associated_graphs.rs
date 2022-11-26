@@ -17,22 +17,26 @@
 
 use crate::{
     site::{
-        AssociatedGraphs, Change, RecallAssociatedGraphs, NameInSite,
-        NavGraphMarker, ConsiderAssociatedGraph
+        AssociatedGraphs, Change, ConsiderAssociatedGraph, NameInSite, NavGraphMarker,
+        RecallAssociatedGraphs,
     },
     widgets::{AppEvents, Icons},
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
-use std::collections::BTreeMap;
 use smallvec::SmallVec;
+use std::collections::BTreeMap;
 
 #[derive(SystemParam)]
 pub struct InspectAssociatedGraphsParams<'w, 's> {
-    associated: Query<'w, 's, (&'static AssociatedGraphs<Entity>, &'static RecallAssociatedGraphs<Entity>)>,
+    associated: Query<
+        'w,
+        's,
+        (
+            &'static AssociatedGraphs<Entity>,
+            &'static RecallAssociatedGraphs<Entity>,
+        ),
+    >,
     graphs: Query<'w, 's, (Entity, &'static NameInSite), With<NavGraphMarker>>,
     icons: Res<'w, Icons>,
 }
@@ -49,7 +53,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
         params: &'a InspectAssociatedGraphsParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { entity, params, events }
+        Self {
+            entity,
+            params,
+            events,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -75,7 +83,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
         });
 
         match &mut new_associated {
-            AssociatedGraphs::All => { }
+            AssociatedGraphs::All => {}
             AssociatedGraphs::Only(set) | AssociatedGraphs::AllExcept(set) => {
                 let mut removed_graphs: SmallVec<[Entity; 2]> = SmallVec::new();
                 for g in set.iter() {
@@ -84,7 +92,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
                         _ => continue,
                     };
                     ui.horizontal(|ui| {
-                        if ui.add(ImageButton::new(self.params.icons.egui_trash, [18., 18.])).clicked() {
+                        if ui
+                            .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                            .clicked()
+                        {
                             removed_graphs.push(*g);
                         }
                         ui.label(&name.0);
@@ -92,14 +103,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
                 }
 
                 let unused_graphs: BTreeMap<Entity, &NameInSite> = BTreeMap::from_iter(
-                    self.params.graphs.iter().filter(|(e, _)| !set.contains(e))
+                    self.params.graphs.iter().filter(|(e, _)| !set.contains(e)),
                 );
 
                 if let Some((first, _)) = unused_graphs.iter().next() {
                     ui.horizontal(|ui| {
                         let add_graph = ui.button("Add").clicked();
                         let mut choice = recall.consider.unwrap_or(*first);
-                        let choice_text = unused_graphs.get(&choice).map(|n| n.0.clone()).unwrap_or_else(|| "<ERROR>".to_string());
+                        let choice_text = unused_graphs
+                            .get(&choice)
+                            .map(|n| n.0.clone())
+                            .unwrap_or_else(|| "<ERROR>".to_string());
                         ComboBox::from_id_source("Add Associated Graph")
                             .selected_text(choice_text)
                             .show_ui(ui, |ui| {
@@ -110,14 +124,16 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
 
                         if add_graph {
                             set.insert(choice);
-                            self.events.request.consider_graph.send(
-                                ConsiderAssociatedGraph::new(None, self.entity)
-                            );
+                            self.events
+                                .request
+                                .consider_graph
+                                .send(ConsiderAssociatedGraph::new(None, self.entity));
                         } else {
                             if Some(choice) != recall.consider {
-                                self.events.request.consider_graph.send(
-                                    ConsiderAssociatedGraph::new(Some(choice), self.entity)
-                                );
+                                self.events
+                                    .request
+                                    .consider_graph
+                                    .send(ConsiderAssociatedGraph::new(Some(choice), self.entity));
                             }
                         }
                     });
@@ -130,9 +146,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
         }
 
         if new_associated != *associated {
-            self.events.change.associated_graphs.send(
-                Change::new(new_associated, self.entity)
-            );
+            self.events
+                .change
+                .associated_graphs
+                .send(Change::new(new_associated, self.entity));
         }
 
         ui.add_space(10.0);

@@ -17,12 +17,16 @@
 
 use super::demo_world::demo_office;
 use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
-use bevy::{app::AppExit, prelude::*, tasks::{Task, AsyncComputeTaskPool}};
+use bevy::{
+    app::AppExit,
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 use bevy_egui::{egui, EguiContext};
+use futures_lite::future;
 use rfd::{AsyncFileDialog, FileHandle};
 use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 use std::path::PathBuf;
-use futures_lite::future;
 
 struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
@@ -43,8 +47,6 @@ impl Autoload {
             importing: None,
         }
     }
-
-
 }
 
 fn egui_ui(

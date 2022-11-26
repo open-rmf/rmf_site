@@ -17,17 +17,18 @@
 
 use crate::{
     site::{
-        NavGraph, NavGraphMarker, NameInSite, DisplayColor, Change, Delete,
-        DEFAULT_NAV_GRAPH_COLORS, SaveNavGraphs, CurrentSite, ImportNavGraphs,
+        Change, CurrentSite, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
+        NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{
-        inspector::color_edit,
-        AppEvents, Icons,
-    },
+    widgets::{inspector::color_edit, AppEvents, Icons},
     Autoload,
 };
-use bevy::{prelude::*, ecs::system::SystemParam, tasks::{AsyncComputeTaskPool, Task}};
-use bevy_egui::egui::{Ui, ImageButton};
+use bevy::{
+    ecs::system::SystemParam,
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
+use bevy_egui::egui::{ImageButton, Ui};
 use futures_lite::future;
 use rfd::AsyncFileDialog;
 use smallvec::SmallVec;
@@ -43,7 +44,10 @@ pub struct NavGraphDisplay {
 
 impl FromWorld for NavGraphDisplay {
     fn from_world(world: &mut World) -> Self {
-        let export_file = world.get_resource::<Autoload>().map(|a| a.import.clone()).flatten();
+        let export_file = world
+            .get_resource::<Autoload>()
+            .map(|a| a.import.clone())
+            .flatten();
         Self {
             color: None,
             name: "<Unnamed>".to_string(),
@@ -57,7 +61,17 @@ impl FromWorld for NavGraphDisplay {
 
 #[derive(SystemParam)]
 pub struct NavGraphParams<'w, 's> {
-    pub graphs: Query<'w, 's, (Entity, &'static NameInSite, &'static DisplayColor, &'static Visibility), With<NavGraphMarker>>,
+    pub graphs: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static NameInSite,
+            &'static DisplayColor,
+            &'static Visibility,
+        ),
+        With<NavGraphMarker>,
+    >,
     pub icons: Res<'w, Icons>,
 }
 
@@ -73,9 +87,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
 
     pub fn show(self, ui: &mut Ui) {
         let graphs = {
-            let mut graphs: SmallVec<
-                [(Entity, &NameInSite, &DisplayColor, &Visibility); 10]
-            > = SmallVec::from_iter(self.params.graphs.iter());
+            let mut graphs: SmallVec<[(Entity, &NameInSite, &DisplayColor, &Visibility); 10]> =
+                SmallVec::from_iter(self.params.graphs.iter());
             graphs.sort_by(|(a, _, _, _), (b, _, _, _)| a.cmp(b));
             graphs
         };
@@ -83,13 +96,21 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
 
         ui.horizontal(|ui| {
             if self.events.display.nav_graph.removing {
-                if ui.button("View").on_hover_text("Toggle visibility of graphs").clicked() {
+                if ui
+                    .button("View")
+                    .on_hover_text("Toggle visibility of graphs")
+                    .clicked()
+                {
                     self.events.display.nav_graph.removing = false;
                 }
                 ui.label("Remove");
             } else {
                 ui.label("View");
-                if ui.button("Remove").on_hover_text("Choose a graph to remove").clicked() {
+                if ui
+                    .button("Remove")
+                    .on_hover_text("Choose a graph to remove")
+                    .clicked()
+                {
                     self.events.display.nav_graph.removing = true;
                 }
             }
@@ -98,32 +119,46 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         for (e, name, color, vis) in graphs {
             ui.horizontal(|ui| {
                 if self.events.display.nav_graph.removing {
-                    if ui.add(ImageButton::new(self.params.icons.egui_trash, [18., 18.])).clicked() {
+                    if ui
+                        .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                        .clicked()
+                    {
                         self.events.request.delete.send(Delete::new(e));
                         self.events.display.nav_graph.removing = false;
                     }
                 } else {
                     let mut is_visible = vis.is_visible;
-                    if ui.checkbox(&mut is_visible, "")
+                    if ui
+                        .checkbox(&mut is_visible, "")
                         .on_hover_text(if vis.is_visible {
                             "Make this graph invisible"
                         } else {
                             "Make this graph visible"
-                        }).changed()
+                        })
+                        .changed()
                     {
-                        self.events.change.visibility.send(Change::new(Visibility { is_visible }, e));
+                        self.events
+                            .change
+                            .visibility
+                            .send(Change::new(Visibility { is_visible }, e));
                     }
                 }
 
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
-                    self.events.change.color.send(Change::new(DisplayColor(new_color), e));
+                    self.events
+                        .change
+                        .color
+                        .send(Change::new(DisplayColor(new_color), e));
                 }
 
                 let mut new_name = name.0.clone();
                 if ui.text_edit_singleline(&mut new_name).changed() {
-                    self.events.change.name.send(Change::new(NameInSite(new_name), e));
+                    self.events
+                        .change
+                        .name
+                        .send(Change::new(NameInSite(new_name), e));
                 }
             });
         }
@@ -132,14 +167,16 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             let add = ui.button("Add").clicked();
             if self.events.display.nav_graph.color.is_none() {
                 let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
-                self.events.display.nav_graph.color = Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
+                self.events.display.nav_graph.color =
+                    Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
             }
             if let Some(color) = &mut self.events.display.nav_graph.color {
                 color_edit(ui, color);
             }
             ui.text_edit_singleline(&mut self.events.display.nav_graph.name);
             if add {
-                self.events.commands
+                self.events
+                    .commands
                     .spawn_bundle(SpatialBundle::default())
                     .insert_bundle(NavGraph {
                         name: NameInSite(self.events.display.nav_graph.name.clone()),
@@ -167,12 +204,13 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                         None => return None,
                                     };
 
-                                    match rmf_site_format::Site::from_bytes(
-                                        &file.read().await
-                                    ) {
+                                    match rmf_site_format::Site::from_bytes(&file.read().await) {
                                         Ok(from_site) => Some((
                                             file.path().to_owned(),
-                                            ImportNavGraphs { into_site, from_site }
+                                            ImportNavGraphs {
+                                                into_site,
+                                                from_site,
+                                            },
                                         )),
                                         Err(err) => {
                                             println!("Unable to parse file:\n{err}");
@@ -180,7 +218,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                         }
                                     }
                                 });
-                                self.events.display.nav_graph.choosing_file_to_import = Some(future);
+                                self.events.display.nav_graph.choosing_file_to_import =
+                                    Some(future);
                             }
                         }
                     }
@@ -194,12 +233,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 if let Some(export_file) = &self.events.display.nav_graph.export_file {
                     if ui.button("Export").clicked() {
                         if let Some(current_site) = self.events.request.current_site.0 {
-                            self.events.request.save_nav_graphs.send(
-                                SaveNavGraphs {
-                                    site: current_site,
-                                    to_file: export_file.clone(),
-                                }
-                            )
+                            self.events.request.save_nav_graphs.send(SaveNavGraphs {
+                                site: current_site,
+                                to_file: export_file.clone(),
+                            })
                         } else {
                             println!("No current site??");
                         }
@@ -246,7 +283,10 @@ pub fn resolve_nav_graph_import_export_files(
             if let Some(result) = future::block_on(future::poll_once(task)) {
                 if let Some(result) = result {
                     if let Some(current_site) = current_site.0 {
-                        save_nav_graphs.send(SaveNavGraphs { site: current_site, to_file: result.clone() });
+                        save_nav_graphs.send(SaveNavGraphs {
+                            site: current_site,
+                            to_file: result.clone(),
+                        });
                     }
                     nav_graph_display.export_file = Some(result)
                 }

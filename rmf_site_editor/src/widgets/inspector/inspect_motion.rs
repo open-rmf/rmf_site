@@ -18,8 +18,7 @@
 use crate::widgets::inspector::{InspectAngle, InspectOptionF32};
 use bevy_egui::egui::{ComboBox, RichText, Ui};
 use rmf_site_format::{
-    Angle, Dock, Motion, OrientationConstraint, RecallMotion, RecallReverseLane,
-    ReverseLane,
+    Angle, Dock, Motion, OrientationConstraint, RecallMotion, RecallReverseLane, ReverseLane,
 };
 
 pub struct InspectMotionWidget<'a> {

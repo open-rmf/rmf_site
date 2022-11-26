@@ -128,7 +128,7 @@ impl FromWorld for SiteAssets {
         let lane_end_outline = meshes.add(
             make_flat_disk(
                 Circle {
-                    radius: 1.125*LANE_WIDTH / 2.0,
+                    radius: 1.125 * LANE_WIDTH / 2.0,
                     height: 0.0,
                 },
                 32,
@@ -137,8 +137,10 @@ impl FromWorld for SiteAssets {
         );
         let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
         let location_mesh = meshes.add(
-            make_icon_halo(1.1*LANE_WIDTH/2.0, 0.01, 6)
-            .transform_by(Affine3A::from_translation(0.00125*Vec3::Z)).into());
+            make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
+                .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z))
+                .into(),
+        );
         let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
 
         Self {

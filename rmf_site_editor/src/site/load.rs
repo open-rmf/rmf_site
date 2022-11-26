@@ -15,20 +15,12 @@
  *
 */
 
-use crate::{
-    Autoload,
-    main_menu::load_site_file,
-    site::*
-};
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-    tasks::AsyncComputeTaskPool,
-};
+use crate::{main_menu::load_site_file, site::*, Autoload};
+use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
+use futures_lite::future;
+use rfd::FileHandle;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
-use rfd::FileHandle;
-use futures_lite::future;
 
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.
@@ -298,8 +290,27 @@ pub struct ImportNavGraphs {
 pub struct ImportNavGraphParams<'w, 's> {
     commands: Commands<'w, 's>,
     sites: Query<'w, 's, &'static Children, With<SiteProperties>>,
-    levels: Query<'w, 's, (Entity, &'static LevelProperties, &'static Parent, &'static Children)>,
-    lifts: Query<'w, 's, (Entity, &'static NameInSite, &'static Parent, &'static Children), With<LiftCabin<Entity>>>,
+    levels: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static LevelProperties,
+            &'static Parent,
+            &'static Children,
+        ),
+    >,
+    lifts: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static NameInSite,
+            &'static Parent,
+            &'static Children,
+        ),
+        With<LiftCabin<Entity>>,
+    >,
     cabin_anchor_groups: Query<'w, 's, &'static Children, With<CabinAnchorGroup>>,
     anchors: Query<'w, 's, (Entity, &'static Anchor)>,
 }
@@ -337,7 +348,9 @@ fn generate_imported_nav_graphs(
         if let Some(e) = level_name_to_entity.get(&level_data.properties.name) {
             id_to_entity.insert(*level_id, *e);
         } else {
-            return Err(ImportNavGraphError::MissingLevelName(level_data.properties.name.clone()));
+            return Err(ImportNavGraphError::MissingLevelName(
+                level_data.properties.name.clone(),
+            ));
         }
     }
 
@@ -345,15 +358,24 @@ fn generate_imported_nav_graphs(
     for (lift_id, lift_data) in &from_site_data.lifts {
         if let Some(e) = lift_name_to_entity.get(&lift_data.properties.name.0) {
             id_to_entity.insert(*lift_id, *e);
-            if let Some(e_group) = params.lifts.get(*e).unwrap().3.iter().find(
-                |child| params.cabin_anchor_groups.contains(**child)
-            ) {
+            if let Some(e_group) = params
+                .lifts
+                .get(*e)
+                .unwrap()
+                .3
+                .iter()
+                .find(|child| params.cabin_anchor_groups.contains(**child))
+            {
                 lift_to_anchor_group.insert(*e, *e_group);
             } else {
-                return Err(ImportNavGraphError::MissingCabinAnchorGroup(lift_data.properties.name.0.clone()));
+                return Err(ImportNavGraphError::MissingCabinAnchorGroup(
+                    lift_data.properties.name.0.clone(),
+                ));
             }
         } else {
-            return Err(ImportNavGraphError::MissingLiftName(lift_data.properties.name.0.clone()));
+            return Err(ImportNavGraphError::MissingLiftName(
+                lift_data.properties.name.0.clone(),
+            ));
         }
     }
 
@@ -361,8 +383,13 @@ fn generate_imported_nav_graphs(
     for (lift_id, lift_data) in &from_site_data.lifts {
         let lift_e = *id_to_entity.get(lift_id).unwrap();
         let anchor_group = *lift_to_anchor_group.get(&lift_e).unwrap();
-        let existing_lift_anchors: Vec<(Entity, &Anchor)> = params.cabin_anchor_groups.get(anchor_group).unwrap()
-            .iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+        let existing_lift_anchors: Vec<(Entity, &Anchor)> = params
+            .cabin_anchor_groups
+            .get(anchor_group)
+            .unwrap()
+            .iter()
+            .filter_map(|child| params.anchors.get(*child).ok())
+            .collect();
 
         for (anchor_id, anchor) in &lift_data.cabin_anchors {
             let mut already_existing = false;
@@ -375,9 +402,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(anchor_group).add_children(|group| {
-                    let e_anchor = group
-                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
-                        .id();
+                    let e_anchor = group.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -386,8 +411,14 @@ fn generate_imported_nav_graphs(
 
     for (level_id, level_data) in &from_site_data.levels {
         let level_e = *id_to_entity.get(level_id).unwrap();
-        let existing_level_anchors: Vec<(Entity, &Anchor)> = params.levels.get(level_e).unwrap()
-            .3.iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+        let existing_level_anchors: Vec<(Entity, &Anchor)> = params
+            .levels
+            .get(level_e)
+            .unwrap()
+            .3
+            .iter()
+            .filter_map(|child| params.anchors.get(*child).ok())
+            .collect();
         for (anchor_id, anchor) in &level_data.anchors {
             let mut already_existing = false;
             for (existing_id, existing_anchor) in &existing_level_anchors {
@@ -399,9 +430,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(level_e).add_children(|level| {
-                    let e_anchor = level
-                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
-                        .id();
+                    let e_anchor = level.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -410,7 +439,9 @@ fn generate_imported_nav_graphs(
 
     {
         let existing_site_anchors: Vec<(Entity, &Anchor)> = site_children
-            .iter().filter_map(|child| params.anchors.get(*child).ok()).collect();
+            .iter()
+            .filter_map(|child| params.anchors.get(*child).ok())
+            .collect();
         for (anchor_id, anchor) in &from_site_data.anchors {
             let mut already_existing = false;
             for (existing_id, existing_anchor) in &existing_site_anchors {
@@ -422,9 +453,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(into_site).add_children(|site| {
-                    let e_anchor = site
-                        .spawn_bundle(AnchorBundle::new(anchor.clone()))
-                        .id();
+                    let e_anchor = site.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -443,18 +472,14 @@ fn generate_imported_nav_graphs(
 
     for (lane_id, lane_data) in &from_site_data.navigation.guided.lanes {
         params.commands.entity(into_site).add_children(|site| {
-            let e = site
-                .spawn_bundle(lane_data.to_ecs(&id_to_entity))
-                .id();
+            let e = site.spawn_bundle(lane_data.to_ecs(&id_to_entity)).id();
             id_to_entity.insert(*lane_id, e);
         });
     }
 
     for (location_id, location_data) in &from_site_data.navigation.guided.locations {
         params.commands.entity(into_site).add_children(|site| {
-            let e = site
-                .spawn_bundle(location_data.to_ecs(&id_to_entity))
-                .id();
+            let e = site.spawn_bundle(location_data.to_ecs(&id_to_entity)).id();
             id_to_entity.insert(*location_id, e);
         });
     }
@@ -469,9 +494,7 @@ pub fn import_nav_graph(
     current_site: Res<CurrentSite>,
 ) {
     for r in import_requests.iter() {
-        if let Err(err) = generate_imported_nav_graphs(
-            &mut params, r.into_site, &r.from_site
-        ) {
+        if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {
             println!("Failed to import nav graph: {err}");
         }
     }
@@ -497,9 +520,10 @@ pub fn import_nav_graph(
         };
 
         let file = FileHandle::wrap(import.clone());
-        autoload.importing = Some(AsyncComputeTaskPool::get().spawn(async move {
-            load_site_file(&file).await.map(|s| (current_site, s))
-        }));
+        autoload.importing = Some(
+            AsyncComputeTaskPool::get()
+                .spawn(async move { load_site_file(&file).await.map(|s| (current_site, s)) }),
+        );
 
         autoload.import = None;
     }
@@ -527,9 +551,7 @@ pub fn import_nav_graph(
             None => break 'importing,
         };
 
-        if let Err(err) = generate_imported_nav_graphs(
-            &mut params, into_site, &from_site_data
-        ) {
+        if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data) {
             println!("Failed to auto-import nav graph: {err}");
         }
     }

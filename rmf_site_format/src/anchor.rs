@@ -68,25 +68,23 @@ impl Anchor {
                     }
                 }
             }
-            Self::CategorizedTranslate2D(left_categories) => {
-                match other {
-                    Self::Translate2D(p) => {
-                        let p_left = Vec2::from_array(*left_categories.for_general());
-                        let p_right = Vec2::from_array(*p);
-                        return (p_left - p_right).length() <= dist;
-                    }
-                    Self::CategorizedTranslate2D(right_categories) => {
-                        for (category, p) in &left_categories.0 {
-                            let p_left = Vec2::from_array(*p);
-                            let p_right = Vec2::from_array(*right_categories.for_category(*category));
-                            if (p_left - p_right).length() > dist {
-                                return false;
-                            }
-                        }
-                        return true;
-                    }
+            Self::CategorizedTranslate2D(left_categories) => match other {
+                Self::Translate2D(p) => {
+                    let p_left = Vec2::from_array(*left_categories.for_general());
+                    let p_right = Vec2::from_array(*p);
+                    return (p_left - p_right).length() <= dist;
                 }
-            }
+                Self::CategorizedTranslate2D(right_categories) => {
+                    for (category, p) in &left_categories.0 {
+                        let p_left = Vec2::from_array(*p);
+                        let p_right = Vec2::from_array(*right_categories.for_category(*category));
+                        if (p_left - p_right).length() > dist {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
         }
     }
 }

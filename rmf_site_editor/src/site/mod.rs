@@ -220,12 +220,11 @@ impl Plugin for SitePlugin {
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(remove_association_for_deleted_graphs)
                     .with_system(
-                        update_visibility_for_lanes
-                        .after(remove_association_for_deleted_graphs)
+                        update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                     )
                     .with_system(
                         update_visibility_for_locations
-                        .after(remove_association_for_deleted_graphs)
+                            .after(remove_association_for_deleted_graphs),
                     )
                     .with_system(update_changed_location)
                     .with_system(update_location_for_moved_anchors)
