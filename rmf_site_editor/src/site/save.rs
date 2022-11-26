@@ -137,7 +137,6 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
 
         if let Ok(e) = nav_graph_elements.get(*site_child) {
             if !site_ids.contains(e) {
-                println!("Adding SiteID to {e:?}");
                 new_entities.push(e);
             }
         }

@@ -23,7 +23,7 @@ use crate::{
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
-    tasks::{Task, AsyncComputeTaskPool},
+    tasks::AsyncComputeTaskPool,
 };
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;

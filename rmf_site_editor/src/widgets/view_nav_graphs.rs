@@ -24,6 +24,7 @@ use crate::{
         inspector::color_edit,
         AppEvents, Icons,
     },
+    Autoload,
 };
 use bevy::{prelude::*, ecs::system::SystemParam, tasks::{AsyncComputeTaskPool, Task}};
 use bevy_egui::egui::{Ui, ImageButton};
@@ -40,14 +41,15 @@ pub struct NavGraphDisplay {
     pub choosing_file_to_import: Option<Task<Option<(std::path::PathBuf, ImportNavGraphs)>>>,
 }
 
-impl Default for NavGraphDisplay {
-    fn default() -> Self {
+impl FromWorld for NavGraphDisplay {
+    fn from_world(world: &mut World) -> Self {
+        let export_file = world.get_resource::<Autoload>().map(|a| a.import.clone()).flatten();
         Self {
             color: None,
             name: "<Unnamed>".to_string(),
             removing: false,
             choosing_file_for_export: None,
-            export_file: None,
+            export_file,
             choosing_file_to_import: None,
         }
     }
