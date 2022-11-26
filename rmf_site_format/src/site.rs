@@ -36,20 +36,21 @@ pub struct Site {
     /// Anchors that are relevant across all levels
     // TODO(MXG): Should we use a different name for this to distinguish it
     // from level anchors, or does the grouping make the intent obvious enough?
+    #[serde(default, skip_serializing_if="BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
     pub properties: SiteProperties,
     /// Properties of each level
+    #[serde(default, skip_serializing_if="BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
     /// Properties of each lift
+    #[serde(default, skip_serializing_if="BTreeMap::is_empty")]
     pub lifts: BTreeMap<u32, Lift<u32>>,
-    /// Properties of each nav graph
-    pub nav_graphs: BTreeMap<u32, NavGraph>,
-    /// Properties of each robot traffic lane
-    pub lanes: BTreeMap<u32, Lane<u32>>,
-    /// Properties of each special location
-    pub locations: BTreeMap<u32, Location<u32>>,
+    /// Data related to navigation
+    #[serde(default, skip_serializing_if="Navigation::is_empty")]
+    pub navigation: Navigation,
     /// Properties that describe simulated agents in the site
+    #[serde(default, skip_serializing_if="BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
 }
 

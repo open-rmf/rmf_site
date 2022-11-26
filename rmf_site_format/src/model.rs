@@ -29,7 +29,7 @@ pub struct Model {
     pub source: AssetSource,
     /// Pose of the model relative to the level it is on.
     pub pose: Pose,
-    #[serde(skip_serializing_if = "is_default")]
+    #[serde(default, skip_serializing_if = "is_default")]
     /// Whether this model should be able to move in simulation
     pub is_static: IsStatic,
     /// Only relevant for bevy

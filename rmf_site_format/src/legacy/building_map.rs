@@ -5,7 +5,7 @@ use crate::{
     Fiducial as SiteFiducial, FiducialMarker, Label, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelProperties as SiteLevelProperties,
     Motion, NameInSite, NavGraph, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
-    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS, Navigation, Guided,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -373,9 +373,13 @@ impl BuildingMap {
             },
             levels,
             lifts,
-            lanes,
-            locations,
-            nav_graphs,
+            navigation: Navigation {
+                guided: Guided {
+                    graphs: nav_graphs,
+                    lanes,
+                    locations,
+                },
+            },
             agents: Default::default(),
         })
     }

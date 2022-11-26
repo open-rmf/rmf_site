@@ -819,9 +819,13 @@ pub fn generate_site(
         properties: props.clone(),
         levels,
         lifts,
-        nav_graphs,
-        lanes,
-        locations,
+        navigation: Navigation {
+            guided: Guided {
+                graphs: nav_graphs,
+                lanes,
+                locations,
+            },
+        },
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
     });

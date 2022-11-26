@@ -37,7 +37,7 @@ pub struct NavGraphDisplay {
     pub removing: bool,
     pub choosing_file_for_export: Option<Task<Option<std::path::PathBuf>>>,
     pub export_file: Option<std::path::PathBuf>,
-    pub choosing_file_to_import: Option<Task<Option<ImportNavGraphs>>>,
+    pub choosing_file_to_import: Option<Task<Option<(std::path::PathBuf, ImportNavGraphs)>>>,
 }
 
 impl Default for NavGraphDisplay {
@@ -168,7 +168,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                     match rmf_site_format::Site::from_bytes(
                                         &file.read().await
                                     ) {
-                                        Ok(from_site) => Some(ImportNavGraphs { into_site, from_site }),
+                                        Ok(from_site) => Some((
+                                            file.path().to_owned(),
+                                            ImportNavGraphs { into_site, from_site }
+                                        )),
                                         Err(err) => {
                                             println!("Unable to parse file:\n{err}");
                                             None
@@ -218,6 +221,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
             });
+            if let Some(export_file) = &self.events.display.nav_graph.export_file {
+                if let Some(export_file) = export_file.as_os_str().to_str() {
+                    ui.horizontal(|ui| {
+                        ui.label("Chosen file:");
+                        ui.label(export_file);
+                    });
+                }
+            }
         }
     }
 }
@@ -249,8 +260,9 @@ pub fn resolve_nav_graph_import_export_files(
     if 'resolved: {
         if let Some(task) = &mut nav_graph_display.choosing_file_to_import {
             if let Some(result) = future::block_on(future::poll_once(task)) {
-                if let Some(request) = result {
+                if let Some((path, request)) = result {
                     import_nav_graphs.send(request);
+                    nav_graph_display.export_file = Some(path);
                 }
 
                 break 'resolved true;

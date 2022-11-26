@@ -200,7 +200,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             consider_id(*lift_id);
         }
 
-        for (nav_graph_id, nav_graph_data) in &site_data.nav_graphs {
+        for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
             let nav_graph = site
                 .spawn_bundle(SpatialBundle::default())
                 .insert_bundle(nav_graph_data.clone())
@@ -210,7 +210,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             consider_id(*nav_graph_id);
         }
 
-        for (lane_id, lane_data) in &site_data.lanes {
+        for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
             let lane = site
                 .spawn_bundle(lane_data.to_ecs(&id_to_entity))
                 .insert(SiteID(*lane_id))
@@ -219,7 +219,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             consider_id(*lane_id);
         }
 
-        for (location_id, location_data) in &site_data.locations {
+        for (location_id, location_data) in &site_data.navigation.guided.locations {
             let location = site
                 .spawn_bundle(location_data.to_ecs(&id_to_entity))
                 .insert(SiteID(*location_id))
@@ -424,7 +424,7 @@ fn generate_imported_nav_graphs(
         }
     }
 
-    for (nav_graph_id, nav_graph_data) in &from_site_data.nav_graphs {
+    for (nav_graph_id, nav_graph_data) in &from_site_data.navigation.guided.graphs {
         params.commands.entity(into_site).add_children(|site| {
             let e = site
                 .spawn_bundle(SpatialBundle::default())
@@ -434,7 +434,7 @@ fn generate_imported_nav_graphs(
         });
     }
 
-    for (lane_id, lane_data) in &from_site_data.lanes {
+    for (lane_id, lane_data) in &from_site_data.navigation.guided.lanes {
         params.commands.entity(into_site).add_children(|site| {
             let e = site
                 .spawn_bundle(lane_data.to_ecs(&id_to_entity))
@@ -443,7 +443,7 @@ fn generate_imported_nav_graphs(
         });
     }
 
-    for (location_id, location_data) in &from_site_data.locations {
+    for (location_id, location_data) in &from_site_data.navigation.guided.locations {
         params.commands.entity(into_site).add_children(|site| {
             let e = site
                 .spawn_bundle(location_data.to_ecs(&id_to_entity))
