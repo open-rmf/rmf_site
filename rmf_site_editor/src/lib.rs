@@ -42,8 +42,12 @@ use site_asset_io::SiteAssetIoPlugin;
 
 #[derive(Parser)]
 struct CommandLineArgs {
-    /// Filename of a Site (.site.ron) or Building (.building.yaml) file
+    /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
+    /// Exclude this argument to get the main menu.
     filename: Option<String>,
+    /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
+    #[arg(short, long)]
+    import: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -90,7 +94,10 @@ pub fn run(command_line_args: Vec<String>) {
 
     let command_line_args = CommandLineArgs::parse_from(command_line_args);
     if let Some(path) = command_line_args.filename {
-        app.insert_resource(Autoload::file(path.into()));
+        app.insert_resource(Autoload::file(
+            path.into(),
+            command_line_args.import.map(Into::into)
+        ));
     }
 
     #[cfg(target_arch = "wasm32")]

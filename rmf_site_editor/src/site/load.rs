@@ -15,13 +15,20 @@
  *
 */
 
-use crate::site::*;
+use crate::{
+    Autoload,
+    main_menu::load_site_file,
+    site::*
+};
 use bevy::{
     prelude::*,
     ecs::system::SystemParam,
+    tasks::{Task, AsyncComputeTaskPool},
 };
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
+use rfd::FileHandle;
+use futures_lite::future;
 
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.
@@ -458,12 +465,72 @@ fn generate_imported_nav_graphs(
 pub fn import_nav_graph(
     mut params: ImportNavGraphParams,
     mut import_requests: EventReader<ImportNavGraphs>,
+    mut autoload: Option<ResMut<Autoload>>,
+    current_site: Res<CurrentSite>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(
             &mut params, r.into_site, &r.from_site
         ) {
             println!("Failed to import nav graph: {err}");
+        }
+    }
+
+    'import: {
+        let autoload = match autoload.as_mut() {
+            Some(a) => a,
+            None => break 'import,
+        };
+
+        if autoload.importing.is_some() {
+            break 'import;
+        }
+
+        let import = match &autoload.import {
+            Some(p) => p,
+            None => break 'import,
+        };
+
+        let current_site = match current_site.0 {
+            Some(s) => s,
+            None => break 'import,
+        };
+
+        let file = FileHandle::wrap(import.clone());
+        autoload.importing = Some(AsyncComputeTaskPool::get().spawn(async move {
+            load_site_file(&file).await.map(|s| (current_site, s))
+        }));
+
+        autoload.import = None;
+    }
+
+    'importing: {
+        let autoload = match autoload.as_mut() {
+            Some(a) => a,
+            None => break 'importing,
+        };
+
+        let task = match &mut autoload.importing {
+            Some(t) => t,
+            None => break 'importing,
+        };
+
+        let result = match future::block_on(future::poll_once(task)) {
+            Some(r) => r,
+            None => break 'importing,
+        };
+
+        autoload.importing = None;
+
+        let (into_site, from_site_data) = match result {
+            Some(r) => r,
+            None => break 'importing,
+        };
+
+        if let Err(err) = generate_imported_nav_graphs(
+            &mut params, into_site, &from_site_data
+        ) {
+            println!("Failed to auto-import nav graph: {err}");
         }
     }
 }
