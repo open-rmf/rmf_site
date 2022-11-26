@@ -891,17 +891,6 @@ pub fn save_nav_graphs(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveNavGraphs>>().drain().collect();
     for save_event in save_events {
         let path = save_event.to_file;
-        println!(
-            "Saving nav graphs to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
-        let f = match std::fs::File::create(path) {
-            Ok(f) => f,
-            Err(err) => {
-                println!("Unable to save file: {err}");
-                continue;
-            }
-        };
 
         let mut site = match generate_site(world, save_event.site) {
             Ok(site) => site,
@@ -910,6 +899,25 @@ pub fn save_nav_graphs(world: &mut World) {
                 continue;
             }
         };
+
+        for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+            let mut graph_file = path.clone();
+            graph_file.set_file_name(name + ".nav.yaml");
+            println!(
+                "Saving legacy nav graph to {}",
+                graph_file.to_str().unwrap_or("<failed to render??>")
+            );
+            let f = match std::fs::File::create(graph_file) {
+                Ok(f) => f,
+                Err(err) => {
+                    println!("Unable to save nav graph: {err}");
+                    continue;
+                }
+            };
+            if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
+                println!("Failed to save nav graph: {err}");
+            }
+        }
 
         // Clear the elements that are not related to nav graphs
         for (_, level) in &mut site.levels {
@@ -922,6 +930,18 @@ pub fn save_nav_graphs(world: &mut World) {
             level.models.clear();
             level.walls.clear();
         }
+
+        println!(
+            "Saving all site nav graphs to {}",
+            path.to_str().unwrap_or("<failed to render??>")
+        );
+        let f = match std::fs::File::create(path) {
+            Ok(f) => f,
+            Err(err) => {
+                println!("Unable to save file: {err}");
+                continue;
+            }
+        };
 
         match site.to_writer(f) {
             Ok(()) => {

@@ -96,6 +96,14 @@ impl<T: RefTrait> AssociatedGraphs<T> {
             _ => None,
         }
     }
+
+    pub fn includes(&self, e: T) -> bool {
+        match self {
+            Self::All => true,
+            Self::Only(set) => set.contains(&e),
+            Self::AllExcept(set) => !set.contains(&e),
+        }
+    }
 }
 
 impl<T: RefTrait> Default for AssociatedGraphs<T> {
