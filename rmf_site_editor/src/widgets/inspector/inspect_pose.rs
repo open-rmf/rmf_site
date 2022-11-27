@@ -15,13 +15,10 @@
  *
 */
 
-use crate::{
-    site::{Change, Original},
-    widgets::inspector::InspectAngle,
-};
+use crate::widgets::inspector::InspectAngle;
 use bevy::math::Quat;
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
-use rmf_site_format::{Angle, Pose, Rotation};
+use rmf_site_format::{Pose, Rotation};
 
 pub struct InspectPose<'a> {
     pub pose: &'a Pose,

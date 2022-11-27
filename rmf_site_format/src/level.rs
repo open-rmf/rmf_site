@@ -42,14 +42,23 @@ impl Default for LevelProperties {
 pub struct Level {
     pub properties: LevelProperties,
     pub anchors: BTreeMap<u32, Anchor>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub doors: BTreeMap<u32, Door<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub drawings: BTreeMap<u32, Drawing>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub floors: BTreeMap<u32, Floor<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lights: BTreeMap<u32, Light>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub measurements: BTreeMap<u32, Measurement<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub models: BTreeMap<u32, Model>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub walls: BTreeMap<u32, Wall<u32>>,
 }
 

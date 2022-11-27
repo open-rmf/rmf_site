@@ -99,7 +99,13 @@ pub fn update_wall_edge(
 pub fn update_wall_for_moved_anchors(
     mut walls: Query<(Entity, &Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for dependents in &changed_anchors {

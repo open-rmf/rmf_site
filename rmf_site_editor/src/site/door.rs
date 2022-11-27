@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use rmf_site_format::{Category, DoorMarker, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
@@ -290,10 +290,16 @@ pub fn update_changed_door(
     }
 }
 
-pub fn update_door_for_changed_anchor(
+pub fn update_door_for_moved_anchors(
     doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (With<Anchor>, Changed<GlobalTransform>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,

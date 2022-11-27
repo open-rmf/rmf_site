@@ -17,12 +17,17 @@
 
 use super::demo_world::demo_office;
 use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
-use bevy::{app::AppExit, prelude::*, tasks::AsyncComputeTaskPool};
+use bevy::{
+    app::AppExit,
+    prelude::*,
+    tasks::{AsyncComputeTaskPool, Task},
+};
 use bevy_egui::{egui, EguiContext};
+use futures_lite::future;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::{AsyncFileDialog, FileHandle};
 use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 use std::path::PathBuf;
-use {bevy::tasks::Task, futures_lite::future};
 
 struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 
@@ -30,12 +35,18 @@ struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
 
 pub struct Autoload {
-    filename: PathBuf,
+    pub filename: Option<PathBuf>,
+    pub import: Option<PathBuf>,
+    pub importing: Option<Task<Option<(Entity, rmf_site_format::Site)>>>,
 }
 
 impl Autoload {
-    pub fn file(filename: PathBuf) -> Self {
-        Autoload { filename }
+    pub fn file(filename: PathBuf, import: Option<PathBuf>) -> Self {
+        Autoload {
+            filename: Some(filename),
+            import,
+            importing: None,
+        }
     }
 }
 
@@ -45,8 +56,8 @@ fn egui_ui(
     mut _exit: EventWriter<AppExit>,
     mut _load_site: EventWriter<LoadSite>,
     mut _interaction_state: ResMut<State<InteractionState>>,
-    mut app_state: ResMut<State<AppState>>,
-    autoload: Option<Res<Autoload>>,
+    mut _app_state: ResMut<State<AppState>>,
+    autoload: Option<ResMut<Autoload>>,
     loading_tasks: Query<(), With<LoadSiteFileTask>>,
 ) {
     if !loading_tasks.is_empty() {
@@ -64,13 +75,14 @@ fn egui_ui(
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let filename = autoload.filename.clone();
-            let future = AsyncComputeTaskPool::get().spawn(async move {
-                let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
-                Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
-            });
-            _commands.spawn().insert(LoadSiteFileTask(future));
-            _commands.remove_resource::<Autoload>();
+            if let Some(filename) = autoload.filename.clone() {
+                let future = AsyncComputeTaskPool::get().spawn(async move {
+                    let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
+                    Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
+                });
+                _commands.spawn().insert(LoadSiteFileTask(future));
+            }
+            autoload.filename = None;
         }
         return;
     }
@@ -124,7 +136,7 @@ fn egui_ui(
                                         focus: true,
                                         default_file: None,
                                     });
-                                    match app_state.set(AppState::SiteEditor) {
+                                    match _app_state.set(AppState::SiteEditor) {
                                         Ok(_) => {
                                             _interaction_state.set(InteractionState::Enable).ok();
                                         }
@@ -174,7 +186,7 @@ fn egui_ui(
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
                 //     println!("Entering warehouse generator");
-                //     app_state.set(AppState::WarehouseGenerator).unwrap();
+                //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
             });
 
@@ -243,7 +255,8 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
-async fn load_site_file(file: &FileHandle) -> Option<Site> {
+#[cfg(not(target_arch = "wasm32"))]
+pub async fn load_site_file(file: &FileHandle) -> Option<Site> {
     let is_legacy = file.file_name().ends_with(".building.yaml");
     let data = file.read().await;
     if is_legacy {

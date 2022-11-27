@@ -26,9 +26,13 @@ pub struct Lane<T: RefTrait> {
     /// The endpoints of the lane (start, end)
     pub anchors: Edge<T>,
     /// The properties of the lane when traveling forwards
+    #[serde(default, skip_serializing_if = "is_default")]
     pub forward: Motion,
     /// The properties of the lane when traveling in reverse
+    #[serde(default, skip_serializing_if = "is_default")]
     pub reverse: ReverseLane,
+    /// What graphs this lane is associated with
+    pub graphs: AssociatedGraphs<T>,
     /// Marker that tells bevy the entity is a Lane-type
     #[serde(skip)]
     pub marker: LaneMarker,
@@ -41,11 +45,11 @@ pub struct LaneMarker;
 #[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Motion {
-    #[serde(skip_serializing_if = "OrientationConstraint::is_none")]
+    #[serde(default, skip_serializing_if = "OrientationConstraint::is_none")]
     pub orientation_constraint: OrientationConstraint,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub speed_limit: Option<f32>,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dock: Option<Dock>,
 }
 
@@ -195,6 +199,7 @@ impl Lane<u32> {
             anchors: self.anchors.to_ecs(id_to_entity),
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
+            graphs: self.graphs.to_ecs(id_to_entity),
             marker: Default::default(),
         }
     }
@@ -206,6 +211,7 @@ impl<T: RefTrait> From<Edge<T>> for Lane<T> {
             anchors: edge,
             forward: Default::default(),
             reverse: Default::default(),
+            graphs: Default::default(),
             marker: Default::default(),
         }
     }

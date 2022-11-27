@@ -40,7 +40,7 @@ impl InteractionMode {
         match self {
             Self::Inspect => true,
             Self::SelectAnchor(_) => true,
-            _ => false,
+            // _ => false,
         }
     }
 
@@ -74,7 +74,6 @@ impl InteractionMode {
 
 #[derive(SystemParam)]
 pub struct BackoutParams<'w, 's> {
-    commands: Commands<'w, 's>,
     select: EventWriter<'w, 's, Select>,
     select_anchor: SelectAnchorPlacementParams<'w, 's>,
 }

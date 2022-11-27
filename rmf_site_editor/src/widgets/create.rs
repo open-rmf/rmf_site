@@ -16,10 +16,9 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, InteractionMode, SelectAnchor},
+    interaction::{ChangeMode, SelectAnchor},
     widgets::AppEvents,
 };
-use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 
 pub struct CreateWidget<'a, 'w, 's> {
@@ -36,6 +35,12 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
             if ui.button("Lane").clicked() {
                 self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_edge_sequence().for_lane().into(),
+                ));
+            }
+
+            if ui.button("Location").clicked() {
+                self.events.request.change_mode.send(ChangeMode::To(
+                    SelectAnchor::create_new_point().for_location().into(),
                 ));
             }
 

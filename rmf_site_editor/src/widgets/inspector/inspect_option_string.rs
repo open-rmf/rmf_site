@@ -16,7 +16,6 @@
 */
 
 use bevy_egui::egui::Ui;
-use rmf_site_format::Recall;
 
 pub struct InspectOptionString<'a> {
     title: &'a str,

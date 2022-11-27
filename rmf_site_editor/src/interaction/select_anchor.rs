@@ -324,17 +324,6 @@ pub struct EdgePlacement {
 }
 
 impl EdgePlacement {
-    fn transition(&self) -> PlacementTransition {
-        PlacementTransition {
-            preview: None,
-            next: Arc::new(Self {
-                side: self.side.opposite(),
-                create: self.create.clone(),
-                finalize: self.finalize.clone(),
-            }),
-        }
-    }
-
     fn to_start(&self) -> PlacementTransition {
         PlacementTransition {
             preview: None,
@@ -764,8 +753,10 @@ impl Placement for PointPlacement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
+        dbg!();
         if let Ok(mut point) = params.points.get_mut(target) {
             if let Ok(mut deps) = params.dependents.get_mut(**point) {
+                dbg!();
                 deps.remove(&target);
             }
 
@@ -781,7 +772,7 @@ impl Placement for PointPlacement {
                 // Delete the location entirely because there is no anchor to
                 // return it to.
                 params.commands.entity(target).despawn_recursive();
-                return Ok((TargetTransition::none(), self.transition()).into());
+                return Ok((TargetTransition::discontinued(), self.transition()).into());
             }
         } else {
             println!(
@@ -1338,6 +1329,7 @@ impl SelectAnchor {
     }
 
     /// Move an existing location to a new anchor.
+    // TODO(MXG): Make this accessible from the UI
     pub fn replace_point(location: Entity, original_anchor: Entity) -> SelectAnchorPointBuilder {
         SelectAnchorPointBuilder {
             for_element: Some(location),

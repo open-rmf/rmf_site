@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Selection, VisualCue},
+    interaction::VisualCue,
     shapes::*,
     site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
 };

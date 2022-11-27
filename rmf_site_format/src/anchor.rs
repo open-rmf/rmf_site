@@ -19,14 +19,15 @@ use crate::{Categorized, Category};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
-    math::{Affine3A, Vec2, Vec3},
     prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform},
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Clone, Debug)]
-#[serde(untagged)]
+// TODO(MXG): Change this to untagged for a cleaner looking format once this
+// issue is resolved: https://github.com/ron-rs/ron/issues/217
+// #[serde(untagged)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum Anchor {
     Translate2D([f32; 2]),
@@ -44,6 +45,46 @@ impl Anchor {
         match self {
             Self::Translate2D(v) => v,
             Self::CategorizedTranslate2D(v) => v.for_category(category),
+        }
+    }
+
+    pub fn is_close(&self, other: &Anchor, dist: f32) -> bool {
+        match self {
+            Self::Translate2D(p) => {
+                let p_left = Vec2::from_array(*p);
+                match other {
+                    Self::Translate2D(p) => {
+                        let p_right = Vec2::from_array(*p);
+                        return (p_left - p_right).length() <= dist;
+                    }
+                    Self::CategorizedTranslate2D(categories) => {
+                        for (_, p) in &categories.0 {
+                            let p_right = Vec2::from_array(*p);
+                            if (p_left - p_right).length() > dist {
+                                return false;
+                            }
+                        }
+                        return true;
+                    }
+                }
+            }
+            Self::CategorizedTranslate2D(left_categories) => match other {
+                Self::Translate2D(p) => {
+                    let p_left = Vec2::from_array(*left_categories.for_general());
+                    let p_right = Vec2::from_array(*p);
+                    return (p_left - p_right).length() <= dist;
+                }
+                Self::CategorizedTranslate2D(right_categories) => {
+                    for (category, p) in &left_categories.0 {
+                        let p_left = Vec2::from_array(*p);
+                        let p_right = Vec2::from_array(*right_categories.for_category(*category));
+                        if (p_left - p_right).length() > dist {
+                            return false;
+                        }
+                    }
+                    return true;
+                }
+            },
         }
     }
 }

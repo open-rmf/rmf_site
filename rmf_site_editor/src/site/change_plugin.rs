@@ -39,9 +39,16 @@ impl<T: Component + Clone + Debug> Change<T> {
 
 // TODO(MXG): We could consider allowing the user to specify a query filter so
 // this plugin only targets certain types.
-#[derive(Default)]
 pub struct ChangePlugin<T: Component + Clone + Debug> {
     _ignore: std::marker::PhantomData<T>,
+}
+
+impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
+    fn default() -> Self {
+        Self {
+            _ignore: Default::default(),
+        }
+    }
 }
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {

@@ -19,10 +19,7 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    path::PathBuf,
-};
+use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 use crate::site::*;
@@ -33,6 +30,12 @@ pub struct SaveSite {
     pub to_file: Option<PathBuf>,
 }
 
+pub struct SaveNavGraphs {
+    pub site: Entity,
+    pub to_file: PathBuf,
+}
+
+// TODO(MXG): Change all these errors to use u32 SiteIDs instead of entities
 #[derive(ThisError, Debug, Clone)]
 pub enum SiteGenerationError {
     #[error("the specified entity [{0:?}] does not refer to a site")]
@@ -41,29 +44,24 @@ pub enum SiteGenerationError {
     BrokenAnchorReference(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
-    #[error("an object has a reference to a door that does not exist")]
-    BrokenDoorReference(Entity),
-    #[error("lift {lift:?} has a reference anchor that does not belong to its site {site:?}")]
-    InvalidLiftRefAnchor { site: Entity, lift: Entity },
+    #[error("an object has a reference to a nav graph that does not exist")]
+    BrokenNavGraphReference(Entity),
+    #[error("lift {0} is missing its anchor group")]
+    BrokenLift(u32),
     #[error(
         "anchor {anchor:?} is being referenced for site {site:?} but does not belong to that site"
     )]
-    InvalidAnchorReference { site: Entity, anchor: Entity },
+    InvalidAnchorReference { site: u32, anchor: u32 },
     #[error(
         "lift door {door:?} is referencing an anchor that does not belong to its lift {anchor:?}"
     )]
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
-    #[error(
-        "door {door:?} is being referenced for level {level:?} but does not belong to that level"
-    )]
-    InvalidDoorReference { level: Entity, door: Entity },
 }
 
 /// Look through all the elements that we will be saving and assign a SiteID
 /// component to any elements that do not have one already.
 fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGenerationError> {
     let mut state: SystemState<(
-        Commands,
         Query<
             Entity,
             (
@@ -82,30 +80,24 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 Without<Pending>,
             ),
         >,
-        Query<Entity, (Or<(With<LaneMarker>, With<LocationTags>)>, Without<Pending>)>,
+        Query<
+            Entity,
+            (
+                Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+                Without<Pending>,
+            ),
+        >,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
-        Query<Entity, (With<NavGraphProperties>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
-        Query<&mut NextSiteID>,
+        Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (
-        mut commands,
-        level_children,
-        nav_graph_children,
-        levels,
-        nav_graphs,
-        lifts,
-        mut sites,
-        site_ids,
-        children,
-    ) = state.get_mut(world);
+    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
+        state.get_mut(world);
 
-    let mut next_site_id = sites
-        .get_mut(site)
-        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?;
+    let mut new_entities = Vec::new();
 
     let site_children = match children.get(site) {
         Ok(children) => children,
@@ -117,61 +109,59 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         }
     };
 
-    let mut next_id = move || {
-        let next = next_site_id.0;
-        next_site_id.as_mut().0 += 1;
-        return next;
-    };
-
     for site_child in site_children {
         if let Ok(level) = levels.get(*site_child) {
             if !site_ids.contains(level) {
-                commands.entity(level).insert(SiteID(next_id()));
+                new_entities.push(level);
             }
 
             if let Ok(children) = children.get(level) {
                 for child in children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
+                            new_entities.push(*child);
                         }
                     }
                 }
             }
         }
 
-        if let Ok(nav_graph) = nav_graphs.get(*site_child) {
-            if !site_ids.contains(nav_graph) {
-                commands.entity(nav_graph).insert(SiteID(next_id()));
-            }
-
-            if let Ok(children) = children.get(nav_graph) {
-                for child in children {
-                    if nav_graph_children.contains(*child) {
-                        if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
-                        }
-                    }
-                }
+        if let Ok(e) = nav_graph_elements.get(*site_child) {
+            if !site_ids.contains(e) {
+                new_entities.push(e);
             }
         }
 
         if let Ok(lift) = lifts.get(*site_child) {
             if !site_ids.contains(lift) {
-                commands.entity(lift).insert(SiteID(next_id()));
+                new_entities.push(lift);
             }
 
             if let Ok(children) = children.get(lift) {
                 for child in children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
-                            commands.entity(*child).insert(SiteID(next_id()));
+                            new_entities.push(*child);
                         }
                     }
                 }
             }
         }
     }
+
+    let mut next_site_id = sites
+        .get(site)
+        .map(|n| n.0)
+        .map_err(|_| SiteGenerationError::InvalidSiteEntity(site))?..;
+    for e in &new_entities {
+        world
+            .entity_mut(*e)
+            .insert(SiteID(next_site_id.next().unwrap()));
+    }
+
+    world
+        .entity_mut(site)
+        .insert(NextSiteID(next_site_id.next().unwrap()));
 
     Ok(())
 }
@@ -516,10 +506,19 @@ fn generate_lifts(
         Query<Entity, With<CabinAnchorGroup>>,
         Query<&Parent, Without<Pending>>,
         Query<&Children>,
+        Query<&SiteID>,
     )> = SystemState::new(world);
 
-    let (q_anchors, q_doors, q_levels, q_lifts, q_cabin_anchor_groups, q_parents, q_children) =
-        state.get(world);
+    let (
+        q_anchors,
+        q_doors,
+        q_levels,
+        q_lifts,
+        q_cabin_anchor_groups,
+        q_parents,
+        q_children,
+        q_site_id,
+    ) = state.get(world);
 
     let mut lifts = BTreeMap::new();
 
@@ -558,7 +557,10 @@ fn generate_lifts(
             return Ok(());
         }
 
-        Err(SiteGenerationError::InvalidAnchorReference { site, anchor })
+        Err(SiteGenerationError::InvalidAnchorReference {
+            site: q_site_id.get(site).unwrap().0,
+            anchor: q_site_id.get(anchor).unwrap().0,
+        })
     };
 
     let validate_site_anchors = |edge: &Edge<Entity>| {
@@ -572,11 +574,23 @@ fn generate_lifts(
             continue;
         }
 
+        // TODO(MXG): Clean up this spaghetti
+        let anchor_group_entity = *match match q_children.get(lift_entity) {
+            Ok(children) => children,
+            Err(_) => return Err(SiteGenerationError::BrokenLift(id.0)),
+        }
+        .iter()
+        .find(|c| q_cabin_anchor_groups.contains(**c))
+        {
+            Some(c) => c,
+            None => return Err(SiteGenerationError::BrokenLift(id.0)),
+        };
+
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
         validate_site_anchors(edge)?;
 
         let validate_level_door_anchor = |door: Entity, anchor: Entity| {
-            if confirm_entity_parent(lift_entity, anchor) {
+            if confirm_entity_parent(anchor_group_entity, anchor) {
                 return Ok(());
             }
 
@@ -651,31 +665,56 @@ fn generate_nav_graphs(
     world: &mut World,
     site: Entity,
 ) -> Result<BTreeMap<u32, NavGraph>, SiteGenerationError> {
+    let mut state: SystemState<
+        Query<
+            (&NameInSite, &DisplayColor, &SiteID, &Parent),
+            (With<NavGraphMarker>, Without<Pending>),
+        >,
+    > = SystemState::new(world);
+
+    let q_nav_graphs = state.get(world);
+
+    let mut nav_graphs = BTreeMap::new();
+    for (name, color, id, parent) in &q_nav_graphs {
+        if parent.get() != site {
+            continue;
+        }
+
+        nav_graphs.insert(
+            id.0,
+            NavGraph {
+                name: name.clone(),
+                color: color.clone(),
+                marker: Default::default(),
+            },
+        );
+    }
+
+    return Ok(nav_graphs);
+}
+
+fn generate_lanes(
+    world: &mut World,
+    site: Entity,
+) -> Result<BTreeMap<u32, Lane<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&NavGraphProperties, &SiteID, &Parent, Option<&Children>)>,
         Query<
             (
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
                 &Motion,
                 &ReverseLane,
+                &AssociatedGraphs<Entity>,
                 &SiteID,
+                &Parent,
             ),
             (With<LaneMarker>, Without<Pending>),
         >,
-        Query<
-            (
-                &Point<Entity>,
-                Option<&Original<Point<Entity>>>,
-                &LocationTags,
-                &SiteID,
-            ),
-            Without<Pending>,
-        >,
+        Query<&SiteID, With<NavGraphMarker>>,
         Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
-    let (q_nav_graphs, q_lanes, q_locations, q_anchors) = state.get(world);
+    let (q_lanes, q_nav_graphs, q_anchors) = state.get(world);
 
     let get_anchor_id = |entity| {
         let site_id = q_anchors
@@ -690,55 +729,87 @@ fn generate_nav_graphs(
         Ok(Edge::new(left, right))
     };
 
-    let mut nav_graphs = BTreeMap::new();
-    for (properties, id, parent, children) in &q_nav_graphs {
+    let mut lanes = BTreeMap::new();
+    for (edge, o_edge, forward, reverse, graphs, lane_id, parent) in &q_lanes {
         if parent.get() != site {
             continue;
         }
 
-        let mut lanes = BTreeMap::new();
-        let mut locations = BTreeMap::new();
-        if let Some(children) = children {
-            for child in children {
-                if let Ok((edge, o_edge, forward, reverse, lane_id)) = q_lanes.get(*child) {
-                    let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                    let edge = get_anchor_id_edge(edge)?;
-                    lanes.insert(
-                        lane_id.0,
-                        Lane {
-                            anchors: edge,
-                            forward: forward.clone(),
-                            reverse: reverse.clone(),
-                            marker: LaneMarker,
-                        },
-                    );
-                }
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+        let edge = get_anchor_id_edge(edge)?;
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
+            .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
 
-                if let Ok((point, o_point, tags, location_id)) = q_locations.get(*child) {
-                    let point = o_point.map(|x| &x.0).unwrap_or(point);
-                    let anchor = Point(get_anchor_id(point.0)?);
-                    locations.insert(
-                        location_id.0,
-                        Location {
-                            anchor,
-                            tags: tags.clone(),
-                        },
-                    );
-                }
-            }
-        }
-
-        nav_graphs.insert(
-            id.0,
-            NavGraph {
-                properties: properties.clone(),
-                lanes,
-                locations,
+        lanes.insert(
+            lane_id.0,
+            Lane {
+                anchors: edge.clone(),
+                forward: forward.clone(),
+                reverse: reverse.clone(),
+                graphs,
+                marker: LaneMarker,
             },
         );
     }
 
-    return Ok(nav_graphs);
+    Ok(lanes)
+}
+
+fn generate_locations(
+    world: &mut World,
+    site: Entity,
+) -> Result<BTreeMap<u32, Location<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<
+            (
+                &Point<Entity>,
+                Option<&Original<Point<Entity>>>,
+                &LocationTags,
+                &NameInSite,
+                &AssociatedGraphs<Entity>,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
+        Query<&SiteID, With<NavGraphMarker>>,
+        Query<&SiteID, With<Anchor>>,
+    )> = SystemState::new(world);
+
+    let (q_locations, q_nav_graphs, q_anchors) = state.get(world);
+
+    let get_anchor_id = |entity| {
+        let site_id = q_anchors
+            .get(entity)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+        Ok(site_id.0)
+    };
+
+    let mut locations = BTreeMap::new();
+    for (point, o_point, tags, name, graphs, location_id, parent) in &q_locations {
+        if parent.get() != site {
+            continue;
+        }
+
+        let point = o_point.map(|x| &x.0).unwrap_or(point);
+        let point = get_anchor_id(point.0)?;
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
+            .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
+
+        locations.insert(
+            location_id.0,
+            Location {
+                anchor: Point(point),
+                tags: tags.clone(),
+                name: name.clone(),
+                graphs,
+            },
+        );
+    }
+
+    Ok(locations)
 }
 
 pub fn generate_site(
@@ -750,6 +821,8 @@ pub fn generate_site(
     let levels = generate_levels(world, site)?;
     let lifts = generate_lifts(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
+    let lanes = generate_lanes(world, site)?;
+    let locations = generate_locations(world, site)?;
 
     let props = match world.get::<SiteProperties>(site) {
         Some(props) => props,
@@ -764,7 +837,13 @@ pub fn generate_site(
         properties: props.clone(),
         levels,
         lifts,
-        nav_graphs,
+        navigation: Navigation {
+            guided: Guided {
+                graphs: nav_graphs,
+                lanes,
+                locations,
+            },
+        },
         // TODO(MXG): Parse agent information once the spec is figured out
         agents: Default::default(),
     });
@@ -791,7 +870,10 @@ pub fn save_site(world: &mut World) {
             }
         };
 
-        println!("Saving to {}", path.to_str().unwrap());
+        println!(
+            "Saving to {}",
+            path.to_str().unwrap_or("<failed to render??>")
+        );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
@@ -804,6 +886,76 @@ pub fn save_site(world: &mut World) {
             Ok(site) => site,
             Err(err) => {
                 println!("Unable to compile site: {err}");
+                continue;
+            }
+        };
+
+        match site.to_writer(f) {
+            Ok(()) => {
+                println!("Save successful");
+            }
+            Err(err) => {
+                println!("Save failed: {err}");
+            }
+        }
+    }
+}
+
+pub fn save_nav_graphs(world: &mut World) {
+    let save_events: Vec<_> = world
+        .resource_mut::<Events<SaveNavGraphs>>()
+        .drain()
+        .collect();
+    for save_event in save_events {
+        let path = save_event.to_file;
+
+        let mut site = match generate_site(world, save_event.site) {
+            Ok(site) => site,
+            Err(err) => {
+                println!("Unable to compile site: {err}");
+                continue;
+            }
+        };
+
+        for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+            let mut graph_file = path.clone();
+            graph_file.set_file_name(name + ".nav.yaml");
+            println!(
+                "Saving legacy nav graph to {}",
+                graph_file.to_str().unwrap_or("<failed to render??>")
+            );
+            let f = match std::fs::File::create(graph_file) {
+                Ok(f) => f,
+                Err(err) => {
+                    println!("Unable to save nav graph: {err}");
+                    continue;
+                }
+            };
+            if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
+                println!("Failed to save nav graph: {err}");
+            }
+        }
+
+        // Clear the elements that are not related to nav graphs
+        for (_, level) in &mut site.levels {
+            level.doors.clear();
+            level.drawings.clear();
+            level.fiducials.clear();
+            level.floors.clear();
+            level.lights.clear();
+            level.measurements.clear();
+            level.models.clear();
+            level.walls.clear();
+        }
+
+        println!(
+            "Saving all site nav graphs to {}",
+            path.to_str().unwrap_or("<failed to render??>")
+        );
+        let f = match std::fs::File::create(path) {
+            Ok(f) => f,
+            Err(err) => {
+                println!("Unable to save file: {err}");
                 continue;
             }
         };

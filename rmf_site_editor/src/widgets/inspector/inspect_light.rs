@@ -16,7 +16,6 @@
 */
 
 use crate::site::{LightKind, RecallLightKind};
-use bevy::prelude::*;
 use bevy_egui::egui::{
     color_picker::{color_edit_button_rgba, Alpha},
     ComboBox, DragValue, Rgba, Ui,
@@ -131,7 +130,7 @@ impl<'a> InspectLightKind<'a> {
     }
 }
 
-fn color_edit(ui: &mut Ui, color: &mut [f32; 4]) {
+pub fn color_edit(ui: &mut Ui, color: &mut [f32; 4]) {
     let mut rgba = Rgba::from_rgba_premultiplied(color[0], color[1], color[2], color[3]);
     color_edit_button_rgba(ui, &mut rgba, Alpha::OnlyBlend);
     *color = [rgba.r(), rgba.g(), rgba.b(), rgba.a()];

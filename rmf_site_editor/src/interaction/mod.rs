@@ -41,11 +41,11 @@ pub use lift::*;
 pub mod light;
 pub use light::*;
 
-pub mod misc;
-pub use misc::*;
-
 pub mod mode;
 pub use mode::*;
+
+pub mod outline;
+pub use outline::*;
 
 pub mod picking;
 pub use picking::*;
@@ -60,6 +60,7 @@ pub mod select_anchor;
 pub use select_anchor::*;
 
 use bevy::prelude::*;
+use bevy_mod_outline::{AutoGenerateOutlineNormalsPlugin, OutlinePlugin};
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
 
 #[derive(Default)]
@@ -114,6 +115,8 @@ impl Plugin for InteractionPlugin {
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
+            .add_plugin(OutlinePlugin)
+            .add_plugin(AutoGenerateOutlineNormalsPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
@@ -130,7 +133,10 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
-                    .with_system(update_misc_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_outline_visualization.after(maintain_selected_entities))
+                    .with_system(
+                        update_cursor_hover_visualization.after(maintain_selected_entities),
+                    )
                     .with_system(update_gizmo_click_start.after(maintain_selected_entities))
                     .with_system(update_gizmo_release)
                     .with_system(
@@ -141,6 +147,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(handle_lift_doormat_clicks.after(update_gizmo_click_start))
                     .with_system(manage_previews)
                     .with_system(update_physical_camera_preview)
+                    .with_system(dirty_changed_lifts)
                     .with_system(handle_preview_window_close),
             )
             .add_system_set_to_stage(
@@ -149,7 +156,8 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_anchor_visual_cues)
                     .with_system(remove_interaction_for_subordinate_anchors)
                     .with_system(add_lane_visual_cues)
-                    .with_system(add_misc_visual_cues)
+                    .with_system(add_outline_visualization)
+                    .with_system(add_cursor_hover_visualization)
                     .with_system(add_physical_light_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))

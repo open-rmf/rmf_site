@@ -37,6 +37,7 @@ pub enum Category {
     Lane,
     Lift,
     Light,
+    Location,
     Measurement,
     Model,
     Camera,
@@ -56,6 +57,7 @@ impl Category {
             Self::Lane => "Lane",
             Self::Lift => "Lift",
             Self::Light => "Light",
+            Self::Location => "Location",
             Self::Measurement => "Measurement",
             Self::Model => "Model",
             Self::Camera => "Camera",
@@ -88,13 +90,14 @@ impl<T> Categorized<T> {
         self
     }
 
+    pub fn for_general(&self) -> &T {
+        self.0.get(&Category::General).unwrap()
+    }
+
     pub fn for_category(&self, category: Category) -> &T {
         match category {
             Category::General => self.0.get(&Category::General).unwrap(),
-            category => self
-                .0
-                .get(&category)
-                .unwrap_or_else(|| self.0.get(&Category::General).unwrap()),
+            category => self.0.get(&category).unwrap_or_else(|| self.for_general()),
         }
     }
 }

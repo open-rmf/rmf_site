@@ -18,7 +18,7 @@
 use crate::{interaction::Selectable, shapes::*, site::*};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
-use std::collections::{btree_map::Entry, BTreeSet};
+use std::collections::BTreeSet;
 
 #[derive(Clone, Copy, Debug, Component, Deref, DerefMut)]
 pub struct ChildLiftCabinGroup(pub Entity);
@@ -46,6 +46,7 @@ impl Default for CabinAnchorGroupBundle {
 
 #[derive(Clone, Copy, Debug)]
 pub enum CabinDoorId {
+    #[allow(dead_code)]
     Entity(Entity),
     RectFace(RectFace),
 }
@@ -95,7 +96,6 @@ fn make_lift_transform(
     };
 
     let dp = p_start - p_end;
-    let length = dp.length();
     let yaw = (-dp.x).atan2(dp.y);
     let center = (p_start + p_end) / 2.0;
 
@@ -159,7 +159,6 @@ pub fn update_lift_cabin(
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     levels: Query<(Entity, &Parent), With<LevelProperties>>,
-    new_levels: Query<(), Added<LevelProperties>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -320,7 +319,13 @@ pub fn update_lift_edge(
 pub fn update_lift_for_moved_anchors(
     mut lifts: Query<(Entity, &Edge<Entity>, &mut Transform), With<LiftCabin<Entity>>>,
     anchors: AnchorParams,
-    changed_anchors: Query<&Dependents, (Changed<GlobalTransform>, With<Anchor>)>,
+    changed_anchors: Query<
+        &Dependents,
+        (
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+        ),
+    >,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {
@@ -411,8 +416,7 @@ pub fn update_lift_door_availability(
 
                                 new_door
                             }
-                        }
-                        _ => continue,
+                        } //_ => continue,
                     }
                 }
             };
@@ -443,7 +447,7 @@ pub fn update_lift_door_availability(
                 CabinDoorId::Entity(e) => Some(e),
                 CabinDoorId::RectFace(face) => match &*cabin {
                     LiftCabin::Rect(params) => params.door(face).map(|p| p.door),
-                    _ => None,
+                    //_ => None,
                 },
             };
 

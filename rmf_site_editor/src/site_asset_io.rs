@@ -6,7 +6,6 @@ use bevy::{
 use dirs;
 use std::env;
 use std::fs;
-use std::fs::File;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};

@@ -15,7 +15,6 @@
  *
 */
 
-use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Ui};
 use rmf_site_format::Angle;
 use std::ops::RangeInclusive;

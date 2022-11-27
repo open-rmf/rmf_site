@@ -2,6 +2,7 @@ use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
+#[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
 use wasm_bindgen::prelude::*;
 
@@ -40,10 +41,14 @@ use interaction::InteractionPlugin;
 use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
 
-#[derive(Parser)]
+#[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 struct CommandLineArgs {
-    /// Filename of a Site (.site.ron) or Building (.building.yaml) file
+    /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
+    /// Exclude this argument to get the main menu.
     filename: Option<String>,
+    /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
+    #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
+    import: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -82,21 +87,27 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterIn
 
 #[wasm_bindgen]
 pub fn run_js() {
-    run(vec!["web".to_string()]);
+    run(vec!["web".to_owned()]);
 }
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
 
-    let command_line_args = CommandLineArgs::parse_from(command_line_args);
-    if let Some(path) = command_line_args.filename {
-        app.insert_resource(Autoload::file(path.into()));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        let command_line_args = CommandLineArgs::parse_from(command_line_args);
+        if let Some(path) = command_line_args.filename {
+            app.insert_resource(Autoload::file(
+                path.into(),
+                command_line_args.import.map(Into::into),
+            ));
+        }
     }
 
     #[cfg(target_arch = "wasm32")]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_string(),
+            title: "RMF Site Editor".to_owned(),
             canvas: Some(String::from("#rmf_site_editor_canvas")),
             //vsync: false,
             ..Default::default()
@@ -111,7 +122,7 @@ pub fn run(command_line_args: Vec<String>) {
     #[cfg(not(target_arch = "wasm32"))]
     {
         app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_string(),
+            title: "RMF Site Editor".to_owned(),
             width: 1600.,
             height: 900.,
             //vsync: false,

@@ -72,6 +72,9 @@ pub use model::*;
 pub mod nav_graph;
 pub use nav_graph::*;
 
+pub mod navigation;
+pub use navigation::*;
+
 pub mod path;
 pub use path::*;
 
@@ -97,7 +100,7 @@ pub mod wall;
 pub use wall::*;
 
 mod is_default;
-pub(crate) use is_default::is_default;
+pub(crate) use is_default::*;
 
 pub const CURRENT_MAJOR_VERSION: u32 = 0;
 pub const CURRENT_MINOR_VERSION: u32 = 1;

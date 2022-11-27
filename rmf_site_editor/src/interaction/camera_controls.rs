@@ -22,7 +22,6 @@ use bevy::{
     prelude::*,
     render::camera::{Camera, Projection, ScalingMode, WindowOrigin},
 };
-use bevy_egui::EguiContext;
 
 struct MouseLocation {
     previous: Vec2,

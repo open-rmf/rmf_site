@@ -23,6 +23,12 @@ pub struct Spinning {
     period: f32,
 }
 
+impl Spinning {
+    pub fn new(period: f32) -> Self {
+        Self { period }
+    }
+}
+
 impl Default for Spinning {
     fn default() -> Self {
         Self { period: 2. }
@@ -36,6 +42,7 @@ pub struct Bobbing {
 }
 
 impl Bobbing {
+    #[allow(dead_code)]
     pub fn between(h_min: f32, h_max: f32) -> Self {
         Self {
             heights: (h_min, h_max),

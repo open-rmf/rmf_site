@@ -15,6 +15,9 @@
  *
 */
 
+pub mod inspect_associated_graphs;
+pub use inspect_associated_graphs::*;
+
 pub mod inspect_anchor;
 pub use inspect_anchor::*;
 
@@ -36,14 +39,17 @@ pub use inspect_is_static::*;
 pub mod inspect_option_string;
 pub use inspect_option_string::*;
 
-pub mod inspect_lane;
-pub use inspect_lane::*;
-
 pub mod inspect_lift;
 pub use inspect_lift::*;
 
 pub mod inspect_light;
 pub use inspect_light::*;
+
+pub mod inspect_location;
+pub use inspect_location::*;
+
+pub mod inspect_motion;
+pub use inspect_motion::*;
 
 pub mod inspect_name;
 pub use inspect_name::*;
@@ -100,6 +106,8 @@ pub struct InspectorComponentParams<'w, 's> {
             &'static Category,
         ),
     >,
+    pub associated_graphs: InspectAssociatedGraphsParams<'w, 's>,
+    pub location_tags: Query<'w, 's, (&'static LocationTags, &'static RecallLocationTags)>,
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
@@ -159,6 +167,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
+            if let Ok(name) = self.params.component.names.get(selection) {
+                if let Some(new_name) = InspectName::new(name).show(ui) {
+                    self.events
+                        .change
+                        .name
+                        .send(Change::new(new_name, selection));
+                }
+                ui.add_space(10.0);
+            }
+
             if let Ok((edge, original, labels, category)) =
                 self.params.component.edges.get(selection)
             {
@@ -173,6 +191,30 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 )
                 .show(ui);
                 ui.add_space(10.0);
+            }
+
+            InspectAssociatedGraphsWidget::new(
+                selection,
+                &self.params.component.associated_graphs,
+                self.events,
+            )
+            .show(ui);
+
+            if let Ok((tags, recall)) = self.params.component.location_tags.get(selection) {
+                if let Some(new_tags) = InspectLocationWidget::new(
+                    selection,
+                    tags,
+                    recall,
+                    &self.params.anchor_params.icons,
+                    self.events,
+                )
+                .show(ui)
+                {
+                    self.events
+                        .change
+                        .location_tags
+                        .send(Change::new(new_tags, selection));
+                }
             }
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
@@ -196,16 +238,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                             .send(Change::new(new_reverse, selection));
                     }
                 });
-                ui.add_space(10.0);
-            }
-
-            if let Ok(name) = self.params.component.names.get(selection) {
-                if let Some(new_name) = InspectName::new(name).show(ui) {
-                    self.events
-                        .change
-                        .name
-                        .send(Change::new(new_name, selection));
-                }
                 ui.add_space(10.0);
             }
 

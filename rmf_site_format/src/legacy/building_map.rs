@@ -1,11 +1,11 @@
 use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, Angle, AssetSource, Category, Dock as SiteDock,
-    Drawing as SiteDrawing, DrawingMarker, Fiducial as SiteFiducial, FiducialMarker, IsStatic,
-    Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
-    LevelProperties as SiteLevelProperties, Lift as SiteLift, LiftProperties, Motion, NameInSite,
-    NavGraph, NavGraphProperties, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane,
-    Rotation, Site, SiteProperties,
+    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
+    Fiducial as SiteFiducial, FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph,
+    Navigation, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Rotation, Site,
+    SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -102,7 +102,7 @@ impl BuildingMap {
             }
         }
 
-        for (lift_name, lift) in map.lifts.iter_mut() {
+        for (_, lift) in map.lifts.iter_mut() {
             let tf = alignments
                 .get(&lift.reference_floor_name)
                 .unwrap()
@@ -122,13 +122,12 @@ impl BuildingMap {
         let mut site_anchors = BTreeMap::new();
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
-        let mut nav_graph_lanes = HashMap::<i64, Vec<SiteLane<u32>>>::new();
-        // Note: In the old format, all Locations are effectively "visible" to
-        // all nav graphs, but may be unreachable to some, and that is figured
-        // out at RMF runtime.
+        let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
+
+        let mut building_id_to_nav_graph_id = HashMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
@@ -322,37 +321,20 @@ impl BuildingMap {
                     ReverseLane::Same
                 };
 
+                let graph_id = building_id_to_nav_graph_id
+                    .entry(lane.2.graph_idx.1)
+                    .or_insert(site_id.next().unwrap());
+
                 let site_lane = SiteLane {
                     anchors: [left, right].into(),
                     forward: motion,
                     reverse,
+                    graphs: AssociatedGraphs::Only([*graph_id].into()),
                     marker: LaneMarker,
                 };
 
-                nav_graph_lanes
-                    .entry(lane.2.graph_idx.1)
-                    .or_insert(Default::default())
-                    .push(site_lane);
+                lanes.insert(site_id.next().unwrap(), site_lane);
             }
-        }
-
-        let mut nav_graphs = BTreeMap::new();
-        for (idx, lanes) in nav_graph_lanes {
-            let lanes: BTreeMap<_, _> = lanes
-                .into_iter()
-                .map(|lane| (site_id.next().unwrap(), lane))
-                .collect();
-
-            nav_graphs.insert(
-                site_id.next().unwrap(),
-                NavGraph {
-                    properties: NavGraphProperties {
-                        name: idx.to_string(),
-                    },
-                    lanes,
-                    locations: locations.clone(),
-                },
-            );
         }
 
         let mut lifts = BTreeMap::new();
@@ -364,10 +346,22 @@ impl BuildingMap {
                     name,
                     &mut site_id,
                     &mut site_anchors,
-                    &levels,
                     &level_name_to_id,
                     &lift_cabin_anchors,
                 )?,
+            );
+        }
+
+        let mut nav_graphs = BTreeMap::new();
+        for (i, (_, graph_id)) in building_id_to_nav_graph_id.iter().enumerate() {
+            let color_index = i % DEFAULT_NAV_GRAPH_COLORS.len();
+            nav_graphs.insert(
+                *graph_id,
+                NavGraph {
+                    name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
+                    color: DisplayColor(DEFAULT_NAV_GRAPH_COLORS[color_index]),
+                    marker: Default::default(),
+                },
             );
         }
 
@@ -379,7 +373,13 @@ impl BuildingMap {
             },
             levels,
             lifts,
-            nav_graphs,
+            navigation: Navigation {
+                guided: Guided {
+                    graphs: nav_graphs,
+                    lanes,
+                    locations,
+                },
+            },
             agents: Default::default(),
         })
     }

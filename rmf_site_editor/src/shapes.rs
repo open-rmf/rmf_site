@@ -19,7 +19,7 @@ use bevy::math::Affine3A;
 use bevy::{
     prelude::*,
     render::{
-        mesh::{shape::Box, Indices, PrimitiveTopology, VertexAttributeValues},
+        mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
         primitives::Aabb,
     },
 };
@@ -569,6 +569,10 @@ pub(crate) fn make_bottom_circle(circle: Circle, resolution: u32) -> MeshBuffer 
     return MeshBuffer::new(positions, normals, indices);
 }
 
+pub(crate) fn make_flat_disk(circle: Circle, resolution: u32) -> MeshBuffer {
+    make_top_circle(circle, resolution).merge_with(make_bottom_circle(circle, resolution))
+}
+
 pub(crate) fn make_dagger_mesh() -> Mesh {
     let lower_ring = Circle {
         radius: 0.01,
@@ -682,7 +686,6 @@ pub(crate) fn flat_arrow_mesh_between(
     let total_length = (stop - start).length();
     let tip_length = total_length.min(tip_length);
     let handle_length = total_length - tip_length;
-    let center = (start + stop) / 2.0;
     let dp = stop - start;
     let yaw = dp.y.atan2(dp.x);
 
@@ -897,7 +900,11 @@ pub(crate) fn make_flat_rect_mesh(x_size: f32, y_size: f32) -> MeshBuffer {
         .take(8)
         .collect();
 
-    return MeshBuffer::new(positions, normals, indices).with_uv(uv);
+    let outline = [0, 1, 1, 2, 2, 3, 3, 0].into_iter().collect();
+
+    return MeshBuffer::new(positions, normals, indices)
+        .with_uv(uv)
+        .with_outline(outline);
 }
 
 pub(crate) fn make_flat_mesh_for_aabb(aabb: Aabb) -> MeshBuffer {
@@ -975,4 +982,52 @@ pub(crate) fn make_halo_mesh() -> Mesh {
     mesh.insert_attribute(Mesh::ATTRIBUTE_COLOR, colors);
     mesh.set_indices(Some(indices));
     return mesh;
+}
+
+pub(crate) fn make_ring(inner_radius: f32, outer_radius: f32, resolution: usize) -> MeshBuffer {
+    let positions: Vec<[f32; 3]> = make_circles(
+        [(inner_radius, 0.).into(), (outer_radius, 0.).into()],
+        resolution as u32,
+        0.0,
+    )
+    .collect();
+
+    let normals: Vec<[f32; 3]> = [[0., 0., 1.0]]
+        .into_iter()
+        .cycle()
+        .take(positions.len())
+        .collect();
+
+    let r = resolution as u32;
+    let indices = [[0, r, r + 1, 0, r + 1, 1]]
+        .into_iter()
+        .cycle()
+        .enumerate()
+        .flat_map(|(cycle, values)| values.map(|s| s + cycle as u32))
+        .take(6 * (resolution - 1))
+        .chain([r - 1, 2 * r - 1, r, r - 1, r, 0])
+        .collect();
+
+    MeshBuffer::new(positions, normals, indices)
+}
+
+pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshBuffer {
+    let angle = (360.0 / (2.0 * segments as f32)).to_radians();
+    let p0 = radius * Vec3::X;
+    let p1 = Affine3A::from_rotation_z(angle).transform_vector3(p0);
+    let width = (p1 - p0).length();
+    let mut mesh = make_ring(radius, radius + width / 2.0, 32);
+    for i in 0..segments {
+        mesh = mesh.merge_with(
+            make_box(width / 2.0, width / 2.0, height / 2.0)
+                .transform_by(Affine3A::from_translation(Vec3::new(
+                    radius + width / 2.0,
+                    0.0,
+                    height / 2.0,
+                )))
+                .transform_by(Affine3A::from_rotation_z(i as f32 * 2.0 * angle)),
+        );
+    }
+
+    mesh
 }

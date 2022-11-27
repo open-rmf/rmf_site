@@ -23,8 +23,6 @@ use crate::{
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
-use std::path::{Path, PathBuf};
-
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
 #[derive(Default)]
@@ -49,8 +47,8 @@ pub fn add_drawing_visuals(
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(uri) => source.clone(),
-            AssetSource::Search(name) => source.clone(),
+            AssetSource::Remote(_) => source.clone(),
+            AssetSource::Search(_) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
@@ -121,8 +119,8 @@ pub fn update_drawing_asset_source(
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(uri) => source.clone(),
-            AssetSource::Search(name) => source.clone(),
+            AssetSource::Remote(_) => source.clone(),
+            AssetSource::Search(_) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings

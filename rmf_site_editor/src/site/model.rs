@@ -23,7 +23,6 @@ use bevy::{asset::LoadState, prelude::*};
 use rmf_site_format::{AssetSource, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
-use std::path::PathBuf;
 
 #[derive(Default, Debug, Clone, Deref, DerefMut)]
 pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
