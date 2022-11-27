@@ -18,6 +18,7 @@
 use crate::{main_menu::load_site_file, site::*, Autoload};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileHandle;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;

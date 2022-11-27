@@ -24,6 +24,7 @@ use bevy::{
 };
 use bevy_egui::{egui, EguiContext};
 use futures_lite::future;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::{AsyncFileDialog, FileHandle};
 use rmf_site_format::{legacy::building_map::BuildingMap, Site};
 use std::path::PathBuf;
@@ -254,6 +255,7 @@ impl Plugin for MainMenuPlugin {
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub async fn load_site_file(file: &FileHandle) -> Option<Site> {
     let is_legacy = file.file_name().ends_with(".building.yaml");
     let data = file.read().await;
