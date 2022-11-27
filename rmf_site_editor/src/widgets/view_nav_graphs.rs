@@ -30,8 +30,10 @@ use bevy::{
 };
 use bevy_egui::egui::{ImageButton, Ui};
 use futures_lite::future;
-use rfd::AsyncFileDialog;
 use smallvec::SmallVec;
+
+#[cfg(not(target_arch = "wasm32"))]
+use rfd::AsyncFileDialog;
 
 pub struct NavGraphDisplay {
     pub color: Option<[f32; 4]>,

@@ -28,7 +28,6 @@ dirs = "4.0"
 thread_local = "*"
 lyon = "1"
 thiserror = "*"
-clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
 
@@ -39,6 +38,7 @@ surf = { version = "2.3" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rfd = "0.8.2"
+clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
 
 # windows doesnt work well with dynamic feature yet
 [target.'cfg(target_os = "windows")'.dependencies]

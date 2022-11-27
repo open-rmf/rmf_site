@@ -15,13 +15,14 @@
  *
 */
 
-use crate::{main_menu::load_site_file, site::*, Autoload};
+use crate::{site::*, Autoload};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::FileHandle;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
+
+#[cfg(not(target_arch = "wasm32"))]
+use {crate::main_menu::load_site_file, rfd::FileHandle};
 
 /// This component is given to the site to kee ptrack of what file it should be
 /// saved to by default.

@@ -34,6 +34,7 @@ use bevy::{
 };
 use bevy_egui::egui::Ui;
 use futures_lite::future;
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
