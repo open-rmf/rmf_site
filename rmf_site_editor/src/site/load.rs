@@ -499,60 +499,64 @@ pub fn import_nav_graph(
         }
     }
 
-    'import: {
-        let autoload = match autoload.as_mut() {
-            Some(a) => a,
-            None => break 'import,
-        };
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        'import: {
+            let autoload = match autoload.as_mut() {
+                Some(a) => a,
+                None => break 'import,
+            };
 
-        if autoload.importing.is_some() {
-            break 'import;
+            if autoload.importing.is_some() {
+                break 'import;
+            }
+
+            let import = match &autoload.import {
+                Some(p) => p,
+                None => break 'import,
+            };
+
+            let current_site = match current_site.0 {
+                Some(s) => s,
+                None => break 'import,
+            };
+
+            let file = FileHandle::wrap(import.clone());
+            autoload.importing = Some(
+                AsyncComputeTaskPool::get()
+                    .spawn(async move { load_site_file(&file).await.map(|s| (current_site, s)) }),
+            );
+
+            autoload.import = None;
         }
 
-        let import = match &autoload.import {
-            Some(p) => p,
-            None => break 'import,
-        };
+        'importing: {
+            let autoload = match autoload.as_mut() {
+                Some(a) => a,
+                None => break 'importing,
+            };
 
-        let current_site = match current_site.0 {
-            Some(s) => s,
-            None => break 'import,
-        };
+            let task = match &mut autoload.importing {
+                Some(t) => t,
+                None => break 'importing,
+            };
 
-        let file = FileHandle::wrap(import.clone());
-        autoload.importing = Some(
-            AsyncComputeTaskPool::get()
-                .spawn(async move { load_site_file(&file).await.map(|s| (current_site, s)) }),
-        );
+            let result = match future::block_on(future::poll_once(task)) {
+                Some(r) => r,
+                None => break 'importing,
+            };
 
-        autoload.import = None;
-    }
+            autoload.importing = None;
 
-    'importing: {
-        let autoload = match autoload.as_mut() {
-            Some(a) => a,
-            None => break 'importing,
-        };
+            let (into_site, from_site_data) = match result {
+                Some(r) => r,
+                None => break 'importing,
+            };
 
-        let task = match &mut autoload.importing {
-            Some(t) => t,
-            None => break 'importing,
-        };
-
-        let result = match future::block_on(future::poll_once(task)) {
-            Some(r) => r,
-            None => break 'importing,
-        };
-
-        autoload.importing = None;
-
-        let (into_site, from_site_data) = match result {
-            Some(r) => r,
-            None => break 'importing,
-        };
-
-        if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data) {
-            println!("Failed to auto-import nav graph: {err}");
+            if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data)
+            {
+                println!("Failed to auto-import nav graph: {err}");
+            }
         }
     }
 }
