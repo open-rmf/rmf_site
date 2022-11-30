@@ -174,7 +174,7 @@ impl NavVertexProperties {
             None => return props,
         };
         props.name = location.name.0.clone();
-        props.is_charger = location.tags.iter().find(|t| t.is_charger()).is_some();
+        props.is_charger = location.tags.0.iter().find(|t| t.is_charger()).is_some();
         props.is_holding_point = location
             .tags
             .iter()
