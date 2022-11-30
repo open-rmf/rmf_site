@@ -180,7 +180,7 @@ impl NavVertexProperties {
             .iter()
             .find(|t| t.is_holding_point())
             .is_some();
-        props.is_parking_spot = location.tags.iter().find(|t| t.is_parking_spot()).is_some();
+        props.is_parking_spot = location.tags.0.iter().find(|t| t.is_parking_spot()).is_some();
 
         props
     }
