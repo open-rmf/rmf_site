@@ -115,12 +115,6 @@ pub struct GridFile {
     pub occupied: BTreeMap<u64, BTreeSet<u64>>,
 }
 
-impl GridFile {
-    // pub fn from_grid(grid: &Grid) -> Self {
-
-    // }
-}
-
 #[derive(Clone, Copy, Debug)]
 pub struct GridRange {
     min: [i64; 2],
