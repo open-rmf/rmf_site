@@ -19,10 +19,13 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{collections::{BTreeMap, HashMap}, path::PathBuf};
 use thiserror::Error as ThisError;
 
-use crate::site::*;
+use crate::{
+    site::*,
+    occupancy::Grid as OccupancyGrid,
+};
 use rmf_site_format::*;
 
 pub struct SaveSite {
@@ -917,7 +920,34 @@ pub fn save_nav_graphs(world: &mut World) {
             }
         };
 
-        for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+        let occupancy: HashMap<String, Occupancy> = {
+            let mut state: SystemState<(
+                Query<(&OccupancyGrid, &Parent)>,
+                Query<(Entity, &LevelProperties, &Parent)>,
+            )> = SystemState::new(world);
+
+            let (grids, levels) = state.get_mut(world);
+            let level_names: HashMap<Entity, String> = levels.iter()
+                .filter(|(_, _, parent)| parent.get() == save_event.site)
+                .map(
+                    |(e, prop, _)| {
+                        (e, prop.name.clone())
+                    })
+                .collect();
+
+            grids.iter()
+                .filter_map(|(grid, parent)| {
+                    level_names.get(&parent.get())
+                        .map(|name| (name.clone(), grid.to_format()))
+                })
+                .collect()
+        };
+
+        for (name, mut nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+            for (level_name, level) in &mut nav_graph.levels {
+                level.occupancy = occupancy.get(level_name).map(|grid| grid.clone());
+            }
+
             let mut graph_file = path.clone();
             graph_file.set_file_name(name + ".nav.yaml");
             println!(

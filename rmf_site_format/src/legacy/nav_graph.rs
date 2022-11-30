@@ -4,8 +4,8 @@ use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Clone)]
 pub struct NavGraph {
-    building_name: String,
-    levels: HashMap<String, NavLevel>,
+    pub building_name: String,
+    pub levels: HashMap<String, NavLevel>,
 }
 
 impl NavGraph {
@@ -84,7 +84,7 @@ impl NavGraph {
                     }
                 }
 
-                levels.insert(level.properties.name.clone(), NavLevel { lanes, vertices });
+                levels.insert(level.properties.name.clone(), NavLevel { lanes, vertices, occupancy: None });
             }
 
             graphs.push((
@@ -104,6 +104,8 @@ impl NavGraph {
 pub struct NavLevel {
     lanes: Vec<NavLane>,
     vertices: Vec<NavVertex>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub occupancy: Option<Occupancy>,
 }
 
 #[derive(Serialize, Clone)]

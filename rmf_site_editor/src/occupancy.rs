@@ -30,9 +30,10 @@ use bevy::{
 };
 use itertools::Itertools;
 use std::{
-    collections::{HashMap, HashSet},
+    collections::{HashMap, HashSet, BTreeMap, BTreeSet},
     time::Instant,
 };
+use serde::{Serialize, Deserialize};
 
 pub struct OccupancyPlugin;
 
@@ -91,6 +92,35 @@ pub struct Grid {
     pub range: GridRange,
 }
 
+impl Grid {
+    pub fn to_format(&self) -> rmf_site_format::Occupancy {
+        let mut cells: BTreeMap<i64, BTreeSet<i64>> = BTreeMap::new();
+        for cell in &self.occupied {
+            cells.entry(cell.x).or_default().insert(cell.y);
+        }
+
+        rmf_site_format::Occupancy {
+            cell_size: self.cell_size,
+            cells,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize)]
+pub struct GridFile {
+    pub resolution: f32, // m/cell
+    pub origin: [f32; 2],
+    pub width: u64,
+    pub height: u64,
+    pub occupied: BTreeMap<u64, BTreeSet<u64>>,
+}
+
+impl GridFile {
+    // pub fn from_grid(grid: &Grid) -> Self {
+
+    // }
+}
+
 #[derive(Clone, Copy, Debug)]
 pub struct GridRange {
     min: [i64; 2],
@@ -128,6 +158,13 @@ impl GridRange {
 
     pub fn iter(&self) -> impl Iterator<Item = (i64, i64)> {
         (self.min[0]..=self.max[0]).cartesian_product(self.min[1]..=self.max[1])
+    }
+
+    pub fn width(&self) -> u64 {
+        (self.max[0] - self.min[0]) as u64
+    }
+    pub fn height(&self) -> u64 {
+        (self.max[1] - self.min[1]) as u64
     }
 }
 
