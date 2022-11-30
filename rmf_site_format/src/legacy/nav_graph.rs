@@ -102,8 +102,8 @@ impl NavGraph {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavLevel {
-    lanes: Vec<NavLane>,
-    vertices: Vec<NavVertex>,
+    pub lanes: Vec<NavLane>,
+    pub vertices: Vec<NavVertex>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub occupancy: Option<Occupancy>,
 }
@@ -113,9 +113,9 @@ pub struct NavLane(pub usize, pub usize, pub NavLaneProperties);
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavLaneProperties {
-    speed_limit: f32,
+    pub speed_limit: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
-    dock_name: Option<String>,
+    pub dock_name: Option<String>,
     // TODO(MXG): Add other lane properties
     // door_name,
     // orientation_constraint,
@@ -144,14 +144,14 @@ impl NavVertex {
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavVertexProperties {
     #[serde(skip_serializing_if = "Option::is_none")]
-    lift: Option<String>,
+    pub lift: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
-    is_charger: bool,
+    pub is_charger: bool,
     #[serde(skip_serializing_if = "is_false")]
-    is_holding_point: bool,
+    pub is_holding_point: bool,
     #[serde(skip_serializing_if = "is_false")]
-    is_parking_spot: bool,
-    name: String,
+    pub is_parking_spot: bool,
+    pub name: String,
 }
 
 impl Default for NavVertexProperties {
