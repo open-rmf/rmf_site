@@ -1,5 +1,5 @@
 use crate::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Clone)]
@@ -84,7 +84,14 @@ impl NavGraph {
                     }
                 }
 
-                levels.insert(level.properties.name.clone(), NavLevel { lanes, vertices, occupancy: None });
+                levels.insert(
+                    level.properties.name.clone(),
+                    NavLevel {
+                        lanes,
+                        vertices,
+                        occupancy: None,
+                    },
+                );
             }
 
             graphs.push((
@@ -181,7 +188,12 @@ impl NavVertexProperties {
             .iter()
             .find(|t| t.is_holding_point())
             .is_some();
-        props.is_parking_spot = location.tags.0.iter().find(|t| t.is_parking_spot()).is_some();
+        props.is_parking_spot = location
+            .tags
+            .0
+            .iter()
+            .find(|t| t.is_parking_spot())
+            .is_some();
 
         props
     }

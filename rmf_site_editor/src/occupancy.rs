@@ -29,11 +29,11 @@ use bevy::{
     },
 };
 use itertools::Itertools;
+use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, HashSet, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet, HashMap, HashSet},
     time::Instant,
 };
-use serde::{Serialize, Deserialize};
 
 pub struct OccupancyPlugin;
 
