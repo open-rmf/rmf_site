@@ -1,8 +1,8 @@
 use crate::*;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 use std::collections::{HashMap, HashSet};
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavGraph {
     pub building_name: String,
     pub levels: HashMap<String, NavLevel>,
@@ -100,7 +100,7 @@ impl NavGraph {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavLevel {
     lanes: Vec<NavLane>,
     vertices: Vec<NavVertex>,
@@ -108,10 +108,10 @@ pub struct NavLevel {
     pub occupancy: Option<Occupancy>,
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavLane(pub usize, pub usize, pub NavLaneProperties);
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavLaneProperties {
     speed_limit: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -131,7 +131,7 @@ impl NavLaneProperties {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
@@ -141,7 +141,7 @@ impl NavVertex {
     }
 }
 
-#[derive(Serialize, Clone)]
+#[derive(Serialize, Deserialize, Clone)]
 pub struct NavVertexProperties {
     #[serde(skip_serializing_if = "Option::is_none")]
     lift: Option<String>,
