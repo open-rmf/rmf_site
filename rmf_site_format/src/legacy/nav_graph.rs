@@ -121,7 +121,7 @@ pub struct NavLane(pub usize, pub usize, pub NavLaneProperties);
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavLaneProperties {
     pub speed_limit: f32,
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub dock_name: Option<String>,
     // TODO(MXG): Add other lane properties
     // door_name,
@@ -150,13 +150,13 @@ impl NavVertex {
 
 #[derive(Serialize, Deserialize, Clone)]
 pub struct NavVertexProperties {
-    #[serde(skip_serializing_if = "Option::is_none")]
+    #[serde(default, skip_serializing_if = "Option::is_none")]
     pub lift: Option<String>,
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default = "bool_false", skip_serializing_if = "is_false")]
     pub is_charger: bool,
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default = "bool_false", skip_serializing_if = "is_false")]
     pub is_holding_point: bool,
-    #[serde(skip_serializing_if = "is_false")]
+    #[serde(default = "bool_false", skip_serializing_if = "is_false")]
     pub is_parking_spot: bool,
     pub name: String,
 }
@@ -201,4 +201,8 @@ impl NavVertexProperties {
 
 fn is_false(b: &bool) -> bool {
     !b
+}
+
+fn bool_false() -> bool {
+    false
 }
