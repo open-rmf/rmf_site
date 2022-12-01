@@ -25,13 +25,13 @@ impl NavGraph {
             };
 
             let lanes_with_anchor = {
-                let mut lanes_with_anchor = HashMap::new();
+                let mut lanes_with_anchor: HashMap<u32, Vec<(u32, &Lane<u32>)>> = HashMap::new();
                 for (lane_id, lane) in &site.navigation.guided.lanes {
                     if !lane.graphs.includes(graph_id) {
                         continue;
                     }
                     for a in lane.anchors.array() {
-                        lanes_with_anchor.insert(a, (*lane_id, lane));
+                        lanes_with_anchor.entry(a).or_default().push((*lane_id, lane));
                     }
                 }
                 lanes_with_anchor
@@ -45,12 +45,22 @@ impl NavGraph {
                 let mut vertices = Vec::new();
                 let mut lanes_to_include = HashSet::new();
                 for (id, anchor) in &level.anchors {
-                    let (lane, _) = match lanes_with_anchor.get(id) {
+                    let lanes = match lanes_with_anchor.get(id) {
                         Some(v) => v,
-                        None => continue,
+                        None => {
+                            if let Some(location) = location_at_anchor.get(id) {
+                                // Even if the location is not connected by any
+                                // lane, include it in the nav graph.
+                                anchor_to_vertex.insert(*id, vertices.len());
+                                vertices.push(NavVertex::from_anchor(anchor, Some(location)));
+                            }
+                            continue;
+                        },
                     };
 
-                    lanes_to_include.insert(*lane);
+                    for (lane_id, _) in lanes {
+                        lanes_to_include.insert(*lane_id);
+                    }
                     anchor_to_vertex.insert(*id, vertices.len());
                     vertices.push(NavVertex::from_anchor(anchor, location_at_anchor.get(id)));
                 }
