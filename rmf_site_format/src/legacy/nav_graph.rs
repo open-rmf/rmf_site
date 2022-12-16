@@ -31,7 +31,10 @@ impl NavGraph {
                         continue;
                     }
                     for a in lane.anchors.array() {
-                        lanes_with_anchor.entry(a).or_default().push((*lane_id, lane));
+                        lanes_with_anchor
+                            .entry(a)
+                            .or_default()
+                            .push((*lane_id, lane));
                     }
                 }
                 lanes_with_anchor
@@ -55,7 +58,7 @@ impl NavGraph {
                                 vertices.push(NavVertex::from_anchor(anchor, Some(location)));
                             }
                             continue;
-                        },
+                        }
                     };
 
                     for (lane_id, _) in lanes {
