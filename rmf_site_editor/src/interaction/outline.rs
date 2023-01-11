@@ -16,7 +16,8 @@
 */
 
 use crate::interaction::*;
-use bevy_mod_outline::{Outline, OutlineBundle, OutlineStencil};
+use bevy::render::view::RenderLayers;
+use bevy_mod_outline::{Outline, OutlineBundle, OutlineStencil, OutlineRenderLayers};
 use rmf_site_format::{
     DoorType, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
     PhysicalCameraProperties, WallMarker,
@@ -88,7 +89,8 @@ pub fn update_outline_visualization(
                             colour: color,
                         },
                         stencil: OutlineStencil,
-                    });
+                    })
+                    .insert(OutlineRenderLayers(RenderLayers::layer(VISUAL_CUE_RENDER_LAYER)));
                 } else {
                     commands
                         .entity(top)

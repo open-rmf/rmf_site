@@ -15,7 +15,8 @@ name = "rmf_site_editor"
 bevy_egui = "0.15"
 bevy_mod_picking = "0.8"
 bevy_mod_raycast = "0.6"
-bevy_mod_outline = "0.2"
+# bevy_mod_outline = "0.2"
+bevy_mod_outline = { git = "https://github.com/mxgrey/bevy_mod_outline", branch = "outline_render_layers_v0.2" }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
