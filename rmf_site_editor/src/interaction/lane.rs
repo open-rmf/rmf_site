@@ -37,7 +37,7 @@ pub fn add_lane_visual_cues(
             .insert(LaneVisualCue {
                 supporters: Some(*lane),
             })
-            .insert(VisualCue);
+            .insert(VisualCue::no_outline());
     }
 
     for (e, segments) in &new_lane_segments {

@@ -78,7 +78,7 @@ pub fn add_location_visuals(
             })
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
-            .insert(VisualCue);
+            .insert(VisualCue::outline());
     }
 }
 

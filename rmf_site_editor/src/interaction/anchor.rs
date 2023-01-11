@@ -89,7 +89,7 @@ pub fn add_anchor_visual_cues(
                 body,
                 drag: None,
             })
-            .insert(VisualCue);
+            .insert(VisualCue::no_outline());
     }
 }
 
