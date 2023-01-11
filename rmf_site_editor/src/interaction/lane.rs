@@ -32,7 +32,8 @@ pub fn add_lane_visual_cues(
     new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
 ) {
     for (e, lane) in &new_lanes {
-        commands.entity(e)
+        commands
+            .entity(e)
             .insert(LaneVisualCue {
                 supporters: Some(*lane),
             })

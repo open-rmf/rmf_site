@@ -17,7 +17,7 @@
 
 use crate::interaction::*;
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{Outline, OutlineBundle, OutlineStencil, OutlineRenderLayers};
+use bevy_mod_outline::{Outline, OutlineBundle, OutlineRenderLayers, OutlineStencil};
 use rmf_site_format::{
     DoorType, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
     PhysicalCameraProperties, WallMarker,
@@ -82,15 +82,19 @@ pub fn update_outline_visualization(
         while let Some(top) = queue.pop() {
             if let Ok(children) = descendants.get(top) {
                 if let Some(color) = color {
-                    commands.entity(top).insert_bundle(OutlineBundle {
-                        outline: Outline {
-                            visible: true,
-                            width: 3.0,
-                            colour: color,
-                        },
-                        stencil: OutlineStencil,
-                    })
-                    .insert(OutlineRenderLayers(RenderLayers::layer(VISUAL_CUE_RENDER_LAYER)));
+                    commands
+                        .entity(top)
+                        .insert_bundle(OutlineBundle {
+                            outline: Outline {
+                                visible: true,
+                                width: 3.0,
+                                colour: color,
+                            },
+                            stencil: OutlineStencil,
+                        })
+                        .insert(OutlineRenderLayers(RenderLayers::layer(
+                            VISUAL_CUE_RENDER_LAYER,
+                        )));
                 } else {
                     commands
                         .entity(top)

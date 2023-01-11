@@ -15,12 +15,9 @@
  *
 */
 
-use bevy::{
-    prelude::*,
-    render::view::visibility::RenderLayers,
-};
-use smallvec::SmallVec;
 use crate::interaction::VISUAL_CUE_RENDER_LAYER;
+use bevy::{prelude::*, render::view::visibility::RenderLayers};
+use smallvec::SmallVec;
 
 /// A unit component to tag entities that are only meant to be visual cues and
 /// should be excluded from visualization or analysis of physical objects.
@@ -42,7 +39,8 @@ pub fn propagate_visual_cues(
         let mut queue = SmallVec::<[Entity; 5]>::new();
         queue.push(e);
         while let Some(top) = queue.pop() {
-            commands.entity(top)
+            commands
+                .entity(top)
                 .insert(VisualCue)
                 .insert(RenderLayers::layer(VISUAL_CUE_RENDER_LAYER));
             if let Ok(children) = children.get(top) {

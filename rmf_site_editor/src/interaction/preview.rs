@@ -18,8 +18,8 @@
 use bevy::{
     prelude::*,
     render::{
+        camera::{Projection, RenderTarget},
         view::RenderLayers,
-        camera::{Projection, RenderTarget}
     },
     window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows},
 };
@@ -62,7 +62,8 @@ fn create_camera_window(
         },
     });
     // Now spawn the camera
-    commands.entity(entity)
+    commands
+        .entity(entity)
         .insert(Camera {
             target: RenderTarget::Window(window_id),
             is_active: true,

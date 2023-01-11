@@ -15,11 +15,7 @@
  *
 */
 
-use crate::{
-    animate::Spinning,
-    site::*,
-    interaction::VisualCue,
-};
+use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics

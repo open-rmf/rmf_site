@@ -171,8 +171,7 @@ impl Plugin for InteractionPlugin {
             )
             .add_system_set_to_stage(
                 InteractionUpdateStage::ProcessVisuals,
-                SystemSet::on_update(InteractionState::Enable)
-                    .with_system(propagate_visual_cues)
+                SystemSet::on_update(InteractionState::Enable).with_system(propagate_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(
