@@ -20,8 +20,19 @@ use bevy::{
     core_pipeline::core_3d::Camera3dBundle,
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
-    render::camera::{Camera, Projection, ScalingMode, WindowOrigin},
+    render::{
+        camera::{Camera, Projection, ScalingMode, WindowOrigin},
+        view::RenderLayers,
+    },
 };
+
+/// RenderLayers are used to inform cameras which entities they should render.
+/// The user's viewport will see all layers, but physical cameras will only see
+/// entities in the default layer 0. In the site editor, each layer value has a
+/// specific semantic meaning so we need to make sure we never reuse these
+/// values.
+pub const PHYSICAL_RENDER_LAYER: u8 = 0;
+pub const VISUAL_CUE_RENDER_LAYER: u8 = 1;
 
 struct MouseLocation {
     previous: Vec2,
@@ -153,6 +164,10 @@ impl FromWorld for CameraControls {
             })
             .insert(Visibility::visible())
             .insert(ComputedVisibility::default())
+            .insert(RenderLayers::from_layers(&[
+                PHYSICAL_RENDER_LAYER,
+                VISUAL_CUE_RENDER_LAYER,
+            ]))
             .push_children(&[persp_headlight])
             .id();
 
@@ -190,6 +205,10 @@ impl FromWorld for CameraControls {
             })
             .insert(Visibility::visible())
             .insert(ComputedVisibility::default())
+            .insert(RenderLayers::from_layers(&[
+                PHYSICAL_RENDER_LAYER,
+                VISUAL_CUE_RENDER_LAYER,
+            ]))
             .push_children(&[ortho_headlight])
             .id();
 
