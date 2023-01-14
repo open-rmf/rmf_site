@@ -140,6 +140,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_selected_entities.after(maintain_hovered_entities))
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
                     .with_system(update_outline_visualization.after(maintain_selected_entities))

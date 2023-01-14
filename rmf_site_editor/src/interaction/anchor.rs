@@ -22,6 +22,11 @@ use crate::{
 };
 use bevy::prelude::*;
 
+/// xray an anchor because it is selected
+const XRAY_SELECTED: u32 = 0;
+/// xray an anchor because it is within proximity of the cursor
+const XRAY_PROXIMITY: u32 = 1;
+
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualization {
     pub dagger: Entity,
@@ -89,7 +94,7 @@ pub fn add_anchor_visual_cues(
                 body,
                 drag: None,
             })
-            .insert(VisualCue::no_outline());
+            .insert(VisualCue::no_outline().irregular());
     }
 }
 
@@ -119,6 +124,61 @@ pub fn move_anchor(
     }
 }
 
+pub fn update_anchor_proximity_xray(
+    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
+    cursor: Res<Cursor>,
+    transforms: Query<&GlobalTransform>,
+    cursor_moved: EventReader<CursorMoved>,
+) {
+    if cursor_moved.is_empty() {
+        return;
+    }
+
+    let cursor_tf = match transforms.get(cursor.frame) {
+        Ok(tf) => tf,
+        _ => return,
+    };
+
+    let p_c = cursor_tf.translation();
+
+    for (anchor_tf, mut cue) in &mut anchors {
+        let previously_in_proximity = cue.xray_dependents.contains(&XRAY_PROXIMITY);
+
+        // TODO(MXG): Make the proximity range configurable
+        let proximity = {
+            // We make the xray effect a little "sticky" so that there isn't an
+            // ugly flicker for anchors that are right at the edge of the
+            // proximity range.
+            if previously_in_proximity {
+                5.0
+            } else {
+                4.0
+            }
+        };
+
+        let xray = 'xray: {
+            let p_a = anchor_tf.translation();
+            if p_a.x < p_c.x - proximity || p_c.x + proximity < p_a.x {
+                break 'xray false;
+            }
+
+            if p_a.y < p_c.y - proximity || p_c.y + proximity < p_a.y {
+                break 'xray false;
+            }
+
+            true
+        };
+
+        if xray != previously_in_proximity {
+            if xray {
+                cue.xray_dependents.insert(XRAY_PROXIMITY);
+            } else {
+                cue.xray_dependents.remove(&XRAY_PROXIMITY);
+            }
+        }
+    }
+}
+
 pub fn update_anchor_visual_cues(
     mut command: Commands,
     mut anchors: Query<
@@ -127,6 +187,7 @@ pub fn update_anchor_visual_cues(
             &Hovered,
             &Selected,
             &mut AnchorVisualization,
+            &mut VisualCue,
             Option<&Subordinate>,
             ChangeTrackers<Selected>,
         ),
@@ -139,9 +200,9 @@ pub fn update_anchor_visual_cues(
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (v, hovered, selected, mut cue, subordinate, select_tracker) in &mut anchors {
+    for (a, hovered, selected, mut shapes, mut cue, subordinate, select_tracker) in &mut anchors {
         if hovered.cue() || selected.cue() {
-            set_visibility(cue.dagger, &mut visibility, true);
+            set_visibility(shapes.dagger, &mut visibility, true);
         }
 
         if hovered.is_hovered {
@@ -149,44 +210,51 @@ pub fn update_anchor_visual_cues(
         }
 
         if selected.cue() {
-            set_visibility(cue.halo, &mut visibility, false);
+            set_visibility(shapes.halo, &mut visibility, false);
+            if !cue.xray_dependents.contains(&XRAY_SELECTED) {
+                cue.xray_dependents.insert(XRAY_SELECTED);
+            }
+        } else {
+            if cue.xray_dependents.contains(&XRAY_SELECTED) {
+                cue.xray_dependents.remove(&XRAY_SELECTED);
+            }
         }
 
         let anchor_height = 0.15 + 0.05 / 2.;
         if selected.cue() {
-            set_bobbing(cue.dagger, anchor_height, anchor_height, &mut bobbing);
+            set_bobbing(shapes.dagger, anchor_height, anchor_height, &mut bobbing);
         }
 
         if hovered.cue() && selected.cue() {
-            set_material(cue.body, &site_assets.hover_select_material, &mut materials);
+            set_material(shapes.body, &site_assets.hover_select_material, &mut materials);
         } else if hovered.cue() {
             // Hovering but not selected
-            set_visibility(cue.halo, &mut visibility, true);
-            set_material(cue.body, &site_assets.hover_material, &mut materials);
-            set_bobbing(cue.dagger, anchor_height, anchor_height + 0.2, &mut bobbing);
+            set_visibility(shapes.halo, &mut visibility, true);
+            set_material(shapes.body, &site_assets.hover_material, &mut materials);
+            set_bobbing(shapes.dagger, anchor_height, anchor_height + 0.2, &mut bobbing);
         } else if selected.cue() {
             // Selected but not hovering
-            set_material(cue.body, &site_assets.select_material, &mut materials);
+            set_material(shapes.body, &site_assets.select_material, &mut materials);
         } else {
             set_material(
-                cue.body,
+                shapes.body,
                 &site_assets.passive_anchor_material,
                 &mut materials,
             );
-            set_visibility(cue.dagger, &mut visibility, false);
-            set_visibility(cue.halo, &mut visibility, false);
+            set_visibility(shapes.dagger, &mut visibility, false);
+            set_visibility(shapes.halo, &mut visibility, false);
         }
 
         if select_tracker.is_changed() {
             if selected.cue() {
-                if cue.drag.is_none() && subordinate.is_none() {
-                    interaction_assets.add_anchor_draggable_arrows(&mut command, v, cue.as_mut());
+                if shapes.drag.is_none() && subordinate.is_none() {
+                    interaction_assets.add_anchor_draggable_arrows(&mut command, a, shapes.as_mut());
                 }
             } else {
-                if let Some(drag) = cue.drag {
+                if let Some(drag) = shapes.drag {
                     command.entity(drag).despawn_recursive();
                 }
-                cue.drag = None;
+                shapes.drag = None;
             }
         }
     }

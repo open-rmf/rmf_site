@@ -84,12 +84,50 @@ pub fn update_picking_cam(
     }
 }
 
+fn pick_topmost(
+    picks: impl Iterator<Item=Entity>,
+    selectable: &Query<&Selectable>,
+    anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
+    mode: &Res<InteractionMode>,
+    current_site: Entity,
+
+) -> Option<Entity> {
+    for topmost_entity in picks {
+        match &**mode {
+            InteractionMode::SelectAnchor(request) => {
+                if let Ok(sel) = selectable.get(topmost_entity) {
+                    if sel.is_selectable {
+                        if let Ok(parent) = anchors.get(sel.element) {
+                            if request.site_scope() && parent.get() != current_site {
+                                continue;
+                            }
+                        } else {
+                            continue;
+                        }
+                    } else {
+                        continue;
+                    }
+                } else {
+                    continue;
+                }
+            }
+            _ => {
+                // Do nothing
+            }
+        }
+        return Some(topmost_entity);
+    }
+
+    return None;
+}
+
 pub fn update_picked(
     mode: Res<InteractionMode>,
     selectable: Query<&Selectable>,
     anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&PickingCamera>,
+    visual_cues: Query<&VisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
     current_site: Res<CurrentSite>,
@@ -114,37 +152,31 @@ pub fn update_picked(
         None => return,
     };
 
-    let mut current_picked = None;
-    for pick_source in &pick_source_query {
-        if let Some(picks) = pick_source.intersect_list() {
-            for (topmost_entity, _) in picks.iter() {
-                match &*mode {
-                    InteractionMode::SelectAnchor(request) => {
-                        if let Ok(sel) = selectable.get(*topmost_entity) {
-                            if sel.is_selectable {
-                                if let Ok(parent) = anchors.get(sel.element) {
-                                    if request.site_scope() && parent.get() != current_site {
-                                        continue;
-                                    }
-                                } else {
-                                    continue;
-                                }
-                            } else {
-                                continue;
-                            }
-                        } else {
-                            continue;
-                        }
-                    }
-                    _ => {
-                        // Do nothing
-                    }
+    let current_picked = 'current_picked: {
+        for pick_source in &pick_source_query {
+            if let Some(picks) = pick_source.intersect_list() {
+                // First only look at the visual cues that are being xrayed
+                if let Some(topmost) = pick_topmost(
+                    picks.iter().filter(|(e, _)| {
+                        visual_cues.get(*e).ok().filter(
+                            |cue| cue.xray_active()
+                        ).is_some()
+                    }).map(|(e, _)| *e), &selectable, &anchors, &mode, current_site
+                ) {
+                    break 'current_picked Some(topmost);
                 }
-                current_picked = Some(*topmost_entity);
-                break;
+
+                // Now look at all possible pickables
+                if let Some(topmost) = pick_topmost(
+                    picks.iter().map(|(e, _)| *e), &selectable, &anchors, &mode, current_site
+                ) {
+                    break 'current_picked Some(topmost);
+                }
             }
         }
-    }
+
+        None
+    };
 
     if picked.0 != current_picked {
         change_pick.send(ChangePick {

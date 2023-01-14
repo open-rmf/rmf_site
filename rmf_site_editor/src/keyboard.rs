@@ -16,7 +16,10 @@
 */
 
 use crate::{
-    interaction::{camera_controls::CameraControls, ChangeMode, InteractionMode, Selection},
+    interaction::{
+        camera_controls::{CameraControls, HeadlightToggle},
+        ChangeMode, InteractionMode, Selection
+    },
     site::Delete,
 };
 use bevy::prelude::*;
@@ -35,10 +38,12 @@ fn handle_keyboard_input(
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
     mut camera_controls: ResMut<CameraControls>,
-    mut cameras: Query<(&mut Camera, &mut Visibility)>,
+    mut cameras: Query<&mut Camera>,
+    mut visibilities: Query<&mut Visibility>,
     mut egui_context: ResMut<EguiContext>,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
+    headlight_toggle: Res<HeadlightToggle>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -50,11 +55,15 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        camera_controls.use_orthographic(true, &mut cameras);
+        camera_controls.use_orthographic(
+            true, &mut cameras, &mut visibilities, headlight_toggle.0
+        );
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        camera_controls.use_perspective(true, &mut cameras);
+        camera_controls.use_perspective(
+            true, &mut cameras, &mut visibilities, headlight_toggle.0
+        );
     }
 
     if keyboard_input.just_pressed(KeyCode::Escape) {
