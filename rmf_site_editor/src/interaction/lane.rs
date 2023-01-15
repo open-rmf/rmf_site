@@ -31,13 +31,7 @@ pub fn add_lane_visual_cues(
 
 pub fn update_lane_visual_cues(
     mut lanes: Query<
-        (
-            Entity,
-            &Hovered,
-            &Selected,
-            &LaneSegments,
-            &mut Transform,
-        ),
+        (Entity, &Hovered, &Selected, &LaneSegments, &mut Transform),
         (
             With<LaneMarker>,
             Without<AnchorVisualization>,

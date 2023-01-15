@@ -17,10 +17,10 @@
 
 use crate::{
     animate::*,
-    interaction::*,
-    site::{Anchor, Dependents, Category, Delete, SiteAssets, Subordinate},
     interaction::IntersectGroundPlaneParams,
+    interaction::*,
     keyboard::DebugMode,
+    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
@@ -61,10 +61,7 @@ pub fn add_anchor_visual_cues(
         });
 
         commands
-            .insert(AnchorVisualization {
-                body,
-                drag: None,
-            })
+            .insert(AnchorVisualization { body, drag: None })
             .insert(OutlineVisualization::Anchor)
             .insert(VisualCue::outline().irregular());
     }
@@ -206,7 +203,8 @@ pub fn update_anchor_visual_cues(
         }
 
         if cue.xray.support_selected() != !selected.support_selected.is_empty() {
-            cue.xray.set_support_selected(!selected.support_selected.is_empty())
+            cue.xray
+                .set_support_selected(!selected.support_selected.is_empty())
         }
 
         if cue.xray.hovered() != hovered.is_hovered {
@@ -214,7 +212,8 @@ pub fn update_anchor_visual_cues(
         }
 
         if cue.xray.support_hovered() != !hovered.support_hovering.is_empty() {
-            cue.xray.set_support_hovered(!hovered.support_hovering.is_empty());
+            cue.xray
+                .set_support_hovered(!hovered.support_hovering.is_empty());
         }
 
         if hovered.is_hovered {
@@ -222,13 +221,25 @@ pub fn update_anchor_visual_cues(
         }
 
         if hovered.cue() && selected.cue() {
-            set_material(shapes.body, &site_assets.hover_select_anchor_material, &mut materials);
+            set_material(
+                shapes.body,
+                &site_assets.hover_select_anchor_material,
+                &mut materials,
+            );
         } else if hovered.cue() {
             // Hovering but not selected
-            set_material(shapes.body, &site_assets.hover_anchor_material, &mut materials);
+            set_material(
+                shapes.body,
+                &site_assets.hover_anchor_material,
+                &mut materials,
+            );
         } else if selected.cue() {
             // Selected but not hovering
-            set_material(shapes.body, &site_assets.select_anchor_material, &mut materials);
+            set_material(
+                shapes.body,
+                &site_assets.select_anchor_material,
+                &mut materials,
+            );
         } else {
             set_material(
                 shapes.body,
@@ -240,7 +251,11 @@ pub fn update_anchor_visual_cues(
         if select_tracker.is_changed() {
             if selected.cue() {
                 if shapes.drag.is_none() && subordinate.is_none() {
-                    interaction_assets.add_anchor_draggable_arrows(&mut command, a, shapes.as_mut());
+                    interaction_assets.add_anchor_draggable_arrows(
+                        &mut command,
+                        a,
+                        shapes.as_mut(),
+                    );
                 }
             } else {
                 if let Some(drag) = shapes.drag {

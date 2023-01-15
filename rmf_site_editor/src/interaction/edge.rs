@@ -30,11 +30,9 @@ pub fn add_edge_visual_cues(
     new_edges: Query<(Entity, &Edge<Entity>), Without<EdgeVisualCue>>,
 ) {
     for (e, edge) in &new_edges {
-        commands
-            .entity(e)
-            .insert(EdgeVisualCue {
-                supporters: Some(*edge),
-            });
+        commands.entity(e).insert(EdgeVisualCue {
+            supporters: Some(*edge),
+        });
     }
 }
 

@@ -17,10 +17,10 @@
 
 use crate::interaction::{VISUAL_CUE_RENDER_LAYER, VISUAL_CUE_XRAY_LAYER};
 use bevy::{prelude::*, render::view::visibility::RenderLayers};
-use smallvec::SmallVec;
 use bitfield::bitfield;
+use smallvec::SmallVec;
 
-bitfield!{
+bitfield! {
     #[derive(Copy, Clone)]
     pub struct VisibilityDependents(u8);
     impl Debug;

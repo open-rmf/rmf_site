@@ -17,6 +17,7 @@
 
 use crate::interaction::PickingBlockers;
 use bevy::{
+    core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
@@ -24,7 +25,6 @@ use bevy::{
         camera::{Camera, Projection, ScalingMode, WindowOrigin},
         view::RenderLayers,
     },
-    core_pipeline::clear_color::ClearColorConfig,
 };
 
 /// RenderLayers are used to inform cameras which entities they should render.
@@ -98,19 +98,17 @@ impl CameraControls {
         visibilities: &mut Query<&mut Visibility>,
         headlights_on: bool,
     ) {
-        if let Ok(cameras) = cameras.get_many_mut([
-            self.perspective_camera_entity,
-            self.perspective_xray_entity,
-        ]) {
+        if let Ok(cameras) =
+            cameras.get_many_mut([self.perspective_camera_entity, self.perspective_xray_entity])
+        {
             for mut camera in cameras {
                 camera.is_active = choice;
             }
         }
 
-        if let Ok(visibilities) = visibilities.get_many_mut([
-            self.perspective_camera_entity,
-            self.perspective_xray_entity,
-        ]) {
+        if let Ok(visibilities) = visibilities
+            .get_many_mut([self.perspective_camera_entity, self.perspective_xray_entity])
+        {
             for mut visibility in visibilities {
                 visibility.is_visible = choice;
             }

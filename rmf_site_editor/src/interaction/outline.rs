@@ -48,7 +48,9 @@ impl OutlineVisualization {
                     Some(Color::rgb(1.0, 0.0, 0.3))
                 } else if selected.cue() {
                     Some(Color::rgb(1.0, 0.3, 1.0))
-                } else /* only hovered */ {
+                } else
+                /* only hovered */
+                {
                     Some(Color::WHITE)
                 }
             }

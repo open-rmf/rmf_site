@@ -18,7 +18,7 @@
 use crate::{
     interaction::{
         camera_controls::{CameraControls, HeadlightToggle},
-        ChangeMode, InteractionMode, Selection
+        ChangeMode, InteractionMode, Selection,
     },
     site::Delete,
 };
@@ -38,8 +38,7 @@ pub struct KeyboardInputPlugin;
 
 impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<DebugMode>()
+        app.init_resource::<DebugMode>()
             .add_system(handle_keyboard_input);
     }
 }
@@ -67,15 +66,11 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        camera_controls.use_orthographic(
-            true, &mut cameras, &mut visibilities, headlight_toggle.0
-        );
+        camera_controls.use_orthographic(true, &mut cameras, &mut visibilities, headlight_toggle.0);
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        camera_controls.use_perspective(
-            true, &mut cameras, &mut visibilities, headlight_toggle.0
-        );
+        camera_controls.use_perspective(true, &mut cameras, &mut visibilities, headlight_toggle.0);
     }
 
     if keyboard_input.just_pressed(KeyCode::Escape) {

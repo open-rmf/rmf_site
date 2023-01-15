@@ -28,11 +28,9 @@ pub fn add_path_visual_cues(
     new_paths: Query<(Entity, &Path<Entity>), Without<PointVisualCue>>,
 ) {
     for (e, path) in &new_paths {
-        commands
-            .entity(e)
-            .insert(PathVisualCue {
-                supporters: Some(path.clone()),
-            });
+        commands.entity(e).insert(PathVisualCue {
+            supporters: Some(path.clone()),
+        });
     }
 }
 
@@ -76,8 +74,7 @@ pub fn update_path_visual_cues(
         }
 
         for anchor in &path.0 {
-            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor)
-            {
+            if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(*anchor) {
                 if hovered.cue() {
                     anchor_hovered.support_hovering.insert(p);
                 } else {
@@ -93,6 +90,3 @@ pub fn update_path_visual_cues(
         }
     }
 }
-
-
-

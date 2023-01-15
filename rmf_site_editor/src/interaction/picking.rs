@@ -85,12 +85,11 @@ pub fn update_picking_cam(
 }
 
 fn pick_topmost(
-    picks: impl Iterator<Item=Entity>,
+    picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
     anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
     mode: &Res<InteractionMode>,
     current_site: Entity,
-
 ) -> Option<Entity> {
     for topmost_entity in picks {
         match &**mode {
@@ -157,18 +156,31 @@ pub fn update_picked(
             if let Some(picks) = pick_source.intersect_list() {
                 // First only look at the visual cues that are being xrayed
                 if let Some(topmost) = pick_topmost(
-                    picks.iter().filter(|(e, _)| {
-                        visual_cues.get(*e).ok().filter(
-                            |cue| cue.xray.any()
-                        ).is_some()
-                    }).map(|(e, _)| *e), &selectable, &anchors, &mode, current_site
+                    picks
+                        .iter()
+                        .filter(|(e, _)| {
+                            visual_cues
+                                .get(*e)
+                                .ok()
+                                .filter(|cue| cue.xray.any())
+                                .is_some()
+                        })
+                        .map(|(e, _)| *e),
+                    &selectable,
+                    &anchors,
+                    &mode,
+                    current_site,
                 ) {
                     break 'current_picked Some(topmost);
                 }
 
                 // Now look at all possible pickables
                 if let Some(topmost) = pick_topmost(
-                    picks.iter().map(|(e, _)| *e), &selectable, &anchors, &mode, current_site
+                    picks.iter().map(|(e, _)| *e),
+                    &selectable,
+                    &anchors,
+                    &mode,
+                    current_site,
                 ) {
                     break 'current_picked Some(topmost);
                 }

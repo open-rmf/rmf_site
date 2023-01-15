@@ -30,11 +30,9 @@ pub fn add_point_visual_cues(
     new_points: Query<(Entity, &Point<Entity>), Without<PointVisualCue>>,
 ) {
     for (e, point) in &new_points {
-        commands
-            .entity(e)
-            .insert(PointVisualCue {
-                supporter: Some(*point),
-            });
+        commands.entity(e).insert(PointVisualCue {
+            supporter: Some(*point),
+        });
     }
 }
 
@@ -76,8 +74,7 @@ pub fn update_point_visual_cues(
             cue.supporter = None;
         }
 
-        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(anchor)
-        {
+        if let Ok((mut anchor_hovered, mut anchor_selected)) = anchors.get_mut(anchor) {
             if hovered.cue() {
                 anchor_hovered.support_hovering.insert(p);
             } else {
