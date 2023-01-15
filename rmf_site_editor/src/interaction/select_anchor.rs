@@ -753,10 +753,8 @@ impl Placement for PointPlacement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
-        dbg!();
         if let Ok(mut point) = params.points.get_mut(target) {
             if let Ok(mut deps) = params.dependents.get_mut(**point) {
-                dbg!();
                 deps.remove(&target);
             }
 

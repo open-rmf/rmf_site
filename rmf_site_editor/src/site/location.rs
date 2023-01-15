@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{animate::Spinning, site::*};
+use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
@@ -77,7 +77,8 @@ pub fn add_location_visuals(
                 ..default()
             })
             .insert(Spinning::new(-10.0))
-            .insert(Category::Location);
+            .insert(Category::Location)
+            .insert(VisualCue::outline());
     }
 }
 

@@ -59,6 +59,9 @@ pub use select::*;
 pub mod select_anchor;
 pub use select_anchor::*;
 
+pub mod visual_cue;
+pub use visual_cue::*;
+
 use bevy::prelude::*;
 use bevy_mod_outline::{AutoGenerateOutlineNormalsPlugin, OutlinePlugin};
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
@@ -77,12 +80,9 @@ pub enum InteractionUpdateStage {
     /// Since parentage can have an effect on visuals, we should wait to add
     /// the visuals until after any orphans have been assigned.
     AddVisuals,
+    /// This stage happens after the AddVisuals stage has flushed
+    ProcessVisuals,
 }
-
-/// A unit component to tag entities that are only meant to be visual cues and
-/// should be excluded from visualization or analysis of physical objects.
-#[derive(Component, Debug)]
-pub struct VisualCue;
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
@@ -92,8 +92,17 @@ impl Plugin for InteractionPlugin {
                 InteractionUpdateStage::AddVisuals,
                 SystemStage::parallel(),
             )
+            .add_stage_after(
+                InteractionUpdateStage::AddVisuals,
+                InteractionUpdateStage::ProcessVisuals,
+                SystemStage::parallel(),
+            )
             .add_state_to_stage(
                 InteractionUpdateStage::AddVisuals,
+                InteractionState::Disable,
+            )
+            .add_state_to_stage(
+                InteractionUpdateStage::ProcessVisuals,
                 InteractionState::Disable,
             )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
@@ -159,6 +168,10 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_outline_visualization)
                     .with_system(add_cursor_hover_visualization)
                     .with_system(add_physical_light_visual_cues),
+            )
+            .add_system_set_to_stage(
+                InteractionUpdateStage::ProcessVisuals,
+                SystemSet::on_update(InteractionState::Enable).with_system(propagate_visual_cues),
             )
             .add_system_set(SystemSet::on_exit(InteractionState::Enable).with_system(hide_cursor))
             .add_system_set_to_stage(

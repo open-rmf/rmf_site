@@ -15,9 +15,14 @@
  *
 */
 
-use bevy::prelude::*;
-use bevy::render::camera::{Projection, RenderTarget};
-use bevy::window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows};
+use bevy::{
+    prelude::*,
+    render::{
+        camera::{Projection, RenderTarget},
+        view::RenderLayers,
+    },
+    window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows},
+};
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
@@ -57,11 +62,14 @@ fn create_camera_window(
         },
     });
     // Now spawn the camera
-    commands.entity(entity).insert(Camera {
-        target: RenderTarget::Window(window_id),
-        is_active: true,
-        ..default()
-    });
+    commands
+        .entity(entity)
+        .insert(Camera {
+            target: RenderTarget::Window(window_id),
+            is_active: true,
+            ..default()
+        })
+        .insert(RenderLayers::layer(0));
     window_id
 }
 

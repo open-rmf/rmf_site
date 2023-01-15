@@ -67,6 +67,8 @@ impl Category {
 
     /// Returns true if the category of this element has a physical presence.
     /// Returns false if the category of this element is conceptual.
+    // TODO(MXG): Consider whether all non-physical entities should automatically
+    // be assigned the VisualCue component.
     pub fn is_physical(&self) -> bool {
         match self {
             Self::Door | Self::Wall | Self::Floor | Self::Lift | Self::Model => true,
