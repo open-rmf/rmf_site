@@ -29,11 +29,17 @@ pub struct VisualCue {
 
 impl VisualCue {
     pub fn outline() -> VisualCue {
-        VisualCue { allow_outline: true, inherited: false }
+        VisualCue {
+            allow_outline: true,
+            inherited: false,
+        }
     }
 
     pub fn no_outline() -> VisualCue {
-        VisualCue { allow_outline: false, inherited: false }
+        VisualCue {
+            allow_outline: false,
+            inherited: false,
+        }
     }
 
     pub fn inherit(other: Self) -> VisualCue {
