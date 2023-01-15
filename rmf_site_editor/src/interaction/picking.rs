@@ -127,7 +127,7 @@ pub fn update_picked(
     anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&PickingCamera>,
-    visual_cues: Query<&VisualCue>,
+    visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
     current_site: Res<CurrentSite>,
@@ -159,7 +159,7 @@ pub fn update_picked(
                 if let Some(topmost) = pick_topmost(
                     picks.iter().filter(|(e, _)| {
                         visual_cues.get(*e).ok().filter(
-                            |cue| cue.xray_active()
+                            |cue| cue.xray.any()
                         ).is_some()
                     }).map(|(e, _)| *e), &selectable, &anchors, &mode, current_site
                 ) {

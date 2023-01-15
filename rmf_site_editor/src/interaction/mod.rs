@@ -29,6 +29,9 @@ pub use camera_controls::*;
 pub mod cursor;
 pub use cursor::*;
 
+pub mod edge;
+pub use edge::*;
+
 pub mod gizmo;
 pub use gizmo::*;
 
@@ -47,8 +50,14 @@ pub use mode::*;
 pub mod outline;
 pub use outline::*;
 
+pub mod path;
+pub use path::*;
+
 pub mod picking;
 pub use picking::*;
+
+pub mod point;
+pub use point::*;
 
 pub mod preview;
 pub use preview::*;
@@ -140,9 +149,14 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_selected_entities.after(maintain_hovered_entities))
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_unassigned_anchor_cues)
+                    .with_system(update_anchor_cues_for_mode)
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_edge_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_point_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_path_visual_cues.after(maintain_selected_entities))
                     .with_system(update_outline_visualization.after(maintain_selected_entities))
                     .with_system(
                         update_cursor_hover_visualization.after(maintain_selected_entities),
@@ -166,6 +180,9 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_anchor_visual_cues)
                     .with_system(remove_interaction_for_subordinate_anchors)
                     .with_system(add_lane_visual_cues)
+                    .with_system(add_edge_visual_cues)
+                    .with_system(add_point_visual_cues)
+                    .with_system(add_path_visual_cues)
                     .with_system(add_outline_visualization)
                     .with_system(add_cursor_hover_visualization)
                     .with_system(add_physical_light_visual_cues),

@@ -389,6 +389,10 @@ fn camera_controls(
                 }
             }
         }
+
+        let proj = ortho_proj.clone();
+        let (mut xray_proj, _) = cameras.get_mut(controls.orthographic_xray_entity).unwrap();
+        *xray_proj = proj;
     } else {
         // perspective mode
         let (mut persp_proj, mut persp_transform) =

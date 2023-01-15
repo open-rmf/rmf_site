@@ -19,28 +19,12 @@ use crate::{interaction::*, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
-#[derive(Component, Default)]
-pub struct LaneVisualCue {
-    /// If the lane is using support from some anchors, the entities of those
-    /// anchors will be saved here.
-    supporters: Option<Edge<Entity>>,
-}
-
 pub fn add_lane_visual_cues(
     mut commands: Commands,
-    new_lanes: Query<(Entity, &Edge<Entity>), (With<LaneMarker>, Without<LaneVisualCue>)>,
     new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
 ) {
-    for (e, lane) in &new_lanes {
-        commands
-            .entity(e)
-            .insert(LaneVisualCue {
-                supporters: Some(*lane),
-            })
-            .insert(VisualCue::no_outline());
-    }
-
     for (e, segments) in &new_lane_segments {
+        commands.entity(e).insert(VisualCue::no_outline());
         commands.entity(segments.mid).insert(Selectable::new(e));
     }
 }
@@ -51,9 +35,7 @@ pub fn update_lane_visual_cues(
             Entity,
             &Hovered,
             &Selected,
-            &Edge<Entity>,
             &LaneSegments,
-            &mut LaneVisualCue,
             &mut Transform,
         ),
         (
@@ -62,54 +44,12 @@ pub fn update_lane_visual_cues(
             Or<(Changed<Hovered>, Changed<Selected>, Changed<Edge<Entity>>)>,
         ),
     >,
-    mut anchors: Query<(&mut Hovered, &mut Selected), With<AnchorVisualization>>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     mut visibility: Query<&mut Visibility>,
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,
 ) {
-    for (l, hovering, selected, lane, pieces, mut cue, mut tf) in &mut lanes {
-        let [v0, v1] = lane.array();
-        if let Some(old) = cue.supporters {
-            // If we have supporters that are out of date, clear them out.
-            // This can happen if a user changes the start or end vertices
-            // of the lane.
-            if old.array() != [v0, v1] {
-                for v in old.array() {
-                    if let Some((mut hover, mut selected)) = anchors.get_mut(v).ok() {
-                        hover.support_hovering.remove(&l);
-                        selected.support_selected.remove(&l);
-                    }
-                }
-            }
-        }
-
-        if hovering.cue() || selected.cue() {
-            cue.supporters = Some(*lane);
-        } else {
-            cue.supporters = None;
-        }
-
-        if let Some([(mut hover_v0, mut selected_v0), (mut hover_v1, mut selected_v1)]) =
-            anchors.get_many_mut([v0, v1]).ok()
-        {
-            if hovering.cue() {
-                hover_v0.support_hovering.insert(l);
-                hover_v1.support_hovering.insert(l);
-            } else {
-                hover_v0.support_hovering.remove(&l);
-                hover_v1.support_hovering.remove(&l);
-            }
-
-            if selected.cue() {
-                selected_v0.support_selected.insert(l);
-                selected_v1.support_selected.insert(l);
-            } else {
-                selected_v0.support_selected.remove(&l);
-                selected_v1.support_selected.remove(&l);
-            }
-        }
-
+    for (l, hovering, selected, pieces, mut tf) in &mut lanes {
         if hovering.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }

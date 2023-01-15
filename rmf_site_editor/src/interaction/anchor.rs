@@ -18,19 +18,14 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{Anchor, Category, Delete, SiteAssets, Subordinate},
+    site::{Anchor, Dependents, Category, Delete, SiteAssets, Subordinate},
+    interaction::IntersectGroundPlaneParams,
+    keyboard::DebugMode,
 };
 use bevy::prelude::*;
 
-/// xray an anchor because it is selected
-const XRAY_SELECTED: u32 = 0;
-/// xray an anchor because it is within proximity of the cursor
-const XRAY_PROXIMITY: u32 = 1;
-
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualization {
-    pub dagger: Entity,
-    pub halo: Entity,
     pub body: Entity,
     pub drag: Option<Entity>,
 }
@@ -50,29 +45,7 @@ pub fn add_anchor_visual_cues(
         };
 
         let mut commands = commands.entity(e);
-        let (dagger, halo, body) = commands.add_children(|parent| {
-            let dagger = parent
-                .spawn_bundle(PbrBundle {
-                    material: interaction_assets.dagger_material.clone(),
-                    mesh: interaction_assets.dagger_mesh.clone(),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .insert(Bobbing::default())
-                .insert(Spinning::default())
-                .id();
-
-            let halo = parent
-                .spawn_bundle(PbrBundle {
-                    material: interaction_assets.halo_material.clone(),
-                    mesh: interaction_assets.halo_mesh.clone(),
-                    transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .insert(Spinning::default())
-                .id();
-
+        let body = commands.add_children(|parent| {
             let mut body = parent.spawn_bundle(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
@@ -84,17 +57,16 @@ pub fn add_anchor_visual_cues(
             }
             let body = body.id();
 
-            (dagger, halo, body)
+            body
         });
 
         commands
             .insert(AnchorVisualization {
-                dagger,
-                halo,
                 body,
                 drag: None,
             })
-            .insert(VisualCue::no_outline().irregular());
+            .insert(OutlineVisualization::Anchor)
+            .insert(VisualCue::outline().irregular());
     }
 }
 
@@ -126,33 +98,28 @@ pub fn move_anchor(
 
 pub fn update_anchor_proximity_xray(
     mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
-    cursor: Res<Cursor>,
-    transforms: Query<&GlobalTransform>,
+    intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
 ) {
     if cursor_moved.is_empty() {
         return;
     }
 
-    let cursor_tf = match transforms.get(cursor.frame) {
-        Ok(tf) => tf,
-        _ => return,
+    let p_c = match intersect_ground_params.ground_plane_intersection() {
+        Some(p) => p,
+        None => return,
     };
 
-    let p_c = cursor_tf.translation();
-
     for (anchor_tf, mut cue) in &mut anchors {
-        let previously_in_proximity = cue.xray_dependents.contains(&XRAY_PROXIMITY);
-
         // TODO(MXG): Make the proximity range configurable
         let proximity = {
             // We make the xray effect a little "sticky" so that there isn't an
             // ugly flicker for anchors that are right at the edge of the
             // proximity range.
-            if previously_in_proximity {
-                5.0
+            if cue.xray.any() {
+                1.0
             } else {
-                4.0
+                0.2
             }
         };
 
@@ -169,12 +136,34 @@ pub fn update_anchor_proximity_xray(
             true
         };
 
-        if xray != previously_in_proximity {
-            if xray {
-                cue.xray_dependents.insert(XRAY_PROXIMITY);
-            } else {
-                cue.xray_dependents.remove(&XRAY_PROXIMITY);
-            }
+        if xray != cue.xray.proximity() {
+            cue.xray.set_proximity(xray);
+        }
+    }
+}
+
+pub fn update_unassigned_anchor_cues(
+    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor>, Changed<Dependents>)>,
+) {
+    for (deps, mut cue) in &mut anchors {
+        if deps.is_empty() != cue.xray.unassigned() {
+            cue.xray.set_unassigned(deps.is_empty())
+        }
+    }
+}
+
+pub fn update_anchor_cues_for_mode(
+    mode: Res<InteractionMode>,
+    mut anchors: Query<&mut VisualCue, With<Anchor>>,
+) {
+    if !mode.is_changed() {
+        return;
+    }
+
+    let anchor_always_visible = mode.is_selecting_anchor();
+    for mut cue in &mut anchors {
+        if cue.xray.always() != anchor_always_visible {
+            cue.xray.set_always(anchor_always_visible);
         }
     }
 }
@@ -191,58 +180,61 @@ pub fn update_anchor_visual_cues(
             Option<&Subordinate>,
             ChangeTrackers<Selected>,
         ),
-        Or<(Changed<Hovered>, Changed<Selected>)>,
+        Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
     >,
     mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
+    deps: Query<&Dependents>,
     cursor: Res<Cursor>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
+    debug_mode: Option<Res<DebugMode>>,
 ) {
     for (a, hovered, selected, mut shapes, mut cue, subordinate, select_tracker) in &mut anchors {
-        if hovered.cue() || selected.cue() {
-            set_visibility(shapes.dagger, &mut visibility, true);
+        if debug_mode.as_ref().filter(|d| d.0).is_some() {
+            // NOTE(MXG): I have witnessed a scenario where a lane is deleted
+            // and then the anchors that supported it are permanently stuck as
+            // though they are selected. I have not figured out what can cause
+            // that, so I am keeping this printout available to debug that
+            // scenario. Press the D key to activate this.
+            dbg!((a, hovered, selected));
+        }
+
+        if cue.xray.selected() != selected.is_selected {
+            cue.xray.set_selected(selected.is_selected)
+        }
+
+        if cue.xray.support_selected() != !selected.support_selected.is_empty() {
+            cue.xray.set_support_selected(!selected.support_selected.is_empty())
+        }
+
+        if cue.xray.hovered() != hovered.is_hovered {
+            cue.xray.set_hovered(hovered.is_hovered);
+        }
+
+        if cue.xray.support_hovered() != !hovered.support_hovering.is_empty() {
+            cue.xray.set_support_hovered(!hovered.support_hovering.is_empty());
         }
 
         if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
 
-        if selected.cue() {
-            set_visibility(shapes.halo, &mut visibility, false);
-            if !cue.xray_dependents.contains(&XRAY_SELECTED) {
-                cue.xray_dependents.insert(XRAY_SELECTED);
-            }
-        } else {
-            if cue.xray_dependents.contains(&XRAY_SELECTED) {
-                cue.xray_dependents.remove(&XRAY_SELECTED);
-            }
-        }
-
-        let anchor_height = 0.15 + 0.05 / 2.;
-        if selected.cue() {
-            set_bobbing(shapes.dagger, anchor_height, anchor_height, &mut bobbing);
-        }
-
         if hovered.cue() && selected.cue() {
-            set_material(shapes.body, &site_assets.hover_select_material, &mut materials);
+            set_material(shapes.body, &site_assets.hover_select_anchor_material, &mut materials);
         } else if hovered.cue() {
             // Hovering but not selected
-            set_visibility(shapes.halo, &mut visibility, true);
-            set_material(shapes.body, &site_assets.hover_material, &mut materials);
-            set_bobbing(shapes.dagger, anchor_height, anchor_height + 0.2, &mut bobbing);
+            set_material(shapes.body, &site_assets.hover_anchor_material, &mut materials);
         } else if selected.cue() {
             // Selected but not hovering
-            set_material(shapes.body, &site_assets.select_material, &mut materials);
+            set_material(shapes.body, &site_assets.select_anchor_material, &mut materials);
         } else {
             set_material(
                 shapes.body,
-                &site_assets.passive_anchor_material,
+                site_assets.decide_passive_anchor_material(a, &deps),
                 &mut materials,
             );
-            set_visibility(shapes.dagger, &mut visibility, false);
-            set_visibility(shapes.halo, &mut visibility, false);
         }
 
         if select_tracker.is_changed() {
