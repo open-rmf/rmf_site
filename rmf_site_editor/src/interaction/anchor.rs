@@ -17,15 +17,15 @@
 
 use crate::{
     animate::*,
+    interaction::IntersectGroundPlaneParams,
     interaction::*,
-    site::{Anchor, Category, Delete, SiteAssets, Subordinate},
+    keyboard::DebugMode,
+    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct AnchorVisualization {
-    pub dagger: Entity,
-    pub halo: Entity,
     pub body: Entity,
     pub drag: Option<Entity>,
 }
@@ -45,29 +45,7 @@ pub fn add_anchor_visual_cues(
         };
 
         let mut commands = commands.entity(e);
-        let (dagger, halo, body) = commands.add_children(|parent| {
-            let dagger = parent
-                .spawn_bundle(PbrBundle {
-                    material: interaction_assets.dagger_material.clone(),
-                    mesh: interaction_assets.dagger_mesh.clone(),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .insert(Bobbing::default())
-                .insert(Spinning::default())
-                .id();
-
-            let halo = parent
-                .spawn_bundle(PbrBundle {
-                    material: interaction_assets.halo_material.clone(),
-                    mesh: interaction_assets.halo_mesh.clone(),
-                    transform: Transform::from_scale([0.2, 0.2, 1.].into()),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .insert(Spinning::default())
-                .id();
-
+        let body = commands.add_children(|parent| {
             let mut body = parent.spawn_bundle(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
@@ -79,17 +57,13 @@ pub fn add_anchor_visual_cues(
             }
             let body = body.id();
 
-            (dagger, halo, body)
+            body
         });
 
         commands
-            .insert(AnchorVisualization {
-                dagger,
-                halo,
-                body,
-                drag: None,
-            })
-            .insert(VisualCue::no_outline());
+            .insert(AnchorVisualization { body, drag: None })
+            .insert(OutlineVisualization::Anchor)
+            .insert(VisualCue::outline().irregular());
     }
 }
 
@@ -119,6 +93,78 @@ pub fn move_anchor(
     }
 }
 
+pub fn update_anchor_proximity_xray(
+    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
+    intersect_ground_params: IntersectGroundPlaneParams,
+    cursor_moved: EventReader<CursorMoved>,
+) {
+    if cursor_moved.is_empty() {
+        return;
+    }
+
+    let p_c = match intersect_ground_params.ground_plane_intersection() {
+        Some(p) => p,
+        None => return,
+    };
+
+    for (anchor_tf, mut cue) in &mut anchors {
+        // TODO(MXG): Make the proximity range configurable
+        let proximity = {
+            // We make the xray effect a little "sticky" so that there isn't an
+            // ugly flicker for anchors that are right at the edge of the
+            // proximity range.
+            if cue.xray.any() {
+                1.0
+            } else {
+                0.2
+            }
+        };
+
+        let xray = 'xray: {
+            let p_a = anchor_tf.translation();
+            if p_a.x < p_c.x - proximity || p_c.x + proximity < p_a.x {
+                break 'xray false;
+            }
+
+            if p_a.y < p_c.y - proximity || p_c.y + proximity < p_a.y {
+                break 'xray false;
+            }
+
+            true
+        };
+
+        if xray != cue.xray.proximity() {
+            cue.xray.set_proximity(xray);
+        }
+    }
+}
+
+pub fn update_unassigned_anchor_cues(
+    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor>, Changed<Dependents>)>,
+) {
+    for (deps, mut cue) in &mut anchors {
+        if deps.is_empty() != cue.xray.unassigned() {
+            cue.xray.set_unassigned(deps.is_empty())
+        }
+    }
+}
+
+pub fn update_anchor_cues_for_mode(
+    mode: Res<InteractionMode>,
+    mut anchors: Query<&mut VisualCue, With<Anchor>>,
+) {
+    if !mode.is_changed() {
+        return;
+    }
+
+    let anchor_always_visible = mode.is_selecting_anchor();
+    for mut cue in &mut anchors {
+        if cue.xray.always() != anchor_always_visible {
+            cue.xray.set_always(anchor_always_visible);
+        }
+    }
+}
+
 pub fn update_anchor_visual_cues(
     mut command: Commands,
     mut anchors: Query<
@@ -127,66 +173,95 @@ pub fn update_anchor_visual_cues(
             &Hovered,
             &Selected,
             &mut AnchorVisualization,
+            &mut VisualCue,
             Option<&Subordinate>,
             ChangeTrackers<Selected>,
         ),
-        Or<(Changed<Hovered>, Changed<Selected>)>,
+        Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
     >,
     mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
+    deps: Query<&Dependents>,
     cursor: Res<Cursor>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
+    debug_mode: Option<Res<DebugMode>>,
 ) {
-    for (v, hovered, selected, mut cue, subordinate, select_tracker) in &mut anchors {
-        if hovered.cue() || selected.cue() {
-            set_visibility(cue.dagger, &mut visibility, true);
+    for (a, hovered, selected, mut shapes, mut cue, subordinate, select_tracker) in &mut anchors {
+        if debug_mode.as_ref().filter(|d| d.0).is_some() {
+            // NOTE(MXG): I have witnessed a scenario where a lane is deleted
+            // and then the anchors that supported it are permanently stuck as
+            // though they are selected. I have not figured out what can cause
+            // that, so I am keeping this printout available to debug that
+            // scenario. Press the D key to activate this.
+            dbg!((a, hovered, selected));
+        }
+
+        if cue.xray.selected() != selected.is_selected {
+            cue.xray.set_selected(selected.is_selected)
+        }
+
+        if cue.xray.support_selected() != !selected.support_selected.is_empty() {
+            cue.xray
+                .set_support_selected(!selected.support_selected.is_empty())
+        }
+
+        if cue.xray.hovered() != hovered.is_hovered {
+            cue.xray.set_hovered(hovered.is_hovered);
+        }
+
+        if cue.xray.support_hovered() != !hovered.support_hovering.is_empty() {
+            cue.xray
+                .set_support_hovered(!hovered.support_hovering.is_empty());
         }
 
         if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
 
-        if selected.cue() {
-            set_visibility(cue.halo, &mut visibility, false);
-        }
-
-        let anchor_height = 0.15 + 0.05 / 2.;
-        if selected.cue() {
-            set_bobbing(cue.dagger, anchor_height, anchor_height, &mut bobbing);
-        }
-
         if hovered.cue() && selected.cue() {
-            set_material(cue.body, &site_assets.hover_select_material, &mut materials);
-        } else if hovered.cue() {
-            // Hovering but not selected
-            set_visibility(cue.halo, &mut visibility, true);
-            set_material(cue.body, &site_assets.hover_material, &mut materials);
-            set_bobbing(cue.dagger, anchor_height, anchor_height + 0.2, &mut bobbing);
-        } else if selected.cue() {
-            // Selected but not hovering
-            set_material(cue.body, &site_assets.select_material, &mut materials);
-        } else {
             set_material(
-                cue.body,
-                &site_assets.passive_anchor_material,
+                shapes.body,
+                &site_assets.hover_select_anchor_material,
                 &mut materials,
             );
-            set_visibility(cue.dagger, &mut visibility, false);
-            set_visibility(cue.halo, &mut visibility, false);
+        } else if hovered.cue() {
+            // Hovering but not selected
+            set_material(
+                shapes.body,
+                &site_assets.hover_anchor_material,
+                &mut materials,
+            );
+        } else if selected.cue() {
+            // Selected but not hovering
+            set_material(
+                shapes.body,
+                &site_assets.select_anchor_material,
+                &mut materials,
+            );
+        } else {
+            set_material(
+                shapes.body,
+                site_assets.decide_passive_anchor_material(a, &deps),
+                &mut materials,
+            );
         }
 
         if select_tracker.is_changed() {
             if selected.cue() {
-                if cue.drag.is_none() && subordinate.is_none() {
-                    interaction_assets.add_anchor_draggable_arrows(&mut command, v, cue.as_mut());
+                if shapes.drag.is_none() && subordinate.is_none() {
+                    interaction_assets.add_anchor_draggable_arrows(
+                        &mut command,
+                        a,
+                        shapes.as_mut(),
+                    );
                 }
             } else {
-                if let Some(drag) = cue.drag {
+                if let Some(drag) = shapes.drag {
                     command.entity(drag).despawn_recursive();
                 }
-                cue.drag = None;
+                shapes.drag = None;
             }
         }
     }

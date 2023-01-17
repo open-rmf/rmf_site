@@ -29,6 +29,10 @@ pub struct SiteAssets {
     pub physical_camera_mesh: Handle<Mesh>,
     pub unassigned_lane_material: Handle<StandardMaterial>,
     pub passive_anchor_material: Handle<StandardMaterial>,
+    pub unassigned_anchor_material: Handle<StandardMaterial>,
+    pub hover_anchor_material: Handle<StandardMaterial>,
+    pub select_anchor_material: Handle<StandardMaterial>,
+    pub hover_select_anchor_material: Handle<StandardMaterial>,
     pub preview_anchor_material: Handle<StandardMaterial>,
     pub hover_material: Handle<StandardMaterial>,
     pub select_material: Handle<StandardMaterial>,
@@ -57,17 +61,51 @@ impl FromWorld for SiteAssets {
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
         let unassigned_lane_material = materials.add(Color::rgb(0.1, 0.1, 0.1).into());
-        let select_material = materials.add(Color::rgb(1., 0.3, 1.).into());
-        let hover_material = materials.add(Color::rgb(0.3, 1., 1.).into());
-        let hover_select_material = materials.add(Color::rgb(1.0, 0.0, 0.3).into());
+        let select_color = Color::rgb(1., 0.3, 1.);
+        let hover_color = Color::rgb(0.3, 1., 1.);
+        let hover_select_color = Color::rgb(1.0, 0.0, 0.3);
+        let select_material = materials.add(select_color.into());
+        let hover_material = materials.add(hover_color.into());
+        let hover_select_material = materials.add(hover_select_color.into());
         // let hover_select_material = materials.add(Color::rgb_u8(177, 178, 255).into());
         // let hover_select_material = materials.add(Color::rgb_u8(214, 28, 78).into());
         let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
-        let passive_anchor_material = materials.add(Color::rgb(0.4, 0.7, 0.6).into());
+        let passive_anchor_material = materials.add(StandardMaterial {
+            base_color: Color::rgb(0.4, 0.7, 0.6),
+            // unlit: true,
+            unlit: false,
+            ..default()
+        });
+        let unassigned_anchor_material = materials.add(StandardMaterial {
+            base_color: Color::rgb(1.0, 0.9, 0.05),
+            // unlit: true,
+            unlit: false,
+            ..default()
+        });
+        let hover_anchor_material = materials.add(StandardMaterial {
+            base_color: hover_color,
+            // unlit: true,
+            unlit: false,
+            ..default()
+        });
+        let select_anchor_material = materials.add(StandardMaterial {
+            base_color: select_color,
+            // unlit: true,
+            unlit: false,
+            ..default()
+        });
+        let hover_select_anchor_material = materials.add(StandardMaterial {
+            base_color: hover_select_color,
+            // unlit: true,
+            unlit: false,
+            ..default()
+        });
         let preview_anchor_material = materials.add(StandardMaterial {
             base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
             alpha_mode: AlphaMode::Blend,
             depth_bias: 1.0,
+            // unlit: true,
+            unlit: false,
             ..default()
         });
         let wall_material = materials.add(StandardMaterial {
@@ -105,7 +143,7 @@ impl FromWorld for SiteAssets {
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
-            radius: 0.15, // TODO(MXG): Make the vertex radius configurable
+            radius: 0.05, // TODO(MXG): Make the vertex radius configurable
             ..Default::default()
         }));
         let lift_anchor_mesh = meshes
@@ -156,11 +194,15 @@ impl FromWorld for SiteAssets {
             location_mesh,
             physical_camera_mesh,
             unassigned_lane_material,
+            hover_anchor_material,
+            select_anchor_material,
+            hover_select_anchor_material,
             hover_material,
             select_material,
             hover_select_material,
             measurement_material,
             passive_anchor_material,
+            unassigned_anchor_material,
             preview_anchor_material,
             wall_material,
             lift_wall_material,
@@ -169,6 +211,20 @@ impl FromWorld for SiteAssets {
             translucent_white,
             physical_camera_material,
             occupied_material,
+        }
+    }
+}
+
+impl SiteAssets {
+    pub fn decide_passive_anchor_material(
+        &self,
+        anchor: Entity,
+        deps: &Query<&Dependents>,
+    ) -> &Handle<StandardMaterial> {
+        if deps.get(anchor).ok().filter(|d| !d.is_empty()).is_some() {
+            &self.passive_anchor_material
+        } else {
+            &self.unassigned_anchor_material
         }
     }
 }

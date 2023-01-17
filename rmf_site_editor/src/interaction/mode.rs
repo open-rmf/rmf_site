@@ -44,6 +44,13 @@ impl InteractionMode {
         }
     }
 
+    pub fn is_selecting_anchor(&self) -> bool {
+        match self {
+            Self::SelectAnchor(_) => true,
+            _ => false,
+        }
+    }
+
     pub fn is_inspecting(&self) -> bool {
         matches!(self, InteractionMode::Inspect)
     }

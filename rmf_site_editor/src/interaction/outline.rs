@@ -27,7 +27,43 @@ use smallvec::SmallVec;
 // TODO(MXG): Customize the behavior of floor, wall, and model visual cues.
 // For now we just use the same interaction behavior for all of them.
 #[derive(Component)]
-pub struct OutlineVisualization;
+pub enum OutlineVisualization {
+    Ordinary,
+    Anchor,
+}
+
+impl Default for OutlineVisualization {
+    fn default() -> Self {
+        OutlineVisualization::Ordinary
+    }
+}
+
+impl OutlineVisualization {
+    pub fn color(&self, hovered: &Hovered, selected: &Selected) -> Option<Color> {
+        match self {
+            OutlineVisualization::Ordinary => {
+                if !hovered.cue() && !selected.cue() {
+                    None
+                } else if hovered.cue() && selected.cue() {
+                    Some(Color::rgb(1.0, 0.0, 0.3))
+                } else if selected.cue() {
+                    Some(Color::rgb(1.0, 0.3, 1.0))
+                } else
+                /* only hovered */
+                {
+                    Some(Color::WHITE)
+                }
+            }
+            OutlineVisualization::Anchor => {
+                if hovered.is_hovered {
+                    Some(Color::WHITE)
+                } else {
+                    Some(Color::BLACK)
+                }
+            }
+        }
+    }
+}
 
 pub fn add_outline_visualization(
     mut commands: Commands,
@@ -48,7 +84,7 @@ pub fn add_outline_visualization(
     for e in &new_entities {
         commands
             .entity(e)
-            .insert(OutlineVisualization)
+            .insert(OutlineVisualization::default())
             .insert(Selectable::new(e));
     }
 }
@@ -56,26 +92,13 @@ pub fn add_outline_visualization(
 pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
-        (Entity, &Hovered, &Selected),
-        (
-            With<OutlineVisualization>,
-            Or<(Changed<Hovered>, Changed<Selected>)>,
-        ),
+        (Entity, &Hovered, &Selected, &OutlineVisualization),
+        Or<(Changed<Hovered>, Changed<Selected>)>,
     >,
-    descendants: Query<(Option<&Children>, Option<&VisualCue>)>,
+    descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovering, selected) in &outlinable {
-        let color = if hovering.cue() || selected.cue() {
-            if hovering.cue() && selected.cue() {
-                Some(Color::rgb(1.0, 0.0, 0.3))
-            } else if selected.cue() {
-                Some(Color::rgb(1.0, 0.3, 1.0))
-            } else {
-                Some(Color::WHITE)
-            }
-        } else {
-            None
-        };
+    for (e, hovered, selected, vis) in &outlinable {
+        let color = vis.color(hovered, selected);
 
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
         queue.push(e);

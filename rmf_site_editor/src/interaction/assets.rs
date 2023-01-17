@@ -77,9 +77,12 @@ impl InteractionAssets {
         anchor: Entity,
         cue: &mut AnchorVisualization,
     ) {
-        let drag_parent = command
-            .entity(anchor)
-            .add_children(|parent| parent.spawn_bundle(SpatialBundle::default()).id());
+        let drag_parent = command.entity(anchor).add_children(|parent| {
+            parent
+                .spawn_bundle(SpatialBundle::default())
+                .insert(VisualCue::no_outline())
+                .id()
+        });
 
         let height = 0.01;
         let scale = 0.2;

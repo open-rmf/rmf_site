@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::VisualCue,
+    interaction::ComputedVisualCue,
     shapes::*,
     site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
 };
@@ -150,7 +150,11 @@ fn calculate_grid(
     mut commands: Commands,
     mut request: EventReader<CalculateGrid>,
     bodies: Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
-    meta: Query<(Option<&Parent>, Option<&Category>, Option<&VisualCue>)>,
+    meta: Query<(
+        Option<&Parent>,
+        Option<&Category>,
+        Option<&ComputedVisualCue>,
+    )>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
     sites: Query<(), With<SiteProperties>>,
@@ -331,7 +335,11 @@ fn get_group(
 
 fn collect_physical_entities(
     meshes: &Query<(Entity, &Handle<Mesh>, &Aabb, &GlobalTransform)>,
-    meta: &Query<(Option<&Parent>, Option<&Category>, Option<&VisualCue>)>,
+    meta: &Query<(
+        Option<&Parent>,
+        Option<&Category>,
+        Option<&ComputedVisualCue>,
+    )>,
 ) -> Vec<Entity> {
     let mut physical_entities = Vec::new();
     for (e, _, _, _) in meshes {

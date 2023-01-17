@@ -15,38 +15,107 @@
  *
 */
 
-use crate::interaction::VISUAL_CUE_RENDER_LAYER;
+use crate::interaction::{VISUAL_CUE_RENDER_LAYER, VISUAL_CUE_XRAY_LAYER};
 use bevy::{prelude::*, render::view::visibility::RenderLayers};
+use bitfield::bitfield;
 use smallvec::SmallVec;
 
-/// A unit component to tag entities that are only meant to be visual cues and
-/// should be excluded from visualization or analysis of physical objects.
-#[derive(Component, Debug, Clone, Copy)]
-pub struct VisualCue {
-    pub allow_outline: bool,
-    pub inherited: bool,
+bitfield! {
+    #[derive(Copy, Clone)]
+    pub struct VisibilityDependents(u8);
+    impl Debug;
+    // Always visible
+    #[inline]
+    pub always, set_always: 0;
+    // Visible because the entity is selected
+    #[inline]
+    pub selected, set_selected: 1;
+    // Visibile because the entity is hovered
+    #[inline]
+    pub hovered, set_hovered: 2;
+    // Visible because it is supporting an entity that wants it to always be visible
+    #[inline]
+    pub support_always, set_support_always: 3;
+    // Visible because the entity is supporting the selected entity
+    #[inline]
+    pub support_selected, set_support_selected: 4;
+    // Visible because the entity is supporting the hovered entity
+    #[inline]
+    pub support_hovered, set_support_hovered: 5;
+    // Visible because the entity is within proximity of the cursor
+    #[inline]
+    pub proximity, set_proximity: 6;
+    // Visible because the entity is currently unassigned
+    #[inline]
+    pub unassigned, set_unassigned: 7;
 }
+
+impl VisibilityDependents {
+    pub fn new_always() -> VisibilityDependents {
+        VisibilityDependents(1)
+    }
+
+    pub fn new_none() -> VisibilityDependents {
+        VisibilityDependents(0)
+    }
+
+    pub fn none(&self) -> bool {
+        self.0 == 0
+    }
+
+    pub fn any(&self) -> bool {
+        !self.none()
+    }
+}
+
+/// A component to tag entities that are only meant to be visual cues and
+/// should be excluded from visualization or analysis of physical objects.
+#[derive(Component, Debug, Clone)]
+pub struct VisualCue {
+    /// Allow this visual cue to be outlined when it is interacted with
+    pub allow_outline: bool,
+    /// Whether to show this visual cue in the regular visual cue layer
+    pub regular: VisibilityDependents,
+    /// If this is not empty then the visual cue will be rendered over anything
+    /// that would normally obstruct its view
+    pub xray: VisibilityDependents,
+}
+
+/// Copied from VisualCue or inherited from parents
+#[derive(Component, Debug, Clone, Deref, DerefMut)]
+pub struct ComputedVisualCue(pub VisualCue);
 
 impl VisualCue {
     pub fn outline() -> VisualCue {
         VisualCue {
             allow_outline: true,
-            inherited: false,
+            regular: VisibilityDependents::new_always(),
+            xray: VisibilityDependents::new_none(),
         }
     }
 
     pub fn no_outline() -> VisualCue {
         VisualCue {
             allow_outline: false,
-            inherited: false,
+            regular: VisibilityDependents::new_always(),
+            xray: VisibilityDependents::new_none(),
         }
     }
 
-    pub fn inherit(other: Self) -> VisualCue {
-        VisualCue {
-            inherited: true,
-            ..other
+    pub fn irregular(mut self) -> VisualCue {
+        self.regular.set_always(false);
+        self
+    }
+
+    pub fn layers(&self) -> RenderLayers {
+        let mut layers = RenderLayers::none();
+        if self.regular.any() {
+            layers = layers.with(VISUAL_CUE_RENDER_LAYER);
         }
+        if self.xray.any() {
+            layers = layers.with(VISUAL_CUE_XRAY_LAYER);
+        }
+        layers
     }
 }
 
@@ -58,31 +127,26 @@ impl VisualCue {
 /// loosen either of those assumptions.
 pub fn propagate_visual_cues(
     mut commands: Commands,
-    new_cues: Query<(Entity, &VisualCue), Or<(Changed<VisualCue>, Changed<Children>)>>,
+    changed_cues: Query<(Entity, &VisualCue), Or<(Changed<VisualCue>, Changed<Children>)>>,
     children: Query<&Children>,
-    existing_cues: Query<&VisualCue>,
+    existing_cues: Query<(), With<VisualCue>>,
 ) {
-    for (e, root_cue) in &new_cues {
+    for (e, root_cue) in &changed_cues {
         let mut queue = SmallVec::<[(Entity, VisualCue); 5]>::new();
-        queue.push((e, *root_cue));
+        queue.push((e, root_cue.clone()));
         while let Some((top, top_cue)) = queue.pop() {
             commands
                 .entity(top)
-                .insert(top_cue)
-                .insert(RenderLayers::layer(VISUAL_CUE_RENDER_LAYER));
+                .insert(top_cue.layers())
+                .insert(ComputedVisualCue(top_cue.clone()));
 
             if let Ok(children) = children.get(top) {
                 for child in children {
-                    let child_cue = if let Ok(existing_cue) = existing_cues.get(*child) {
-                        if existing_cue.inherited {
-                            VisualCue::inherit(top_cue)
-                        } else {
-                            *existing_cue
-                        }
-                    } else {
-                        VisualCue::inherit(top_cue)
-                    };
-                    queue.push((*child, child_cue));
+                    if existing_cues.contains(*child) {
+                        continue;
+                    }
+
+                    queue.push((*child, top_cue.clone()));
                 }
             }
         }
