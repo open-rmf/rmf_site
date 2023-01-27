@@ -20,7 +20,7 @@ use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{Outline, OutlineBundle, OutlineRenderLayers, OutlineStencil};
 use rmf_site_format::{
     DoorType, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
-    PhysicalCameraProperties, WallMarker,
+    PhysicalCameraProperties, WallMarker, FloorMarker,
 };
 use smallvec::SmallVec;
 
@@ -63,6 +63,23 @@ impl OutlineVisualization {
             }
         }
     }
+
+    pub fn layers(&self, hovered: &Hovered, selected: &Selected) -> OutlineRenderLayers {
+        match self {
+            OutlineVisualization::Ordinary => {
+                if hovered.cue() {
+                    OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
+                } else if selected.cue() {
+                    OutlineRenderLayers(RenderLayers::layer(SELECTED_OUTLINE_LAYER))
+                } else {
+                    OutlineRenderLayers(RenderLayers::none())
+                }
+            }
+            OutlineVisualization::Anchor => {
+                OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
+            }
+        }
+    }
 }
 
 pub fn add_outline_visualization(
@@ -78,6 +95,7 @@ pub fn add_outline_visualization(
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
             Added<LocationTags>,
+            Added<FloorMarker>,
         )>,
     >,
 ) {
@@ -99,6 +117,7 @@ pub fn update_outline_visualization(
 ) {
     for (e, hovered, selected, vis) in &outlinable {
         let color = vis.color(hovered, selected);
+        let layers = vis.layers(hovered, selected);
 
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
         queue.push(e);
@@ -123,9 +142,7 @@ pub fn update_outline_visualization(
                             },
                             stencil: OutlineStencil,
                         })
-                        .insert(OutlineRenderLayers(RenderLayers::layer(
-                            VISUAL_CUE_RENDER_LAYER,
-                        )));
+                        .insert(layers);
                 } else {
                     commands
                         .entity(top)
