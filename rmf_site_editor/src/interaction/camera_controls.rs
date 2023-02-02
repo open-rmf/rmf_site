@@ -192,12 +192,15 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-            .map(|(priority, layer)| {
-                world
+        .map(|(priority, layer)| {
+            world
                 .spawn()
                 .insert_bundle(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
-                    camera: Camera { priority, ..default() },
+                    camera: Camera {
+                        priority,
+                        ..default()
+                    },
                     camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
@@ -208,7 +211,7 @@ impl FromWorld for CameraControls {
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(layer))
                 .id()
-            });
+        });
 
         let perspective_base_camera = world
             .spawn()
@@ -255,11 +258,15 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-            .map(|(priority, layer)| {
-                world
+        .map(|(priority, layer)| {
+            world
                 .spawn()
                 .insert_bundle(Camera3dBundle {
-                    camera: Camera { is_active: false, priority, ..default() },
+                    camera: Camera {
+                        is_active: false,
+                        priority,
+                        ..default()
+                    },
                     camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
@@ -271,7 +278,7 @@ impl FromWorld for CameraControls {
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
                 .id()
-            });
+        });
 
         let orthographic_camera_entity = world
             .spawn()
@@ -402,14 +409,17 @@ fn camera_controls(
         }
 
         let proj = ortho_proj.clone();
-        let mut children = cameras.get_many_mut(controls.orthographic_camera_entities).unwrap();
+        let mut children = cameras
+            .get_many_mut(controls.orthographic_camera_entities)
+            .unwrap();
         for (mut child_proj, _) in children {
             *child_proj = proj.clone();
         }
     } else {
         // perspective mode
-        let (mut persp_proj, mut persp_transform) =
-            cameras.get_mut(controls.perspective_camera_entities[0]).unwrap();
+        let (mut persp_proj, mut persp_transform) = cameras
+            .get_mut(controls.perspective_camera_entities[0])
+            .unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
