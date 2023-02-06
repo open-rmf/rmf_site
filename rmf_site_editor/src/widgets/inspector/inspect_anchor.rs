@@ -18,7 +18,7 @@
 use crate::{
     interaction::{Hover, MoveTo},
     site::{Anchor, AssociatedGraphs, Category, Dependents, LocationTags, SiteID, Subordinate},
-    widgets::{inspector::SelectionWidget, AppEvents, Icons},
+    widgets::{inspector::SelectionWidget, AppEvents, Icons, inspector::InspectPose},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};

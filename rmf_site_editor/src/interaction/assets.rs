@@ -36,12 +36,44 @@ pub struct InteractionAssets {
     pub direction_light_cover_material: Handle<StandardMaterial>,
     pub x_axis_materials: GizmoMaterialSet,
     pub y_axis_materials: GizmoMaterialSet,
+    pub z_axis_materials: GizmoMaterialSet,
     pub z_plane_materials: GizmoMaterialSet,
     pub lift_doormat_available_materials: GizmoMaterialSet,
     pub lift_doormat_unavailable_materials: GizmoMaterialSet,
 }
 
 impl InteractionAssets {
+    pub fn make_axis(
+        &self,
+        command: &mut Commands,
+        // What entity will be moved when this gizmo is dragged
+        for_entity_opt: Option<Entity>,
+        // What entity should be the parent frame of this gizmo
+        parent: Entity,
+        material_set: GizmoMaterialSet,
+        offset: Vec3,
+        rotation: Quat,
+        scale: f32,
+    ) -> Entity {
+        return command.entity(parent).add_children(|parent| {
+            let mut child_entity = parent
+                .spawn_bundle(PbrBundle {
+                    transform: Transform::from_rotation(rotation)
+                        .with_translation(offset)
+                        .with_scale(Vec3::splat(scale)),
+                    mesh: self.arrow_mesh.clone(),
+                    material: material_set.passive.clone(),
+                    ..default()
+                });
+            if let Some(for_entity) = for_entity_opt {
+                child_entity.insert_bundle(
+                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
+                );
+            }
+            child_entity.id()
+        });
+    }
+
     pub fn make_draggable_axis(
         &self,
         command: &mut Commands,
@@ -54,21 +86,7 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        return command.entity(parent).add_children(|parent| {
-            parent
-                .spawn_bundle(PbrBundle {
-                    transform: Transform::from_rotation(rotation)
-                        .with_translation(offset)
-                        .with_scale(Vec3::splat(scale)),
-                    mesh: self.arrow_mesh.clone(),
-                    material: material_set.passive.clone(),
-                    ..default()
-                })
-                .insert_bundle(
-                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
-                )
-                .id()
-        });
+        self.make_axis(command, Some(for_entity), parent, material_set, offset, rotation, scale)
     }
 
     pub fn add_anchor_draggable_arrows(
@@ -209,6 +227,7 @@ impl FromWorld for InteractionAssets {
         });
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
+        let z_axis_materials = GizmoMaterialSet::make_z_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
         let lift_doormat_available_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
@@ -268,6 +287,7 @@ impl FromWorld for InteractionAssets {
             direction_light_cover_material,
             x_axis_materials,
             y_axis_materials,
+            z_axis_materials,
             z_plane_materials,
             lift_doormat_available_materials,
             lift_doormat_unavailable_materials,

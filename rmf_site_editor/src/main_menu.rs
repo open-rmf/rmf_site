@@ -188,6 +188,10 @@ fn egui_ui(
                 //     println!("Entering warehouse generator");
                 //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
+                if ui.button("Workcell Editor").clicked() {
+                    println!("Entering workcell editor");
+                    _app_state.set(AppState::WorkcellEditor).unwrap();
+                }
             });
 
             #[cfg(not(target_arch = "wasm32"))]

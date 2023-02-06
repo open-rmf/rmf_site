@@ -51,6 +51,14 @@ impl GizmoMaterialSet {
         }
     }
 
+    pub fn make_z_axis(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
+        Self {
+            passive: materials.add(Color::rgb(0., 0., 0.9).into()),
+            hover: materials.add(Color::rgb(0.5, 0.5, 1.0).into()),
+            drag: materials.add(Color::rgb(0., 0., 0.6).into()),
+        }
+    }
+
     pub fn make_z_plane(materials: &mut Mut<Assets<StandardMaterial>>) -> Self {
         Self {
             passive: materials.add(Color::rgba(0., 0., 1., 0.6).into()),

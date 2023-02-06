@@ -32,7 +32,7 @@ use serde::{Deserialize, Serialize};
 pub enum Anchor {
     Translate2D([f32; 2]),
     CategorizedTranslate2D(Categorized<[f32; 2]>),
-    Pose3d(Pose),
+    Pose3D(Pose),
 }
 
 impl From<[f32; 2]> for Anchor {
@@ -51,7 +51,7 @@ impl Anchor {
             Self::Translate2D(v) => v,
             Self::CategorizedTranslate2D(v) => v.for_category(category),
             // TODO check if this implementation is appropriate
-            Self::Pose3d(p) => to_slice(&p.trans[0..2]),
+            Self::Pose3D(p) => to_slice(&p.trans[0..2]),
         }
     }
 
@@ -73,7 +73,7 @@ impl Anchor {
                         }
                         return true;
                     }
-                    Self::Pose3d(p) => {
+                    Self::Pose3D(p) => {
                         let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
                         return (p_left - p_right).length() <= dist;
                     }
@@ -95,13 +95,13 @@ impl Anchor {
                     }
                     return true;
                 }
-                Self::Pose3d(p) => {
+                Self::Pose3D(p) => {
                     let p_left = Vec2::from_array(*left_categories.for_general());
                     let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
                     return (p_left - p_right).length() <= dist;
                 }
             },
-            Self::Pose3d(p_left) => match other {
+            Self::Pose3D(p_left) => match other {
                 Self::Translate2D(p_right) => {
                     // TODO do we ignore Z or assume Z = 0?
                     return true;
@@ -110,7 +110,7 @@ impl Anchor {
                     // TODO do we ignore Z or assume Z = 0?
                     return true;
                 },
-                Self::Pose3d(p_right) => {
+                Self::Pose3D(p_right) => {
                     let p_left = Vec3::from_array(p_left.trans);
                     let p_right = Vec3::from_array(p_right.trans);
                     return (p_left - p_right).length() <= dist;
@@ -140,7 +140,7 @@ impl Anchor {
                 let p = categorized.for_category(category);
                 Transform::from_translation([p[0], p[1], 0.0].into())
             }
-            Anchor::Pose3d(p) => p.transform(),
+            Anchor::Pose3D(p) => p.transform(),
         }
     }
 
@@ -157,7 +157,7 @@ impl Anchor {
                     *v = (Vec2::from(*v) + delta).into();
                 }
             }
-            Anchor::Pose3d(p) => {
+            Anchor::Pose3D(p) => {
                 p.trans[0] = tf.translation.x;
                 p.trans[1] = tf.translation.y;
                 p.trans[2] = tf.translation.z;

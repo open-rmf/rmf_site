@@ -55,7 +55,8 @@ struct CommandLineArgs {
 pub enum AppState {
     MainMenu,
     SiteEditor,
-    WarehouseGenerator,
+    //WarehouseGenerator,
+    WorkcellEditor,
 }
 
 pub struct OpenedMapFile(std::path::PathBuf);

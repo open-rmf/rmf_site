@@ -30,19 +30,42 @@ pub struct AnchorVisualization {
     pub drag: Option<Entity>,
 }
 
+fn make_anchor_orientation_cue_meshes(
+    commands: &mut Commands,
+    interaction_assets: &InteractionAssets,
+    parent: Entity,
+    transform: Transform,
+){
+    let pos = transform.translation;
+    let rot = transform.rotation;
+    let rot_x = Quat::from_xyzw(rot.x.sin(), 0., 0., rot.w.cos());
+    let rot_y = Quat::from_xyzw(0., rot.y.sin(), 0., rot.w.cos());
+    let rot_z = Quat::from_xyzw(0., 0., rot.z.sin(), rot.w.cos());
+    let x_mat = interaction_assets.x_axis_materials.clone();
+    let y_mat = interaction_assets.y_axis_materials.clone();
+    let z_mat = interaction_assets.z_axis_materials.clone();
+    interaction_assets.make_axis(commands, None, parent, x_mat, pos, rot_x, 0.1);
+    interaction_assets.make_axis(commands, None, parent, y_mat, pos, rot_y, 0.1);
+    interaction_assets.make_axis(commands, None, parent, z_mat, pos, rot_z, 0.1);
+}
+
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<(Entity, &Parent, Option<&Subordinate>), (Added<Anchor>, Without<Preview>)>,
+    new_anchors: Query<(Entity, &Parent, Option<&Subordinate>, &Anchor), (Added<Anchor>, Without<Preview>)>,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (e, parent, subordinate) in &new_anchors {
+    for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),
         };
+
+        if let Anchor::Pose3D(pose) = anchor {
+            make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e, pose.transform());
+        }
 
         let mut commands = commands.entity(e);
         let body = commands.add_children(|parent| {
