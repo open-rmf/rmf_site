@@ -99,6 +99,9 @@ pub use texture::*;
 pub mod wall;
 pub use wall::*;
 
+pub mod workcell;
+pub use workcell::*;
+
 mod is_default;
 pub(crate) use is_default::*;
 
