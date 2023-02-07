@@ -43,24 +43,21 @@ pub struct WorkcellElement {
     /// Workcell elements are normal meshes, point to where the mesh is stored
     pub source: AssetSource,
     /// Workcell element poses are defined relative to other entities
-    pub pose: WorkcellPoseConstraint,
+    pub pose: Pose,
+    pub relative_to: PoseRelativeTo,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct WorkcellPoseConstraint {
-    /// Entity the pose is relative to
-    pub relative_to: Entity,
-    /// Relative transform
-    // TODO(luca) change this to Transform instead?
-    pub pose: Pose,
-}
+/// Entity the pose is relative to, None for global frame
+pub struct PoseRelativeTo (Option<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct WorkcellAnchor {
     /// Anchor element
     pub anchor: Anchor,
-    /// Workcell element poses are defined relative to other entities
-    pub pose: WorkcellPoseConstraint,
+    /// Workcell anchor poses are defined relative to other entities
+    /// Pose is already contained in the Anchor enum variants
+    pub relative_to: PoseRelativeTo,
 }
