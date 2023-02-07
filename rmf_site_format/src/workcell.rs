@@ -21,7 +21,7 @@ use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 
 /// Bundle used to spawn and move whole workcells in site editor mode
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Workcell {
     /// Used in site editor to assign a unique name
@@ -29,40 +29,38 @@ pub struct Workcell {
     /// Pose of the workcell once spawned in site editor
     pub pose: Pose,
     // TODO(luca) add source, might need asset loader specialization
-    // since workcells might be saved as ron files
+    // since workcells will be saved as .workcell.ron files
     // pub source: AssetSource,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+/// Populated in workcell editor mode, in site editor a Workcell will have
+/// a series of non mutable WorkcellElement child entities
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct WorkcellElement {
     /// Unique name to identify the element
     pub name: NameInSite,
     /// Workcell elements are normal meshes, point to where the mesh is stored
     pub source: AssetSource,
-    /// Workcell element poses are defined relative to anchors
-    pub pose_constraint: WorkcellPoseConstraint,
+    /// Workcell element poses are defined relative to other entities
+    pub pose: WorkcellPoseConstraint,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct WorkcellPoseConstraint {
-    /// Anchor entity the pose is relative to
+    /// Entity the pose is relative to
     pub relative_to: Entity,
     /// Relative transform
     // TODO(luca) change this to Transform instead?
     pub pose: Pose,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct AnchorPoseConstraint {
-    /// Model entity origin the pose is relative to
-    pub relative_to: Entity,
-    /// Relative transform
-    // TODO(luca) change this to Transform instead?
-    pub pose: Pose,
-    // TODO(luca) implement options such as the one below to specify transforms
-    // relative to mesh elements such as faces, edges, vertices
-    // pub vertex_id: Option<u32>,
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct WorkcellAnchor {
+    /// Anchor element
+    pub anchor: Anchor,
+    /// Workcell element poses are defined relative to other entities
+    pub pose: WorkcellPoseConstraint,
 }
