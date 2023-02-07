@@ -286,6 +286,31 @@ pub fn update_cursor_transform(
 
             *transform = Transform::from_translation(intersection);
         }
+        // TODO(luca) snap to features of meshes
+        InteractionMode::SelectAnchor3D(_) => {
+            let intersection = match intersections.iter().last() {
+                Some(intersection) => intersection,
+                None => {
+                    return;
+                }
+            };
+
+            let mut transform = match transforms.get_mut(cursor.frame) {
+                Ok(transform) => transform,
+                Err(_) => {
+                    return;
+                }
+            };
+
+            let ray = match intersection.normal_ray() {
+                Some(ray) => ray,
+                None => {
+                    return;
+                }
+            };
+
+            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+        }
     }
 }
 

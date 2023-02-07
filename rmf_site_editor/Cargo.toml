@@ -16,6 +16,8 @@ bevy_egui = "0.15"
 bevy_mod_picking = "0.8"
 bevy_mod_raycast = "0.6"
 bevy_mod_outline = "0.2.5"
+# TODO(luca) Update this if 0.5.3 is released, or to 0.6.0 when migrating to bevy 0.9
+bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "ae0ec91" }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"

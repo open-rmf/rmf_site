@@ -191,6 +191,7 @@ fn egui_ui(
                 if ui.button("Workcell Editor").clicked() {
                     println!("Entering workcell editor");
                     _app_state.set(AppState::WorkcellEditor).unwrap();
+                    _interaction_state.set(InteractionState::Enable).ok();
                 }
             });
 

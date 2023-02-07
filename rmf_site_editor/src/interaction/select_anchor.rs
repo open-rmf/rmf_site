@@ -1223,6 +1223,15 @@ impl SelectAnchorPointBuilder {
             scope: Scope::General,
         }
     }
+
+    pub fn for_reference_point(self) -> SelectAnchor3D {
+        SelectAnchor3D {
+            target: self.for_element,
+            placement: PointPlacement::new::<Location<Entity>>(),
+            continuity: self.continuity,
+            scope: Scope::General,
+        }
+    }
 }
 
 pub struct SelectAnchorPathBuilder {
@@ -1567,9 +1576,156 @@ impl SelectAnchor {
     }
 }
 
+#[derive(Clone)]
+pub struct SelectAnchor3D {
+    target: Option<Entity>,
+    placement: PlacementArc,
+    continuity: SelectAnchorContinuity,
+    scope: Scope,
+}
+
+impl SelectAnchor3D {
+    pub fn site_scope(&self) -> bool {
+        self.scope.is_site()
+    }
+
+    /// Create one new location. After an anchor is selected the new location
+    /// will be created and the mode will return to Inspect.
+    pub fn create_new_point() -> SelectAnchorPointBuilder {
+        SelectAnchorPointBuilder {
+            for_element: None,
+            continuity: SelectAnchorContinuity::InsertElement,
+        }
+    }
+
+    /// Always return none, 3D anchors are only selectable and we need to
+    /// return to Inspect mode.
+    fn next<'w, 's>(
+        &self,
+        anchor_selection: AnchorSelection,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Self> {
+        None
+    }
+
+    fn preview<'w, 's>(
+        &self,
+        anchor_selection: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> PreviewResult {
+        let transition = match self.placement.next(
+            AnchorSelection::existing(anchor_selection),
+            self.continuity,
+            self.target,
+            params,
+        ) {
+            Ok(t) => t,
+            Err(_) => {
+                return PreviewResult::Invalid;
+            }
+        };
+
+        let target = match transition.target.current(self.target) {
+            Some(target) => target,
+            None => {
+                // This shouldn't happen. If a target wasn't already assigned
+                // then a new one should have been created during the preview.
+                // We'll just indicate that we should exit the current mode by
+                // returning None.
+                return PreviewResult::Invalid;
+            }
+        };
+
+        if let Some(new_placement) = transition.placement.preview {
+            return PreviewResult::Updated3D(Self {
+                target: Some(target),
+                placement: new_placement.clone(),
+                continuity: self.continuity,
+                scope: self.scope,
+            });
+        }
+
+        if Some(target) == self.target {
+            // Neither the placement nor the target has changed due to this
+            // preview, so just return the Unchanged variant.
+            return PreviewResult::Unchanged;
+        }
+
+        return PreviewResult::Updated3D(Self {
+            target: Some(target),
+            placement: self.placement.clone(),
+            continuity: self.continuity,
+            scope: self.scope,
+        });
+    }
+
+    pub fn backout<'w, 's>(
+        &self,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> InteractionMode {
+        if let Some(target) = self.target {
+            let transition = match self.placement.backout(self.continuity, target, params) {
+                Ok(t) => t,
+                Err(_) => {
+                    params.cleanup();
+                    return InteractionMode::Inspect;
+                }
+            };
+
+            if transition.target.is_finished {
+                params.commands.entity(target).remove::<Pending>();
+                self.placement.finalize(target, params);
+            }
+
+            if transition.target.discontinue {
+                params.cleanup();
+                return InteractionMode::Inspect;
+            }
+
+            match self.continuity {
+                SelectAnchorContinuity::ReplaceAnchor { .. } => {
+                    // Backing out of ReplaceAnchor always means we go back to
+                    // Inspect mode.
+                    params.cleanup();
+                    return InteractionMode::Inspect;
+                }
+                SelectAnchorContinuity::InsertElement => {
+                    if transition.target.is_finished {
+                        // If we have finished inserting an element then stop here
+                        params.cleanup();
+                        return InteractionMode::Inspect;
+                    } else {
+                        return InteractionMode::SelectAnchor3D(Self {
+                            target: None,
+                            placement: transition.placement.next,
+                            continuity: SelectAnchorContinuity::InsertElement,
+                            scope: self.scope,
+                        });
+                    }
+                }
+                SelectAnchorContinuity::Continuous { .. } => {
+                    return InteractionMode::SelectAnchor3D(Self {
+                        target: None,
+                        placement: transition.placement.next,
+                        continuity: SelectAnchorContinuity::Continuous { previous: None },
+                        scope: self.scope,
+                    });
+                }
+            }
+        } else {
+            // If there is no current target then a backout means we should
+            // exit the SelectAnchor mode entirely.
+            params.cleanup();
+            return InteractionMode::Inspect;
+        }
+    }
+}
+
 enum PreviewResult {
     /// The SelectAnchor state needs to be updated
     Updated(SelectAnchor),
+    /// The SelectAnchor3D state needs to be updated
+    Updated3D(SelectAnchor3D),
     /// The SelectAnchor state is unchanged
     Unchanged,
     /// The SelectAnchor request was invalid and should exit
@@ -1757,6 +1913,9 @@ pub fn handle_select_anchor_mode(
                     PreviewResult::Updated(next) => {
                         *mode = InteractionMode::SelectAnchor(next);
                     }
+                    PreviewResult::Updated3D(next) => {
+                        *mode = InteractionMode::SelectAnchor3D(next);
+                    }
                     PreviewResult::Unchanged => {
                         // Do nothing, the mode has not changed
                     }
@@ -1792,5 +1951,11 @@ pub fn handle_select_anchor_mode(
 impl From<SelectAnchor> for InteractionMode {
     fn from(mode: SelectAnchor) -> Self {
         InteractionMode::SelectAnchor(mode)
+    }
+}
+
+impl From<SelectAnchor3D> for InteractionMode {
+    fn from(mode: SelectAnchor3D) -> Self {
+        InteractionMode::SelectAnchor3D(mode)
     }
 }

@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D, SpawnPreview,
     },
     occupancy::CalculateGrid,
     site::{
@@ -25,6 +25,7 @@ use crate::{
         CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -72,7 +73,11 @@ impl Plugin for StandardUiLayout {
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi)),
+                    .with_system(site_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                    .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -144,7 +149,7 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w, 's>,
 }
 
-fn standard_ui_layout(
+fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
@@ -195,6 +200,60 @@ fn standard_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
+                    });
+                });
+        });
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn workcell_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    inspector_params: InspectorParams,
+    levels: LevelParams,
+    lights: LightParams,
+    nav_graphs: NavGraphParams,
+    mut events: AppEvents,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Inspect")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Create")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                if ui.button("Reference Point").clicked() {
+                                    events.request.change_mode.send(ChangeMode::To(
+                                        SelectAnchor3D::create_new_point().for_reference_point().into(),
+                                    ));
+                                }
+                            });
+                        ui.separator();
                     });
                 });
         });

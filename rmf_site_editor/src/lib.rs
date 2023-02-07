@@ -30,6 +30,8 @@ mod main_menu;
 use main_menu::Autoload;
 mod site;
 // mod warehouse_generator;
+mod workcell_editor;
+use workcell_editor::WorkcellEditorPlugin;
 mod interaction;
 
 mod simulation_state;
@@ -143,6 +145,7 @@ pub fn run(command_line_args: Vec<String>) {
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
         // .add_plugin(WarehouseGeneratorPlugin)
+        .add_plugin(WorkcellEditorPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
         .add_plugin(StandardUiLayout)
