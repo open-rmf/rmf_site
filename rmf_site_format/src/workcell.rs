@@ -44,22 +44,12 @@ pub struct WorkcellElement {
     pub source: AssetSource,
     /// Workcell element poses are defined relative to other entities
     pub pose: Pose,
-    pub relative_to: PoseRelativeTo,
 }
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-/// Entity the pose is relative to, None for global frame
-// TODO(luca) migrate to misc to be together with Pose component
-pub struct PoseRelativeTo (pub Option<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct WorkcellAnchor {
     /// Anchor element
     pub anchor: Anchor,
-    /// Workcell anchor poses are defined relative to other entities
-    /// Pose is already contained in the Anchor enum variants so we
-    /// only store relative_to
-    pub relative_to: PoseRelativeTo,
+    // TODO(luca) Add mesh constraint
 }

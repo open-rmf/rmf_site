@@ -19,8 +19,9 @@ use bevy::prelude::*;
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::AppState;
+use crate::site::AnchorBundle;
 
-use rmf_site_format::{Anchor, Pose, PoseRelativeTo, WorkcellAnchor};
+use rmf_site_format::{Anchor, Angle, Category, Pose, Rotation, WorkcellAnchor};
 
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
@@ -41,6 +42,7 @@ fn spawn_grid(
     );
 
     // TODO(luca) remove below
+    /*
     let mat = standard_materials.add(StandardMaterial::default());
 
     // cube
@@ -61,11 +63,31 @@ fn spawn_grid(
         transform: Transform::from_xyz(0.0, 2.0, 0.0),
         ..default()
     });
-
-    commands.spawn_bundle(WorkcellAnchor {
-        anchor: Anchor::Pose3D(Pose::default()),
-        relative_to: PoseRelativeTo(None),
+    */
+    
+    // Add an empty entity, the anchor query needs a parent
+    commands.spawn_bundle(SpatialBundle {
+        visibility: bevy::prelude::Visibility { is_visible: true}, computed: ComputedVisibility::default(),
+        transform: Transform::default(),
+        global_transform: GlobalTransform::default(),
+        })
+        .insert(Category::General).add_children(|parent| {
+        //let anchor = Anchor::Translate2D([0.0, 0.0]);
+        let mut pose = Pose::default();
+        //pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(45.0), Angle::Deg(30.0), Angle::Deg(15.0)]);
+        let anchor = Anchor::Pose3D(pose);
+        let anchor_comp = AnchorBundle::new(anchor).visible(true);
+        // TODO parse from WorkcellAnchor
+        parent.spawn_bundle(anchor_comp);
     });
+
+    /*
+    commands.spawn().insert(Category::General).add_children(|parent| {
+        parent.spawn_bundle(WorkcellAnchor {
+            anchor: Anchor::Pose3D(Pose::default()),
+        });
+    });
+    */
 }
 
 impl Plugin for WorkcellEditorPlugin {

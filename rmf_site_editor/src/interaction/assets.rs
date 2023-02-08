@@ -65,6 +65,7 @@ impl InteractionAssets {
                     material: material_set.passive.clone(),
                     ..default()
                 });
+            dbg!(Vec3::splat(scale));
             if let Some(for_entity) = for_entity_opt {
                 child_entity.insert_bundle(
                     DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
