@@ -28,15 +28,27 @@ use bevy::{
 };
 
 /// RenderLayers are used to inform cameras which entities they should render.
-/// The user's viewport will see all layers, but physical cameras will only see
-/// entities in the default layer 0. In the site editor, each layer value has a
-/// specific semantic meaning so we need to make sure we never reuse these
-/// values.
-pub const PHYSICAL_RENDER_LAYER: u8 = 0;
-pub const VISUAL_CUE_RENDER_LAYER: u8 = 1;
-/// VISUAL_CUE_XRAY_LAYER is used to show visual cues that need to be rendered
+/// The General render layer is for things that should be visible to all
+/// cameras.
+pub const GENERAL_RENDER_LAYER: u8 = 0;
+/// The Physical render layer is for things that should be visible to any camera
+/// that needs to capture the physical world (e.g. the physical camera sensor
+/// simulator) but should not be rendered by the user's view. This allows us to
+/// toggle off complex PBR lights for the user's view (which can severely slow
+/// down performance) while keeping them for camera sensors.
+pub const PHYSICAL_RENDER_LAYER: u8 = 1;
+/// The Visual Cue layer is for things that should be shown to the user but
+/// should never appear in a physical camera.
+pub const VISUAL_CUE_RENDER_LAYER: u8 = 2;
+/// The Selected Outline layer is where the outline of the currently selected
+/// entity is shown.
+pub const SELECTED_OUTLINE_LAYER: u8 = 3;
+/// The Hovered Outline layer is where the outline of the currently hovered
+/// entity is shown.
+pub const HOVERED_OUTLINE_LAYER: u8 = 4;
+/// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
-pub const VISUAL_CUE_XRAY_LAYER: u8 = 2;
+pub const XRAY_RENDER_LAYER: u8 = 5;
 
 struct MouseLocation {
     previous: Vec2,
@@ -68,11 +80,9 @@ impl ProjectionMode {
 #[derive(Debug, Clone, Reflect)]
 pub struct CameraControls {
     mode: ProjectionMode,
-    pub perspective_camera_entity: Entity,
-    pub perspective_xray_entity: Entity,
+    pub perspective_camera_entities: [Entity; 4],
     pub perspective_headlight: Entity,
-    pub orthographic_camera_entity: Entity,
-    pub orthographic_xray_entity: Entity,
+    pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
     pub orbit_center: Vec3,
     pub orbit_radius: f32,
@@ -98,35 +108,25 @@ impl CameraControls {
         visibilities: &mut Query<&mut Visibility>,
         headlights_on: bool,
     ) {
-        if let Ok(cameras) =
-            cameras.get_many_mut([self.perspective_camera_entity, self.perspective_xray_entity])
-        {
+        if let Ok(cameras) = cameras.get_many_mut(self.perspective_camera_entities) {
             for mut camera in cameras {
                 camera.is_active = choice;
             }
         }
 
-        if let Ok(visibilities) = visibilities
-            .get_many_mut([self.perspective_camera_entity, self.perspective_xray_entity])
-        {
+        if let Ok(visibilities) = visibilities.get_many_mut(self.perspective_camera_entities) {
             for mut visibility in visibilities {
                 visibility.is_visible = choice;
             }
         }
 
-        if let Ok(cameras) = cameras.get_many_mut([
-            self.orthographic_camera_entity,
-            self.orthographic_xray_entity,
-        ]) {
+        if let Ok(cameras) = cameras.get_many_mut(self.orthographic_camera_entities) {
             for mut camera in cameras {
                 camera.is_active = !choice;
             }
         }
 
-        if let Ok(visibilities) = visibilities.get_many_mut([
-            self.orthographic_camera_entity,
-            self.orthographic_xray_entity,
-        ]) {
+        if let Ok(visibilities) = visibilities.get_many_mut(self.orthographic_camera_entities) {
             for mut visibility in visibilities {
                 visibility.is_visible = !choice;
             }
@@ -157,8 +157,8 @@ impl CameraControls {
 
     pub fn active_camera(&self) -> Entity {
         match self.mode {
-            ProjectionMode::Perspective => self.perspective_camera_entity,
-            ProjectionMode::Orthographic => self.orthographic_camera_entity,
+            ProjectionMode::Perspective => self.perspective_camera_entities[0],
+            ProjectionMode::Orthographic => self.orthographic_camera_entities[0],
         }
     }
 
@@ -187,28 +187,33 @@ impl FromWorld for CameraControls {
             })
             .id();
 
-        let perspective_xray_entity = world
-            .spawn()
-            .insert_bundle(Camera3dBundle {
-                projection: Projection::Perspective(Default::default()),
-                camera: Camera {
-                    // Make this render after the main perspective camera
-                    priority: 1,
+        let perspective_child_cameras = [
+            (1, SELECTED_OUTLINE_LAYER),
+            (2, HOVERED_OUTLINE_LAYER),
+            (3, XRAY_RENDER_LAYER),
+        ]
+        .map(|(priority, layer)| {
+            world
+                .spawn()
+                .insert_bundle(Camera3dBundle {
+                    projection: Projection::Perspective(Default::default()),
+                    camera: Camera {
+                        priority,
+                        ..default()
+                    },
+                    camera_3d: Camera3d {
+                        clear_color: ClearColorConfig::None,
+                        ..default()
+                    },
                     ..default()
-                },
-                camera_3d: Camera3d {
-                    // Do not clear the background when rendering this
-                    clear_color: ClearColorConfig::None,
-                    ..default()
-                },
-                ..default()
-            })
-            .insert(Visibility::visible())
-            .insert(ComputedVisibility::default())
-            .insert(RenderLayers::layer(VISUAL_CUE_XRAY_LAYER))
-            .id();
+                })
+                .insert(Visibility::visible())
+                .insert(ComputedVisibility::default())
+                .insert(RenderLayers::layer(layer))
+                .id()
+        });
 
-        let perspective_camera_entity = world
+        let perspective_base_camera = world
             .spawn()
             .insert_bundle(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
@@ -218,10 +223,11 @@ impl FromWorld for CameraControls {
             .insert(Visibility::visible())
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
-                PHYSICAL_RENDER_LAYER,
+                GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[perspective_headlight, perspective_xray_entity])
+            .push_children(&[perspective_headlight])
+            .push_children(&perspective_child_cameras)
             .id();
 
         let orthographic_headlight = world
@@ -247,27 +253,32 @@ impl FromWorld for CameraControls {
             ..default()
         };
 
-        let orthographic_xray_entity = world
-            .spawn()
-            .insert_bundle(Camera3dBundle {
-                camera: Camera {
-                    is_active: false,
-                    // Make this render after the main orthographic camera
-                    priority: 1,
+        let orthographic_child_cameras = [
+            (1, SELECTED_OUTLINE_LAYER),
+            (2, HOVERED_OUTLINE_LAYER),
+            (3, XRAY_RENDER_LAYER),
+        ]
+        .map(|(priority, layer)| {
+            world
+                .spawn()
+                .insert_bundle(Camera3dBundle {
+                    camera: Camera {
+                        is_active: false,
+                        priority,
+                        ..default()
+                    },
+                    camera_3d: Camera3d {
+                        clear_color: ClearColorConfig::None,
+                        ..default()
+                    },
+                    projection: Projection::Orthographic(ortho_projection.clone()),
                     ..default()
-                },
-                camera_3d: Camera3d {
-                    // Do not clear the background when rendering this
-                    clear_color: ClearColorConfig::None,
-                    ..default()
-                },
-                projection: Projection::Orthographic(ortho_projection.clone()),
-                ..default()
-            })
-            .insert(Visibility::visible())
-            .insert(ComputedVisibility::default())
-            .insert(RenderLayers::layer(VISUAL_CUE_XRAY_LAYER))
-            .id();
+                })
+                .insert(Visibility::visible())
+                .insert(ComputedVisibility::default())
+                .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
+                .id()
+        });
 
         let orthographic_camera_entity = world
             .spawn()
@@ -283,19 +294,28 @@ impl FromWorld for CameraControls {
             .insert(Visibility::visible())
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
-                PHYSICAL_RENDER_LAYER,
+                GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,
             ]))
-            .push_children(&[orthographic_headlight, orthographic_xray_entity])
+            .push_children(&[orthographic_headlight])
+            .push_children(&orthographic_child_cameras)
             .id();
 
         CameraControls {
             mode: ProjectionMode::Perspective,
-            perspective_camera_entity,
-            perspective_xray_entity,
+            perspective_camera_entities: [
+                perspective_base_camera,
+                perspective_child_cameras[0],
+                perspective_child_cameras[1],
+                perspective_child_cameras[2],
+            ],
             perspective_headlight,
-            orthographic_camera_entity,
-            orthographic_xray_entity,
+            orthographic_camera_entities: [
+                orthographic_camera_entity,
+                orthographic_child_cameras[0],
+                orthographic_child_cameras[1],
+                orthographic_child_cameras[2],
+            ],
             orthographic_headlight,
             orbit_center: Vec3::ZERO,
             orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
@@ -367,7 +387,7 @@ fn camera_controls(
 
     if controls.mode() == ProjectionMode::Orthographic {
         let (mut ortho_proj, mut ortho_transform) = cameras
-            .get_mut(controls.orthographic_camera_entity)
+            .get_mut(controls.orthographic_camera_entities[0])
             .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
             if let Some(window) = windows.get_primary() {
@@ -389,12 +409,17 @@ fn camera_controls(
         }
 
         let proj = ortho_proj.clone();
-        let (mut xray_proj, _) = cameras.get_mut(controls.orthographic_xray_entity).unwrap();
-        *xray_proj = proj;
+        let mut children = cameras
+            .get_many_mut(controls.orthographic_camera_entities)
+            .unwrap();
+        for (mut child_proj, _) in children {
+            *child_proj = proj.clone();
+        }
     } else {
         // perspective mode
-        let (mut persp_proj, mut persp_transform) =
-            cameras.get_mut(controls.perspective_camera_entity).unwrap();
+        let (mut persp_proj, mut persp_transform) = cameras
+            .get_mut(controls.perspective_camera_entities[0])
+            .unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
