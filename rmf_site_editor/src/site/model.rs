@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Selectable, DragPlaneBundle},
+    interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
