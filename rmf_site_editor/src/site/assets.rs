@@ -150,7 +150,10 @@ impl FromWorld for SiteAssets {
             .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
                 Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
             )));
-        let site_anchor_mesh = meshes.add(Mesh::from(make_cylinder(0.15, 0.15)));
+        let site_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
+            radius: 0.2, // TODO(MXG): Make the vertex radius configurable
+            ..Default::default()
+        }));
         let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0).into());
         let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.125).into());
         let lane_end_mesh = meshes.add(

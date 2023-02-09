@@ -36,23 +36,18 @@ fn make_anchor_orientation_cue_meshes(
     parent: Entity,
     transform: Transform,
 ){
-    let pos = transform.translation;
+    // The arrows should originate in the mesh origin
+    let pos = Vec3::splat(0.0);
     let rot = transform.rotation;
-    let unit_x = Quat::from_rotation_x(std::f32::consts::PI / 2.0);
-    let unit_y = Quat::from_rotation_y(std::f32::consts::PI / 2.0);
-    let unit_z = Quat::from_rotation_z(std::f32::consts::PI / 2.0);
-    let rot_x = rot * unit_x;
-    let rot_y = rot * unit_y;
-    let rot_z = rot * unit_z;
-    dbg!(rot_x);
-    dbg!(rot_y);
-    dbg!(rot_z);
+    let rot_x = rot * Quat::from_rotation_y(90_f32.to_radians());
+    let rot_y = rot * Quat::from_rotation_x(90_f32.to_radians());
+    let rot_z = rot * Quat::from_rotation_z(90_f32.to_radians());
     let x_mat = interaction_assets.x_axis_materials.clone();
     let y_mat = interaction_assets.y_axis_materials.clone();
     let z_mat = interaction_assets.z_axis_materials.clone();
-    dbg!(interaction_assets.make_axis(commands, None, parent, x_mat, pos, rot_x, 1.0));
-    dbg!(interaction_assets.make_axis(commands, None, parent, y_mat, pos, rot_y, 1.0));
-    dbg!(interaction_assets.make_axis(commands, None, parent, z_mat, pos, rot_z, 1.0));
+    interaction_assets.make_axis(commands, None, parent, x_mat, pos, rot_x, 1.0);
+    interaction_assets.make_axis(commands, None, parent, y_mat, pos, rot_y, 1.0);
+    interaction_assets.make_axis(commands, None, parent, z_mat, pos, rot_z, 1.0);
 }
 
 pub fn add_anchor_visual_cues(
@@ -70,24 +65,11 @@ pub fn add_anchor_visual_cues(
         };
 
         if let Anchor::Pose3D(pose) = anchor {
-            println!("Found 3d anchor");
-            dbg!(pose);
-
-            /*
-            let drag_parent = commands.entity(e).add_children(|parent| {
-                parent
-                    .spawn_bundle(SpatialBundle::default())
-                    .insert(VisualCue::no_outline())
-                    .id()
-            });
-            */
-
             make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e, pose.transform());
         }
 
         let mut commands = commands.entity(e);
         let body = commands.add_children(|parent| {
-            println!("Spawning anchor");
             let mut body = parent.spawn_bundle(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
@@ -102,12 +84,15 @@ pub fn add_anchor_visual_cues(
             body
         });
 
-        /*
         commands
             .insert(AnchorVisualization { body, drag: None })
-            .insert(OutlineVisualization::Anchor)
-            .insert(VisualCue::outline().irregular());
-            */
+            .insert(OutlineVisualization::Anchor);
+
+        // 3D anchors should always be visible
+        match anchor {
+            Anchor::Pose3D(_) => {},
+            _ => { commands.insert(VisualCue::outline().irregular()); }
+        }
     }
 }
 

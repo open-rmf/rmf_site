@@ -31,14 +31,16 @@ fn spawn_grid(
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
+    // Inifinite grid is flipped
+    let mut grid = InfiniteGrid::default();
+    grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
+    grid.z_axis_color = Color::rgb(0.2, 1.0, 0.2);
     commands.spawn_bundle(InfiniteGridBundle {
-        grid: InfiniteGrid {
-            ..Default::default()
-        },
+        grid: grid,
         ..Default::default()
     })
     .insert(
-        Transform::from_rotation(Quat::from_rotation_x(std::f32::consts::PI / 2.0))
+        Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
     );
 
     // TODO(luca) remove below
@@ -74,7 +76,8 @@ fn spawn_grid(
         .insert(Category::General).add_children(|parent| {
         //let anchor = Anchor::Translate2D([0.0, 0.0]);
         let mut pose = Pose::default();
-        //pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(45.0), Angle::Deg(30.0), Angle::Deg(15.0)]);
+        //pose.trans[0] = 5.0;
+        //pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(15.0)]);
         let anchor = Anchor::Pose3D(pose);
         let anchor_comp = AnchorBundle::new(anchor).visible(true);
         // TODO parse from WorkcellAnchor
