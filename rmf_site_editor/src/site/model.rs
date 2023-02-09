@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::Selectable,
+    interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
@@ -174,11 +174,15 @@ pub fn make_models_selectable(
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 32 is typically
         // sufficient.
-        let mut queue: SmallVec<[Entity; 32]> = SmallVec::new();
+        let mut queue: SmallVec<[Entity; 16]> = SmallVec::new();
         queue.push(model_scene_root);
 
         while let Some(e) = queue.pop() {
-            commands.entity(e).insert(selectable.clone());
+            commands
+                .entity(e)
+                .insert(selectable.clone())
+                .insert_bundle(DragPlaneBundle::new(selectable.element, Vec3::Z));
+
             if let Ok(children) = all_children.get(e) {
                 for child in children {
                     queue.push(*child);
