@@ -179,7 +179,6 @@ pub fn update_anchor_visual_cues(
         ),
         Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
     >,
-    mut bobbing: Query<&mut Bobbing>,
     mut visibility: Query<&mut Visibility>,
     mut materials: Query<&mut Handle<StandardMaterial>>,
     deps: Query<&Dependents>,
