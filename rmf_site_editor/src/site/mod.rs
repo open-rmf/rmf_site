@@ -134,6 +134,7 @@ impl Plugin for SitePlugin {
             .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentWorkspace>()
+            .init_resource::<RecallWorkspace>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()
             .init_resource::<PhysicalLightToggle>()
@@ -174,8 +175,6 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
-            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
-            .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)
@@ -188,6 +187,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site.exclusive_system())
                     .with_system(save_nav_graphs.exclusive_system())
+                    .with_system(sync_workspace_visibility)
                     .with_system(change_site),
             )
             .add_system_set_to_stage(

@@ -20,20 +20,22 @@ use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Default)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
+    pub display: bool,
     // TODO add display
 }
+
+/// Used to keep track of visibility when switching workspace
+#[derive(Debug, Default)]
+pub struct RecallWorkspace (Option<Entity>);
 
 impl CurrentWorkspace {
 
     pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
         let site_entity = self.root?;
-        match open_sites.get(site_entity) {
-            Ok(_) => Some(site_entity),
-            Err(_) => None,
-        }
+        open_sites.get(site_entity).ok()
     }
 }
 
@@ -104,11 +106,8 @@ pub fn change_site(
         }
 
         if current_workspace.root != Some(cmd.site) {
-            if let Some(previous_site) = current_workspace.root {
-                set_visibility(previous_site, false);
-            }
-            set_visibility(cmd.site, true);
             current_workspace.root = Some(cmd.site);
+            current_workspace.display = true;
         }
 
         if let Some(new_level) = cmd.level {
@@ -157,24 +156,28 @@ pub fn change_site(
     }
 }
 
-pub fn site_display_on(
-    current_workspace: Res<CurrentWorkspace>,
-    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
+pub fn sync_workspace_visibility(
+  current_workspace: Res<CurrentWorkspace>,
+  mut recall: ResMut<RecallWorkspace>,
+  mut visibility: Query<&mut Visibility>,
 ) {
-    if let Some(current_workspace) = current_workspace.root {
-        if let Ok(mut v) = visibility.get_mut(current_workspace) {
-            v.is_visible = true;
-        }
+    if !current_workspace.is_changed() {
+        return;
     }
-}
 
-pub fn site_display_off(
-    current_workspace: Res<CurrentWorkspace>,
-    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
-) {
-    if let Some(current_workspace) = current_workspace.root {
-        if let Ok(mut v) = visibility.get_mut(current_workspace) {
-            v.is_visible = false;
+    if recall.0 != current_workspace.root {
+        // Set visibility of current to target
+        if let Some(current_workspace_entity) = current_workspace.root {
+            if let Ok(mut v) = visibility.get_mut(current_workspace_entity) {
+                v.is_visible = current_workspace.display;
+            }
         }
+        // Disable visibility in recall
+        if let Some(recall) = recall.0 {
+            if let Ok(mut v) = visibility.get_mut(recall) {
+                v.is_visible = false;
+            }
+        }
+        recall.0 = current_workspace.root;
     }
 }
