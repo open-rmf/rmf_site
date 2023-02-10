@@ -36,15 +36,11 @@ pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transf
 }
 
 pub fn get_current_site_path(
-    current_workspace: Res<CurrentWorkspace>,
+    current_site: Res<CurrentSite>,
     site_files: Query<&DefaultFile>,
 ) -> Option<PathBuf> {
-    if let CurrentWorkspace::Site(current_site) = *current_workspace {
-        site_files.get(current_site).map(|f| f.0.clone()).ok()
-    }
-    else {
-        None
-    }
+    let site_entity = (*current_site).0?;
+    site_files.get(site_entity).map(|f| f.0.clone()).ok()
 }
 
 /// This component indicates what labels are used to refer to the start/left

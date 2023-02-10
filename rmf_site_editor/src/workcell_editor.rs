@@ -44,8 +44,8 @@ fn spawn_grid(
     );
 
     // TODO(luca) remove below
-    let mat = standard_materials.add(StandardMaterial::default());
     /*
+    let mat = standard_materials.add(StandardMaterial::default());
 
     // cube
     commands.spawn_bundle(PbrBundle {
@@ -68,31 +68,20 @@ fn spawn_grid(
     */
     
     // Add an empty entity, the anchor query needs a parent
-    let anchor_id = commands.spawn_bundle(SpatialBundle::visible_identity())
-        .insert(Category::Workcell).add_children(|parent| {
+    commands.spawn_bundle(SpatialBundle {
+        visibility: bevy::prelude::Visibility { is_visible: true}, computed: ComputedVisibility::default(),
+        transform: Transform::default(),
+        global_transform: GlobalTransform::default(),
+        })
+        .insert(Category::General).add_children(|parent| {
+        //let anchor = Anchor::Translate2D([0.0, 0.0]);
         let mut pose = Pose::default();
         //pose.trans[0] = 5.0;
-        pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(15.0)]);
+        //pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(15.0)]);
         let anchor = Anchor::Pose3D(pose);
         let anchor_comp = AnchorBundle::new(anchor).visible(true);
         // TODO parse from WorkcellAnchor
-        parent.spawn_bundle(anchor_comp)
-        .id()
-    });
-
-    // Try to spawn a parented cube
-    //
-    commands.entity(anchor_id).add_children(|parent| {
-        parent.spawn_bundle(PbrBundle {
-        material: mat.clone(),
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        transform: Transform {
-            translation: Vec3::new(3., 4., 0.),
-            rotation: Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
-            scale: Vec3::splat(1.5),
-        },
-        ..default()
-        });
+        parent.spawn_bundle(anchor_comp);
     });
 
     /*

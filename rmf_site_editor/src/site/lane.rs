@@ -130,10 +130,10 @@ pub fn assign_orphan_nav_elements_to_site(
             Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
         ),
     >,
-    current_workspace: Res<CurrentWorkspace>,
+    current_site: Res<CurrentSite>,
 ) {
-    if let CurrentWorkspace::Site(current_site) = *current_workspace {
-        for e in &elements {
+    for e in &elements {
+        if let Some(current_site) = **current_site {
             commands.entity(current_site).add_child(e);
         }
     }

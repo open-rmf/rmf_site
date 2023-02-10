@@ -251,7 +251,7 @@ pub fn load_site(
     mut commands: Commands,
     mut opened_sites: ResMut<OpenSites>,
     mut load_sites: EventReader<LoadSite>,
-    mut change_current_workspace: EventWriter<ChangeCurrentWorkspace>,
+    mut change_current_site: EventWriter<ChangeCurrentSite>,
     mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_sites.iter() {
@@ -262,10 +262,7 @@ pub fn load_site(
         opened_sites.0.push(site);
 
         if cmd.focus {
-            // TODO(luca) make this construction a bit shorter
-            change_current_workspace.send(
-                ChangeCurrentWorkspace::Site(
-                    ChangeCurrentSite { site, level: None }));
+            change_current_site.send(ChangeCurrentSite { site, level: None });
 
             if *site_display_state.current() == SiteState::Off {
                 site_display_state.set(SiteState::Display).ok();
@@ -496,7 +493,7 @@ pub fn import_nav_graph(
     mut params: ImportNavGraphParams,
     mut import_requests: EventReader<ImportNavGraphs>,
     mut autoload: Option<ResMut<Autoload>>,
-    current_workspace: Res<CurrentWorkspace>,
+    current_site: Res<CurrentSite>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {
@@ -521,10 +518,9 @@ pub fn import_nav_graph(
                 None => break 'import,
             };
 
-            // TODO(luca) cleanup with new let-else statement
-            let current_site = match *current_workspace {
-                CurrentWorkspace::Site(site) => site,
-                _ => break 'import,
+            let current_site = match current_site.0 {
+                Some(s) => s,
+                None => break 'import,
             };
 
             let file = FileHandle::wrap(import.clone());

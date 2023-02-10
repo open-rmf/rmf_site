@@ -22,7 +22,7 @@ use crate::{
     occupancy::CalculateGrid,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentWorkspace, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
     AppState,
@@ -123,7 +123,7 @@ pub struct Requests<'w, 's> {
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
-    pub current_workspace: ResMut<'w, CurrentWorkspace>,
+    pub current_site: ResMut<'w, CurrentSite>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub delete: EventWriter<'w, 's, Delete>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,

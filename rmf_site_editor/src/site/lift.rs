@@ -111,7 +111,7 @@ pub fn add_tags_to_lift(
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
-    current_workspace: Res<CurrentWorkspace>,
+    current_site: Res<CurrentSite>,
 ) {
     for (e, edge) in &new_lifts {
         let mut lift_cmds = commands.entity(e);
@@ -123,7 +123,7 @@ pub fn add_tags_to_lift(
         if orphan_lifts.contains(e) {
             // Assume that a newly created lift that doesn't have a parent
             // belongs in whatever the current site happens to be.
-            if let CurrentWorkspace::Site(current_site) = *current_workspace {
+            if let Some(current_site) = current_site.0 {
                 commands.entity(current_site).add_child(e);
             } else {
                 println!("Could not find a current site to put a newly created lift inside of!");
