@@ -140,7 +140,7 @@ impl Plugin for SitePlugin {
             .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
-            .add_event::<ChangeCurrentSite>()
+            .add_event::<ChangeCurrentWorkspace>()
             .add_event::<SaveSite>()
             .add_event::<SaveNavGraphs>()
             .add_event::<ToggleLiftDoorAvailability>()
