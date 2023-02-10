@@ -17,7 +17,7 @@
 
 use crate::{
     site::{
-        Change, CurrentSite, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
+        Change, CurrentWorkspace, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{inspector::color_edit, AppEvents, Icons},
@@ -87,7 +87,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         Self { params, events }
     }
 
-    pub fn show(self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<rmf_site_format::SiteProperties>>) {
         let graphs = {
             let mut graphs: SmallVec<[(Entity, &NameInSite, &DisplayColor, &Visibility); 10]> =
                 SmallVec::from_iter(self.params.graphs.iter());
@@ -193,7 +193,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         {
             ui.separator();
             if ui.button("Import Graphs...").clicked() {
-                match self.events.request.current_site.0 {
+                match self.events.request.current_workspace.to_site(open_sites) {
                     Some(into_site) => {
                         match &self.events.display.nav_graph.choosing_file_to_import {
                             Some(_) => {
@@ -234,7 +234,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 if let Some(export_file) = &self.events.display.nav_graph.export_file {
                     if ui.button("Export").clicked() {
-                        if let Some(current_site) = self.events.request.current_site.0 {
+                        if let Some(current_site) = self.events.request.current_workspace.to_site(open_sites) {
                             self.events.request.save_nav_graphs.send(SaveNavGraphs {
                                 site: current_site,
                                 to_file: export_file.clone(),
@@ -278,13 +278,14 @@ pub fn resolve_nav_graph_import_export_files(
     mut nav_graph_display: ResMut<NavGraphDisplay>,
     mut save_nav_graphs: EventWriter<SaveNavGraphs>,
     mut import_nav_graphs: EventWriter<ImportNavGraphs>,
-    current_site: Res<CurrentSite>,
+    open_sites: Query<Entity, With<rmf_site_format::SiteProperties>>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     if 'resolved: {
         if let Some(task) = &mut nav_graph_display.choosing_file_for_export {
             if let Some(result) = future::block_on(future::poll_once(task)) {
                 if let Some(result) = result {
-                    if let Some(current_site) = current_site.0 {
+                    if let Some(current_site) = current_workspace.to_site(&open_sites) {
                         save_nav_graphs.send(SaveNavGraphs {
                             site: current_site,
                             to_file: result.clone(),

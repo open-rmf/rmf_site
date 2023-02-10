@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, CurrentSite},
+    site::{Anchor, CurrentWorkspace},
 };
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
@@ -129,7 +129,7 @@ pub fn update_picked(
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
@@ -146,7 +146,7 @@ pub fn update_picked(
         }
     }
 
-    let current_site = match current_site.0 {
+    let current_site = match current_workspace.root {
         Some(current_site) => current_site,
         None => return,
     };

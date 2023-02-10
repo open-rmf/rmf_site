@@ -21,7 +21,21 @@ use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
-pub struct CurrentSite(pub Option<Entity>);
+pub struct CurrentWorkspace {
+    pub root: Option<Entity>,
+    // TODO add display
+}
+
+impl CurrentWorkspace {
+
+    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
+        let site_entity = self.root?;
+        match open_sites.get(site_entity) {
+            Ok(_) => Some(site_entity),
+            Err(_) => None,
+        }
+    }
+}
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -49,7 +63,7 @@ pub struct NextSiteID(pub u32);
 pub fn change_site(
     mut commands: Commands,
     mut change_current_site: EventReader<ChangeCurrentSite>,
-    mut current_site: ResMut<CurrentSite>,
+    mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
     mut cached_levels: ResMut<CachedLevels>,
     mut visibility: Query<&mut Visibility>,
@@ -89,12 +103,12 @@ pub fn change_site(
             }
         }
 
-        if current_site.0 != Some(cmd.site) {
-            if let Some(previous_site) = current_site.0 {
+        if current_workspace.root != Some(cmd.site) {
+            if let Some(previous_site) = current_workspace.root {
                 set_visibility(previous_site, false);
             }
             set_visibility(cmd.site, true);
-            current_site.0 = Some(cmd.site);
+            current_workspace.root = Some(cmd.site);
         }
 
         if let Some(new_level) = cmd.level {
@@ -144,22 +158,22 @@ pub fn change_site(
 }
 
 pub fn site_display_on(
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
-    if let Some(current_site) = current_site.0 {
-        if let Ok(mut v) = visibility.get_mut(current_site) {
+    if let Some(current_workspace) = current_workspace.root {
+        if let Ok(mut v) = visibility.get_mut(current_workspace) {
             v.is_visible = true;
         }
     }
 }
 
 pub fn site_display_off(
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
-    if let Some(current_site) = current_site.0 {
-        if let Ok(mut v) = visibility.get_mut(current_site) {
+    if let Some(current_workspace) = current_workspace.root {
+        if let Ok(mut v) = visibility.get_mut(current_workspace) {
             v.is_visible = false;
         }
     }

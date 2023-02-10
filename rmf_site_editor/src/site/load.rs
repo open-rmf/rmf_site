@@ -491,7 +491,8 @@ pub fn import_nav_graph(
     mut params: ImportNavGraphParams,
     mut import_requests: EventReader<ImportNavGraphs>,
     mut autoload: Option<ResMut<Autoload>>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
+    open_sites: Query<Entity, With<SiteProperties>>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {
@@ -516,7 +517,7 @@ pub fn import_nav_graph(
                 None => break 'import,
             };
 
-            let current_site = match current_site.0 {
+            let current_site = match current_workspace.to_site(&open_sites) {
                 Some(s) => s,
                 None => break 'import,
             };

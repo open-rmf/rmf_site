@@ -22,7 +22,7 @@ use crate::{
     occupancy::CalculateGrid,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        CurrentWorkspace, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
     AppState,
@@ -123,7 +123,7 @@ pub struct Requests<'w, 's> {
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
-    pub current_site: ResMut<'w, CurrentSite>,
+    pub current_workspace: ResMut<'w, CurrentWorkspace>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub delete: EventWriter<'w, 's, Delete>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
@@ -152,6 +152,7 @@ pub struct AppEvents<'w, 's> {
 fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
@@ -174,7 +175,7 @@ fn site_ui_layout(
                         CollapsingHeader::new("Navigation Graphs")
                             .default_open(true)
                             .show(ui, |ui| {
-                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
+                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui, &open_sites);
                             });
                         ui.separator();
                         CollapsingHeader::new("Inspect")

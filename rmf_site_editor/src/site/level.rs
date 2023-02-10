@@ -32,17 +32,18 @@ pub fn update_level_visibility(
 pub fn assign_orphan_levels_to_site(
     mut commands: Commands,
     new_levels: Query<Entity, Added<LevelProperties>>,
-    current_site: Res<CurrentSite>,
+    open_sites: Query<Entity, With<SiteProperties>>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
-    for level in &new_levels {
-        if let Some(site) = **current_site {
+    if let Some(site) = current_workspace.to_site(&open_sites) {
+        for level in &new_levels {
             commands.entity(site).add_child(level);
-        } else {
-            println!(
-                "Unable to assign level {:?} to any site because there is no \
-                current site",
-                level,
-            );
         }
+    }
+    else {
+        println!(
+            "Unable to assign level to any site because there is no \
+            current site"
+        );
     }
 }

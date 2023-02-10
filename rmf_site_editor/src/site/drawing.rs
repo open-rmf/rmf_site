@@ -18,7 +18,7 @@
 use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
-    site::{get_current_site_path, Category, CurrentSite, DefaultFile},
+    site::{get_current_site_path, Category, CurrentWorkspace, DefaultFile},
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
@@ -32,11 +32,11 @@ pub fn add_drawing_visuals(
     new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
 ) {
     // TODO support for remote sources
-    let file_path = match get_current_site_path(current_site, site_files) {
+    let file_path = match get_current_site_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
@@ -106,10 +106,10 @@ pub fn update_drawing_asset_source(
     changed_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Changed<AssetSource>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
 ) {
-    let file_path = match get_current_site_path(current_site, site_files) {
+    let file_path = match get_current_site_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
