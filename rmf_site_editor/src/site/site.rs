@@ -19,12 +19,37 @@ use bevy::prelude::*;
 use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
-/// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
-pub struct CurrentSite(pub Option<Entity>);
+// TODO(luca) move to a workspace.rs file
+/// Used as a resource that keeps track of the current workspace type and entity
+#[derive(Clone, Copy, Debug, Default)]
+pub struct CurrentWorkspace {
+    pub root: Option<Entity>,
+    pub display: bool,
+}
+
+impl CurrentWorkspace {
+    // TODO(luca) there is probably a cleaner way to write this?
+    pub fn top_entity(&self) -> Option<Entity> {
+        match self {
+            CurrentWorkspace::None => None,
+            CurrentWorkspace::Site(e) => Some(*e),
+            CurrentWorkspace::Workcell(e) => Some(*e),
+        }
+    }
+}
+
+/// Used as an event to command what workspace should be changed to
+#[derive(Clone, Copy, Debug)]
+pub enum ChangeCurrentWorkspace {
+    None,
+    Site(ChangeCurrentSite),
+    // TODO(luca) make a ChangeCurrentWorkcell struct
+    //Workcell(ChangeCurrentSitePrivate),
+}
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
+// TODO(luca) back to previous name once refactoring is done
 pub struct ChangeCurrentSite {
     /// What should the current site be
     pub site: Entity,
@@ -52,8 +77,8 @@ pub struct NextSiteID(pub u32);
 
 pub fn change_site(
     mut commands: Commands,
-    mut change_current_site: EventReader<ChangeCurrentSite>,
-    mut current_site: ResMut<CurrentSite>,
+    mut change_current_workspace: EventReader<ChangeCurrentWorkspace>,
+    mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
     mut cached_levels: ResMut<CachedLevels>,
     mut visibility: Query<&mut Visibility>,
@@ -68,7 +93,8 @@ pub fn change_site(
         }
     };
 
-    if let Some(cmd) = change_current_site.iter().last() {
+    let last_evt = change_current_workspace.iter().last();
+    if let Some(evt @ ChangeCurrentWorkspace::Site(cmd)) = last_evt {
         if open_sites.0.iter().find(|s| **s == cmd.site).is_none() {
             println!(
                 "Requested site change to an entity that is not an open site: {:?}",
@@ -93,13 +119,14 @@ pub fn change_site(
             }
         }
 
-        if current_site.0 != Some(cmd.site) {
-            if let Some(previous_site) = current_site.0 {
-                set_visibility(previous_site, false);
+        // If we are in a site
+        if let CurrentWorkspace::Site(current_site) = *current_workspace {
+            if current_site != cmd.site {
+                set_visibility(current_site, false);
             }
             set_visibility(cmd.site, true);
-            current_site.0 = Some(cmd.site);
         }
+        *current_workspace = CurrentWorkspace::Site(cmd.site);
 
         if let Some(new_level) = cmd.level {
             if let Some(previous_level) = current_level.0 {
@@ -147,11 +174,12 @@ pub fn change_site(
     }
 }
 
+// TODO(luca) add a boolean argument and merge the two functions below?
 pub fn site_display_on(
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
-    if let Some(current_site) = current_site.0 {
+    if let CurrentWorkspace::Site(current_site) = *current_workspace {
         if let Ok(mut v) = visibility.get_mut(current_site) {
             v.is_visible = true;
         }
@@ -159,10 +187,10 @@ pub fn site_display_on(
 }
 
 pub fn site_display_off(
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     mut visibility: Query<&mut Visibility, With<SiteProperties>>,
 ) {
-    if let Some(current_site) = current_site.0 {
+    if let CurrentWorkspace::Site(current_site) = *current_workspace {
         if let Ok(mut v) = visibility.get_mut(current_site) {
             v.is_visible = false;
         }

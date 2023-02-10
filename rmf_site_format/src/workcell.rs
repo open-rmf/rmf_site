@@ -53,3 +53,8 @@ pub struct WorkcellAnchor {
     pub anchor: Anchor,
     // TODO(luca) Add mesh constraint
 }
+
+pub struct Parented<P: RefTrait, T> {
+    parent: P,
+    bundle: T,
+}

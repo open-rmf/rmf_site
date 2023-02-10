@@ -18,7 +18,7 @@
 use crate::{
     interaction::*,
     site::{
-        Anchor, AnchorBundle, Category, CurrentSite, Dependents, Original, PathBehavior, Pending,
+        Anchor, AnchorBundle, Category, CurrentWorkspace, Dependents, Original, PathBehavior, Pending,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -1745,7 +1745,7 @@ pub fn handle_select_anchor_mode(
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
-    site: Res<CurrentSite>,
+    workspace: Res<CurrentWorkspace>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -1880,7 +1880,7 @@ pub fn handle_select_anchor_mode(
                 .spawn_bundle(AnchorBundle::at_transform(tf))
                 .id();
             if request.scope.is_site() {
-                if let Some(site) = site.0 {
+                if let CurrentWorkspace::Site(site) = *workspace {
                     params.commands.entity(site).add_child(new_anchor);
                 } else {
                     panic!("No current site??");

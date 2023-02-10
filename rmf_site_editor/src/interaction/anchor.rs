@@ -45,9 +45,9 @@ fn make_anchor_orientation_cue_meshes(
     let x_mat = interaction_assets.x_axis_materials.clone();
     let y_mat = interaction_assets.y_axis_materials.clone();
     let z_mat = interaction_assets.z_axis_materials.clone();
-    interaction_assets.make_axis(commands, None, parent, x_mat, pos, rot_x, 1.0);
-    interaction_assets.make_axis(commands, None, parent, y_mat, pos, rot_y, 1.0);
-    interaction_assets.make_axis(commands, None, parent, z_mat, pos, rot_z, 1.0);
+    interaction_assets.make_axis(commands, Some(parent), parent, x_mat, pos, rot_x, 1.0);
+    interaction_assets.make_axis(commands, Some(parent), parent, y_mat, pos, rot_y, 1.0);
+    interaction_assets.make_axis(commands, Some(parent), parent, z_mat, pos, rot_z, 1.0);
 }
 
 pub fn add_anchor_visual_cues(

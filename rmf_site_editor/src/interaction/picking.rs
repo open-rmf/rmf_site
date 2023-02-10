@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, CurrentSite},
+    site::{Anchor, CurrentWorkspace},
 };
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
@@ -89,7 +89,7 @@ fn pick_topmost(
     selectable: &Query<&Selectable>,
     anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
     mode: &Res<InteractionMode>,
-    current_site: Entity,
+    root_entity: Entity,
 ) -> Option<Entity> {
     for topmost_entity in picks {
         match &**mode {
@@ -97,7 +97,7 @@ fn pick_topmost(
                 if let Ok(sel) = selectable.get(topmost_entity) {
                     if sel.is_selectable {
                         if let Ok(parent) = anchors.get(sel.element) {
-                            if request.site_scope() && parent.get() != current_site {
+                            if request.site_scope() && parent.get() != root_entity {
                                 continue;
                             }
                         } else {
@@ -129,7 +129,7 @@ pub fn update_picked(
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
@@ -146,8 +146,8 @@ pub fn update_picked(
         }
     }
 
-    let current_site = match current_site.0 {
-        Some(current_site) => current_site,
+    let root_entity = match current_workspace.top_entity() {
+        Some(root_entity) => root_entity,
         None => return,
     };
 
@@ -169,7 +169,7 @@ pub fn update_picked(
                     &selectable,
                     &anchors,
                     &mode,
-                    current_site,
+                    root_entity,
                 ) {
                     break 'current_picked Some(topmost);
                 }
@@ -180,7 +180,7 @@ pub fn update_picked(
                     &selectable,
                     &anchors,
                     &mode,
-                    current_site,
+                    root_entity,
                 ) {
                     break 'current_picked Some(topmost);
                 }

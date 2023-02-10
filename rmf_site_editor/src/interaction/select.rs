@@ -133,6 +133,7 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
+        //println!("Making entity pickable");
         commands
             .entity(entity)
             .insert_bundle(PickableBundle::default());
@@ -161,6 +162,7 @@ pub fn handle_selection_picking(
     mut picks: EventReader<ChangePick>,
     mut hover: EventWriter<Hover>,
 ) {
+    //println!("Handling picking");
     if let Some(blockers) = blockers {
         if blockers.blocking() {
             hover.send(Hover(None));
@@ -168,12 +170,15 @@ pub fn handle_selection_picking(
         }
     }
 
+    //println!("Is mode selecting?");
     if !mode.is_selecting() {
         hover.send(Hover(None));
         return;
     }
+    //println!("Iterating picks");
 
     for pick in picks.iter() {
+        //println!("There are picks");
         hover.send(Hover(
             pick.to
                 .and_then(|change_pick_to| {
@@ -183,6 +188,7 @@ pub fn handle_selection_picking(
                         .map(|selectable| selectable.element)
                 })
                 .and_then(|change_pick_to| {
+                    println!("Selected something");
                     if let InteractionMode::SelectAnchor(_) = *mode {
                         if anchors.contains(change_pick_to) {
                             Some(change_pick_to)

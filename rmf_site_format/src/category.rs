@@ -42,6 +42,7 @@ pub enum Category {
     Model,
     Camera,
     Drawing,
+    Workcell,
 }
 
 impl Category {
@@ -62,6 +63,7 @@ impl Category {
             Self::Model => "Model",
             Self::Camera => "Camera",
             Self::Drawing => "Drawing",
+            Self::Workcell=> "Workcell",
         }
     }
 
@@ -71,7 +73,7 @@ impl Category {
     // be assigned the VisualCue component.
     pub fn is_physical(&self) -> bool {
         match self {
-            Self::Door | Self::Wall | Self::Floor | Self::Lift | Self::Model => true,
+            Self::Door | Self::Wall | Self::Floor | Self::Lift | Self::Model | Self::Workcell => true,
             // TODO(MXG): Consider whether Light and Camera should be considered physical
             _ => false,
         }
