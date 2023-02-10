@@ -133,7 +133,6 @@ impl Plugin for SitePlugin {
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()
-            .init_resource::<OpenSites>()
             .init_resource::<CurrentSite>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()

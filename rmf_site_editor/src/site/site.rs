@@ -41,10 +41,6 @@ pub struct CurrentLevel(pub Option<Entity>);
 #[derive(Clone, Debug, Default)]
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
 
-/// Used as a resource to keep track of all currently opened sites
-#[derive(Clone, Debug, Default)]
-pub struct OpenSites(pub Vec<Entity>);
-
 /// This component is placed on the Site entity to keep track of what the next
 /// SiteID should be when saving.
 #[derive(Component, Clone, Copy, Debug)]
@@ -57,7 +53,7 @@ pub fn change_site(
     mut current_level: ResMut<CurrentLevel>,
     mut cached_levels: ResMut<CachedLevels>,
     mut visibility: Query<&mut Visibility>,
-    open_sites: Res<OpenSites>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
@@ -69,7 +65,7 @@ pub fn change_site(
     };
 
     if let Some(cmd) = change_current_site.iter().last() {
-        if open_sites.0.iter().find(|s| **s == cmd.site).is_none() {
+        if open_sites.get(cmd.site).is_err() {
             println!(
                 "Requested site change to an entity that is not an open site: {:?}",
                 cmd.site

@@ -249,7 +249,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
 pub fn load_site(
     mut commands: Commands,
-    mut opened_sites: ResMut<OpenSites>,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
     mut site_display_state: ResMut<State<SiteState>>,
@@ -259,7 +258,6 @@ pub fn load_site(
         if let Some(path) = &cmd.default_file {
             commands.entity(site).insert(DefaultFile(path.clone()));
         }
-        opened_sites.0.push(site);
 
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite { site, level: None });
