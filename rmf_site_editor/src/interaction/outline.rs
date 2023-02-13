@@ -17,7 +17,7 @@
 
 use crate::interaction::*;
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{OutlineVolume, OutlineBundle, OutlineRenderLayers};
+use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume};
 use rmf_site_format::{
     DoorType, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
     PhysicalCameraProperties, WallMarker,
@@ -144,9 +144,7 @@ pub fn update_outline_visualization(
                         })
                         .insert(layers);
                 } else {
-                    commands
-                        .entity(top)
-                        .remove::<OutlineBundle>();
+                    commands.entity(top).remove::<OutlineBundle>();
                 }
 
                 if let Some(children) = children {

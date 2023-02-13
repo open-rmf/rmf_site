@@ -106,14 +106,17 @@ pub fn run(command_line_args: Vec<String>) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        app.add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "RMF Site Editor".to_owned(),
-                canvas: Some(String::from("#rmf_site_editor_canvas")),
-                ..default()
-            },
-        })
-        .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin))
+        app.add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "RMF Site Editor".to_owned(),
+                        canvas: Some(String::from("#rmf_site_editor_canvas")),
+                        ..default()
+                    },
+                })
+                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+        )
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -123,16 +126,19 @@ pub fn run(command_line_args: Vec<String>) {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        app.add_plugins(DefaultPlugins.set(WindowPlugin {
-            window: WindowDescriptor {
-                title: "RMF Site Editor".to_owned(),
-                width: 1600.,
-                height: 900.,
-                ..default()
-            },
-            ..default()
-        })
-        .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin));
+        app.add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "RMF Site Editor".to_owned(),
+                        width: 1600.,
+                        height: 900.,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+        );
     }
 
     app.init_resource::<Settings>()

@@ -86,8 +86,7 @@ pub fn update_spinning_animations(
 ) {
     for (mut tf, spin, visibility) in &mut spinners {
         if visibility.is_visible_in_view() {
-            let angle =
-                2. * std::f32::consts::PI * now.elapsed_seconds() / spin.period;
+            let angle = 2. * std::f32::consts::PI * now.elapsed_seconds() / spin.period;
             tf.as_mut().rotation = Quat::from_rotation_z(angle);
         }
     }

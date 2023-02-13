@@ -359,11 +359,7 @@ impl EdgePlacement {
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, edge: Edge<Entity>| {
                     let new_bundle: T = edge.into();
-                    params
-                        .commands
-                        .spawn(new_bundle)
-                        .insert(Pending)
-                        .id()
+                    params.commands.spawn(new_bundle).insert(Pending).id()
                 },
             ),
             finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
@@ -645,11 +641,7 @@ impl PointPlacement {
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, point: Point<Entity>| {
                     let new_bundle: T = point.into();
-                    params
-                        .commands
-                        .spawn(new_bundle)
-                        .insert(Pending)
-                        .id()
+                    params.commands.spawn(new_bundle).insert(Pending).id()
                 },
             ),
             finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
@@ -798,11 +790,7 @@ impl PathPlacement {
             create: Arc::new(
                 |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
                     let new_bundle: T = path.into();
-                    params
-                        .commands
-                        .spawn(new_bundle)
-                        .insert(Pending)
-                        .id()
+                    params.commands.spawn(new_bundle).insert(Pending).id()
                 },
             ),
             finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
@@ -1716,10 +1704,7 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            let new_anchor = params
-                .commands
-                .spawn(AnchorBundle::at_transform(tf))
-                .id();
+            let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
             if request.scope.is_site() {
                 if let Some(site) = site.0 {
                     params.commands.entity(site).add_child(new_anchor);

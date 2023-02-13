@@ -15,8 +15,8 @@
  *
 */
 
-use bevy::prelude::Resource;
 use crate::{occupancy::CalculateGrid, widgets::AppEvents};
+use bevy::prelude::Resource;
 use bevy_egui::egui::{DragValue, Ui};
 
 #[derive(Resource)]

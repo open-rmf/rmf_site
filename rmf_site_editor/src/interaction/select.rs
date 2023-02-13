@@ -134,9 +134,7 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands
-            .entity(entity)
-            .insert(PickableBundle::default());
+        commands.entity(entity).insert(PickableBundle::default());
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {
