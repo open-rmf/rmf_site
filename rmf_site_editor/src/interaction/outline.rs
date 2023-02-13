@@ -17,7 +17,7 @@
 
 use crate::interaction::*;
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume};
+use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
 use rmf_site_format::{
     DoorType, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
     PhysicalCameraProperties, WallMarker,
@@ -142,9 +142,15 @@ pub fn update_outline_visualization(
                             },
                             ..default()
                         })
+                        .insert(SetOutlineDepth::Flat {
+                            model_origin: Vec3::new(0.0, 0.0, 0.0),
+                        })
                         .insert(layers);
                 } else {
-                    commands.entity(top).remove::<OutlineBundle>();
+                    commands
+                        .entity(top)
+                        .remove::<OutlineBundle>()
+                        .remove::<SetOutlineDepth>();
                 }
 
                 if let Some(children) = children {
