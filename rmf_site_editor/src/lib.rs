@@ -114,6 +114,7 @@ pub fn run(command_line_args: Vec<String>) {
                         canvas: Some(String::from("#rmf_site_editor_canvas")),
                         ..default()
                     },
+                    ..default()
                 })
                 .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         )
