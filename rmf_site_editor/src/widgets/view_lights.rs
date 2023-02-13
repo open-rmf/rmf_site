@@ -39,6 +39,7 @@ use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
+#[derive(Resource)]
 pub struct LightDisplay {
     pub pose: Pose,
     pub kind: LightKind,
@@ -165,7 +166,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
             let new_light = self
                 .events
                 .commands
-                .spawn_bundle(Light {
+                .spawn(Light {
                     pose: self.events.display.light.pose,
                     kind: self.events.display.light.kind,
                 })

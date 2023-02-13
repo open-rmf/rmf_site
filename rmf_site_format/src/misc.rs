@@ -18,7 +18,6 @@
 use crate::Recall;
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
-use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;

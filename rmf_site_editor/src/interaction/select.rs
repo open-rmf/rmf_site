@@ -88,11 +88,11 @@ impl Default for Hovered {
 }
 
 /// Used as a resource to keep track of which entity is currently selected.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
 pub struct Selection(pub Option<Entity>);
 
 /// Used as a resource to keep track of which entity is currently hovered.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Resource)]
 pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
@@ -105,6 +105,7 @@ pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
 /// behavior from being active
+#[derive(Resource)]
 pub struct SelectionBlockers {
     /// An entity is being dragged
     pub dragging: bool,
@@ -135,7 +136,7 @@ pub fn make_selectable_entities_pickable(
     for (entity, selectable) in &new_selectables {
         commands
             .entity(entity)
-            .insert_bundle(PickableBundle::default());
+            .insert(PickableBundle::default());
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {

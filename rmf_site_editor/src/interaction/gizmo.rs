@@ -190,7 +190,7 @@ impl DragPlaneBundle {
 }
 
 /// Used as a resource to keep track of which draggable is currently hovered
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Resource)]
 pub enum GizmoState {
     Dragging(Entity),
     Hovering(Entity),
@@ -219,7 +219,7 @@ pub struct MoveTo {
 
 pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
     for e in &new_gizmos {
-        commands.entity(e).insert_bundle(PickableBundle::default());
+        commands.entity(e).insert(PickableBundle::default());
     }
 }
 

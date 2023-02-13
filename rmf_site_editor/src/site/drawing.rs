@@ -25,7 +25,7 @@ use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
-#[derive(Default)]
+#[derive(Default, Resource)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
 
 pub fn add_drawing_visuals(
@@ -86,7 +86,7 @@ pub fn handle_loaded_drawing(
 
                 commands
                     .entity(entity.clone())
-                    .insert_bundle(PbrBundle {
+                    .insert(PbrBundle {
                         mesh: meshes.add(mesh.into()),
                         material: materials.add(StandardMaterial {
                             base_color_texture: Some(handle.clone()),

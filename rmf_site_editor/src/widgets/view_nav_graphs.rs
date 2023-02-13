@@ -35,6 +35,7 @@ use smallvec::SmallVec;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 
+#[derive(Resource)]
 pub struct NavGraphDisplay {
     pub color: Option<[f32; 4]>,
     pub name: String,
@@ -179,8 +180,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             if add {
                 self.events
                     .commands
-                    .spawn_bundle(SpatialBundle::default())
-                    .insert_bundle(NavGraph {
+                    .spawn(SpatialBundle::default())
+                    .insert(NavGraph {
                         name: NameInSite(self.events.display.nav_graph.name.clone()),
                         color: DisplayColor(self.events.display.nav_graph.color.unwrap().clone()),
                         marker: Default::default(),

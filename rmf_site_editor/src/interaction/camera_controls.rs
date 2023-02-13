@@ -50,6 +50,7 @@ pub const HOVERED_OUTLINE_LAYER: u8 = 4;
 /// above anything that would be obstructing them.
 pub const XRAY_RENDER_LAYER: u8 = 5;
 
+#[derive(Resource)]
 struct MouseLocation {
     previous: Vec2,
 }
@@ -61,7 +62,7 @@ impl Default for MouseLocation {
         }
     }
 }
-#[derive(PartialEq, Debug, Copy, Clone, Reflect)]
+#[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
     Perspective,
     Orthographic,
@@ -77,7 +78,7 @@ impl ProjectionMode {
     }
 }
 
-#[derive(Debug, Clone, Reflect)]
+#[derive(Debug, Clone, Reflect, Resource)]
 pub struct CameraControls {
     mode: ProjectionMode,
     pub perspective_camera_entities: [Entity; 4],
@@ -91,7 +92,7 @@ pub struct CameraControls {
 }
 
 /// True/false for whether the headlight should be on or off
-#[derive(Clone, Copy, PartialEq, Eq, Deref, DerefMut)]
+#[derive(Clone, Copy, PartialEq, Eq, Deref, DerefMut, Resource)]
 pub struct HeadlightToggle(pub bool);
 
 impl Default for HeadlightToggle {
@@ -176,8 +177,7 @@ impl CameraControls {
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
         let perspective_headlight = world
-            .spawn()
-            .insert_bundle(DirectionalLightBundle {
+            .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
                     shadows_enabled: false,
                     illuminance: 20000.,
@@ -194,8 +194,7 @@ impl FromWorld for CameraControls {
         ]
         .map(|(priority, layer)| {
             world
-                .spawn()
-                .insert_bundle(Camera3dBundle {
+                .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
                     camera: Camera {
                         priority,
@@ -207,20 +206,19 @@ impl FromWorld for CameraControls {
                     },
                     ..default()
                 })
-                .insert(Visibility::visible())
+                .insert(Visibility::VISIBLE)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(layer))
                 .id()
         });
 
         let perspective_base_camera = world
-            .spawn()
-            .insert_bundle(Camera3dBundle {
+            .spawn(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
                 projection: Projection::Perspective(Default::default()),
                 ..default()
             })
-            .insert(Visibility::visible())
+            .insert(Visibility::VISIBLE)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
@@ -231,8 +229,7 @@ impl FromWorld for CameraControls {
             .id();
 
         let orthographic_headlight = world
-            .spawn()
-            .insert_bundle(DirectionalLightBundle {
+            .spawn(DirectionalLightBundle {
                 transform: Transform::from_rotation(Quat::from_axis_angle(
                     Vec3::new(1., 1., 0.).normalize(),
                     35_f32.to_radians(),
@@ -260,8 +257,7 @@ impl FromWorld for CameraControls {
         ]
         .map(|(priority, layer)| {
             world
-                .spawn()
-                .insert_bundle(Camera3dBundle {
+                .spawn(Camera3dBundle {
                     camera: Camera {
                         is_active: false,
                         priority,
@@ -274,15 +270,14 @@ impl FromWorld for CameraControls {
                     projection: Projection::Orthographic(ortho_projection.clone()),
                     ..default()
                 })
-                .insert(Visibility::visible())
+                .insert(Visibility::VISIBLE)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
                 .id()
         });
 
         let orthographic_camera_entity = world
-            .spawn()
-            .insert_bundle(Camera3dBundle {
+            .spawn(Camera3dBundle {
                 camera: Camera {
                     is_active: false,
                     ..default()
@@ -291,7 +286,7 @@ impl FromWorld for CameraControls {
                 projection: Projection::Orthographic(ortho_projection),
                 ..default()
             })
-            .insert(Visibility::visible())
+            .insert(Visibility::VISIBLE)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,

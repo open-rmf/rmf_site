@@ -361,8 +361,7 @@ impl EdgePlacement {
                     let new_bundle: T = edge.into();
                     params
                         .commands
-                        .spawn()
-                        .insert_bundle(new_bundle)
+                        .spawn(new_bundle)
                         .insert(Pending)
                         .id()
                 },
@@ -648,8 +647,7 @@ impl PointPlacement {
                     let new_bundle: T = point.into();
                     params
                         .commands
-                        .spawn()
-                        .insert_bundle(new_bundle)
+                        .spawn(new_bundle)
                         .insert(Pending)
                         .id()
                 },
@@ -802,8 +800,7 @@ impl PathPlacement {
                     let new_bundle: T = path.into();
                     params
                         .commands
-                        .spawn()
-                        .insert_bundle(new_bundle)
+                        .spawn(new_bundle)
                         .insert(Pending)
                         .id()
                 },
@@ -1721,7 +1718,7 @@ pub fn handle_select_anchor_mode(
 
             let new_anchor = params
                 .commands
-                .spawn_bundle(AnchorBundle::at_transform(tf))
+                .spawn(AnchorBundle::at_transform(tf))
                 .id();
             if request.scope.is_site() {
                 if let Some(site) = site.0 {

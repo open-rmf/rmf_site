@@ -21,7 +21,7 @@ use smallvec::SmallVec;
 /// recomputes `Aabb`s for entities whose mesh has been mutated. These mutations are visible via
 /// [`AssetEvent<Mesh>`](AssetEvent) which tells us which mesh was changed but not which entities
 /// have that mesh.
-#[derive(Debug, Default, Clone)]
+#[derive(Debug, Default, Clone, Resource)]
 pub struct EntityMeshMap {
     entities_with_mesh: HashMap<Handle<Mesh>, SmallVec<[Entity; 1]>>,
     mesh_for_entity: HashMap<Entity, Handle<Mesh>>,
