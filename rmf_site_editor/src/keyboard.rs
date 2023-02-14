@@ -20,7 +20,7 @@ use crate::{
         camera_controls::{CameraControls, HeadlightToggle},
         ChangeMode, InteractionMode, Selection,
     },
-    site::Delete,
+    site::{CurrentWorkspace, Delete, SaveWorkspace},
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
@@ -53,7 +53,9 @@ fn handle_keyboard_input(
     mut egui_context: ResMut<EguiContext>,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
+    mut save: EventWriter<SaveWorkspace>,
     headlight_toggle: Res<HeadlightToggle>,
+    workspace: Res<CurrentWorkspace>,
     mut debug_mode: ResMut<DebugMode>,
 ) {
     let egui_context = egui_context.ctx_mut();
@@ -90,5 +92,19 @@ fn handle_keyboard_input(
     if keyboard_input.just_pressed(KeyCode::D) {
         debug_mode.0 = !debug_mode.0;
         println!("Toggling debug mode: {debug_mode:?}");
+    }
+
+    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl])
+        && keyboard_input.just_pressed(KeyCode::S)
+    {
+        if let Some(ws_root) = workspace.root {
+            println!("Saving");
+            save.send(SaveWorkspace {
+                site: ws_root,
+                to_file: None,
+            });
+        } else {
+            println!("Unable to save, no workspace loaded");
+        }
     }
 }

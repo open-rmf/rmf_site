@@ -23,9 +23,11 @@ use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 use crate::site::*;
+use crate::AppState;
 use rmf_site_format::*;
 
-pub struct SaveSite {
+// TODO(luca) rename site to root
+pub struct SaveWorkspace {
     pub site: Entity,
     pub to_file: Option<PathBuf>,
 }
@@ -849,8 +851,12 @@ pub fn generate_site(
     });
 }
 
-pub fn save_site(world: &mut World) {
-    let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
+pub fn save_workspace(world: &mut World) {
+    let save_events: Vec<_> = world
+        .resource_mut::<Events<SaveWorkspace>>()
+        .drain()
+        .collect();
+    let app_state: AppState = world.resource::<State<AppState>>().current().clone();
     for save_event in save_events {
         let path = {
             if let Some(to_file) = save_event.to_file {
@@ -859,6 +865,7 @@ pub fn save_site(world: &mut World) {
                 if let Some(to_file) = world.entity(save_event.site).get::<DefaultFile>() {
                     to_file.0.clone()
                 } else {
+                    // TODO(luca) print errors for workcell editor mode as well
                     let name = world
                         .entity(save_event.site)
                         .get::<SiteProperties>()
@@ -882,20 +889,30 @@ pub fn save_site(world: &mut World) {
             }
         };
 
-        let site = match generate_site(world, save_event.site) {
-            Ok(site) => site,
-            Err(err) => {
-                println!("Unable to compile site: {err}");
-                continue;
-            }
-        };
+        match app_state {
+            AppState::SiteEditor => {
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        println!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
 
-        match site.to_writer(f) {
-            Ok(()) => {
-                println!("Save successful");
+                match site.to_writer(f) {
+                    Ok(()) => {
+                        println!("Save successful");
+                    }
+                    Err(err) => {
+                        println!("Save failed: {err}");
+                    }
+                }
             }
-            Err(err) => {
-                println!("Save failed: {err}");
+            AppState::WorkcellEditor => {
+                println!("Saving workcell");
+            }
+            _ => {
+                println!("Save failed, no workspace open");
             }
         }
     }

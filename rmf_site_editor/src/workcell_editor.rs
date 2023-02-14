@@ -18,12 +18,12 @@
 use bevy::prelude::*;
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::AnchorBundle;
 use crate::site::update_model_scenes;
+use crate::site::AnchorBundle;
 use crate::AppState;
 
 use rmf_site_format::{
-    Anchor, Angle, AssetSource, Category, NameInSite, Model, Pose, Rotation, Workcell,
+    Anchor, Angle, AssetSource, Category, Model, NameInSite, Pose, Rotation, Workcell,
 };
 
 /*
@@ -57,7 +57,11 @@ fn mock_workcell(mut commands: &mut Commands) {
                 // Add an offset anchor
                 let mut pose = Pose::default();
                 pose.trans[0] = 5.0;
-                pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(45.0), Angle::Deg(30.0), Angle::Deg(90.0)]);
+                pose.rot = Rotation::EulerExtrinsicXYZ([
+                    Angle::Deg(45.0),
+                    Angle::Deg(30.0),
+                    Angle::Deg(90.0),
+                ]);
                 let anchor = Anchor::Pose3D(pose);
                 let anchor_comp = AnchorBundle::new(anchor).visible(true);
                 parent.spawn(anchor_comp).add_children(|parent| {
@@ -135,8 +139,8 @@ impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
-            .add_system_set(SystemSet::on_update(AppState::WorkcellEditor)
-                .with_system(update_model_scenes)
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor).with_system(update_model_scenes),
             );
     }
 }
