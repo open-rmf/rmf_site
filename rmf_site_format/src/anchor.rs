@@ -19,8 +19,9 @@ use crate::{Categorized, Category};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
-    prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform, Vec2, Vec3},
+    prelude::{Component, Entity, GlobalTransform, Parent, Query, Transform},
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Clone, Debug)]

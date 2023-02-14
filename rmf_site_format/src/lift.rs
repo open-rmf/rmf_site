@@ -19,9 +19,10 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
     math::Vec3A,
-    prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, Vec2, Vec3, With, Without},
+    prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With, Without},
     render::primitives::Aabb,
 };
+use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, BTreeSet};
 
