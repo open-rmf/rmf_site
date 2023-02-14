@@ -34,14 +34,12 @@ fn make_anchor_orientation_cue_meshes(
     commands: &mut Commands,
     interaction_assets: &InteractionAssets,
     parent: Entity,
-    transform: Transform,
-){
+) {
     // The arrows should originate in the mesh origin
     let pos = Vec3::splat(0.0);
-    let rot = transform.rotation;
-    let rot_x = rot * Quat::from_rotation_y(90_f32.to_radians());
-    let rot_y = rot * Quat::from_rotation_x(90_f32.to_radians());
-    let rot_z = rot * Quat::from_rotation_z(90_f32.to_radians());
+    let rot_x = Quat::from_rotation_y(90_f32.to_radians());
+    let rot_y = Quat::from_rotation_x(90_f32.to_radians());
+    let rot_z = Quat::default();
     let x_mat = interaction_assets.x_axis_materials.clone();
     let y_mat = interaction_assets.y_axis_materials.clone();
     let z_mat = interaction_assets.z_axis_materials.clone();
@@ -65,7 +63,11 @@ pub fn add_anchor_visual_cues(
         };
 
         if let Anchor::Pose3D(pose) = anchor {
-            make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e, pose.transform());
+            make_anchor_orientation_cue_meshes(
+                &mut commands,
+                &interaction_assets,
+                e,
+            );
         }
 
         let mut commands = commands.entity(e);
