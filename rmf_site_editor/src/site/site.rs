@@ -20,7 +20,7 @@ use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default)]
+#[derive(Clone, Copy, Debug, Default, Resource)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
     pub display: bool,
@@ -28,7 +28,7 @@ pub struct CurrentWorkspace {
 }
 
 /// Used to keep track of visibility when switching workspace
-#[derive(Debug, Default)]
+#[derive(Debug, Default, Resource)]
 pub struct RecallWorkspace (Option<Entity>);
 
 impl CurrentWorkspace {
@@ -47,12 +47,12 @@ pub struct ChangeCurrentWorkspace {
 }
 
 /// Used as a resource that keeps track of the current level entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentLevel(pub Option<Entity>);
 
 /// Used as a resource that maps from the site entity to the level entity which
 /// was most recently selected for it.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
 
 /// This component is placed on the Site entity to keep track of what the next
@@ -111,7 +111,7 @@ pub fn change_site(
                 if !found_level {
                     // Create a new blank level for the user
                     let new_level = commands.entity(cmd.root).add_children(|site| {
-                        site.spawn_bundle(SpatialBundle::default())
+                        site.spawn(SpatialBundle::default())
                             .insert(LevelProperties {
                                 name: "<unnamed level>".to_string(),
                                 elevation: 0.,

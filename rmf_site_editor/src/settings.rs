@@ -1,3 +1,6 @@
+use bevy::prelude::Resource;
+
+#[derive(Resource)]
 pub struct Settings {
     pub graphics_quality: GraphicsQuality,
 }

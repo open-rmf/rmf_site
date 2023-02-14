@@ -16,8 +16,10 @@
 */
 
 use crate::{occupancy::CalculateGrid, widgets::AppEvents};
+use bevy::prelude::Resource;
 use bevy_egui::egui::{DragValue, Ui};
 
+#[derive(Resource)]
 pub struct OccupancyDisplay {
     pub cell_size: f32,
 }

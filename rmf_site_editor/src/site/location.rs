@@ -69,7 +69,7 @@ pub fn add_location_visuals(
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
-            .insert_bundle(PbrBundle {
+            .insert(PbrBundle {
                 mesh: assets.location_mesh.clone(),
                 transform: Transform::from_translation(position),
                 material: location_material,

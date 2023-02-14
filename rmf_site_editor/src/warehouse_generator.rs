@@ -206,7 +206,7 @@ fn warehouse_generator(
             .insert(String::from("concrete_floor"), concrete_floor_handle);
     }
 
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         mesh: meshes.add(Mesh::from(shape::Plane { size: width as f32 })),
         material: material_map
             .materials

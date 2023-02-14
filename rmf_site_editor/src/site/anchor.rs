@@ -166,8 +166,7 @@ pub fn assign_orphan_anchors_to_parent(
         } else {
             // No level is currently assigned, so we should create one.
             let new_level_id = commands
-                .spawn()
-                .insert(LevelProperties {
+                .spawn(LevelProperties {
                     name: "<Unnamed>".to_string(),
                     elevation: 0.,
                 })

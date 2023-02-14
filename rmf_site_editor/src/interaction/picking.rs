@@ -23,6 +23,7 @@ use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
 
 /// A resource to track what kind of picking blockers are currently active
+#[derive(Resource)]
 pub struct PickingBlockers {
     /// An InteractionMask entity is being hovered over
     pub masked: bool,
@@ -46,7 +47,7 @@ impl Default for PickingBlockers {
 }
 
 /// Keep track of what entity is currently picked by the cursor
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Resource)]
 pub struct Picked(pub Option<Entity>);
 
 #[derive(Debug, Clone, Copy, Default)]
@@ -74,12 +75,12 @@ pub fn update_picking_cam(
             .is_none()
         {
             for cam in picking_cams.iter() {
-                commands.entity(cam).remove_bundle::<PickingCameraBundle>();
+                commands.entity(cam).remove::<PickingCameraBundle>();
             }
 
             commands
                 .entity(camera_controls.active_camera())
-                .insert_bundle(PickingCameraBundle::default());
+                .insert(PickingCameraBundle::default());
         }
     }
 }
@@ -153,37 +154,36 @@ pub fn update_picked(
 
     let current_picked = 'current_picked: {
         for pick_source in &pick_source_query {
-            if let Some(picks) = pick_source.intersect_list() {
-                // First only look at the visual cues that are being xrayed
-                if let Some(topmost) = pick_topmost(
-                    picks
-                        .iter()
-                        .filter(|(e, _)| {
-                            visual_cues
-                                .get(*e)
-                                .ok()
-                                .filter(|cue| cue.xray.any())
-                                .is_some()
-                        })
-                        .map(|(e, _)| *e),
-                    &selectable,
-                    &anchors,
-                    &mode,
-                    current_site,
-                ) {
-                    break 'current_picked Some(topmost);
-                }
+            let picks = pick_source.intersections();
+            // First only look at the visual cues that are being xrayed
+            if let Some(topmost) = pick_topmost(
+                picks
+                    .iter()
+                    .filter(|(e, _)| {
+                        visual_cues
+                            .get(*e)
+                            .ok()
+                            .filter(|cue| cue.xray.any())
+                            .is_some()
+                    })
+                    .map(|(e, _)| *e),
+                &selectable,
+                &anchors,
+                &mode,
+                current_site,
+            ) {
+                break 'current_picked Some(topmost);
+            }
 
-                // Now look at all possible pickables
-                if let Some(topmost) = pick_topmost(
-                    picks.iter().map(|(e, _)| *e),
-                    &selectable,
-                    &anchors,
-                    &mode,
-                    current_site,
-                ) {
-                    break 'current_picked Some(topmost);
-                }
+            // Now look at all possible pickables
+            if let Some(topmost) = pick_topmost(
+                picks.iter().map(|(e, _)| *e),
+                &selectable,
+                &anchors,
+                &mode,
+                current_site,
+            ) {
+                break 'current_picked Some(topmost);
             }
         }
 

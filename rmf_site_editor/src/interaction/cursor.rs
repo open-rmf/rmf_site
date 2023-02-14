@@ -28,7 +28,7 @@ use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
 /// displaying the 3D cursor
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Resource)]
 pub struct Cursor {
     pub frame: Entity,
     pub halo: Entity,
@@ -125,8 +125,7 @@ impl FromWorld for Cursor {
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
-            .spawn()
-            .insert_bundle(PbrBundle {
+            .spawn(PbrBundle {
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                 mesh: halo_mesh,
                 material: halo_material,
@@ -138,8 +137,7 @@ impl FromWorld for Cursor {
             .id();
 
         let dagger = world
-            .spawn()
-            .insert_bundle(PbrBundle {
+            .spawn(PbrBundle {
                 mesh: dagger_mesh,
                 material: dagger_material,
                 visibility: Visibility { is_visible: true },
@@ -151,13 +149,12 @@ impl FromWorld for Cursor {
             .id();
 
         let level_anchor_placement = world
-            .spawn()
-            .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
+            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn_bundle(PbrBundle {
+                parent.spawn(PbrBundle {
                     mesh: level_anchor_mesh,
                     material: preview_anchor_material.clone(),
                     ..default()
@@ -166,13 +163,12 @@ impl FromWorld for Cursor {
             .id();
 
         let site_anchor_placement = world
-            .spawn()
-            .insert_bundle(AnchorBundle::new([0., 0.].into()).visible(false))
+            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
             .insert(Preview)
             .insert(VisualCue::no_outline())
             .with_children(|parent| {
-                parent.spawn_bundle(PbrBundle {
+                parent.spawn(PbrBundle {
                     mesh: site_anchor_mesh,
                     material: preview_anchor_material,
                     ..default()
@@ -181,10 +177,9 @@ impl FromWorld for Cursor {
             .id();
 
         let cursor = world
-            .spawn()
+            .spawn(VisualCue::no_outline())
             .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
-            .insert(VisualCue::no_outline())
-            .insert_bundle(SpatialBundle {
+            .insert(SpatialBundle {
                 visibility: Visibility { is_visible: false },
                 ..default()
             })

@@ -117,7 +117,7 @@ pub fn add_tags_to_lift(
     for (e, edge) in &new_lifts {
         let mut lift_cmds = commands.entity(e);
         lift_cmds
-            .insert_bundle(SpatialBundle::default())
+            .insert(SpatialBundle::default())
             .insert(EdgeLabels::LeftRight)
             .insert(Category::Lift);
 
@@ -191,10 +191,10 @@ pub fn update_lift_cabin(
                     .into();
 
                 let cabin_entity = commands
-                    .spawn_bundle(SpatialBundle::from_transform(cabin_tf))
+                    .spawn(SpatialBundle::from_transform(cabin_tf))
                     .with_children(|parent| {
                         parent
-                            .spawn_bundle(PbrBundle {
+                            .spawn(PbrBundle {
                                 mesh: meshes.add(floor_mesh),
                                 material: assets.default_floor_material.clone(),
                                 ..default()
@@ -202,7 +202,7 @@ pub fn update_lift_cabin(
                             .insert(Selectable::new(e));
 
                         parent
-                            .spawn_bundle(PbrBundle {
+                            .spawn(PbrBundle {
                                 mesh: meshes.add(wall_mesh),
                                 material: assets.lift_wall_material.clone(),
                                 ..default()
@@ -227,7 +227,7 @@ pub fn update_lift_cabin(
                                 aabb.center.z = PASSIVE_LANE_HEIGHT / 2.0;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
-                                    .spawn_bundle(PbrBundle {
+                                    .spawn(PbrBundle {
                                         mesh: meshes.add(mesh.into()),
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
@@ -295,8 +295,8 @@ pub fn update_lift_cabin(
             }
             None => {
                 let group = commands.entity(e).add_children(|p| {
-                    p.spawn_bundle(SpatialBundle::from_transform(cabin_tf))
-                        .insert_bundle(CabinAnchorGroupBundle::default())
+                    p.spawn(SpatialBundle::from_transform(cabin_tf))
+                        .insert(CabinAnchorGroupBundle::default())
                         .id()
                 });
                 commands.entity(e).insert(ChildCabinAnchorGroup(group));
@@ -387,7 +387,7 @@ pub fn update_lift_door_availability(
                                 old_cabin_door.door
                             } else {
                                 // Create a new door with new anchors
-                                let new_door = commands.spawn().id();
+                                let new_door = commands.spawn_empty().id();
                                 *params.door_mut(face) = Some(LiftCabinDoorPlacement::new(
                                     new_door,
                                     params.width.min(params.depth) / 2.0,
@@ -395,7 +395,7 @@ pub fn update_lift_door_availability(
                                 let anchors =
                                     params.level_door_anchors(face).unwrap().map(|anchor| {
                                         commands
-                                            .spawn_bundle(AnchorBundle::new(anchor))
+                                            .spawn(AnchorBundle::new(anchor))
                                             .insert(Subordinate(Some(toggle.for_lift)))
                                             .id()
                                     });
@@ -406,7 +406,7 @@ pub fn update_lift_door_availability(
 
                                 commands
                                     .entity(new_door)
-                                    .insert_bundle(LiftCabinDoor {
+                                    .insert(LiftCabinDoor {
                                         kind: DoorType::DoubleSliding(DoubleSlidingDoor::default()),
                                         reference_anchors: anchors.into(),
                                         visits: LevelVisits(BTreeSet::from_iter([toggle.on_level])),

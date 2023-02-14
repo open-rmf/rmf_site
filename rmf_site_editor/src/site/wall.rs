@@ -52,7 +52,7 @@ pub fn add_wall_visual(
         if let Some(mesh) = make_wall(e, edge, &anchors) {
             commands
                 .entity(e)
-                .insert_bundle(PbrBundle {
+                .insert(PbrBundle {
                     mesh: meshes.add(mesh),
                     // TODO(MXG): load the user-specified texture when one is given
                     material: assets.wall_material.clone(),

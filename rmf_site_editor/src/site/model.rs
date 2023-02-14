@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::Selectable,
+    interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
@@ -24,10 +24,10 @@ use rmf_site_format::{AssetSource, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-#[derive(Default, Debug, Clone, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Deref, DerefMut, Resource)]
 pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
 
-#[derive(Default, Debug, Clone)]
+#[derive(Default, Debug, Clone, Resource)]
 pub struct SpawnedModels(Vec<Entity>);
 
 #[derive(Component, Debug, Clone)]
@@ -65,7 +65,7 @@ pub fn update_model_scenes(
                 source: source.clone(),
                 scene_entity: None,
             })
-            .insert_bundle(SpatialBundle {
+            .insert(SpatialBundle {
                 transform: pose.transform(),
                 ..default()
             })
@@ -108,7 +108,7 @@ pub fn update_model_scenes(
         if asset_server.get_load_state(h) == LoadState::Loaded {
             let model_scene_id = commands.entity(*e).add_children(|parent| {
                 parent
-                    .spawn_bundle(SceneBundle {
+                    .spawn(SceneBundle {
                         scene: h.clone(),
                         ..default()
                     })
@@ -174,11 +174,15 @@ pub fn make_models_selectable(
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 32 is typically
         // sufficient.
-        let mut queue: SmallVec<[Entity; 32]> = SmallVec::new();
+        let mut queue: SmallVec<[Entity; 16]> = SmallVec::new();
         queue.push(model_scene_root);
 
         while let Some(e) = queue.pop() {
-            commands.entity(e).insert(selectable.clone());
+            commands
+                .entity(e)
+                .insert(selectable.clone())
+                .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
+
             if let Ok(children) = all_children.get(e) {
                 for child in children {
                     queue.push(*child);

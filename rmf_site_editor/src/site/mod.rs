@@ -185,9 +185,9 @@ impl Plugin for SitePlugin {
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .with_system(save_site.exclusive_system())
-                    .with_system(save_nav_graphs.exclusive_system())
                     .with_system(sync_workspace_visibility)
+                    .with_system(save_site)
+                    .with_system(save_nav_graphs)
                     .with_system(change_site),
             )
             .add_system_set_to_stage(

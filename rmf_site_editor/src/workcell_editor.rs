@@ -35,7 +35,7 @@ fn spawn_grid(
     let mut grid = InfiniteGrid::default();
     grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
     grid.z_axis_color = Color::rgb(0.2, 1.0, 0.2);
-    commands.spawn_bundle(InfiniteGridBundle {
+    commands.spawn(InfiniteGridBundle {
         grid: grid,
         ..Default::default()
     })
@@ -48,7 +48,7 @@ fn spawn_grid(
     let mat = standard_materials.add(StandardMaterial::default());
 
     // cube
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         material: mat.clone(),
         mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
         transform: Transform {
@@ -59,7 +59,7 @@ fn spawn_grid(
         ..default()
     });
 
-    commands.spawn_bundle(PbrBundle {
+    commands.spawn(PbrBundle {
         material: mat.clone(),
         mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
         transform: Transform::from_xyz(0.0, 2.0, 0.0),
@@ -68,7 +68,7 @@ fn spawn_grid(
     */
     
     // Add an empty entity, the anchor query needs a parent
-    commands.spawn_bundle(SpatialBundle {
+    commands.spawn(SpatialBundle {
         visibility: bevy::prelude::Visibility { is_visible: true}, computed: ComputedVisibility::default(),
         transform: Transform::default(),
         global_transform: GlobalTransform::default(),
@@ -81,12 +81,12 @@ fn spawn_grid(
         let anchor = Anchor::Pose3D(pose);
         let anchor_comp = AnchorBundle::new(anchor).visible(true);
         // TODO parse from WorkcellAnchor
-        parent.spawn_bundle(anchor_comp);
+        parent.spawn(anchor_comp);
     });
 
     /*
     commands.spawn().insert(Category::General).add_children(|parent| {
-        parent.spawn_bundle(WorkcellAnchor {
+        parent.spawn(WorkcellAnchor {
             anchor: Anchor::Pose3D(Pose::default()),
         });
     });

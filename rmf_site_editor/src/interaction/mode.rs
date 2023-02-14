@@ -20,7 +20,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 
 /// Used as a resource to indicate what type of interaction we are currently
 /// expecting from the user.
-#[derive(Clone)]
+#[derive(Clone, Resource)]
 pub enum InteractionMode {
     /// The user may hover/select any item in the scene. This is the default
     /// interaction mode.

@@ -168,7 +168,7 @@ pub fn add_floor_visuals(
         let mesh = make_floor_mesh(e, new_floor, &anchors);
         commands
             .entity(e)
-            .insert_bundle(PbrBundle {
+            .insert(PbrBundle {
                 mesh: meshes.add(mesh),
                 // TODO(MXG): load the user-specified texture when one is given
                 material: assets.default_floor_material.clone(),

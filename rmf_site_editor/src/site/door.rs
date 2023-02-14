@@ -185,7 +185,7 @@ pub fn add_door_visuals(
         let mut commands = commands.entity(e);
         let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
             let body = parent
-                .spawn_bundle(PbrBundle {
+                .spawn(PbrBundle {
                     mesh: assets.box_mesh.clone(),
                     material: assets.door_body_material.clone(),
                     transform: shape_tf,
@@ -195,7 +195,7 @@ pub fn add_door_visuals(
                 .id();
 
             let cue_inner = parent
-                .spawn_bundle(PbrBundle {
+                .spawn(PbrBundle {
                     mesh: meshes.add(cue_inner_mesh),
                     material: assets.translucent_white.clone(),
                     ..default()
@@ -203,7 +203,7 @@ pub fn add_door_visuals(
                 .id();
 
             let cue_outline = parent
-                .spawn_bundle(PbrBundle {
+                .spawn(PbrBundle {
                     mesh: meshes.add(cue_outline_mesh),
                     material: assets.translucent_black.clone(),
                     ..default()
@@ -223,7 +223,7 @@ pub fn add_door_visuals(
         };
 
         commands
-            .insert_bundle(SpatialBundle {
+            .insert(SpatialBundle {
                 transform: pose_tf,
                 visibility: Visibility { is_visible },
                 ..default()
