@@ -56,20 +56,17 @@ impl InteractionAssets {
         scale: f32,
     ) -> Entity {
         return command.entity(parent).add_children(|parent| {
-            let mut child_entity = parent
-                .spawn(PbrBundle {
-                    transform: Transform::from_rotation(rotation)
-                        .with_translation(offset)
-                        .with_scale(Vec3::splat(scale)),
-                    mesh: self.arrow_mesh.clone(),
-                    material: material_set.passive.clone(),
-                    ..default()
-                });
-            dbg!(Vec3::splat(scale));
+            let mut child_entity = parent.spawn(PbrBundle {
+                transform: Transform::from_rotation(rotation)
+                    .with_translation(offset)
+                    .with_scale(Vec3::splat(scale)),
+                mesh: self.arrow_mesh.clone(),
+                material: material_set.passive.clone(),
+                ..default()
+            });
             if let Some(for_entity) = for_entity_opt {
-                child_entity.insert(
-                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
-                );
+                child_entity
+                    .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
             }
             child_entity.id()
         });
@@ -87,7 +84,15 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        self.make_axis(command, Some(for_entity), parent, material_set, offset, rotation, scale)
+        self.make_axis(
+            command,
+            Some(for_entity),
+            parent,
+            material_set,
+            offset,
+            rotation,
+            scale,
+        )
     }
 
     pub fn add_anchor_draggable_arrows(

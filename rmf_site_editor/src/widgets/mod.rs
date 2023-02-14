@@ -17,7 +17,8 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D, SpawnPreview,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D,
+        SpawnPreview,
     },
     occupancy::CalculateGrid,
     site::{
@@ -250,7 +251,9 @@ fn workcell_ui_layout(
                             .show(ui, |ui| {
                                 if ui.button("Reference Point").clicked() {
                                     events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point().for_reference_point().into(),
+                                        SelectAnchor3D::create_new_point()
+                                            .for_reference_point()
+                                            .into(),
                                     ));
                                 }
                             });

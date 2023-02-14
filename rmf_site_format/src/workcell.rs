@@ -21,7 +21,7 @@ use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 
 /// Bundle used to spawn and move whole workcells in site editor mode
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Workcell {
     /// Used in site editor to assign a unique name
@@ -33,6 +33,7 @@ pub struct Workcell {
     // pub source: AssetSource,
 }
 
+/*
 /// Populated in workcell editor mode, in site editor a Workcell will have
 /// a series of non mutable WorkcellElement child entities
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -52,4 +53,12 @@ pub struct WorkcellAnchor {
     /// Anchor element
     pub anchor: Anchor,
     // TODO(luca) Add mesh constraint
+    /// Pose are defined relative to other entities
+    pub pose: Pose,
+}
+*/
+
+pub struct Parented<P: RefTrait, T> {
+    parent: P,
+    bundle: T,
 }

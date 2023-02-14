@@ -39,8 +39,7 @@ pub fn assign_orphan_levels_to_site(
         for level in &new_levels {
             commands.entity(site).add_child(level);
         }
-    }
-    else {
+    } else {
         println!(
             "Unable to assign level to any site because there is no \
             current site"

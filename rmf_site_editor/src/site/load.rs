@@ -38,6 +38,15 @@ pub struct LoadSite {
     pub default_file: Option<PathBuf>,
 }
 
+pub struct LoadWorkcell {
+    /// The site data to load
+    pub workcell: rmf_site_format::Workcell,
+    /// Should the application switch focus to this new site
+    pub focus: bool,
+    // TODO(luca) implement
+    //pub default_file: Option<PathBuf>,
+}
+
 fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::Site) -> Entity {
     let mut id_to_entity = HashMap::new();
     let mut highest_id = 0_u32;

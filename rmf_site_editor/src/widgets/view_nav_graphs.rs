@@ -88,7 +88,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         Self { params, events }
     }
 
-    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<rmf_site_format::SiteProperties>>) {
+    pub fn show(
+        self,
+        ui: &mut Ui,
+        open_sites: &Query<Entity, With<rmf_site_format::SiteProperties>>,
+    ) {
         let graphs = {
             let mut graphs: SmallVec<[(Entity, &NameInSite, &DisplayColor, &Visibility); 10]> =
                 SmallVec::from_iter(self.params.graphs.iter());
@@ -235,7 +239,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 if let Some(export_file) = &self.events.display.nav_graph.export_file {
                     if ui.button("Export").clicked() {
-                        if let Some(current_site) = self.events.request.current_workspace.to_site(open_sites) {
+                        if let Some(current_site) =
+                            self.events.request.current_workspace.to_site(open_sites)
+                        {
                             self.events.request.save_nav_graphs.send(SaveNavGraphs {
                                 site: current_site,
                                 to_file: export_file.clone(),

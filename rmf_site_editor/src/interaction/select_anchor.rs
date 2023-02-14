@@ -18,12 +18,14 @@
 use crate::{
     interaction::*,
     site::{
-        Anchor, AnchorBundle, Category, CurrentWorkspace, Dependents, Original, PathBehavior, Pending,
+        Anchor, AnchorBundle, Category, CurrentWorkspace, Dependents, Original, PathBehavior,
+        Pending,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, Path, Point, Side, SiteProperties, Wall,
+    Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, Path, Point, Side,
+    SiteProperties, Wall,
 };
 use std::sync::Arc;
 

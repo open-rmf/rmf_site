@@ -105,17 +105,17 @@ impl Anchor {
                 Self::Translate2D(p_right) => {
                     // TODO do we ignore Z or assume Z = 0?
                     return true;
-                },
+                }
                 Self::CategorizedTranslate2D(p_right) => {
                     // TODO do we ignore Z or assume Z = 0?
                     return true;
-                },
+                }
                 Self::Pose3D(p_right) => {
                     let p_left = Vec3::from_array(p_left.trans);
                     let p_right = Vec3::from_array(p_right.trans);
                     return (p_left - p_right).length() <= dist;
-                },
-            }
+                }
+            },
         }
     }
 }

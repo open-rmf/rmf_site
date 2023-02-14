@@ -29,10 +29,9 @@ pub struct CurrentWorkspace {
 
 /// Used to keep track of visibility when switching workspace
 #[derive(Debug, Default, Resource)]
-pub struct RecallWorkspace (Option<Entity>);
+pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-
     pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
@@ -128,9 +127,9 @@ pub fn change_site(
 }
 
 pub fn sync_workspace_visibility(
-  current_workspace: Res<CurrentWorkspace>,
-  mut recall: ResMut<RecallWorkspace>,
-  mut visibility: Query<&mut Visibility>,
+    current_workspace: Res<CurrentWorkspace>,
+    mut recall: ResMut<RecallWorkspace>,
+    mut visibility: Query<&mut Visibility>,
 ) {
     if !current_workspace.is_changed() {
         return;

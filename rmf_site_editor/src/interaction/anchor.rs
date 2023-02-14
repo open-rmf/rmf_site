@@ -50,7 +50,10 @@ fn make_anchor_orientation_cue_meshes(
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<(Entity, &Parent, Option<&Subordinate>, &Anchor), (Added<Anchor>, Without<Preview>)>,
+    new_anchors: Query<
+        (Entity, &Parent, Option<&Subordinate>, &Anchor),
+        (Added<Anchor>, Without<Preview>),
+    >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
@@ -92,8 +95,10 @@ pub fn add_anchor_visual_cues(
 
         // 3D anchors should always be visible
         match anchor {
-            Anchor::Pose3D(_) => {},
-            _ => { commands.insert(VisualCue::outline().irregular()); }
+            Anchor::Pose3D(_) => {}
+            _ => {
+                commands.insert(VisualCue::outline().irregular());
+            }
         }
     }
 }

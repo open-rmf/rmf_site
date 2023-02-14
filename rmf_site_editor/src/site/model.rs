@@ -81,6 +81,7 @@ pub fn update_model_scenes(
                 AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
             }
             AssetSource::Search(name) => {
+                println!("Asset name is {}", name);
                 AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
             }
         };
