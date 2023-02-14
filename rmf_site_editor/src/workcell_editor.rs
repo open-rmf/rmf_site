@@ -18,30 +18,83 @@
 use bevy::prelude::*;
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::AppState;
 use crate::site::AnchorBundle;
+use crate::site::update_model_scenes;
+use crate::AppState;
 
-use rmf_site_format::{Anchor, Angle, Category, Pose, Rotation, WorkcellAnchor};
+use rmf_site_format::{
+    Anchor, Angle, AssetSource, Category, NameInSite, Model, Pose, Rotation, Workcell,
+};
+
+/*
+#[derive(Resource)]
+pub enum WorkcellEditorState {
+    Off,
+    Display,
+}
+*/
 
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
+
+fn mock_workcell(mut commands: &mut Commands) {
+    let mut workcell = commands
+        .spawn(SpatialBundle {
+            visibility: Visibility::VISIBLE,
+            ..default()
+        })
+        .insert(Workcell {
+            name: NameInSite(String::from("test_workcell")),
+            ..default()
+        })
+        .insert(Category::Workcell)
+        .add_children(|parent| {
+            let mut pose = Pose::default();
+            let anchor = Anchor::Pose3D(pose);
+            let anchor_comp = AnchorBundle::new(anchor).visible(true);
+            // TODO parse from WorkcellAnchor
+            parent.spawn(anchor_comp).add_children(|parent| {
+                // Add an offset anchor
+                let mut pose = Pose::default();
+                pose.trans[0] = 5.0;
+                pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(45.0), Angle::Deg(30.0), Angle::Deg(90.0)]);
+                let anchor = Anchor::Pose3D(pose);
+                let anchor_comp = AnchorBundle::new(anchor).visible(true);
+                parent.spawn(anchor_comp).add_children(|parent| {
+                    // Spawn a model here
+                    let mut pose = Pose::default();
+                    pose.trans[0] = 1.0;
+                    parent.spawn(Model {
+                        name: NameInSite("test_chair".to_string()),
+                        source: AssetSource::Search("OpenRobotics/OfficeChairGrey".to_string()),
+                        pose: pose,
+                        ..default()
+                    });
+                });
+            });
+        });
+
+    //let serialized = serde_json::to_string(&workcell).unwrap();
+    //println!("{}", serialized);
+}
 
 fn spawn_grid(
     mut commands: Commands,
     mut meshes: ResMut<Assets<Mesh>>,
     mut standard_materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // Inifinite grid is flipped
+    // Infinite grid is flipped
     let mut grid = InfiniteGrid::default();
     grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
     grid.z_axis_color = Color::rgb(0.2, 1.0, 0.2);
-    commands.spawn(InfiniteGridBundle {
-        grid: grid,
-        ..Default::default()
-    })
-    .insert(
-        Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
-    );
+    commands
+        .spawn(InfiniteGridBundle {
+            grid: grid,
+            ..Default::default()
+        })
+        .insert(Transform::from_rotation(Quat::from_rotation_x(
+            90_f32.to_radians(),
+        )));
 
     // TODO(luca) remove below
     /*
@@ -66,23 +119,8 @@ fn spawn_grid(
         ..default()
     });
     */
-    
-    // Add an empty entity, the anchor query needs a parent
-    commands.spawn(SpatialBundle {
-        visibility: bevy::prelude::Visibility { is_visible: true}, computed: ComputedVisibility::default(),
-        transform: Transform::default(),
-        global_transform: GlobalTransform::default(),
-        })
-        .insert(Category::General).add_children(|parent| {
-        //let anchor = Anchor::Translate2D([0.0, 0.0]);
-        let mut pose = Pose::default();
-        //pose.trans[0] = 5.0;
-        //pose.rot = Rotation::EulerExtrinsicXYZ([Angle::Deg(0.0), Angle::Deg(0.0), Angle::Deg(15.0)]);
-        let anchor = Anchor::Pose3D(pose);
-        let anchor_comp = AnchorBundle::new(anchor).visible(true);
-        // TODO parse from WorkcellAnchor
-        parent.spawn(anchor_comp);
-    });
+
+    mock_workcell(&mut commands);
 
     /*
     commands.spawn().insert(Category::General).add_children(|parent| {
@@ -96,7 +134,9 @@ fn spawn_grid(
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
-            .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor)
-                .with_system(spawn_grid));
+            .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
+            .add_system_set(SystemSet::on_update(AppState::WorkcellEditor)
+                .with_system(update_model_scenes)
+            );
     }
 }
