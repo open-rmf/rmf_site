@@ -18,8 +18,9 @@
 use bevy::prelude::*;
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::update_model_scenes;
-use crate::site::AnchorBundle;
+use crate::site::{load_workcell, update_model_scenes};
+use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile, LoadWorkcell};
+use crate::workcell::*;
 use crate::AppState;
 
 use rmf_site_format::{
@@ -37,17 +38,18 @@ pub enum WorkcellEditorState {
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
 
-fn mock_workcell(mut commands: &mut Commands) {
-    let mut workcell = commands
-        .spawn(SpatialBundle {
-            visibility: Visibility::VISIBLE,
-            ..default()
-        })
-        .insert(Workcell {
-            name: NameInSite(String::from("test_workcell")),
-            ..default()
-        })
+fn mock_workcell(mut commands: &mut Commands, mut workspace: ResMut<CurrentWorkspace>) {
+    let mut path = std::path::PathBuf::new();
+    path.push("test.workcell.json");
+    let mut binding = commands.spawn(SpatialBundle {
+        visibility: Visibility::VISIBLE,
+        ..default()
+    });
+    let root_id = binding.id();
+    let mut root = binding
         .insert(Category::Workcell)
+        .insert(NameInSite("test_workcell".to_string()))
+        .insert(DefaultFile(path))
         .add_children(|parent| {
             let mut pose = Pose::default();
             let anchor = Anchor::Pose3D(pose);
@@ -77,16 +79,14 @@ fn mock_workcell(mut commands: &mut Commands) {
                 });
             });
         });
+    // TODO(luca) check why we can't just put the .id() call here
+    workspace.root = Some(root_id);
 
     //let serialized = serde_json::to_string(&workcell).unwrap();
     //println!("{}", serialized);
 }
 
-fn spawn_grid(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut standard_materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
     // Infinite grid is flipped
     let mut grid = InfiniteGrid::default();
     grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
@@ -100,47 +100,21 @@ fn spawn_grid(
             90_f32.to_radians(),
         )));
 
-    // TODO(luca) remove below
-    /*
-    let mat = standard_materials.add(StandardMaterial::default());
+    // Send a load workcell event
 
-    // cube
-    commands.spawn(PbrBundle {
-        material: mat.clone(),
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 1.0 })),
-        transform: Transform {
-            translation: Vec3::new(3., 4., 0.),
-            rotation: Quat::from_rotation_arc(Vec3::Y, Vec3::ONE.normalize()),
-            scale: Vec3::splat(1.5),
-        },
-        ..default()
-    });
-
-    commands.spawn(PbrBundle {
-        material: mat.clone(),
-        mesh: meshes.add(Mesh::from(shape::Cube { size: 2.0 })),
-        transform: Transform::from_xyz(0.0, 2.0, 0.0),
-        ..default()
-    });
-    */
-
-    mock_workcell(&mut commands);
-
-    /*
-    commands.spawn().insert(Category::General).add_children(|parent| {
-        parent.spawn(WorkcellAnchor {
-            anchor: Anchor::Pose3D(Pose::default()),
-        });
-    });
-    */
+    mock_workcell(&mut commands, workspace);
 }
 
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
+            .add_event::<SaveWorkcell>()
+            .add_event::<LoadWorkcell>()
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor).with_system(update_model_scenes),
-            );
+            )
+            .add_system(save_workcell)
+            .add_system(load_workcell);
     }
 }

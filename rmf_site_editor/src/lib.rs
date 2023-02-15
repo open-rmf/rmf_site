@@ -33,6 +33,7 @@ mod site;
 mod workcell_editor;
 use workcell_editor::WorkcellEditorPlugin;
 mod interaction;
+mod workcell;
 
 mod simulation_state;
 mod site_asset_io;

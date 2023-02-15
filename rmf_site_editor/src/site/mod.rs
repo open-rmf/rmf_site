@@ -141,7 +141,7 @@ impl Plugin for SitePlugin {
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentWorkspace>()
-            .add_event::<SaveWorkspace>()
+            .add_event::<SaveSite>()
             .add_event::<SaveNavGraphs>()
             .add_event::<ToggleLiftDoorAvailability>()
             .add_event::<ExportLights>()
@@ -186,7 +186,7 @@ impl Plugin for SitePlugin {
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(sync_workspace_visibility)
-                    .with_system(save_workspace)
+                    .with_system(save_site)
                     .with_system(save_nav_graphs)
                     .with_system(change_site),
             )
