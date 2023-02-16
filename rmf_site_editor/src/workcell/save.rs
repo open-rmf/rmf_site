@@ -57,14 +57,8 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
         }
     }
 
-    // TODO(luca) cleanup this implementation
-    let mut cur_id = 0;
-    world.entity_mut(workcell).insert(SiteID(cur_id));
-    cur_id += 1;
-
-    for e in new_entities {
-        world.entity_mut(e).insert(SiteID(cur_id));
-        cur_id += 1;
+    for (idx, entity) in new_entities.iter().enumerate() {
+        world.entity_mut(*entity).insert(SiteID(idx.try_into().unwrap()));
     }
 }
 
@@ -105,48 +99,39 @@ pub fn generate_workcell(
     for (name, source, pose, is_static, id, parent) in &q_models {
         println!("Found model {}", name.0);
         // Get the parent SiteID
-        let parent_site_id = q_site_id.get(parent.get());
-        if let Ok(parent_site_id) = parent_site_id {
-            workcell.models.insert(
-                id.0,
-                Parented {
-                    parent: parent_site_id.0,
-                    bundle: Model {
-                        name: name.clone(),
-                        source: source.clone(),
-                        pose: pose.clone(),
-                        is_static: is_static.clone(),
-                        marker: ModelMarker,
-                    },
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => Some(parent.0),
+            Err(_) => None,
+        };
+        workcell.models.insert(
+            id.0,
+            Parented {
+                parent: parent,
+                bundle: Model {
+                    name: name.clone(),
+                    source: source.clone(),
+                    pose: pose.clone(),
+                    is_static: is_static.clone(),
+                    marker: ModelMarker,
                 },
-            );
-        } else {
-            println!(
-                "Site ID for entity {:?} not found, skipping...",
-                parent.get()
-            );
-        }
+            },
+        );
     }
 
     // Anchors
     for (anchor, id, parent) in &q_anchors {
         println!("Found anchor {:?}", id);
-        // Get the parent SiteID
-        let parent_site_id = q_site_id.get(parent.get());
-        if let Ok(parent_site_id) = parent_site_id {
-            workcell.anchors.insert(
-                id.0,
-                Parented {
-                    parent: parent_site_id.0,
-                    bundle: anchor.clone(),
-                },
-            );
-        } else {
-            println!(
-                "Site ID for entity {:?} not found, skipping...",
-                parent.get()
-            );
-        }
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => Some(parent.0),
+            Err(_) => None,
+        };
+        workcell.anchors.insert(
+            id.0,
+            Parented {
+                parent: parent,
+                bundle: anchor.clone(),
+            },
+        );
     }
     Ok(workcell)
 }

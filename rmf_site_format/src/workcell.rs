@@ -26,7 +26,7 @@ use serde::{Deserialize, Serialize, Serializer};
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Parented<P: RefTrait, T> {
-    pub parent: P,
+    pub parent: Option<P>,
     #[serde(flatten)]
     pub bundle: T,
 }
