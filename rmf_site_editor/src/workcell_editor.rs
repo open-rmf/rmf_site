@@ -15,10 +15,10 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::{change_site, update_model_scenes};
+use crate::site::{change_site, update_anchor_transforms, update_model_scenes};
 use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
 use crate::workcell::*;
 use crate::AppState;
@@ -115,6 +115,13 @@ impl Plugin for WorkcellEditorPlugin {
             )
             .add_system(change_site) // TODO(luca) remove this? For now it only updates workspaces
             .add_system(save_workcell)
-            .add_system(load_workcell);
+            .add_system(load_workcell)
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                    .before(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::VisibilityPropagate)
+                    .with_system(update_anchor_transforms)
+                    // TODO add a function for anchored models
+            );
     }
 }

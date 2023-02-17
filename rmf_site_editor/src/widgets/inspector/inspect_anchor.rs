@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, (&'static Transform, Option<&'static Subordinate>), With<Anchor>>,
+    pub anchors: Query<'w, 's, (&'static Anchor, &'static Transform, Option<&'static Subordinate>)>,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
@@ -80,7 +80,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok((tf, subordinate)) = self.params.anchors.get(self.anchor) {
+        if let Ok((anchor, tf, subordinate)) = self.params.anchors.get(self.anchor) {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {
@@ -100,24 +100,43 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 });
             } else {
-                if !self.is_dependency {
-                    ui.label("x");
-                }
-                let mut x = tf.translation.x;
-                ui.add(DragValue::new(&mut x).speed(0.01));
-                // TODO(MXG): Make the drag speed a user-defined setting
+                match anchor {
+                    Anchor::Translate2D(anchor) => {
+                        if !self.is_dependency {
+                            ui.label("x");
+                        }
+                        let mut x = tf.translation.x;
+                        ui.add(DragValue::new(&mut x).speed(0.01));
+                        // TODO(MXG): Make the drag speed a user-defined setting
 
-                if !self.is_dependency {
-                    ui.label("y");
-                }
-                let mut y = tf.translation.y;
-                ui.add(DragValue::new(&mut y).speed(0.01));
+                        if !self.is_dependency {
+                            ui.label("y");
+                        }
+                        let mut y = tf.translation.y;
+                        ui.add(DragValue::new(&mut y).speed(0.01));
 
-                if x != tf.translation.x || y != tf.translation.y {
-                    self.events.request.move_to.send(MoveTo {
-                        entity: self.anchor,
-                        transform: Transform::from_translation([x, y, 0.0].into()),
-                    });
+                        if x != tf.translation.x || y != tf.translation.y {
+                            self.events.request.move_to.send(MoveTo {
+                                entity: self.anchor,
+                                transform: Transform::from_translation([x, y, 0.0].into()),
+                            });
+                        }
+                    },
+                    Anchor::CategorizedTranslate2D(anchor) => {
+                        todo!("Categorized translate inspector not implemented yet");
+                    },
+                    Anchor::Pose3D(pose) => {
+                        ui.vertical(|ui| {
+                            if let Some(new_pose) = InspectPose::new(pose).show(ui) {
+                                // TODO(luca) Using moveto doesn't allow switching between variants of
+                                // Pose3D
+                                self.events.request.move_to.send(MoveTo {
+                                    entity: self.anchor,
+                                    transform: new_pose.transform()
+                                });
+                            }
+                        });
+                    }
                 }
             }
         }

@@ -140,7 +140,10 @@ impl Anchor {
                 let p = categorized.for_category(category);
                 Transform::from_translation([p[0], p[1], 0.0].into())
             }
-            Anchor::Pose3D(p) => p.transform(),
+            Anchor::Pose3D(p) => {
+                println!("When reading local transform x is {}", p.trans[0]);
+                p.transform()
+            }
         }
     }
 
@@ -161,7 +164,7 @@ impl Anchor {
                 p.trans[0] = tf.translation.x;
                 p.trans[1] = tf.translation.y;
                 p.trans[2] = tf.translation.z;
-                todo!("Do rotation");
+                p.align_with(tf);
             }
         }
     }
