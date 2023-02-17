@@ -84,13 +84,23 @@ pub fn change_site(
                 "Requested site change to an entity that is not an open site: {:?}",
                 cmd.root
             );
+            if current_workspace.root != Some(cmd.root) {
+                println!("Setting current workspace to");
+                dbg!(&cmd.root);
+                current_workspace.root = Some(cmd.root);
+                current_workspace.display = true;
+            }
             return;
         }
 
+        /*
         if current_workspace.root != Some(cmd.root) {
+            println!("Setting current workspace to");
+            dbg!(&cmd.root);
             current_workspace.root = Some(cmd.root);
             current_workspace.display = true;
         }
+        */
 
         if let Some(cached_level) = cached_levels.0.get(&cmd.root) {
             set_visibility(*cached_level, true);

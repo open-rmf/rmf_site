@@ -1,0 +1,64 @@
+{
+  "name": "test_workcell",
+  "anchors": {
+    "0": {
+      "parent": null,
+      "Pose3D": {
+        "trans": [
+          0.0,
+          0.0,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      }
+    },
+    "1": {
+      "parent": 0,
+      "Pose3D": {
+        "trans": [
+          5.0,
+          0.0,
+          0.0
+        ],
+        "rot": {
+          "euler_xyz": [
+            {
+              "deg": 45.0
+            },
+            {
+              "deg": 30.0
+            },
+            {
+              "deg": 90.0
+            }
+          ]
+        }
+      }
+    }
+  },
+  "models": {
+    "2": {
+      "parent": 1,
+      "name": "test_chair",
+      "source": {
+        "Search": "OpenRobotics/OfficeChairGrey"
+      },
+      "pose": {
+        "trans": [
+          1.0,
+          0.0,
+          0.0
+        ],
+        "rot": {
+          "yaw": {
+            "deg": 0.0
+          }
+        }
+      }
+    }
+  }
+}

@@ -15,8 +15,8 @@
  *
 */
 
-use super::demo_world::demo_office;
-use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile};
+use super::demo_world::*;
+use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile, workcell::LoadWorkcell};
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -26,7 +26,7 @@ use bevy_egui::{egui, EguiContext};
 use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::{AsyncFileDialog, FileHandle};
-use rmf_site_format::{legacy::building_map::BuildingMap, Site};
+use rmf_site_format::{legacy::building_map::BuildingMap, Site, Workcell};
 use std::path::PathBuf;
 
 struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
@@ -55,7 +55,9 @@ fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
     mut _commands: Commands,
     mut _exit: EventWriter<AppExit>,
+    // TODO(luca) refactor into LoadWorkspace?
     mut _load_site: EventWriter<LoadSite>,
+    mut _load_workcell: EventWriter<LoadWorkcell>,
     mut _interaction_state: ResMut<State<InteractionState>>,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
@@ -191,8 +193,38 @@ fn egui_ui(
                 // }
                 if ui.button("Workcell Editor").clicked() {
                     println!("Entering workcell editor");
+                    // TODO(luca) also add async version
+                    {
+                        let workcell_json = demo_workcell();
+                        let data = workcell_json.as_bytes();
+                        match Workcell::from_bytes(&data) {
+                            Ok(workcell) =>  {
+                                // TODO(luca) remove this, for testing
+                                let mut path = std::path::PathBuf::new();
+                                path.push("test.workcell.json");
+                                _load_workcell.send(LoadWorkcell {
+                                    workcell,
+                                    focus: true,
+                                    default_file: Some(path),
+                                });
+                                match _app_state.set(AppState::WorkcellEditor) {
+                                    Ok(_) => {
+                                        _interaction_state.set(InteractionState::Enable).ok();
+                                    }
+                                    Err(err) => {
+                                        println!("Failed to enter workcell editor: {:?}", err);
+                                    }
+                                }
+                            },
+                            Err(err) => {
+                                println!("{:?}", err);
+                            }
+                        }
+                    }
+                    /*
                     _app_state.set(AppState::WorkcellEditor).unwrap();
                     _interaction_state.set(InteractionState::Enable).ok();
+                    */
                 }
             });
 

@@ -97,7 +97,6 @@ pub fn generate_workcell(
 
     // Models
     for (name, source, pose, is_static, id, parent) in &q_models {
-        println!("Found model {}", name.0);
         // Get the parent SiteID
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => Some(parent.0),
@@ -120,7 +119,6 @@ pub fn generate_workcell(
 
     // Anchors
     for (anchor, id, parent) in &q_anchors {
-        println!("Found anchor {:?}", id);
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => Some(parent.0),
             Err(_) => None,

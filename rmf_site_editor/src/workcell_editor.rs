@@ -18,8 +18,8 @@
 use bevy::prelude::*;
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::{load_workcell, update_model_scenes};
-use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile, LoadWorkcell};
+use crate::site::{change_site, update_model_scenes};
+use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
 use crate::workcell::*;
 use crate::AppState;
 
@@ -54,7 +54,6 @@ fn mock_workcell(mut commands: &mut Commands, mut workspace: ResMut<CurrentWorks
             let mut pose = Pose::default();
             let anchor = Anchor::Pose3D(pose);
             let anchor_comp = AnchorBundle::new(anchor).visible(true);
-            // TODO parse from WorkcellAnchor
             parent.spawn(anchor_comp).add_children(|parent| {
                 // Add an offset anchor
                 let mut pose = Pose::default();
@@ -102,7 +101,7 @@ fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
 
     // Send a load workcell event
 
-    mock_workcell(&mut commands, workspace);
+    //mock_workcell(&mut commands, workspace);
 }
 
 impl Plugin for WorkcellEditorPlugin {
@@ -114,6 +113,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor).with_system(update_model_scenes),
             )
+            .add_system(change_site) // TODO(luca) remove this? For now it only updates workspaces
             .add_system(save_workcell)
             .add_system(load_workcell);
     }
