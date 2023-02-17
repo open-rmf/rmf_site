@@ -24,7 +24,7 @@ use crate::site::{DefaultFile, Pending};
 use thiserror::Error as ThisError;
 
 use rmf_site_format::{
-    Anchor, AssetSource, IsStatic, Model, ModelMarker, NameInSite, Parented, Pose, SiteID, Workcell,
+    Anchor, AssetSource, IsStatic, Model, ModelMarker, NameInSite, Parented, Pose, SiteID, Workcell, WorkcellProperties
 };
 
 /// Event used to trigger saving of the workcell
@@ -81,14 +81,14 @@ pub fn generate_workcell(
             (With<ModelMarker>, Without<Pending>),
         >,
         Query<&SiteID>,
-        Query<&NameInSite>,
+        Query<&WorkcellProperties>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_site_id, q_names) = state.get(world);
+    let (q_anchors, q_models, q_site_id, q_properties) = state.get(world);
 
     let mut workcell = Workcell::default();
-    match q_names.get(root) {
-        Ok(workcell_name) => {
-            workcell.name = workcell_name.clone();
+    match q_properties.get(root) {
+        Ok(properties) => {
+            workcell.properties = properties.clone();
         }
         Err(_) => {
             return Err(WorkcellGenerationError::InvalidWorkcellEntity(root));

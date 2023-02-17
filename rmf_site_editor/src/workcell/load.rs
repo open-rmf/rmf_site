@@ -59,7 +59,7 @@ fn generate_workcell_entities(
 
     let mut binding = commands.spawn(SpatialBundle::VISIBLE_IDENTITY);
     let mut root = binding
-        .insert(NameInSite(workcell.name.0.clone()))
+        .insert(workcell.properties.clone())
         .insert(Category::Workcell)
         .id();
 

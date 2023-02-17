@@ -31,13 +31,20 @@ pub struct Parented<P: RefTrait, T> {
     pub bundle: T,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct WorkcellProperties {
+    pub name: String,
+}
+
 // TODO(luca) we might need a different bundle to denote a workcell included in site
 // editor mode to deal with serde of workcells there (that would only have an asset source?)
-/// Bundle used to spawn and move whole workcells in site editor mode
+/// Container for serialization / deserialization of workcells
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct Workcell {
-    /// Used in site editor to assign a unique name
-    pub name: NameInSite,
+    /// Workcell specific properties
+    #[serde(flatten)]
+    pub properties: WorkcellProperties,
     /// Anchors, key is their id, used for hierarchy
     pub anchors: BTreeMap<u32, Parented<u32, Anchor>>,
     /// Models, key is their id, used for hierarchy
