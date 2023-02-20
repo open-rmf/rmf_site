@@ -113,15 +113,14 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor).with_system(update_model_scenes),
             )
-            .add_system(change_site) // TODO(luca) remove this? For now it only updates workspaces
-            .add_system(save_workcell)
             .add_system(load_workcell)
+            .add_system(save_workcell)
+            .add_system(change_site.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
-                    // TODO add a function for anchored models
             );
     }
 }

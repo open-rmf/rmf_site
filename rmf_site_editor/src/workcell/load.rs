@@ -57,8 +57,7 @@ fn generate_workcell_entities(
         id_to_entity.insert(id, e);
     }
 
-    let mut binding = commands.spawn(SpatialBundle::VISIBLE_IDENTITY);
-    let mut root = binding
+    let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(Category::Workcell)
         .id();
