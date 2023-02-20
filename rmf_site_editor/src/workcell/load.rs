@@ -19,8 +19,9 @@ use std::path::PathBuf;
 use std::collections::HashMap;
 
 use bevy::prelude::*;
+use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
-use crate::site::{AnchorBundle, ChangeCurrentWorkspace, DefaultFile, NameInSite, SiteState};
+use crate::site::{AnchorBundle, ChangeCurrentWorkspace, DefaultFile, Dependents, NameInSite, SiteState};
 
 use rmf_site_format::Category;
 
@@ -79,7 +80,11 @@ fn generate_workcell_entities(
                 &root
             },
         };
-        commands.entity(*parent).push_children(&children);
+        commands.entity(*parent)
+            .insert(Dependents(HashSet::from_iter(children.clone())))
+            .push_children(&children);
+        // Update dependents as well
+        // TODO(luca) A system to synchronize dependents and children?
     }
     root
 }

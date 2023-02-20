@@ -18,7 +18,7 @@
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::{change_site, update_anchor_transforms, update_model_scenes};
+use crate::site::{change_site, update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
 use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
 use crate::workcell::*;
 use crate::AppState;
@@ -111,7 +111,9 @@ impl Plugin for WorkcellEditorPlugin {
             .add_event::<LoadWorkcell>()
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
             .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor).with_system(update_model_scenes),
+                SystemSet::on_update(AppState::WorkcellEditor)
+                .with_system(update_model_scenes)
+                .with_system(make_models_selectable),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
@@ -121,6 +123,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
+                    .with_system(update_transforms_for_changed_poses)
             );
     }
 }
