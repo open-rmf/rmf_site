@@ -77,6 +77,7 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
+    parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
@@ -198,6 +199,14 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
 
         if **params.selection == Some(e) {
             params.select.send(Select(None));
+        }
+    }
+
+    // Fetch the parent and delete this dependent
+    // TODO(luca) should we add this snippet to the recursive delete also?
+    if let Ok(parent) = params.parents.get(element) {
+        if let Ok(mut parent_dependents) = params.dependents.get_mut(**parent) {
+            parent_dependents.remove(&element);
         }
     }
 
