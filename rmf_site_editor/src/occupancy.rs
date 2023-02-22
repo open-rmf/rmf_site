@@ -278,7 +278,7 @@ fn calculate_grid(
 
             commands.entity(level).add_children(|level| {
                 level
-                    .spawn_bundle(PbrBundle {
+                    .spawn(PbrBundle {
                         mesh: meshes.add(mesh.into()),
                         material: assets.occupied_material.clone(),
                         ..default()

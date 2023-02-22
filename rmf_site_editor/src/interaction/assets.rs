@@ -18,7 +18,7 @@
 use crate::{interaction::*, shapes::*};
 use bevy::{math::Affine3A, prelude::*};
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
     pub dagger_mesh: Handle<Mesh>,
     pub dagger_material: Handle<StandardMaterial>,
@@ -56,7 +56,7 @@ impl InteractionAssets {
     ) -> Entity {
         return command.entity(parent).add_children(|parent| {
             parent
-                .spawn_bundle(PbrBundle {
+                .spawn(PbrBundle {
                     transform: Transform::from_rotation(rotation)
                         .with_translation(offset)
                         .with_scale(Vec3::splat(scale)),
@@ -64,9 +64,7 @@ impl InteractionAssets {
                     material: material_set.passive.clone(),
                     ..default()
                 })
-                .insert_bundle(
-                    DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set),
-                )
+                .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set))
                 .id()
         });
     }
@@ -79,7 +77,7 @@ impl InteractionAssets {
     ) {
         let drag_parent = command.entity(anchor).add_children(|parent| {
             parent
-                .spawn_bundle(SpatialBundle::default())
+                .spawn(SpatialBundle::default())
                 .insert(VisualCue::no_outline())
                 .id()
         });

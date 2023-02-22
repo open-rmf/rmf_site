@@ -18,6 +18,7 @@
 use crate::{shapes::*, site::*};
 use bevy::{math::Affine3A, prelude::*};
 
+#[derive(Resource)]
 pub struct SiteAssets {
     pub default_floor_material: Handle<StandardMaterial>,
     pub lane_mid_mesh: Handle<Mesh>,

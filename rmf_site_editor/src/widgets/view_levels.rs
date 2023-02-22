@@ -23,6 +23,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
+#[derive(Resource)]
 pub struct LevelDisplay {
     pub new_elevation: f32,
     pub new_name: String,
@@ -74,7 +75,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 let new_level = self
                     .events
                     .commands
-                    .spawn_bundle(SpatialBundle::default())
+                    .spawn(SpatialBundle::default())
                     .insert(LevelProperties {
                         elevation: show_elevation,
                         name: show_name.clone(),

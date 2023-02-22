@@ -25,7 +25,7 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
 
 impl FromWorld for DebugMode {

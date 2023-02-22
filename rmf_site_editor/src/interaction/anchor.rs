@@ -46,14 +46,14 @@ pub fn add_anchor_visual_cues(
 
         let mut commands = commands.entity(e);
         let body = commands.add_children(|parent| {
-            let mut body = parent.spawn_bundle(PbrBundle {
+            let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
             });
             body.insert(Selectable::new(e));
             if subordinate.is_none() {
-                body.insert_bundle(DragPlaneBundle::new(e, Vec3::Z));
+                body.insert(DragPlaneBundle::new(e, Vec3::Z));
             }
             let body = body.id();
 

@@ -47,188 +47,168 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
     };
 
-    let mut site = commands.spawn();
-    site.insert_bundle(SpatialBundle {
+    let mut binding = commands.spawn(SpatialBundle {
         visibility: Visibility { is_visible: false },
         ..default()
-    })
-    .insert(Category::Site)
-    .insert(site_data.properties.clone())
-    .with_children(|site| {
-        for (anchor_id, anchor) in &site_data.anchors {
-            let anchor_entity = site
-                .spawn()
-                .insert_bundle(AnchorBundle::new(anchor.clone()))
-                .insert(SiteID(*anchor_id))
-                .id();
-            id_to_entity.insert(*anchor_id, anchor_entity);
-            consider_id(*anchor_id);
-        }
-
-        for (level_id, level_data) in &site_data.levels {
-            let level_entity = site
-                .spawn_bundle(SpatialBundle {
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .insert(level_data.properties.clone())
-                .insert(SiteID(*level_id))
-                .insert(Category::Level)
-                .with_children(|level| {
-                    for (anchor_id, anchor) in &level_data.anchors {
-                        let anchor_entity = level
-                            .spawn()
-                            .insert_bundle(AnchorBundle::new(anchor.clone()))
-                            .insert(SiteID(*anchor_id))
-                            .id();
-                        id_to_entity.insert(*anchor_id, anchor_entity);
-                        consider_id(*anchor_id);
-                    }
-
-                    for (door_id, door) in &level_data.doors {
-                        let door_entity = level
-                            .spawn()
-                            .insert_bundle(door.to_ecs(&id_to_entity))
-                            .insert(SiteID(*door_id))
-                            .id();
-                        id_to_entity.insert(*door_id, door_entity);
-                        consider_id(*door_id);
-                    }
-
-                    for (drawing_id, drawing) in &level_data.drawings {
-                        level
-                            .spawn()
-                            .insert_bundle(drawing.clone())
-                            .insert(SiteID(*drawing_id));
-                        consider_id(*drawing_id);
-                    }
-
-                    for (fiducial_id, fiducial) in &level_data.fiducials {
-                        level
-                            .spawn()
-                            .insert_bundle(fiducial.to_ecs(&id_to_entity))
-                            .insert(SiteID(*fiducial_id));
-                        consider_id(*fiducial_id);
-                    }
-
-                    for (floor_id, floor) in &level_data.floors {
-                        level
-                            .spawn()
-                            .insert_bundle(floor.to_ecs(&id_to_entity))
-                            .insert(SiteID(*floor_id));
-                        consider_id(*floor_id);
-                    }
-
-                    for (light_id, light) in &level_data.lights {
-                        level
-                            .spawn()
-                            .insert_bundle(light.clone())
-                            .insert(SiteID(*light_id));
-                        consider_id(*light_id);
-                    }
-
-                    for (measurement_id, measurement) in &level_data.measurements {
-                        level
-                            .spawn()
-                            .insert_bundle(measurement.to_ecs(&id_to_entity))
-                            .insert(SiteID(*measurement_id));
-                        consider_id(*measurement_id);
-                    }
-
-                    for (model_id, model) in &level_data.models {
-                        level
-                            .spawn()
-                            .insert_bundle(model.clone())
-                            .insert(SiteID(*model_id));
-                        consider_id(*model_id);
-                    }
-
-                    for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
-                        level
-                            .spawn()
-                            .insert_bundle(physical_camera.clone())
-                            .insert(SiteID(*physical_camera_id));
-                        consider_id(*physical_camera_id);
-                    }
-
-                    for (wall_id, wall) in &level_data.walls {
-                        level
-                            .spawn()
-                            .insert_bundle(wall.to_ecs(&id_to_entity))
-                            .insert(SiteID(*wall_id));
-                        consider_id(*wall_id);
-                    }
-                })
-                .id();
-            id_to_entity.insert(*level_id, level_entity);
-            consider_id(*level_id);
-        }
-
-        for (lift_id, lift_data) in &site_data.lifts {
-            let lift = site
-                .spawn()
-                .insert(SiteID(*lift_id))
-                .insert(Category::Lift)
-                .with_children(|lift| {
-                    let lift_entity = lift.parent_entity();
-                    lift.spawn_bundle(SpatialBundle::default())
-                        .insert_bundle(CabinAnchorGroupBundle::default())
-                        .with_children(|anchor_group| {
-                            for (anchor_id, anchor) in &lift_data.cabin_anchors {
-                                let anchor_entity = anchor_group
-                                    .spawn()
-                                    .insert_bundle(AnchorBundle::new(anchor.clone()))
-                                    .insert(SiteID(*anchor_id))
-                                    .id();
-                                id_to_entity.insert(*anchor_id, anchor_entity);
-                                consider_id(*anchor_id);
-                            }
-                        });
-
-                    for (door_id, door) in &lift_data.cabin_doors {
-                        let door_entity = lift
-                            .spawn()
-                            .insert_bundle(door.to_ecs(&id_to_entity))
-                            .insert(Dependents::single(lift_entity))
-                            .id();
-                        id_to_entity.insert(*door_id, door_entity);
-                        consider_id(*door_id);
-                    }
-                })
-                .insert_bundle(lift_data.properties.to_ecs(&id_to_entity))
-                .id();
-            id_to_entity.insert(*lift_id, lift);
-            consider_id(*lift_id);
-        }
-
-        for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
-            let nav_graph = site
-                .spawn_bundle(SpatialBundle::default())
-                .insert_bundle(nav_graph_data.clone())
-                .insert(SiteID(*nav_graph_id))
-                .id();
-            id_to_entity.insert(*nav_graph_id, nav_graph);
-            consider_id(*nav_graph_id);
-        }
-
-        for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
-            let lane = site
-                .spawn_bundle(lane_data.to_ecs(&id_to_entity))
-                .insert(SiteID(*lane_id))
-                .id();
-            id_to_entity.insert(*lane_id, lane);
-            consider_id(*lane_id);
-        }
-
-        for (location_id, location_data) in &site_data.navigation.guided.locations {
-            let location = site
-                .spawn_bundle(location_data.to_ecs(&id_to_entity))
-                .insert(SiteID(*location_id))
-                .id();
-            id_to_entity.insert(*location_id, location);
-            consider_id(*location_id);
-        }
     });
+    let mut site = binding
+        .insert(Category::Site)
+        .insert(site_data.properties.clone())
+        .with_children(|site| {
+            for (anchor_id, anchor) in &site_data.anchors {
+                let anchor_entity = site
+                    .spawn(AnchorBundle::new(anchor.clone()))
+                    .insert(SiteID(*anchor_id))
+                    .id();
+                id_to_entity.insert(*anchor_id, anchor_entity);
+                consider_id(*anchor_id);
+            }
+
+            for (level_id, level_data) in &site_data.levels {
+                let level_entity = site
+                    .spawn(SpatialBundle {
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    })
+                    .insert(level_data.properties.clone())
+                    .insert(SiteID(*level_id))
+                    .insert(Category::Level)
+                    .with_children(|level| {
+                        for (anchor_id, anchor) in &level_data.anchors {
+                            let anchor_entity = level
+                                .spawn(AnchorBundle::new(anchor.clone()))
+                                .insert(SiteID(*anchor_id))
+                                .id();
+                            id_to_entity.insert(*anchor_id, anchor_entity);
+                            consider_id(*anchor_id);
+                        }
+
+                        for (door_id, door) in &level_data.doors {
+                            let door_entity = level
+                                .spawn(door.to_ecs(&id_to_entity))
+                                .insert(SiteID(*door_id))
+                                .id();
+                            id_to_entity.insert(*door_id, door_entity);
+                            consider_id(*door_id);
+                        }
+
+                        for (drawing_id, drawing) in &level_data.drawings {
+                            level.spawn(drawing.clone()).insert(SiteID(*drawing_id));
+                            consider_id(*drawing_id);
+                        }
+
+                        for (fiducial_id, fiducial) in &level_data.fiducials {
+                            level
+                                .spawn(fiducial.to_ecs(&id_to_entity))
+                                .insert(SiteID(*fiducial_id));
+                            consider_id(*fiducial_id);
+                        }
+
+                        for (floor_id, floor) in &level_data.floors {
+                            level
+                                .spawn(floor.to_ecs(&id_to_entity))
+                                .insert(SiteID(*floor_id));
+                            consider_id(*floor_id);
+                        }
+
+                        for (light_id, light) in &level_data.lights {
+                            level.spawn(light.clone()).insert(SiteID(*light_id));
+                            consider_id(*light_id);
+                        }
+
+                        for (measurement_id, measurement) in &level_data.measurements {
+                            level
+                                .spawn(measurement.to_ecs(&id_to_entity))
+                                .insert(SiteID(*measurement_id));
+                            consider_id(*measurement_id);
+                        }
+
+                        for (model_id, model) in &level_data.models {
+                            level.spawn(model.clone()).insert(SiteID(*model_id));
+                            consider_id(*model_id);
+                        }
+
+                        for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
+                            level
+                                .spawn(physical_camera.clone())
+                                .insert(SiteID(*physical_camera_id));
+                            consider_id(*physical_camera_id);
+                        }
+
+                        for (wall_id, wall) in &level_data.walls {
+                            level
+                                .spawn(wall.to_ecs(&id_to_entity))
+                                .insert(SiteID(*wall_id));
+                            consider_id(*wall_id);
+                        }
+                    })
+                    .id();
+                id_to_entity.insert(*level_id, level_entity);
+                consider_id(*level_id);
+            }
+
+            for (lift_id, lift_data) in &site_data.lifts {
+                let lift = site
+                    .spawn(SiteID(*lift_id))
+                    .insert(Category::Lift)
+                    .with_children(|lift| {
+                        let lift_entity = lift.parent_entity();
+                        lift.spawn(SpatialBundle::default())
+                            .insert(CabinAnchorGroupBundle::default())
+                            .with_children(|anchor_group| {
+                                for (anchor_id, anchor) in &lift_data.cabin_anchors {
+                                    let anchor_entity = anchor_group
+                                        .spawn(AnchorBundle::new(anchor.clone()))
+                                        .insert(SiteID(*anchor_id))
+                                        .id();
+                                    id_to_entity.insert(*anchor_id, anchor_entity);
+                                    consider_id(*anchor_id);
+                                }
+                            });
+
+                        for (door_id, door) in &lift_data.cabin_doors {
+                            let door_entity = lift
+                                .spawn(door.to_ecs(&id_to_entity))
+                                .insert(Dependents::single(lift_entity))
+                                .id();
+                            id_to_entity.insert(*door_id, door_entity);
+                            consider_id(*door_id);
+                        }
+                    })
+                    .insert(lift_data.properties.to_ecs(&id_to_entity))
+                    .id();
+                id_to_entity.insert(*lift_id, lift);
+                consider_id(*lift_id);
+            }
+
+            for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
+                let nav_graph = site
+                    .spawn(SpatialBundle::default())
+                    .insert(nav_graph_data.clone())
+                    .insert(SiteID(*nav_graph_id))
+                    .id();
+                id_to_entity.insert(*nav_graph_id, nav_graph);
+                consider_id(*nav_graph_id);
+            }
+
+            for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
+                let lane = site
+                    .spawn(lane_data.to_ecs(&id_to_entity))
+                    .insert(SiteID(*lane_id))
+                    .id();
+                id_to_entity.insert(*lane_id, lane);
+                consider_id(*lane_id);
+            }
+
+            for (location_id, location_data) in &site_data.navigation.guided.locations {
+                let location = site
+                    .spawn(location_data.to_ecs(&id_to_entity))
+                    .insert(SiteID(*location_id))
+                    .id();
+                id_to_entity.insert(*location_id, location);
+                consider_id(*location_id);
+            }
+        });
 
     site.insert(NextSiteID(highest_id + 1));
     let site_id = site.id();
@@ -404,7 +384,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(anchor_group).add_children(|group| {
-                    let e_anchor = group.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = group.spawn(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -432,7 +412,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(level_e).add_children(|level| {
-                    let e_anchor = level.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = level.spawn(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -455,7 +435,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(into_site).add_children(|site| {
-                    let e_anchor = site.spawn_bundle(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = site.spawn(AnchorBundle::new(anchor.clone())).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -465,8 +445,8 @@ fn generate_imported_nav_graphs(
     for (nav_graph_id, nav_graph_data) in &from_site_data.navigation.guided.graphs {
         params.commands.entity(into_site).add_children(|site| {
             let e = site
-                .spawn_bundle(SpatialBundle::default())
-                .insert_bundle(nav_graph_data.clone())
+                .spawn(SpatialBundle::default())
+                .insert(nav_graph_data.clone())
                 .id();
             id_to_entity.insert(*nav_graph_id, e);
         });
@@ -474,14 +454,14 @@ fn generate_imported_nav_graphs(
 
     for (lane_id, lane_data) in &from_site_data.navigation.guided.lanes {
         params.commands.entity(into_site).add_children(|site| {
-            let e = site.spawn_bundle(lane_data.to_ecs(&id_to_entity)).id();
+            let e = site.spawn(lane_data.to_ecs(&id_to_entity)).id();
             id_to_entity.insert(*lane_id, e);
         });
     }
 
     for (location_id, location_data) in &from_site_data.navigation.guided.locations {
         params.commands.entity(into_site).add_children(|site| {
-            let e = site.spawn_bundle(location_data.to_ecs(&id_to_entity)).id();
+            let e = site.spawn(location_data.to_ecs(&id_to_entity)).id();
             id_to_entity.insert(*location_id, e);
         });
     }

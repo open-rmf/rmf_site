@@ -29,7 +29,7 @@ pub fn add_measurement_visuals(
     for (e, edge) in &measurements {
         commands
             .entity(e)
-            .insert_bundle(PbrBundle {
+            .insert(PbrBundle {
                 mesh: assets.lane_mid_mesh.clone(),
                 material: assets.measurement_material.clone(),
                 transform: line_stroke_transform(

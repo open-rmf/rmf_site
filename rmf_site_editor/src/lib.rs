@@ -1,4 +1,4 @@
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::render_resource::WgpuAdapterInfo};
+use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -75,7 +75,7 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
     }
 }
 
-fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<WgpuAdapterInfo>) {
+fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
     // todo: be more sophisticated
     let is_elite = adapter_info.name.contains("NVIDIA");
     if is_elite {
@@ -106,12 +106,18 @@ pub fn run(command_line_args: Vec<String>) {
 
     #[cfg(target_arch = "wasm32")]
     {
-        app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_owned(),
-            canvas: Some(String::from("#rmf_site_editor_canvas")),
-            //vsync: false,
-            ..Default::default()
-        })
+        app.add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "RMF Site Editor".to_owned(),
+                        canvas: Some(String::from("#rmf_site_editor_canvas")),
+                        ..default()
+                    },
+                    ..default()
+                })
+                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+        )
         .add_system_set(
             SystemSet::new()
                 .with_run_criteria(FixedTimestep::step(0.5))
@@ -121,21 +127,24 @@ pub fn run(command_line_args: Vec<String>) {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-        app.insert_resource(WindowDescriptor {
-            title: "RMF Site Editor".to_owned(),
-            width: 1600.,
-            height: 900.,
-            //vsync: false,
-            ..Default::default()
-        });
+        app.add_plugins(
+            DefaultPlugins
+                .set(WindowPlugin {
+                    window: WindowDescriptor {
+                        title: "RMF Site Editor".to_owned(),
+                        width: 1600.,
+                        height: 900.,
+                        ..default()
+                    },
+                    ..default()
+                })
+                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+        );
     }
 
     app.init_resource::<Settings>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
-        .add_plugins_with(DefaultPlugins, |group| {
-            group.add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin)
-        })
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)

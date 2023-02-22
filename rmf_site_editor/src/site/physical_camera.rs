@@ -27,7 +27,7 @@ pub fn add_physical_camera_visuals(
     for (e, pose) in &physical_cameras {
         commands
             .entity(e)
-            .insert_bundle(PbrBundle {
+            .insert(PbrBundle {
                 mesh: assets.physical_camera_mesh.clone(),
                 material: assets.physical_camera_material.clone(),
                 transform: pose.transform(),
@@ -45,7 +45,7 @@ pub fn add_physical_camera_visuals(
             ]),
         };
         let child = commands
-            .spawn_bundle(Camera3dBundle {
+            .spawn(Camera3dBundle {
                 transform: camera_sensor_transform.transform(),
                 camera: Camera {
                     is_active: false,

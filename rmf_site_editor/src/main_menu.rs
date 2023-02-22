@@ -34,6 +34,7 @@ struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
 #[derive(Component)]
 struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
 
+#[derive(Resource)]
 pub struct Autoload {
     pub filename: Option<PathBuf>,
     pub import: Option<PathBuf>,
@@ -80,7 +81,7 @@ fn egui_ui(
                     let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
                     Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
                 });
-                _commands.spawn().insert(LoadSiteFileTask(future));
+                _commands.spawn(LoadSiteFileTask(future));
             }
             autoload.filename = None;
         }
@@ -119,7 +120,7 @@ fn egui_ui(
                             };
                             Some(LoadSiteFileResult(None, site))
                         });
-                        _commands.spawn().insert(LoadSiteFileTask(future));
+                        _commands.spawn(LoadSiteFileTask(future));
                     }
 
                     // on web, we don't have a handy thread pool, so we'll
@@ -178,7 +179,7 @@ fn egui_ui(
                                 site,
                             ))
                         });
-                        _commands.spawn().insert(LoadSiteFileTask(future));
+                        _commands.spawn(LoadSiteFileTask(future));
                     }
                 }
 
@@ -194,7 +195,7 @@ fn egui_ui(
             {
                 ui.add_space(20.);
                 ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(), |ui| {
+                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("Exit").clicked() {
                             _exit.send(AppExit);
                         }

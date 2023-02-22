@@ -176,7 +176,7 @@ pub fn add_lane_visuals(
             .unwrap();
         let mut commands = commands.entity(e);
         let (start, mid, end, outlines) = commands.add_children(|parent| {
-            let mut start = parent.spawn_bundle(PbrBundle {
+            let mut start = parent.spawn(PbrBundle {
                 mesh: assets.lane_end_mesh.clone(),
                 material: lane_material.clone(),
                 transform: Transform::from_translation(start_anchor),
@@ -184,7 +184,7 @@ pub fn add_lane_visuals(
             });
             let start_outline = start.add_children(|start| {
                 start
-                    .spawn_bundle(PbrBundle {
+                    .spawn(PbrBundle {
                         mesh: assets.lane_end_outline.clone(),
                         transform: Transform::from_translation(-0.000_5 * Vec3::Z),
                         visibility: Visibility { is_visible: false },
@@ -194,14 +194,14 @@ pub fn add_lane_visuals(
             });
             let start = start.id();
 
-            let mut mid = parent.spawn_bundle(PbrBundle {
+            let mut mid = parent.spawn(PbrBundle {
                 mesh: assets.lane_mid_mesh.clone(),
                 material: lane_material.clone(),
                 transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
                 ..default()
             });
             let mid_outline = mid.add_children(|mid| {
-                mid.spawn_bundle(PbrBundle {
+                mid.spawn(PbrBundle {
                     mesh: assets.lane_mid_outline.clone(),
                     transform: Transform::from_translation(-0.000_5 * Vec3::Z),
                     visibility: Visibility { is_visible: false },
@@ -211,14 +211,14 @@ pub fn add_lane_visuals(
             });
             let mid = mid.id();
 
-            let mut end = parent.spawn_bundle(PbrBundle {
+            let mut end = parent.spawn(PbrBundle {
                 mesh: assets.lane_end_mesh.clone(),
                 material: lane_material.clone(),
                 transform: Transform::from_translation(end_anchor),
                 ..default()
             });
             let end_outline = end.add_children(|end| {
-                end.spawn_bundle(PbrBundle {
+                end.spawn(PbrBundle {
                     mesh: assets.lane_end_outline.clone(),
                     transform: Transform::from_translation(-0.000_5 * Vec3::Z),
                     visibility: Visibility { is_visible: false },
@@ -238,7 +238,7 @@ pub fn add_lane_visuals(
                 end,
                 outlines,
             })
-            .insert_bundle(SpatialBundle {
+            .insert(SpatialBundle {
                 transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
                 visibility: Visibility { is_visible },
                 ..default()

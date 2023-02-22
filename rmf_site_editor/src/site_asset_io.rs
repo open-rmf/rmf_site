@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError, FileType, Metadata},
+    asset::{AssetIo, AssetIoError, AssetPlugin, FileType, Metadata},
     prelude::*,
     utils::BoxedFuture,
 };
@@ -191,7 +191,7 @@ pub struct SiteAssetIoPlugin;
 impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
         let asset_io = {
-            let default_io = bevy::asset::create_platform_default_asset_io(app);
+            let default_io = AssetPlugin::default().create_platform_default_asset_io();
             SiteAssetIo { default_io }
         };
 

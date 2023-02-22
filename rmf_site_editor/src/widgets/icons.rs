@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use bevy_egui::{egui, EguiContext};
 use rmf_site_format::AssetSource;
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Resource)]
 pub struct Icons {
     pub bevy_select: Handle<Image>,
     pub egui_select: egui::TextureId,

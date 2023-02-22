@@ -32,7 +32,7 @@ use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
 /// rendered.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Resource)]
 pub struct PhysicalLightToggle(pub bool);
 
 impl Default for PhysicalLightToggle {

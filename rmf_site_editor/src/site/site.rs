@@ -20,7 +20,7 @@ use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentSite(pub Option<Entity>);
 
 /// Used as an event to command that a new site should be made the current one
@@ -33,16 +33,16 @@ pub struct ChangeCurrentSite {
 }
 
 /// Used as a resource that keeps track of the current level entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut)]
+#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentLevel(pub Option<Entity>);
 
 /// Used as a resource that maps from the site entity to the level entity which
 /// was most recently selected for it.
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
 
 /// Used as a resource to keep track of all currently opened sites
-#[derive(Clone, Debug, Default)]
+#[derive(Clone, Debug, Default, Resource)]
 pub struct OpenSites(pub Vec<Entity>);
 
 /// This component is placed on the Site entity to keep track of what the next
@@ -130,7 +130,7 @@ pub fn change_site(
                     if !found_level {
                         // Create a new blank level for the user
                         let new_level = commands.entity(cmd.site).add_children(|site| {
-                            site.spawn_bundle(SpatialBundle::default())
+                            site.spawn(SpatialBundle::default())
                                 .insert(LevelProperties {
                                     name: "<unnamed level>".to_string(),
                                     elevation: 0.,
