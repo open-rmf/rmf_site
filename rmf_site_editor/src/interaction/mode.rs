@@ -69,10 +69,8 @@ impl InteractionMode {
             Self::SelectAnchor(select_anchor) => {
                 Some(select_anchor.backout(&mut params.select_anchor))
             }
-            // TODO(luca) check this
             Self::SelectAnchor3D(select_anchor) => {
-                //Some(select_anchor.backout(&mut params.select_anchor))
-                None
+                Some(select_anchor.backout(&mut params.select_anchor))
             }
         };
 

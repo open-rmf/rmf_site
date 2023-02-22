@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{Hover, MoveTo},
+    interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
     site::{Anchor, AssociatedGraphs, Category, Dependents, LocationTags, SiteID, Subordinate},
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
 };
@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, (&'static Anchor, &'static Transform, Option<&'static Subordinate>)>,
+    pub anchors: Query<'w, 's, (&'static Anchor, &'static Transform, Option<&'static Subordinate>, &'static Parent)>,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
@@ -80,7 +80,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok((anchor, tf, subordinate)) = self.params.anchors.get(self.anchor) {
+        if let Ok((anchor, tf, subordinate, parent)) = self.params.anchors.get(self.anchor) {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {
@@ -134,6 +134,19 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     entity: self.anchor,
                                     transform: new_pose.transform()
                                 });
+                            }
+                            ui.label("Parent");
+                            let start_response =
+                                InspectAnchorWidget::new(parent.get(), self.params, self.events)
+                                    .as_dependency()
+                                    .show(ui);
+                            ui.end_row();
+                            if start_response.replace {
+                                let request = SelectAnchor3D::replace_point(self.anchor, parent.get()).for_anchor();
+                                self.events
+                                    .request
+                                    .change_mode
+                                    .send(ChangeMode::To(request.into()));
                             }
                         });
                     }

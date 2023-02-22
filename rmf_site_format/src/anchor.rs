@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Categorized, Category, Pose};
+use crate::{Categorized, Category, Point, Pose, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
@@ -103,11 +103,11 @@ impl Anchor {
             },
             Self::Pose3D(p_left) => match other {
                 Self::Translate2D(p_right) => {
-                    // TODO do we ignore Z or assume Z = 0?
+                    // TODO(luca) do we ignore Z or assume Z = 0?
                     return true;
                 }
                 Self::CategorizedTranslate2D(p_right) => {
-                    // TODO do we ignore Z or assume Z = 0?
+                    // TODO(luca) do we ignore Z or assume Z = 0?
                     return true;
                 }
                 Self::Pose3D(p_right) => {
@@ -140,10 +140,7 @@ impl Anchor {
                 let p = categorized.for_category(category);
                 Transform::from_translation([p[0], p[1], 0.0].into())
             }
-            Anchor::Pose3D(p) => {
-                println!("When reading local transform x is {}", p.trans[0]);
-                p.transform()
-            }
+            Anchor::Pose3D(p) => p.transform(),
         }
     }
 

@@ -23,7 +23,7 @@ use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
 use crate::site::{AnchorBundle, ChangeCurrentWorkspace, DefaultFile, Dependents, NameInSite, SiteState};
 
-use rmf_site_format::Category;
+use rmf_site_format::{Category, SiteID};
 
 pub struct LoadWorkcell {
     /// The site data to load
@@ -44,20 +44,25 @@ fn generate_workcell_entities(
     let mut parent_to_child_entities = HashMap::new();
 
     for (id, parented_anchor) in &workcell.anchors {
-        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.clone()).visible(true)).id();
+        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.clone()).visible(true))
+            .insert(SiteID(*id))
+            .id();
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
 
     for (id, parented_model) in &workcell.models {
-        let e = commands.spawn(parented_model.bundle.clone()).id();
+        let e = commands.spawn(parented_model.bundle.clone())
+            .insert(SiteID(*id))
+            .id();
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_model.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
 
+    // TODO(luca) assign SiteID to workcell root
     let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(Category::Workcell)

@@ -676,7 +676,7 @@ impl Placement for PointPlacement {
         match target {
             Some(target) => {
                 // Change the anchor that the location is attached to.
-                let mut point = match params.points.get_mut(target) {
+                let (e, anchor) = match params.anchors.get_mut(target) {
                     Ok(l) => l,
                     Err(_) => {
                         println!(
@@ -688,16 +688,23 @@ impl Placement for PointPlacement {
                     }
                 };
 
-                if **point != anchor_selection.entity() {
-                    let old_point = **point;
-                    **point = anchor_selection.entity();
-                    params.remove_dependent(target, old_point, &mut Some(&mut anchor_selection))?;
+
+                if target != anchor_selection.entity() {
+                    // Delete parent and child
+                    if let Ok(parent) = params.parents.get(target) {
+                        params.commands.entity(**parent).remove_children(&[target]);
+                    }
+                    //let old_anchor = *anchor;
+                    //*anchor = anchor_selection.entity();
+                    params.remove_dependent(target, e, &mut Some(&mut anchor_selection))?;
                     params.add_dependent(
                         target,
                         anchor_selection.entity(),
                         &mut Some(&mut anchor_selection),
                     )?;
+                    params.commands.entity(anchor_selection.entity()).push_children(&[target]);
                 }
+
 
                 return Ok((TargetTransition::finished(), self.transition()).into());
             }
@@ -1055,6 +1062,8 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
         ),
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
+    anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
+    parents: Query<'w, 's, &'static mut Parent>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     commands: Commands<'w, 's>,
@@ -1219,6 +1228,17 @@ impl SelectAnchorPointBuilder {
             scope: Scope::General,
         }
     }
+
+    pub fn for_anchor(self) -> SelectAnchor3D {
+        SelectAnchor3D {
+            target: self.for_element,
+            placement: PointPlacement::new::<Anchor>(),
+            continuity: self.continuity,
+            scope: Scope::General,
+        }
+    }
+
+    // TODO(luca) implement for_category
 }
 
 pub struct SelectAnchorPathBuilder {
@@ -1573,15 +1593,28 @@ pub struct SelectAnchor3D {
 
 impl SelectAnchor3D {
     pub fn site_scope(&self) -> bool {
+        println!("Checking scope");
         self.scope.is_site()
     }
 
     /// Create one new location. After an anchor is selected the new location
     /// will be created and the mode will return to Inspect.
     pub fn create_new_point() -> SelectAnchorPointBuilder {
+        println!("Creating new point");
         SelectAnchorPointBuilder {
             for_element: None,
             continuity: SelectAnchorContinuity::InsertElement,
+        }
+    }
+
+    /// Move an existing location to a new anchor.
+    pub fn replace_point(location: Entity, original_anchor: Entity) -> SelectAnchorPointBuilder {
+        println!("Replacing 3d point");
+        SelectAnchorPointBuilder {
+            for_element: Some(location),
+            continuity: SelectAnchorContinuity::ReplaceAnchor {
+                original_anchor: Some(original_anchor),
+            },
         }
     }
 
@@ -1863,7 +1896,6 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            // TODO(luca) check if this should really only be for sites
             let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
             if request.scope.is_site() {
                 if let Some(site) = workspace.to_site(&open_sites) {
@@ -1931,6 +1963,225 @@ pub fn handle_select_anchor_mode(
         }
 
         *mode = InteractionMode::SelectAnchor(request);
+    }
+}
+
+pub fn handle_select_anchor_3d_mode(
+    mut mode: ResMut<InteractionMode>,
+    anchors: Query<(), With<Anchor>>,
+    transforms: Query<&GlobalTransform>,
+    hovering: Res<Hovering>,
+    mouse_button_input: Res<Input<MouseButton>>,
+    touch_input: Res<Touches>,
+    mut params: SelectAnchorPlacementParams,
+    mut selected: Query<&mut Selected>,
+    mut selection: ResMut<Selection>,
+    mut select: EventReader<Select>,
+    mut hover: EventWriter<Hover>,
+    blockers: Option<Res<PickingBlockers>>,
+    workspace: Res<CurrentWorkspace>,
+    open_sites: Query<Entity, With<SiteProperties>>,
+) {
+    let mut request = match &*mode {
+        InteractionMode::SelectAnchor3D(request) => request.clone(),
+        _ => {
+            return;
+        }
+    };
+
+    if mode.is_changed() {
+        println!("Just changed to anchor3d mode");
+        // The mode was changed to this one on this update cycle. We should
+        // check if something besides an anchor is being hovered, and clear it
+        // out if it is.
+        if let Some(hovering) = hovering.0 {
+            if anchors.contains(hovering) {
+                params
+                    .cursor
+                    .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+            } else {
+                hover.send(Hover(None));
+                params
+                    .cursor
+                    .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+            }
+        } else {
+            params
+                .cursor
+                .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+        }
+
+        // Make the anchor placement component of the cursor visible
+        // TODO(luca) see if we need to enable this
+        if request.site_scope() {
+            set_visibility(
+                params.cursor.site_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
+        } else {
+            set_visibility(
+                params.cursor.level_anchor_placement,
+                &mut params.visibility,
+                true,
+            );
+        }
+
+        // If we are creating a new object, then we should deselect anything
+        // that might be currently selected.
+        // TODO(luca) reenable this for new 3d anchor spawning mode
+        /*
+        if request.begin_creating() {
+            if let Some(previous_selection) = selection.0 {
+                if let Ok(mut selected) = selected.get_mut(previous_selection) {
+                    selected.is_selected = false;
+                }
+                selection.0 = None;
+            }
+        }
+        */
+
+        if request.continuity.needs_original() {
+            // Keep track of the original anchor that we intend to replace so
+            // that we can revert any previews.
+            let for_element = match request.target {
+                Some(for_element) => for_element,
+                None => {
+                    println!(
+                        "DEV ERROR: for_element must be Some for ReplaceAnchor. \
+                        Reverting to Inspect Mode."
+                    );
+                    params.cleanup();
+                    *mode = InteractionMode::Inspect;
+                    return;
+                }
+            };
+
+            let original = match request.placement.save_original(for_element, &mut params) {
+                Some(original) => original,
+                None => {
+                    println!(
+                        "DEV ERROR: cannot locate an original anchor for \
+                        entity {:?}. Reverting to Inspect Mode.",
+                        for_element,
+                    );
+                    params.cleanup();
+                    *mode = InteractionMode::Inspect;
+                    return;
+                }
+            };
+
+            request.continuity = SelectAnchorContinuity::ReplaceAnchor {
+                original_anchor: Some(original),
+            };
+            // Save the new mode here in case it doesn't get saved by any
+            // branches in the rest of this system function.
+            *mode = InteractionMode::SelectAnchor3D(request.clone());
+        }
+    }
+
+    if hovering.is_changed() {
+        if hovering.0.is_none() {
+            params
+                .cursor
+                .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+        } else {
+            params
+                .cursor
+                .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
+        }
+    }
+
+    if select.is_empty() {
+        let clicked = mouse_button_input.just_pressed(MouseButton::Left)
+            || touch_input.iter_just_pressed().next().is_some();
+        let blocked = blockers.filter(|x| x.blocking()).is_some();
+
+        if clicked && !blocked {
+            // Since the user clicked but there are no actual selections, the
+            // user is effectively asking to create a new anchor at the current
+            // cursor location. We will create that anchor and treat it as if it
+            // were selected.
+            let tf = match transforms.get(params.cursor.frame) {
+                Ok(tf) => tf,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Could not get transform for cursor frame \
+                        {:?} in SelectAnchor mode.",
+                        params.cursor.frame,
+                    );
+                    // TODO(MXG): Put in backout behavior here.
+                    return;
+                }
+            };
+
+            let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
+            if request.scope.is_site() {
+                if let Some(site) = workspace.to_site(&open_sites) {
+                    params.commands.entity(site).add_child(new_anchor);
+                } else {
+                    panic!("No current site??");
+                }
+            }
+
+            request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
+                Some(next_mode) => next_mode,
+                None => {
+                    params.cleanup();
+                    *mode = InteractionMode::Inspect;
+                    return;
+                }
+            };
+
+            *mode = InteractionMode::SelectAnchor3D(request);
+        } else {
+            // Offer a preview based on the current hovering status
+            let hovered = hovering.0.unwrap_or(params.cursor.level_anchor_placement);
+            let current = request
+                .target
+                .map(|target| request.placement.current(target, &params))
+                .flatten();
+
+            if Some(hovered) != current {
+                // We should only call this function if the current hovered
+                // anchor is not the one currently assigned. Otherwise we
+                // are wasting query+command effort.
+                match request.preview(hovered, &mut params) {
+                    PreviewResult::Updated(next) => {
+                        *mode = InteractionMode::SelectAnchor(next);
+                    }
+                    PreviewResult::Updated3D(next) => {
+                        *mode = InteractionMode::SelectAnchor3D(next);
+                    }
+                    PreviewResult::Unchanged => {
+                        // Do nothing, the mode has not changed
+                    }
+                    PreviewResult::Invalid => {
+                        // Something was invalid about the request, so we
+                        // will exit back to Inspect mode.
+                        params.cleanup();
+                        *mode = InteractionMode::Inspect;
+                    }
+                };
+            }
+        }
+    } else {
+        for new_selection in select
+            .iter()
+            .filter_map(|s| s.0)
+            .filter(|s| anchors.contains(*s))
+        {
+            request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
+                Some(next_mode) => next_mode,
+                None => {
+                    params.cleanup();
+                    *mode = InteractionMode::Inspect;
+                    return;
+                }
+            };
+        }
+
+        *mode = InteractionMode::SelectAnchor3D(request);
     }
 }
 
