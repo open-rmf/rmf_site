@@ -33,6 +33,19 @@ pub struct Parented<P: RefTrait, T> {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+pub struct FrameMarker;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Frame {
+    #[serde(flatten)]
+    pub anchor: Anchor,
+    #[serde(skip)]
+    pub marker: FrameMarker,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct WorkcellProperties {
     pub name: String,
 }
@@ -45,13 +58,10 @@ pub struct Workcell {
     /// Workcell specific properties
     #[serde(flatten)]
     pub properties: WorkcellProperties,
-    /// Anchors, key is their id, used for hierarchy
-    pub anchors: BTreeMap<u32, Parented<u32, Anchor>>,
+    /// Frames, key is their id, used for hierarchy
+    pub frames: BTreeMap<u32, Parented<u32, Frame>>,
     /// Models, key is their id, used for hierarchy
     pub models: BTreeMap<u32, Parented<u32, Model>>,
-    // TODO(luca) add source, might need asset loader specialization
-    // since workcells will be saved as .workcell.ron files
-    // pub source: AssetSource,
 }
 
 impl Workcell {

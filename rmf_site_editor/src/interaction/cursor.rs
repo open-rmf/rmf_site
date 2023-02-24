@@ -283,9 +283,20 @@ pub fn update_cursor_transform(
         }
         // TODO(luca) snap to features of meshes
         InteractionMode::SelectAnchor3D(_) => {
+            /*
             let intersection = match intersections.iter().last() {
                 Some(intersection) => intersection,
                 None => {
+                    println!("No cursor intersections found");
+                    return;
+                }
+            };
+            */
+
+            let intersection = match intersect_ground_params.ground_plane_intersection() {
+                Some(intersection) => intersection,
+                None => {
+                    println!("No ground intersections found");
                     return;
                 }
             };
@@ -293,18 +304,24 @@ pub fn update_cursor_transform(
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
                 Err(_) => {
+                    println!("No cursor transform found");
                     return;
                 }
             };
 
+            *transform = Transform::from_translation(intersection);
+
+            /*
             let ray = match intersection.normal_ray() {
                 Some(ray) => ray,
                 None => {
+                    println!("No cursor ray found");
                     return;
                 }
             };
 
             *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+            */
         }
     }
 }

@@ -24,7 +24,7 @@ use crate::site::{DefaultFile, Pending};
 use thiserror::Error as ThisError;
 
 use rmf_site_format::{
-    Anchor, AssetSource, IsStatic, Model, ModelMarker, NameInSite, Parented, Pose, SiteID, Workcell, WorkcellProperties
+    Anchor, AssetSource, Frame, FrameMarker, IsStatic, Model, ModelMarker, NameInSite, Parented, Pose, SiteID, Workcell, WorkcellProperties
 };
 
 /// Event used to trigger saving of the workcell
@@ -68,7 +68,7 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID, &Parent)>,
+        Query<(&Anchor, &SiteID, &Parent), With<FrameMarker>>,
         Query<
             (
                 &NameInSite,
@@ -123,11 +123,14 @@ pub fn generate_workcell(
             Ok(parent) => Some(parent.0),
             Err(_) => None,
         };
-        workcell.anchors.insert(
+        workcell.frames.insert(
             id.0,
             Parented {
                 parent: parent,
-                bundle: anchor.clone(),
+                bundle: Frame {
+                    anchor: anchor.clone(),
+                    marker: FrameMarker,
+                }
             },
         );
     }

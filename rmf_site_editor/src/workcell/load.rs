@@ -23,7 +23,7 @@ use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
 use crate::site::{AnchorBundle, ChangeCurrentWorkspace, DefaultFile, Dependents, NameInSite, SiteState};
 
-use rmf_site_format::{Category, SiteID};
+use rmf_site_format::{Category, FrameMarker, SiteID};
 
 pub struct LoadWorkcell {
     /// The site data to load
@@ -43,8 +43,9 @@ fn generate_workcell_entities(
     // Hashmap of parent id to list of its children entities
     let mut parent_to_child_entities = HashMap::new();
 
-    for (id, parented_anchor) in &workcell.anchors {
-        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.clone()).visible(true))
+    for (id, parented_anchor) in &workcell.frames {
+        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
+            .insert(FrameMarker)
             .insert(SiteID(*id))
             .id();
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();

@@ -1,6 +1,6 @@
 {
   "name": "test_workcell",
-  "anchors": {
+  "frames": {
     "0": {
       "parent": null,
       "Pose3D": {

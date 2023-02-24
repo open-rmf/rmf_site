@@ -228,9 +228,6 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    levels: LevelParams,
-    lights: LightParams,
-    nav_graphs: NavGraphParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -249,10 +246,17 @@ fn workcell_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                if ui.button("Reference Point").clicked() {
+                                if ui.button("Frame").clicked() {
                                     events.request.change_mode.send(ChangeMode::To(
                                         SelectAnchor3D::create_new_point()
-                                            .for_reference_point()
+                                            .for_anchor()
+                                            .into(),
+                                    ));
+                                }
+                                if ui.button("Model").clicked() {
+                                    events.request.change_mode.send(ChangeMode::To(
+                                        SelectAnchor3D::create_new_point()
+                                            .for_model()
                                             .into(),
                                     ));
                                 }

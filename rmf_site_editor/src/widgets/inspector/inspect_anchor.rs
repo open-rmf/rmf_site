@@ -135,13 +135,27 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     transform: new_pose.transform()
                                 });
                             }
+
+                            // Parent reassigning widget
                             ui.label("Parent");
-                            let start_response =
-                                InspectAnchorWidget::new(parent.get(), self.params, self.events)
-                                    .as_dependency()
-                                    .show(ui);
-                            ui.end_row();
-                            if start_response.replace {
+                            SelectionWidget::new(
+                                parent.get(),
+                                self.params.site_id.get(parent.get()).ok().cloned(),
+                                self.params.icons.as_ref(),
+                                self.events,
+                            )
+                            .show(ui);
+
+                            let assign_response = ui.add(ImageButton::new(self.params.icons.egui_edit, [18., 18.]));
+
+                            if assign_response.hovered() {
+                                self.events.request.hover.send(Hover(Some(self.anchor)));
+                            }
+
+                            let parent_replace = assign_response.clicked();
+                            assign_response.on_hover_text("Reassign");
+
+                            if parent_replace {
                                 let request = SelectAnchor3D::replace_point(self.anchor, parent.get()).for_anchor();
                                 self.events
                                     .request

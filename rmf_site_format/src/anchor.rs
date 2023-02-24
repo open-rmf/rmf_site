@@ -144,6 +144,7 @@ impl Anchor {
         }
     }
 
+    // TODO(luca) make this return Self for inplace edits
     pub fn move_to(&mut self, tf: &Transform) {
         match self {
             Anchor::Translate2D(p) => {
