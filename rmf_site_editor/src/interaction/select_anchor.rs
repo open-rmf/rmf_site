@@ -676,6 +676,149 @@ impl Placement for PointPlacement {
         match target {
             Some(target) => {
                 // Change the anchor that the location is attached to.
+                let mut point = match params.points.get_mut(target) {
+                    Ok(l) => l,
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: Unable to get location {:?} while in \
+                            SelectAnchor mode.",
+                            target
+                        );
+                        return Err(());
+                    }
+                };
+
+                if **point != anchor_selection.entity() {
+                    let old_point = **point;
+                    **point = anchor_selection.entity();
+                    params.remove_dependent(target, old_point, &mut Some(&mut anchor_selection))?;
+                    params.add_dependent(
+                        target,
+                        anchor_selection.entity(),
+                        &mut Some(&mut anchor_selection),
+                    )?;
+                }
+
+                return Ok((TargetTransition::finished(), self.transition()).into());
+            }
+            None => {
+                // The element doesn't exist yet, so we need to spawn one.
+                let target = (*self.create)(params, Point(anchor_selection.entity()));
+                params.add_dependent(
+                    target,
+                    anchor_selection.entity(),
+                    &mut Some(&mut anchor_selection),
+                )?;
+                return Ok((TargetTransition::create(target).finish(), self.transition()).into());
+            }
+        }
+    }
+
+    fn current<'w, 's>(
+        &self,
+        target: Entity,
+        params: &SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity> {
+        params.points.get(target).ok().map(|p| p.0)
+    }
+
+    fn save_original<'w, 's>(
+        &self,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Option<Entity> {
+        if let Ok(original) = params.points.get(target).cloned() {
+            params.commands.entity(target).insert(Original(original));
+            return Some(original.0);
+        }
+
+        return None;
+    }
+
+    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>) {
+        (*self.finalize)(params, target);
+    }
+
+    fn backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()> {
+        if let Ok(mut point) = params.points.get_mut(target) {
+            if let Ok(mut deps) = params.dependents.get_mut(**point) {
+                deps.remove(&target);
+            }
+
+            if let Some(replacing) = continuity.replacing() {
+                // Restore the target to the original
+                if let Ok(mut deps) = params.dependents.get_mut(replacing) {
+                    deps.insert(target);
+                }
+
+                point.0 = replacing;
+                return Ok((TargetTransition::finished(), self.transition()).into());
+            } else {
+                // Delete the location entirely because there is no anchor to
+                // return it to.
+                params.commands.entity(target).despawn_recursive();
+                return Ok((TargetTransition::discontinued(), self.transition()).into());
+            }
+        } else {
+            println!(
+                "DEV ERROR: Cannot find point for location {target:?} while \
+                trying to back out of SelectAnchor mode"
+            );
+            return Err(());
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct ObjectPlacement {
+    create: CreatePointFn,
+    finalize: FinalizeFn,
+}
+
+impl ObjectPlacement {
+    fn new<T: Bundle + From<Point<Entity>>>() -> Arc<Self> {
+        Arc::new(Self {
+            create: Arc::new(
+                |params: &mut SelectAnchorPlacementParams, point: Point<Entity>| {
+                    let new_bundle: T = point.into();
+                    params.commands.spawn(new_bundle).insert(Pending).id()
+                },
+            ),
+            finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
+                params
+                    .commands
+                    .entity(entity)
+                    .remove::<Original<Point<Entity>>>();
+            }),
+        })
+    }
+}
+
+impl ObjectPlacement {
+    fn transition(&self) -> PlacementTransition {
+        PlacementTransition {
+            preview: None,
+            next: Arc::new(self.clone()),
+        }
+    }
+}
+
+impl Placement for ObjectPlacement {
+    fn next<'w, 's>(
+        &self,
+        mut anchor_selection: AnchorSelection,
+        _continuity: SelectAnchorContinuity,
+        target: Option<Entity>,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<Transition, ()> {
+        match target {
+            Some(target) => {
+                // Change the anchor that the location is attached to.
                 let (e, anchor) = match params.anchors.get_mut(target) {
                     Ok(l) => l,
                     Err(_) => {
@@ -1251,9 +1394,8 @@ impl SelectAnchorPointBuilder {
         SelectAnchor3D {
             bundle: PlaceableObject::Model(Model::default()),
             target: self.for_element,
-            placement: PointPlacement::new::<Location<Entity>>(),
+            placement: ObjectPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
-            scope: Scope::General,
         }
     }
 
@@ -1261,9 +1403,8 @@ impl SelectAnchorPointBuilder {
         SelectAnchor3D {
             bundle: PlaceableObject::Anchor(Anchor::Pose3D(Pose::default())),
             target: self.for_element,
-            placement: PointPlacement::new::<Location<Entity>>(),
+            placement: ObjectPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
-            scope: Scope::General,
         }
     }
 
@@ -1624,15 +1765,9 @@ pub struct SelectAnchor3D {
     target: Option<Entity>,
     placement: PlacementArc,
     continuity: SelectAnchorContinuity,
-    scope: Scope,
 }
 
 impl SelectAnchor3D {
-    pub fn site_scope(&self) -> bool {
-        println!("Checking scope");
-        self.scope.is_site()
-    }
-
     /// Create one new location. After an anchor is selected the new location
     /// will be created and the mode will return to Inspect.
     pub fn create_new_point() -> SelectAnchorPointBuilder {
@@ -1718,7 +1853,6 @@ impl SelectAnchor3D {
                 target: Some(target),
                 placement: new_placement.clone(),
                 continuity: self.continuity,
-                scope: self.scope,
             });
         }
 
@@ -1735,7 +1869,6 @@ impl SelectAnchor3D {
             target: Some(target),
             placement: self.placement.clone(),
             continuity: self.continuity,
-            scope: self.scope,
         });
     }
 
