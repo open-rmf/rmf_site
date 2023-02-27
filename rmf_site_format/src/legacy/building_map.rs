@@ -378,6 +378,7 @@ impl BuildingMap {
             navigation: Navigation {
                 guided: Guided {
                     graphs: nav_graphs,
+                    graph_rank: Vec::new(),
                     lanes,
                     locations,
                 },

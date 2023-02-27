@@ -35,6 +35,10 @@ impl Navigation {
 pub struct Guided {
     /// Properties of each nav graph
     pub graphs: BTreeMap<u32, NavGraph>,
+    /// The "ranking" of the graphs, which indicates which is displayed on top.
+    /// Each element is the unique ID of a NavGraph entity. IDs that come
+    /// earlier in the array will be displayed over IDs that come later.
+    pub graph_rank: Vec<u32>,
     /// Properties of each robot traffic lane
     pub lanes: BTreeMap<u32, Lane<u32>>,
     /// Properties of each special location
