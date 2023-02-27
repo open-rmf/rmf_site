@@ -1,4 +1,4 @@
-use super::{crowd_sim::CrowdSim, level::Level, lift::Lift, PortingError, Result};
+use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
@@ -30,8 +30,10 @@ pub struct BuildingMap {
     #[serde(default)]
     pub coordinate_system: CoordinateSystem,
     pub levels: BTreeMap<String, Level>,
-    #[serde(default)]
-    pub crowd_sim: CrowdSim,
+    // TODO(MXG): Consider parsing legacy crowdsim data and converting it to
+    // a format that will have future support.
+    // #[serde(default)]
+    // pub crowd_sim: CrowdSim,
     #[serde(default)]
     pub lifts: BTreeMap<String, Lift>,
 }
