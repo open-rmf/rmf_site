@@ -1676,14 +1676,11 @@ impl SelectAnchor3D {
 
             // Avoid endless loops by making sure the selected entity is not a child of the
             // current one
-            /*
-            for ancestor in AncestorIter::new(&params.parents, target) {
-                if anchor_selection.entity() == ancestor {
-                    println!("Detected infinite loop");
-                    return Ok((TargetTransition::none(), self.transition()).into());
+            for ancestor in AncestorIter::new(&params.parents, anchor_selection.entity()) {
+                if ancestor == target {
+                    return Err(());
                 }
             }
-            */
 
             if self.parent != Some(anchor_selection.entity()) {
                 match self.parent {
