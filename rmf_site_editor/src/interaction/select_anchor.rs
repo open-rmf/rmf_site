@@ -2077,13 +2077,13 @@ pub fn handle_select_anchor_3d_mode(
         // item
         if request.begin_creating() {
             if let Some(previous_selection) = selection.0 {
+                request.parent = selection.0;
                 if let Ok(mut selected) = selected.get_mut(previous_selection) {
                     selected.is_selected = false;
                 }
                 selection.0 = None;
             }
         }
-
     }
 
     if hovering.is_changed() {
@@ -2123,7 +2123,28 @@ pub fn handle_select_anchor_3d_mode(
                 };
 
                 let mut pose = Pose::default();
-                pose.align_with(&tf.compute_transform());
+                // If we are spawning as a child of an anchor we need to invert the parent's
+                // transform to make sure it spawns where the cursor clicked
+                let transform = match request.parent {
+                    Some(parent) =>  {
+                        let parent_tf = match transforms.get(parent) {
+                            Ok(tf) => tf,
+                            Err(_) => {
+                                println!("DEV ERROR: Unable to get parent transform");
+                                return;
+                            }
+                        };
+
+                        let inv_tf = parent_tf.affine().inverse();
+                        let mut goal_tf = tf.affine();
+                        // Make sure rotation is preserved
+                        goal_tf.matrix3 = parent_tf.affine().matrix3;
+                        Transform::from_matrix((inv_tf * goal_tf).into())
+                    },
+                    None => tf.compute_transform(),
+                };
+
+                pose.align_with(&transform);
                 let new_anchor = match request.bundle {
                     PlaceableObject::Anchor(ref a) => {
                         println!("Spawning anchor");
@@ -2141,13 +2162,22 @@ pub fn handle_select_anchor_3d_mode(
                 }
                 .id();
 
-                if let Some(root) = workspace.root {
-                    params.commands.entity(root).add_child(new_anchor);
-
+                if let Some(parent) = request.parent {
+                    // It should be a child of the chosen parent
+                    println!("Assigning parent {:?} to new anchor", parent);
+                    params.commands.entity(parent).add_child(new_anchor);
+                    if let Ok(mut deps) = params.dependents.get_mut(parent) {
+                        deps.insert(new_anchor);
+                    }
                 } else {
-                    panic!("No current site??");
+                    if let Some(root) = workspace.root {
+                        params.commands.entity(root).add_child(new_anchor);
+
+                    } else {
+                        panic!("No current site??");
+                    }
                 }
-                }
+            }
 
             params.cleanup();
             *mode = InteractionMode::Inspect;
@@ -2163,7 +2193,8 @@ pub fn handle_select_anchor_3d_mode(
                 // are wasting query+command effort.
                 match request.preview(hovered, &mut params) {
                     PreviewResult::Updated(next) => {
-                        *mode = InteractionMode::SelectAnchor(next);
+                        // We should never get here
+                        todo!();
                     }
                     PreviewResult::Updated3D(next) => {
                         *mode = InteractionMode::SelectAnchor3D(next);
@@ -2195,9 +2226,8 @@ pub fn handle_select_anchor_3d_mode(
                 }
             };
         }
-
-        *mode = InteractionMode::SelectAnchor3D(request);
     }
+    *mode = InteractionMode::SelectAnchor3D(request);
 }
 
 impl From<SelectAnchor> for InteractionMode {
