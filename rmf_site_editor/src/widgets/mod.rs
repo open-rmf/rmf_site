@@ -249,14 +249,14 @@ fn workcell_ui_layout(
                                 if ui.button("Frame").clicked() {
                                     events.request.change_mode.send(ChangeMode::To(
                                         SelectAnchor3D::create_new_point()
-                                            .for_anchor()
+                                            .for_anchor(None)
                                             .into(),
                                     ));
                                 }
                                 if ui.button("Model").clicked() {
                                     events.request.change_mode.send(ChangeMode::To(
                                         SelectAnchor3D::create_new_point()
-                                            .for_model()
+                                            .for_model(None)
                                             .into(),
                                     ));
                                 }

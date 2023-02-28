@@ -775,196 +775,6 @@ impl Placement for PointPlacement {
 }
 
 #[derive(Clone)]
-pub struct ObjectPlacement {
-    create: CreatePointFn,
-    finalize: FinalizeFn,
-}
-
-impl ObjectPlacement {
-    fn new<T: Bundle + From<Point<Entity>>>() -> Arc<Self> {
-        Arc::new(Self {
-            create: Arc::new(
-                |params: &mut SelectAnchorPlacementParams, point: Point<Entity>| {
-                    let new_bundle: T = point.into();
-                    params.commands.spawn(new_bundle).insert(Pending).id()
-                },
-            ),
-            finalize: Arc::new(|params: &mut SelectAnchorPlacementParams, entity: Entity| {
-                params
-                    .commands
-                    .entity(entity)
-                    .remove::<Original<Point<Entity>>>();
-            }),
-        })
-    }
-}
-
-impl ObjectPlacement {
-    fn transition(&self) -> PlacementTransition {
-        PlacementTransition {
-            preview: None,
-            next: Arc::new(self.clone()),
-        }
-    }
-}
-
-impl Placement for ObjectPlacement {
-    fn next<'w, 's>(
-        &self,
-        mut anchor_selection: AnchorSelection,
-        continuity: SelectAnchorContinuity,
-        target: Option<Entity>,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition, ()> {
-        match continuity {
-            SelectAnchorContinuity::ReplaceAnchor{..} => {
-                if let Some(target) = target {
-                    // Change the anchor that the location is attached to.
-                    let (e, anchor) = match params.anchors.get_mut(target) {
-                        Ok(l) => l,
-                        Err(_) => {
-                            println!(
-                                "DEV ERROR: Unable to get anchor {:?} while \
-                                replacing 3D Anchor.",
-                                target
-                            );
-                            return Err(());
-                        }
-                    };
-
-                    // Make sure the selected entity is an anchor
-                    // TODO(luca) Should this be at the caller level?
-                    match params.anchors.get(anchor_selection.entity()) {
-                        Ok(anchor) => match anchor.1 {
-                            Anchor::Pose3D(_) => {},
-                            _ => { return Ok((TargetTransition::none(), self.transition()).into()) }
-                        }
-                        _ => { return Ok((TargetTransition::none(), self.transition()).into()) }
-                    }
-
-                    // Avoid endless loops by making sure the selected entity is not a child of the
-                    // current one
-                    /*
-                    for ancestor in AncestorIter::new(&params.parents, target) {
-                        if anchor_selection.entity() == ancestor {
-                            println!("Detected infinite loop");
-                            return Ok((TargetTransition::none(), self.transition()).into());
-                        }
-                    }
-                    */
-
-                    if target != anchor_selection.entity() {
-                        // Delete parent and child
-                        if let Ok(parent) = params.parents.get(target) {
-                            params.commands.entity(**parent).remove_children(&[target]);
-                        }
-                        //let old_anchor = *anchor;
-                        //*anchor = anchor_selection.entity();
-                        println!("Updating dependent");
-                        params.remove_dependent(target, e, &mut Some(&mut anchor_selection))?;
-                        params.add_dependent(
-                            target,
-                            anchor_selection.entity(),
-                            &mut Some(&mut anchor_selection),
-                        )?;
-                        params.commands.entity(anchor_selection.entity()).push_children(&[target]);
-                    }
-
-
-                    return Ok((TargetTransition::finished(), self.transition()).into());
-                }
-                return Ok((TargetTransition::none(), self.transition()).into());
-            }
-            SelectAnchorContinuity::InsertElement => {
-                if target.is_none() {
-                    // The element doesn't exist yet, so we need to spawn one.
-                    println!("Adding dependent {:?} to {:?}", anchor_selection.entity(), target);
-                    let target = (*self.create)(params, Point(anchor_selection.entity()));
-                    dbg!(target);
-                    params.add_dependent(
-                        target,
-                        anchor_selection.entity(),
-                        &mut Some(&mut anchor_selection),
-                    )?;
-                    return Ok((TargetTransition::create(target).finish(), self.transition()).into());
-                }
-                return Ok((TargetTransition::none(), self.transition()).into());
-            }
-            SelectAnchorContinuity::Continuous{..} => {todo!()}
-        }
-    }
-
-    fn current<'w, 's>(
-        &self,
-        target: Entity,
-        params: &SelectAnchorPlacementParams<'w, 's>,
-    ) -> Option<Entity> {
-        params.points.get(target).ok().map(|p| p.0)
-    }
-
-    // For object placement we save the original parent
-    fn save_original<'w, 's>(
-        &self,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Option<Entity> {
-        if let Ok(original) = params.parents.get(target) {
-            params.commands.entity(target).insert(Original(**original));
-            return Some(**original);
-        }
-
-        return None;
-    }
-
-    fn finalize<'w, 's>(&self, target: Entity, params: &mut SelectAnchorPlacementParams<'w, 's>) {
-        (*self.finalize)(params, target);
-    }
-
-    fn backout<'w, 's>(
-        &self,
-        continuity: SelectAnchorContinuity,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<Transition, ()> {
-        if let Ok((e, anchor)) = params.anchors.get_mut(target) {
-            if let Ok(mut deps) = params.dependents.get_mut(e) {
-                deps.remove(&target);
-                params.commands.entity(e).remove_children(&[target]);
-                if let Ok(original) = params.original_parents.get(target) {
-                   //if let Ok(parent_deps) =  
-                }
-                println!("Removing dependent");
-                // TODO(luca) Remove child
-            }
-
-            if let Some(replacing) = continuity.replacing() {
-                // Restore the target to the original
-                if let Ok(mut deps) = params.dependents.get_mut(replacing) {
-                    // TODO(luca) Add parent 
-                    deps.insert(target);
-                    params.commands.entity(replacing).push_children(&[target]);
-                    println!("Adding dependent");
-                }
-
-                // point.0 = replacing;
-                return Ok((TargetTransition::finished(), self.transition()).into());
-            } else {
-                // Delete the location entirely because there is no anchor to
-                // return it to.
-                params.commands.entity(target).despawn_recursive();
-                return Ok((TargetTransition::discontinued(), self.transition()).into());
-            }
-        } else {
-            println!(
-                "DEV ERROR: Cannot find point for location {target:?} while \
-                trying to back out of SelectAnchor mode"
-            );
-            return Err(());
-        }
-    }
-}
-
-#[derive(Clone)]
 pub struct PathPlacement {
     /// Replace the floor anchor at the specified index, or push the anchor to
     /// the end if None is specified. If the specified index is too high, this
@@ -1247,7 +1057,6 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     points: Query<'w, 's, &'static mut Point<Entity>>,
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
     parents: Query<'w, 's, &'static mut Parent>,
-    original_parents: Query<'w, 's, &'static mut Original<Entity>>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     commands: Commands<'w, 's>,
@@ -1319,6 +1128,11 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         );
         set_visibility(
             self.cursor.level_anchor_placement,
+            &mut self.visibility,
+            false,
+        );
+        set_visibility(
+            self.cursor.frame_placement,
             &mut self.visibility,
             false,
         );
@@ -1404,21 +1218,22 @@ impl SelectAnchorPointBuilder {
         }
     }
 
-    pub fn for_model(self) -> SelectAnchor3D {
+    pub fn for_model(self, parent: Option<Entity>) -> SelectAnchor3D {
         // TODO a model cube
         SelectAnchor3D {
             bundle: PlaceableObject::Model(Model::default()),
+            parent: parent,
             target: self.for_element,
-            placement: ObjectPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
         }
     }
 
-    pub fn for_anchor(self) -> SelectAnchor3D {
+    pub fn for_anchor(self, parent: Option<Entity>) -> SelectAnchor3D {
+        println!("Creating anchor with target {:?} and parent {:?}", self.for_element, parent);
         SelectAnchor3D {
             bundle: PlaceableObject::Anchor(Anchor::Pose3D(Pose::default())),
+            parent: parent,
             target: self.for_element,
-            placement: ObjectPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
         }
     }
@@ -1778,8 +1593,11 @@ enum PlaceableObject {
 #[derive(Clone)]
 pub struct SelectAnchor3D {
     bundle: PlaceableObject,
+    // Entity being edited
     target: Option<Entity>,
-    placement: PlacementArc,
+    // Proposed parent
+    parent: Option<Entity>,
+    // Continuity also stores the previous parent if needed
     continuity: SelectAnchorContinuity,
 }
 
@@ -1826,80 +1644,151 @@ impl SelectAnchor3D {
         None
     }
 
+    /// Used for updating parents on parent assignment
+    fn update_parent<'w, 's>(
+        &mut self,
+        mut anchor_selection: AnchorSelection,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<(), ()> {
+        if let Some(target) = self.target {
+            // Change the anchor that the location is attached to.
+            let (e, anchor) = match params.anchors.get_mut(target) {
+                Ok(l) => l,
+                Err(_) => {
+                    println!(
+                        "DEV ERROR: Unable to get anchor {:?} while \
+                        replacing 3D Anchor.",
+                        target
+                    );
+                    return Err(());
+                }
+            };
+
+            // Make sure the selected entity is an anchor
+            // TODO(luca) Should this be at the caller level?
+            match params.anchors.get(anchor_selection.entity()) {
+                Ok(anchor) => match anchor.1 {
+                    Anchor::Pose3D(_) => {},
+                    _ => { return Err(()) }
+                }
+                _ => { return Err(()) }
+            }
+
+            // Avoid endless loops by making sure the selected entity is not a child of the
+            // current one
+            /*
+            for ancestor in AncestorIter::new(&params.parents, target) {
+                if anchor_selection.entity() == ancestor {
+                    println!("Detected infinite loop");
+                    return Ok((TargetTransition::none(), self.transition()).into());
+                }
+            }
+            */
+
+            if self.parent != Some(anchor_selection.entity()) {
+                match self.parent {
+                    Some(new_parent) => {
+                        if anchor_selection.entity() != target {
+                            // Delete parent and dependent
+                            if let Ok(old_parent) = params.parents.get(target) {
+                                params.commands.entity(**old_parent).remove_children(&[target]);
+                                params.remove_dependent(target, **old_parent, &mut Some(&mut anchor_selection))?;
+                            }
+                            params.add_dependent(
+                                target,
+                                anchor_selection.entity(),
+                                &mut Some(&mut anchor_selection),
+                            )?;
+                            params.commands.entity(anchor_selection.entity()).push_children(&[target]);
+                            self.parent = Some(anchor_selection.entity());
+                        }
+                        return Ok(());
+                    }
+                    None => {
+                        println!("DEV ERROR: Reassigning parent for entity without a parent");
+                        return Err(());
+                    }
+                }
+            }
+            return Err(());
+        } else {
+            println!("DEV error replacing anchor without original");
+            return Err(());
+        }
+    }
+
     fn preview<'w, 's>(
-        &self,
+        &mut self,
         anchor_selection: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> PreviewResult {
-        //println!("Checking preview");
-        let transition = match self.placement.next(
-            AnchorSelection::existing(anchor_selection),
-            self.continuity,
-            self.target,
-            params,
-        ) {
-            Ok(t) => t,
-            Err(_) => {
-                return PreviewResult::Invalid;
+        // The only live update we need to do is on parent entity change
+        if let SelectAnchorContinuity::ReplaceAnchor{original_anchor} = self.continuity {
+            match self.update_parent(AnchorSelection::Existing(anchor_selection), params) {
+                Ok(()) => {
+                    return PreviewResult::Updated3D(Self {
+                        bundle: self.bundle.clone(),
+                        parent: Some(anchor_selection),
+                        target: self.target,
+                        continuity: self.continuity,
+                    });
+                }
+                Err (()) => { return PreviewResult::Unchanged; }
             }
-        };
+        }
+        return PreviewResult::Unchanged;
+    }
 
-        let target = match transition.target.current(self.target) {
-            Some(target) => target,
-            None => {
-                // This shouldn't happen. If a target wasn't already assigned
-                // then a new one should have been created during the preview.
-                // We'll just indicate that we should exit the current mode by
-                // returning None.
-                return PreviewResult::Invalid;
+    /// Return Ok if we need to keep the entity, Err if we need to remove it
+    fn placement_backout<'w, 's>(
+        &self,
+        continuity: SelectAnchorContinuity,
+        target: Entity,
+        params: &mut SelectAnchorPlacementParams<'w, 's>,
+    ) -> Result<(), ()> {
+        match self.parent {
+            Some(parent) => {
+                if let Ok((e, anchor)) = params.anchors.get_mut(parent) {
+                    if let Ok(mut deps) = params.dependents.get_mut(e) {
+                        deps.remove(&target);
+                        params.commands.entity(e).remove_children(&[target]);
+                    }
+
+                    if let Some(replacing) = continuity.replacing() {
+                        // Restore the target to the original
+                        if let Ok(mut deps) = params.dependents.get_mut(replacing) {
+                            deps.insert(target);
+                            params.commands.entity(replacing).push_children(&[target]);
+                        }
+
+                        // point.0 = replacing;
+                        params.commands.entity(target).remove::<Pending>();
+                        return Ok(());
+                    } else {
+                        // Delete the location entirely because there is no anchor to
+                        // return it to.
+                        params.commands.entity(target).despawn_recursive();
+                        return Err(());
+                    }
+                } else {
+                    println!(
+                        "DEV ERROR: Cannot find point for location {target:?} while \
+                        trying to back out of SelectAnchor mode"
+                    );
+                    return Err(());
+                }
+
             }
-        };
-
-        /*
-        if !params.anchors.contains(target) {
-            return PreviewResult::Unchanged;
+            None => { return Ok(()); }
         }
-        */
-
-        //println!("Checking placement");
-        if let Some(new_placement) = transition.placement.preview {
-            return PreviewResult::Updated3D(Self {
-                bundle: self.bundle.clone(),
-                target: Some(target),
-                placement: new_placement.clone(),
-                continuity: self.continuity,
-            });
-        }
-
-        //println!("Checking target");
-        if Some(target) == self.target {
-            // Neither the placement nor the target has changed due to this
-            // preview, so just return the Unchanged variant.
-            return PreviewResult::Unchanged;
-        }
-
-        //println!("Finishin");
-        println!("Got new placement");
-        return PreviewResult::Updated3D(Self {
-            bundle: self.bundle.clone(),
-            target: Some(target),
-            placement: self.placement.clone(),
-            continuity: self.continuity,
-        });
     }
 
     pub fn backout<'w, 's>(
         &self,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> InteractionMode {
-        println!("Backing out of Anchor3D");
         if let Some(target) = self.target {
-            if let Ok(transition) = self.placement.backout(self.continuity, target, params) {
-                if transition.target.is_finished {
-                    params.commands.entity(target).remove::<Pending>();
-                    self.placement.finalize(target, params);
-                }
-            }
+            self.placement_backout(self.continuity, target, params);
         }
         params.cleanup();
         return InteractionMode::Inspect;
@@ -2155,7 +2044,6 @@ pub fn handle_select_anchor_3d_mode(
     };
 
     if mode.is_changed() {
-        println!("Just changed to anchor3d mode");
         // The mode was changed to this one on this update cycle. We should
         // check if something besides an anchor is being hovered, and clear it
         // out if it is.
@@ -2178,7 +2066,7 @@ pub fn handle_select_anchor_3d_mode(
 
         // Make the anchor placement component of the cursor visible
         set_visibility(
-            params.cursor.site_anchor_placement,
+            params.cursor.frame_placement,
             &mut params.visibility,
             true,
         );
@@ -2196,43 +2084,6 @@ pub fn handle_select_anchor_3d_mode(
             }
         }
 
-        if request.continuity.replacing().is_some() {
-            // Keep track of the original anchor that we intend to replace so
-            // that we can revert any previews.
-            let for_element = match request.target {
-                Some(for_element) => for_element,
-                None => {
-                    println!(
-                        "DEV ERROR: for_element must be Some for ReplaceAnchor. \
-                        Reverting to Inspect Mode."
-                    );
-                    params.cleanup();
-                    *mode = InteractionMode::Inspect;
-                    return;
-                }
-            };
-
-            let original = match request.placement.save_original(for_element, &mut params) {
-                Some(original) => original,
-                None => {
-                    println!(
-                        "DEV ERROR: cannot locate an original anchor for \
-                        entity {:?}. Reverting to Inspect Mode.",
-                        for_element,
-                    );
-                    params.cleanup();
-                    *mode = InteractionMode::Inspect;
-                    return;
-                }
-            };
-
-            request.continuity = SelectAnchorContinuity::ReplaceAnchor {
-                original_anchor: Some(original),
-            };
-            // Save the new mode here in case it doesn't get saved by any
-            // branches in the rest of this system function.
-            *mode = InteractionMode::SelectAnchor3D(request.clone());
-        }
     }
 
     if hovering.is_changed() {
@@ -2253,67 +2104,58 @@ pub fn handle_select_anchor_3d_mode(
         let blocked = blockers.filter(|x| x.blocking()).is_some();
 
         if clicked && !blocked {
-            // Since the user clicked but there are no actual selections, the
-            // user is effectively asking to create a new anchor at the current
-            // cursor location. We will create that anchor and treat it as if it
-            // were selected.
-            let tf = match transforms.get(params.cursor.frame) {
-                Ok(tf) => tf,
-                Err(_) => {
-                    println!(
-                        "DEV ERROR: Could not get transform for cursor frame \
-                        {:?} in SelectAnchor mode.",
-                        params.cursor.frame,
-                    );
-                    // TODO(MXG): Put in backout behavior here.
-                    return;
-                }
-            };
+            if request.begin_creating() {
+                // Since the user clicked but there are no actual selections, the
+                // user is effectively asking to create a new anchor at the current
+                // cursor location. We will create that anchor and treat it as if it
+                // were selected.
+                let tf = match transforms.get(params.cursor.frame) {
+                    Ok(tf) => tf,
+                    Err(_) => {
+                        println!(
+                            "DEV ERROR: Could not get transform for cursor frame \
+                            {:?} in SelectAnchor mode.",
+                            params.cursor.frame,
+                        );
+                        // TODO(MXG): Put in backout behavior here.
+                        return;
+                    }
+                };
 
-            let mut pose = Pose::default();
-            pose.align_with(&tf.compute_transform());
-            let new_anchor = match request.bundle {
-                PlaceableObject::Anchor(ref a) => {
-                    println!("Spawning anchor");
-                    // TODO(luca) PlaceableObject can probably be an anonymous enum
-                    params.commands.spawn(AnchorBundle::new(Anchor::Pose3D(pose)))
+                let mut pose = Pose::default();
+                pose.align_with(&tf.compute_transform());
+                let new_anchor = match request.bundle {
+                    PlaceableObject::Anchor(ref a) => {
+                        println!("Spawning anchor");
+                        // TODO(luca) PlaceableObject can probably be an anonymous enum
+                        params.commands.spawn(AnchorBundle::new(Anchor::Pose3D(pose)))
+                    }
+                    PlaceableObject::Model(ref a) => {
+                        println!("Spawning model");
+                        let mut model = a.clone();
+                        // TODO(luca) actual model here
+                        model.source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
+                        model.pose = pose;
+                        params.commands.spawn(model)
+                    }
                 }
-                PlaceableObject::Model(ref a) => {
-                    println!("Spawning model");
-                    let mut model = a.clone();
-                    // TODO(luca) actual model here
-                    model.source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                    model.pose = pose;
-                    params.commands.spawn(model)
+                .id();
+
+                if let Some(root) = workspace.root {
+                    params.commands.entity(root).add_child(new_anchor);
+
+                } else {
+                    panic!("No current site??");
                 }
-            }
-            .id();
-            if let Some(root) = workspace.root {
-                params.commands.entity(root).add_child(new_anchor);
-
-            } else {
-                panic!("No current site??");
-            }
-
-            println!("Creating new anchor selection");
-            request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
-                Some(next_mode) => next_mode,
-                None => {
-                    println!("Cleaning up");
-                    params.cleanup();
-                    *mode = InteractionMode::Inspect;
-                    return;
                 }
-            };
 
-            *mode = InteractionMode::SelectAnchor3D(request);
+            params.cleanup();
+            *mode = InteractionMode::Inspect;
+            return;
         } else {
             // Offer a preview based on the current hovering status
-            let hovered = hovering.0.unwrap_or(params.cursor.level_anchor_placement);
-            let current = request
-                .target
-                .map(|target| request.placement.current(target, &params))
-                .flatten();
+            let hovered = hovering.0.unwrap_or(params.cursor.frame_placement);
+            let current = request.parent;
 
             if Some(hovered) != current {
                 // We should only call this function if the current hovered
@@ -2324,7 +2166,6 @@ pub fn handle_select_anchor_3d_mode(
                         *mode = InteractionMode::SelectAnchor(next);
                     }
                     PreviewResult::Updated3D(next) => {
-                        println!("Updating preview");
                         *mode = InteractionMode::SelectAnchor3D(next);
                     }
                     PreviewResult::Unchanged => {

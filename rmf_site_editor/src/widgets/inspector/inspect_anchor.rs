@@ -156,7 +156,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                             assign_response.on_hover_text("Reassign");
 
                             if parent_replace {
-                                let request = SelectAnchor3D::replace_point(self.anchor, parent.get()).for_anchor();
+                                let request = SelectAnchor3D::replace_point(self.anchor, parent.get()).for_anchor(Some(parent.get()));
                                 self.events
                                     .request
                                     .change_mode

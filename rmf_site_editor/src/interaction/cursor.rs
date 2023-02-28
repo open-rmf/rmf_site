@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{FloorMarker, WallMarker};
+use rmf_site_format::{Anchor, Pose, FloorMarker, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -36,6 +36,7 @@ pub struct Cursor {
     // TODO(MXG): Switch the anchor preview when the anchor enters a lift
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
+    pub frame_placement: Entity,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
     modes: HashSet<&'static str>,
@@ -122,7 +123,9 @@ impl FromWorld for Cursor {
         let dagger_material = interaction_assets.dagger_material.clone();
         let level_anchor_mesh = site_assets.level_anchor_mesh.clone();
         let site_anchor_mesh = site_assets.site_anchor_mesh.clone();
+        let frame_mesh = site_assets.site_anchor_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
+        let preview_frame_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
             .spawn(PbrBundle {
@@ -176,9 +179,24 @@ impl FromWorld for Cursor {
             })
             .id();
 
+        // TODO(luca) make this a constant in interaction_assets
+        let frame_placement = world
+            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
+            .insert(Pending)
+            .insert(Preview)
+            .insert(VisualCue::no_outline())
+            .with_children(|parent| {
+                parent.spawn(PbrBundle {
+                    mesh: frame_mesh,
+                    material: preview_frame_material,
+                    ..default()
+                });
+            })
+            .id();
+
         let cursor = world
             .spawn(VisualCue::no_outline())
-            .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
+            .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement, frame_placement])
             .insert(SpatialBundle {
                 visibility: Visibility { is_visible: false },
                 ..default()
@@ -191,6 +209,7 @@ impl FromWorld for Cursor {
             dagger,
             level_anchor_placement,
             site_anchor_placement,
+            frame_placement,
             dependents: Default::default(),
             modes: Default::default(),
             blockers: Default::default(),
