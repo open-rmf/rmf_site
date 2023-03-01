@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*, Autoload};
+use crate::{site::*, recency::RecencyRanking, Autoload};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use std::{collections::HashMap, path::PathBuf};
@@ -47,11 +47,11 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
     };
 
-    let mut binding = commands.spawn(SpatialBundle {
+    let mut site_cmd = commands.spawn(SpatialBundle {
         visibility: Visibility { is_visible: false },
         ..default()
     });
-    let mut site = binding
+    site_cmd
         .insert(Category::Site)
         .insert(site_data.properties.clone())
         .with_children(|site| {
@@ -210,8 +210,24 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             }
         });
 
-    site.insert(NextSiteID(highest_id + 1));
-    let site_id = site.id();
+    let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
+        &site_data.navigation.guided.ranking,
+        &id_to_entity
+    ) {
+        Ok(r) => r,
+        Err(id) => {
+            println!(
+                "ERROR: Nav Graph ranking could not load because a graph with \
+                id {id} does not exist."
+            );
+            RecencyRanking::new()
+        }
+    };
+
+    site_cmd
+        .insert(nav_graph_rankings)
+        .insert(NextSiteID(highest_id + 1));
+    let site_id = site_cmd.id();
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {

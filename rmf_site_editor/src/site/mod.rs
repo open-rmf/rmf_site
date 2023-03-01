@@ -27,6 +27,9 @@ pub use change_plugin::*;
 pub mod deletion;
 pub use deletion::*;
 
+pub mod display_color;
+pub use display_color::*;
+
 pub mod door;
 pub use door::*;
 
@@ -38,6 +41,9 @@ pub use floor::*;
 
 pub mod lane;
 pub use lane::*;
+
+pub mod layers;
+pub use layers::*;
 
 pub mod level;
 pub use level::*;
@@ -60,8 +66,8 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
-pub mod display_color;
-pub use display_color::*;
+pub mod nav_graph;
+pub use nav_graph::*;
 
 pub mod path;
 pub use path::*;
@@ -88,6 +94,7 @@ pub mod wall;
 pub use wall::*;
 
 pub use rmf_site_format::*;
+use crate::recency::RecencyRankingPlugin;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
@@ -172,6 +179,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LocationTags>::default())
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
+            .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
@@ -183,13 +191,15 @@ impl Plugin for SitePlugin {
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
-                    .with_system(update_material_for_display_color),
+                    .with_system(update_material_for_display_color)
+                    .with_system(update_layers_from_rankings),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
-                    .with_system(change_site),
+                    .with_system(change_site)
+                    .with_system(update_material_depth_bias_for_layers),
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::AssignOrphans,

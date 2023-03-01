@@ -20,10 +20,10 @@ use bevy::prelude::*;
 
 pub fn add_material_for_display_colors(
     mut commands: Commands,
-    new_nav_graph: Query<(Entity, &DisplayColor), Added<DisplayColor>>,
+    new_display: Query<(Entity, &DisplayColor), Added<DisplayColor>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (e, c) in &new_nav_graph {
+    for (e, c) in &new_display {
         commands
             .entity(e)
             .insert(materials.add(Color::rgba(c.0[0], c.0[1], c.0[2], c.0[3]).into()));
@@ -40,3 +40,4 @@ pub fn update_material_for_display_color(
         }
     }
 }
+

@@ -5,7 +5,7 @@ use crate::{
     Fiducial as SiteFiducial, FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph,
     Navigation, OrientationConstraint, PixelsPerMeter, Pose, ReverseLane, Rotation, Site,
-    SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    SiteProperties, DEFAULT_NAV_GRAPH_COLORS, RankingsInLevel,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -176,6 +176,7 @@ impl BuildingMap {
                 doors.insert(site_id.next().unwrap(), site_door);
             }
 
+            let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
             if !level.drawing.filename.is_empty() {
                 let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
@@ -188,8 +189,10 @@ impl BuildingMap {
                 } else {
                     (Pose::default(), PixelsPerMeter::default())
                 };
+
+                let id = site_id.next().unwrap();
                 drawings.insert(
-                    site_id.next().unwrap(),
+                    id,
                     SiteDrawing {
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose,
@@ -197,6 +200,7 @@ impl BuildingMap {
                         marker: DrawingMarker,
                     },
                 );
+                rankings.drawings.insert(0, id);
             }
 
             let mut fiducials = BTreeMap::new();
@@ -223,13 +227,16 @@ impl BuildingMap {
             let mut floors = BTreeMap::new();
             for floor in &level.floors {
                 let site_floor = floor.to_site(&vertex_to_anchor_id)?;
-                floors.insert(site_id.next().unwrap(), site_floor);
+                let id = site_id.next().unwrap();
+                floors.insert(id, site_floor);
+                rankings.floors.insert(0, id);
             }
 
             let mut measurements = BTreeMap::new();
             for measurement in &level.measurements {
                 let site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
                 measurements.insert(site_id.next().unwrap(), site_measurement);
+                // TODO(MXG): Have rankings for measurements
             }
 
             let mut models = BTreeMap::new();
@@ -274,6 +281,7 @@ impl BuildingMap {
                     models,
                     physical_cameras,
                     walls,
+                    rankings,
                 },
             );
 
@@ -378,7 +386,7 @@ impl BuildingMap {
             navigation: Navigation {
                 guided: Guided {
                     graphs: nav_graphs,
-                    graph_rank: Vec::new(),
+                    ranking: Vec::new(),
                     lanes,
                     locations,
                 },

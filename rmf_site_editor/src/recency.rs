@@ -18,15 +18,50 @@
 use bevy::prelude::*;
 use std::{
     marker::PhantomData,
-    collections::HashSet,
+    collections::{HashSet, HashMap},
+    ops::Deref,
 };
 
 #[derive(Debug, Clone, Component)]
 pub struct RecencyRanking<T: Component> {
-    /// Entities are ordered from highest rank to lowest. Higher ranks should be
+    /// Entities are ordered from lowest to highest rank. Higher ranks should be
     /// displayed over lower ranks.
     entities: Vec<Entity>,
     _ignore: PhantomData<T>,
+}
+
+impl<T: Component> RecencyRanking<T> {
+    pub fn new() -> Self {
+        Self { entities: default(), _ignore: default() }
+    }
+
+    pub fn entities(&self) -> &Vec<Entity> {
+        &self.entities
+    }
+
+    pub fn from_u32(
+        ranking: &Vec<u32>,
+        id_to_entity: &HashMap<u32, Entity>
+    ) -> Result<Self, u32> {
+        let entities: Result<Vec<Entity>, u32> = ranking.iter().map(
+            |id| id_to_entity.get(id).copied().ok_or(*id)
+        ).collect();
+        let entities = entities?;
+        Ok(Self { entities, _ignore: default() })
+    }
+}
+
+impl<T: Component> Default for RecencyRanking<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+impl<T: Component> Deref for RecencyRanking<T> {
+    type Target = Vec<Entity>;
+    fn deref(&self) -> &Self::Target {
+        &self.entities
+    }
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -76,21 +111,30 @@ impl<T: Component> Plugin for RecencyRankingPlugin<T> {
 }
 
 fn update_recency_rank<T: Component>(
-    mut commands: Commands,
     mut rankings: Query<(Entity, &mut RecencyRanking<T>)>,
     new_entities: Query<Entity, (Added<T>, Without<SuppressRecencyRank>)>,
-    moved_entities: Query<Entity, (Changed<Parent>, Without<SuppressRecencyRank>)>,
-    newly_suppressed_entities: Query<Entity, Added<SuppressRecencyRank>>,
+    moved_entities: Query<Entity, (Changed<Parent>, With<T>, Without<SuppressRecencyRank>)>,
+    newly_suppressed_entities: Query<Entity, (With<T>, Added<SuppressRecencyRank>)>,
     unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
+    no_longer_relevant: RemovedComponents<T>,
     parents: Query<&Parent>,
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
     for e in new_entities.iter().chain(unsuppressed_entities.iter()) {
+        dbg!();
         let mut next = Some(e);
         while let Some(in_scope) = next {
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
                 // The new entity is within the scope of this ranking.
-                ranking.entities.insert(0, e);
+
+                // First check if the entity is already ranked. This will happen
+                // when loading a world. Do not push the entity to the top rank
+                // if it already has a rank.
+                dbg!();
+                if ranking.entities.iter().find(|check| **check == e).is_none() {
+                    dbg!();
+                    ranking.entities.push(e);
+                }
             }
 
             next = parents.get(in_scope).ok().map(|p| p.get());
@@ -112,8 +156,9 @@ fn update_recency_rank<T: Component>(
                 remain_in_scope.insert(in_scope);
                 if ranking.entities.iter().find(|check| **check == e).is_none() {
                     // The ranking does not already contain the moved entity, so
-                    // we should insert it at the front.
-                    ranking.entities.insert(0, e);
+                    // we should push it to the top.
+                    dbg!();
+                    ranking.entities.push(e);
                 }
             }
 
@@ -129,7 +174,7 @@ fn update_recency_rank<T: Component>(
         }
     }
 
-    for e in &newly_suppressed_entities {
+    for e in newly_suppressed_entities.iter().chain(no_longer_relevant.iter()) {
         for (_, mut ranking) in &mut rankings {
             ranking.entities.retain(|check| *check != e);
         }
@@ -145,8 +190,10 @@ fn update_recency_rank<T: Component>(
                             ranking.entities.retain(|e| *e != *of);
                             let new_rank = (original_rank as i64 + *delta).max(0) as usize;
                             if new_rank < ranking.entities.len() {
+                                dbg!();
                                 ranking.entities.insert(new_rank, *of);
                             } else {
+                                dbg!();
                                 ranking.entities.push(*of);
                             }
                         }
@@ -154,13 +201,17 @@ fn update_recency_rank<T: Component>(
                     RankAdjustment::ToRank(pos) => {
                         ranking.entities.retain(|e| *e != *of);
                         if *pos < ranking.entities.len() {
+                            dbg!();
                             ranking.entities.insert(*pos, *of);
                         } else {
+                            dbg!();
                             ranking.entities.push(*of);
                         }
                     }
                 }
             }
+
+            next = parents.get(in_scope).ok().map(|p| p.get());
         }
     }
 }

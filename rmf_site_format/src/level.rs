@@ -60,6 +60,8 @@ pub struct Level {
     pub physical_cameras: BTreeMap<u32, PhysicalCamera>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub walls: BTreeMap<u32, Wall<u32>>,
+    #[serde(default, skip_serializing_if = "RankingsInLevel::is_empty")]
+    pub rankings: RankingsInLevel,
 }
 
 impl Level {
@@ -76,6 +78,22 @@ impl Level {
             models: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
+            rankings: Default::default(),
         }
+    }
+}
+
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct RankingsInLevel {
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub floors: Vec<u32>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub drawings: Vec<u32>,
+}
+
+impl RankingsInLevel {
+    pub fn is_empty(&self) -> bool {
+        self.floors.is_empty()
+        && self.drawings.is_empty()
     }
 }

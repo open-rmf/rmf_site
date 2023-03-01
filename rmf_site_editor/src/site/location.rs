@@ -25,7 +25,7 @@ fn should_display_point(
     parents: &Query<&Parent>,
     levels: &Query<(), With<LevelProperties>>,
     current_level: &Res<CurrentLevel>,
-    graphs: &Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: &GraphSelect,
 ) -> bool {
     if let Ok(parent) = parents.get(point.0) {
         if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
@@ -33,14 +33,13 @@ fn should_display_point(
         }
     }
 
-    should_display_graph(associated, graphs)
+    graphs.should_display(associated)
 }
 
 pub fn add_location_visuals(
     mut commands: Commands,
     locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
@@ -53,14 +52,14 @@ pub fn add_location_visuals(
             deps.insert(e);
         }
 
-        let location_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
+        let location_material = graphs.pick_material(associated_graphs);
         let is_visible = should_display_point(
             point,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
-            &graph_vis,
+            &graphs,
         );
 
         let position = anchors
@@ -96,7 +95,7 @@ pub fn update_changed_location(
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, point, associated, mut visibility, mut tf) in &mut locations {
@@ -111,7 +110,7 @@ pub fn update_changed_location(
             &parents,
             &levels,
             &current_level,
-            &graph_vis,
+            &graphs,
         );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
@@ -155,14 +154,12 @@ pub fn update_visibility_for_locations(
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     locations_with_changed_association: Query<
         Entity,
         (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
     >,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Changed<Visibility>)>,
-    assets: Res<SiteAssets>,
+    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<DisplayLayer>)>)>,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
@@ -175,7 +172,7 @@ pub fn update_visibility_for_locations(
                 &parents,
                 &levels,
                 &current_level,
-                &graph_vis,
+                &graphs,
             );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
@@ -190,7 +187,7 @@ pub fn update_visibility_for_locations(
                     &parents,
                     &levels,
                     &current_level,
-                    &graph_vis,
+                    &graphs,
                 );
                 if visibility.is_visible != is_visible {
                     visibility.is_visible = is_visible;
@@ -201,12 +198,12 @@ pub fn update_visibility_for_locations(
 
     if graph_change {
         for (_, associated_graphs, _, mut m) in &mut locations {
-            *m = choose_graph_material(associated_graphs, &graph_mats, &assets);
+            *m = graphs.pick_material(associated_graphs);
         }
     } else {
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
-                *m = choose_graph_material(associated_graphs, &graph_mats, &assets);
+                *m = graphs.pick_material(associated_graphs);
             }
         }
     }

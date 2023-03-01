@@ -22,7 +22,10 @@ use bevy::{
 use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
-use crate::site::*;
+use crate::{
+    site::*,
+    recency::RecencyRanking,
+};
 use rmf_site_format::*;
 
 pub struct SaveSite {
@@ -812,6 +815,29 @@ fn generate_locations(
     Ok(locations)
 }
 
+fn generate_graph_rankings(
+    world: &mut World,
+    site: Entity,
+) -> Result<Vec<u32>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<&RecencyRanking<NavGraphMarker>>,
+        Query<&SiteID>,
+    )> = SystemState::new(world);
+
+    let (rankings, site_id) = state.get(world);
+    let ranking = match rankings.get(site) {
+        Ok(r) => r,
+        Err(_) => return Ok(Vec::new()),
+    };
+
+    ranking.entities().iter().map(|e|
+        site_id
+        .get(*e)
+        .map(|s| s.0)
+        .map_err(|_| SiteGenerationError::BrokenNavGraphReference(*e))
+    ).collect()
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -823,6 +849,7 @@ pub fn generate_site(
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
+    let graph_ranking = generate_graph_rankings(world, site)?;
 
     let props = match world.get::<SiteProperties>(site) {
         Some(props) => props,
@@ -840,6 +867,7 @@ pub fn generate_site(
         navigation: Navigation {
             guided: Guided {
                 graphs: nav_graphs,
+                ranking: graph_ranking,
                 lanes,
                 locations,
             },
