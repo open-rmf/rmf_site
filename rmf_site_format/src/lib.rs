@@ -75,6 +75,9 @@ pub use nav_graph::*;
 pub mod navigation;
 pub use navigation::*;
 
+pub mod occupancy;
+pub use occupancy::*;
+
 pub mod path;
 pub use path::*;
 
