@@ -10,6 +10,3 @@ members = [
 # the workspace needs to explicitly specify this.
 # For more see: https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
 resolver = "2"
-
-[patch.crates-io]
-bevy = { git = "https://github.com/mxgrey/bevy", branch = "stencil_with_depth_bias" }

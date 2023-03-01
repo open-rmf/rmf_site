@@ -51,17 +51,17 @@ pub fn update_lane_visual_cues(
         let (m, h, v) = if hovering.cue() && selected.cue() {
             (
                 &site_assets.hover_select_material,
-                HOVERED_LANE_HEIGHT,
+                HOVERED_LANE_OFFSET,
                 true,
             )
         } else if hovering.cue() {
-            (&site_assets.hover_material, HOVERED_LANE_HEIGHT, true)
+            (&site_assets.hover_material, HOVERED_LANE_OFFSET, true)
         } else if selected.cue() {
-            (&site_assets.select_material, SELECTED_LANE_HEIGHT, true)
+            (&site_assets.select_material, SELECTED_LANE_OFFSET, true)
         } else {
             (
                 &site_assets.unassigned_lane_material,
-                PASSIVE_LANE_HEIGHT,
+                0.0,
                 false,
             )
         };

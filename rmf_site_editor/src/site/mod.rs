@@ -94,7 +94,7 @@ pub mod wall;
 pub use wall::*;
 
 pub use rmf_site_format::*;
-use crate::recency::RecencyRankingPlugin;
+use crate::recency::{RecencyRankingPlugin, RecencyRanking};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
@@ -198,8 +198,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
-                    .with_system(change_site)
-                    .with_system(update_material_depth_bias_for_layers),
+                    .with_system(change_site),
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::AssignOrphans,

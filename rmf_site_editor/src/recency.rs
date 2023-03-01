@@ -121,7 +121,6 @@ fn update_recency_rank<T: Component>(
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
     for e in new_entities.iter().chain(unsuppressed_entities.iter()) {
-        dbg!();
         let mut next = Some(e);
         while let Some(in_scope) = next {
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
@@ -130,9 +129,7 @@ fn update_recency_rank<T: Component>(
                 // First check if the entity is already ranked. This will happen
                 // when loading a world. Do not push the entity to the top rank
                 // if it already has a rank.
-                dbg!();
                 if ranking.entities.iter().find(|check| **check == e).is_none() {
-                    dbg!();
                     ranking.entities.push(e);
                 }
             }
@@ -157,7 +154,6 @@ fn update_recency_rank<T: Component>(
                 if ranking.entities.iter().find(|check| **check == e).is_none() {
                     // The ranking does not already contain the moved entity, so
                     // we should push it to the top.
-                    dbg!();
                     ranking.entities.push(e);
                 }
             }
@@ -190,10 +186,8 @@ fn update_recency_rank<T: Component>(
                             ranking.entities.retain(|e| *e != *of);
                             let new_rank = (original_rank as i64 + *delta).max(0) as usize;
                             if new_rank < ranking.entities.len() {
-                                dbg!();
                                 ranking.entities.insert(new_rank, *of);
                             } else {
-                                dbg!();
                                 ranking.entities.push(*of);
                             }
                         }
@@ -201,10 +195,8 @@ fn update_recency_rank<T: Component>(
                     RankAdjustment::ToRank(pos) => {
                         ranking.entities.retain(|e| *e != *of);
                         if *pos < ranking.entities.len() {
-                            dbg!();
                             ranking.entities.insert(*pos, *of);
                         } else {
-                            dbg!();
                             ranking.entities.push(*of);
                         }
                     }

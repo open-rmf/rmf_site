@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    recency::RecencyRanking,
-    site::*,
-};
+use crate::site::*;
 use bevy::prelude::*;
 use smallvec::SmallVec;
 
@@ -78,34 +75,6 @@ pub fn update_layers_from_rankings(
             } else {
                 // dbg!(entity);
                 commands.entity(*entity).insert(current_layer);
-            }
-        }
-    }
-}
-
-const RENDER_DEPTH_OFFSET_BIAS_FACTOR: f32 = 10.0;
-
-pub fn update_material_depth_bias_for_layers(
-    changed_layers: Query<(Entity, &DisplayLayer), Changed<DisplayLayer>>,
-    children: Query<&Children>,
-    materials: Query<&Handle<StandardMaterial>>,
-    mut material_manager: ResMut<Assets<StandardMaterial>>,
-) {
-    for (e, layer) in &changed_layers {
-        let bias = layer.0 as f32 * RENDER_DEPTH_OFFSET_BIAS_FACTOR;
-        let mut queue = SmallVec::<[Entity; 5]>::new();
-        queue.push(e);
-        while let Some(top) = queue.pop() {
-            if let Ok(handle) = materials.get(top) {
-                if let Some(mat) = material_manager.get_mut(handle) {
-                    mat.depth_bias = bias;
-                }
-            }
-
-            if let Ok(children) = children.get(top) {
-                for child in children {
-                    queue.push(*child);
-                }
             }
         }
     }

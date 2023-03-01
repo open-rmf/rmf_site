@@ -52,7 +52,7 @@ pub fn add_location_visuals(
             deps.insert(e);
         }
 
-        let location_material = graphs.pick_material(associated_graphs);
+        let material = graphs.display_style(associated_graphs).0;
         let is_visible = should_display_point(
             point,
             associated_graphs,
@@ -64,14 +64,15 @@ pub fn add_location_visuals(
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap();
+            .unwrap()
+            + 1.5 * PASSIVE_LANE_HEIGHT * Vec3::Z;
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
             .insert(PbrBundle {
                 mesh: assets.location_mesh.clone(),
                 transform: Transform::from_translation(position),
-                material: location_material,
+                material,
                 visibility: Visibility { is_visible },
                 ..default()
             })
@@ -148,6 +149,7 @@ pub fn update_visibility_for_locations(
             &AssociatedGraphs<Entity>,
             &mut Visibility,
             &mut Handle<StandardMaterial>,
+            // &mut
         ),
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
@@ -198,12 +200,12 @@ pub fn update_visibility_for_locations(
 
     if graph_change {
         for (_, associated_graphs, _, mut m) in &mut locations {
-            *m = graphs.pick_material(associated_graphs);
+            *m = graphs.display_style(associated_graphs).0;
         }
     } else {
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
-                *m = graphs.pick_material(associated_graphs);
+                *m = graphs.display_style(associated_graphs).0;
             }
         }
     }

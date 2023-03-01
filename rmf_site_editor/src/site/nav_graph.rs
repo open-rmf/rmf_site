@@ -25,18 +25,22 @@ use bevy::{
 pub struct GraphSelect<'w, 's> {
     graphs: Query<'w, 's, (Entity, &'static Handle<StandardMaterial>, &'static Visibility, &'static DisplayLayer), With<NavGraphMarker>>,
     assets: Res<'w, SiteAssets>,
+    current_site: Res<'w, CurrentSite>,
+    rankings: Query<'w, 's, &'static RecencyRanking<NavGraphMarker>>,
 }
 
 impl<'w, 's> GraphSelect<'w, 's> {
-    pub fn pick_material(&self, associated_graphs: &AssociatedGraphs<Entity>) -> Handle<StandardMaterial> {
+    pub fn display_style(
+        &self,
+        associated_graphs: &AssociatedGraphs<Entity>
+    ) -> (Handle<StandardMaterial>, f32) {
+        let max_d = self.current_site.0.map(|e| self.rankings.get(e).ok()).flatten().map(|r| r.len()).unwrap_or(0) + 1;
         match associated_graphs {
             AssociatedGraphs::All => self.graphs
                 .iter()
                 .filter(|(_, _, v, _)| v.is_visible)
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
-                .map(|(_, m, _, _)| m)
-                .unwrap_or(&self.assets.unassigned_lane_material)
-                .clone(),
+                .map(|(_, m, _, d)| (m.clone(), *d)),
             AssociatedGraphs::Only(set) => set
                 .iter()
                 .filter(|e| {
@@ -47,18 +51,16 @@ impl<'w, 's> GraphSelect<'w, 's> {
                         .is_some()
                 })
                 .max_by(|a, b| self.graphs.get(**a).unwrap().3.cmp(self.graphs.get(**b).unwrap().3))
-                .map(|e| self.graphs.get(*e).map(|(_, m, _, _)| m).ok())
-                .flatten()
-                .unwrap_or(&self.assets.unassigned_lane_material)
-                .clone(),
+                .map(|e| self.graphs.get(*e).map(|(_, m, _, d)| (m.clone(), *d)).ok())
+                .flatten(),
             AssociatedGraphs::AllExcept(set) => self.graphs
                 .iter()
                 .filter(|(e, _, v, _)| v.is_visible && !set.contains(e))
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
-                .map(|(_, m, _, _)| m)
-                .unwrap_or(&self.assets.unassigned_lane_material)
-                .clone(),
+                .map(|(_, m, _, d)| (m.clone(), *d)),
         }
+        .map(|(m, d)| (m, d.0 as f32 * PASSIVE_LANE_HEIGHT / max_d as f32))
+        .unwrap_or((self.assets.unassigned_lane_material.clone(), PASSIVE_LANE_HEIGHT))
     }
 
     pub fn should_display(&self, associated_graphs: &AssociatedGraphs<Entity>) -> bool {
