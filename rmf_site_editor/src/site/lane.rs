@@ -19,11 +19,13 @@ use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
-// TODO(MXG): Make these configurable, perhaps even a field in the Lane data
+pub const SELECTED_LANE_OFFSET: f32 = 0.001;
+pub const HOVERED_LANE_OFFSET: f32 = 0.002;
+pub const LANE_LAYER_START: f32 = FLOOR_LAYER_START + 0.001;
+pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
+
+// TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
-pub const PASSIVE_LANE_HEIGHT: f32 = 0.001;
-pub const SELECTED_LANE_OFFSET: f32 = PASSIVE_LANE_HEIGHT;
-pub const HOVERED_LANE_OFFSET: f32 = 2.0 * PASSIVE_LANE_HEIGHT;
 pub const LANE_WIDTH: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
@@ -190,7 +192,7 @@ pub fn add_lane_visuals(
                 outlines,
             })
             .insert(SpatialBundle {
-                transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
+                transform: Transform::from_translation([0., 0., LANE_LAYER_START].into()),
                 visibility: Visibility { is_visible },
                 ..default()
             })
@@ -320,7 +322,7 @@ pub fn update_visibility_for_lanes(
     >,
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
     mut transforms: Query<&mut Transform>,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<DisplayLayer>)>)>,
+    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>)>,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();

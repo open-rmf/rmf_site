@@ -18,6 +18,10 @@
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
+// TODO(MXG): Consider using recency rankings for Locations so they don't
+// experience z-fighting.
+const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -65,7 +69,7 @@ pub fn add_location_visuals(
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap()
-            + 1.5 * PASSIVE_LANE_HEIGHT * Vec3::Z;
+            + LOCATION_LAYER_HEIGHT * Vec3::Z;
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
@@ -104,6 +108,7 @@ pub fn update_changed_location(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap();
         tf.translation = position;
+        tf.translation.z = LOCATION_LAYER_HEIGHT;
 
         let is_visible = should_display_point(
             point,
@@ -137,6 +142,7 @@ pub fn update_location_for_moved_anchors(
                     .point_in_parent_frame_of(point.0, Category::Location, e)
                     .unwrap();
                 tf.translation = position;
+                tf.translation.z = LOCATION_LAYER_HEIGHT;
             }
         }
     }
@@ -161,7 +167,7 @@ pub fn update_visibility_for_locations(
         Entity,
         (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
     >,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<DisplayLayer>)>)>,
+    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>)>,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();

@@ -20,7 +20,7 @@ use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Resource)]
 pub struct SiteAssets {
-    pub default_floor_material: Handle<StandardMaterial>,
+    pub lift_floor_material: Handle<StandardMaterial>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
@@ -119,7 +119,7 @@ impl FromWorld for SiteAssets {
             perceptual_roughness: 0.3,
             ..default()
         });
-        let default_floor_material = materials.add(StandardMaterial {
+        let lift_floor_material = materials.add(StandardMaterial {
             base_color: Color::rgb(0.3, 0.3, 0.3).into(),
             perceptual_roughness: 0.5,
             ..default()
@@ -186,7 +186,7 @@ impl FromWorld for SiteAssets {
             level_anchor_mesh,
             lift_anchor_mesh,
             site_anchor_mesh,
-            default_floor_material,
+            lift_floor_material,
             lane_mid_mesh,
             lane_mid_outline,
             lane_end_mesh,

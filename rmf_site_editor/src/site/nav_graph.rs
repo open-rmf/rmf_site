@@ -23,18 +23,20 @@ use bevy::{
 
 #[derive(SystemParam)]
 pub struct GraphSelect<'w, 's> {
-    graphs: Query<'w, 's, (Entity, &'static Handle<StandardMaterial>, &'static Visibility, &'static DisplayLayer), With<NavGraphMarker>>,
+    graphs: Query<'w, 's, (Entity, &'static Handle<StandardMaterial>, &'static Visibility, &'static RecencyRank<NavGraphMarker>), With<NavGraphMarker>>,
     assets: Res<'w, SiteAssets>,
-    current_site: Res<'w, CurrentSite>,
-    rankings: Query<'w, 's, &'static RecencyRanking<NavGraphMarker>>,
 }
 
 impl<'w, 's> GraphSelect<'w, 's> {
+    // TODO(MXG): In the future we should consider using StandardMaterial's
+    // depth_bias to fix issues with rendering overlapping flat objects. That
+    // will have to wait until a future release where https://github.com/bevyengine/bevy/pull/7847
+    // has been merged. It will also require the picking algorithm to be
+    // sensitive to ranks.
     pub fn display_style(
         &self,
         associated_graphs: &AssociatedGraphs<Entity>
     ) -> (Handle<StandardMaterial>, f32) {
-        let max_d = self.current_site.0.map(|e| self.rankings.get(e).ok()).flatten().map(|r| r.len()).unwrap_or(0) + 1;
         match associated_graphs {
             AssociatedGraphs::All => self.graphs
                 .iter()
@@ -59,8 +61,8 @@ impl<'w, 's> GraphSelect<'w, 's> {
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
                 .map(|(_, m, _, d)| (m.clone(), *d)),
         }
-        .map(|(m, d)| (m, d.0 as f32 * PASSIVE_LANE_HEIGHT / max_d as f32))
-        .unwrap_or((self.assets.unassigned_lane_material.clone(), PASSIVE_LANE_HEIGHT))
+        .map(|(m, d)| (m, d.proportion() * (LANE_LAYER_LIMIT - LANE_LAYER_START) + LANE_LAYER_START))
+        .unwrap_or((self.assets.unassigned_lane_material.clone(), LANE_LAYER_LIMIT))
     }
 
     pub fn should_display(&self, associated_graphs: &AssociatedGraphs<Entity>) -> bool {

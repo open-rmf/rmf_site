@@ -195,7 +195,7 @@ pub fn update_lift_cabin(
                         parent
                             .spawn(PbrBundle {
                                 mesh: meshes.add(floor_mesh),
-                                material: assets.default_floor_material.clone(),
+                                material: assets.lift_floor_material.clone(),
                                 ..default()
                             })
                             .insert(Selectable::new(e));
@@ -223,7 +223,7 @@ pub fn update_lift_cabin(
                                             .contains(&level)
                                     })
                                     .is_some();
-                                aabb.center.z = PASSIVE_LANE_HEIGHT / 2.0;
+                                aabb.center.z = LANE_LAYER_START / 2.0;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
                                     .spawn(PbrBundle {

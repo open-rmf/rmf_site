@@ -42,9 +42,6 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
-pub mod layers;
-pub use layers::*;
-
 pub mod level;
 pub use level::*;
 
@@ -94,7 +91,7 @@ pub mod wall;
 pub use wall::*;
 
 pub use rmf_site_format::*;
-use crate::recency::{RecencyRankingPlugin, RecencyRanking};
+use crate::recency::{RecencyRankingPlugin, RecencyRank};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 
@@ -136,6 +133,7 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+            .insert_resource(FloorVisibility::default())
             .init_resource::<SiteAssets>()
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
@@ -191,8 +189,7 @@ impl Plugin for SitePlugin {
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
-                    .with_system(update_material_for_display_color)
-                    .with_system(update_layers_from_rankings),
+                    .with_system(update_material_for_display_color),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
@@ -222,6 +219,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_floor_visuals)
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_moved_anchors)
+                    .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
                     .with_system(update_level_visibility)
@@ -250,7 +248,8 @@ impl Plugin for SitePlugin {
                     .with_system(make_models_selectable)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
-                    .with_system(update_drawing_asset_source)
+                    .with_system(update_drawing_visuals)
+                    .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)

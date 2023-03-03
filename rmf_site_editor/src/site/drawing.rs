@@ -18,15 +18,31 @@
 use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
-    site::{get_current_site_path, Category, CurrentSite, DefaultFile},
+    site::{
+        get_current_site_path, Category, CurrentSite, DefaultFile, RecencyRank,
+        FLOOR_LAYER_START, FloorVisibility,
+    },
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
+
+pub const DRAWING_LAYER_START: f32 = 0.0;
+
+#[derive(Debug, Clone, Copy, Component)]
+pub struct DrawingSegments {
+    leaf: Entity,
+}
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
 #[derive(Default, Resource)]
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
+
+fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
+    rank
+    .map(|r| r.proportion() * (FLOOR_LAYER_START - DRAWING_LAYER_START) + DRAWING_LAYER_START)
+    .unwrap_or(DRAWING_LAYER_START)
+}
 
 pub fn add_drawing_visuals(
     new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
@@ -34,6 +50,7 @@ pub fn add_drawing_visuals(
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_site: Res<CurrentSite>,
     site_files: Query<&DefaultFile>,
+    mut default_floor_vis: ResMut<FloorVisibility>,
 ) {
     // TODO support for remote sources
     let file_path = match get_current_site_path(current_site, site_files) {
@@ -55,6 +72,10 @@ pub fn add_drawing_visuals(
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
     }
+
+    if !new_drawings.is_empty() {
+        *default_floor_vis = FloorVisibility::Alpha(0.1);
+    }
 }
 
 // Asset event handler for loaded drawings
@@ -63,8 +84,11 @@ pub fn handle_loaded_drawing(
     mut ev_asset: EventReader<AssetEvent<Image>>,
     assets: Res<Assets<Image>>,
     mut loading_drawings: ResMut<LoadingDrawings>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    rank: Query<&RecencyRank<DrawingMarker>>,
+    mut segments: Query<(&DrawingSegments, &mut Transform)>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
     for ev in ev_asset.iter() {
         if let AssetEvent::Created { handle } = ev {
@@ -72,11 +96,12 @@ pub fn handle_loaded_drawing(
                 let img = assets.get(handle).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
+
                 // We set this up so that the origin of the drawing is in
                 let mesh = make_flat_rect_mesh(width, height).transform_by(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
-                // TODO Z layering
+                let mesh = mesh_assets.add(mesh.into());
                 let pose = pose.clone();
                 let transform = pose.transform().with_scale(Vec3::new(
                     1.0 / pixels_per_meter.0,
@@ -84,25 +109,48 @@ pub fn handle_loaded_drawing(
                     1.,
                 ));
 
-                commands
-                    .entity(entity.clone())
-                    .insert(PbrBundle {
-                        mesh: meshes.add(mesh.into()),
-                        material: materials.add(StandardMaterial {
-                            base_color_texture: Some(handle.clone()),
+                if let Ok((segment, mut tf)) = segments.get_mut(entity) {
+                    *tf = transform;
+                    if let Ok(mut mesh_handle) = mesh_handles.get_mut(segment.leaf) {
+                        *mesh_handle = mesh;
+                    } else {
+                        println!("DEV ERROR: Partially-constructed Drawing entity detected");
+                    }
+                    // We can ignore the layer height here since that update
+                    // will be handled by another system.
+                } else {
+                    let z = drawing_layer_height(rank.get(entity).ok());
+                    let mut cmd = commands.entity(entity);
+                    let leaf = cmd
+                        .add_children(|p| {
+                            p
+                            .spawn(PbrBundle {
+                                mesh,
+                                material: materials.add(StandardMaterial {
+                                    base_color_texture: Some(handle.clone()),
+                                    ..default()
+                                }),
+                                transform: Transform::from_xyz(0.0, 0.0, z),
+                                ..default()
+                            })
+                            .id()
+                        });
+
+                    cmd
+                        .insert(SpatialBundle {
+                            transform,
                             ..default()
-                        }),
-                        transform,
-                        ..default()
-                    })
-                    .insert(Selectable::new(entity))
-                    .insert(Category::Drawing);
+                        })
+                        .insert(DrawingSegments { leaf })
+                        .insert(Selectable::new(entity))
+                        .insert(Category::Drawing);
+                }
             }
         }
     }
 }
 
-pub fn update_drawing_asset_source(
+pub fn update_drawing_visuals(
     changed_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Changed<AssetSource>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
@@ -126,6 +174,18 @@ pub fn update_drawing_asset_source(
         loading_drawings
             .0
             .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
+    }
+}
+
+pub fn update_drawing_rank(
+    changed_rank: Query<(&DrawingSegments, &RecencyRank<DrawingMarker>), Changed<RecencyRank<DrawingMarker>>>,
+    mut transforms: Query<&mut Transform>,
+) {
+    for (segments, rank) in &changed_rank {
+        if let Ok(mut tf) = transforms.get_mut(segments.leaf) {
+            let z = drawing_layer_height(Some(rank));
+            tf.translation.z = z;
+        }
     }
 }
 

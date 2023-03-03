@@ -28,7 +28,42 @@ use lyon::{
 };
 use rmf_site_format::{FloorMarker, Path};
 
+#[derive(Debug, Clone, Copy, Resource, Component)]
+pub enum FloorVisibility {
+    /// The floors are fully opaque. This is the default when no drawing is
+    /// present.
+    Opaque,
+    /// The floors are fully hidden.
+    Hidden,
+    /// Make the floors semi-transparent. This is useful for allowing drawings
+    /// to be visible undearneath them. When a drawing is added to the scene,
+    /// the floors will automatically change to Alpha(0.1).
+    Alpha(f32),
+}
+
+impl FloorVisibility {
+    pub fn alpha(&self) -> f32 {
+        match self {
+            FloorVisibility::Opaque => 1.0,
+            FloorVisibility::Hidden => 0.0,
+            FloorVisibility::Alpha(a) => *a,
+        }
+    }
+}
+
+impl Default for FloorVisibility {
+    fn default() -> Self {
+        FloorVisibility::Opaque
+    }
+}
+
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
+pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
+
+#[derive(Debug, Clone, Copy, Component)]
+pub struct FloorSegments {
+    mesh: Entity,
+}
 
 fn make_fallback_floor_mesh(p: Vec3) -> Mesh {
     make_flat_square_mesh(1.0)
@@ -156,25 +191,56 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
     mesh
 }
 
+fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
+    rank
+    .map(|r| r.proportion() * (LANE_LAYER_START - FLOOR_LAYER_START) + FLOOR_LAYER_START)
+    .unwrap_or(FLOOR_LAYER_START)
+}
+
+fn floor_material(
+    specific: Option<&FloorVisibility>,
+    general: &FloorVisibility,
+) -> StandardMaterial {
+    let alpha = specific.map(|s| s.alpha()).unwrap_or(general.alpha());
+    Color::rgba(0.3, 0.3, 0.3, alpha).into()
+}
+
 pub fn add_floor_visuals(
     mut commands: Commands,
-    floors: Query<(Entity, &Path<Entity>), Added<FloorMarker>>,
+    floors: Query<(Entity, &Path<Entity>, Option<&RecencyRank<FloorMarker>>, Option<&FloorVisibility>), Added<FloorMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
-    assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    default_floor_visibility: Res<FloorVisibility>,
 ) {
-    for (e, new_floor) in &floors {
+    for (e, new_floor, rank, vis) in &floors {
         let mesh = make_floor_mesh(e, new_floor, &anchors);
-        commands
-            .entity(e)
-            .insert(PbrBundle {
-                mesh: meshes.add(mesh),
-                // TODO(MXG): load the user-specified texture when one is given
-                material: assets.default_floor_material.clone(),
+        let mut cmd = commands.entity(e);
+        let height = floor_height(rank);
+        let material = materials.add(
+            floor_material(vis, default_floor_visibility.as_ref())
+        );
+
+        let mesh_entity_id = cmd
+            .insert(SpatialBundle {
+                transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
             })
-            .insert(Selectable::new(e))
+            .add_children(|p| {
+                p
+                .spawn(PbrBundle {
+                    mesh: meshes.add(mesh),
+                    // TODO(MXG): load the user-specified texture when one is given
+                    material,
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .id()
+            });
+
+        cmd
+            .insert(FloorSegments { mesh: mesh_entity_id })
             .insert(Category::Floor)
             .insert(PathBehavior::for_floor());
 
@@ -186,21 +252,35 @@ pub fn add_floor_visuals(
 }
 
 pub fn update_changed_floor(
-    mut floors: Query<
-        (Entity, &mut Handle<Mesh>, &Path<Entity>),
+    changed_path: Query<
+        (Entity, &FloorSegments, &Path<Entity>),
         (Changed<Path<Entity>>, With<FloorMarker>),
     >,
+    changed_rank: Query<
+        (Entity, &RecencyRank<FloorMarker>),
+        Changed<RecencyRank<FloorMarker>>,
+    >,
     anchors: AnchorParams,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
+    mut transforms: Query<&mut Transform>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
-    for (e, mut mesh, floor) in &mut floors {
-        *mesh = meshes.add(make_floor_mesh(e, floor, &anchors));
+    for (e, segments, path) in &changed_path {
+        if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
+            *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
+        }
         // TODO(MXG): Update texture once we support textures
+    }
+
+    for (e, rank) in &changed_rank {
+        if let Ok(mut tf) = transforms.get_mut(e) {
+            tf.translation.z = floor_height(Some(rank));
+        }
     }
 }
 
 pub fn update_floor_for_moved_anchors(
-    mut floors: Query<(Entity, &mut Handle<Mesh>, &Path<Entity>), With<FloorMarker>>,
+    floors: Query<(Entity, &FloorSegments, &Path<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -209,13 +289,55 @@ pub fn update_floor_for_moved_anchors(
             Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
-    mut meshes: ResMut<Assets<Mesh>>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, mut mesh, path)) = floors.get_mut(*dependent).ok() {
-                *mesh = meshes.add(make_floor_mesh(e, path, &anchors));
+            if let Some((e, segments, path)) = floors.get(*dependent).ok() {
+                if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
+                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
+                }
             }
         }
     }
+}
+
+fn iter_update_floor_visibility<'a>(
+    iter: impl Iterator<Item=(Entity, &'a FloorVisibility)>,
+    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_assets: &mut ResMut<Assets<StandardMaterial>>,
+    default_floor_vis: &FloorVisibility,
+) {
+    for (e, vis) in iter {
+        if let Ok(handle) = material_handles.get(e) {
+            if let Some(mat) = material_assets.get_mut(handle) {
+                *mat = floor_material(Some(vis), &default_floor_vis);
+            }
+        }
+    }
+}
+
+pub fn update_floor_visibility(
+    changed_floors: Query<(Entity, &FloorVisibility), Changed<FloorVisibility>>,
+    all_floors: Query<(Entity, &FloorVisibility)>,
+    material_handles: Query<&Handle<StandardMaterial>>,
+    mut material_assets: ResMut<Assets<StandardMaterial>>,
+    default_floor_vis: Res<FloorVisibility>,
+) {
+    if default_floor_vis.is_changed() {
+        iter_update_floor_visibility(
+            all_floors.iter(),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+    } else {
+        iter_update_floor_visibility(
+            changed_floors.iter(),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+    };
 }

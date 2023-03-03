@@ -64,6 +64,51 @@ impl<T: Component> Deref for RecencyRanking<T> {
     }
 }
 
+#[derive(Debug, Clone, Copy, Component)]
+pub struct RecencyRank<T: Component> {
+    rank: usize,
+    out_of: usize,
+    _ignore: PhantomData<T>,
+}
+
+impl<T: Component> PartialEq for RecencyRank<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.rank.eq(&other.rank)
+    }
+}
+
+impl<T: Component> Eq for RecencyRank<T> {}
+
+impl<T: Component> PartialOrd for RecencyRank<T> {
+    fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+        self.rank.partial_cmp(&other.rank)
+    }
+}
+
+impl<T: Component> Ord for RecencyRank<T> {
+    fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+        self.rank.cmp(&other.rank)
+    }
+}
+
+impl<T: Component> RecencyRank<T> {
+    fn new(rank: usize, out_of: usize) -> Self {
+        Self { rank, out_of, _ignore: default() }
+    }
+
+    pub fn rank(&self) -> usize {
+        self.rank
+    }
+
+    pub fn out_of(&self) -> usize {
+        self.out_of
+    }
+
+    pub fn proportion(&self) -> f32 {
+        self.rank as f32 / self.out_of as f32
+    }
+}
+
 #[derive(Debug, Clone, Copy)]
 pub struct ChangeRank<T: Component> {
     of: Entity,
@@ -106,11 +151,15 @@ impl<T: Component> Plugin for RecencyRankingPlugin<T> {
     fn build(&self, app: &mut App) {
         app
         .add_event::<ChangeRank<T>>()
-        .add_system(update_recency_rank::<T>);
+        .add_system(update_recency_rankings::<T>)
+        .add_system(
+            update_recency_ranks::<T>
+            .after(update_recency_rankings::<T>)
+        );
     }
 }
 
-fn update_recency_rank<T: Component>(
+fn update_recency_rankings<T: Component>(
     mut rankings: Query<(Entity, &mut RecencyRanking<T>)>,
     new_entities: Query<Entity, (Added<T>, Without<SuppressRecencyRank>)>,
     moved_entities: Query<Entity, (Changed<Parent>, With<T>, Without<SuppressRecencyRank>)>,
@@ -204,6 +253,23 @@ fn update_recency_rank<T: Component>(
             }
 
             next = parents.get(in_scope).ok().map(|p| p.get());
+        }
+    }
+}
+
+fn update_recency_ranks<T: Component>(
+    mut commands: Commands,
+    rankings: Query<&RecencyRanking<T>, Changed<RecencyRanking<T>>>,
+    mut ranks: Query<&mut RecencyRank<T>>,
+) {
+    for ranking in &rankings {
+        let out_of = ranking.len();
+        for (rank, e) in ranking.iter().enumerate() {
+            if let Ok(mut r) = ranks.get_mut(*e) {
+                r.rank = rank;
+            } else {
+                commands.entity(*e).insert(RecencyRank::<T>::new(rank, out_of));
+            }
         }
     }
 }
