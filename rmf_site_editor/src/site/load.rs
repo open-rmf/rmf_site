@@ -65,13 +65,14 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             }
 
             for (level_id, level_data) in &site_data.levels {
-                let level_entity = site
-                    .spawn(SpatialBundle {
+                let mut level_cmd = site.spawn(SiteID(*level_id));
+
+                level_cmd
+                    .insert(SpatialBundle {
                         visibility: Visibility { is_visible: false },
                         ..default()
                     })
                     .insert(level_data.properties.clone())
-                    .insert(SiteID(*level_id))
                     .insert(Category::Level)
                     .with_children(|level| {
                         for (anchor_id, anchor) in &level_data.anchors {
@@ -141,7 +142,18 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 .insert(SiteID(*wall_id));
                             consider_id(*wall_id);
                         }
-                    })
+                    });
+
+                // TODO(MXG): Log when a RecencyRanking fails to load correctly.
+                let level_entity = level_cmd
+                    .insert(RecencyRanking::<FloorMarker>::from_u32(
+                        &level_data.rankings.floors,
+                        &id_to_entity,
+                    ).unwrap_or(RecencyRanking::new()))
+                    .insert(RecencyRanking::<DrawingMarker>::from_u32(
+                        &level_data.rankings.drawings,
+                        &id_to_entity,
+                    ).unwrap_or(RecencyRanking::new()))
                     .id();
                 id_to_entity.insert(*level_id, level_entity);
                 consider_id(*level_id);

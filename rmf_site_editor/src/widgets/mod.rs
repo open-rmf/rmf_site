@@ -23,7 +23,7 @@ use crate::{
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
         CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        ToggleLiftDoorAvailability, FloorVisibility,
     },
     recency::ChangeRank,
 };
@@ -36,6 +36,9 @@ use rmf_site_format::*;
 
 pub mod create;
 use create::CreateWidget;
+
+pub mod view_layers;
+use view_layers::*;
 
 pub mod view_levels;
 use view_levels::{LevelDisplay, LevelParams, ViewLevels};
@@ -137,11 +140,11 @@ pub struct Requests<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct RankEvents<'w, 's> {
+pub struct LayerEvents<'w, 's> {
     pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
     pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub icons: Res<'w, Icons>,
+    pub change_floor_vis: EventWriter<'w, 's, Change<FloorVisibility>>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -154,7 +157,7 @@ pub struct AppEvents<'w, 's> {
     pub change: ChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
-    pub rank: RankEvents<'w, 's>,
+    pub layers: LayerEvents<'w, 's>,
 }
 
 fn standard_ui_layout(
@@ -164,6 +167,7 @@ fn standard_ui_layout(
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
+    layers: LayersParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -183,6 +187,13 @@ fn standard_ui_layout(
                             .default_open(true)
                             .show(ui, |ui| {
                                 ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        // TODO(MXG): Consider combining Nav Graphs and Layers
+                        CollapsingHeader::new("Layers")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewLayers::new(&layers, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Inspect")

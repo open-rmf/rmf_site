@@ -28,25 +28,83 @@ use lyon::{
 };
 use rmf_site_format::{FloorMarker, Path};
 
+const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.2;
+
+// TODO(MXG): Should we make this more general? Should we be able to apply this
+// component to Drawings as well?
 #[derive(Debug, Clone, Copy, Resource, Component)]
 pub enum FloorVisibility {
     /// The floors are fully opaque. This is the default when no drawing is
     /// present.
     Opaque,
-    /// The floors are fully hidden.
-    Hidden,
     /// Make the floors semi-transparent. This is useful for allowing drawings
     /// to be visible undearneath them. When a drawing is added to the scene,
     /// the floors will automatically change to Alpha(0.1).
     Alpha(f32),
+    /// The floors are fully hidden.
+    Hidden,
+}
+
+// TODO(MXG): Should this trait be more general?
+pub trait Cycle {
+    type Value;
+    fn next(&self) -> Self::Value;
+    fn label(&self) -> &'static str;
 }
 
 impl FloorVisibility {
+    pub fn new_semi_transparent() -> Self {
+        FloorVisibility::Alpha(DEFAULT_FLOOR_SEMI_TRANSPARENCY)
+    }
+
     pub fn alpha(&self) -> f32 {
         match self {
             FloorVisibility::Opaque => 1.0,
-            FloorVisibility::Hidden => 0.0,
             FloorVisibility::Alpha(a) => *a,
+            FloorVisibility::Hidden => 0.0,
+        }
+    }
+}
+
+impl Cycle for FloorVisibility {
+    type Value = Self;
+
+    /// Cycle to the next visibility option
+    fn next(&self) -> FloorVisibility {
+        match self {
+            FloorVisibility::Opaque => FloorVisibility::new_semi_transparent(),
+            FloorVisibility::Alpha(_) => FloorVisibility::Hidden,
+            FloorVisibility::Hidden => FloorVisibility::Opaque,
+        }
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            FloorVisibility::Opaque => "opaque",
+            FloorVisibility::Alpha(_) => "semi-transparent",
+            FloorVisibility::Hidden => "hidden",
+        }
+    }
+}
+
+impl Cycle for Option<FloorVisibility> {
+    type Value = Self;
+    fn next(&self) -> Self {
+        match self {
+            Some(v) => {
+                match v {
+                    FloorVisibility::Hidden => None,
+                    _ => Some(v.next()),
+                }
+            }
+            None => Some(FloorVisibility::Opaque),
+        }
+    }
+
+    fn label(&self) -> &'static str {
+        match self {
+            Some(v) => v.label(),
+            None => "global",
         }
     }
 }
@@ -304,23 +362,24 @@ pub fn update_floor_for_moved_anchors(
 }
 
 fn iter_update_floor_visibility<'a>(
-    iter: impl Iterator<Item=(Entity, &'a FloorVisibility)>,
+    iter: impl Iterator<Item=(Option<&'a FloorVisibility>, &'a FloorSegments)>,
     material_handles: &Query<&Handle<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &FloorVisibility,
 ) {
-    for (e, vis) in iter {
-        if let Ok(handle) = material_handles.get(e) {
+    for (vis, segments) in iter {
+        if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                *mat = floor_material(Some(vis), &default_floor_vis);
+                *mat = floor_material(vis, &default_floor_vis);
             }
         }
     }
 }
 
 pub fn update_floor_visibility(
-    changed_floors: Query<(Entity, &FloorVisibility), Changed<FloorVisibility>>,
-    all_floors: Query<(Entity, &FloorVisibility)>,
+    changed_floors: Query<(Option<&FloorVisibility>, &FloorSegments), Changed<FloorVisibility>>,
+    removed_vis: RemovedComponents<FloorVisibility>,
+    all_floors: Query<(Option<&FloorVisibility>, &FloorSegments)>,
     material_handles: Query<&Handle<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Res<FloorVisibility>,
@@ -335,6 +394,15 @@ pub fn update_floor_visibility(
     } else {
         iter_update_floor_visibility(
             changed_floors.iter(),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+
+        iter_update_floor_visibility(
+            removed_vis.iter().filter_map(|e|
+                all_floors.get(e).ok()
+            ),
             &material_handles,
             &mut material_assets,
             &default_floor_vis,

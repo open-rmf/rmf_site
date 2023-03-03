@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    widgets::{RankEvents, Icons},
+    interaction::Hover,
+    widgets::Icons,
     recency::{ChangeRank, RankAdjustment},
 };
 use bevy::prelude::*;
@@ -27,6 +28,7 @@ pub struct MoveLayer<'a, 'w, 's, T: Component> {
     rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
     icons: &'a Icons,
     up: bool,
+    hover: Option<&'a mut ResMut<'w, Events<Hover>>>,
 }
 
 impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
@@ -35,7 +37,7 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, up: true }
+        Self { entity, rank_events, icons, up: true, hover: None }
     }
 
     pub fn down(
@@ -43,21 +45,33 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, up: false }
+        Self { entity, rank_events, icons, up: false, hover: None }
+    }
+
+    pub fn with_hover(mut self, hover: &'a mut ResMut<'w, Events<Hover>>) -> Self {
+        self.hover = Some(hover);
+        self
     }
 
     pub fn show(self, ui: &mut Ui) {
         let (icon, text, delta) = if self.up {
-            (self.icons.egui_layer_up, "Move up a layer", RankAdjustment::Delta(1))
+            (self.icons.layer_up.egui(), "Move up a layer", RankAdjustment::Delta(1))
         } else {
-            (self.icons.egui_layer_down, "Move down a layer", RankAdjustment::Delta(-1))
+            (self.icons.layer_down.egui(), "Move down a layer", RankAdjustment::Delta(-1))
         };
 
-        if ui
+        let resp = ui
             .add(ImageButton::new(icon, [18., 18.]))
-            .on_hover_text(text)
-            .clicked() {
+            .on_hover_text(text);
+
+        if resp.clicked() {
             self.rank_events.send(ChangeRank::new(self.entity, delta));
+        }
+
+        if let Some(hover) = self.hover {
+            if resp.hovered() {
+                hover.send(Hover(Some(self.entity)));
+            }
         }
     }
 }

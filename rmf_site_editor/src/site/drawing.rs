@@ -74,7 +74,7 @@ pub fn add_drawing_visuals(
     }
 
     if !new_drawings.is_empty() {
-        *default_floor_vis = FloorVisibility::Alpha(0.1);
+        *default_floor_vis = FloorVisibility::new_semi_transparent();
     }
 }
 

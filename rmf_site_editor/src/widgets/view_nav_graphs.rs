@@ -31,7 +31,6 @@ use bevy::{
 };
 use bevy_egui::egui::{ImageButton, Ui};
 use futures_lite::future;
-use smallvec::SmallVec;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
@@ -156,7 +155,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 if self.events.display.nav_graph.removing {
                     if ui
-                        .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                        .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
                         .clicked()
                     {
                         self.events.request.delete.send(Delete::new(e));
@@ -181,11 +180,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 }
 
                 MoveLayer::up(
-                    e, &mut self.events.rank.nav_graphs, &self.events.rank.icons,
+                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
                 ).show(ui);
 
                 MoveLayer::down(
-                    e, &mut self.events.rank.nav_graphs, &self.events.rank.icons,
+                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
                 ).show(ui);
 
                 let mut new_color = color.0;

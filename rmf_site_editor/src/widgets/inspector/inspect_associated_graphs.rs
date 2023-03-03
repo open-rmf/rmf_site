@@ -93,7 +93,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
                     };
                     ui.horizontal(|ui| {
                         if ui
-                            .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                            .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
                             .clicked()
                         {
                             removed_graphs.push(*g);
