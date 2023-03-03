@@ -178,6 +178,8 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
+            .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
+            .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)

@@ -20,7 +20,8 @@ use crate::{
         Change, CurrentSite, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{inspector::color_edit, AppEvents, Icons},
+    recency::RecencyRanking,
+    widgets::{inspector::color_edit, AppEvents, Icons, MoveLayer},
     Autoload,
 };
 use bevy::{
@@ -64,11 +65,11 @@ impl FromWorld for NavGraphDisplay {
 
 #[derive(SystemParam)]
 pub struct NavGraphParams<'w, 's> {
+    pub ranking: Query<'w, 's, &'static RecencyRanking<NavGraphMarker>>,
     pub graphs: Query<
         'w,
         's,
         (
-            Entity,
             &'static NameInSite,
             &'static DisplayColor,
             &'static Visibility,
@@ -89,13 +90,16 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let graphs = {
-            let mut graphs: SmallVec<[(Entity, &NameInSite, &DisplayColor, &Visibility); 10]> =
-                SmallVec::from_iter(self.params.graphs.iter());
-            graphs.sort_by(|(a, _, _, _), (b, _, _, _)| a.cmp(b));
-            graphs
+        let ranking = match self.events.request.current_site.0 {
+            Some(c) => {
+                match self.params.ranking.get(c) {
+                    Ok(r) => r,
+                    Err(_) => return,
+                }
+            }
+            None => return,
         };
-        let graph_count = graphs.len();
+        let graph_count = ranking.len();
 
         ui.horizontal(|ui| {
             if self.events.display.nav_graph.removing {
@@ -119,7 +123,36 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             }
         });
 
-        for (e, name, color, vis) in graphs {
+        ui.horizontal(|ui| {
+            let add = ui.button("Add").clicked();
+            if self.events.display.nav_graph.color.is_none() {
+                let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
+                self.events.display.nav_graph.color =
+                    Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
+            }
+            if let Some(color) = &mut self.events.display.nav_graph.color {
+                color_edit(ui, color);
+            }
+            ui.text_edit_singleline(&mut self.events.display.nav_graph.name);
+            if add {
+                self.events
+                    .commands
+                    .spawn(SpatialBundle::default())
+                    .insert(NavGraph {
+                        name: NameInSite(self.events.display.nav_graph.name.clone()),
+                        color: DisplayColor(self.events.display.nav_graph.color.unwrap().clone()),
+                        marker: Default::default(),
+                    });
+                self.events.display.nav_graph.color = None;
+            }
+        });
+
+        for e in ranking.iter().rev() {
+            let e = *e;
+            let (name, color, vis) = match self.params.graphs.get(e) {
+                Ok(g) => g,
+                Err(_) => continue,
+            };
             ui.horizontal(|ui| {
                 if self.events.display.nav_graph.removing {
                     if ui
@@ -147,6 +180,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
 
+                MoveLayer::up(
+                    e, &mut self.events.rank.nav_graphs, &self.events.rank.icons,
+                ).show(ui);
+
+                MoveLayer::down(
+                    e, &mut self.events.rank.nav_graphs, &self.events.rank.icons,
+                ).show(ui);
+
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
@@ -165,30 +206,6 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 }
             });
         }
-
-        ui.horizontal(|ui| {
-            let add = ui.button("Add").clicked();
-            if self.events.display.nav_graph.color.is_none() {
-                let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
-                self.events.display.nav_graph.color =
-                    Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
-            }
-            if let Some(color) = &mut self.events.display.nav_graph.color {
-                color_edit(ui, color);
-            }
-            ui.text_edit_singleline(&mut self.events.display.nav_graph.name);
-            if add {
-                self.events
-                    .commands
-                    .spawn(SpatialBundle::default())
-                    .insert(NavGraph {
-                        name: NameInSite(self.events.display.nav_graph.name.clone()),
-                        color: DisplayColor(self.events.display.nav_graph.color.unwrap().clone()),
-                        marker: Default::default(),
-                    });
-                self.events.display.nav_graph.color = None;
-            }
-        });
 
         #[cfg(not(target_arch = "wasm32"))]
         {
