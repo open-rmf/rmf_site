@@ -55,9 +55,9 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
 
     pub fn show(self, ui: &mut Ui) {
         let (icon, text, delta) = if self.up {
-            (self.icons.layer_up.egui(), "Move up a layer", RankAdjustment::Delta(1))
+            (self.icons.layer_up.egui(), "Move up one layer", RankAdjustment::Delta(1))
         } else {
-            (self.icons.layer_down.egui(), "Move down a layer", RankAdjustment::Delta(-1))
+            (self.icons.layer_down.egui(), "Move down one layer", RankAdjustment::Delta(-1))
         };
 
         let resp = ui

@@ -170,15 +170,19 @@ fn update_recency_rankings<T: Component>(
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
     for e in new_entities.iter().chain(unsuppressed_entities.iter()) {
+        dbg!(e);
         let mut next = Some(e);
         while let Some(in_scope) = next {
+            dbg!(in_scope);
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
                 // The new entity is within the scope of this ranking.
 
                 // First check if the entity is already ranked. This will happen
                 // when loading a world. Do not push the entity to the top rank
                 // if it already has a rank.
+                println!("Found scope: {in_scope:?}");
                 if ranking.entities.iter().find(|check| **check == e).is_none() {
+                    println!("pushing");
                     ranking.entities.push(e);
                 }
             }

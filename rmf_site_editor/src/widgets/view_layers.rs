@@ -17,15 +17,15 @@
 
 use crate::{
     site::*,
-    interaction::Hover,
-    widgets::{AppEvents, MoveLayer, Icons, inspector::SelectionWidget},
+    interaction::Selection,
+    widgets::{AppEvents, Icons, inspector::InspectLayer},
     recency::RecencyRanking,
 };
 use bevy::{
     ecs::system::SystemParam,
     prelude::*,
 };
-use bevy_egui::egui::{ImageButton, Ui, CollapsingHeader};
+use bevy_egui::egui::{Ui, CollapsingHeader};
 
 #[derive(SystemParam)]
 pub struct LayersParams<'w, 's> {
@@ -34,6 +34,7 @@ pub struct LayersParams<'w, 's> {
     pub floor_visibility: Query<'w, 's, &'static FloorVisibility>,
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub icons: Res<'w, Icons>,
+    pub selection: Res<'w, Selection>,
 }
 
 pub struct ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
@@ -79,54 +80,25 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         ui: &mut Ui,
     ) {
         ui.vertical(|ui| {
-            for e in ranking {
+            for e in ranking.iter().rev() {
                 ui.horizontal(|ui| {
-                    if is_floor {
-                        let vis = self.params.floor_visibility.get(*e).ok().copied();
-                        let icon = self.params.icons.floor_visibility_of(vis);
-                        let resp = ui.add(ImageButton::new(icon, [18., 18.]))
-                            .on_hover_text(format!("Change to {}", vis.next().label()));
-                        if resp.hovered() {
-                            self.events.request.hover.send(Hover(Some(*e)));
-                        }
-                        if resp.clicked() {
-                            let new_vis = vis.next();
-                            match new_vis {
-                                Some(v) => {
-                                    self.events.layers.change_floor_vis.send(
-                                        Change::new(v, *e).or_insert()
-                                    );
-                                }
-                                None => {
-                                    self.events.commands.entity(*e).remove::<FloorVisibility>();
-                                }
-                            }
-                        }
-                    }
-
-                    MoveLayer::up(
+                    let mut layer = InspectLayer::new(
                         *e,
-                        &mut self.events.layers.floors,
-                        &self.params.icons,
-                    )
-                    .with_hover(&mut self.events.request.hover)
-                    .show(ui);
-
-                    MoveLayer::down(
-                        *e,
-                        &mut self.events.layers.floors,
-                        &self.params.icons,
-                    )
-                    .with_hover(&mut self.events.request.hover)
-                    .show(ui);
-
-                    SelectionWidget::new(
-                        *e,
-                        self.params.site_id.get(*e).ok().flatten().copied(),
                         &self.params.icons,
                         &mut self.events,
-                    )
-                    .show(ui);
+                    ).with_selecting(
+                        self.params.site_id.get(*e).ok().flatten().copied()
+                    );
+
+                    if is_floor {
+                        layer = layer.as_floor(self.params.floor_visibility.get(*e).ok().copied());
+                    }
+
+                    layer.show(ui);
+
+                    if Some(*e) == self.params.selection.0 {
+                        ui.label("Selected");
+                    }
                 });
             }
         });

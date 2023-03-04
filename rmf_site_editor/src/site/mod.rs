@@ -206,6 +206,13 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
+                    .with_system(assign_orphan_elements_to_level::<DoorMarker>)
+                    .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
+                    .with_system(assign_orphan_elements_to_level::<FloorMarker>)
+                    .with_system(assign_orphan_elements_to_level::<LightKind>)
+                    .with_system(assign_orphan_elements_to_level::<ModelMarker>)
+                    .with_system(assign_orphan_elements_to_level::<PhysicalCameraProperties>)
+                    .with_system(assign_orphan_elements_to_level::<WallMarker>)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
                     .with_system(add_physical_lights),
