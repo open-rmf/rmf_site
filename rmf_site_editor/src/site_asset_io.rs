@@ -198,10 +198,11 @@ impl AssetIo for SiteAssetIo {
                     })?;
 
                     /*
-                    TODO: Fuel will return a JSON object if it can't find the asset.
-                    We need to look at the returned object and see if it's JSON and
-                    has an errcode key. If so, we shouldn't cache the JSON error as
-                    if it were GLB
+                    TODO: handle HTTP 404 correctly from Fuel
+
+                    Somehow at the moment the HTTP 404 is being turned into a JSON
+                    object and saved to disk, which results in a later failure when
+                    that is attempted to be parsed as GLB
                     */
 
                     #[cfg(not(target_arch = "wasm32"))]
