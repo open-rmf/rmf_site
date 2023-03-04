@@ -1,7 +1,7 @@
 use bevy::{
     asset::{AssetIo, AssetIoError, AssetPlugin, FileType, Metadata},
     prelude::*,
-    utils::BoxedFuture,
+    utils::{BoxedFuture, HashMap},
 };
 use dirs;
 use std::env;
@@ -21,9 +21,10 @@ pub fn cache_path() -> PathBuf {
 
 struct SiteAssetIo {
     pub default_io: Box<dyn AssetIo>,
+    pub bundled_assets: HashMap<String, Vec<u8>>,
 }
 
-const SITE_EDITOR_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
+const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
 const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
 
 impl SiteAssetIo {
@@ -62,14 +63,62 @@ impl SiteAssetIo {
             fs::write(asset_path, bytes).expect("unable to write to file");
         }
     }
+
+    fn generate_asset_uri(&self, name: &String) -> Result<String, AssetIoError> {
+        // Expected format:  OrgName/ModelName.glb
+        // We may need to be a bit magical here because some assets
+        // are found in Fuel and others are not.
+        let name_no_suffix = match name.strip_suffix(".glb") {
+            Some(s) => s,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+            }
+        };
+        let mut tokens = name_no_suffix.split("/");
+        let org_name = match tokens.next() {
+            Some(token) => token,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+            }
+        };
+        let model_name = match tokens.next() {
+            Some(token) => token,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+            }
+        };
+        let uri = format!("{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
+            FUEL_BASE_URI,
+            org_name,
+            model_name);
+        println!("generated fuel URI: {name} -> {uri}");
+        return Ok(uri);
+    }
+
+    fn add_bundled_assets(&mut self) {
+        self.bundled_assets.insert("textures/default.png".to_string(),
+            include_bytes!("../../assets/textures/default.png").to_vec());
+        self.bundled_assets.insert("textures/select.png".to_string(),
+            include_bytes!("../../assets/textures/select.png").to_vec());
+        self.bundled_assets.insert("textures/trash.png".to_string(),
+            include_bytes!("../../assets/textures/trash.png").to_vec());
+        self.bundled_assets.insert("textures/edit.png".to_string(),
+            include_bytes!("../../assets/textures/edit.png").to_vec());
+    }
 }
 
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        let path_str = path.to_str().unwrap();
+        println!("SiteAssetIo looking up: {path_str}");
+
         let asset_source = AssetSource::from(path);
         match asset_source {
             AssetSource::Remote(remote_url) => {
-                let uri = String::from(SITE_EDITOR_MODELS_URI) + &remote_url;
+                let uri: String = match self.generate_asset_uri(&remote_url) {
+                    Ok(uri) => uri,
+                    Err(e) => return Box::pin(async move { Err(e) }),
+                };
 
                 // Try local cache first
                 #[cfg(not(target_arch = "wasm32"))]
@@ -83,6 +132,7 @@ impl AssetIo for SiteAssetIo {
 
                 // Get from remote server
                 Box::pin(async move {
+                    println!("Attempting to fetch remote asset: {uri}");
                     let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
                         AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
                     })?;
@@ -99,6 +149,13 @@ impl AssetIo for SiteAssetIo {
                 full_path.push(filename);
                 self.load_from_file(full_path)
             }),
+            AssetSource::Bundled(filename) => {
+                if self.bundled_assets.contains_key(&filename) {
+                    return Box::pin(async move { Ok(self.bundled_assets[&filename].clone()) });
+                } else {
+                    return Box::pin(async move { Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Bundled asset not found: {filename}")))) });
+                }
+            }
             AssetSource::Search(name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
@@ -128,12 +185,24 @@ impl AssetIo for SiteAssetIo {
                     }
                 }
 
+                let uri = match self.generate_asset_uri(&name) {
+                    Ok(uri) => uri,
+                    Err(e) => return Box::pin(async move {Err(e)}),
+                };
+
                 // Fetch from remote server
                 Box::pin(async move {
-                    let uri = String::from(SITE_EDITOR_MODELS_URI) + &name;
+                    println!("Attempting to fetch searched asset: {uri}");
                     let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
                         AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
                     })?;
+
+                    /*
+                    TODO: Fuel will return a JSON object if it can't find the asset.
+                    We need to look at the returned object and see if it's JSON and
+                    has an errcode key. If so, we shouldn't cache the JSON error as
+                    if it were GLB
+                    */
 
                     #[cfg(not(target_arch = "wasm32"))]
                     {
@@ -190,10 +259,11 @@ pub struct SiteAssetIoPlugin;
 
 impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        let asset_io = {
+        let mut asset_io = {
             let default_io = AssetPlugin::default().create_platform_default_asset_io();
-            SiteAssetIo { default_io }
+            SiteAssetIo { default_io, bundled_assets: HashMap::new() }
         };
+        asset_io.add_bundled_assets();
 
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io));
