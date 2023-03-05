@@ -27,17 +27,25 @@ pub struct MoveLayer<'a, 'w, 's, T: Component> {
     entity: Entity,
     rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
     icons: &'a Icons,
-    up: bool,
+    adjustment: RankAdjustment,
     hover: Option<&'a mut ResMut<'w, Events<Hover>>>,
 }
 
 impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
+    pub fn to_top(
+        entity: Entity,
+        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        icons: &'a Icons,
+    ) -> Self {
+        Self { entity, rank_events, icons, adjustment: RankAdjustment::ToTop, hover: None }
+    }
+
     pub fn up(
         entity: Entity,
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, up: true, hover: None }
+        Self { entity, rank_events, icons, adjustment: RankAdjustment::Delta(1), hover: None }
     }
 
     pub fn down(
@@ -45,7 +53,15 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, up: false, hover: None }
+        Self { entity, rank_events, icons, adjustment: RankAdjustment::Delta(-1), hover: None }
+    }
+
+    pub fn to_bottom(
+        entity: Entity,
+        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        icons: &'a Icons,
+    ) -> Self {
+        Self { entity, rank_events, icons, adjustment: RankAdjustment::ToBottom, hover: None }
     }
 
     pub fn with_hover(mut self, hover: &'a mut ResMut<'w, Events<Hover>>) -> Self {
@@ -54,18 +70,12 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let (icon, text, delta) = if self.up {
-            (self.icons.layer_up.egui(), "Move up one layer", RankAdjustment::Delta(1))
-        } else {
-            (self.icons.layer_down.egui(), "Move down one layer", RankAdjustment::Delta(-1))
-        };
-
         let resp = ui
-            .add(ImageButton::new(icon, [18., 18.]))
-            .on_hover_text(text);
+            .add(ImageButton::new(self.icons.move_rank(self.adjustment), [18., 18.]))
+            .on_hover_text(self.adjustment.label());
 
         if resp.clicked() {
-            self.rank_events.send(ChangeRank::new(self.entity, delta));
+            self.rank_events.send(ChangeRank::new(self.entity, self.adjustment));
         }
 
         if let Some(hover) = self.hover {

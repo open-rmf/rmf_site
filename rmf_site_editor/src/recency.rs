@@ -105,7 +105,7 @@ impl<T: Component> RecencyRank<T> {
     }
 
     pub fn proportion(&self) -> f32 {
-        self.rank as f32 / self.out_of as f32
+        self.rank() as f32 / self.out_of() as f32
     }
 }
 
@@ -134,8 +134,28 @@ impl<T: Component> ChangeRank<T> {
 pub enum RankAdjustment {
     /// Move the entity's rank up (positive) or down (negative) by the given amount.
     Delta(i64),
-    /// Set the entity's rank to an exact value.
-    ToRank(usize),
+    /// Set the entity's rank to the top position.
+    ToTop,
+    /// Set the entity's rank to the bottom position.
+    ToBottom,
+}
+
+impl RankAdjustment {
+    pub fn label(&self) -> &'static str {
+        match self {
+            RankAdjustment::Delta(v) => {
+                if *v > 0 {
+                    "Move up"
+                } else if *v < 0 {
+                    "Move down"
+                } else {
+                    "Move nowhere"
+                }
+            }
+            RankAdjustment::ToTop => "Move to top",
+            RankAdjustment::ToBottom => "Move to bottom",
+        }
+    }
 }
 
 /// Attach this component to entities that should not be included in recency
@@ -170,19 +190,15 @@ fn update_recency_rankings<T: Component>(
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
     for e in new_entities.iter().chain(unsuppressed_entities.iter()) {
-        dbg!(e);
         let mut next = Some(e);
         while let Some(in_scope) = next {
-            dbg!(in_scope);
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
                 // The new entity is within the scope of this ranking.
 
                 // First check if the entity is already ranked. This will happen
                 // when loading a world. Do not push the entity to the top rank
                 // if it already has a rank.
-                println!("Found scope: {in_scope:?}");
                 if ranking.entities.iter().find(|check| **check == e).is_none() {
-                    println!("pushing");
                     ranking.entities.push(e);
                 }
             }
@@ -245,13 +261,13 @@ fn update_recency_rankings<T: Component>(
                             }
                         }
                     }
-                    RankAdjustment::ToRank(pos) => {
+                    RankAdjustment::ToTop => {
                         ranking.entities.retain(|e| *e != *of);
-                        if *pos < ranking.entities.len() {
-                            ranking.entities.insert(*pos, *of);
-                        } else {
-                            ranking.entities.push(*of);
-                        }
+                        ranking.entities.push(*of);
+                    }
+                    RankAdjustment::ToBottom => {
+                        ranking.entities.retain(|e| *e != *of);
+                        ranking.entities.insert(0, *of);
                     }
                 }
             }

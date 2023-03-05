@@ -116,11 +116,19 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         hover: &mut ResMut<'w, Events<Hover>>,
         ui: &mut Ui,
     ) {
+        MoveLayer::to_top(entity, mover, icons)
+            .with_hover(hover)
+            .show(ui);
+
         MoveLayer::up(entity, mover, icons)
             .with_hover(hover)
             .show(ui);
 
         MoveLayer::down(entity, mover, icons)
+            .with_hover(hover)
+            .show(ui);
+
+        MoveLayer::to_bottom(entity, mover, icons)
             .with_hover(hover)
             .show(ui);
     }

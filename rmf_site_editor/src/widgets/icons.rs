@@ -15,7 +15,10 @@
  *
 */
 
-use crate::site::FloorVisibility;
+use crate::{
+    site::FloorVisibility,
+    recency::RankAdjustment,
+};
 use bevy::prelude::*;
 use bevy_egui::{egui::TextureId, EguiContext};
 use rmf_site_format::AssetSource;
@@ -60,6 +63,8 @@ pub struct Icons {
     pub trash: Icon,
     pub layer_up: Icon,
     pub layer_down: Icon,
+    pub layer_to_top: Icon,
+    pub layer_to_bottom: Icon,
     pub opaque: Icon,
     pub alpha: Icon,
     pub hidden: Icon,
@@ -74,6 +79,8 @@ impl FromWorld for Icons {
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
         let layer_up = IconBuilder::new("textures/up.png", &asset_server);
         let layer_down = IconBuilder::new("textures/down.png", &asset_server);
+        let layer_to_top = IconBuilder::new("textures/to_top.png", &asset_server);
+        let layer_to_bottom = IconBuilder::new("textures/to_bottom.png", &asset_server);
         let opaque = IconBuilder::new("textures/opaque.png", &asset_server);
         let alpha = IconBuilder::new("textures/alpha.png", &asset_server);
         let hidden = IconBuilder::new("textures/hidden.png", &asset_server);
@@ -89,6 +96,8 @@ impl FromWorld for Icons {
             trash: trash.build(&mut egui_context),
             layer_up: layer_up.build(&mut egui_context),
             layer_down: layer_down.build(&mut egui_context),
+            layer_to_top: layer_to_top.build(&mut egui_context),
+            layer_to_bottom: layer_to_bottom.build(&mut egui_context),
             opaque: opaque.build(&mut egui_context),
             alpha: alpha.build(&mut egui_context),
             hidden: hidden.build(&mut egui_context),
@@ -108,6 +117,20 @@ impl Icons {
                 }
             }
             None => self.global.egui(),
+        }
+    }
+
+    pub fn move_rank(&self, adjustment: RankAdjustment) -> TextureId {
+        match adjustment {
+            RankAdjustment::Delta(delta) => {
+                if delta < 0 {
+                    self.layer_down.egui()
+                } else {
+                    self.layer_up.egui()
+                }
+            }
+            RankAdjustment::ToTop => self.layer_to_top.egui(),
+            RankAdjustment::ToBottom => self.layer_to_bottom.egui(),
         }
     }
 }

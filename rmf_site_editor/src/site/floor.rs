@@ -104,7 +104,7 @@ impl Cycle for Option<FloorVisibility> {
     fn label(&self) -> &'static str {
         match self {
             Some(v) => v.label(),
-            None => "global",
+            None => "global default",
         }
     }
 }

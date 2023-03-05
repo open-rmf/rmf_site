@@ -7,11 +7,11 @@
    viewBox="0 0 33.866666 33.866668"
    version="1.1"
    id="svg5"
-   inkscape:export-filename="/yui/projects/site/src/rmf_site/assets/textures/hidden.png"
+   inkscape:export-filename="/yui/projects/site/src/rmf_site/assets/textures/to_top.png"
    inkscape:export-xdpi="96"
    inkscape:export-ydpi="96"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
-   sodipodi:docname="hidden.svg"
+   sodipodi:docname="top.svg"
    xmlns:inkscape="http://www.inkscape.org/namespaces/inkscape"
    xmlns:sodipodi="http://sodipodi.sourceforge.net/DTD/sodipodi-0.dtd"
    xmlns="http://www.w3.org/2000/svg"
@@ -31,11 +31,11 @@
      showguides="true"
      inkscape:guide-bbox="true"
      inkscape:snap-global="true"
-     inkscape:zoom="6.3496762"
-     inkscape:cx="54.884688"
-     inkscape:cy="61.184222"
-     inkscape:window-width="1521"
-     inkscape:window-height="1082"
+     inkscape:zoom="3.174838"
+     inkscape:cx="72.129664"
+     inkscape:cy="52.128644"
+     inkscape:window-width="2216"
+     inkscape:window-height="1420"
      inkscape:window-x="26"
      inkscape:window-y="23"
      inkscape:window-maximized="0"
@@ -43,13 +43,6 @@
      inkscape:snap-bbox="false"
      inkscape:snap-page="true"
      inkscape:snap-intersection-paths="true">
-    <sodipodi:guide
-       position="16.933333,5.5562501"
-       orientation="0,1"
-       id="guide1297"
-       inkscape:label=""
-       inkscape:locked="false"
-       inkscape:color="rgb(0,0,255)" />
     <sodipodi:guide
        position="16.933333,28.310417"
        orientation="0,1"
@@ -72,16 +65,9 @@
        inkscape:locked="false"
        inkscape:color="rgb(0,0,255)" />
     <sodipodi:guide
-       position="16.933333,25.664584"
+       position="16.933333,26.9875"
        orientation="0,1"
        id="guide1305"
-       inkscape:label=""
-       inkscape:locked="false"
-       inkscape:color="rgb(0,0,255)" />
-    <sodipodi:guide
-       position="16.933333,9.5250001"
-       orientation="0,1"
-       id="guide1307"
        inkscape:label=""
        inkscape:locked="false"
        inkscape:color="rgb(0,0,255)" />
@@ -99,6 +85,20 @@
        inkscape:label=""
        inkscape:locked="false"
        inkscape:color="rgb(0,0,255)" />
+    <sodipodi:guide
+       position="16.933333,4.2333334"
+       orientation="0,1"
+       id="guide833"
+       inkscape:label=""
+       inkscape:locked="false"
+       inkscape:color="rgb(0,0,255)" />
+    <sodipodi:guide
+       position="16.933333,15.610417"
+       orientation="0,1"
+       id="guide953"
+       inkscape:label=""
+       inkscape:locked="false"
+       inkscape:color="rgb(0,0,255)" />
   </sodipodi:namedview>
   <defs
      id="defs2" />
@@ -106,8 +106,8 @@
      inkscape:groupmode="layer"
      id="layer2"
      inkscape:label="background"
-     style="display:inline"
-     sodipodi:insensitive="true">
+     sodipodi:insensitive="true"
+     style="display:inline">
     <rect
        style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:0.529167;stroke-linecap:round;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-dashoffset:0;stroke-opacity:1;paint-order:normal"
        id="rect6916"
@@ -135,7 +135,15 @@
      style="display:inline">
     <path
        style="fill:none;stroke:#000000;stroke-width:2.64583336;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;stroke-miterlimit:4;stroke-dasharray:none"
-       d="M 5.5562501,5.5562501 H 28.310417 V 28.310417 H 5.5562501 Z"
-       id="path899" />
+       d="M 5.5562501,5.5562501 H 28.310417"
+       id="path1242" />
+    <path
+       style="fill:#000000;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;fill-opacity:1"
+       d="M 16.933333,6.8791671 5.5562501,18.25625 H 28.310417 L 16.933333,6.8791671"
+       id="path948" />
+    <path
+       style="fill:#000000;stroke:none;stroke-width:0.264583px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1;fill-opacity:1"
+       d="M 16.933333,18.25625 5.5562501,29.633334 H 28.310417 L 16.933333,18.25625"
+       id="path1016" />
   </g>
 </svg>

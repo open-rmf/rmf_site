@@ -179,11 +179,19 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
 
+                MoveLayer::to_top(
+                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
+                ).show(ui);
+
                 MoveLayer::up(
                     e, &mut self.events.layers.nav_graphs, &self.params.icons,
                 ).show(ui);
 
                 MoveLayer::down(
+                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
+                ).show(ui);
+
+                MoveLayer::to_bottom(
                     e, &mut self.events.layers.nav_graphs, &self.params.icons,
                 ).show(ui);
 
