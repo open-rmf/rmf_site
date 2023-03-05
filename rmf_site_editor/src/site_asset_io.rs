@@ -4,12 +4,12 @@ use bevy::{
     utils::{BoxedFuture, HashMap},
 };
 use dirs;
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
-use serde::Deserialize;
 
 use rmf_site_format::AssetSource;
 
@@ -58,9 +58,12 @@ impl SiteAssetIo {
         asset_name: String,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let bytes = surf::get(remote_url.clone()).recv_bytes().await.map_err(|e| {
-                AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-            })?;
+            let bytes = surf::get(remote_url.clone())
+                .recv_bytes()
+                .await
+                .map_err(|e| {
+                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+                })?;
 
             match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
                 Ok(error) => {
@@ -68,9 +71,7 @@ impl SiteAssetIo {
                         io::ErrorKind::NotFound,
                         format!(
                             "Failed to fetch asset from fuel {} [errcode {}]: {}",
-                            remote_url,
-                            error.errcode,
-                            error.msg,
+                            remote_url, error.errcode, error.msg,
                         ),
                     )));
                 }
