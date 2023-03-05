@@ -27,6 +27,7 @@ pub enum AssetSource {
     Local(String),
     Remote(String),
     Search(String),
+    Bundled(String),
 }
 
 impl AssetSource {
@@ -35,6 +36,7 @@ impl AssetSource {
             Self::Local(_) => "Local",
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
+            Self::Bundled(_) => "Bundled",
         }
     }
 }
@@ -62,6 +64,9 @@ impl From<&Path> for AssetSource {
         } else if path.starts_with("search://") {
             let without_prefix = path.to_str().unwrap().strip_prefix("search://").unwrap();
             return AssetSource::Search(String::from(without_prefix));
+        } else if path.starts_with("bundled://") {
+            let without_prefix = path.to_str().unwrap().strip_prefix("bundled://").unwrap();
+            return AssetSource::Bundled(String::from(without_prefix));
         }
         AssetSource::default()
     }
@@ -73,6 +78,7 @@ impl From<&AssetSource> for String {
             AssetSource::Remote(uri) => String::from("rmf-server://") + &uri,
             AssetSource::Local(filename) => String::from("file://") + &filename,
             AssetSource::Search(name) => String::from("search://") + &name,
+            AssetSource::Bundled(name) => String::from("bundled://") + &name,
         }
     }
 }
@@ -83,6 +89,7 @@ pub struct RecallAssetSource {
     pub filename: Option<String>,
     pub remote_uri: Option<String>,
     pub search_name: Option<String>,
+    pub bundled_name: Option<String>,
 }
 
 impl Recall for RecallAssetSource {
@@ -98,6 +105,9 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Search(name) => {
                 self.search_name = Some(name.clone());
+            }
+            AssetSource::Bundled(name) => {
+                self.bundled_name = Some(name.clone());
             }
         }
     }
