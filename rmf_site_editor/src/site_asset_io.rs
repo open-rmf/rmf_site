@@ -9,6 +9,7 @@ use std::fs;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use serde::Deserialize;
 
 use rmf_site_format::AssetSource;
 
@@ -27,6 +28,12 @@ struct SiteAssetIo {
 const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
 const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
 
+#[derive(Deserialize)]
+struct FuelErrorMsg {
+    errcode: u32,
+    msg: String,
+}
+
 impl SiteAssetIo {
     fn load_from_file(&self, path: PathBuf) -> Result<Vec<u8>, AssetIoError> {
         let mut bytes = Vec::new();
@@ -43,6 +50,43 @@ impl SiteAssetIo {
             }
         }
         Ok(bytes)
+    }
+
+    fn fetch_asset<'a>(
+        &'a self,
+        remote_url: String,
+        asset_name: String,
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(async move {
+            let bytes = surf::get(remote_url.clone()).recv_bytes().await.map_err(|e| {
+                AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+            })?;
+
+            match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
+                Ok(error) => {
+                    return Err(AssetIoError::Io(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!(
+                            "Failed to fetch asset from fuel {} [errcode {}]: {}",
+                            remote_url,
+                            error.errcode,
+                            error.msg,
+                        ),
+                    )));
+                }
+                Err(_) => {
+                    // This is okay. When a GET from fuel was successful, it
+                    // will not return a JSON that can be interpreted as a
+                    // FuelErrorMsg
+                }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.save_to_cache(&asset_name, &bytes);
+            }
+            Ok(bytes)
+        })
     }
 
     fn get_path_from_env(&self) -> Result<PathBuf, env::VarError> {
@@ -64,7 +108,7 @@ impl SiteAssetIo {
         }
     }
 
-    fn generate_asset_uri(&self, name: &String) -> Result<String, AssetIoError> {
+    fn generate_remote_asset_url(&self, name: &String) -> Result<String, AssetIoError> {
         // Expected format:  OrgName/ModelName.glb
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
@@ -100,7 +144,6 @@ impl SiteAssetIo {
             "{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
             FUEL_BASE_URI, org_name, model_name
         );
-        println!("generated fuel URI: {name} -> {uri}");
         return Ok(uri);
     }
 
@@ -127,12 +170,11 @@ impl SiteAssetIo {
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         let path_str = path.to_str().unwrap();
-        println!("SiteAssetIo looking up: {path_str}");
 
         let asset_source = AssetSource::from(path);
         match asset_source {
-            AssetSource::Remote(remote_url) => {
-                let uri: String = match self.generate_asset_uri(&remote_url) {
+            AssetSource::Remote(asset_name) => {
+                let remote_url: String = match self.generate_remote_asset_url(&asset_name) {
                     Ok(uri) => uri,
                     Err(e) => return Box::pin(async move { Err(e) }),
                 };
@@ -141,25 +183,14 @@ impl AssetIo for SiteAssetIo {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
-                    asset_path.push(PathBuf::from(&remote_url));
+                    asset_path.push(PathBuf::from(&asset_name));
                     if asset_path.exists() {
                         return Box::pin(async move { self.load_from_file(asset_path) });
                     }
                 }
 
                 // Get from remote server
-                Box::pin(async move {
-                    println!("Attempting to fetch remote asset: {uri}");
-                    let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
-                        AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                    })?;
-
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        self.save_to_cache(&remote_url, &bytes);
-                    }
-                    Ok(bytes)
-                })
+                self.fetch_asset(remote_url, asset_name)
             }
             AssetSource::Local(filename) => Box::pin(async move {
                 let mut full_path = PathBuf::new();
@@ -178,7 +209,7 @@ impl AssetIo for SiteAssetIo {
                     });
                 }
             }
-            AssetSource::Search(name) => {
+            AssetSource::Search(asset_name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
@@ -189,7 +220,7 @@ impl AssetIo for SiteAssetIo {
                 match self.get_path_from_env() {
                     Ok(mut path) => {
                         // Check if file exists
-                        path.push(&name);
+                        path.push(&asset_name);
                         if path.exists() {
                             return Box::pin(async move { self.load_from_file(path) });
                         }
@@ -201,38 +232,20 @@ impl AssetIo for SiteAssetIo {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
-                    asset_path.push(PathBuf::from(&name));
+                    asset_path.push(PathBuf::from(&asset_name));
                     if asset_path.exists() {
                         return Box::pin(async move { self.load_from_file(asset_path) });
                     }
                 }
 
-                let uri = match self.generate_asset_uri(&name) {
+                let remote_url = match self.generate_remote_asset_url(&asset_name) {
                     Ok(uri) => uri,
                     Err(e) => return Box::pin(async move { Err(e) }),
                 };
 
-                // Fetch from remote server
-                Box::pin(async move {
-                    println!("Attempting to fetch searched asset: {uri}");
-                    let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
-                        AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                    })?;
-
-                    /*
-                    TODO: handle HTTP 404 correctly from Fuel
-
-                    Somehow at the moment the HTTP 404 is being turned into a JSON
-                    object and saved to disk, which results in a later failure when
-                    that is attempted to be parsed as GLB
-                    */
-
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        self.save_to_cache(&name, &bytes);
-                    }
-                    Ok(bytes)
-                })
+                // It cannot be found locally, so let's try to fetch it from the
+                // remote server
+                self.fetch_asset(remote_url, asset_name)
             }
         }
     }
