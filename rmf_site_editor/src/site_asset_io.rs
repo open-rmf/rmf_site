@@ -71,39 +71,56 @@ impl SiteAssetIo {
         let name_no_suffix = match name.strip_suffix(".glb") {
             Some(s) => s,
             None => {
-                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
             }
         };
         let mut tokens = name_no_suffix.split("/");
         let org_name = match tokens.next() {
             Some(token) => token,
             None => {
-                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
             }
         };
         let model_name = match tokens.next() {
             Some(token) => token,
             None => {
-                return Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Unable to parse into org/model names: {name}"))));
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
             }
         };
-        let uri = format!("{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
-            FUEL_BASE_URI,
-            org_name,
-            model_name);
+        let uri = format!(
+            "{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
+            FUEL_BASE_URI, org_name, model_name
+        );
         println!("generated fuel URI: {name} -> {uri}");
         return Ok(uri);
     }
 
     fn add_bundled_assets(&mut self) {
-        self.bundled_assets.insert("textures/default.png".to_string(),
-            include_bytes!("../../assets/textures/default.png").to_vec());
-        self.bundled_assets.insert("textures/select.png".to_string(),
-            include_bytes!("../../assets/textures/select.png").to_vec());
-        self.bundled_assets.insert("textures/trash.png".to_string(),
-            include_bytes!("../../assets/textures/trash.png").to_vec());
-        self.bundled_assets.insert("textures/edit.png".to_string(),
-            include_bytes!("../../assets/textures/edit.png").to_vec());
+        self.bundled_assets.insert(
+            "textures/default.png".to_string(),
+            include_bytes!("../../assets/textures/default.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/select.png".to_string(),
+            include_bytes!("../../assets/textures/select.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/trash.png".to_string(),
+            include_bytes!("../../assets/textures/trash.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/edit.png".to_string(),
+            include_bytes!("../../assets/textures/edit.png").to_vec(),
+        );
     }
 }
 
@@ -153,7 +170,12 @@ impl AssetIo for SiteAssetIo {
                 if self.bundled_assets.contains_key(&filename) {
                     return Box::pin(async move { Ok(self.bundled_assets[&filename].clone()) });
                 } else {
-                    return Box::pin(async move { Err(AssetIoError::Io(io::Error::new(io::ErrorKind::Other, format!("Bundled asset not found: {filename}")))) });
+                    return Box::pin(async move {
+                        Err(AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Bundled asset not found: {filename}"),
+                        )))
+                    });
                 }
             }
             AssetSource::Search(name) => {
@@ -187,7 +209,7 @@ impl AssetIo for SiteAssetIo {
 
                 let uri = match self.generate_asset_uri(&name) {
                     Ok(uri) => uri,
-                    Err(e) => return Box::pin(async move {Err(e)}),
+                    Err(e) => return Box::pin(async move { Err(e) }),
                 };
 
                 // Fetch from remote server
@@ -262,7 +284,10 @@ impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
         let mut asset_io = {
             let default_io = AssetPlugin::default().create_platform_default_asset_io();
-            SiteAssetIo { default_io, bundled_assets: HashMap::new() }
+            SiteAssetIo {
+                default_io,
+                bundled_assets: HashMap::new(),
+            }
         };
         asset_io.add_bundled_assets();
 
