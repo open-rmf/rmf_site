@@ -184,6 +184,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
     let mut builder = LyonPath::builder();
     let mut first = true;
     let mut valid = true;
+    let mut reference_positions = Vec::new();
     for anchor in &anchor_path.0 {
         let p = match anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
             Ok(a) => a,
@@ -194,6 +195,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
             }
         };
 
+        reference_positions.push(p.to_array());
         if first {
             first = false;
             builder.begin(point(p.x, p.y));
@@ -201,6 +203,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
             builder.line_to(point(p.x, p.y));
         }
     }
+    let outline_buffer = make_closed_path_outline(reference_positions);
 
     if !valid {
         return make_fallback_floor_mesh_near_path(entity, anchor_path, anchors);
@@ -229,24 +232,19 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
     }
 
     let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(|v| [v.x, v.y, 0.]).collect();
-
     let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(|_| [0., 0., 1.]).collect();
-
     let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(|v| [v.x, v.y]).collect();
-
-    let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
     for i in 0..buffers.indices.len() / 3 {
         let i1 = 3 * i + 1;
         let i2 = 3 * i + 2;
         buffers.indices.swap(i1, i2);
     }
     let indices = buffers.indices.drain(..).map(|v| v as u32).collect();
-    mesh.set_indices(Some(Indices::U32(indices)));
-    mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
-    mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
 
-    mesh
+    MeshBuffer::new(positions, normals, indices)
+        .with_uv(uv)
+        .merge_with(outline_buffer)
+        .into()
 }
 
 fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {

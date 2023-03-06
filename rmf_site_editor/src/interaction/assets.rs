@@ -25,7 +25,7 @@ pub struct InteractionAssets {
     pub halo_mesh: Handle<Mesh>,
     pub halo_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
-    pub flat_square_mesh: Handle<Mesh>,
+    // pub flat_square_mesh: Handle<Mesh>,
     pub point_light_socket_mesh: Handle<Mesh>,
     pub point_light_shine_mesh: Handle<Mesh>,
     pub spot_light_cover_mesh: Handle<Mesh>,
@@ -154,7 +154,7 @@ impl FromWorld for InteractionAssets {
             )
             .into(),
         );
-        let spot_light_shine_mesh = meshes.add(
+        let spot_light_shine_mesh = meshes.add(Mesh::from(
             make_bottom_circle(
                 Circle {
                     radius: 0.05,
@@ -168,19 +168,16 @@ impl FromWorld for InteractionAssets {
                     height: 0.04,
                 },
                 32,
-            ))
-            .into(),
-        );
-        let directional_light_cover_mesh = meshes.add(
+            )),
+        ).with_generated_outline_normals().unwrap());
+        let directional_light_cover_mesh = meshes.add(Mesh::from(
             make_cylinder(0.01, 0.1)
-                .transform_by(Affine3A::from_translation(0.01 * Vec3::Z))
-                .into(),
-        );
-        let directional_light_shine_mesh = meshes.add(
+                .transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
+        ).with_generated_outline_normals().unwrap());
+        let directional_light_shine_mesh = meshes.add(Mesh::from(
             make_cylinder(0.01, 0.1)
-                .transform_by(Affine3A::from_translation(-0.01 * Vec3::Z))
-                .into(),
-        );
+                .transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
+        ).with_generated_outline_normals().unwrap());
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -255,7 +252,7 @@ impl FromWorld for InteractionAssets {
             halo_mesh,
             halo_material,
             arrow_mesh,
-            flat_square_mesh,
+            // flat_square_mesh,
             point_light_socket_mesh,
             point_light_shine_mesh,
             spot_light_cover_mesh,

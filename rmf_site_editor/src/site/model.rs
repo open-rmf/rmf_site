@@ -20,6 +20,7 @@ use crate::{
     site::{Category, PreventDeletion},
 };
 use bevy::{asset::LoadState, prelude::*};
+use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
@@ -164,6 +165,8 @@ pub fn make_models_selectable(
     mut commands: Commands,
     model_scene_roots: Query<(Entity, &Selectable), (With<ModelSceneRoot>, Changed<Children>)>,
     all_children: Query<&Children>,
+    mesh_handles: Query<&Handle<Mesh>>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
     // If the children of a model scene root changed, then we assume that the
     // scene was just populated with its meshes and that all its children should
@@ -172,7 +175,7 @@ pub fn make_models_selectable(
     // we may want to reconsider this in the future.
     for (model_scene_root, selectable) in &model_scene_roots {
         // Use a small vec here to try to dodge heap allocation if possible.
-        // TODO(MXG): Run some tests to see if an allocation of 32 is typically
+        // TODO(MXG): Run some tests to see if an allocation of 16 is typically
         // sufficient.
         let mut queue: SmallVec<[Entity; 16]> = SmallVec::new();
         queue.push(model_scene_root);
@@ -182,6 +185,17 @@ pub fn make_models_selectable(
                 .entity(e)
                 .insert(selectable.clone())
                 .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
+
+            if let Ok(mesh_handle) = mesh_handles.get(e) {
+                if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
+                    if mesh.generate_outline_normals().is_err() {
+                        println!(
+                            "WARNING: Unable to generate outline normals for \
+                            a model mesh"
+                        );
+                    }
+                }
+            }
 
             if let Ok(children) = all_children.get(e) {
                 for child in children {

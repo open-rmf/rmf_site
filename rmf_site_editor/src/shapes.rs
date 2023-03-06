@@ -23,7 +23,20 @@ use bevy::{
         primitives::Aabb,
     },
 };
+use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use rmf_site_format::Angle;
+use bevy_mod_outline::{OutlineMeshExt, GenerateOutlineNormalsError};
+
+pub(crate) trait WithOutlineMeshExt: Sized {
+    fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
+}
+
+impl WithOutlineMeshExt for Mesh {
+    fn with_generated_outline_normals(mut self) -> Result<Self, GenerateOutlineNormalsError> {
+        self.generate_outline_normals()?;
+        Ok(self)
+    }
+}
 
 #[derive(Default, Debug, Clone)]
 pub(crate) struct MeshBuffer {
@@ -32,6 +45,7 @@ pub(crate) struct MeshBuffer {
     indices: Vec<u32>,
     outline: Vec<u32>,
     uv: Option<Vec<[f32; 2]>>,
+    copy_outline_normals: bool,
 }
 
 impl MeshBuffer {
@@ -50,11 +64,17 @@ impl MeshBuffer {
             indices,
             outline: Vec::new(),
             uv: None,
+            copy_outline_normals: false,
         }
     }
 
     pub(crate) fn empty() -> Self {
         Self::default()
+    }
+
+    pub(crate) fn copy_outline_normals(mut self) -> Self {
+        self.copy_outline_normals = true;
+        self
     }
 
     pub(crate) fn with_outline(mut self, outline: Vec<u32>) -> Self {
@@ -139,6 +159,25 @@ impl MeshBuffer {
                         "Unsupported primitive topology while merging mesh: {:?}",
                         other
                     );
+                }
+            }
+
+            if self.copy_outline_normals {
+                if let Some(VertexAttributeValues::Float32x3(current_outline_normals)) =
+                    mesh.attribute_mut(ATTRIBUTE_OUTLINE_NORMAL)
+                {
+                    current_outline_normals.extend(self.normals.clone().into_iter());
+                } else {
+                    let mut normals = if let Some(VertexAttributeValues::Float32x3(current_normals)) =
+                        mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+                    {
+                        current_normals.clone()
+                    } else {
+                        Vec::new()
+                    };
+
+                    normals.extend(self.normals.clone().into_iter());
+                    mesh.insert_attribute(ATTRIBUTE_OUTLINE_NORMAL, normals);
                 }
             }
 
@@ -1030,4 +1069,111 @@ pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshB
     }
 
     mesh
+}
+
+pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> MeshBuffer {
+    let num_positions = initial_positions.len() as u32;
+    let mut positions = Vec::new();
+    let mut normals = Vec::new();
+    let mut uv = Vec::new();
+    let mut indices = Vec::new();
+    let z2 = [0.0, 0.0];
+
+    // Close the loop by repeating the first and last values at the end and start, respectively
+    if let Some(pf) = initial_positions.last() {
+        let pf = *pf;
+        if let Some(pi) = initial_positions.first() {
+            let pi = *pi;
+            initial_positions.push(pi);
+        }
+        initial_positions.insert(0, pf);
+    }
+
+    // for (i, [p0, p1, p2]) in initial_positions.array_windows::<3>().enumerate() {
+    for (i, window) in initial_positions.windows(3).enumerate() {
+        let i = i as u32;
+        let p0 = window[0];
+        let p1 = window[1];
+        let p2 = window[2];
+
+        let p = p1;
+        let p0 = Vec3::new(p0[0], p0[1], 0.0);
+        let p1 = Vec3::new(p1[0], p1[1], 0.0);
+        let p2 = Vec3::new(p2[0], p2[1], 0.0);
+        let v0 = match (p1 - p0).try_normalize() {
+            Some(v) => v,
+            None => continue,
+        };
+        let v1 = match (p2 - p1).try_normalize() {
+            Some(v) => v,
+            None => continue,
+        };
+
+        // n: normal
+        let n = Vec3::Z;
+        let u = n.cross(v0).normalize();
+        let w = n.cross(v1).normalize();
+
+        // b: bisector
+        let b = match (u + w).try_normalize() {
+            Some(b) => b,
+            None => {
+                // This means that u and w are pointing in opposite directions,
+                // so the next vertex is in a perfect 180 back towards the
+                // previous vertex. We can simply use v0 as the bisecting
+                // vector.
+                v0
+            }
+        };
+
+        positions.extend([p, p, p, p, p, p, p, p]);
+        normals.extend([u, -u, w, -w, b, -b, n, -n].map(Into::<[f32; 3]>::into));
+        uv.extend([z2, z2, z2, z2, z2, z2, z2, z2]);
+
+        let u0 = 0;
+        let u1 = 1;
+        let w0 = 2;
+        let w1 = 3;
+        let b0 = 4;
+        let b1 = 5;
+        let n0 = 6;
+        let n1 = 7;
+        let i_delta = 8;
+
+        // Current base index
+        let c = i_delta*i;
+        // Next base index
+        let f = if i == num_positions-1 {
+            // We have reached the last iteration so we should wrap around and
+            // connect to the first set of vertices.
+            0
+        } else {
+            i_delta*(i+1)
+        };
+
+        if w.cross(b).dot(n) < 0.0 {
+            // left turn
+            indices.extend([
+                c+u1, c+b1, c+n0, c+b1, c+w1, c+n0,
+                c+u1, c+n1, c+b1, c+b1, c+n1, c+w1,
+            ]);
+        } else {
+            // right turn
+            indices.extend([
+                c+u0, c+n0, c+b0, c+b0, c+n0, c+w0,
+                c+u0, c+b0, c+n1, c+b0, c+w0, c+n1,
+            ]);
+        }
+
+        indices.extend([
+            c+w0, c+n0, f+n0, c+w0, f+n0, f+u0,
+            c+w1, f+n0, c+n0, c+w1, f+u1, f+n0,
+            c+w0, f+u0, f+n1, c+w0, f+n1, c+n1,
+            c+w1, f+n1, f+u1, c+w1, c+n1, f+n1,
+        ]);
+    }
+
+    MeshBuffer::new(positions, normals, indices)
+        .with_uv(uv)
+        .copy_outline_normals()
 }
