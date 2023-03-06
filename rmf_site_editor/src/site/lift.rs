@@ -223,7 +223,7 @@ pub fn update_lift_cabin(
                                             .contains(&level)
                                     })
                                     .is_some();
-                                aabb.center.z = LANE_LAYER_START / 2.0;
+                                aabb.center.z = LANE_LAYER_LIMIT;
                                 let mesh = make_flat_mesh_for_aabb(aabb);
                                 parent
                                     .spawn(PbrBundle {
