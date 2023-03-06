@@ -24,8 +24,8 @@ use bevy::{
     },
 };
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
+use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
 use rmf_site_format::Angle;
-use bevy_mod_outline::{OutlineMeshExt, GenerateOutlineNormalsError};
 
 pub(crate) trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -168,13 +168,14 @@ impl MeshBuffer {
                 {
                     current_outline_normals.extend(self.normals.clone().into_iter());
                 } else {
-                    let mut normals = if let Some(VertexAttributeValues::Float32x3(current_normals)) =
-                        mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
-                    {
-                        current_normals.clone()
-                    } else {
-                        Vec::new()
-                    };
+                    let mut normals =
+                        if let Some(VertexAttributeValues::Float32x3(current_normals)) =
+                            mesh.attribute(Mesh::ATTRIBUTE_NORMAL)
+                        {
+                            current_normals.clone()
+                        } else {
+                            Vec::new()
+                        };
 
                     normals.extend(self.normals.clone().into_iter());
                     mesh.insert_attribute(ATTRIBUTE_OUTLINE_NORMAL, normals);
@@ -1141,35 +1142,75 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
         let i_delta = 8;
 
         // Current base index
-        let c = i_delta*i;
+        let c = i_delta * i;
         // Next base index
-        let f = if i == num_positions-1 {
+        let f = if i == num_positions - 1 {
             // We have reached the last iteration so we should wrap around and
             // connect to the first set of vertices.
             0
         } else {
-            i_delta*(i+1)
+            i_delta * (i + 1)
         };
 
         if w.cross(b).dot(n) < 0.0 {
             // left turn
             indices.extend([
-                c+u1, c+b1, c+n0, c+b1, c+w1, c+n0,
-                c+u1, c+n1, c+b1, c+b1, c+n1, c+w1,
+                c + u1,
+                c + b1,
+                c + n0,
+                c + b1,
+                c + w1,
+                c + n0,
+                c + u1,
+                c + n1,
+                c + b1,
+                c + b1,
+                c + n1,
+                c + w1,
             ]);
         } else {
             // right turn
             indices.extend([
-                c+u0, c+n0, c+b0, c+b0, c+n0, c+w0,
-                c+u0, c+b0, c+n1, c+b0, c+w0, c+n1,
+                c + u0,
+                c + n0,
+                c + b0,
+                c + b0,
+                c + n0,
+                c + w0,
+                c + u0,
+                c + b0,
+                c + n1,
+                c + b0,
+                c + w0,
+                c + n1,
             ]);
         }
 
         indices.extend([
-            c+w0, c+n0, f+n0, c+w0, f+n0, f+u0,
-            c+w1, f+n0, c+n0, c+w1, f+u1, f+n0,
-            c+w0, f+u0, f+n1, c+w0, f+n1, c+n1,
-            c+w1, f+n1, f+u1, c+w1, c+n1, f+n1,
+            c + w0,
+            c + n0,
+            f + n0,
+            c + w0,
+            f + n0,
+            f + u0,
+            c + w1,
+            f + n0,
+            c + n0,
+            c + w1,
+            f + u1,
+            f + n0,
+            c + w0,
+            f + u0,
+            f + n1,
+            c + w0,
+            f + n1,
+            c + n1,
+            c + w1,
+            f + n1,
+            f + u1,
+            c + w1,
+            c + n1,
+            f + n1,
         ]);
     }
 

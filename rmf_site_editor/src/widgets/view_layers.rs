@@ -16,16 +16,13 @@
 */
 
 use crate::{
-    site::*,
     interaction::Selection,
-    widgets::{AppEvents, Icons, inspector::InspectLayer},
     recency::RecencyRanking,
+    site::*,
+    widgets::{inspector::InspectLayer, AppEvents, Icons},
 };
-use bevy::{
-    ecs::system::SystemParam,
-    prelude::*,
-};
-use bevy_egui::egui::{Ui, CollapsingHeader, Button};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
 #[derive(SystemParam)]
 pub struct LayersParams<'w, 's> {
@@ -43,10 +40,7 @@ pub struct ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
 }
 
 impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(
-        params: &'a LayersParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a LayersParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
@@ -63,7 +57,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                     ui.horizontal(|ui| {
                         let vis = *self.events.layers.global_floor_vis;
                         let icon = self.params.icons.floor_visibility_of(Some(vis));
-                        let resp = ui.add(Button::image_and_text(icon, [18., 18.], "Global"))
+                        let resp = ui
+                            .add(Button::image_and_text(icon, [18., 18.], "Global"))
                             .on_hover_text(format!("Change to {}", vis.next().label()));
                         if resp.clicked() {
                             *self.events.layers.global_floor_vis = vis.next();
@@ -82,22 +77,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         }
     }
 
-    fn show_rankings(
-        &mut self,
-        ranking: &Vec<Entity>,
-        is_floor: bool,
-        ui: &mut Ui,
-    ) {
+    fn show_rankings(&mut self, ranking: &Vec<Entity>, is_floor: bool, ui: &mut Ui) {
         ui.vertical(|ui| {
             for e in ranking.iter().rev() {
                 ui.horizontal(|ui| {
-                    let mut layer = InspectLayer::new(
-                        *e,
-                        &self.params.icons,
-                        &mut self.events,
-                    ).with_selecting(
-                        self.params.site_id.get(*e).ok().flatten().copied()
-                    );
+                    let mut layer = InspectLayer::new(*e, &self.params.icons, &mut self.events)
+                        .with_selecting(self.params.site_id.get(*e).ok().flatten().copied());
 
                     if is_floor {
                         layer = layer.as_floor(self.params.floor_visibility.get(*e).ok().copied());

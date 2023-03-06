@@ -90,8 +90,8 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+use crate::recency::{RecencyRank, RecencyRankingPlugin};
 pub use rmf_site_format::*;
-use crate::recency::{RecencyRankingPlugin, RecencyRank};
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 

@@ -20,12 +20,12 @@ use crate::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
     occupancy::CalculateGrid,
+    recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentSite, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability, FloorVisibility,
+        CurrentSite, Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
+        SiteState, ToggleLiftDoorAvailability,
     },
-    recency::ChangeRank,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{

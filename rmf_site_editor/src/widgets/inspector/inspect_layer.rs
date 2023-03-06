@@ -16,15 +16,13 @@
 */
 
 use crate::{
-    site::{FloorVisibility, Change, Cycle, SiteID},
-    recency::ChangeRank,
     interaction::Hover,
-    widgets::{AppEvents, Icons, MoveLayer, inspector::SelectionWidget},
+    recency::ChangeRank,
+    site::{Change, Cycle, FloorVisibility, SiteID},
+    widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
 };
-use bevy::{
-    prelude::*,
-};
-use bevy_egui::egui::{Ui, ImageButton};
+use bevy::prelude::*;
+use bevy_egui::egui::{ImageButton, Ui};
 
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
@@ -39,12 +37,14 @@ pub struct InspectLayer<'a, 'w, 's> {
 }
 
 impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
-    pub fn new(
-        entity: Entity,
-        icons: &'a Icons,
-        events: &'a mut AppEvents<'w, 's>,
-    ) -> Self {
-        Self { entity, icons, events, floor_vis: None, site_id: None }
+    pub fn new(entity: Entity, icons: &'a Icons, events: &'a mut AppEvents<'w, 's>) -> Self {
+        Self {
+            entity,
+            icons,
+            events,
+            floor_vis: None,
+            site_id: None,
+        }
     }
 
     pub fn with_selecting(mut self, site_id: Option<SiteID>) -> Self {
@@ -60,7 +60,8 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
     pub fn show(self, ui: &mut Ui) {
         if let Some(vis) = self.floor_vis {
             let icon = self.icons.floor_visibility_of(vis);
-            let resp = ui.add(ImageButton::new(icon, [18., 18.]))
+            let resp = ui
+                .add(ImageButton::new(icon, [18., 18.]))
                 .on_hover_text(format!("Change to {}", vis.next().label()));
             if resp.hovered() {
                 self.events.request.hover.send(Hover(Some(self.entity)));
@@ -68,12 +69,15 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
             if resp.clicked() {
                 match vis.next() {
                     Some(v) => {
-                        self.events.layers.change_floor_vis.send(
-                            Change::new(v, self.entity).or_insert()
-                        );
+                        self.events
+                            .layers
+                            .change_floor_vis
+                            .send(Change::new(v, self.entity).or_insert());
                     }
                     None => {
-                        self.events.commands.entity(self.entity)
+                        self.events
+                            .commands
+                            .entity(self.entity)
                             .remove::<FloorVisibility>();
                     }
                 }
@@ -86,7 +90,7 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
                 &self.icons,
                 &mut self.events.layers.floors,
                 &mut self.events.request.hover,
-                ui
+                ui,
             );
         } else {
             Self::move_layers(
@@ -94,18 +98,12 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
                 &self.icons,
                 &mut self.events.layers.drawings,
                 &mut self.events.request.hover,
-                ui
+                ui,
             );
         };
 
         if let Some(site_id) = self.site_id {
-            SelectionWidget::new(
-                self.entity,
-                site_id,
-                self.icons,
-                self.events,
-            )
-            .show(ui);
+            SelectionWidget::new(self.entity, site_id, self.icons, self.events).show(ui);
         }
     }
 

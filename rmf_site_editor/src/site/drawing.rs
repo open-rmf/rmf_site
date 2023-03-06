@@ -19,8 +19,8 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_site_path, Category, CurrentSite, DefaultFile, RecencyRank,
-        FLOOR_LAYER_START, FloorVisibility,
+        get_current_site_path, Category, CurrentSite, DefaultFile, FloorVisibility, RecencyRank,
+        FLOOR_LAYER_START,
     },
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
@@ -39,9 +39,8 @@ pub struct DrawingSegments {
 pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
-    rank
-    .map(|r| r.proportion() * (FLOOR_LAYER_START - DRAWING_LAYER_START) + DRAWING_LAYER_START)
-    .unwrap_or(DRAWING_LAYER_START)
+    rank.map(|r| r.proportion() * (FLOOR_LAYER_START - DRAWING_LAYER_START) + DRAWING_LAYER_START)
+        .unwrap_or(DRAWING_LAYER_START)
 }
 
 pub fn add_drawing_visuals(
@@ -122,29 +121,26 @@ pub fn handle_loaded_drawing(
                 } else {
                     let z = drawing_layer_height(rank.get(entity).ok());
                     let mut cmd = commands.entity(entity);
-                    let leaf = cmd
-                        .add_children(|p| {
-                            p
-                            .spawn(PbrBundle {
-                                mesh,
-                                material: materials.add(StandardMaterial {
-                                    base_color_texture: Some(handle.clone()),
-                                    ..default()
-                                }),
-                                transform: Transform::from_xyz(0.0, 0.0, z),
+                    let leaf = cmd.add_children(|p| {
+                        p.spawn(PbrBundle {
+                            mesh,
+                            material: materials.add(StandardMaterial {
+                                base_color_texture: Some(handle.clone()),
                                 ..default()
-                            })
-                            .id()
-                        });
-
-                    cmd
-                        .insert(SpatialBundle {
-                            transform,
+                            }),
+                            transform: Transform::from_xyz(0.0, 0.0, z),
                             ..default()
                         })
-                        .insert(DrawingSegments { leaf })
-                        .insert(Selectable::new(entity))
-                        .insert(Category::Drawing);
+                        .id()
+                    });
+
+                    cmd.insert(SpatialBundle {
+                        transform,
+                        ..default()
+                    })
+                    .insert(DrawingSegments { leaf })
+                    .insert(Selectable::new(entity))
+                    .insert(Category::Drawing);
                 }
             }
         }
@@ -180,7 +176,10 @@ pub fn update_drawing_visuals(
 }
 
 pub fn update_drawing_rank(
-    changed_rank: Query<(&DrawingSegments, &RecencyRank<DrawingMarker>), Changed<RecencyRank<DrawingMarker>>>,
+    changed_rank: Query<
+        (&DrawingSegments, &RecencyRank<DrawingMarker>),
+        Changed<RecencyRank<DrawingMarker>>,
+    >,
     mut transforms: Query<&mut Transform>,
 ) {
     for (segments, rank) in &changed_rank {

@@ -27,8 +27,8 @@ use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
-mod recency;
 mod demo_world;
+mod recency;
 mod shapes;
 
 mod main_menu;

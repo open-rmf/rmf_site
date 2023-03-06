@@ -143,10 +143,14 @@ impl FromWorld for SiteAssets {
         let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
-            radius: 0.05, // TODO(MXG): Make the vertex radius configurable
-            ..Default::default()
-        }).with_generated_outline_normals().unwrap());
+        let level_anchor_mesh = meshes.add(
+            Mesh::from(shape::UVSphere {
+                radius: 0.05, // TODO(MXG): Make the vertex radius configurable
+                ..Default::default()
+            })
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
         let lift_anchor_mesh = meshes
             .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
                 Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
@@ -176,17 +180,21 @@ impl FromWorld for SiteAssets {
         );
         let box_mesh = meshes.add(
             Mesh::from(shape::Box::new(1., 1., 1.))
-            .with_generated_outline_normals().unwrap()
+                .with_generated_outline_normals()
+                .unwrap(),
         );
         let location_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
-                .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z))
-            ).with_generated_outline_normals().unwrap(),
+                    .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
         );
         let physical_camera_mesh = meshes.add(
             make_physical_camera_mesh()
-            .with_generated_outline_normals().unwrap()
+                .with_generated_outline_normals()
+                .unwrap(),
         );
 
         Self {

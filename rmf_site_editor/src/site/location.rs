@@ -167,7 +167,13 @@ pub fn update_visibility_for_locations(
         Entity,
         (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
     >,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>)>,
+    graph_changed_visibility: Query<
+        (),
+        (
+            With<NavGraphMarker>,
+            Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
+        ),
+    >,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();

@@ -16,14 +16,21 @@
 */
 
 use crate::site::*;
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
+use bevy::{ecs::system::SystemParam, prelude::*};
 
 #[derive(SystemParam)]
 pub struct GraphSelect<'w, 's> {
-    graphs: Query<'w, 's, (Entity, &'static Handle<StandardMaterial>, &'static Visibility, &'static RecencyRank<NavGraphMarker>), With<NavGraphMarker>>,
+    graphs: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static Handle<StandardMaterial>,
+            &'static Visibility,
+            &'static RecencyRank<NavGraphMarker>,
+        ),
+        With<NavGraphMarker>,
+    >,
     assets: Res<'w, SiteAssets>,
 }
 
@@ -35,10 +42,11 @@ impl<'w, 's> GraphSelect<'w, 's> {
     // sensitive to ranks.
     pub fn display_style(
         &self,
-        associated_graphs: &AssociatedGraphs<Entity>
+        associated_graphs: &AssociatedGraphs<Entity>,
     ) -> (Handle<StandardMaterial>, f32) {
         match associated_graphs {
-            AssociatedGraphs::All => self.graphs
+            AssociatedGraphs::All => self
+                .graphs
                 .iter()
                 .filter(|(_, _, v, _)| v.is_visible)
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
@@ -52,30 +60,56 @@ impl<'w, 's> GraphSelect<'w, 's> {
                         .filter(|(_, _, v, _)| v.is_visible)
                         .is_some()
                 })
-                .max_by(|a, b| self.graphs.get(**a).unwrap().3.cmp(self.graphs.get(**b).unwrap().3))
+                .max_by(|a, b| {
+                    self.graphs
+                        .get(**a)
+                        .unwrap()
+                        .3
+                        .cmp(self.graphs.get(**b).unwrap().3)
+                })
                 .map(|e| self.graphs.get(*e).map(|(_, m, _, d)| (m.clone(), *d)).ok())
                 .flatten(),
-            AssociatedGraphs::AllExcept(set) => self.graphs
+            AssociatedGraphs::AllExcept(set) => self
+                .graphs
                 .iter()
                 .filter(|(e, _, v, _)| v.is_visible && !set.contains(e))
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
                 .map(|(_, m, _, d)| (m.clone(), *d)),
         }
-        .map(|(m, d)| (m, d.proportion() * (LANE_LAYER_LIMIT - LANE_LAYER_START) + LANE_LAYER_START))
-        .unwrap_or((self.assets.unassigned_lane_material.clone(), LANE_LAYER_LIMIT))
+        .map(|(m, d)| {
+            (
+                m,
+                d.proportion() * (LANE_LAYER_LIMIT - LANE_LAYER_START) + LANE_LAYER_START,
+            )
+        })
+        .unwrap_or((
+            self.assets.unassigned_lane_material.clone(),
+            LANE_LAYER_LIMIT,
+        ))
     }
 
     pub fn should_display(&self, associated_graphs: &AssociatedGraphs<Entity>) -> bool {
         match associated_graphs {
             AssociatedGraphs::All => {
-                self.graphs.is_empty() || self.graphs.iter().find(|(_, _, v, _)| v.is_visible).is_some()
+                self.graphs.is_empty()
+                    || self
+                        .graphs
+                        .iter()
+                        .find(|(_, _, v, _)| v.is_visible)
+                        .is_some()
             }
             AssociatedGraphs::Only(set) => {
                 self.graphs.is_empty()
                     || set.is_empty()
                     || set
                         .iter()
-                        .find(|e| self.graphs.get(**e).ok().filter(|(_, _, v, _)| v.is_visible).is_some())
+                        .find(|e| {
+                            self.graphs
+                                .get(**e)
+                                .ok()
+                                .filter(|(_, _, v, _)| v.is_visible)
+                                .is_some()
+                        })
                         .is_some()
             }
             AssociatedGraphs::AllExcept(set) => {

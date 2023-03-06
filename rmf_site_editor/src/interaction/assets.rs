@@ -152,30 +152,40 @@ impl FromWorld for InteractionAssets {
             )
             .into(),
         );
-        let spot_light_shine_mesh = meshes.add(Mesh::from(
-            make_bottom_circle(
-                Circle {
-                    radius: 0.05,
-                    height: 0.0,
-                },
-                32,
+        let spot_light_shine_mesh = meshes.add(
+            Mesh::from(
+                make_bottom_circle(
+                    Circle {
+                        radius: 0.05,
+                        height: 0.0,
+                    },
+                    32,
+                )
+                .merge_with(make_top_circle(
+                    Circle {
+                        radius: 0.01,
+                        height: 0.04,
+                    },
+                    32,
+                )),
             )
-            .merge_with(make_top_circle(
-                Circle {
-                    radius: 0.01,
-                    height: 0.04,
-                },
-                32,
-            )),
-        ).with_generated_outline_normals().unwrap());
-        let directional_light_cover_mesh = meshes.add(Mesh::from(
-            make_cylinder(0.01, 0.1)
-                .transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
-        ).with_generated_outline_normals().unwrap());
-        let directional_light_shine_mesh = meshes.add(Mesh::from(
-            make_cylinder(0.01, 0.1)
-                .transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
-        ).with_generated_outline_normals().unwrap());
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
+        let directional_light_cover_mesh = meshes.add(
+            Mesh::from(
+                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
+        let directional_light_shine_mesh = meshes.add(
+            Mesh::from(
+                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()

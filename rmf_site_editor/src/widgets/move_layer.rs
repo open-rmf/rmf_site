@@ -17,8 +17,8 @@
 
 use crate::{
     interaction::Hover,
-    widgets::Icons,
     recency::{ChangeRank, RankAdjustment},
+    widgets::Icons,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ImageButton, Ui};
@@ -37,7 +37,13 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, adjustment: RankAdjustment::ToTop, hover: None }
+        Self {
+            entity,
+            rank_events,
+            icons,
+            adjustment: RankAdjustment::ToTop,
+            hover: None,
+        }
     }
 
     pub fn up(
@@ -45,7 +51,13 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, adjustment: RankAdjustment::Delta(1), hover: None }
+        Self {
+            entity,
+            rank_events,
+            icons,
+            adjustment: RankAdjustment::Delta(1),
+            hover: None,
+        }
     }
 
     pub fn down(
@@ -53,7 +65,13 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, adjustment: RankAdjustment::Delta(-1), hover: None }
+        Self {
+            entity,
+            rank_events,
+            icons,
+            adjustment: RankAdjustment::Delta(-1),
+            hover: None,
+        }
     }
 
     pub fn to_bottom(
@@ -61,7 +79,13 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons, adjustment: RankAdjustment::ToBottom, hover: None }
+        Self {
+            entity,
+            rank_events,
+            icons,
+            adjustment: RankAdjustment::ToBottom,
+            hover: None,
+        }
     }
 
     pub fn with_hover(mut self, hover: &'a mut ResMut<'w, Events<Hover>>) -> Self {
@@ -71,11 +95,15 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
 
     pub fn show(self, ui: &mut Ui) {
         let resp = ui
-            .add(ImageButton::new(self.icons.move_rank(self.adjustment), [18., 18.]))
+            .add(ImageButton::new(
+                self.icons.move_rank(self.adjustment),
+                [18., 18.],
+            ))
             .on_hover_text(self.adjustment.label());
 
         if resp.clicked() {
-            self.rank_events.send(ChangeRank::new(self.entity, self.adjustment));
+            self.rank_events
+                .send(ChangeRank::new(self.entity, self.adjustment));
         }
 
         if let Some(hover) = self.hover {

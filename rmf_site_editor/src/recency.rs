@@ -17,8 +17,8 @@
 
 use bevy::prelude::*;
 use std::{
+    collections::{HashMap, HashSet},
     marker::PhantomData,
-    collections::{HashSet, HashMap},
     ops::Deref,
 };
 
@@ -32,22 +32,26 @@ pub struct RecencyRanking<T: Component> {
 
 impl<T: Component> RecencyRanking<T> {
     pub fn new() -> Self {
-        Self { entities: default(), _ignore: default() }
+        Self {
+            entities: default(),
+            _ignore: default(),
+        }
     }
 
     pub fn entities(&self) -> &Vec<Entity> {
         &self.entities
     }
 
-    pub fn from_u32(
-        ranking: &Vec<u32>,
-        id_to_entity: &HashMap<u32, Entity>
-    ) -> Result<Self, u32> {
-        let entities: Result<Vec<Entity>, u32> = ranking.iter().map(
-            |id| id_to_entity.get(id).copied().ok_or(*id)
-        ).collect();
+    pub fn from_u32(ranking: &Vec<u32>, id_to_entity: &HashMap<u32, Entity>) -> Result<Self, u32> {
+        let entities: Result<Vec<Entity>, u32> = ranking
+            .iter()
+            .map(|id| id_to_entity.get(id).copied().ok_or(*id))
+            .collect();
         let entities = entities?;
-        Ok(Self { entities, _ignore: default() })
+        Ok(Self {
+            entities,
+            _ignore: default(),
+        })
     }
 }
 
@@ -93,7 +97,11 @@ impl<T: Component> Ord for RecencyRank<T> {
 
 impl<T: Component> RecencyRank<T> {
     fn new(rank: usize, out_of: usize) -> Self {
-        Self { rank, out_of, _ignore: default() }
+        Self {
+            rank,
+            out_of,
+            _ignore: default(),
+        }
     }
 
     pub fn rank(&self) -> usize {
@@ -118,7 +126,11 @@ pub struct ChangeRank<T: Component> {
 
 impl<T: Component> ChangeRank<T> {
     pub fn new(of: Entity, by: RankAdjustment) -> Self {
-        Self { of, by, _ignore: default() }
+        Self {
+            of,
+            by,
+            _ignore: default(),
+        }
     }
 
     pub fn of(&self) -> Entity {
@@ -169,13 +181,9 @@ pub struct RecencyRankingPlugin<T>(PhantomData<T>);
 
 impl<T: Component> Plugin for RecencyRankingPlugin<T> {
     fn build(&self, app: &mut App) {
-        app
-        .add_event::<ChangeRank<T>>()
-        .add_system(update_recency_rankings::<T>)
-        .add_system(
-            update_recency_ranks::<T>
-            .after(update_recency_rankings::<T>)
-        );
+        app.add_event::<ChangeRank<T>>()
+            .add_system(update_recency_rankings::<T>)
+            .add_system(update_recency_ranks::<T>.after(update_recency_rankings::<T>));
     }
 }
 
@@ -239,7 +247,10 @@ fn update_recency_rankings<T: Component>(
         }
     }
 
-    for e in newly_suppressed_entities.iter().chain(no_longer_relevant.iter()) {
+    for e in newly_suppressed_entities
+        .iter()
+        .chain(no_longer_relevant.iter())
+    {
         for (_, mut ranking) in &mut rankings {
             ranking.entities.retain(|check| *check != e);
         }
@@ -251,7 +262,8 @@ fn update_recency_rankings<T: Component>(
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
                 match by {
                     RankAdjustment::Delta(delta) => {
-                        if let Some(original_rank) = ranking.entities.iter().position(|e| *e == *of) {
+                        if let Some(original_rank) = ranking.entities.iter().position(|e| *e == *of)
+                        {
                             ranking.entities.retain(|e| *e != *of);
                             let new_rank = (original_rank as i64 + *delta).max(0) as usize;
                             if new_rank < ranking.entities.len() {
@@ -288,7 +300,9 @@ fn update_recency_ranks<T: Component>(
             if let Ok(mut r) = ranks.get_mut(*e) {
                 r.rank = rank;
             } else {
-                commands.entity(*e).insert(RecencyRank::<T>::new(rank, out_of));
+                commands
+                    .entity(*e)
+                    .insert(RecencyRank::<T>::new(rank, out_of));
             }
         }
     }

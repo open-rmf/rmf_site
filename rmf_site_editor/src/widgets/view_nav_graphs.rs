@@ -16,11 +16,11 @@
 */
 
 use crate::{
+    recency::RecencyRanking,
     site::{
         Change, CurrentSite, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
-    recency::RecencyRanking,
     widgets::{inspector::color_edit, AppEvents, Icons, MoveLayer},
     Autoload,
 };
@@ -90,12 +90,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
 
     pub fn show(self, ui: &mut Ui) {
         let ranking = match self.events.request.current_site.0 {
-            Some(c) => {
-                match self.params.ranking.get(c) {
-                    Ok(r) => r,
-                    Err(_) => return,
-                }
-            }
+            Some(c) => match self.params.ranking.get(c) {
+                Ok(r) => r,
+                Err(_) => return,
+            },
             None => return,
         };
         let graph_count = ranking.len();
@@ -179,21 +177,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
 
-                MoveLayer::to_top(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
-                ).show(ui);
+                MoveLayer::to_top(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
 
-                MoveLayer::up(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
-                ).show(ui);
+                MoveLayer::up(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
 
-                MoveLayer::down(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
-                ).show(ui);
+                MoveLayer::down(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
 
-                MoveLayer::to_bottom(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons,
-                ).show(ui);
+                MoveLayer::to_bottom(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
 
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);

@@ -79,7 +79,9 @@ fn update_changed_values<T: Component + Clone + Debug>(
             *new_value = change.to_value.clone();
         } else {
             if change.allow_insert {
-                commands.entity(change.for_element).insert(change.to_value.clone());
+                commands
+                    .entity(change.for_element)
+                    .insert(change.to_value.clone());
             } else {
                 println!(
                     "DEV ERROR: Unable to change {} data to {:?} for entity {:?} \

@@ -59,11 +59,7 @@ pub fn update_lane_visual_cues(
         } else if selected.cue() {
             (&site_assets.select_material, SELECTED_LANE_OFFSET, true)
         } else {
-            (
-                &site_assets.unassigned_lane_material,
-                0.0,
-                false,
-            )
+            (&site_assets.unassigned_lane_material, 0.0, false)
         };
 
         for e in pieces.outlines {

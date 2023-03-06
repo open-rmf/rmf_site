@@ -77,7 +77,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, Original, SiteID, FloorVisibility},
+    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -353,7 +353,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 InspectLiftCabin::new(selection, &self.params.component.lifts, &mut self.events)
                     .show(ui)
             {
-                self.events.change.lift_cabin.send(Change::new(new_cabin, selection));
+                self.events
+                    .change
+                    .lift_cabin
+                    .send(Change::new(new_cabin, selection));
                 ui.add_space(10.0);
             }
 

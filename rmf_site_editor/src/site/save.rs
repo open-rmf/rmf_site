@@ -22,10 +22,7 @@ use bevy::{
 use std::{collections::BTreeMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
-use crate::{
-    site::*,
-    recency::RecencyRanking,
-};
+use crate::{recency::RecencyRanking, site::*};
 use rmf_site_format::*;
 
 pub struct SaveSite {
@@ -819,10 +816,8 @@ fn generate_graph_rankings(
     world: &mut World,
     site: Entity,
 ) -> Result<Vec<u32>, SiteGenerationError> {
-    let mut state: SystemState<(
-        Query<&RecencyRanking<NavGraphMarker>>,
-        Query<&SiteID>,
-    )> = SystemState::new(world);
+    let mut state: SystemState<(Query<&RecencyRanking<NavGraphMarker>>, Query<&SiteID>)> =
+        SystemState::new(world);
 
     let (rankings, site_id) = state.get(world);
     let ranking = match rankings.get(site) {
@@ -830,12 +825,16 @@ fn generate_graph_rankings(
         Err(_) => return Ok(Vec::new()),
     };
 
-    ranking.entities().iter().map(|e|
-        site_id
-        .get(*e)
-        .map(|s| s.0)
-        .map_err(|_| SiteGenerationError::BrokenNavGraphReference(*e))
-    ).collect()
+    ranking
+        .entities()
+        .iter()
+        .map(|e| {
+            site_id
+                .get(*e)
+                .map(|s| s.0)
+                .map_err(|_| SiteGenerationError::BrokenNavGraphReference(*e))
+        })
+        .collect()
 }
 
 pub fn generate_site(

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*, recency::RecencyRanking, Autoload};
+use crate::{recency::RecencyRanking, site::*, Autoload};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use std::{collections::HashMap, path::PathBuf};
@@ -146,14 +146,20 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
                 // TODO(MXG): Log when a RecencyRanking fails to load correctly.
                 let level_entity = level_cmd
-                    .insert(RecencyRanking::<FloorMarker>::from_u32(
-                        &level_data.rankings.floors,
-                        &id_to_entity,
-                    ).unwrap_or(RecencyRanking::new()))
-                    .insert(RecencyRanking::<DrawingMarker>::from_u32(
-                        &level_data.rankings.drawings,
-                        &id_to_entity,
-                    ).unwrap_or(RecencyRanking::new()))
+                    .insert(
+                        RecencyRanking::<FloorMarker>::from_u32(
+                            &level_data.rankings.floors,
+                            &id_to_entity,
+                        )
+                        .unwrap_or(RecencyRanking::new()),
+                    )
+                    .insert(
+                        RecencyRanking::<DrawingMarker>::from_u32(
+                            &level_data.rankings.drawings,
+                            &id_to_entity,
+                        )
+                        .unwrap_or(RecencyRanking::new()),
+                    )
                     .id();
                 id_to_entity.insert(*level_id, level_entity);
                 consider_id(*level_id);
@@ -224,7 +230,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,
-        &id_to_entity
+        &id_to_entity,
     ) {
         Ok(r) => r,
         Err(id) => {

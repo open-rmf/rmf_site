@@ -93,7 +93,6 @@ pub struct RankingsInLevel {
 
 impl RankingsInLevel {
     pub fn is_empty(&self) -> bool {
-        self.floors.is_empty()
-        && self.drawings.is_empty()
+        self.floors.is_empty() && self.drawings.is_empty()
     }
 }

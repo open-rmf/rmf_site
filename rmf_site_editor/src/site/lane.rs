@@ -247,14 +247,8 @@ pub fn update_changed_lane(
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible = should_display_lane(
-            edge,
-            associated,
-            &parents,
-            &levels,
-            &current_level,
-            &graphs,
-        );
+        let is_visible =
+            should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
         }
@@ -322,21 +316,21 @@ pub fn update_visibility_for_lanes(
     >,
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
     mut transforms: Query<&mut Transform>,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>)>,
+    graph_changed_visibility: Query<
+        (),
+        (
+            With<NavGraphMarker>,
+            Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
+        ),
+    >,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let is_visible = should_display_lane(
-                edge,
-                associated,
-                &parents,
-                &levels,
-                &current_level,
-                &graphs,
-            );
+            let is_visible =
+                should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
             }

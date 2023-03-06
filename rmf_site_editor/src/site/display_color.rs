@@ -40,4 +40,3 @@ pub fn update_material_for_display_color(
         }
     }
 }
-

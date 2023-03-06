@@ -91,12 +91,10 @@ impl Cycle for Option<FloorVisibility> {
     type Value = Self;
     fn next(&self) -> Self {
         match self {
-            Some(v) => {
-                match v {
-                    FloorVisibility::Hidden => None,
-                    _ => Some(v.next()),
-                }
-            }
+            Some(v) => match v {
+                FloorVisibility::Hidden => None,
+                _ => Some(v.next()),
+            },
             None => Some(FloorVisibility::Opaque),
         }
     }
@@ -248,9 +246,8 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
 }
 
 fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
-    rank
-    .map(|r| r.proportion() * (LANE_LAYER_START - FLOOR_LAYER_START) + FLOOR_LAYER_START)
-    .unwrap_or(FLOOR_LAYER_START)
+    rank.map(|r| r.proportion() * (LANE_LAYER_START - FLOOR_LAYER_START) + FLOOR_LAYER_START)
+        .unwrap_or(FLOOR_LAYER_START)
 }
 
 fn floor_material(
@@ -263,7 +260,15 @@ fn floor_material(
 
 pub fn add_floor_visuals(
     mut commands: Commands,
-    floors: Query<(Entity, &Path<Entity>, Option<&RecencyRank<FloorMarker>>, Option<&FloorVisibility>), Added<FloorMarker>>,
+    floors: Query<
+        (
+            Entity,
+            &Path<Entity>,
+            Option<&RecencyRank<FloorMarker>>,
+            Option<&FloorVisibility>,
+        ),
+        Added<FloorMarker>,
+    >,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
@@ -274,9 +279,7 @@ pub fn add_floor_visuals(
         let mesh = make_floor_mesh(e, new_floor, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
-        let material = materials.add(
-            floor_material(vis, default_floor_visibility.as_ref())
-        );
+        let material = materials.add(floor_material(vis, default_floor_visibility.as_ref()));
 
         let mesh_entity_id = cmd
             .insert(SpatialBundle {
@@ -284,8 +287,7 @@ pub fn add_floor_visuals(
                 ..default()
             })
             .add_children(|p| {
-                p
-                .spawn(PbrBundle {
+                p.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
                     // TODO(MXG): load the user-specified texture when one is given
                     material,
@@ -295,10 +297,11 @@ pub fn add_floor_visuals(
                 .id()
             });
 
-        cmd
-            .insert(FloorSegments { mesh: mesh_entity_id })
-            .insert(Category::Floor)
-            .insert(PathBehavior::for_floor());
+        cmd.insert(FloorSegments {
+            mesh: mesh_entity_id,
+        })
+        .insert(Category::Floor)
+        .insert(PathBehavior::for_floor());
 
         for anchor in &new_floor.0 {
             let mut deps = dependents.get_mut(*anchor).unwrap();
@@ -312,10 +315,7 @@ pub fn update_changed_floor(
         (Entity, &FloorSegments, &Path<Entity>),
         (Changed<Path<Entity>>, With<FloorMarker>),
     >,
-    changed_rank: Query<
-        (Entity, &RecencyRank<FloorMarker>),
-        Changed<RecencyRank<FloorMarker>>,
-    >,
+    changed_rank: Query<(Entity, &RecencyRank<FloorMarker>), Changed<RecencyRank<FloorMarker>>>,
     anchors: AnchorParams,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut transforms: Query<&mut Transform>,
@@ -360,7 +360,7 @@ pub fn update_floor_for_moved_anchors(
 }
 
 fn iter_update_floor_visibility<'a>(
-    iter: impl Iterator<Item=(Option<&'a FloorVisibility>, &'a FloorSegments)>,
+    iter: impl Iterator<Item = (Option<&'a FloorVisibility>, &'a FloorSegments)>,
     material_handles: &Query<&Handle<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &FloorVisibility,
@@ -398,9 +398,7 @@ pub fn update_floor_visibility(
         );
 
         iter_update_floor_visibility(
-            removed_vis.iter().filter_map(|e|
-                all_floors.get(e).ok()
-            ),
+            removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
             &material_handles,
             &mut material_assets,
             &default_floor_vis,
