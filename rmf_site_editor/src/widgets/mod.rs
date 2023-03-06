@@ -145,6 +145,7 @@ pub struct LayerEvents<'w, 's> {
     pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
     pub change_floor_vis: EventWriter<'w, 's, Change<FloorVisibility>>,
+    pub global_floor_vis: ResMut<'w, FloorVisibility>,
 }
 
 /// We collect all the events into its own SystemParam because we are not

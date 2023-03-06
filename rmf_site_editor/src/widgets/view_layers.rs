@@ -25,7 +25,7 @@ use bevy::{
     ecs::system::SystemParam,
     prelude::*,
 };
-use bevy_egui::egui::{Ui, CollapsingHeader};
+use bevy_egui::egui::{Ui, CollapsingHeader, Button};
 
 #[derive(SystemParam)]
 pub struct LayersParams<'w, 's> {
@@ -60,6 +60,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
             CollapsingHeader::new("Floors")
                 .default_open(true)
                 .show(ui, |ui| {
+                    ui.horizontal(|ui| {
+                        let vis = *self.events.layers.global_floor_vis;
+                        let icon = self.params.icons.floor_visibility_of(Some(vis));
+                        let resp = ui.add(Button::image_and_text(icon, [18., 18.], "Global"))
+                            .on_hover_text(format!("Change to {}", vis.next().label()));
+                        if resp.clicked() {
+                            *self.events.layers.global_floor_vis = vis.next();
+                        }
+                    });
                     self.show_rankings(ranking.entities(), true, ui);
                 });
         }
