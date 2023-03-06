@@ -1,6 +1,6 @@
 use super::rbmf::*;
 use crate::{
-    is_default, AssetSource, AssociatedGraphs, IsStatic, Location, LocationTag, LocationTags,
+    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic, Location, LocationTag, LocationTags,
     Model, ModelMarker, NameInSite, Pose,
 };
 use glam::DVec2;
@@ -63,6 +63,7 @@ impl Vertex {
                 source: AssetSource::Search(me.spawn_robot_type.1.clone()),
                 pose: Pose::default(),
                 is_static: IsStatic(false),
+                constraints: ConstraintDependents::default(),
                 marker: ModelMarker,
             }))
         }

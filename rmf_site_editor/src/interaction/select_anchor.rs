@@ -24,7 +24,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    AssetSource, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, Model, Path, Point, Pose, Side,
+    AssetSource, ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, Path, Point, Pose, Side,
     SiteProperties, Wall,
 };
 use std::sync::Arc;
@@ -1056,9 +1056,11 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
+    models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
+    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
@@ -2017,6 +2019,19 @@ pub fn handle_select_anchor_mode(
     }
 }
 
+fn get_first_frame_parent(
+    params: &SelectAnchorPlacementParams,
+    entity: Entity,
+) -> Entity {
+    match params.anchors.get(entity) {
+        Ok(_) => entity,
+        Err(_) => {
+            // TODO(luca) check if unwrap_or logic is sound
+            AncestorIter::new(&params.parents, entity).find(|&p| params.anchors.get(p).is_ok()).unwrap_or(entity)
+        }
+    }
+}
+
 pub fn handle_select_anchor_3d_mode(
     mut mode: ResMut<InteractionMode>,
     anchors: Query<(), With<Anchor>>,
@@ -2122,8 +2137,12 @@ pub fn handle_select_anchor_3d_mode(
                 let mut pose = Pose::default();
                 // If we are spawning as a child of an anchor we need to invert the parent's
                 // transform to make sure it spawns where the cursor clicked
-                let transform = match request.parent {
+                let transform = match hovering.0.and_then(|p| params.models.get(p).ok()).or(request.parent) {
                     Some(parent) =>  {
+                        // Check if the parent is a model or a frame, if it is a model we need to
+                        // traverse up and assign to the closest frame
+                        let parent = get_first_frame_parent(&params, parent);
+
                         let parent_tf = match transforms.get(parent) {
                             Ok(tf) => tf,
                             Err(_) => {
@@ -2134,8 +2153,8 @@ pub fn handle_select_anchor_3d_mode(
 
                         let inv_tf = parent_tf.affine().inverse();
                         let mut goal_tf = tf.affine();
-                        // Make sure rotation is preserved
-                        goal_tf.matrix3 = parent_tf.affine().matrix3;
+                        // TODO(luca) verify whether we need to keep parent anchor rotation or not
+                        // goal_tf.matrix3 = parent_tf.affine().matrix3;
                         Transform::from_matrix((inv_tf * goal_tf).into())
                     },
                     None => tf.compute_transform(),
@@ -2146,7 +2165,20 @@ pub fn handle_select_anchor_3d_mode(
                     PlaceableObject::Anchor(ref a) => {
                         println!("Spawning anchor");
                         // TODO(luca) PlaceableObject can probably be an anonymous enum
-                        params.commands.spawn(AnchorBundle::new(Anchor::Pose3D(pose)))
+                        // TODO(luca) Assign a proper vertex id, will need mesh lookup based on
+                        // hover status and (expensive) iteration on vertices
+                        // If parent is a mesh this will be a mesh constraint, otherwise an anchor
+                        //if let Some(hovered) = params.models.get(hovering.0).ok() {
+                        if let Some(parent) = hovering.0.and_then(|p| params.models.get(p).ok()) {
+                        //if let Some(parent) = request.parent.and_then(|p| params.models.get(p).ok()) {
+                            params.commands.spawn(AnchorBundle::new(Anchor::MeshConstraint(MeshConstraint {
+                                entity: parent,
+                                element: MeshElement::Vertex(0),
+                                relative_pose: pose,
+                            })))
+                        } else {
+                            params.commands.spawn(AnchorBundle::new(Anchor::Pose3D(pose)))
+                        }
                     }
                     PlaceableObject::Model(ref a) => {
                         println!("Spawning model");
@@ -2159,12 +2191,28 @@ pub fn handle_select_anchor_3d_mode(
                 }
                 .id();
 
-                if let Some(parent) = request.parent {
+                if let Some(parent) = hovering.0.and_then(|p| params.models.get(p).ok()).or(request.parent) {
                     // It should be a child of the chosen parent
                     println!("Assigning parent {:?} to new anchor", parent);
-                    params.commands.entity(parent).add_child(new_anchor);
-                    if let Ok(mut deps) = params.dependents.get_mut(parent) {
+                    // TODO(luca) remove this duplication and compute a single parent
+                    // Will probably be easier once workspace.root is also a frame
+                    let frame_parent = get_first_frame_parent(&params, parent);
+                    params.commands.entity(frame_parent).add_child(new_anchor);
+                    if let Ok(mut deps) = params.dependents.get_mut(frame_parent) {
                         deps.insert(new_anchor);
+                    }
+                    println!("Frame parent is {:?}", frame_parent);
+                    // Add dependent to its model parent as well
+                    if let Ok(mut parent_deps) = params.constraint_dependents.get_mut(parent) {
+                        parent_deps.0.insert(new_anchor);
+                    }
+                    // If the chosen parent was a mesh we also want to populate a
+                    // ConstraintDependents component to make sure change detection on the Model
+                    // works as intended
+                    if params.models.get(parent).is_ok() {
+                        if let Ok(dep) = params.constraint_dependents.get(parent) {
+                            println!("Adding contraint dependent");
+                        }
                     }
                 } else {
                     if let Some(root) = workspace.root {

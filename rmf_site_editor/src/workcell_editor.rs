@@ -16,6 +16,8 @@
 */
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
+use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::site::{change_site, update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
@@ -25,7 +27,7 @@ use crate::workcell::*;
 use crate::AppState;
 
 use rmf_site_format::{
-    Anchor, Angle, AssetSource, Category, Model, NameInSite, Pose, Rotation, Workcell,
+    Anchor, Angle, AssetSource, Category, Model, ModelMarker, NameInSite, Pose, Rotation, Workcell,
 };
 
 /*
@@ -105,14 +107,38 @@ fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
     //mock_workcell(&mut commands, workspace);
 }
 
+fn add_wireframe_to_meshes(
+    mut commands: Commands,
+    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    parents: Query<&Parent>,
+    models: Query<Entity, With<ModelMarker>>,
+) {
+    for e in new_meshes.iter() {
+        for ancestor in AncestorIter::new(&parents, e) {
+            if let Ok(_) = models.get(ancestor) {
+                println!("Adding wireframe to mesh {:?}", e);
+                commands.entity(e).insert(Wireframe);
+            }
+        }
+    }
+}
+
+
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
+            .insert_resource(WgpuSettings {
+                features: WgpuFeatures::POLYGON_MODE_LINE,
+                ..default()
+            })
+            //.insert_resource(WireframeConfig { global: false })
+            .add_plugin(WireframePlugin)
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
+                .with_system(add_wireframe_to_meshes)
                 .with_system(update_model_scenes)
                 .with_system(make_models_selectable),
             )

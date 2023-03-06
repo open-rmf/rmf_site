@@ -18,5 +18,8 @@
 pub mod load;
 pub use load::*;
 
+pub mod mesh_constraint;
+pub use mesh_constraint::*;
+
 pub mod save;
 pub use save::*;

@@ -123,7 +123,7 @@ impl FromWorld for Cursor {
         let dagger_material = interaction_assets.dagger_material.clone();
         let level_anchor_mesh = site_assets.level_anchor_mesh.clone();
         let site_anchor_mesh = site_assets.site_anchor_mesh.clone();
-        let frame_mesh = site_assets.site_anchor_mesh.clone();
+        let frame_mesh = interaction_assets.workcell_arrow_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
         let preview_frame_material = site_assets.preview_anchor_material.clone();
 
@@ -258,7 +258,7 @@ pub fn update_cursor_transform(
     mut transforms: Query<&mut Transform>,
     intersect_ground_params: IntersectGroundPlaneParams,
 ) {
-    match *mode {
+    match &*mode {
         InteractionMode::Inspect => {
             let intersection = match intersections.iter().last() {
                 Some(intersection) => intersection,
@@ -301,25 +301,7 @@ pub fn update_cursor_transform(
             *transform = Transform::from_translation(intersection);
         }
         // TODO(luca) snap to features of meshes
-        InteractionMode::SelectAnchor3D(_) => {
-            /*
-            let intersection = match intersections.iter().last() {
-                Some(intersection) => intersection,
-                None => {
-                    println!("No cursor intersections found");
-                    return;
-                }
-            };
-            */
-
-            let intersection = match intersect_ground_params.ground_plane_intersection() {
-                Some(intersection) => intersection,
-                None => {
-                    println!("No ground intersections found");
-                    return;
-                }
-            };
-
+        InteractionMode::SelectAnchor3D(mode) => {
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
                 Err(_) => {
@@ -327,20 +309,34 @@ pub fn update_cursor_transform(
                     return;
                 }
             };
-
-            *transform = Transform::from_translation(intersection);
-
-            /*
-            let ray = match intersection.normal_ray() {
-                Some(ray) => ray,
-                None => {
-                    println!("No cursor ray found");
-                    return;
+            // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
+            // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
+            if let Some((Some(triangle), Some(position), Some(normal))) = intersections.iter().last().and_then(|data| Some((data.world_triangle(), data.position(), data.normal()))) {
+                // Find the closest triangle vertex
+                // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
+                // to area, then populate a MeshConstraint component to be used by downstream
+                // spawning methods
+                // TODO(luca) there must be a better way to find a minimum given predicate in Rust
+                let triangle_vecs = vec![triangle.v1, triangle.v2];
+                let mut closest_vertex = triangle.v0;
+                let mut closest_dist = position.distance(triangle.v0.into());
+                for v in triangle_vecs {
+                    let dist = position.distance(v.into());
+                    if dist < closest_dist {
+                        closest_dist = dist;
+                        closest_vertex = v;
+                    }
                 }
-            };
-
-            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
-            */
+                //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
+                let ray = Ray3d::new(closest_vertex.into(), normal);
+                *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+            } else {
+                let intersection = match intersect_ground_params.ground_plane_intersection() {
+                    Some(intersection) => intersection,
+                    None => { return; }
+                };
+                *transform = Transform::from_translation(intersection);
+            }
         }
     }
 }

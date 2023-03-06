@@ -65,8 +65,11 @@ pub fn add_anchor_visual_cues(
             _ => site_assets.site_anchor_mesh.clone(),
         };
 
-        if let Anchor::Pose3D(pose) = anchor {
-            make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
+        match anchor {
+            Anchor::Pose3D(_) | Anchor::MeshConstraint(_) => {
+                make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
+            },
+            _ => {}
         }
 
         let mut commands = commands.entity(e);

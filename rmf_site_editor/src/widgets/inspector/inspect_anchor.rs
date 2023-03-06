@@ -164,6 +164,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                             }
                         });
                     }
+                    Anchor::MeshConstraint(c) => {
+                        ui.vertical(|ui| {
+                            ui.label("Mesh Constraint");
+                        });
+                    }
                 }
             }
         }

@@ -15,7 +15,7 @@
  *
 */
 
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashSet};
 use std::io;
 
 use crate::*;
@@ -43,6 +43,27 @@ pub struct Frame {
     #[serde(skip)]
     pub marker: FrameMarker,
 }
+
+// TODO(luca) figure out how to use serde here (probably generic?)
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct MeshConstraint {
+    pub entity: Entity,
+    // TODO(luca) Add the MeshElement field to snap to mesh features
+    pub element: MeshElement,
+    pub relative_pose: Pose,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum MeshElement {
+    Vertex(u32),
+    // TODO(luca) edge and vertices
+}
+
+/// Attached to Model entities to keep track of constraints attached to them,
+/// for change detection and hierarchy propagation
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]

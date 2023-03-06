@@ -203,6 +203,7 @@ pub fn maintain_hovered_entities(
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut select: EventWriter<Select>,
+    mode: Res<InteractionMode>,
     blockers: Option<Res<PickingBlockers>>,
 ) {
     if let Some(new_hovered) = hover.iter().last() {
@@ -229,6 +230,13 @@ pub fn maintain_hovered_entities(
 
     if clicked && !blocked {
         if let Some(current_hovered) = hovering.0 {
+            // TODO(luca) refactor to remove this hack
+            // Skip if we are in SelectAnchor3D mode
+            if let InteractionMode::SelectAnchor3D(mode) = &*mode {
+                if mode.begin_creating() {
+                    return;
+                }
+            }
             select.send(Select(Some(current_hovered)));
         }
     }

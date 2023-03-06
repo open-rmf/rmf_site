@@ -48,6 +48,9 @@ pub use inspect_light::*;
 pub mod inspect_location;
 pub use inspect_location::*;
 
+pub mod inspect_mesh_constraint;
+pub use inspect_mesh_constraint::*;
+
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
@@ -89,6 +92,7 @@ pub struct InspectorParams<'w, 's> {
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
+    pub model_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
 }
 
@@ -289,6 +293,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .asset_source
                         .send(Change::new(new_asset_source, selection));
                 }
+                ui.separator();
+                // TODO this for modelmarker not asset sources
+                InspectModelDependentsWidget::new(
+                    selection,
+                    &self.params.model_dependents_params,
+                    self.events,
+                )
+                .show(ui);
                 ui.add_space(10.0);
             }
 
