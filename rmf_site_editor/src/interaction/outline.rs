@@ -29,6 +29,7 @@ use smallvec::SmallVec;
 #[derive(Component)]
 pub enum OutlineVisualization {
     Ordinary,
+    Flat,
     Anchor,
 }
 
@@ -41,7 +42,7 @@ impl Default for OutlineVisualization {
 impl OutlineVisualization {
     pub fn color(&self, hovered: &Hovered, selected: &Selected) -> Option<Color> {
         match self {
-            OutlineVisualization::Ordinary => {
+            OutlineVisualization::Ordinary | OutlineVisualization::Flat => {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
@@ -66,7 +67,7 @@ impl OutlineVisualization {
 
     pub fn layers(&self, hovered: &Hovered, selected: &Selected) -> OutlineRenderLayers {
         match self {
-            OutlineVisualization::Ordinary => {
+            OutlineVisualization::Ordinary | OutlineVisualization::Flat => {
                 if hovered.cue() {
                     OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
                 } else if selected.cue() {
@@ -80,6 +81,25 @@ impl OutlineVisualization {
             }
         }
     }
+
+    // A strange issue is causing outlines to diverge at certain camera angles
+    // for objects that use the Flat depth. The issue doesn't seem to happen
+    // for objects with Real depth, so we are switching most objects to use the
+    // Real outline setting. However, I don't think this looks good for certain
+    // types of objects so we will keep the Flat setting for them and accept
+    // that certain camera angles can make their outline look strange.
+    //
+    // The relevant upstream issue is being tracked here: https://github.com/komadori/bevy_mod_outline/issues/14
+    pub fn depth(&self) -> SetOutlineDepth {
+        match self {
+            OutlineVisualization::Ordinary | OutlineVisualization::Anchor => {
+                SetOutlineDepth::Real
+            }
+            OutlineVisualization::Flat => {
+                SetOutlineDepth::Flat { model_origin: Vec3::ZERO }
+            }
+        }
+    }
 }
 
 pub fn add_outline_visualization(
@@ -88,14 +108,19 @@ pub fn add_outline_visualization(
         Entity,
         Or<(
             Added<WallMarker>,
-            Added<ModelMarker>,
             Added<DoorType>,
             Added<LiftCabin<Entity>>,
             Added<MeasurementMarker>,
+            Added<FloorMarker>,
+        )>,
+    >,
+    new_meshes: Query<
+        Entity,
+        Or<(
+            Added<ModelMarker>,
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
             Added<LocationTags>,
-            Added<FloorMarker>,
         )>,
     >,
 ) {
@@ -103,6 +128,13 @@ pub fn add_outline_visualization(
         commands
             .entity(e)
             .insert(OutlineVisualization::default())
+            .insert(Selectable::new(e));
+    }
+
+    for e in &new_meshes {
+        commands
+            .entity(e)
+            .insert(OutlineVisualization::Flat)
             .insert(Selectable::new(e));
     }
 }
@@ -118,6 +150,7 @@ pub fn update_outline_visualization(
     for (e, hovered, selected, vis) in &outlinable {
         let color = vis.color(hovered, selected);
         let layers = vis.layers(hovered, selected);
+        let depth = vis.depth();
 
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
         queue.push(e);
@@ -142,9 +175,7 @@ pub fn update_outline_visualization(
                             },
                             ..default()
                         })
-                        .insert(SetOutlineDepth::Flat {
-                            model_origin: Vec3::new(0.0, 0.0, 0.0),
-                        })
+                        .insert(depth.clone())
                         .insert(layers);
                 } else {
                     commands
