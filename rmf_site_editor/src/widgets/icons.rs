@@ -30,7 +30,7 @@ impl IconBuilder {
         asset_server: &AssetServer,
     ) -> Self {
         Self(asset_server.load(
-            &String::from(&AssetSource::Remote(name.to_owned()))
+            &String::from(&AssetSource::Bundled(name.to_owned()))
         ))
     }
 

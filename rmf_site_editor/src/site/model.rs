@@ -84,6 +84,9 @@ pub fn update_model_scenes(
             AssetSource::Search(name) => {
                 AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
             }
+            AssetSource::Bundled(name) => {
+                AssetSource::Bundled(name.to_owned() + &".glb#Scene0".to_string())
+            }
         };
         let scene: Handle<Scene> = asset_server.load(&String::from(&asset_source));
         loading_models.insert(e, scene.clone());

@@ -66,6 +66,7 @@ pub fn add_drawing_visuals(
             )),
             AssetSource::Remote(_) => source.clone(),
             AssetSource::Search(_) => source.clone(),
+            AssetSource::Bundled(_) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
@@ -169,6 +170,7 @@ pub fn update_drawing_visuals(
             )),
             AssetSource::Remote(_) => source.clone(),
             AssetSource::Search(_) => source.clone(),
+            AssetSource::Bundled(_) => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
