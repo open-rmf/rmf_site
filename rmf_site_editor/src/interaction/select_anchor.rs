@@ -1233,7 +1233,7 @@ impl SelectAnchorPointBuilder {
     pub fn for_anchor(self, parent: Option<Entity>) -> SelectAnchor3D {
         println!("Creating anchor with target {:?} and parent {:?}", self.for_element, parent);
         SelectAnchor3D {
-            bundle: PlaceableObject::Anchor(Anchor::Pose3D(Pose::default())),
+            bundle: PlaceableObject::Anchor,
             parent: parent,
             target: self.for_element,
             continuity: self.continuity,
@@ -1589,7 +1589,7 @@ impl SelectAnchor {
 #[derive(Clone)]
 enum PlaceableObject {
     Model(Model),
-    Anchor(Anchor),
+    Anchor,
 }
 
 #[derive(Clone)]
@@ -2032,6 +2032,19 @@ fn get_first_frame_parent(
     }
 }
 
+fn model_parent(
+    params: &SelectAnchorPlacementParams,
+    entity: Entity,
+) -> Option<Entity> {
+    match params.models.get(entity) {
+        Ok(_) => Some(entity),
+        Err(_) => {
+            // TODO(luca) check if unwrap_or logic is sound
+            AncestorIter::new(&params.parents, entity).find(|&p| params.models.get(p).is_ok())
+        }
+    }
+}
+
 pub fn handle_select_anchor_3d_mode(
     mut mode: ResMut<InteractionMode>,
     anchors: Query<(), With<Anchor>>,
@@ -2090,10 +2103,6 @@ pub fn handle_select_anchor_3d_mode(
         if request.begin_creating() {
             if let Some(previous_selection) = selection.0 {
                 request.parent = selection.0;
-                if let Ok(mut selected) = selected.get_mut(previous_selection) {
-                    selected.is_selected = false;
-                }
-                selection.0 = None;
             }
         }
     }
@@ -2137,12 +2146,9 @@ pub fn handle_select_anchor_3d_mode(
                 let mut pose = Pose::default();
                 // If we are spawning as a child of an anchor we need to invert the parent's
                 // transform to make sure it spawns where the cursor clicked
-                let transform = match hovering.0.and_then(|p| params.models.get(p).ok()).or(request.parent) {
+                let transform = match hovering.0.and_then(|p| params.models.get(p).ok()) {
                     Some(parent) =>  {
-                        // Check if the parent is a model or a frame, if it is a model we need to
-                        // traverse up and assign to the closest frame
-                        let parent = get_first_frame_parent(&params, parent);
-
+                        // We are hovering on a model
                         let parent_tf = match transforms.get(parent) {
                             Ok(tf) => tf,
                             Err(_) => {
@@ -2157,20 +2163,43 @@ pub fn handle_select_anchor_3d_mode(
                         // goal_tf.matrix3 = parent_tf.affine().matrix3;
                         Transform::from_matrix((inv_tf * goal_tf).into())
                     },
-                    None => tf.compute_transform(),
+                    None => {
+                        match request.parent {
+                            Some(parent) => {
+                                // Find the first frame parent and use it to calculate the
+                                // transform
+                                let parent = get_first_frame_parent(&params, parent);
+
+                                let parent_tf = match transforms.get(parent) {
+                                    Ok(tf) => tf,
+                                    Err(_) => {
+                                        println!("DEV ERROR: Unable to get parent transform");
+                                        return;
+                                    }
+                                };
+
+                                let inv_tf = parent_tf.affine().inverse();
+                                let mut goal_tf = tf.affine();
+                                // TODO(luca) verify whether we need to keep parent anchor rotation or not
+                                // goal_tf.matrix3 = parent_tf.affine().matrix3;
+                                Transform::from_matrix((inv_tf * goal_tf).into())
+                            },
+                            None => {
+                                tf.compute_transform()
+                            }
+                        }
+                    }
                 };
 
                 pose.align_with(&transform);
                 let new_anchor = match request.bundle {
-                    PlaceableObject::Anchor(ref a) => {
+                    PlaceableObject::Anchor => {
                         println!("Spawning anchor");
-                        // TODO(luca) PlaceableObject can probably be an anonymous enum
                         // TODO(luca) Assign a proper vertex id, will need mesh lookup based on
                         // hover status and (expensive) iteration on vertices
                         // If parent is a mesh this will be a mesh constraint, otherwise an anchor
                         //if let Some(hovered) = params.models.get(hovering.0).ok() {
                         if let Some(parent) = hovering.0.and_then(|p| params.models.get(p).ok()) {
-                        //if let Some(parent) = request.parent.and_then(|p| params.models.get(p).ok()) {
                             params.commands.spawn(AnchorBundle::new(Anchor::MeshConstraint(MeshConstraint {
                                 entity: parent,
                                 element: MeshElement::Vertex(0),

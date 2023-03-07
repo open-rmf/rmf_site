@@ -166,7 +166,32 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                     Anchor::MeshConstraint(c) => {
                         ui.vertical(|ui| {
-                            ui.label("Mesh Constraint");
+                            // We only want to edit rotation for mesh constraints
+                            if let Some(new_pose) = InspectPose::new(&c.relative_pose).for_rotation().show(ui) {
+                                // TODO(luca) Using moveto doesn't allow switching between variants of
+                                // Pose3D
+                                self.events.request.move_to.send(MoveTo {
+                                    entity: self.anchor,
+                                    transform: new_pose.transform()
+                                });
+                            }
+                            ui.label("Mesh Parent");
+                            SelectionWidget::new(
+                                c.entity,
+                                self.params.site_id.get(c.entity).ok().cloned(),
+                                self.params.icons.as_ref(),
+                                self.events,
+                            )
+                            .show(ui);
+
+                            ui.label("Frame Parent");
+                            SelectionWidget::new(
+                                parent.get(),
+                                self.params.site_id.get(parent.get()).ok().cloned(),
+                                self.params.icons.as_ref(),
+                                self.events,
+                            )
+                            .show(ui);
                         });
                     }
                 }

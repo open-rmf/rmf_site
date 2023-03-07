@@ -92,7 +92,7 @@ pub struct InspectorParams<'w, 's> {
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub model_dependents_params: InspectModelDependentsParams<'w, 's>,
+    pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
 }
 
@@ -120,6 +120,7 @@ pub struct InspectorComponentParams<'w, 's> {
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    pub constraint_dependents: Query<'w, 's, With<ConstraintDependents>>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
@@ -293,17 +294,17 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .asset_source
                         .send(Change::new(new_asset_source, selection));
                 }
-                ui.separator();
-                // TODO this for modelmarker not asset sources
+                ui.add_space(10.0);
+            }
+            if self.params.component.constraint_dependents.get(selection).is_ok() {
                 InspectModelDependentsWidget::new(
                     selection,
-                    &self.params.model_dependents_params,
+                    &self.params.constraint_dependents_params,
                     self.events,
                 )
                 .show(ui);
                 ui.add_space(10.0);
             }
-
             if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
                 if let Some(new_ppm) =
                     InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)

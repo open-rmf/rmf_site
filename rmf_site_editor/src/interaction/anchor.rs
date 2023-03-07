@@ -65,15 +65,8 @@ pub fn add_anchor_visual_cues(
             _ => site_assets.site_anchor_mesh.clone(),
         };
 
-        match anchor {
-            Anchor::Pose3D(_) | Anchor::MeshConstraint(_) => {
-                make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
-            },
-            _ => {}
-        }
-
-        let mut commands = commands.entity(e);
-        let body = commands.add_children(|parent| {
+        let mut entity_commands = commands.entity(e);
+        let body = entity_commands.add_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
@@ -88,15 +81,17 @@ pub fn add_anchor_visual_cues(
             body
         });
 
-        commands
+        entity_commands
             .insert(AnchorVisualization { body, drag: None })
             .insert(OutlineVisualization::Anchor);
 
-        // 3D anchors should always be visible
+        // 3D anchors should always be visible with arrow cue meshes
         match anchor {
-            Anchor::Pose3D(_) => {}
+            Anchor::Pose3D(_) | Anchor::MeshConstraint(_) => {
+                make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
+            }
             _ => {
-                commands.insert(VisualCue::outline().irregular());
+                entity_commands.insert(VisualCue::outline().irregular());
             }
         }
     }

@@ -20,7 +20,7 @@ use std::io;
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize, Serializer};
 
 /// Helper structure to serialize / deserialize entities with parents
@@ -62,7 +62,7 @@ pub enum MeshElement {
 /// Attached to Model entities to keep track of constraints attached to them,
 /// for change detection and hierarchy propagation
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
