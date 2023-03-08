@@ -44,11 +44,9 @@ pub struct Frame {
     pub marker: FrameMarker,
 }
 
-// TODO(luca) figure out how to use serde here (probably generic?)
 #[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct MeshConstraint {
-    pub entity: Entity,
-    // TODO(luca) Add the MeshElement field to snap to mesh features
+pub struct MeshConstraint<T: RefTrait> {
+    pub entity: T,
     pub element: MeshElement,
     pub relative_pose: Pose,
 }

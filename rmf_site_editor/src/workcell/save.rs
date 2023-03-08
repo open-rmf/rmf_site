@@ -18,14 +18,13 @@
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use std::path::PathBuf;
+use std::collections::BTreeMap;
 
 use crate::site::{DefaultFile, Pending};
 
 use thiserror::Error as ThisError;
 
-use rmf_site_format::{
-    Anchor, AssetSource, ConstraintDependents, Frame, FrameMarker, IsStatic, Model, ModelMarker, NameInSite, Parented, Pose, SiteID, Workcell, WorkcellProperties
-};
+use rmf_site_format::*;
 
 /// Event used to trigger saving of the workcell
 pub struct SaveWorkcell {
@@ -60,6 +59,41 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     for (idx, entity) in new_entities.iter().enumerate() {
         world.entity_mut(*entity).insert(SiteID(idx.try_into().unwrap()));
     }
+}
+
+fn generate_anchors(
+    q_anchors: &Query<(&Anchor, &SiteID, &Parent)>,
+    q_ids: &Query<&SiteID>,
+) -> BTreeMap<u32, Parented<u32, Frame>> {
+    let mut anchors = BTreeMap::new();
+
+    for (anchor, id, parent) in q_anchors {
+        let parent = match q_ids.get(parent.get()) {
+            Ok(parent) => Some(parent.0),
+            Err(_) => None,
+        };
+        let mut anchor = anchor.clone();
+        if let Anchor::MeshConstraint(c) = anchor {
+            // We need to convert the Entity to a u32 reference
+            anchor = Anchor::MeshConstraint(MeshConstraint {
+                entity: *q_ids.get(c.entity).unwrap(),
+                element: c.element,
+                relative_pose: c.relative_pose,
+            });
+        }
+        anchors.insert(
+            id.0,
+            Parented {
+                parent: parent,
+                bundle: Frame {
+                    anchor: anchor,
+                    marker: FrameMarker,
+                }
+            },
+        );
+    }
+
+    anchors
 }
 
 pub fn generate_workcell(

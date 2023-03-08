@@ -33,7 +33,7 @@ pub enum Anchor {
     Translate2D([f32; 2]),
     CategorizedTranslate2D(Categorized<[f32; 2]>),
     Pose3D(Pose),
-    MeshConstraint(MeshConstraint),
+    MeshConstraint(MeshConstraint<Entity>),
 }
 
 impl From<[f32; 2]> for Anchor {
