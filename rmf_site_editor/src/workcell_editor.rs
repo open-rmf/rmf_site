@@ -21,7 +21,7 @@ use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::site::{change_site, update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
-use crate::interaction::handle_select_anchor_3d_mode;
+use crate::interaction::{DragPlane, handle_select_anchor_3d_mode};
 use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
 use crate::workcell::*;
 use crate::AppState;
@@ -123,6 +123,15 @@ fn add_wireframe_to_meshes(
     }
 }
 
+fn disable_dragging(
+    mut commands: Commands,
+    new_draggables: Query<Entity, Added<DragPlane>>,
+) {
+    for e in new_draggables.iter() {
+        commands.entity(e).remove::<DragPlane>();
+    }
+}
+
 
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
@@ -153,6 +162,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(update_anchor_transforms)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(handle_select_anchor_3d_mode)
+                    .with_system(disable_dragging)
             );
     }
 }
