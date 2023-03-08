@@ -57,7 +57,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         .with_children(|site| {
             for (anchor_id, anchor) in &site_data.anchors {
                 let anchor_entity = site
-                    .spawn(AnchorBundle::new(anchor.clone()))
+                    .spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity)))
                     .insert(SiteID(*anchor_id))
                     .id();
                 id_to_entity.insert(*anchor_id, anchor_entity);
@@ -74,9 +74,17 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     .insert(SiteID(*level_id))
                     .insert(Category::Level)
                     .with_children(|level| {
+                        // Models have to be before anchors because an anchor with a MeshConstraint
+                        // might refer to a model
+                        for (model_id, model) in &level_data.models {
+                            let model_entity = level.spawn(model.clone()).insert(SiteID(*model_id)).id();
+                            id_to_entity.insert(*model_id, model_entity);
+                            consider_id(*model_id);
+                        }
+
                         for (anchor_id, anchor) in &level_data.anchors {
                             let anchor_entity = level
-                                .spawn(AnchorBundle::new(anchor.clone()))
+                                .spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity)))
                                 .insert(SiteID(*anchor_id))
                                 .id();
                             id_to_entity.insert(*anchor_id, anchor_entity);
@@ -123,11 +131,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                             consider_id(*measurement_id);
                         }
 
-                        for (model_id, model) in &level_data.models {
-                            level.spawn(model.clone()).insert(SiteID(*model_id));
-                            consider_id(*model_id);
-                        }
-
                         for (physical_camera_id, physical_camera) in &level_data.physical_cameras {
                             level
                                 .spawn(physical_camera.clone())
@@ -158,7 +161,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                             .with_children(|anchor_group| {
                                 for (anchor_id, anchor) in &lift_data.cabin_anchors {
                                     let anchor_entity = anchor_group
-                                        .spawn(AnchorBundle::new(anchor.clone()))
+                                        .spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity)))
                                         .insert(SiteID(*anchor_id))
                                         .id();
                                     id_to_entity.insert(*anchor_id, anchor_entity);
@@ -292,7 +295,7 @@ pub struct ImportNavGraphParams<'w, 's> {
         With<LiftCabin<Entity>>,
     >,
     cabin_anchor_groups: Query<'w, 's, &'static Children, With<CabinAnchorGroup>>,
-    anchors: Query<'w, 's, (Entity, &'static Anchor)>,
+    anchors: Query<'w, 's, (Entity, &'static Anchor<Entity>)>,
 }
 
 fn generate_imported_nav_graphs(
@@ -363,7 +366,7 @@ fn generate_imported_nav_graphs(
     for (lift_id, lift_data) in &from_site_data.lifts {
         let lift_e = *id_to_entity.get(lift_id).unwrap();
         let anchor_group = *lift_to_anchor_group.get(&lift_e).unwrap();
-        let existing_lift_anchors: Vec<(Entity, &Anchor)> = params
+        let existing_lift_anchors: Vec<(Entity, &Anchor<Entity>)> = params
             .cabin_anchor_groups
             .get(anchor_group)
             .unwrap()
@@ -374,7 +377,7 @@ fn generate_imported_nav_graphs(
         for (anchor_id, anchor) in &lift_data.cabin_anchors {
             let mut already_existing = false;
             for (existing_id, existing_anchor) in &existing_lift_anchors {
-                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                if anchor.to_ecs(&id_to_entity).is_close(*existing_anchor, anchor_close_enough) {
                     id_to_entity.insert(*anchor_id, *existing_id);
                     already_existing = true;
                     break;
@@ -382,7 +385,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(anchor_group).add_children(|group| {
-                    let e_anchor = group.spawn(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = group.spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity))).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -391,7 +394,7 @@ fn generate_imported_nav_graphs(
 
     for (level_id, level_data) in &from_site_data.levels {
         let level_e = *id_to_entity.get(level_id).unwrap();
-        let existing_level_anchors: Vec<(Entity, &Anchor)> = params
+        let existing_level_anchors: Vec<(Entity, &Anchor<Entity>)> = params
             .levels
             .get(level_e)
             .unwrap()
@@ -402,7 +405,7 @@ fn generate_imported_nav_graphs(
         for (anchor_id, anchor) in &level_data.anchors {
             let mut already_existing = false;
             for (existing_id, existing_anchor) in &existing_level_anchors {
-                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                if anchor.to_ecs(&id_to_entity).is_close(*existing_anchor, anchor_close_enough) {
                     id_to_entity.insert(*anchor_id, *existing_id);
                     already_existing = true;
                     break;
@@ -410,7 +413,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(level_e).add_children(|level| {
-                    let e_anchor = level.spawn(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = level.spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity))).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }
@@ -418,14 +421,14 @@ fn generate_imported_nav_graphs(
     }
 
     {
-        let existing_site_anchors: Vec<(Entity, &Anchor)> = site_children
+        let existing_site_anchors: Vec<(Entity, &Anchor<Entity>)> = site_children
             .iter()
             .filter_map(|child| params.anchors.get(*child).ok())
             .collect();
         for (anchor_id, anchor) in &from_site_data.anchors {
             let mut already_existing = false;
             for (existing_id, existing_anchor) in &existing_site_anchors {
-                if anchor.is_close(*existing_anchor, anchor_close_enough) {
+                if anchor.to_ecs(&id_to_entity).is_close(*existing_anchor, anchor_close_enough) {
                     id_to_entity.insert(*anchor_id, *existing_id);
                     already_existing = true;
                     break;
@@ -433,7 +436,7 @@ fn generate_imported_nav_graphs(
             }
             if !already_existing {
                 params.commands.entity(into_site).add_children(|site| {
-                    let e_anchor = site.spawn(AnchorBundle::new(anchor.clone())).id();
+                    let e_anchor = site.spawn(AnchorBundle::new(anchor.to_ecs(&id_to_entity))).id();
                     id_to_entity.insert(*anchor_id, e_anchor);
                 });
             }

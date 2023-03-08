@@ -160,7 +160,7 @@ pub fn add_floor_visuals(
     mut commands: Commands,
     floors: Query<(Entity, &Path<Entity>), Added<FloorMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut Dependents, With<Anchor>>,
+    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -205,8 +205,8 @@ pub fn update_floor_for_moved_anchors(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor>,
-            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+            With<Anchor<Entity>>,
+            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
         ),
     >,
     mut meshes: ResMut<Assets<Mesh>>,

@@ -37,9 +37,9 @@ pub struct FrameMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Frame {
+pub struct Frame<T: RefTrait> {
     #[serde(flatten)]
-    pub anchor: Anchor,
+    pub anchor: Anchor<T>,
     #[serde(skip)]
     pub marker: FrameMarker,
 }
@@ -78,7 +78,7 @@ pub struct Workcell {
     #[serde(flatten)]
     pub properties: WorkcellProperties,
     /// Frames, key is their id, used for hierarchy
-    pub frames: BTreeMap<u32, Parented<u32, Frame>>,
+    pub frames: BTreeMap<u32, Parented<u32, Frame<u32>>>,
     /// Models, key is their id, used for hierarchy
     pub models: BTreeMap<u32, Parented<u32, Model>>,
 }

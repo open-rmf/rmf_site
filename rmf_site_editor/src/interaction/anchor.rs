@@ -51,8 +51,8 @@ fn make_anchor_orientation_cue_meshes(
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
     new_anchors: Query<
-        (Entity, &Parent, Option<&Subordinate>, &Anchor),
-        (Added<Anchor>, Without<Preview>),
+        (Entity, &Parent, Option<&Subordinate>, &Anchor<Entity>),
+        (Added<Anchor<Entity>>, Without<Preview>),
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
@@ -99,7 +99,7 @@ pub fn add_anchor_visual_cues(
 
 pub fn remove_interaction_for_subordinate_anchors(
     mut commands: Commands,
-    new_subordinates: Query<&Children, (With<Anchor>, Added<Subordinate>)>,
+    new_subordinates: Query<&Children, (With<Anchor<Entity>>, Added<Subordinate>)>,
 ) {
     for children in &new_subordinates {
         for child in children {
@@ -113,7 +113,7 @@ pub fn remove_interaction_for_subordinate_anchors(
 }
 
 pub fn move_anchor(
-    mut anchors: Query<&mut Anchor, Without<Subordinate>>,
+    mut anchors: Query<&mut Anchor<Entity>, Without<Subordinate>>,
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
@@ -124,7 +124,7 @@ pub fn move_anchor(
 }
 
 pub fn update_anchor_proximity_xray(
-    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
+    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor<Entity>>>,
     intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
 ) {
@@ -170,7 +170,7 @@ pub fn update_anchor_proximity_xray(
 }
 
 pub fn update_unassigned_anchor_cues(
-    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor>, Changed<Dependents>)>,
+    mut anchors: Query<(&Dependents, &mut VisualCue), (With<Anchor<Entity>>, Changed<Dependents>)>,
 ) {
     for (deps, mut cue) in &mut anchors {
         if deps.is_empty() != cue.xray.unassigned() {
@@ -181,7 +181,7 @@ pub fn update_unassigned_anchor_cues(
 
 pub fn update_anchor_cues_for_mode(
     mode: Res<InteractionMode>,
-    mut anchors: Query<&mut VisualCue, With<Anchor>>,
+    mut anchors: Query<&mut VisualCue, With<Anchor<Entity>>>,
 ) {
     if !mode.is_changed() {
         return;

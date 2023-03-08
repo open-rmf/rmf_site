@@ -23,7 +23,7 @@ pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut Dependents, With<Anchor>>,
+    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
     assets: Res<SiteAssets>,
 ) {
     for (e, edge) in &measurements {
@@ -88,8 +88,8 @@ pub fn update_measurement_for_moved_anchors(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor>,
-            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+            With<Anchor<Entity>>,
+            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
         ),
     >,
 ) {

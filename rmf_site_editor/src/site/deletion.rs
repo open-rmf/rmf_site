@@ -80,7 +80,7 @@ struct DeletionParams<'w, 's> {
     parents: Query<'w, 's, &'static mut Parent>,
     transforms: Query<'w, 's, &'static Transform>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    anchors: Query<'w, 's, &'static mut Anchor>,
+    anchors: Query<'w, 's, &'static mut Anchor<Entity>>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,

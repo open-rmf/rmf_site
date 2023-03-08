@@ -63,9 +63,9 @@ impl Lift {
         &self,
         lift_name: &String,
         site_id: &mut RangeFrom<u32>,
-        site_anchors: &mut BTreeMap<u32, Anchor>,
+        site_anchors: &mut BTreeMap<u32, Anchor<u32>>,
         level_name_to_id: &BTreeMap<String, u32>,
-        all_lift_cabin_anchors: &BTreeMap<String, Vec<(u32, Anchor)>>,
+        all_lift_cabin_anchors: &BTreeMap<String, Vec<(u32, Anchor<u32>)>>,
     ) -> Result<SiteLift<u32>> {
         let ref_anchor_positions = self.calculate_anchors();
         let reference_anchors = {
@@ -243,7 +243,7 @@ impl Lift {
             door_level_visits
         };
 
-        let mut cabin_anchors: BTreeMap<u32, Anchor> = [all_lift_cabin_anchors.get(lift_name)]
+        let mut cabin_anchors: BTreeMap<u32, Anchor<u32>> = [all_lift_cabin_anchors.get(lift_name)]
             .into_iter()
             .filter_map(|x| x)
             .flat_map(|x| x)

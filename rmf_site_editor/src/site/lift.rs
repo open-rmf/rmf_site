@@ -111,7 +111,7 @@ pub fn add_tags_to_lift(
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
     open_sites: Query<Entity, With<SiteProperties>>,
-    mut dependents: Query<&mut Dependents, With<Anchor>>,
+    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     for (e, edge) in &new_lifts {
@@ -156,7 +156,7 @@ pub fn update_lift_cabin(
     level_visits: Query<&LevelVisits<Entity>>,
     children: Query<&Children>,
     doors: Query<&Edge<Entity>, With<LiftCabinDoorMarker>>,
-    mut anchors: Query<&mut Anchor>,
+    mut anchors: Query<&mut Anchor<Entity>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     levels: Query<(Entity, &Parent), With<LevelProperties>>,
@@ -323,8 +323,8 @@ pub fn update_lift_for_moved_anchors(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor>,
-            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+            With<Anchor<Entity>>,
+            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
         ),
     >,
 ) {
@@ -346,7 +346,7 @@ pub fn update_lift_door_availability(
         &ChildCabinAnchorGroup,
     )>,
     mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
-    dependents: Query<&Dependents, With<Anchor>>,
+    dependents: Query<&Dependents, With<Anchor<Entity>>>,
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelProperties>>,
     all_levels: Query<(), With<LevelProperties>>,
@@ -555,7 +555,7 @@ fn remove_door(
     commands: &mut Commands,
     cabin: &mut LiftCabin<Entity>,
     doors: &Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
-    dependents: &Query<&Dependents, With<Anchor>>,
+    dependents: &Query<&Dependents, With<Anchor<Entity>>>,
 ) {
     cabin.remove_door(cabin_door);
     commands

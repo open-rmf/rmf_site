@@ -44,7 +44,7 @@ pub fn add_wall_visual(
     mut commands: Commands,
     walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
-    mut dependents: Query<&mut Dependents, With<Anchor>>,
+    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -102,8 +102,8 @@ pub fn update_wall_for_moved_anchors(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor>,
-            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
+            With<Anchor<Entity>>,
+            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
         ),
     >,
     mut meshes: ResMut<Assets<Mesh>>,

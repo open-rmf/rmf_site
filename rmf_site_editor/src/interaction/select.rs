@@ -156,7 +156,7 @@ pub fn handle_selection_picking(
     blockers: Option<Res<SelectionBlockers>>,
     mode: Res<InteractionMode>,
     selectables: Query<&Selectable>,
-    anchors: Query<(), With<Anchor>>,
+    anchors: Query<(), With<Anchor<Entity>>>,
     mut picks: EventReader<ChangePick>,
     mut hover: EventWriter<Hover>,
 ) {
