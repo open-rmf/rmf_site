@@ -29,7 +29,6 @@ use smallvec::SmallVec;
 #[derive(Component)]
 pub enum OutlineVisualization {
     Ordinary,
-    Flat,
     Anchor,
 }
 
@@ -42,7 +41,7 @@ impl Default for OutlineVisualization {
 impl OutlineVisualization {
     pub fn color(&self, hovered: &Hovered, selected: &Selected) -> Option<Color> {
         match self {
-            OutlineVisualization::Ordinary | OutlineVisualization::Flat => {
+            OutlineVisualization::Ordinary => {
                 if !hovered.cue() && !selected.cue() {
                     None
                 } else if hovered.cue() && selected.cue() {
@@ -67,7 +66,7 @@ impl OutlineVisualization {
 
     pub fn layers(&self, hovered: &Hovered, selected: &Selected) -> OutlineRenderLayers {
         match self {
-            OutlineVisualization::Ordinary | OutlineVisualization::Flat => {
+            OutlineVisualization::Ordinary => {
                 if hovered.cue() {
                     OutlineRenderLayers(RenderLayers::layer(HOVERED_OUTLINE_LAYER))
                 } else if selected.cue() {
@@ -91,12 +90,7 @@ impl OutlineVisualization {
     //
     // The relevant upstream issue is being tracked here: https://github.com/komadori/bevy_mod_outline/issues/14
     pub fn depth(&self) -> SetOutlineDepth {
-        match self {
-            OutlineVisualization::Ordinary | OutlineVisualization::Anchor => SetOutlineDepth::Real,
-            OutlineVisualization::Flat => SetOutlineDepth::Flat {
-                model_origin: Vec3::ZERO,
-            },
-        }
+        SetOutlineDepth::Flat{ model_origin: Vec3::ZERO }
     }
 }
 
@@ -110,11 +104,6 @@ pub fn add_outline_visualization(
             Added<LiftCabin<Entity>>,
             Added<MeasurementMarker>,
             Added<FloorMarker>,
-        )>,
-    >,
-    new_meshes: Query<
-        Entity,
-        Or<(
             Added<ModelMarker>,
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
@@ -126,13 +115,6 @@ pub fn add_outline_visualization(
         commands
             .entity(e)
             .insert(OutlineVisualization::default())
-            .insert(Selectable::new(e));
-    }
-
-    for e in &new_meshes {
-        commands
-            .entity(e)
-            .insert(OutlineVisualization::Flat)
             .insert(Selectable::new(e));
     }
 }
