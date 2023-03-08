@@ -56,12 +56,11 @@ impl<T: Component> RecencyRanking<T> {
     }
 
     pub fn to_u32(&self, site_ids: &Query<&SiteID>) -> Vec<u32> {
-        self
-        .entities
-        .iter()
-        .filter_map(|e| site_ids.get(*e).ok().copied())
-        .map(|s| s.0)
-        .collect()
+        self.entities
+            .iter()
+            .filter_map(|e| site_ids.get(*e).ok().copied())
+            .map(|s| s.0)
+            .collect()
     }
 }
 

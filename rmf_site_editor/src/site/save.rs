@@ -299,17 +299,20 @@ fn generate_levels(
 
     let mut levels = BTreeMap::new();
     for (properties, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
-
         if parent.get() == site {
             levels.insert(
                 level_id.0,
                 Level::new(
                     properties.clone(),
                     RankingsInLevel {
-                        floors: floor_ranking.map(|r| r.to_u32(&q_site_ids)).unwrap_or(Vec::new()),
-                        drawings: drawing_ranking.map(|r| r.to_u32(&q_site_ids)).unwrap_or(Vec::new()),
-                    }
-                )
+                        floors: floor_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
+                        drawings: drawing_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
+                    },
+                ),
             );
         }
     }

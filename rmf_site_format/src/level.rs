@@ -65,10 +65,7 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn new(
-        properties: LevelProperties,
-        rankings: RankingsInLevel,
-    ) -> Level {
+    pub fn new(properties: LevelProperties, rankings: RankingsInLevel) -> Level {
         Level {
             properties,
             rankings,
