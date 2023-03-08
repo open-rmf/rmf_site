@@ -90,7 +90,9 @@ impl OutlineVisualization {
     //
     // The relevant upstream issue is being tracked here: https://github.com/komadori/bevy_mod_outline/issues/14
     pub fn depth(&self) -> SetOutlineDepth {
-        SetOutlineDepth::Flat{ model_origin: Vec3::ZERO }
+        SetOutlineDepth::Flat {
+            model_origin: Vec3::ZERO,
+        }
     }
 }
 
