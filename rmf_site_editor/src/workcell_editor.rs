@@ -21,7 +21,7 @@ use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::site::{change_site, update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
-use crate::interaction::{DragPlane, handle_select_anchor_3d_mode};
+use crate::interaction::{Gizmo, handle_select_anchor_3d_mode};
 use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
 use crate::workcell::*;
 use crate::AppState;
@@ -44,10 +44,7 @@ pub struct WorkcellEditorPlugin;
 fn mock_workcell(mut commands: &mut Commands, mut workspace: ResMut<CurrentWorkspace>) {
     let mut path = std::path::PathBuf::new();
     path.push("test.workcell.json");
-    let mut binding = commands.spawn(SpatialBundle {
-        visibility: Visibility::VISIBLE,
-        ..default()
-    });
+    let mut binding = commands.spawn(SpatialBundle::VISIBLE_IDENTITY);
     let root_id = binding.id();
     let mut root = binding
         .insert(Category::Workcell)
@@ -81,7 +78,6 @@ fn mock_workcell(mut commands: &mut Commands, mut workspace: ResMut<CurrentWorks
                 });
             });
         });
-    // TODO(luca) check why we can't just put the .id() call here
     workspace.root = Some(root_id);
 
     //let serialized = serde_json::to_string(&workcell).unwrap();
@@ -103,7 +99,6 @@ fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
         )));
 
     // Send a load workcell event
-
     //mock_workcell(&mut commands, workspace);
 }
 
@@ -125,10 +120,10 @@ fn add_wireframe_to_meshes(
 
 fn disable_dragging(
     mut commands: Commands,
-    new_draggables: Query<Entity, Added<DragPlane>>,
+    new_draggables: Query<Entity, Added<Gizmo>>,
 ) {
     for e in new_draggables.iter() {
-        commands.entity(e).remove::<DragPlane>();
+        commands.entity(e).remove::<Gizmo>();
     }
 }
 
