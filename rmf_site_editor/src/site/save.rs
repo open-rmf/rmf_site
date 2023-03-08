@@ -269,7 +269,17 @@ fn generate_levels(
             ),
             (With<WallMarker>, Without<Pending>),
         >,
-        Query<(&LevelProperties, &SiteID, &Parent), Without<Pending>>,
+        Query<
+            (
+                &LevelProperties,
+                &SiteID,
+                &Parent,
+                Option<&RecencyRanking<FloorMarker>>,
+                Option<&RecencyRanking<DrawingMarker>>,
+            ),
+            Without<Pending>,
+        >,
+        Query<&SiteID>,
     )> = SystemState::new(world);
 
     let (
@@ -284,12 +294,23 @@ fn generate_levels(
         q_physical_cameras,
         q_walls,
         q_levels,
+        q_site_ids,
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
-    for (properties, level_id, parent) in &q_levels {
+    for (properties, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
+
         if parent.get() == site {
-            levels.insert(level_id.0, Level::new(properties.clone()));
+            levels.insert(
+                level_id.0,
+                Level::new(
+                    properties.clone(),
+                    RankingsInLevel {
+                        floors: floor_ranking.map(|r| r.to_u32(&q_site_ids)).unwrap_or(Vec::new()),
+                        drawings: drawing_ranking.map(|r| r.to_u32(&q_site_ids)).unwrap_or(Vec::new()),
+                    }
+                )
+            );
         }
     }
 
@@ -317,7 +338,7 @@ fn generate_levels(
     };
 
     for (anchor, id, parent) in &q_anchors {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.anchors.insert(id.0, anchor.clone());
             }
@@ -326,7 +347,7 @@ fn generate_levels(
 
     for (edge, o_edge, name, kind, id, parent) in &q_doors {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.doors.insert(
@@ -343,7 +364,7 @@ fn generate_levels(
     }
 
     for (source, pose, pixels_per_meter, id, parent) in &q_drawings {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.drawings.insert(
                     id.0,
@@ -360,7 +381,7 @@ fn generate_levels(
 
     for (point, o_point, label, id, parent) in &q_fiducials {
         let point = o_point.map(|x| &x.0).unwrap_or(point);
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchor = Point(get_anchor_id(point.0)?);
                 level.fiducials.insert(
@@ -377,7 +398,7 @@ fn generate_levels(
 
     for (path, o_path, texture, id, parent) in &q_floors {
         let path = o_path.map(|x| &x.0).unwrap_or(path);
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_path(&path)?;
                 level.floors.insert(
@@ -393,7 +414,7 @@ fn generate_levels(
     }
 
     for (kind, pose, id, parent) in &q_lights {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.lights.insert(
                     id.0,
@@ -408,7 +429,7 @@ fn generate_levels(
 
     for (edge, o_edge, distance, label, id, parent) in &q_measurements {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.measurements.insert(
@@ -425,7 +446,7 @@ fn generate_levels(
     }
 
     for (name, source, pose, is_static, id, parent) in &q_models {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
                     id.0,
@@ -442,7 +463,7 @@ fn generate_levels(
     }
 
     for (name, pose, properties, id, parent) in &q_physical_cameras {
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.physical_cameras.insert(
                     id.0,
@@ -459,7 +480,7 @@ fn generate_levels(
 
     for (edge, o_edge, texture, id, parent) in &q_walls {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.walls.insert(

@@ -65,9 +65,13 @@ pub struct Level {
 }
 
 impl Level {
-    pub fn new(properties: LevelProperties) -> Level {
+    pub fn new(
+        properties: LevelProperties,
+        rankings: RankingsInLevel,
+    ) -> Level {
         Level {
             properties,
+            rankings,
             anchors: Default::default(),
             doors: Default::default(),
             drawings: Default::default(),
@@ -78,7 +82,6 @@ impl Level {
             models: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
-            rankings: Default::default(),
         }
     }
 }
