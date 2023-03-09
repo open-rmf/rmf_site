@@ -96,4 +96,3 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectModelDependentsWidget<'a, 'w1, 'w2, 's1, 's2
         });
     }
 }
-

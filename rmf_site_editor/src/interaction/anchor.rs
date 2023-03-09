@@ -87,7 +87,7 @@ pub fn add_anchor_visual_cues(
 
         // 3D anchors should always be visible with arrow cue meshes
         match anchor {
-            Anchor::Pose3D(_) | Anchor::MeshConstraint(_) => {
+            Anchor::Pose3D(_) => {
                 make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
             }
             _ => {

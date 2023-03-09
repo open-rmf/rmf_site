@@ -146,6 +146,8 @@ pub struct Requests<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    // TODO(luca) Move to main change SystemParam once there is no more 16 param limit
+    pub change_mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
 }

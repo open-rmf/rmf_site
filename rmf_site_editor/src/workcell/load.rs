@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
-use crate::site::{AnchorBundle, ChangeCurrentWorkspace, DefaultFile, Dependents, NameInSite, SiteState};
+use crate::site::{AnchorBundle, ChangeCurrentWorkspace, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, NameInSite, SiteState};
 
 use rmf_site_format::{Category, FrameMarker, SiteID};
 
@@ -42,6 +42,8 @@ fn generate_workcell_entities(
     let mut id_to_entity = HashMap::new();
     // Hashmap of parent id to list of its children entities
     let mut parent_to_child_entities = HashMap::new();
+    // Hashmap of parent model entity to constraint dependent entity
+    let mut model_to_constraint_dependent_entities = HashMap::new();
 
     for (id, parented_anchor) in &workcell.frames {
         let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
@@ -61,6 +63,23 @@ fn generate_workcell_entities(
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_model.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
+    }
+
+    for (id, c) in &workcell.mesh_constraints {
+        let model_entity = *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing model");
+        let entity = *id_to_entity.get(id).expect("Mesh constraint refers to non existing anchor");
+        commands.entity(entity).insert(MeshConstraint {
+            entity: model_entity,
+            element: c.element.clone(),
+            relative_pose: c.relative_pose,
+        });
+        let mut constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
+        constraint_dependents.insert(entity);
+    }
+
+    // Add constraint dependents to models
+    for (model, dependents) in model_to_constraint_dependent_entities {
+        commands.entity(model).insert(ConstraintDependents(dependents));
     }
 
     // TODO(luca) assign SiteID to workcell root

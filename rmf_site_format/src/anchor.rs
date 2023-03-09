@@ -33,7 +33,6 @@ pub enum Anchor {
     Translate2D([f32; 2]),
     CategorizedTranslate2D(Categorized<[f32; 2]>),
     Pose3D(Pose),
-    MeshConstraint(MeshConstraint<Entity>),
 }
 
 impl From<[f32; 2]> for Anchor {
@@ -51,9 +50,8 @@ impl Anchor {
         match self {
             Self::Translate2D(v) => v,
             Self::CategorizedTranslate2D(v) => v.for_category(category),
-            // TODO check if this implementation is appropriate
+            // TODO(luca) check if this implementation is appropriate
             Self::Pose3D(p) => to_slice(&p.trans[0..2]),
-            Self::MeshConstraint(c) => to_slice(&c.relative_pose.trans[0..2]),
         }
     }
 
@@ -79,10 +77,6 @@ impl Anchor {
                         let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
                         return (p_left - p_right).length() <= dist;
                     }
-                    Self::MeshConstraint(c) => {
-                        let p_right = Vec2::from_array(*to_slice(&c.relative_pose.trans[0..2]));
-                        return (p_left - p_right).length() <= dist;
-                    }
                 }
             }
             Self::CategorizedTranslate2D(left_categories) => match other {
@@ -106,11 +100,6 @@ impl Anchor {
                     let p_right = Vec2::from_array(*to_slice(&p.trans[0..2]));
                     return (p_left - p_right).length() <= dist;
                 }
-                Self::MeshConstraint(c) => {
-                    let p_left = Vec2::from_array(*left_categories.for_general());
-                    let p_right = Vec2::from_array(*to_slice(&c.relative_pose.trans[0..2]));
-                    return (p_left - p_right).length() <= dist;
-                }
             },
             Self::Pose3D(p_left) => match other {
                 Self::Translate2D(p_right) => {
@@ -124,31 +113,6 @@ impl Anchor {
                 Self::Pose3D(p_right) => {
                     let p_left = Vec3::from_array(p_left.trans);
                     let p_right = Vec3::from_array(p_right.trans);
-                    return (p_left - p_right).length() <= dist;
-                }
-                Self::MeshConstraint(c) => {
-                    let p_left = Vec3::from_array(p_left.trans);
-                    let p_right = Vec3::from_array(c.relative_pose.trans);
-                    return (p_left - p_right).length() <= dist;
-                }
-            },
-            Self::MeshConstraint(c_left) => match other {
-                Self::Translate2D(p_right) => {
-                    // TODO(luca) do we ignore Z or assume Z = 0?
-                    return true;
-                }
-                Self::CategorizedTranslate2D(p_right) => {
-                    // TODO(luca) do we ignore Z or assume Z = 0?
-                    return true;
-                }
-                Self::Pose3D(p_right) => {
-                    let p_left = Vec3::from_array(c_left.relative_pose.trans);
-                    let p_right = Vec3::from_array(p_right.trans);
-                    return (p_left - p_right).length() <= dist;
-                }
-                Self::MeshConstraint(c) => {
-                    let p_left = Vec3::from_array(c_left.relative_pose.trans);
-                    let p_right = Vec3::from_array(c.relative_pose.trans);
                     return (p_left - p_right).length() <= dist;
                 }
             },
@@ -177,7 +141,6 @@ impl Anchor {
                 Transform::from_translation([p[0], p[1], 0.0].into())
             }
             Anchor::Pose3D(p) => p.transform(),
-            Anchor::MeshConstraint(c) => c.relative_pose.transform(),
         }
     }
 
@@ -200,12 +163,6 @@ impl Anchor {
                 p.trans[1] = tf.translation.y;
                 p.trans[2] = tf.translation.z;
                 p.align_with(tf);
-            }
-            Anchor::MeshConstraint(c) => {
-                c.relative_pose.trans[0] = tf.translation.x;
-                c.relative_pose.trans[1] = tf.translation.y;
-                c.relative_pose.trans[2] = tf.translation.z;
-                c.relative_pose.align_with(tf);
             }
         }
     }

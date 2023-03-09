@@ -72,21 +72,12 @@ fn generate_anchors(
             Ok(parent) => Some(parent.0),
             Err(_) => None,
         };
-        let mut anchor = anchor.clone();
-        if let Anchor::MeshConstraint(c) = anchor {
-            // We need to convert the Entity to a u32 reference
-            anchor = Anchor::MeshConstraint(MeshConstraint {
-                entity: *q_ids.get(c.entity).unwrap(),
-                element: c.element,
-                relative_pose: c.relative_pose,
-            });
-        }
         anchors.insert(
             id.0,
             Parented {
                 parent: parent,
                 bundle: Frame {
-                    anchor: anchor,
+                    anchor: anchor.clone(),
                     marker: FrameMarker,
                 }
             },
@@ -102,7 +93,7 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID, &Parent)>,
+        Query<(&Anchor, &SiteID, &Parent, Option<&MeshConstraint<Entity>>)>,
         Query<
             (
                 &NameInSite,
@@ -154,11 +145,13 @@ pub fn generate_workcell(
     }
 
     // Anchors
-    for (anchor, id, parent) in &q_anchors {
+    for (anchor, id, parent, constraint) in &q_anchors {
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => Some(parent.0),
             Err(_) => None,
         };
+        // TODO(luca) is duplication here OK? same information is contained in mesh constraint and
+        // anchor
         workcell.frames.insert(
             id.0,
             Parented {
@@ -169,7 +162,19 @@ pub fn generate_workcell(
                 }
             },
         );
+        if let Some(c) = constraint {
+            // Also add a mehs constraint
+            workcell.mesh_constraints.insert(
+                id.0,
+                MeshConstraint {
+                    entity: **q_site_id.get(c.entity).unwrap(),
+                    element: c.element.clone(),
+                    relative_pose: c.relative_pose,
+                },
+            );
+        }
     }
+
     Ok(workcell)
 }
 

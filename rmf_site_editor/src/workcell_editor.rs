@@ -155,6 +155,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
+                    .with_system(add_anchors_for_new_mesh_constraints.before(update_anchor_transforms))
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(handle_select_anchor_3d_mode)
                     .with_system(disable_dragging)

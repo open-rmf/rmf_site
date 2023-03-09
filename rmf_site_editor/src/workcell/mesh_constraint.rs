@@ -16,6 +16,7 @@
 */
 
 use bevy::prelude::*;
+use crate::site::AnchorBundle;
 use rmf_site_format::{Anchor, Pose, ConstraintDependents, MeshConstraint, ModelMarker};
 
 pub fn update_constraint_dependents(
@@ -23,6 +24,7 @@ pub fn update_constraint_dependents(
     updated_models: Query<(&ConstraintDependents, &Transform), (Changed<Transform>, With<ModelMarker>)>,
     mut transforms: Query<&mut Transform, Without<ModelMarker>>,
     anchors: Query<&Anchor>,
+    mesh_constraints: Query<&MeshConstraint<Entity>>,
 ) {
     // TODO(luca) Add widget for parent reassignment in models, otherwise Changed<Parent> will
     // never trigger
@@ -30,16 +32,34 @@ pub fn update_constraint_dependents(
     // set the transform of the entity according to the entity contained in the MeshConstraint
     // component
     for (deps, model_tf) in updated_models.iter() {
-        println!("Found updated model");
         for dep in deps.iter() {
-            println!("Dep: {:?}", dep);
             if let Ok(mut anchor_tf) = transforms.get_mut(*dep) {
-                if let Ok(Anchor::MeshConstraint(constraint)) = anchors.get(*dep) {
+                if let Ok(constraint) = mesh_constraints.get(*dep) {
                     // TODO(luca) should relative_pose be relative to model origin instead?
                     // constraint.relative_pose = tf.into();
                     // Set the transform to be a combination of model's and constraint's relative_pose 
                     *anchor_tf = *model_tf * constraint.relative_pose.transform();
                 }
+            }
+        }
+    }
+}
+
+pub fn add_anchors_for_new_mesh_constraints(
+    mut commands: Commands,
+    changed_constraints: Query<(Entity, &MeshConstraint<Entity>), Changed<MeshConstraint<Entity>>>,
+    transforms: Query<&Transform>,
+    parents: Query<&Parent>,
+) {
+    for (e, constraint) in changed_constraints.iter() {
+        if let parent_tf = parents.get(e).and_then(|p| transforms.get(**p)) {
+            if let Ok(model_tf) = transforms.get(constraint.entity) {
+                let tf = *model_tf * constraint.relative_pose.transform();
+                let mut pose = Pose::default();
+                pose.align_with(&tf);
+                // TODO(luca) is this OK performance wise or should we detect if the component is
+                // already present and change its value?
+                commands.entity(e).insert(AnchorBundle::new(Anchor::Pose3D(pose)));
             }
         }
     }

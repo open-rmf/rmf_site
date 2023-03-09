@@ -2200,11 +2200,11 @@ pub fn handle_select_anchor_3d_mode(
                         // If parent is a mesh this will be a mesh constraint, otherwise an anchor
                         //if let Some(hovered) = params.models.get(hovering.0).ok() {
                         if let Some(parent) = hovering.0.and_then(|p| params.models.get(p).ok()) {
-                            params.commands.spawn(AnchorBundle::new(Anchor::MeshConstraint(MeshConstraint {
+                            params.commands.spawn(MeshConstraint {
                                 entity: parent,
                                 element: MeshElement::Vertex(0),
                                 relative_pose: pose,
-                            })))
+                            })
                         } else {
                             params.commands.spawn(AnchorBundle::new(Anchor::Pose3D(pose)))
                         }

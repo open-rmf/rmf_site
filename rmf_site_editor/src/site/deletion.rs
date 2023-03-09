@@ -20,7 +20,7 @@ use crate::{
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use rmf_site_format::{Anchor, ConstraintDependents, Edge, Path, Point, Pose};
+use rmf_site_format::{Anchor, ConstraintDependents, Edge, MeshConstraint, Path, Point, Pose};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -82,6 +82,7 @@ struct DeletionParams<'w, 's> {
     dependents: Query<'w, 's, &'static mut Dependents>,
     anchors: Query<'w, 's, &'static mut Anchor>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
+    mesh_constraints: Query<'w, 's, &'static mut MeshConstraint<Entity>>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -202,21 +203,12 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
 
         if let Ok(dependents) = params.constraint_dependents.get(e) {
             for dep in dependents.iter() {
-                // Convert to pure pose
-                if let Ok(mut anchor) = params.anchors.get_mut(*dep) {
-                    if let Anchor::MeshConstraint(constraint) = &*anchor {
-                        if let Ok(model_tf) = params.transforms.get(constraint.entity) {
-                            let tf = *model_tf * constraint.relative_pose.transform();
-                            let mut pose = Pose::default();
-                            pose.align_with(&tf);
-                            *anchor = Anchor::Pose3D(pose);
-                        }
-                    }
-                }
+                // Remove MeshConstraint component from dependent
+                params.commands.entity(*dep).remove::<MeshConstraint<Entity>>();
             }
         }
 
-        if let Ok(Anchor::MeshConstraint(constraint)) = params.anchors.get(e) {
+        if let Ok(constraint) = params.mesh_constraints.get(e) {
             if let Ok(mut parent) = params.constraint_dependents.get_mut(constraint.entity) {
                 parent.remove(&e);
             }

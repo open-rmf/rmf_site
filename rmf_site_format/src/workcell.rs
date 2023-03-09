@@ -45,6 +45,7 @@ pub struct Frame {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub struct MeshConstraint<T: RefTrait> {
     pub entity: T,
     pub element: MeshElement,
@@ -81,6 +82,11 @@ pub struct Workcell {
     pub frames: BTreeMap<u32, Parented<u32, Frame>>,
     /// Models, key is their id, used for hierarchy
     pub models: BTreeMap<u32, Parented<u32, Model>>,
+    /// Mesh constraints, key is their id, matches an anchor id
+    // TODO(luca) merge with frames? Not immediate since optional components are not allowed in
+    // bundles
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub mesh_constraints: BTreeMap<u32, MeshConstraint<u32>>,
 }
 
 impl Workcell {
