@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{Anchor, Pose, FloorMarker, WallMarker};
+use rmf_site_format::{Anchor, ModelMarker, Pose, FloorMarker, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -255,8 +255,11 @@ pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
+    models: Query<(), With<ModelMarker>>,
     mut transforms: Query<&mut Transform>,
+    hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
+    mut visibility: Query<&mut Visibility>,
 ) {
     match &*mode {
         InteractionMode::Inspect => {
@@ -312,29 +315,37 @@ pub fn update_cursor_transform(
             // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
             // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
             if let Some((Some(triangle), Some(position), Some(normal))) = intersections.iter().last().and_then(|data| Some((data.world_triangle(), data.position(), data.normal()))) {
-                // Find the closest triangle vertex
-                // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
-                // to area, then populate a MeshConstraint component to be used by downstream
-                // spawning methods
-                // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                let triangle_vecs = vec![triangle.v1, triangle.v2];
-                let mut closest_vertex = triangle.v0;
-                let mut closest_dist = position.distance(triangle.v0.into());
-                for v in triangle_vecs {
-                    let dist = position.distance(v.into());
-                    if dist < closest_dist {
-                        closest_dist = dist;
-                        closest_vertex = v;
+                // Make sure we are hovering over a model and not anything else (i.e. anchor)
+                if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
+                    // Find the closest triangle vertex
+                    // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
+                    // to area, then populate a MeshConstraint component to be used by downstream
+                    // spawning methods
+                    // TODO(luca) there must be a better way to find a minimum given predicate in Rust
+                    let triangle_vecs = vec![triangle.v1, triangle.v2];
+                    let mut closest_vertex = triangle.v0;
+                    let mut closest_dist = position.distance(triangle.v0.into());
+                    for v in triangle_vecs {
+                        let dist = position.distance(v.into());
+                        if dist < closest_dist {
+                            closest_dist = dist;
+                            closest_vertex = v;
+                        }
                     }
+                    //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
+                    let ray = Ray3d::new(closest_vertex.into(), normal);
+                    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+                    set_visibility(cursor.frame, &mut visibility, true);
+                } else {
+                    // Hide the cursor
+                    set_visibility(cursor.frame, &mut visibility, false);
                 }
-                //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                let ray = Ray3d::new(closest_vertex.into(), normal);
-                *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
             } else {
                 let intersection = match intersect_ground_params.ground_plane_intersection() {
                     Some(intersection) => intersection,
                     None => { return; }
                 };
+                set_visibility(cursor.frame, &mut visibility, true);
                 *transform = Transform::from_translation(intersection);
             }
         }

@@ -2096,26 +2096,12 @@ pub fn handle_select_anchor_3d_mode(
             true,
         );
 
-        // If we are creating a new object, then we should deselect anything
-        // that might be currently selected.
-        // TODO(luca) remove this, we actually need the selected item to be the parent of the new
-        // item
+        // Set the request parent to the currently selected element, to spawn new object as
+        // children of selected frames
         if request.begin_creating() {
             if let Some(previous_selection) = selection.0 {
                 request.parent = selection.0;
             }
-        }
-    }
-
-    if hovering.is_changed() {
-        if hovering.0.is_none() {
-            params
-                .cursor
-                .add_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
-        } else {
-            params
-                .cursor
-                .remove_mode(SELECT_ANCHOR_MODE_LABEL, &mut params.visibility);
         }
     }
 
@@ -2222,7 +2208,6 @@ pub fn handle_select_anchor_3d_mode(
 
                 if let Some(parent) = hovering.0.and_then(|p| params.models.get(p).ok()).or(request.parent) {
                     // It should be a child of the chosen parent
-                    println!("Assigning parent {:?} to new anchor", parent);
                     // TODO(luca) remove this duplication and compute a single parent
                     // Will probably be easier once workspace.root is also a frame
                     let frame_parent = get_first_frame_parent(&params, parent);
@@ -2230,17 +2215,12 @@ pub fn handle_select_anchor_3d_mode(
                     if let Ok(mut deps) = params.dependents.get_mut(frame_parent) {
                         deps.insert(new_anchor);
                     }
-                    println!("Frame parent is {:?}", frame_parent);
-                    // Add dependent to its model parent as well
-                    if let Ok(mut parent_deps) = params.constraint_dependents.get_mut(parent) {
-                        parent_deps.0.insert(new_anchor);
-                    }
                     // If the chosen parent was a mesh we also want to populate a
                     // ConstraintDependents component to make sure change detection on the Model
                     // works as intended
                     if params.models.get(parent).is_ok() {
-                        if let Ok(dep) = params.constraint_dependents.get(parent) {
-                            println!("Adding contraint dependent");
+                        if let Ok(mut parent_deps) = params.constraint_dependents.get_mut(parent) {
+                            parent_deps.0.insert(new_anchor);
                         }
                     }
                 } else {
