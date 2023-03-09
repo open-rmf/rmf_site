@@ -26,7 +26,7 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, (&'static Anchor<Entity>, &'static Transform, Option<&'static Subordinate>, &'static Parent)>,
+    pub anchors: Query<'w, 's, (&'static Anchor, &'static Transform, Option<&'static Subordinate>, &'static Parent)>,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
@@ -208,7 +208,7 @@ pub struct InspectAnchorResponse {
 
 #[derive(SystemParam)]
 pub struct InspectAnchorDependentsParams<'w, 's> {
-    pub dependents: Query<'w, 's, &'static Dependents, With<Anchor<Entity>>>,
+    pub dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
     pub locations: Query<'w, 's, &'static LocationTags, &'static AssociatedGraphs<Entity>>,
     pub info: Query<'w, 's, (&'static Category, Option<&'static SiteID>)>,
     pub icons: Res<'w, Icons>,

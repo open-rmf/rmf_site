@@ -1055,7 +1055,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
         ),
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
-    anchors: Query<'w, 's, (Entity, &'static mut Anchor<Entity>)>,
+    anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
     models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
@@ -1807,7 +1807,7 @@ enum PreviewResult {
 
 pub fn handle_select_anchor_mode(
     mut mode: ResMut<InteractionMode>,
-    anchors: Query<(), With<Anchor<Entity>>>,
+    anchors: Query<(), With<Anchor>>,
     transforms: Query<&GlobalTransform>,
     hovering: Res<Hovering>,
     mouse_button_input: Res<Input<MouseButton>>,
@@ -2047,7 +2047,7 @@ fn model_parent(
 
 pub fn handle_select_anchor_3d_mode(
     mut mode: ResMut<InteractionMode>,
-    anchors: Query<(), With<Anchor<Entity>>>,
+    anchors: Query<(), With<Anchor>>,
     transforms: Query<&GlobalTransform>,
     hovering: Res<Hovering>,
     mouse_button_input: Res<Input<MouseButton>>,

@@ -88,7 +88,7 @@ pub fn update_picking_cam(
 fn pick_topmost(
     picks: impl Iterator<Item = Entity>,
     selectable: &Query<&Selectable>,
-    anchors: &Query<&Parent, (With<Anchor<Entity>>, Without<Preview>)>,
+    anchors: &Query<&Parent, (With<Anchor>, Without<Preview>)>,
     mode: &Res<InteractionMode>,
     current_site: Entity,
 ) -> Option<Entity> {
@@ -124,7 +124,7 @@ fn pick_topmost(
 pub fn update_picked(
     mode: Res<InteractionMode>,
     selectable: Query<&Selectable>,
-    anchors: Query<&Parent, (With<Anchor<Entity>>, Without<Preview>)>,
+    anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
     pick_source_query: Query<&PickingCamera>,
     visual_cues: Query<&ComputedVisualCue>,

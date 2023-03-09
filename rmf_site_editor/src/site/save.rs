@@ -67,7 +67,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             Entity,
             (
                 Or<(
-                    With<Anchor<Entity>>,
+                    With<Anchor>,
                     With<DoorType>,
                     With<DrawingMarker>,
                     With<FiducialMarker>,
@@ -167,19 +167,18 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
     Ok(())
 }
 
-fn collect_site_anchors(world: &mut World, site: Entity) -> BTreeMap<u32, Anchor<u32>> {
+fn collect_site_anchors(world: &mut World, site: Entity) -> BTreeMap<u32, Anchor> {
     let mut state: SystemState<(
         Query<&Children>,
-        Query<(&SiteID, &Anchor<Entity>), Without<Pending>>,
-        Query<&SiteID>,
+        Query<(&SiteID, &Anchor), Without<Pending>>,
     )> = SystemState::new(world);
 
     let mut site_anchors = BTreeMap::new();
-    let (q_children, q_anchors, q_site_ids) = state.get(world);
+    let (q_children, q_anchors) = state.get(world);
     if let Ok(children) = q_children.get(site) {
         for child in children {
             if let Ok((site_id, anchor)) = q_anchors.get(*child) {
-                site_anchors.insert(site_id.0, anchor.to_site_id(&q_site_ids));
+                site_anchors.insert(site_id.0, anchor.clone());
             }
         }
     }
@@ -192,7 +191,7 @@ fn generate_levels(
     site: Entity,
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Anchor<Entity>, &SiteID, &Parent)>,
+        Query<(&Anchor, &SiteID, &Parent)>,
         Query<
             (
                 &Edge<Entity>,
@@ -273,7 +272,6 @@ fn generate_levels(
             (With<WallMarker>, Without<Pending>),
         >,
         Query<(&LevelProperties, &SiteID, &Parent), Without<Pending>>,
-        Query<&SiteID>,
     )> = SystemState::new(world);
 
     let (
@@ -288,7 +286,6 @@ fn generate_levels(
         q_physical_cameras,
         q_walls,
         q_levels,
-        q_site_ids,
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
@@ -324,7 +321,7 @@ fn generate_levels(
     for (anchor, id, parent) in &q_anchors {
         if let Ok((_, level_id, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.anchors.insert(id.0, anchor.to_site_id(&q_site_ids));
+                level.anchors.insert(id.0, anchor.clone());
             }
         }
     }
@@ -505,7 +502,7 @@ fn generate_lifts(
     site: Entity,
 ) -> Result<BTreeMap<u32, Lift<u32>>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&SiteID, &Anchor<Entity>), Without<Pending>>,
+        Query<(&SiteID, &Anchor), Without<Pending>>,
         QueryLiftDoor,
         Query<&SiteID, (With<LevelProperties>, Without<Pending>)>,
         QueryLift,
@@ -617,7 +614,7 @@ fn generate_lifts(
                     if let Ok(anchor_children) = q_children.get(anchor_group) {
                         for anchor_child in anchor_children {
                             if let Ok((site_id, anchor)) = q_anchors.get(*anchor_child) {
-                                cabin_anchors.insert(site_id.0, anchor.to_site_id(&q_site_id));
+                                cabin_anchors.insert(site_id.0, anchor.clone());
                             }
                         }
                     }
@@ -717,7 +714,7 @@ fn generate_lanes(
             (With<LaneMarker>, Without<Pending>),
         >,
         Query<&SiteID, With<NavGraphMarker>>,
-        Query<&SiteID, With<Anchor<Entity>>>,
+        Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
     let (q_lanes, q_nav_graphs, q_anchors) = state.get(world);
@@ -780,7 +777,7 @@ fn generate_locations(
             Without<Pending>,
         >,
         Query<&SiteID, With<NavGraphMarker>>,
-        Query<&SiteID, With<Anchor<Entity>>>,
+        Query<&SiteID, With<Anchor>>,
     )> = SystemState::new(world);
 
     let (q_locations, q_nav_graphs, q_anchors) = state.get(world);

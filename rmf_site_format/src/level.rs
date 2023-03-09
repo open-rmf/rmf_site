@@ -41,7 +41,7 @@ impl Default for LevelProperties {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Level {
     pub properties: LevelProperties,
-    pub anchors: BTreeMap<u32, Anchor<u32>>,
+    pub anchors: BTreeMap<u32, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub doors: BTreeMap<u32, Door<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]

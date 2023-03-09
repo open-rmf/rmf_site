@@ -148,7 +148,7 @@ pub fn add_lane_visuals(
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
-    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
@@ -315,8 +315,8 @@ pub fn update_lane_for_moved_anchor(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor<Entity>>,
-            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
     mut transforms: Query<&mut Transform>,

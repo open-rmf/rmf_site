@@ -37,7 +37,7 @@ pub struct Site {
     // TODO(MXG): Should we use a different name for this to distinguish it
     // from level anchors, or does the grouping make the intent obvious enough?
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub anchors: BTreeMap<u32, Anchor<u32>>,
+    pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
     pub properties: SiteProperties,
     /// Properties of each level

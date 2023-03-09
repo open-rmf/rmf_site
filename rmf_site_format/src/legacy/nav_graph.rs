@@ -133,7 +133,7 @@ impl NavLaneProperties {
 pub struct NavVertex(pub f32, pub f32, pub NavVertexProperties);
 
 impl NavVertex {
-    fn from_anchor(anchor: &Anchor<u32>, location: Option<&Location<u32>>) -> Self {
+    fn from_anchor(anchor: &Anchor, location: Option<&Location<u32>>) -> Self {
         let p = *anchor.translation_for_category(Category::General);
         Self(p[0], p[1], NavVertexProperties::from_location(location))
     }

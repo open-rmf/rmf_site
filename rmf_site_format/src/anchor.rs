@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Categorized, Category, MeshConstraint, Point, Pose, RefTrait, SiteID};
+use crate::{Categorized, Category, MeshConstraint, Point, Pose, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},
@@ -29,60 +29,16 @@ use serde::{Deserialize, Serialize};
 // issue is resolved: https://github.com/ron-rs/ron/issues/217
 // #[serde(untagged)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum Anchor<T: RefTrait> {
+pub enum Anchor {
     Translate2D([f32; 2]),
     CategorizedTranslate2D(Categorized<[f32; 2]>),
     Pose3D(Pose),
-    MeshConstraint(MeshConstraint<T>),
+    MeshConstraint(MeshConstraint<Entity>),
 }
 
-impl<T: RefTrait> From<[f32; 2]> for Anchor<T> {
+impl From<[f32; 2]> for Anchor {
     fn from(value: [f32; 2]) -> Self {
         Anchor::Translate2D(value)
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl Anchor<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Anchor<Entity> {
-        // TODO(luca) is there a way to reduce boilerplate and convert automatically?
-        match self {
-            Anchor::Translate2D(a) => Anchor::Translate2D(*a),
-            Anchor::CategorizedTranslate2D(a) => Anchor::CategorizedTranslate2D(a.clone()),
-            Anchor::Pose3D(a) => Anchor::Pose3D(*a),
-            Anchor::MeshConstraint(c) => {
-                Anchor::MeshConstraint(MeshConstraint {
-                    entity: *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing id"),
-                    element: c.element.clone(),
-                    relative_pose: c.relative_pose.clone(),
-                })
-            },
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl Anchor<Entity> {
-    pub fn to_site_id(
-        &self,
-        site_ids: &Query<&SiteID>,
-    ) -> Anchor<u32> {
-        // TODO(luca) is there a way to reduce boilerplate and convert automatically?
-        match self {
-            Anchor::Translate2D(a) => Anchor::Translate2D(*a),
-            Anchor::CategorizedTranslate2D(a) => Anchor::CategorizedTranslate2D(a.clone()),
-            Anchor::Pose3D(a) => Anchor::Pose3D(*a),
-            Anchor::MeshConstraint(c) => {
-                Anchor::MeshConstraint(MeshConstraint {
-                    entity: **site_ids.get(c.entity).expect("Mesh constraint refers to non existing id"),
-                    element: c.element.clone(),
-                    relative_pose: c.relative_pose.clone(),
-                })
-            },
-        }
     }
 }
 
@@ -90,7 +46,7 @@ fn to_slice(p: &[f32]) -> &[f32; 2] {
     p.try_into().expect("Wrong array size")
 }
 
-impl<T: RefTrait> Anchor<T> {
+impl Anchor {
     pub fn translation_for_category(&self, category: Category) -> &[f32; 2] {
         match self {
             Self::Translate2D(v) => v,
@@ -101,7 +57,7 @@ impl<T: RefTrait> Anchor<T> {
         }
     }
 
-    pub fn is_close(&self, other: &Anchor<T>, dist: f32) -> bool {
+    pub fn is_close(&self, other: &Anchor, dist: f32) -> bool {
         match self {
             Self::Translate2D(p) => {
                 let p_left = Vec2::from_array(*p);
@@ -201,7 +157,7 @@ impl<T: RefTrait> Anchor<T> {
 }
 
 #[cfg(feature = "bevy")]
-impl<T: RefTrait> Anchor<T> {
+impl Anchor {
     pub fn point(&self, category: Category, tf: &GlobalTransform) -> Vec3 {
         match category {
             Category::General => tf.translation(),
@@ -258,7 +214,7 @@ impl<T: RefTrait> Anchor<T> {
 #[cfg(feature = "bevy")]
 #[derive(SystemParam)]
 pub struct AnchorParams<'w, 's> {
-    anchors: Query<'w, 's, (&'static Anchor<Entity>, &'static GlobalTransform)>,
+    anchors: Query<'w, 's, (&'static Anchor, &'static GlobalTransform)>,
     parents: Query<'w, 's, &'static Parent>,
     global_tfs: Query<'w, 's, &'static GlobalTransform>,
 }
@@ -305,8 +261,8 @@ impl<'w, 's> AnchorParams<'w, 's> {
 }
 
 #[cfg(feature = "bevy")]
-impl From<Anchor<Entity>> for Transform {
-    fn from(anchor: Anchor<Entity>) -> Self {
+impl From<Anchor> for Transform {
+    fn from(anchor: Anchor) -> Self {
         anchor.local_transform(Category::General)
     }
 }

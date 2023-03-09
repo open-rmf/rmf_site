@@ -125,13 +125,13 @@ impl BuildingMap {
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
 
-        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor<u32>)>> = BTreeMap::new();
+        let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
         let mut building_id_to_nav_graph_id = HashMap::new();
 
         for (name, level) in &self.levels {
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut anchors: BTreeMap<u32, Anchor<u32>> = BTreeMap::new();
+            let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin

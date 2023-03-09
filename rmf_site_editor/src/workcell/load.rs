@@ -43,6 +43,16 @@ fn generate_workcell_entities(
     // Hashmap of parent id to list of its children entities
     let mut parent_to_child_entities = HashMap::new();
 
+    for (id, parented_anchor) in &workcell.frames {
+        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
+            .insert(FrameMarker)
+            .insert(SiteID(*id))
+            .id();
+        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
     for (id, parented_model) in &workcell.models {
         let e = commands.spawn(parented_model.bundle.clone())
             .insert(SiteID(*id))
@@ -50,17 +60,7 @@ fn generate_workcell_entities(
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_model.parent).or_default();
         child_entities.push(e);
-        id_to_entity.insert(*id, e);
-    }
-
-    for (id, parented_anchor) in &workcell.frames {
-        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.to_ecs(&id_to_entity)).visible(true))
-            .insert(FrameMarker)
-            .insert(SiteID(*id))
-            .id();
-        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
-        child_entities.push(e);
-        id_to_entity.insert(*id, e);
+        id_to_entity.insert(id, e);
     }
 
     // TODO(luca) assign SiteID to workcell root

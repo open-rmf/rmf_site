@@ -22,7 +22,7 @@ pub fn update_constraint_dependents(
     mut commands: Commands,
     updated_models: Query<(&ConstraintDependents, &Transform), (Changed<Transform>, With<ModelMarker>)>,
     mut transforms: Query<&mut Transform, Without<ModelMarker>>,
-    anchors: Query<&Anchor<Entity>>,
+    anchors: Query<&Anchor>,
 ) {
     // TODO(luca) Add widget for parent reassignment in models, otherwise Changed<Parent> will
     // never trigger

@@ -174,7 +174,7 @@ pub fn add_door_visuals(
         ),
     >,
     anchors: AnchorParams,
-    mut dependents: Query<&mut Dependents, With<Anchor<Entity>>>,
+    mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
@@ -296,8 +296,8 @@ pub fn update_door_for_moved_anchors(
     changed_anchors: Query<
         &Dependents,
         (
-            With<Anchor<Entity>>,
-            Or<(Changed<Anchor<Entity>>, Changed<GlobalTransform>)>,
+            With<Anchor>,
+            Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
     mut transforms: Query<&mut Transform>,

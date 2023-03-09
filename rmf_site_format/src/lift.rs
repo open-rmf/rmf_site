@@ -40,7 +40,7 @@ pub struct Lift<T: RefTrait> {
     pub properties: LiftProperties<T>,
     /// Anchors that are inside the cabin of the lift and exist in the map of
     /// the cabin's interior.
-    pub cabin_anchors: BTreeMap<T, Anchor<T>>,
+    pub cabin_anchors: BTreeMap<T, Anchor>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
@@ -168,7 +168,7 @@ impl<T: RefTrait> LiftCabin<T> {
         }
     }
 
-    pub fn level_door_anchors(&self, door: T) -> Option<[Anchor<T>; 2]> {
+    pub fn level_door_anchors(&self, door: T) -> Option<[Anchor; 2]> {
         match self {
             Self::Rect(params) => {
                 for (face, placement) in &params.doors() {
@@ -369,7 +369,7 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
             .collect()
     }
 
-    pub fn level_door_anchors(&self, face: RectFace) -> Option<[Anchor<T>; 2]> {
+    pub fn level_door_anchors(&self, face: RectFace) -> Option<[Anchor; 2]> {
         let door = self.door(face).as_ref()?;
         let (u, v) = face.uv2();
         let n = Vec2::new(self.depth / 2.0, self.width / 2.0);

@@ -44,7 +44,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     // TODO(luca) actually keep site IDs instead of always generating them from scratch
     // (as it is done in site editor)
     let mut state: SystemState<(
-        Query<Entity, (Or<(With<Anchor<Entity>>, With<ModelMarker>)>, Without<Pending>)>,
+        Query<Entity, (Or<(With<Anchor>, With<ModelMarker>)>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
     let (q_used_entities, q_children) = state.get(&world);
@@ -61,7 +61,6 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     }
 }
 
-/*
 fn generate_anchors(
     q_anchors: &Query<(&Anchor, &SiteID, &Parent)>,
     q_ids: &Query<&SiteID>,
@@ -96,7 +95,6 @@ fn generate_anchors(
 
     anchors
 }
-*/
 
 pub fn generate_workcell(
     world: &mut World,
@@ -104,7 +102,7 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(&Anchor<Entity>, &SiteID, &Parent)>,
+        Query<(&Anchor, &SiteID, &Parent)>,
         Query<
             (
                 &NameInSite,
@@ -166,7 +164,7 @@ pub fn generate_workcell(
             Parented {
                 parent: parent,
                 bundle: Frame {
-                    anchor: anchor.to_site_id(&q_site_id),
+                    anchor: anchor.clone(),
                     marker: FrameMarker,
                 }
             },

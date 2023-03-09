@@ -21,7 +21,7 @@ use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
-    anchor: Anchor<Entity>,
+    anchor: Anchor,
     transform: Transform,
     global_transform: GlobalTransform,
     dependents: Dependents,
@@ -31,7 +31,7 @@ pub struct AnchorBundle {
 }
 
 impl AnchorBundle {
-    pub fn new(anchor: Anchor<Entity>) -> Self {
+    pub fn new(anchor: Anchor) -> Self {
         let transform = anchor.local_transform(Category::General);
         Self {
             anchor,
@@ -93,7 +93,7 @@ pub struct PreviewAnchor {
 }
 
 pub fn update_anchor_transforms(
-    mut changed_anchors: Query<(&Anchor<Entity>, &mut Transform), (Changed<Anchor<Entity>>, Without<ModelMarker>)>,
+    mut changed_anchors: Query<(&Anchor, &mut Transform), (Changed<Anchor>, Without<ModelMarker>)>,
     models: Query<&Transform, With<ModelMarker>>,
 ) {
     // For mesh constraints the pose is given by the model and the constraint's relative pose
@@ -112,7 +112,7 @@ pub fn update_anchor_transforms(
 }
 
 pub fn assign_orphan_anchors_to_parent(
-    mut orphan_anchors: Query<(Entity, &mut Anchor<Entity>), Without<Parent>>,
+    mut orphan_anchors: Query<(Entity, &mut Anchor), Without<Parent>>,
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     lifts: Query<(
