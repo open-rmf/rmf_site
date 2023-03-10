@@ -16,11 +16,12 @@
 */
 
 use crate::{
+    recency::RecencyRanking,
     site::{
         Change, CurrentSite, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{inspector::color_edit, AppEvents, Icons},
+    widgets::{inspector::color_edit, AppEvents, Icons, MoveLayer},
     Autoload,
 };
 use bevy::{
@@ -30,7 +31,6 @@ use bevy::{
 };
 use bevy_egui::egui::{ImageButton, Ui};
 use futures_lite::future;
-use smallvec::SmallVec;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
@@ -64,11 +64,11 @@ impl FromWorld for NavGraphDisplay {
 
 #[derive(SystemParam)]
 pub struct NavGraphParams<'w, 's> {
+    pub ranking: Query<'w, 's, &'static RecencyRanking<NavGraphMarker>>,
     pub graphs: Query<
         'w,
         's,
         (
-            Entity,
             &'static NameInSite,
             &'static DisplayColor,
             &'static Visibility,
@@ -89,13 +89,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let graphs = {
-            let mut graphs: SmallVec<[(Entity, &NameInSite, &DisplayColor, &Visibility); 10]> =
-                SmallVec::from_iter(self.params.graphs.iter());
-            graphs.sort_by(|(a, _, _, _), (b, _, _, _)| a.cmp(b));
-            graphs
+        let ranking = match self.events.request.current_site.0 {
+            Some(c) => match self.params.ranking.get(c) {
+                Ok(r) => r,
+                Err(_) => return,
+            },
+            None => return,
         };
-        let graph_count = graphs.len();
+        let graph_count = ranking.len();
 
         ui.horizontal(|ui| {
             if self.events.display.nav_graph.removing {
@@ -118,53 +119,6 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 }
             }
         });
-
-        for (e, name, color, vis) in graphs {
-            ui.horizontal(|ui| {
-                if self.events.display.nav_graph.removing {
-                    if ui
-                        .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
-                        .clicked()
-                    {
-                        self.events.request.delete.send(Delete::new(e));
-                        self.events.display.nav_graph.removing = false;
-                    }
-                } else {
-                    let mut is_visible = vis.is_visible;
-                    if ui
-                        .checkbox(&mut is_visible, "")
-                        .on_hover_text(if vis.is_visible {
-                            "Make this graph invisible"
-                        } else {
-                            "Make this graph visible"
-                        })
-                        .changed()
-                    {
-                        self.events
-                            .change
-                            .visibility
-                            .send(Change::new(Visibility { is_visible }, e));
-                    }
-                }
-
-                let mut new_color = color.0;
-                color_edit(ui, &mut new_color);
-                if new_color != color.0 {
-                    self.events
-                        .change
-                        .color
-                        .send(Change::new(DisplayColor(new_color), e));
-                }
-
-                let mut new_name = name.0.clone();
-                if ui.text_edit_singleline(&mut new_name).changed() {
-                    self.events
-                        .change
-                        .name
-                        .send(Change::new(NameInSite(new_name), e));
-                }
-            });
-        }
 
         ui.horizontal(|ui| {
             let add = ui.button("Add").clicked();
@@ -189,6 +143,68 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                 self.events.display.nav_graph.color = None;
             }
         });
+
+        for e in ranking.iter().rev() {
+            let e = *e;
+            let (name, color, vis) = match self.params.graphs.get(e) {
+                Ok(g) => g,
+                Err(_) => continue,
+            };
+            ui.horizontal(|ui| {
+                if self.events.display.nav_graph.removing {
+                    if ui
+                        .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
+                        .clicked()
+                    {
+                        self.events.request.delete.send(Delete::new(e));
+                        self.events.display.nav_graph.removing = false;
+                    }
+                } else {
+                    let mut is_visible = vis.is_visible;
+                    if ui
+                        .checkbox(&mut is_visible, "")
+                        .on_hover_text(if vis.is_visible {
+                            "Make this graph invisible"
+                        } else {
+                            "Make this graph visible"
+                        })
+                        .changed()
+                    {
+                        self.events
+                            .change
+                            .visibility
+                            .send(Change::new(Visibility { is_visible }, e));
+                    }
+                }
+
+                MoveLayer::to_top(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
+
+                MoveLayer::up(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
+
+                MoveLayer::down(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
+
+                MoveLayer::to_bottom(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
+
+                let mut new_color = color.0;
+                color_edit(ui, &mut new_color);
+                if new_color != color.0 {
+                    self.events
+                        .change
+                        .color
+                        .send(Change::new(DisplayColor(new_color), e));
+                }
+
+                let mut new_name = name.0.clone();
+                if ui.text_edit_singleline(&mut new_name).changed() {
+                    self.events
+                        .change
+                        .name
+                        .send(Change::new(NameInSite(new_name), e));
+                }
+            });
+        }
 
         #[cfg(not(target_arch = "wasm32"))]
         {

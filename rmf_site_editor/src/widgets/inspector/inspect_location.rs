@@ -61,7 +61,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         for (i, tag) in self.tags.0.iter().enumerate() {
             ui.horizontal(|ui| {
                 if ui
-                    .add(ImageButton::new(self.icons.egui_trash, [18., 18.]))
+                    .add(ImageButton::new(self.icons.trash.egui(), [18., 18.]))
                     .clicked()
                 {
                     deleted_tag = Some(i);

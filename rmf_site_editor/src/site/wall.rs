@@ -37,7 +37,16 @@ fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Opt
         (p_start, p_end)
     };
 
-    Some(make_wall_mesh(p_start, p_end, DEFAULT_WALL_THICKNESS, DEFAULT_LEVEL_HEIGHT).into())
+    Some(
+        Mesh::from(make_wall_mesh(
+            p_start,
+            p_end,
+            DEFAULT_WALL_THICKNESS,
+            DEFAULT_LEVEL_HEIGHT,
+        ))
+        .with_generated_outline_normals()
+        .unwrap(),
+    )
 }
 
 pub fn add_wall_visual(

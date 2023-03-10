@@ -46,3 +46,18 @@ pub fn assign_orphan_levels_to_site(
         }
     }
 }
+
+pub fn assign_orphan_elements_to_level<T: Component>(
+    mut commands: Commands,
+    orphan_elements: Query<Entity, (With<T>, Without<Parent>)>,
+    current_level: Res<CurrentLevel>,
+) {
+    let current_level = match current_level.0 {
+        Some(c) => c,
+        None => return,
+    };
+
+    for orphan in &orphan_elements {
+        commands.entity(current_level).add_child(orphan);
+    }
+}

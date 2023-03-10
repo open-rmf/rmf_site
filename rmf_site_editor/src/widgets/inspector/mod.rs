@@ -39,6 +39,9 @@ pub use inspect_is_static::*;
 pub mod inspect_option_string;
 pub use inspect_option_string::*;
 
+pub mod inspect_layer;
+pub use inspect_layer::*;
+
 pub mod inspect_lift;
 pub use inspect_lift::*;
 
@@ -74,7 +77,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, Original, SiteID},
+    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -90,6 +93,7 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
+    pub layer: InspectorLayerParams<'w, 's>,
 }
 
 // NOTE: We may need to split this struct into multiple structs if we ever need
@@ -120,6 +124,12 @@ pub struct InspectorComponentParams<'w, 's> {
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
+}
+
+#[derive(SystemParam)]
+pub struct InspectorLayerParams<'w, 's> {
+    pub floors: Query<'w, 's, Option<&'static FloorVisibility>, With<FloorMarker>>,
+    pub drawings: Query<'w, 's, (), With<DrawingMarker>>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -175,6 +185,21 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(floor_vis) = self.params.layer.floors.get(selection) {
+                ui.horizontal(|ui| {
+                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
+                        .as_floor(floor_vis.copied())
+                        .show(ui);
+                });
+            }
+
+            if self.params.layer.drawings.contains(selection) {
+                ui.horizontal(|ui| {
+                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
+                        .show(ui);
+                });
             }
 
             if let Ok((edge, original, labels, category)) =
@@ -328,10 +353,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 InspectLiftCabin::new(selection, &self.params.component.lifts, &mut self.events)
                     .show(ui)
             {
-                self.events.change.lift_cabin.send(Change {
-                    to_value: new_cabin,
-                    for_element: selection,
-                });
+                self.events
+                    .change
+                    .lift_cabin
+                    .send(Change::new(new_cabin, selection));
                 ui.add_space(10.0);
             }
 
