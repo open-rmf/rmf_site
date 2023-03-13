@@ -41,7 +41,9 @@ impl CurrentWorkspace {
 #[derive(Clone, Copy, Debug)]
 pub struct ChangeCurrentSite {
     /// What should the current site be
-    pub root: Entity,
+    pub site: Entity,
+    /// What should its current level be
+    pub level: Option<Entity>,
 }
 
 /// Used as a resource that keeps track of the current level entity
@@ -52,10 +54,6 @@ pub struct CurrentLevel(pub Option<Entity>);
 /// was most recently selected for it.
 #[derive(Clone, Debug, Default, Resource)]
 pub struct CachedLevels(pub HashMap<Entity, Entity>);
-
-/// Used as a resource to keep track of all currently opened sites
-#[derive(Clone, Debug, Default, Resource)]
-pub struct OpenSites(pub Vec<Entity>);
 
 /// This component is placed on the Site entity to keep track of what the next
 /// SiteID should be when saving.
@@ -81,51 +79,79 @@ pub fn change_site(
     };
 
     if let Some(cmd) = change_current_site.iter().last() {
-        if open_sites.get(cmd.root).is_err() {
+        if open_sites.get(cmd.site).is_err() {
             println!(
                 "Requested workspace change to an entity that is not an open site: {:?}",
-                cmd.root
+                cmd.site
             );
             return;
         }
 
-        if current_workspace.root != Some(cmd.root) {
-            // Hide current workspace before showing the new one
-            if let Some(cur_root) = current_workspace.root {
-                set_visibility(cur_root, false);
+        if let Some(chosen_level) = cmd.level {
+            if parents
+                .get(chosen_level)
+                .ok()
+                .filter(|parent| parent.get() == cmd.site)
+                .is_none()
+            {
+                println!(
+                    "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
+                    chosen_level,
+                    cmd.site,
+                );
+                return;
             }
-            current_workspace.root = Some(cmd.root);
+        }
+
+        if current_workspace.root != Some(cmd.site) {
+            if let Some(previous_site) = current_workspace.root {
+                set_visibility(previous_site, false);
+            }
+            set_visibility(cmd.site, true);
+            current_workspace.root = Some(cmd.site);
             current_workspace.display = true;
         }
 
-        if let Some(cached_level) = cached_levels.0.get(&cmd.root) {
-            set_visibility(*cached_level, true);
-            current_level.0 = Some(*cached_level);
-        } else {
-            if let Ok(children) = children.get(cmd.root) {
-                let mut found_level = false;
-                for child in children {
-                    if let Ok(level) = levels.get(*child) {
-                        cached_levels.0.insert(cmd.root, level);
-                        current_level.0 = Some(level);
-                        found_level = true;
-                        set_visibility(level, true);
-                    }
+        if let Some(new_level) = cmd.level {
+            if let Some(previous_level) = current_level.0 {
+                if previous_level != new_level {
+                    set_visibility(previous_level, false);
                 }
+            }
 
-                if !found_level {
-                    // Create a new blank level for the user
-                    let new_level = commands.entity(cmd.root).add_children(|site| {
-                        site.spawn(SpatialBundle::default())
-                            .insert(LevelProperties {
-                                name: "<unnamed level>".to_string(),
-                                elevation: 0.,
-                            })
-                            .id()
-                    });
+            set_visibility(new_level, true);
+            cached_levels.0.insert(cmd.site, new_level);
+            current_level.0 = Some(new_level);
+        } else {
+            if let Some(cached_level) = cached_levels.0.get(&cmd.site) {
+                set_visibility(*cached_level, true);
+                current_level.0 = Some(*cached_level);
+            } else {
+                if let Ok(children) = children.get(cmd.site) {
+                    let mut found_level = false;
+                    for child in children {
+                        if let Ok(level) = levels.get(*child) {
+                            cached_levels.0.insert(cmd.site, level);
+                            current_level.0 = Some(level);
+                            found_level = true;
+                            set_visibility(level, true);
+                        }
+                    }
 
-                    cached_levels.0.insert(cmd.root, new_level);
-                    current_level.0 = Some(new_level);
+                    if !found_level {
+                        // Create a new blank level for the user
+                        let new_level = commands.entity(cmd.site).add_children(|site| {
+                            site.spawn(SpatialBundle::default())
+                                .insert(LevelProperties {
+                                    name: "<unnamed level>".to_string(),
+                                    elevation: 0.,
+                                })
+                                .id()
+                        });
+
+                        cached_levels.0.insert(cmd.site, new_level);
+                        current_level.0 = Some(new_level);
+                    }
                 }
             }
         }

@@ -49,7 +49,7 @@ pub fn dispatch_change_workspace_events(
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
             },
             AppState::SiteEditor => {
-                change_site.send(ChangeCurrentSite { root: cmd.root });
+                change_site.send(ChangeCurrentSite { site: cmd.root, level: None });
             },
             AppState::WorkcellEditor => {
                 change_workcell.send(ChangeCurrentWorkcell { root: cmd.root });

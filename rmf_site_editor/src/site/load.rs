@@ -268,13 +268,13 @@ pub fn load_site(
     mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_sites.iter() {
-        let root = generate_site_entities(&mut commands, &cmd.site);
+        let site = generate_site_entities(&mut commands, &cmd.site);
         if let Some(path) = &cmd.default_file {
-            commands.entity(root).insert(DefaultFile(path.clone()));
+            commands.entity(site).insert(DefaultFile(path.clone()));
         }
 
         if cmd.focus {
-            change_current_site.send(ChangeCurrentSite { root });
+            change_current_site.send(ChangeCurrentSite { site, level: None });
 
             if *site_display_state.current() == SiteState::Off {
                 site_display_state.set(SiteState::Display).ok();
