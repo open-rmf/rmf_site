@@ -29,7 +29,7 @@ use rmf_site_format::*;
 /// Event used to trigger saving of the workcell
 pub struct SaveWorkcell {
     pub root: Entity,
-    pub to_file: Option<PathBuf>,
+    pub to_file: PathBuf,
 }
 
 #[derive(ThisError, Debug, Clone)]
@@ -184,20 +184,7 @@ pub fn save_workcell(world: &mut World) {
         .drain()
         .collect();
     for save_event in save_events {
-        println!("Read workcell save event");
-        let path = {
-            if let Some(to_file) = save_event.to_file {
-                to_file
-            } else {
-                if let Some(to_file) = world.entity(save_event.root).get::<DefaultFile>() {
-                    to_file.0.clone()
-                } else {
-                    println!("No default save file for workcell, please use [Save As]");
-                    continue;
-                }
-            }
-        };
-
+        let path = save_event.to_file;
         println!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")

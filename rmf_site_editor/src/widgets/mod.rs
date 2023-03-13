@@ -26,14 +26,21 @@ use crate::{
         CurrentWorkspace, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
+    workcell::{
+        LoadWorkcell
+    },
     AppState,
+    SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, CollapsingHeader},
+    egui::{self, Button, CollapsingHeader},
     EguiContext,
 };
 use rmf_site_format::*;
+
+#[cfg(not(target_arch = "wasm32"))]
+use rfd::FileDialog;
 
 pub mod inspector;
 use inspector::{InspectorParams, InspectorWidget};
@@ -110,6 +117,13 @@ pub struct ChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct FileEvents<'w, 's> {
+    pub save: EventWriter<'w, 's, SaveWorkspace>,
+    // TODO(luca) change into generic load workspace
+    pub load_workcell: EventWriter<'w, 's, LoadWorkcell>,
+}
+
+#[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -150,6 +164,7 @@ pub struct AppEvents<'w, 's> {
     pub change_mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
+    pub file_events: FileEvents<'w, 's>,
 }
 
 fn site_ui_layout(
@@ -267,6 +282,41 @@ fn workcell_ui_layout(
                     });
                 });
         });
+
+    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                // TODO(luca) implement new
+                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
+
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
+                        events.file_events.save.send(SaveWorkspace {to_file: None});
+                    }
+                    // TODO(luca) implement shortcuts for save as and open
+                    if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
+                        if let Some(path) = FileDialog::new().save_file() {
+                            events.file_events.save.send(SaveWorkspace {to_file: Some(path)});
+                        }
+                    }
+                    if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
+                        if let Some(path) = FileDialog::new().add_filter("Workcells", &["workcell.json"]).pick_file() {
+                            let data = std::fs::read(&path);
+                            if let Some(workcell) = data.ok().and_then(|d| Workcell::from_bytes(&d).ok()) {
+                                events.file_events.load_workcell.send(LoadWorkcell {
+                                    workcell,
+                                    focus: true,
+                                    default_file: Some(path),
+                                });
+                            }
+                        }
+                    }
+                }
+            });
+        });
+    });
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

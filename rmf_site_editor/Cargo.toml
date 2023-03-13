@@ -35,7 +35,7 @@ bitfield = "*"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
-bevy = { version = "0.9" }
+bevy = { version = "0.9", features = ["dynamic"] }
 surf = { version = "2.3" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

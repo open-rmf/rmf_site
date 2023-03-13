@@ -20,9 +20,8 @@ use crate::{
         camera_controls::{CameraControls, HeadlightToggle},
         ChangeMode, InteractionMode, Selection,
     },
-    site::{CurrentWorkspace, Delete, SaveSite},
-    workcell::SaveWorkcell,
-    AppState,
+    site::Delete,
+    SaveWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
@@ -55,12 +54,9 @@ fn handle_keyboard_input(
     mut egui_context: ResMut<EguiContext>,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
-    mut save_site: EventWriter<SaveSite>,
-    mut save_workcell: EventWriter<SaveWorkcell>,
+    mut save_workspace: EventWriter<SaveWorkspace>,
     headlight_toggle: Res<HeadlightToggle>,
-    workspace: Res<CurrentWorkspace>,
     mut debug_mode: ResMut<DebugMode>,
-    app_state: Res<State<AppState>>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -98,31 +94,9 @@ fn handle_keyboard_input(
         println!("Toggling debug mode: {debug_mode:?}");
     }
 
-    // TODO(luca) Consider having a single SaveWorkspace event and doing the pattern matching there
-    // instead of duplicating events, could have a root "save.rs" and "load.rs"
     if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl])
         && keyboard_input.just_pressed(KeyCode::S)
     {
-        if let Some(ws_root) = workspace.root {
-            match app_state.current() {
-                AppState::WorkcellEditor => {
-                    println!("Saving Workcell");
-                    save_workcell.send(SaveWorkcell {
-                        root: ws_root,
-                        to_file: None,
-                    });
-                }
-                AppState::SiteEditor => {
-                    println!("Saving Site");
-                    save_site.send(SaveSite {
-                        site: ws_root,
-                        to_file: None,
-                    });
-                }
-                AppState::MainMenu => { /* Noop */ }
-            }
-        } else {
-            println!("Unable to save, no workspace loaded");
-        }
+        save_workspace.send(SaveWorkspace{ to_file: None });
     }
 }
