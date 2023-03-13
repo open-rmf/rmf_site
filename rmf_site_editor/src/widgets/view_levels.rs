@@ -136,7 +136,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 ui.horizontal(|ui| {
                     if self.events.display.level.removing {
                         if ui
-                            .add(ImageButton::new(self.params.icons.egui_trash, [18., 18.]))
+                            .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
                             .on_hover_text("Remove this level")
                             .clicked()
                         {

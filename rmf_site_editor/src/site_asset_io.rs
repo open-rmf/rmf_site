@@ -150,28 +150,58 @@ impl SiteAssetIo {
 
     fn add_bundled_assets(&mut self) {
         self.bundled_assets.insert(
-            "textures/default.png".to_string(),
+            "textures/default.png".to_owned(),
             include_bytes!("../../assets/textures/default.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/select.png".to_string(),
+            "textures/select.png".to_owned(),
             include_bytes!("../../assets/textures/select.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/trash.png".to_string(),
+            "textures/trash.png".to_owned(),
             include_bytes!("../../assets/textures/trash.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/edit.png".to_string(),
+            "textures/edit.png".to_owned(),
             include_bytes!("../../assets/textures/edit.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/up.png".to_owned(),
+            include_bytes!("../../assets/textures/up.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/down.png".to_owned(),
+            include_bytes!("../../assets/textures/down.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/to_top.png".to_owned(),
+            include_bytes!("../../assets/textures/to_top.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/to_bottom.png".to_owned(),
+            include_bytes!("../../assets/textures/to_bottom.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/opaque.png".to_owned(),
+            include_bytes!("../../assets/textures/opaque.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/alpha.png".to_owned(),
+            include_bytes!("../../assets/textures/alpha.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/hidden.png".to_owned(),
+            include_bytes!("../../assets/textures/hidden.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/global.png".to_owned(),
+            include_bytes!("../../assets/textures/global.png").to_vec(),
         );
     }
 }
 
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
-        let path_str = path.to_str().unwrap();
-
         let asset_source = AssetSource::from(path);
         match asset_source {
             AssetSource::Remote(asset_name) => {

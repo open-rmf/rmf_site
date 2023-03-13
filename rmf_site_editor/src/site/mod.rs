@@ -27,6 +27,9 @@ pub use change_plugin::*;
 pub mod deletion;
 pub use deletion::*;
 
+pub mod display_color;
+pub use display_color::*;
+
 pub mod door;
 pub use door::*;
 
@@ -60,8 +63,8 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
-pub mod display_color;
-pub use display_color::*;
+pub mod nav_graph;
+pub use nav_graph::*;
 
 pub mod path;
 pub use path::*;
@@ -87,6 +90,7 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+use crate::recency::{RecencyRank, RecencyRankingPlugin};
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -129,6 +133,7 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+            .insert_resource(FloorVisibility::default())
             .init_resource::<SiteAssets>()
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
@@ -173,6 +178,10 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LocationTags>::default())
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
+            .add_plugin(ChangePlugin::<FloorVisibility>::default())
+            .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
+            .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
+            .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
@@ -197,6 +206,13 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_anchors_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
+                    .with_system(assign_orphan_elements_to_level::<DoorMarker>)
+                    .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
+                    .with_system(assign_orphan_elements_to_level::<FloorMarker>)
+                    .with_system(assign_orphan_elements_to_level::<LightKind>)
+                    .with_system(assign_orphan_elements_to_level::<ModelMarker>)
+                    .with_system(assign_orphan_elements_to_level::<PhysicalCameraProperties>)
+                    .with_system(assign_orphan_elements_to_level::<WallMarker>)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
                     .with_system(add_physical_lights),
@@ -213,6 +229,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_floor_visuals)
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_moved_anchors)
+                    .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
                     .with_system(update_level_visibility)
@@ -241,7 +258,8 @@ impl Plugin for SitePlugin {
                     .with_system(make_models_selectable)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
-                    .with_system(update_drawing_asset_source)
+                    .with_system(update_drawing_visuals)
+                    .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)

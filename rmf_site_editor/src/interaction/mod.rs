@@ -72,7 +72,7 @@ pub mod visual_cue;
 pub use visual_cue::*;
 
 use bevy::prelude::*;
-use bevy_mod_outline::{AutoGenerateOutlineNormalsPlugin, OutlinePlugin};
+use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
 
 #[derive(Default)]
@@ -134,7 +134,6 @@ impl Plugin for InteractionPlugin {
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
-            .add_plugin(AutoGenerateOutlineNormalsPlugin)
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)

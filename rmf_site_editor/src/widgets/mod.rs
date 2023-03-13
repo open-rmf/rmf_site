@@ -21,10 +21,11 @@ use crate::{
         SpawnPreview,
     },
     occupancy::CalculateGrid,
+    recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentWorkspace, Delete, ExportLights, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        CurrentWorkspace, Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
+        SiteState, ToggleLiftDoorAvailability,
     },
     workcell::{
         LoadWorkcell
@@ -42,11 +43,11 @@ use rmf_site_format::*;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
-pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget};
-
 pub mod create;
 use create::CreateWidget;
+
+pub mod view_layers;
+use view_layers::*;
 
 pub mod view_levels;
 use view_levels::{LevelDisplay, LevelParams, ViewLevels};
@@ -62,6 +63,12 @@ use view_occupancy::*;
 
 pub mod icons;
 pub use icons::*;
+
+pub mod inspector;
+use inspector::{InspectorParams, InspectorWidget};
+
+pub mod move_layer;
+pub use move_layer::*;
 
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
@@ -152,6 +159,15 @@ pub struct Requests<'w, 's> {
     pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
 }
 
+#[derive(SystemParam)]
+pub struct LayerEvents<'w, 's> {
+    pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
+    pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
+    pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
+    pub change_floor_vis: EventWriter<'w, 's, Change<FloorVisibility>>,
+    pub global_floor_vis: ResMut<'w, FloorVisibility>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -165,6 +181,7 @@ pub struct AppEvents<'w, 's> {
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
+    pub layers: LayerEvents<'w, 's>,
 }
 
 fn site_ui_layout(
@@ -175,6 +192,7 @@ fn site_ui_layout(
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
+    layers: LayersParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -194,6 +212,13 @@ fn site_ui_layout(
                             .default_open(true)
                             .show(ui, |ui| {
                                 ViewNavGraphs::new(&nav_graphs, &mut events).show(ui, &open_sites);
+                            });
+                        ui.separator();
+                        // TODO(MXG): Consider combining Nav Graphs and Layers
+                        CollapsingHeader::new("Layers")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewLayers::new(&layers, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Inspect")

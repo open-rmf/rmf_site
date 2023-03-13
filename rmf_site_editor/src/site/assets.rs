@@ -20,7 +20,7 @@ use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Resource)]
 pub struct SiteAssets {
-    pub default_floor_material: Handle<StandardMaterial>,
+    pub lift_floor_material: Handle<StandardMaterial>,
     pub lane_mid_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
@@ -119,7 +119,7 @@ impl FromWorld for SiteAssets {
             perceptual_roughness: 0.3,
             ..default()
         });
-        let default_floor_material = materials.add(StandardMaterial {
+        let lift_floor_material = materials.add(StandardMaterial {
             base_color: Color::rgb(0.3, 0.3, 0.3).into(),
             perceptual_roughness: 0.5,
             ..default()
@@ -143,10 +143,14 @@ impl FromWorld for SiteAssets {
         let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let level_anchor_mesh = meshes.add(Mesh::from(shape::UVSphere {
-            radius: 0.05, // TODO(MXG): Make the vertex radius configurable
-            ..Default::default()
-        }));
+        let level_anchor_mesh = meshes.add(
+            Mesh::from(shape::UVSphere {
+                radius: 0.05, // TODO(MXG): Make the vertex radius configurable
+                ..Default::default()
+            })
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
         let lift_anchor_mesh = meshes
             .add(Mesh::from(make_diamond(0.15 / 2.0, 0.15).transform_by(
                 Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
@@ -177,19 +181,30 @@ impl FromWorld for SiteAssets {
             )
             .into(),
         );
-        let box_mesh = meshes.add(shape::Box::new(1., 1., 1.).into());
-        let location_mesh = meshes.add(
-            make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
-                .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z))
-                .into(),
+        let box_mesh = meshes.add(
+            Mesh::from(shape::Box::new(1., 1., 1.))
+                .with_generated_outline_normals()
+                .unwrap(),
         );
-        let physical_camera_mesh = meshes.add(make_physical_camera_mesh());
+        let location_mesh = meshes.add(
+            Mesh::from(
+                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
+                    .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
+        let physical_camera_mesh = meshes.add(
+            make_physical_camera_mesh()
+                .with_generated_outline_normals()
+                .unwrap(),
+        );
 
         Self {
             level_anchor_mesh,
             lift_anchor_mesh,
             site_anchor_mesh,
-            default_floor_material,
+            lift_floor_material,
             lane_mid_mesh,
             lane_mid_outline,
             lane_end_mesh,

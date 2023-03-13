@@ -14,18 +14,22 @@ extern crate web_sys;
 
 mod aabb;
 mod animate;
+
 mod keyboard;
 use keyboard::*;
+
 mod settings;
 use settings::*;
 mod save;
 use save::*;
 mod widgets;
 use widgets::*;
+
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
 mod demo_world;
+mod recency;
 mod shapes;
 
 mod main_menu;

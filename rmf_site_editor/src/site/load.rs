@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{site::*, Autoload};
+use crate::{recency::RecencyRanking, site::*, Autoload};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use std::{collections::HashMap, path::PathBuf};
@@ -47,11 +47,11 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
     };
 
-    let mut binding = commands.spawn(SpatialBundle {
+    let mut site_cmd = commands.spawn(SpatialBundle {
         visibility: Visibility { is_visible: false },
         ..default()
     });
-    let mut site = binding
+    site_cmd
         .insert(Category::Site)
         .insert(site_data.properties.clone())
         .with_children(|site| {
@@ -65,13 +65,14 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             }
 
             for (level_id, level_data) in &site_data.levels {
-                let level_entity = site
-                    .spawn(SpatialBundle {
+                let mut level_cmd = site.spawn(SiteID(*level_id));
+
+                level_cmd
+                    .insert(SpatialBundle {
                         visibility: Visibility { is_visible: false },
                         ..default()
                     })
                     .insert(level_data.properties.clone())
-                    .insert(SiteID(*level_id))
                     .insert(Category::Level)
                     .with_children(|level| {
                         for (anchor_id, anchor) in &level_data.anchors {
@@ -141,7 +142,24 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 .insert(SiteID(*wall_id));
                             consider_id(*wall_id);
                         }
-                    })
+                    });
+
+                // TODO(MXG): Log when a RecencyRanking fails to load correctly.
+                let level_entity = level_cmd
+                    .insert(
+                        RecencyRanking::<FloorMarker>::from_u32(
+                            &level_data.rankings.floors,
+                            &id_to_entity,
+                        )
+                        .unwrap_or(RecencyRanking::new()),
+                    )
+                    .insert(
+                        RecencyRanking::<DrawingMarker>::from_u32(
+                            &level_data.rankings.drawings,
+                            &id_to_entity,
+                        )
+                        .unwrap_or(RecencyRanking::new()),
+                    )
                     .id();
                 id_to_entity.insert(*level_id, level_entity);
                 consider_id(*level_id);
@@ -210,8 +228,24 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             }
         });
 
-    site.insert(NextSiteID(highest_id + 1));
-    let site_id = site.id();
+    let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
+        &site_data.navigation.guided.ranking,
+        &id_to_entity,
+    ) {
+        Ok(r) => r,
+        Err(id) => {
+            println!(
+                "ERROR: Nav Graph ranking could not load because a graph with \
+                id {id} does not exist."
+            );
+            RecencyRanking::new()
+        }
+    };
+
+    site_cmd
+        .insert(nav_graph_rankings)
+        .insert(NextSiteID(highest_id + 1));
+    let site_id = site_cmd.id();
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {

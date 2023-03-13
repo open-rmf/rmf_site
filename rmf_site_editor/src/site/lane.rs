@@ -19,15 +19,18 @@ use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
-// TODO(MXG): Make these configurable, perhaps even a field in the Lane data
+pub const SELECTED_LANE_OFFSET: f32 = 0.001;
+pub const HOVERED_LANE_OFFSET: f32 = 0.002;
+pub const LANE_LAYER_START: f32 = FLOOR_LAYER_START + 0.001;
+pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
+
+// TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
-pub const PASSIVE_LANE_HEIGHT: f32 = 0.001;
-pub const SELECTED_LANE_HEIGHT: f32 = 0.002;
-pub const HOVERED_LANE_HEIGHT: f32 = 0.003;
 pub const LANE_WIDTH: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
 pub struct LaneSegments {
+    pub layer: Entity,
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
@@ -40,31 +43,6 @@ impl LaneSegments {
     }
 }
 
-pub fn should_display_graph(
-    associated: &AssociatedGraphs<Entity>,
-    graphs: &Query<(Entity, &Visibility), With<NavGraphMarker>>,
-) -> bool {
-    match associated {
-        AssociatedGraphs::All => {
-            graphs.is_empty() || graphs.iter().find(|(_, v)| v.is_visible).is_some()
-        }
-        AssociatedGraphs::Only(set) => {
-            graphs.is_empty()
-                || set.is_empty()
-                || set
-                    .iter()
-                    .find(|e| graphs.get(**e).ok().filter(|(_, v)| v.is_visible).is_some())
-                    .is_some()
-        }
-        AssociatedGraphs::AllExcept(set) => {
-            graphs.iter().find(|(e, v)| v.is_visible && !set.contains(e)).is_some()
-            // If all graphs are excluded for this lane then we want it to remain
-            // visible but with the unassigned material
-            || graphs.iter().find(|(e, _)| !set.contains(e)).is_none()
-        }
-    }
-}
-
 // TODO(MXG): Refactor these function arguments into a SystemParam
 fn should_display_lane(
     edge: &Edge<Entity>,
@@ -72,7 +50,7 @@ fn should_display_lane(
     parents: &Query<&Parent>,
     levels: &Query<(), With<LevelProperties>>,
     current_level: &Res<CurrentLevel>,
-    graphs: &Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: &GraphSelect,
 ) -> bool {
     for anchor in edge.array() {
         if let Ok(parent) = parents.get(anchor) {
@@ -82,43 +60,7 @@ fn should_display_lane(
         }
     }
 
-    should_display_graph(associated, graphs)
-}
-
-pub fn choose_graph_material(
-    associated_graphs: &AssociatedGraphs<Entity>,
-    graph_mats: &Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    assets: &Res<SiteAssets>,
-) -> Handle<StandardMaterial> {
-    match associated_graphs {
-        AssociatedGraphs::All => graph_mats
-            .iter()
-            .filter(|(_, _, v)| v.is_visible)
-            .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
-            .map(|(_, m, _)| m)
-            .unwrap_or(&assets.unassigned_lane_material)
-            .clone(),
-        AssociatedGraphs::Only(set) => set
-            .iter()
-            .find(|e| {
-                graph_mats
-                    .get(**e)
-                    .ok()
-                    .filter(|(_, _, v)| v.is_visible)
-                    .is_some()
-            })
-            .map(|e| graph_mats.get(*e).map(|(_, m, _)| m).ok())
-            .flatten()
-            .unwrap_or(&assets.unassigned_lane_material)
-            .clone(),
-        AssociatedGraphs::AllExcept(set) => graph_mats
-            .iter()
-            .filter(|(e, _, v)| v.is_visible && !set.contains(e))
-            .min_by(|(a, _, _), (b, _, _)| a.cmp(b))
-            .map(|(_, m, _)| m)
-            .unwrap_or(&assets.unassigned_lane_material)
-            .clone(),
-    }
+    graphs.should_display(associated)
 }
 
 pub fn assign_orphan_nav_elements_to_site(
@@ -143,8 +85,7 @@ pub fn assign_orphan_nav_elements_to_site(
 pub fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
@@ -159,14 +100,14 @@ pub fn add_lane_visuals(
             }
         }
 
-        let lane_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
+        let (lane_material, height) = graphs.display_style(associated_graphs);
         let is_visible = should_display_lane(
             edge,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
-            &graph_vis,
+            &graphs,
         );
 
         let start_anchor = anchors
@@ -176,71 +117,83 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
         let mut commands = commands.entity(e);
-        let (start, mid, end, outlines) = commands.add_children(|parent| {
-            let mut start = parent.spawn(PbrBundle {
-                mesh: assets.lane_end_mesh.clone(),
-                material: lane_material.clone(),
-                transform: Transform::from_translation(start_anchor),
+        let (layer, start, mid, end, outlines) = commands.add_children(|parent| {
+            // Create a "layer" entity that manages the height of the lane,
+            // determined by the DisplayHeight of the graph.
+            let mut layer_cmd = parent.spawn(SpatialBundle {
+                transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
             });
-            let start_outline = start.add_children(|start| {
-                start
-                    .spawn(PbrBundle {
+
+            let (start, mid, end, outlines) = layer_cmd.add_children(|parent| {
+                let mut start = parent.spawn(PbrBundle {
+                    mesh: assets.lane_end_mesh.clone(),
+                    material: lane_material.clone(),
+                    transform: Transform::from_translation(start_anchor),
+                    ..default()
+                });
+                let start_outline = start.add_children(|start| {
+                    start
+                        .spawn(PbrBundle {
+                            mesh: assets.lane_end_outline.clone(),
+                            transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                            visibility: Visibility { is_visible: false },
+                            ..default()
+                        })
+                        .id()
+                });
+                let start = start.id();
+
+                let mut mid = parent.spawn(PbrBundle {
+                    mesh: assets.lane_mid_mesh.clone(),
+                    material: lane_material.clone(),
+                    transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+                    ..default()
+                });
+                let mid_outline = mid.add_children(|mid| {
+                    mid.spawn(PbrBundle {
+                        mesh: assets.lane_mid_outline.clone(),
+                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                        visibility: Visibility { is_visible: false },
+                        ..default()
+                    })
+                    .id()
+                });
+                let mid = mid.id();
+
+                let mut end = parent.spawn(PbrBundle {
+                    mesh: assets.lane_end_mesh.clone(),
+                    material: lane_material.clone(),
+                    transform: Transform::from_translation(end_anchor),
+                    ..default()
+                });
+                let end_outline = end.add_children(|end| {
+                    end.spawn(PbrBundle {
                         mesh: assets.lane_end_outline.clone(),
                         transform: Transform::from_translation(-0.000_5 * Vec3::Z),
                         visibility: Visibility { is_visible: false },
                         ..default()
                     })
                     .id()
-            });
-            let start = start.id();
+                });
+                let end = end.id();
 
-            let mut mid = parent.spawn(PbrBundle {
-                mesh: assets.lane_mid_mesh.clone(),
-                material: lane_material.clone(),
-                transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
-                ..default()
+                (start, mid, end, [start_outline, mid_outline, end_outline])
             });
-            let mid_outline = mid.add_children(|mid| {
-                mid.spawn(PbrBundle {
-                    mesh: assets.lane_mid_outline.clone(),
-                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .id()
-            });
-            let mid = mid.id();
 
-            let mut end = parent.spawn(PbrBundle {
-                mesh: assets.lane_end_mesh.clone(),
-                material: lane_material.clone(),
-                transform: Transform::from_translation(end_anchor),
-                ..default()
-            });
-            let end_outline = end.add_children(|end| {
-                end.spawn(PbrBundle {
-                    mesh: assets.lane_end_outline.clone(),
-                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .id()
-            });
-            let end = end.id();
-
-            (start, mid, end, [start_outline, mid_outline, end_outline])
+            (layer_cmd.id(), start, mid, end, outlines)
         });
 
         commands
             .insert(LaneSegments {
+                layer,
                 start,
                 mid,
                 end,
                 outlines,
             })
             .insert(SpatialBundle {
-                transform: Transform::from_translation([0., 0., PASSIVE_LANE_HEIGHT].into()),
+                transform: Transform::from_translation([0., 0., LANE_LAYER_START].into()),
                 visibility: Visibility { is_visible },
                 ..default()
             })
@@ -288,21 +241,15 @@ pub fn update_changed_lane(
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible = should_display_lane(
-            edge,
-            associated,
-            &parents,
-            &levels,
-            &current_level,
-            &graph_vis,
-        );
+        let is_visible =
+            should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
         }
@@ -363,29 +310,28 @@ pub fn update_visibility_for_lanes(
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     lanes_with_changed_association: Query<
         (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
         (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Changed<Visibility>)>,
-    assets: Res<SiteAssets>,
+    mut transforms: Query<&mut Transform>,
+    graph_changed_visibility: Query<
+        (),
+        (
+            With<NavGraphMarker>,
+            Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
+        ),
+    >,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let is_visible = should_display_lane(
-                edge,
-                associated,
-                &parents,
-                &levels,
-                &current_level,
-                &graph_vis,
-            );
+            let is_visible =
+                should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
             }
@@ -399,7 +345,7 @@ pub fn update_visibility_for_lanes(
                     &parents,
                     &levels,
                     &current_level,
-                    &graph_vis,
+                    &graphs,
                 );
                 if visibility.is_visible != is_visible {
                     visibility.is_visible = is_visible;
@@ -410,20 +356,28 @@ pub fn update_visibility_for_lanes(
 
     if graph_change {
         for (_, associated_graphs, segments, _) in &lanes {
-            let lane_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
+            let (mat, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
-                    *m = lane_material.clone();
+                    *m = mat.clone();
                 }
+            }
+
+            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
+                tf.translation.z = height;
             }
         }
     } else {
         for (_, associated_graphs, segments) in &lanes_with_changed_association {
-            let lane_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
+            let (mat, height) = graphs.display_style(associated_graphs);
             for e in segments.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
-                    *m = lane_material.clone();
+                    *m = mat.clone();
                 }
+            }
+
+            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
+                tf.translation.z = height;
             }
         }
     }
