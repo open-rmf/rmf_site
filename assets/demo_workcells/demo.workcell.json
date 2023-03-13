@@ -1,21 +1,7 @@
 {
   "name": "test_workcell",
+  "id": 0,
   "frames": {
-    "0": {
-      "parent": null,
-      "Pose3D": {
-        "trans": [
-          0.0,
-          0.0,
-          0.0
-        ],
-        "rot": {
-          "yaw": {
-            "deg": 0.0
-          }
-        }
-      }
-    },
     "1": {
       "parent": 0,
       "Pose3D": {
@@ -62,7 +48,7 @@
         }
       }
     },
-    "4": {
+    "3": {
       "parent": 1,
       "Pose3D": {
         "trans": [
@@ -87,7 +73,7 @@
     }
   },
   "models": {
-    "3": {
+    "4": {
       "parent": 1,
       "name": "test_chair",
       "source": {
@@ -108,8 +94,8 @@
     }
   },
   "mesh_constraints": {
-    "4": {
-      "entity": 3,
+    "3": {
+      "entity": 4,
       "element": {
         "Vertex": 0
       },

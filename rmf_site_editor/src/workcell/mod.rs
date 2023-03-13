@@ -23,3 +23,6 @@ pub use mesh_constraint::*;
 
 pub mod save;
 pub use save::*;
+
+pub mod workcell;
+pub use workcell::*;

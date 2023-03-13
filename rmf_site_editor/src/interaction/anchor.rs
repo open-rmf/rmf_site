@@ -30,24 +30,6 @@ pub struct AnchorVisualization {
     pub drag: Option<Entity>,
 }
 
-fn make_anchor_orientation_cue_meshes(
-    commands: &mut Commands,
-    interaction_assets: &InteractionAssets,
-    parent: Entity,
-) {
-    // The arrows should originate in the mesh origin
-    let pos = Vec3::splat(0.0);
-    let rot_x = Quat::from_rotation_y(90_f32.to_radians());
-    let rot_y = Quat::from_rotation_x(90_f32.to_radians());
-    let rot_z = Quat::default();
-    let x_mat = interaction_assets.x_axis_materials.clone();
-    let y_mat = interaction_assets.y_axis_materials.clone();
-    let z_mat = interaction_assets.z_axis_materials.clone();
-    interaction_assets.make_axis(commands, None, parent, x_mat, pos, rot_x, 1.0);
-    interaction_assets.make_axis(commands, None, parent, y_mat, pos, rot_y, 1.0);
-    interaction_assets.make_axis(commands, None, parent, z_mat, pos, rot_z, 1.0);
-}
-
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
     new_anchors: Query<
@@ -88,7 +70,7 @@ pub fn add_anchor_visual_cues(
         // 3D anchors should always be visible with arrow cue meshes
         match anchor {
             Anchor::Pose3D(_) => {
-                make_anchor_orientation_cue_meshes(&mut commands, &interaction_assets, e);
+                interaction_assets.make_orientation_cue_meshes(&mut commands, e, 0.2);
             }
             _ => {
                 entity_commands.insert(VisualCue::outline().irregular());

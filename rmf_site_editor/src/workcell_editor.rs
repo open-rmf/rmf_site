@@ -149,6 +149,7 @@ impl Plugin for WorkcellEditorPlugin {
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
+            .add_system(add_workcell_visualization)
             .add_system(change_site.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)

@@ -45,6 +45,13 @@ fn generate_workcell_entities(
     // Hashmap of parent model entity to constraint dependent entity
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
+    let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
+        .insert(workcell.properties.clone())
+        .insert(SiteID(workcell.id))
+        .insert(Category::Workcell)
+        .id();
+    id_to_entity.insert(&workcell.id, root);
+
     for (id, parented_anchor) in &workcell.frames {
         let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
             .insert(FrameMarker)
@@ -81,12 +88,6 @@ fn generate_workcell_entities(
     for (model, dependents) in model_to_constraint_dependent_entities {
         commands.entity(model).insert(ConstraintDependents(dependents));
     }
-
-    // TODO(luca) assign SiteID to workcell root
-    let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
-        .insert(workcell.properties.clone())
-        .insert(Category::Workcell)
-        .id();
 
     for (parent, children) in parent_to_child_entities {
         let parent = match parent {

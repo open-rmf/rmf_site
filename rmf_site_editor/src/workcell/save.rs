@@ -49,7 +49,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     )> = SystemState::new(world);
     let (q_used_entities, q_children) = state.get(&world);
 
-    let mut new_entities = Vec::new();
+    let mut new_entities = vec!(workcell);
     for e in q_children.iter_descendants(workcell) {
         if let Ok(_) = q_used_entities.get(e) {
             new_entities.push(e);

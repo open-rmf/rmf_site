@@ -123,7 +123,7 @@ impl FromWorld for Cursor {
         let dagger_material = interaction_assets.dagger_material.clone();
         let level_anchor_mesh = site_assets.level_anchor_mesh.clone();
         let site_anchor_mesh = site_assets.site_anchor_mesh.clone();
-        let frame_mesh = interaction_assets.workcell_arrow_mesh.clone();
+        let frame_mesh = interaction_assets.arrow_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
         let preview_frame_material = site_assets.preview_anchor_material.clone();
 
@@ -189,6 +189,7 @@ impl FromWorld for Cursor {
                 parent.spawn(PbrBundle {
                     mesh: frame_mesh,
                     material: preview_frame_material,
+                    transform: Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
                     ..default()
                 });
             })

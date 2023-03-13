@@ -78,6 +78,8 @@ pub struct Workcell {
     /// Workcell specific properties
     #[serde(flatten)]
     pub properties: WorkcellProperties,
+    /// Site ID, used for entities to set their parent to the root workcell
+    pub id: u32,
     /// Frames, key is their id, used for hierarchy
     pub frames: BTreeMap<u32, Parented<u32, Frame>>,
     /// Models, key is their id, used for hierarchy

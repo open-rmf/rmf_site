@@ -658,18 +658,18 @@ pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
         ))
 }
 
-pub(crate) fn make_cylinder_arrow_mesh(scale: f32) -> Mesh {
-    let tip = [0., 0., scale];
-    let l_head = scale * 0.2;
-    let r_head = scale * 0.15;
-    let r_base = scale * 0.1;
+pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
+    let tip = [0., 0., 1.0];
+    let l_head = 0.2;
+    let r_head = 0.15;
+    let r_base = 0.1;
     let head_base = Circle {
         radius: r_head,
-        height: scale - l_head,
+        height: 1.0 - l_head,
     };
     let cylinder_top = Circle {
         radius: r_base,
-        height: scale - l_head,
+        height: 1.0 - l_head,
     };
     let cylinder_bottom = Circle {
         radius: r_base,

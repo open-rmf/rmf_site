@@ -25,7 +25,6 @@ pub struct InteractionAssets {
     pub halo_mesh: Handle<Mesh>,
     pub halo_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
-    pub workcell_arrow_mesh: Handle<Mesh>,
     pub point_light_socket_mesh: Handle<Mesh>,
     pub point_light_shine_mesh: Handle<Mesh>,
     pub spot_light_cover_mesh: Handle<Mesh>,
@@ -43,6 +42,25 @@ pub struct InteractionAssets {
 }
 
 impl InteractionAssets {
+    pub fn make_orientation_cue_meshes(
+        &self,
+        commands: &mut Commands,
+        parent: Entity,
+        scale: f32,
+    ) {
+        // The arrows should originate in the mesh origin
+        let pos = Vec3::splat(0.0);
+        let rot_x = Quat::from_rotation_y(90_f32.to_radians());
+        let rot_y = Quat::from_rotation_x(90_f32.to_radians());
+        let rot_z = Quat::default();
+        let x_mat = self.x_axis_materials.clone();
+        let y_mat = self.y_axis_materials.clone();
+        let z_mat = self.z_axis_materials.clone();
+        self.make_axis(commands, None, parent, x_mat, pos, rot_x, scale);
+        self.make_axis(commands, None, parent, y_mat, pos, rot_y, scale);
+        self.make_axis(commands, None, parent, z_mat, pos, rot_z, scale);
+    }
+
     pub fn make_axis(
         &self,
         command: &mut Commands,
@@ -60,7 +78,7 @@ impl InteractionAssets {
                 transform: Transform::from_rotation(rotation)
                     .with_translation(offset)
                     .with_scale(Vec3::splat(scale)),
-                mesh: self.workcell_arrow_mesh.clone(),
+                mesh: self.arrow_mesh.clone(),
                 material: material_set.passive.clone(),
                 ..default()
             });
@@ -153,8 +171,7 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
-        let arrow_mesh = meshes.add(make_cylinder_arrow_mesh(1.0));
-        let workcell_arrow_mesh = meshes.add(make_cylinder_arrow_mesh(0.2));
+        let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.03, 0.02)
                 .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
@@ -289,7 +306,6 @@ impl FromWorld for InteractionAssets {
             halo_mesh,
             halo_material,
             arrow_mesh,
-            workcell_arrow_mesh,
             point_light_socket_mesh,
             point_light_shine_mesh,
             spot_light_cover_mesh,
