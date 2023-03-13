@@ -264,7 +264,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 pub fn load_site(
     mut commands: Commands,
     mut load_sites: EventReader<LoadSite>,
-    mut change_current_workspace: EventWriter<ChangeCurrentWorkspace>,
+    mut change_current_site: EventWriter<ChangeCurrentSite>,
     mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_sites.iter() {
@@ -274,7 +274,7 @@ pub fn load_site(
         }
 
         if cmd.focus {
-            change_current_workspace.send(ChangeCurrentWorkspace { root });
+            change_current_site.send(ChangeCurrentSite { root });
 
             if *site_display_state.current() == SiteState::Off {
                 site_display_state.set(SiteState::Display).ok();

@@ -295,10 +295,14 @@ fn workcell_ui_layout(
                                             .into(),
                                     ));
                                 }
+                                // TODO(luca) Spawn window to select model asset source variant,
+                                // allowing local filesystem choice for non wasm targets
                                 if ui.button("Model").clicked() {
+                                    let mut model = Model::default();
+                                    model.source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
                                     events.request.change_mode.send(ChangeMode::To(
                                         SelectAnchor3D::create_new_point()
-                                            .for_model(None)
+                                            .for_model(model)
                                             .into(),
                                     ));
                                 }
@@ -311,9 +315,13 @@ fn workcell_ui_layout(
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
-                // TODO(luca) implement new
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-
+                    println!("Loading new workcell");
+                    events.file_events.load_workcell.send(LoadWorkcell {
+                        workcell: Workcell::default(),
+                        focus: true,
+                        default_file: None,
+                    });
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {

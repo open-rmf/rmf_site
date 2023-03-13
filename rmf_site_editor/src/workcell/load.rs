@@ -21,7 +21,8 @@ use std::collections::HashMap;
 use bevy::prelude::*;
 use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
-use crate::site::{AnchorBundle, ChangeCurrentWorkspace, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, NameInSite, SiteState};
+use crate::workcell::{ChangeCurrentWorkcell};
+use crate::site::{AnchorBundle, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, NameInSite, PreventDeletion, SiteState};
 
 use rmf_site_format::{Category, FrameMarker, SiteID};
 
@@ -45,10 +46,14 @@ fn generate_workcell_entities(
     // Hashmap of parent model entity to constraint dependent entity
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
+    // TODO(luca) See whether to duplicate name info between workcell properties and name in site
+    // or only spawn / inspect workcell properties
     let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
+        //.insert(NameInSite(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
+        .insert(PreventDeletion {reason: Some("Workcell root cannot be deleted".to_string())})
         .id();
     id_to_entity.insert(&workcell.id, root);
 
@@ -72,6 +77,7 @@ fn generate_workcell_entities(
         id_to_entity.insert(id, e);
     }
 
+    // TODO(luca) don't panic for failed loads, Result return and graceful failure instead
     for (id, c) in &workcell.mesh_constraints {
         let model_entity = *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing model");
         let entity = *id_to_entity.get(id).expect("Mesh constraint refers to non existing anchor");
@@ -115,21 +121,21 @@ fn generate_workcell_entities(
     root
 }
 
-
 pub fn load_workcell(
     mut commands: Commands,
     mut load_workcells: EventReader<LoadWorkcell>,
-    mut change_current_workspace: EventWriter<ChangeCurrentWorkspace>,
+    mut change_current_workcell: EventWriter<ChangeCurrentWorkcell>,
     mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_workcells.iter() {
+        println!("Loading workcell");
         let root = generate_workcell_entities(&mut commands, &cmd.workcell);
         if let Some(path) = &cmd.default_file {
             commands.entity(root).insert(DefaultFile(path.clone()));
         }
 
         if cmd.focus {
-            change_current_workspace.send(ChangeCurrentWorkspace { root });
+            change_current_workcell.send(ChangeCurrentWorkcell { root });
 
             /*
             if *site_display_state.current() == SiteState::Off {

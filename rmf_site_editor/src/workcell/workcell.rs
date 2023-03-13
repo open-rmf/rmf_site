@@ -16,9 +16,53 @@
 */
 
 use bevy::prelude::*;
+// TODO(luca) get current workspace out of site
+use crate::site::CurrentWorkspace;
 use crate::interaction::{InteractionAssets, Selectable};
 use crate::site::SiteAssets;
 use rmf_site_format::WorkcellProperties;
+
+/// Used as an event to command that a new site should be made the current one
+#[derive(Clone, Copy, Debug)]
+pub struct ChangeCurrentWorkcell {
+    /// What should the current site be
+    pub root: Entity,
+}
+
+pub fn change_workcell(
+    mut commands: Commands,
+    mut current_workspace: ResMut<CurrentWorkspace>,
+    mut change_current_workcell: EventReader<ChangeCurrentWorkcell>,
+    open_workcells: Query<Entity, With<WorkcellProperties>>,
+    mut visibility: Query<&mut Visibility>,
+) {
+    let mut set_visibility = |entity, value| {
+        if let Ok(mut v) = visibility.get_mut(entity) {
+            v.is_visible = value;
+        }
+    };
+
+    if let Some(cmd) = change_current_workcell.iter().last() {
+        if open_workcells.get(cmd.root).is_err() {
+            println!(
+                "Requested workspace change to an entity that is not an open workcell: {:?}",
+                cmd.root
+            );
+            return;
+        }
+
+        // Remove visibility for current root and make the new one visible
+        // TODO(luca) should this be despawn instead? There is currently no UI way to restore
+        if current_workspace.root != Some(cmd.root) {
+            // Hide current workspace before showing the new one
+            if let Some(cur_root) = current_workspace.root {
+                set_visibility(cur_root, false);
+            }
+            current_workspace.root = Some(cmd.root);
+            current_workspace.display = true;
+        }
+    }
+}
 
 pub fn add_workcell_visualization(
     mut commands: Commands,

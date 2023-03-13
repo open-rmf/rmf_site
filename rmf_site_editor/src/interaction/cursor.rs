@@ -37,6 +37,7 @@ pub struct Cursor {
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
     pub frame_placement: Entity,
+    pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
     modes: HashSet<&'static str>,
@@ -99,6 +100,22 @@ impl Cursor {
                 v.is_visible = visible;
             }
         }
+    }
+
+    // This will leave orphaned models, they will be cleaned up by the
+    // remove_orphaned_model_previews system
+    pub fn set_model_preview(&mut self, commands: &mut Commands, e: Option<Entity>) {
+        if let Some(current_preview) = self.preview_model {
+            commands.entity(self.frame).remove_children(&[current_preview]);
+        }
+        if let Some(e) = e {
+            commands.entity(self.frame).push_children(&[e]);
+        }
+        self.preview_model = e;
+    }
+
+    pub fn remove_child(&mut self, commands: &mut Commands, e: Entity) {
+        commands.entity(self.frame).remove_children(&[e]);
     }
 
     pub fn should_be_visible(&self) -> bool {
@@ -179,7 +196,6 @@ impl FromWorld for Cursor {
             })
             .id();
 
-        // TODO(luca) make this a constant in interaction_assets
         let frame_placement = world
             .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
             .insert(Pending)
@@ -211,6 +227,7 @@ impl FromWorld for Cursor {
             level_anchor_placement,
             site_anchor_placement,
             frame_placement,
+            preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),
             blockers: Default::default(),
@@ -317,29 +334,43 @@ pub fn update_cursor_transform(
             // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
             if let Some((Some(triangle), Some(position), Some(normal))) = intersections.iter().last().and_then(|data| Some((data.world_triangle(), data.position(), data.normal()))) {
                 // Make sure we are hovering over a model and not anything else (i.e. anchor)
-                if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
-                    // Find the closest triangle vertex
-                    // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
-                    // to area, then populate a MeshConstraint component to be used by downstream
-                    // spawning methods
-                    // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                    let triangle_vecs = vec![triangle.v1, triangle.v2];
-                    let mut closest_vertex = triangle.v0;
-                    let mut closest_dist = position.distance(triangle.v0.into());
-                    for v in triangle_vecs {
-                        let dist = position.distance(v.into());
-                        if dist < closest_dist {
-                            closest_dist = dist;
-                            closest_vertex = v;
+                match cursor.preview_model {
+                    None => {
+                        if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
+                            // Find the closest triangle vertex
+                            // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
+                            // to area, then populate a MeshConstraint component to be used by downstream
+                            // spawning methods
+                            // TODO(luca) there must be a better way to find a minimum given predicate in Rust
+                            let triangle_vecs = vec![triangle.v1, triangle.v2];
+                            let mut closest_vertex = triangle.v0;
+                            let mut closest_dist = position.distance(triangle.v0.into());
+                            for v in triangle_vecs {
+                                let dist = position.distance(v.into());
+                                if dist < closest_dist {
+                                    closest_dist = dist;
+                                    closest_vertex = v;
+                                }
+                            }
+                            //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
+                            let ray = Ray3d::new(closest_vertex.into(), normal);
+                            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+                            set_visibility(cursor.frame, &mut visibility, true);
+                        } else {
+                            // Hide the cursor
+                            set_visibility(cursor.frame, &mut visibility, false);
                         }
+                    },
+                    Some(_) => {
+                        // If we are placing a model avoid snapping to faced and just project to
+                        // ground plane
+                        let intersection = match intersect_ground_params.ground_plane_intersection() {
+                            Some(intersection) => intersection,
+                            None => { return; }
+                        };
+                        set_visibility(cursor.frame, &mut visibility, true);
+                        *transform = Transform::from_translation(intersection);
                     }
-                    //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                    let ray = Ray3d::new(closest_vertex.into(), normal);
-                    *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
-                    set_visibility(cursor.frame, &mut visibility, true);
-                } else {
-                    // Hide the cursor
-                    set_visibility(cursor.frame, &mut visibility, false);
                 }
             } else {
                 let intersection = match intersect_ground_params.ground_plane_intersection() {
@@ -388,5 +419,26 @@ pub fn update_cursor_hover_visualization(
 
     for e in removed.iter() {
         cursor.remove_dependent(e, &mut visibility);
+    }
+}
+
+pub fn remove_orphaned_model_previews(
+    mut commands: Commands,
+    orphaned_previews: Query<Entity, (With<ModelMarker>, Without<Parent>)>,
+) {
+    for orphaned in orphaned_previews.iter() {
+        commands.entity(orphaned).despawn_recursive();
+    }
+}
+
+// This system makes sure model previews are not picked up by raycasting
+pub fn make_model_previews_not_selectable(
+    mut commands: Commands,
+    new_models: Query<Entity, (With<ModelMarker>, Added<Selectable>)>,
+    cursor: Res<Cursor>,
+) {
+    if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
+        commands.entity(e).remove::<Selectable>();
+        commands.entity(e).remove::<PickableBundle>();
     }
 }

@@ -1138,6 +1138,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             &mut self.visibility,
             false,
         );
+        self.cursor.set_model_preview(&mut self.commands, None);
     }
 }
 
@@ -1220,11 +1221,10 @@ impl SelectAnchorPointBuilder {
         }
     }
 
-    pub fn for_model(self, parent: Option<Entity>) -> SelectAnchor3D {
-        // TODO a model cube
+    pub fn for_model(self, model: Model) -> SelectAnchor3D {
         SelectAnchor3D {
-            bundle: PlaceableObject::Model(Model::default()),
-            parent: parent,
+            bundle: PlaceableObject::Model(model),
+            parent: None,
             target: self.for_element,
             continuity: self.continuity,
         }
@@ -2084,11 +2084,21 @@ pub fn handle_select_anchor_3d_mode(
         }
 
         // Make the anchor placement component of the cursor visible
-        set_visibility(
-            params.cursor.frame_placement,
-            &mut params.visibility,
-            true,
-        );
+        match request.bundle {
+            PlaceableObject::Anchor => {
+                set_visibility(
+                    params.cursor.frame_placement,
+                    &mut params.visibility,
+                    true,
+                );
+            },
+            PlaceableObject::Model(ref m) => {
+                // Spawn the model as a child of the cursor
+                let mut model = m.clone();
+                let id = params.commands.spawn(model).id();
+                params.cursor.set_model_preview(&mut params.commands, Some(id));
+            },
+        }
 
         // Set the request parent to the currently selected element, to spawn new object as
         // children of selected frames
@@ -2140,9 +2150,8 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::Model(ref a) => {
+                        println!("Creating model for entity {:?}", id);
                         let mut model = a.clone();
-                        // TODO(luca) actual model here
-                        model.source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
                         let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
                         let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         model.pose = pose;

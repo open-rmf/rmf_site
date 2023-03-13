@@ -139,6 +139,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_plugin(WireframePlugin)
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
+            .add_event::<ChangeCurrentWorkcell>()
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
@@ -150,7 +151,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system(load_workcell)
             .add_system(save_workcell)
             .add_system(add_workcell_visualization)
-            .add_system(change_site.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
+            .add_system(change_workcell.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .before(TransformSystem::TransformPropagate)

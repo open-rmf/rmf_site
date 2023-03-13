@@ -152,6 +152,8 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_anchor_cues_for_mode)
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
                     .with_system(remove_deleted_supports_from_visual_cues)
+                    .with_system(remove_orphaned_model_previews)
+                    .with_system(make_model_previews_not_selectable)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
                     .with_system(update_edge_visual_cues.after(maintain_selected_entities))
                     .with_system(update_point_visual_cues.after(maintain_selected_entities))

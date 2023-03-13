@@ -41,6 +41,9 @@ use workcell_editor::WorkcellEditorPlugin;
 mod interaction;
 mod workcell;
 
+mod workspace;
+use workspace::*;
+
 mod simulation_state;
 mod site_asset_io;
 
@@ -168,5 +171,7 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
         .add_plugin(OccupancyPlugin)
+        // TODO(luca) put this in a workspace managing plugin?
+        .add_plugin(WorkspacePlugin)
         .run();
 }

@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use rmf_site_format::{LevelProperties, SiteProperties, WorkcellProperties};
+use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
 
 /// Used as a resource that keeps track of the current site entity
@@ -39,7 +39,7 @@ impl CurrentWorkspace {
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
-pub struct ChangeCurrentWorkspace {
+pub struct ChangeCurrentSite {
     /// What should the current site be
     pub root: Entity,
 }
@@ -64,12 +64,12 @@ pub struct NextSiteID(pub u32);
 
 pub fn change_site(
     mut commands: Commands,
-    mut change_current_workspace: EventReader<ChangeCurrentWorkspace>,
+    mut change_current_site: EventReader<ChangeCurrentSite>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
     mut cached_levels: ResMut<CachedLevels>,
     mut visibility: Query<&mut Visibility>,
-    open_workspaces: Query<Entity, Or<(With<SiteProperties>, With<WorkcellProperties>)>>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
@@ -80,22 +80,23 @@ pub fn change_site(
         }
     };
 
-    if let Some(cmd) = change_current_workspace.iter().last() {
-        if open_workspaces.get(cmd.root).is_err() {
+    if let Some(cmd) = change_current_site.iter().last() {
+        if open_sites.get(cmd.root).is_err() {
             println!(
-                "Requested workspace change to an entity that is not an open site or workcell: {:?}",
+                "Requested workspace change to an entity that is not an open site: {:?}",
                 cmd.root
             );
             return;
         }
 
         if current_workspace.root != Some(cmd.root) {
+            // Hide current workspace before showing the new one
+            if let Some(cur_root) = current_workspace.root {
+                set_visibility(cur_root, false);
+            }
             current_workspace.root = Some(cmd.root);
             current_workspace.display = true;
         }
-
-        // TODO(luca) Early return for workcell editor, probably splitting the open_workspaces
-        // Query
 
         if let Some(cached_level) = cached_levels.0.get(&cmd.root) {
             set_visibility(*cached_level, true);
