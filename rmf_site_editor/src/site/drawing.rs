@@ -19,9 +19,10 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_site_path, Category, CurrentWorkspace, DefaultFile, FloorVisibility, RecencyRank,
+        get_current_site_path, Category, DefaultFile, FloorVisibility, RecencyRank,
         FLOOR_LAYER_START,
     },
+    CurrentWorkspace,
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};

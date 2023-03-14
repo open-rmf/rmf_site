@@ -16,6 +16,7 @@
 */
 
 use crate::site::*;
+use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use std::collections::HashSet;
 use std::path::PathBuf;

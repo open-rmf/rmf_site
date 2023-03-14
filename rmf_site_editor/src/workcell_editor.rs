@@ -22,9 +22,9 @@ use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, Inf
 
 use crate::site::{change_site, update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
 use crate::interaction::{Gizmo, handle_select_anchor_3d_mode};
-use crate::site::{AnchorBundle, CurrentWorkspace, DefaultFile};
+use crate::site::{AnchorBundle, DefaultFile};
 use crate::workcell::*;
-use crate::AppState;
+use crate::{AppState, CurrentWorkspace};
 
 use rmf_site_format::{
     Anchor, Angle, AssetSource, Category, Model, ModelMarker, NameInSite, Pose, Rotation, Workcell,

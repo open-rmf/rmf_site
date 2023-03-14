@@ -17,7 +17,8 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, CurrentWorkspace},
+    site::Anchor,
+    CurrentWorkspace,
 };
 use bevy::prelude::*;
 use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};

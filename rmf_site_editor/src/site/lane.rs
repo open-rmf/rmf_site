@@ -16,6 +16,7 @@
 */
 
 use crate::site::*;
+use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 

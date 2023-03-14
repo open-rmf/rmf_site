@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{recency::RecencyRanking, site::*, Autoload};
+use crate::{recency::RecencyRanking, site::*, Autoload, CurrentWorkspace};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use std::{collections::HashMap, path::PathBuf};

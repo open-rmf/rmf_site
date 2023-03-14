@@ -18,9 +18,10 @@
 use crate::{
     interaction::*,
     site::{
-        Anchor, AnchorBundle, Category, CurrentWorkspace, Dependents, Original, PathBehavior,
+        Anchor, AnchorBundle, Category, Dependents, Original, PathBehavior,
         Pending,
     },
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{

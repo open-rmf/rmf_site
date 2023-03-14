@@ -22,6 +22,7 @@ use crate::{
     },
     site::Delete,
     SaveWorkspace,
+    CreateNewWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
@@ -55,6 +56,7 @@ fn handle_keyboard_input(
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
+    mut new_workspace: EventWriter<CreateNewWorkspace>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
 ) {
@@ -94,9 +96,17 @@ fn handle_keyboard_input(
         println!("Toggling debug mode: {debug_mode:?}");
     }
 
-    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl])
-        && keyboard_input.just_pressed(KeyCode::S)
-    {
-        save_workspace.send(SaveWorkspace{ to_file: None });
+    // Ctrl keybindings
+    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
+        if keyboard_input.just_pressed(KeyCode::S) {
+            // TODO(luca) on Shift open file dialog
+            save_workspace.send(SaveWorkspace{ to_file: None });
+        }
+
+        // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
+        // gui to switch between open workspaces
+        if keyboard_input.just_pressed(KeyCode::N) {
+            new_workspace.send(CreateNewWorkspace);
+        }
     }
 }

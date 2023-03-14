@@ -91,6 +91,7 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use crate::CurrentWorkspace;
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -138,8 +139,6 @@ impl Plugin for SitePlugin {
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()
-            .init_resource::<CurrentWorkspace>()
-            .init_resource::<RecallWorkspace>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()
             .init_resource::<PhysicalLightToggle>()
@@ -195,7 +194,6 @@ impl Plugin for SitePlugin {
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .with_system(sync_workspace_visibility)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
                     .with_system(change_site),

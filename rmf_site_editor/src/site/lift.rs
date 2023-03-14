@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;

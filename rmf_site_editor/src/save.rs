@@ -16,8 +16,8 @@
 */
 
 use bevy::prelude::*;
-use crate::AppState;
-use crate::site::{CurrentWorkspace, DefaultFile, SaveSite};
+use crate::{AppState, CurrentWorkspace};
+use crate::site::{DefaultFile, SaveSite};
 use crate::workcell::SaveWorkcell;
 
 use std::path::PathBuf;

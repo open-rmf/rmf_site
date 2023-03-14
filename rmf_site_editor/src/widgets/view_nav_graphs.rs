@@ -18,11 +18,12 @@
 use crate::{
     recency::RecencyRanking,
     site::{
-        Change, CurrentWorkspace, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
+        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{inspector::color_edit, AppEvents, Icons, MoveLayer},
     Autoload,
+    CurrentWorkspace,
 };
 use bevy::{
     ecs::system::SystemParam,

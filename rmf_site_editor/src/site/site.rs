@@ -16,26 +16,9 @@
 */
 
 use bevy::prelude::*;
+use crate::CurrentWorkspace;
 use rmf_site_format::{LevelProperties, SiteProperties};
 use std::collections::HashMap;
-
-/// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default, Resource)]
-pub struct CurrentWorkspace {
-    pub root: Option<Entity>,
-    pub display: bool,
-}
-
-/// Used to keep track of visibility when switching workspace
-#[derive(Debug, Default, Resource)]
-pub struct RecallWorkspace(Option<Entity>);
-
-impl CurrentWorkspace {
-    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
-        let site_entity = self.root?;
-        open_sites.get(site_entity).ok()
-    }
-}
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -155,31 +138,5 @@ pub fn change_site(
                 }
             }
         }
-    }
-}
-
-pub fn sync_workspace_visibility(
-    current_workspace: Res<CurrentWorkspace>,
-    mut recall: ResMut<RecallWorkspace>,
-    mut visibility: Query<&mut Visibility>,
-) {
-    if !current_workspace.is_changed() {
-        return;
-    }
-
-    if recall.0 != current_workspace.root {
-        // Set visibility of current to target
-        if let Some(current_workspace_entity) = current_workspace.root {
-            if let Ok(mut v) = visibility.get_mut(current_workspace_entity) {
-                v.is_visible = current_workspace.display;
-            }
-        }
-        // Disable visibility in recall
-        if let Some(recall) = recall.0 {
-            if let Ok(mut v) = visibility.get_mut(recall) {
-                v.is_visible = false;
-            }
-        }
-        recall.0 = current_workspace.root;
     }
 }

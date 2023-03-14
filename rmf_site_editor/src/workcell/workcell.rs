@@ -16,8 +16,7 @@
 */
 
 use bevy::prelude::*;
-// TODO(luca) get current workspace out of site
-use crate::site::CurrentWorkspace;
+use crate::CurrentWorkspace;
 use crate::interaction::{InteractionAssets, Selectable};
 use crate::site::SiteAssets;
 use rmf_site_format::WorkcellProperties;

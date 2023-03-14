@@ -24,13 +24,15 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentWorkspace, Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
+        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
         SiteState, ToggleLiftDoorAvailability,
     },
     workcell::{
         LoadWorkcell
     },
     AppState,
+    CreateNewWorkspace,
+    CurrentWorkspace,
     SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -128,6 +130,7 @@ pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     // TODO(luca) change into generic load workspace
     pub load_workcell: EventWriter<'w, 's, LoadWorkcell>,
+    pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
 }
 
 #[derive(SystemParam)]
@@ -316,12 +319,7 @@ fn workcell_ui_layout(
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    println!("Loading new workcell");
-                    events.file_events.load_workcell.send(LoadWorkcell {
-                        workcell: Workcell::default(),
-                        focus: true,
-                        default_file: None,
-                    });
+                    events.file_events.new_workspace.send(CreateNewWorkspace);
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {

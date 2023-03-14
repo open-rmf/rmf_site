@@ -16,6 +16,7 @@
 */
 
 use crate::site::*;
+use crate::CurrentWorkspace;
 use bevy::prelude::*;
 
 pub fn update_level_visibility(
