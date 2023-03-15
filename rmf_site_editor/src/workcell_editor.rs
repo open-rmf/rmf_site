@@ -102,6 +102,12 @@ fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
     //mock_workcell(&mut commands, workspace);
 }
 
+fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>) {
+    for grid in grids.iter() {
+        commands.entity(grid).despawn_recursive();
+    }
+}
+
 fn add_wireframe_to_meshes(
     mut commands: Commands,
     new_meshes: Query<Entity, Added<Handle<Mesh>>>,
@@ -141,6 +147,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
             .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
+            .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
                 .with_system(add_wireframe_to_meshes)

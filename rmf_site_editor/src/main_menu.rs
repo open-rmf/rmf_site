@@ -16,7 +16,7 @@
 */
 
 use super::demo_world::*;
-use crate::{interaction::InteractionState, site::LoadSite, AppState, OpenedMapFile, workcell::LoadWorkcell};
+use crate::{interaction::InteractionState, site::LoadSite, AppState, LoadWorkspace, LoadWorkspaceFile, LoadWorkspaceFileTask, OpenedWorkspaceFile, OpenedMapFile, workcell::LoadWorkcell};
 use bevy::{
     app::AppExit,
     prelude::*,
@@ -28,11 +28,6 @@ use futures_lite::future;
 use rfd::{AsyncFileDialog, FileHandle};
 use rmf_site_format::{legacy::building_map::BuildingMap, Site, Workcell};
 use std::path::PathBuf;
-
-struct LoadSiteFileResult(Option<OpenedMapFile>, Site);
-
-#[derive(Component)]
-struct LoadSiteFileTask(Task<Option<LoadSiteFileResult>>);
 
 #[derive(Resource)]
 pub struct Autoload {
@@ -58,11 +53,13 @@ fn egui_ui(
     // TODO(luca) refactor into LoadWorkspace?
     mut _load_site: EventWriter<LoadSite>,
     mut _load_workcell: EventWriter<LoadWorkcell>,
+    mut _load_workspace: EventWriter<LoadWorkspace>,
     mut _interaction_state: ResMut<State<InteractionState>>,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
-    loading_tasks: Query<(), With<LoadSiteFileTask>>,
+    //loading_tasks: Query<(), With<LoadSiteFileTask>>,
 ) {
+    /*
     if !loading_tasks.is_empty() {
         egui::Window::new("Welcome!")
             .collapsible(false)
@@ -74,16 +71,13 @@ fn egui_ui(
             });
         return;
     }
+    */
 
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
         {
             if let Some(filename) = autoload.filename.clone() {
-                let future = AsyncComputeTaskPool::get().spawn(async move {
-                    let site = load_site_file(&FileHandle::wrap(filename.clone())).await?;
-                    Some(LoadSiteFileResult(Some(OpenedMapFile(filename)), site))
-                });
-                _commands.spawn(LoadSiteFileTask(future));
+                _load_workspace.send(LoadWorkspace::Path(filename));
             }
             autoload.filename = None;
         }
@@ -105,32 +99,22 @@ fn egui_ui(
                     #[cfg(not(target_arch = "wasm32"))]
                     {
                         let future = AsyncComputeTaskPool::get().spawn(async move {
-                            let yaml = demo_office();
-                            let data = yaml.as_bytes();
-                            let site = match BuildingMap::from_bytes(&data) {
-                                Ok(building) => match building.to_site() {
-                                    Ok(site) => site,
-                                    Err(err) => {
-                                        println!("{err:?}");
-                                        return None;
-                                    }
-                                },
-                                Err(err) => {
-                                    println!("{:?}", err);
-                                    return None;
-                                }
-                            };
-                            Some(LoadSiteFileResult(None, site))
+                            let mut mock_file = PathBuf::new();
+                            mock_file.push("demo.building.yaml");
+                            //Some(LoadWorkspaceFile("demo.building.yaml", data))
+                            Some(LoadWorkspaceFile(
+                                OpenedWorkspaceFile(mock_file),
+                                demo_office(),
+                            ))
                         });
-                        _commands.spawn(LoadSiteFileTask(future));
+                        _commands.spawn(LoadWorkspaceFileTask(future));
                     }
 
                     // on web, we don't have a handy thread pool, so we'll
                     // just parse the map here in the main thread.
                     #[cfg(target_arch = "wasm32")]
                     {
-                        let yaml = demo_office();
-                        let data = yaml.as_bytes();
+                        let data = demo_office();
                         match BuildingMap::from_bytes(&data) {
                             Ok(building) => match building.to_site() {
                                 Ok(site) => {
@@ -163,25 +147,8 @@ fn egui_ui(
 
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if ui.button("Open a map file").clicked() {
-                        // load the map in a thread pool
-                        let future = AsyncComputeTaskPool::get().spawn(async move {
-                            let file = match AsyncFileDialog::new().pick_file().await {
-                                Some(file) => file,
-                                None => {
-                                    println!("No file selected");
-                                    return None;
-                                }
-                            };
-                            println!("Loading site map");
-
-                            let site = load_site_file(&file).await?;
-                            Some(LoadSiteFileResult(
-                                Some(OpenedMapFile(file.path().to_path_buf())),
-                                site,
-                            ))
-                        });
-                        _commands.spawn(LoadSiteFileTask(future));
+                    if ui.button("Open a file").clicked() {
+                        _load_workspace.send(LoadWorkspace::Dialog);
                     }
                 }
 
@@ -193,38 +160,30 @@ fn egui_ui(
                 // }
                 if ui.button("Workcell Editor").clicked() {
                     println!("Entering workcell editor");
-                    // TODO(luca) also add async version
-                    {
-                        let workcell_json = demo_workcell();
-                        let data = workcell_json.as_bytes();
-                        match Workcell::from_bytes(&data) {
-                            Ok(workcell) =>  {
-                                // TODO(luca) remove this, for testing
-                                let mut path = std::path::PathBuf::new();
-                                path.push("test.workcell.json");
-                                _load_workcell.send(LoadWorkcell {
-                                    workcell,
-                                    focus: true,
-                                    default_file: Some(path),
-                                });
-                                match _app_state.set(AppState::WorkcellEditor) {
-                                    Ok(_) => {
-                                        _interaction_state.set(InteractionState::Enable).ok();
-                                    }
-                                    Err(err) => {
-                                        println!("Failed to enter workcell editor: {:?}", err);
-                                    }
+                    let data = demo_workcell();
+                    match Workcell::from_bytes(&data) {
+                        Ok(workcell) =>  {
+                            // TODO(luca) remove this, for testing
+                            let mut path = std::path::PathBuf::new();
+                            path.push("test.workcell.json");
+                            _load_workcell.send(LoadWorkcell {
+                                workcell,
+                                focus: true,
+                                default_file: Some(path),
+                            });
+                            match _app_state.set(AppState::WorkcellEditor) {
+                                Ok(_) => {
+                                    _interaction_state.set(InteractionState::Enable).ok();
                                 }
-                            },
-                            Err(err) => {
-                                println!("{:?}", err);
+                                Err(err) => {
+                                    println!("Failed to enter workcell editor: {:?}", err);
+                                }
                             }
+                        },
+                        Err(err) => {
+                            println!("{:?}", err);
                         }
                     }
-                    /*
-                    _app_state.set(AppState::WorkcellEditor).unwrap();
-                    _interaction_state.set(InteractionState::Enable).ok();
-                    */
                 }
             });
 
@@ -242,82 +201,10 @@ fn egui_ui(
         });
 }
 
-/// Handles the file opening events
-#[cfg(not(target_arch = "wasm32"))]
-fn site_file_load_complete(
-    mut commands: Commands,
-    mut tasks: Query<(Entity, &mut LoadSiteFileTask)>,
-    mut app_state: ResMut<State<AppState>>,
-    mut interaction_state: ResMut<State<InteractionState>>,
-    mut load_site: EventWriter<LoadSite>,
-) {
-    for (entity, mut task) in tasks.iter_mut() {
-        if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
-            println!("Site map loaded");
-            commands.entity(entity).despawn();
-
-            match result {
-                Some(result) => {
-                    println!("Entering traffic editor");
-                    match app_state.set(AppState::SiteEditor) {
-                        Ok(_) => {
-                            let LoadSiteFileResult(file, site) = result;
-                            load_site.send(LoadSite {
-                                site,
-                                focus: true,
-                                default_file: file.map(|f| f.0),
-                            });
-                            interaction_state.set(InteractionState::Enable).ok();
-                        }
-                        Err(err) => {
-                            println!("Failed to enter traffic editor: {:?}", err);
-                        }
-                    }
-                }
-                None => {}
-            }
-        }
-    }
-}
-
 pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(egui_ui));
-
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_system_set(
-            SystemSet::on_update(AppState::MainMenu).with_system(site_file_load_complete),
-        );
-    }
-}
-
-#[cfg(not(target_arch = "wasm32"))]
-pub async fn load_site_file(file: &FileHandle) -> Option<Site> {
-    let is_legacy = file.file_name().ends_with(".building.yaml");
-    let data = file.read().await;
-    if is_legacy {
-        match BuildingMap::from_bytes(&data) {
-            Ok(building) => match building.to_site() {
-                Ok(site) => Some(site),
-                Err(err) => {
-                    println!("{:?}", err);
-                    return None;
-                }
-            },
-            Err(err) => {
-                println!("{:?}", err);
-                return None;
-            }
-        }
-    } else {
-        match Site::from_bytes(&data) {
-            Ok(site) => Some(site),
-            Err(err) => {
-                println!("{:?}", err);
-                return None;
-            }
-        }
     }
 }

@@ -20,9 +20,10 @@ use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
+use rmf_site_format::legacy::building_map::BuildingMap;
 
 #[cfg(not(target_arch = "wasm32"))]
-use {crate::main_menu::load_site_file, rfd::FileHandle};
+use rfd::FileHandle;
 
 /// This component is given to the site to keep track of what file it should be
 /// saved to by default.
@@ -571,6 +572,36 @@ pub fn import_nav_graph(
             if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data)
             {
                 println!("Failed to auto-import nav graph: {err}");
+            }
+        }
+    }
+}
+
+// TODO(luca) see if we can remove this
+#[cfg(not(target_arch = "wasm32"))]
+async fn load_site_file(file: &FileHandle) -> Option<Site> {
+    let is_legacy = file.file_name().ends_with(".building.yaml");
+    let data = file.read().await;
+    if is_legacy {
+        match BuildingMap::from_bytes(&data) {
+            Ok(building) => match building.to_site() {
+                Ok(site) => Some(site),
+                Err(err) => {
+                    println!("{:?}", err);
+                    return None;
+                }
+            },
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
+            }
+        }
+    } else {
+        match Site::from_bytes(&data) {
+            Ok(site) => Some(site),
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
             }
         }
     }

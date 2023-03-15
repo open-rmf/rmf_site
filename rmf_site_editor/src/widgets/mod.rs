@@ -33,6 +33,7 @@ use crate::{
     AppState,
     CreateNewWorkspace,
     CurrentWorkspace,
+    LoadWorkspace,
     SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -130,6 +131,7 @@ pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     // TODO(luca) change into generic load workspace
     pub load_workcell: EventWriter<'w, 's, LoadWorkcell>,
+    pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
 }
 
@@ -251,6 +253,31 @@ fn site_ui_layout(
                 });
         });
 
+    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
+                    events.file_events.new_workspace.send(CreateNewWorkspace);
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
+                        events.file_events.save.send(SaveWorkspace {to_file: None});
+                    }
+                    // TODO(luca) implement shortcuts for save as and open
+                    if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
+                        if let Some(path) = FileDialog::new().save_file() {
+                            events.file_events.save.send(SaveWorkspace {to_file: Some(path)});
+                        }
+                    }
+                    if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
+                        events.file_events.load_workspace.send(LoadWorkspace::Dialog);
+                    }
+                }
+            });
+        });
+    });
+
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -333,6 +360,8 @@ fn workcell_ui_layout(
                         }
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
+                        events.file_events.load_workspace.send(LoadWorkspace::Dialog);
+                        /*
                         if let Some(path) = FileDialog::new().add_filter("Workcells", &["workcell.json"]).pick_file() {
                             let data = std::fs::read(&path);
                             if let Some(workcell) = data.ok().and_then(|d| Workcell::from_bytes(&d).ok()) {
@@ -343,6 +372,7 @@ fn workcell_ui_layout(
                                 });
                             }
                         }
+                        */
                     }
                 }
             });

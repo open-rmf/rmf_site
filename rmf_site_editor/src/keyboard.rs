@@ -21,6 +21,7 @@ use crate::{
         ChangeMode, InteractionMode, Selection,
     },
     site::Delete,
+    LoadWorkspace,
     SaveWorkspace,
     CreateNewWorkspace,
 };
@@ -57,6 +58,7 @@ fn handle_keyboard_input(
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
+    mut load_workspace: EventWriter<LoadWorkspace>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
 ) {
@@ -107,6 +109,10 @@ fn handle_keyboard_input(
         // gui to switch between open workspaces
         if keyboard_input.just_pressed(KeyCode::N) {
             new_workspace.send(CreateNewWorkspace);
+        }
+
+        if keyboard_input.just_pressed(KeyCode::O) {
+            load_workspace.send(LoadWorkspace::Dialog);
         }
     }
 }
