@@ -88,9 +88,9 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
-            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
+            .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
-                SystemSet::on_update(SiteState::Display)
+                SystemSet::on_update(AppState::SiteEditor)
                     .with_system(site_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set(

@@ -16,17 +16,13 @@
 */
 
 use super::demo_world::*;
-use crate::{interaction::InteractionState, site::LoadSite, AppState, LoadWorkspace, LoadWorkspaceFile, LoadWorkspaceFileTask, OpenedWorkspaceFile, OpenedMapFile, workcell::LoadWorkcell};
+use crate::{AppState, LoadWorkspace, WorkspaceData};
 use bevy::{
     app::AppExit,
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::Task,
 };
 use bevy_egui::{egui, EguiContext};
-use futures_lite::future;
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::{AsyncFileDialog, FileHandle};
-use rmf_site_format::{legacy::building_map::BuildingMap, Site, Workcell};
 use std::path::PathBuf;
 
 #[derive(Resource)]
@@ -48,31 +44,11 @@ impl Autoload {
 
 fn egui_ui(
     mut egui_context: ResMut<EguiContext>,
-    mut _commands: Commands,
     mut _exit: EventWriter<AppExit>,
-    // TODO(luca) refactor into LoadWorkspace?
-    mut _load_site: EventWriter<LoadSite>,
-    mut _load_workcell: EventWriter<LoadWorkcell>,
     mut _load_workspace: EventWriter<LoadWorkspace>,
-    mut _interaction_state: ResMut<State<InteractionState>>,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
-    //loading_tasks: Query<(), With<LoadSiteFileTask>>,
 ) {
-    /*
-    if !loading_tasks.is_empty() {
-        egui::Window::new("Welcome!")
-            .collapsible(false)
-            .resizable(false)
-            .title_bar(false)
-            .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
-            .show(egui_context.ctx_mut(), |ui| {
-                ui.heading("Loading...");
-            });
-        return;
-    }
-    */
-
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -95,54 +71,7 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    // load the office demo that is hard-coded in demo_world.rs
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        let future = AsyncComputeTaskPool::get().spawn(async move {
-                            let mut mock_file = PathBuf::new();
-                            mock_file.push("demo.building.yaml");
-                            //Some(LoadWorkspaceFile("demo.building.yaml", data))
-                            Some(LoadWorkspaceFile(
-                                OpenedWorkspaceFile(mock_file),
-                                demo_office(),
-                            ))
-                        });
-                        _commands.spawn(LoadWorkspaceFileTask(future));
-                    }
-
-                    // on web, we don't have a handy thread pool, so we'll
-                    // just parse the map here in the main thread.
-                    #[cfg(target_arch = "wasm32")]
-                    {
-                        let data = demo_office();
-                        match BuildingMap::from_bytes(&data) {
-                            Ok(building) => match building.to_site() {
-                                Ok(site) => {
-                                    _load_site.send(LoadSite {
-                                        site,
-                                        focus: true,
-                                        default_file: None,
-                                    });
-                                    match _app_state.set(AppState::SiteEditor) {
-                                        Ok(_) => {
-                                            _interaction_state.set(InteractionState::Enable).ok();
-                                        }
-                                        Err(err) => {
-                                            println!("Failed to enter traffic editor: {:?}", err);
-                                        }
-                                    }
-                                }
-                                Err(err) => {
-                                    println!("{err:?}");
-                                }
-                            },
-                            Err(err) => {
-                                println!("{:?}", err);
-                            }
-                        }
-                    }
-
-                    // switch to using a channel to signal completing the task
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(demo_office())));
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
@@ -152,39 +81,16 @@ fn egui_ui(
                     }
                 }
 
+                if ui.button("Workcell Editor").clicked() {
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(demo_workcell())));
+                }
+
                 // TODO(MXG): Bring this back when we have time to fix the
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
                 //     println!("Entering warehouse generator");
                 //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
-                if ui.button("Workcell Editor").clicked() {
-                    println!("Entering workcell editor");
-                    let data = demo_workcell();
-                    match Workcell::from_bytes(&data) {
-                        Ok(workcell) =>  {
-                            // TODO(luca) remove this, for testing
-                            let mut path = std::path::PathBuf::new();
-                            path.push("test.workcell.json");
-                            _load_workcell.send(LoadWorkcell {
-                                workcell,
-                                focus: true,
-                                default_file: Some(path),
-                            });
-                            match _app_state.set(AppState::WorkcellEditor) {
-                                Ok(_) => {
-                                    _interaction_state.set(InteractionState::Enable).ok();
-                                }
-                                Err(err) => {
-                                    println!("Failed to enter workcell editor: {:?}", err);
-                                }
-                            }
-                        },
-                        Err(err) => {
-                            println!("{:?}", err);
-                        }
-                    }
-                }
             });
 
             #[cfg(not(target_arch = "wasm32"))]

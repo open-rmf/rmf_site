@@ -25,7 +25,7 @@ use std::path::PathBuf;
 
 use crate::AppState;
 use crate::interaction::InteractionState;
-use crate::site::{ChangeCurrentSite, LoadSite, SiteState};
+use crate::site::{ChangeCurrentSite, LoadSite};
 use crate::workcell::{ChangeCurrentWorkcell, LoadWorkcell};
 use rmf_site_format::{Site, SiteProperties, Workcell};
 use rmf_site_format::legacy::building_map::BuildingMap;
@@ -50,9 +50,29 @@ pub struct CreateNewWorkspace;
 pub enum LoadWorkspace {
     Dialog,
     Path(PathBuf),
+    Data(WorkspaceData),
+}
+
+pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     Site(Vec<u8>),
     Workcell(Vec<u8>),
+}
+
+impl WorkspaceData {
+    pub fn new(path: &PathBuf, data: Vec<u8>) -> Option<Self> {
+        let filename = path.file_name().and_then(|f| f.to_str())?;
+        if filename.ends_with(".building.yaml") {
+            Some(WorkspaceData::LegacyBuilding(data))
+        } else if filename.ends_with("site.ron") {
+            Some(WorkspaceData::Site(data))
+        } else if filename.ends_with("workcell.json") {
+            Some(WorkspaceData::Workcell(data))
+        } else {
+            println!("Unrecognized file type {:?}", filename);
+            None
+        }
+    }
 }
 
 /// Used as a resource that keeps track of the current workspace
@@ -62,14 +82,10 @@ pub struct CurrentWorkspace {
     pub display: bool,
 }
 
-pub struct LoadWorkspaceFile(pub OpenedWorkspaceFile, pub Vec<u8>);
+struct LoadWorkspaceFile(pub std::path::PathBuf, pub Vec<u8>);
 
 #[derive(Component)]
-pub struct LoadWorkspaceFileTask(pub Task<Option<LoadWorkspaceFile>>);
-
-// TODO(luca) get rid of this?
-#[derive(Deref)]
-pub struct OpenedWorkspaceFile(pub std::path::PathBuf);
+struct LoadWorkspaceFileTask(pub Task<Option<LoadWorkspaceFile>>);
 
 /// Used to keep track of visibility when switching workspace
 #[derive(Debug, Default, Resource)]
@@ -135,10 +151,11 @@ pub fn dispatch_new_workspace_events(
 #[cfg(not(target_arch = "wasm32"))]
 pub fn dispatch_load_workspace_events(
     mut commands: Commands,
-    state: Res<State<AppState>>,
-    mut load_workspace: EventReader<LoadWorkspace>,
+    mut app_state: ResMut<State<AppState>>,
+    mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
+    mut load_workspace: EventReader<LoadWorkspace>,
 ) {
     if let Some(cmd) = load_workspace.iter().last() {
         match cmd {
@@ -150,32 +167,21 @@ pub fn dispatch_load_workspace_events(
                     // TODO(luca) on wasm there is no file path, only file name, put a config guard to
                     // populate accordingly
                     Some(LoadWorkspaceFile(
-                        OpenedWorkspaceFile(file.path().to_path_buf()),
+                        file.path().to_path_buf(),
                         data
                     ))
                 });
                 commands.spawn(LoadWorkspaceFileTask(future));
             },
             LoadWorkspace::Path(path) => {
-                // TODO(luca) sync loading from path
-                let path = path.clone();
-                let future = AsyncComputeTaskPool::get().spawn(async move {
-                    let file = FileHandle::wrap(path.clone());
-
-                    let data = file.read().await;
-
-                    // TODO(luca) on wasm there is no file path, only file name, put a config guard to
-                    // populate accordingly
-                    Some(LoadWorkspaceFile(
-                        OpenedWorkspaceFile(file.path().to_path_buf()),
-                        data
-                    ))
-                });
-                commands.spawn(LoadWorkspaceFileTask(future));
+                if let Some(data) = std::fs::read(&path).ok().and_then(|d| WorkspaceData::new(&path, d)) {
+                    handle_workspace_data(Some(path.clone()), &data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
+                }
             },
-            // TODO(luca) handle raw bytes cases
-            _ => {},
-
+            LoadWorkspace::Data(data) => {
+                // Do a sync load and state update
+                handle_workspace_data(None, &data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
+            },
         }
     }
 }
@@ -204,12 +210,87 @@ pub fn dispatch_change_workspace_events(
 }
 */
 
+fn handle_workspace_data(
+    file: Option<PathBuf>,
+    workspace_data: &WorkspaceData,
+    mut app_state: &mut ResMut<State<AppState>>,
+    mut interaction_state: &mut ResMut<State<InteractionState>>,
+    mut load_site: &mut EventWriter<LoadSite>,
+    mut load_workcell: &mut EventWriter<LoadWorkcell>,
+) {
+    match workspace_data {
+        WorkspaceData::LegacyBuilding(data) => {
+            println!("Opening legacy building map file");
+            if let Some(site) = BuildingMap::from_bytes(&data).ok().and_then(|b| b.to_site().ok()) {
+                // Switch state
+                match app_state.set(AppState::SiteEditor) {
+                    Ok(_) => {
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file: file,
+                        });
+                        interaction_state.set(InteractionState::Enable).ok();
+                    }
+                    Err(err) => {
+                        println!("Failed to enter traffic editor: {:?}", err);
+                    }
+                }
+            } else {
+                // TODO(luca) restore more informative errors
+                println!("Failed loading legacy building");
+            }
+        },
+        WorkspaceData::Site(data) => {
+            println!("Opening site file");
+            if let Ok(site) = Site::from_bytes(&data) {
+                // Switch state
+                match app_state.set(AppState::SiteEditor) {
+                    Ok(_) => {
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file: file,
+                        });
+                        interaction_state.set(InteractionState::Enable).ok();
+                    }
+                    Err(err) => {
+                        println!("Failed to enter traffic editor: {:?}", err);
+                    }
+                }
+            } else {
+                println!("Failed loading site");
+            }
+        },
+        WorkspaceData::Workcell(data) => {
+            println!("Opening workcell file");
+            if let Ok(workcell) = Workcell::from_bytes(&data) {
+                // Switch state
+                match app_state.set(AppState::WorkcellEditor) {
+                    Ok(_) => {
+                        load_workcell.send(LoadWorkcell {
+                            workcell,
+                            focus: true,
+                            default_file: file,
+                        });
+                        interaction_state.set(InteractionState::Enable).ok();
+                    }
+                    Err(err) => {
+                        println!("Failed to enter traffic editor: {:?}", err);
+                    }
+                }
+            } else {
+                println!("Failed loading workcell");
+            }
+        },
+    }
+}
+
 /// Handles the file opening events
 fn workspace_file_load_complete(
     mut commands: Commands,
     mut tasks: Query<(Entity, &mut LoadWorkspaceFileTask)>,
     mut app_state: ResMut<State<AppState>>,
-    mut site_display_state: ResMut<State<SiteState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
@@ -217,78 +298,11 @@ fn workspace_file_load_complete(
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
             commands.entity(entity).despawn();
-
-            match result {
-                Some(result) => {
-                    let LoadWorkspaceFile(file, data) = result;
-                    if let Some(file_name) = file.file_name().and_then(|f| f.to_str()) {
-                        if file_name.ends_with(".building.yaml") {
-                            println!("Opening legacy building map file");
-                            if let Some(site) = BuildingMap::from_bytes(&data).ok().and_then(|b| b.to_site().ok()) {
-                                // Switch state
-                                match app_state.set(AppState::SiteEditor) {
-                                    Ok(_) => {
-                                        load_site.send(LoadSite {
-                                            site,
-                                            focus: true,
-                                            default_file: Some(file.0),
-                                        });
-                                        interaction_state.set(InteractionState::Enable).ok();
-                                    }
-                                    Err(err) => {
-                                        println!("Failed to enter traffic editor: {:?}", err);
-                                    }
-                                }
-                            }
-                        } else if file_name.ends_with("site.ron") {
-                            println!("Opening site file");
-                            if let Ok(site) = Site::from_bytes(&data) {
-                                // Switch state
-                                match app_state.set(AppState::SiteEditor) {
-                                    Ok(_) => {
-                                        load_site.send(LoadSite {
-                                            site,
-                                            focus: true,
-                                            default_file: Some(file.0),
-                                        });
-                                        interaction_state.set(InteractionState::Enable).ok();
-                                    }
-                                    Err(err) => {
-                                        println!("Failed to enter traffic editor: {:?}", err);
-                                    }
-                                }
-                            }
-                        } else if file_name.ends_with("workcell.json") {
-                            println!("Opening workcell file");
-                            if let Ok(workcell) = Workcell::from_bytes(&data) {
-                                // Switch state
-                                match app_state.set(AppState::WorkcellEditor) {
-                                    Ok(_) => {
-                                        load_workcell.send(LoadWorkcell {
-                                            workcell,
-                                            focus: true,
-                                            default_file: Some(file.0),
-                                        });
-                                        interaction_state.set(InteractionState::Enable).ok();
-                                        // TODO(luca) see if we need this site display state
-                                        if *site_display_state.current() == SiteState::Display {
-                                            site_display_state.set(SiteState::Off).ok();
-                                        }
-                                    }
-                                    Err(err) => {
-                                        println!("Failed to enter traffic editor: {:?}", err);
-                                    }
-                                }
-
-                        } else {
-                            println!("Unrecognized file type {:?}", file_name);
-                        }
-                    } else {
-                        return;
-                    }
+            if let Some(result) = result {
+                let LoadWorkspaceFile(file, data) = result;
+                if let Some(workspace_data) = WorkspaceData::new(&file, data) {
+                    handle_workspace_data(Some(file), &workspace_data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
                 }
-                }
-                None => {}
             }
         }
     }

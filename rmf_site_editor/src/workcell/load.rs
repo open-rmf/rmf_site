@@ -137,11 +137,10 @@ pub fn load_workcell(
         if cmd.focus {
             change_current_workcell.send(ChangeCurrentWorkcell { root });
 
-            /*
-            if *site_display_state.current() == SiteState::Off {
-                site_display_state.set(SiteState::Display).ok();
+            // TODO(luca) get rid of SiteState
+            if *site_display_state.current() == SiteState::Display {
+                site_display_state.set(SiteState::Off).ok();
             }
-            */
         }
     }
 }

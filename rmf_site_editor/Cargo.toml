@@ -48,4 +48,5 @@ bevy = "0.9"
 surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
+rfd = "0.8.2"
 surf = { version = "2.3", default-features = false, features = ["wasm-client", "encoding"] }
