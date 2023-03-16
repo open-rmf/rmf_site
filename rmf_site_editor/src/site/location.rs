@@ -18,6 +18,10 @@
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
+// TODO(MXG): Consider using recency rankings for Locations so they don't
+// experience z-fighting.
+const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -25,7 +29,7 @@ fn should_display_point(
     parents: &Query<&Parent>,
     levels: &Query<(), With<LevelProperties>>,
     current_level: &Res<CurrentLevel>,
-    graphs: &Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: &GraphSelect,
 ) -> bool {
     if let Ok(parent) = parents.get(point.0) {
         if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
@@ -33,14 +37,13 @@ fn should_display_point(
         }
     }
 
-    should_display_graph(associated, graphs)
+    graphs.should_display(associated)
 }
 
 pub fn add_location_visuals(
     mut commands: Commands,
     locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
@@ -53,26 +56,27 @@ pub fn add_location_visuals(
             deps.insert(e);
         }
 
-        let location_material = choose_graph_material(associated_graphs, &graph_mats, &assets);
+        let material = graphs.display_style(associated_graphs).0;
         let is_visible = should_display_point(
             point,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
-            &graph_vis,
+            &graphs,
         );
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap();
+            .unwrap()
+            + LOCATION_LAYER_HEIGHT * Vec3::Z;
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
             .insert(PbrBundle {
                 mesh: assets.location_mesh.clone(),
                 transform: Transform::from_translation(position),
-                material: location_material,
+                material,
                 visibility: Visibility { is_visible },
                 ..default()
             })
@@ -96,7 +100,7 @@ pub fn update_changed_location(
     anchors: AnchorParams,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, point, associated, mut visibility, mut tf) in &mut locations {
@@ -104,6 +108,7 @@ pub fn update_changed_location(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap();
         tf.translation = position;
+        tf.translation.z = LOCATION_LAYER_HEIGHT;
 
         let is_visible = should_display_point(
             point,
@@ -111,7 +116,7 @@ pub fn update_changed_location(
             &parents,
             &levels,
             &current_level,
-            &graph_vis,
+            &graphs,
         );
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
@@ -137,6 +142,7 @@ pub fn update_location_for_moved_anchors(
                     .point_in_parent_frame_of(point.0, Category::Location, e)
                     .unwrap();
                 tf.translation = position;
+                tf.translation.z = LOCATION_LAYER_HEIGHT;
             }
         }
     }
@@ -149,20 +155,25 @@ pub fn update_visibility_for_locations(
             &AssociatedGraphs<Entity>,
             &mut Visibility,
             &mut Handle<StandardMaterial>,
+            // &mut
         ),
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
     levels: Query<(), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,
-    graph_mats: Query<(Entity, &Handle<StandardMaterial>, &Visibility), With<NavGraphMarker>>,
-    graph_vis: Query<(Entity, &Visibility), With<NavGraphMarker>>,
+    graphs: GraphSelect,
     locations_with_changed_association: Query<
         Entity,
         (With<LocationTags>, Changed<AssociatedGraphs<Entity>>),
     >,
-    graph_changed_visibility: Query<(), (With<NavGraphMarker>, Changed<Visibility>)>,
-    assets: Res<SiteAssets>,
+    graph_changed_visibility: Query<
+        (),
+        (
+            With<NavGraphMarker>,
+            Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
+        ),
+    >,
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
@@ -175,7 +186,7 @@ pub fn update_visibility_for_locations(
                 &parents,
                 &levels,
                 &current_level,
-                &graph_vis,
+                &graphs,
             );
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
@@ -190,7 +201,7 @@ pub fn update_visibility_for_locations(
                     &parents,
                     &levels,
                     &current_level,
-                    &graph_vis,
+                    &graphs,
                 );
                 if visibility.is_visible != is_visible {
                     visibility.is_visible = is_visible;
@@ -201,12 +212,12 @@ pub fn update_visibility_for_locations(
 
     if graph_change {
         for (_, associated_graphs, _, mut m) in &mut locations {
-            *m = choose_graph_material(associated_graphs, &graph_mats, &assets);
+            *m = graphs.display_style(associated_graphs).0;
         }
     } else {
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
-                *m = choose_graph_material(associated_graphs, &graph_mats, &assets);
+                *m = graphs.display_style(associated_graphs).0;
             }
         }
     }

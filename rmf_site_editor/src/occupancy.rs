@@ -18,7 +18,7 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{Category, LevelProperties, SiteAssets, SiteProperties, PASSIVE_LANE_HEIGHT},
+    site::{Category, LevelProperties, SiteAssets, SiteProperties, LANE_LAYER_START},
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -269,7 +269,7 @@ fn calculate_grid(
                 let p = Vec3::new(
                     cell_size * (cell.x as f32 + 0.5),
                     cell_size * (cell.y as f32 + 0.5),
-                    PASSIVE_LANE_HEIGHT / 2.0,
+                    LANE_LAYER_START / 2.0,
                 );
                 mesh = mesh.merge_with(
                     make_flat_square_mesh(cell_size).transform_by(Affine3A::from_translation(p)),

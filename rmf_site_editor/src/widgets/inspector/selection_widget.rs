@@ -52,7 +52,7 @@ impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
         };
 
         let response = ui.add(Button::image_and_text(
-            self.icons.egui_select,
+            self.icons.select.egui(),
             [18., 18.],
             text,
         ));

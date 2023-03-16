@@ -38,6 +38,7 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,
             AssetSource::Search(name) => name,
+            AssetSource::Bundled(name) => name,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -48,6 +49,7 @@ impl<'a> InspectAssetSource<'a> {
                         AssetSource::Local(assumed_source.clone()),
                         AssetSource::Remote(assumed_source.clone()),
                         AssetSource::Search(assumed_source.clone()),
+                        AssetSource::Bundled(assumed_source.clone()),
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
@@ -74,6 +76,9 @@ impl<'a> InspectAssetSource<'a> {
                 ui.text_edit_singleline(uri);
             }
             AssetSource::Search(name) => {
+                ui.text_edit_singleline(name);
+            }
+            AssetSource::Bundled(name) => {
                 ui.text_edit_singleline(name);
             }
         }

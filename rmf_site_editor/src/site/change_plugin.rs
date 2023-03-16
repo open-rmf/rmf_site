@@ -26,6 +26,7 @@ use std::fmt::Debug;
 pub struct Change<T: Component + Clone + Debug> {
     pub to_value: T,
     pub for_element: Entity,
+    pub allow_insert: bool,
 }
 
 impl<T: Component + Clone + Debug> Change<T> {
@@ -33,7 +34,13 @@ impl<T: Component + Clone + Debug> Change<T> {
         Self {
             to_value,
             for_element,
+            allow_insert: false,
         }
+    }
+
+    pub fn or_insert(mut self) -> Self {
+        self.allow_insert = true;
+        self
     }
 }
 
@@ -63,6 +70,7 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
 }
 
 fn update_changed_values<T: Component + Clone + Debug>(
+    mut commands: Commands,
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
 ) {
@@ -70,13 +78,19 @@ fn update_changed_values<T: Component + Clone + Debug>(
         if let Ok(mut new_value) = values.get_mut(change.for_element) {
             *new_value = change.to_value.clone();
         } else {
-            println!(
-                "DEV ERROR: Unable to change {} data to {:?} for entity {:?} \
-                because the entity does not have that type",
-                std::any::type_name::<T>(),
-                change.to_value,
-                change.for_element,
-            );
+            if change.allow_insert {
+                commands
+                    .entity(change.for_element)
+                    .insert(change.to_value.clone());
+            } else {
+                println!(
+                    "DEV ERROR: Unable to change {} data to {:?} for entity {:?} \
+                    because the entity does not have that type",
+                    std::any::type_name::<T>(),
+                    change.to_value,
+                    change.for_element,
+                );
+            }
         }
     }
 }

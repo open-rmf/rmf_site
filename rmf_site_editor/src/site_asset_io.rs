@@ -1,9 +1,10 @@
 use bevy::{
     asset::{AssetIo, AssetIoError, AssetPlugin, FileType, Metadata},
     prelude::*,
-    utils::BoxedFuture,
+    utils::{BoxedFuture, HashMap},
 };
 use dirs;
+use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::io;
@@ -21,10 +22,17 @@ pub fn cache_path() -> PathBuf {
 
 struct SiteAssetIo {
     pub default_io: Box<dyn AssetIo>,
+    pub bundled_assets: HashMap<String, Vec<u8>>,
 }
 
-const SITE_EDITOR_MODELS_URI: &str = "https://models.sandbox.open-rmf.org/models/";
+const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
 const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+
+#[derive(Deserialize)]
+struct FuelErrorMsg {
+    errcode: u32,
+    msg: String,
+}
 
 impl SiteAssetIo {
     fn load_from_file(&self, path: PathBuf) -> Result<Vec<u8>, AssetIoError> {
@@ -42,6 +50,44 @@ impl SiteAssetIo {
             }
         }
         Ok(bytes)
+    }
+
+    fn fetch_asset<'a>(
+        &'a self,
+        remote_url: String,
+        asset_name: String,
+    ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
+        Box::pin(async move {
+            let bytes = surf::get(remote_url.clone())
+                .recv_bytes()
+                .await
+                .map_err(|e| {
+                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+                })?;
+
+            match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
+                Ok(error) => {
+                    return Err(AssetIoError::Io(io::Error::new(
+                        io::ErrorKind::NotFound,
+                        format!(
+                            "Failed to fetch asset from fuel {} [errcode {}]: {}",
+                            remote_url, error.errcode, error.msg,
+                        ),
+                    )));
+                }
+                Err(_) => {
+                    // This is okay. When a GET from fuel was successful, it
+                    // will not return a JSON that can be interpreted as a
+                    // FuelErrorMsg
+                }
+            }
+
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                self.save_to_cache(&asset_name, &bytes);
+            }
+            Ok(bytes)
+        })
     }
 
     fn get_path_from_env(&self) -> Result<PathBuf, env::VarError> {
@@ -62,44 +108,139 @@ impl SiteAssetIo {
             fs::write(asset_path, bytes).expect("unable to write to file");
         }
     }
+
+    fn generate_remote_asset_url(&self, name: &String) -> Result<String, AssetIoError> {
+        // Expected format:  OrgName/ModelName.glb
+        // We may need to be a bit magical here because some assets
+        // are found in Fuel and others are not.
+        let name_no_suffix = match name.strip_suffix(".glb") {
+            Some(s) => s,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
+            }
+        };
+        let mut tokens = name_no_suffix.split("/");
+        let org_name = match tokens.next() {
+            Some(token) => token,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
+            }
+        };
+        let model_name = match tokens.next() {
+            Some(token) => token,
+            None => {
+                return Err(AssetIoError::Io(io::Error::new(
+                    io::ErrorKind::Other,
+                    format!("Unable to parse into org/model names: {name}"),
+                )));
+            }
+        };
+        let uri = format!(
+            "{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
+            FUEL_BASE_URI, org_name, model_name
+        );
+        return Ok(uri);
+    }
+
+    fn add_bundled_assets(&mut self) {
+        self.bundled_assets.insert(
+            "textures/default.png".to_owned(),
+            include_bytes!("../../assets/textures/default.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/select.png".to_owned(),
+            include_bytes!("../../assets/textures/select.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/trash.png".to_owned(),
+            include_bytes!("../../assets/textures/trash.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/edit.png".to_owned(),
+            include_bytes!("../../assets/textures/edit.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/up.png".to_owned(),
+            include_bytes!("../../assets/textures/up.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/down.png".to_owned(),
+            include_bytes!("../../assets/textures/down.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/to_top.png".to_owned(),
+            include_bytes!("../../assets/textures/to_top.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/to_bottom.png".to_owned(),
+            include_bytes!("../../assets/textures/to_bottom.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/opaque.png".to_owned(),
+            include_bytes!("../../assets/textures/opaque.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/alpha.png".to_owned(),
+            include_bytes!("../../assets/textures/alpha.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/hidden.png".to_owned(),
+            include_bytes!("../../assets/textures/hidden.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/global.png".to_owned(),
+            include_bytes!("../../assets/textures/global.png").to_vec(),
+        );
+    }
 }
 
 impl AssetIo for SiteAssetIo {
     fn load_path<'a>(&'a self, path: &'a Path) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         let asset_source = AssetSource::from(path);
         match asset_source {
-            AssetSource::Remote(remote_url) => {
-                let uri = String::from(SITE_EDITOR_MODELS_URI) + &remote_url;
+            AssetSource::Remote(asset_name) => {
+                let remote_url: String = match self.generate_remote_asset_url(&asset_name) {
+                    Ok(uri) => uri,
+                    Err(e) => return Box::pin(async move { Err(e) }),
+                };
 
                 // Try local cache first
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
-                    asset_path.push(PathBuf::from(&remote_url));
+                    asset_path.push(PathBuf::from(&asset_name));
                     if asset_path.exists() {
                         return Box::pin(async move { self.load_from_file(asset_path) });
                     }
                 }
 
                 // Get from remote server
-                Box::pin(async move {
-                    let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
-                        AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                    })?;
-
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        self.save_to_cache(&remote_url, &bytes);
-                    }
-                    Ok(bytes)
-                })
+                self.fetch_asset(remote_url, asset_name)
             }
             AssetSource::Local(filename) => Box::pin(async move {
                 let mut full_path = PathBuf::new();
                 full_path.push(filename);
                 self.load_from_file(full_path)
             }),
-            AssetSource::Search(name) => {
+            AssetSource::Bundled(filename) => {
+                if self.bundled_assets.contains_key(&filename) {
+                    return Box::pin(async move { Ok(self.bundled_assets[&filename].clone()) });
+                } else {
+                    return Box::pin(async move {
+                        Err(AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Bundled asset not found: {filename}"),
+                        )))
+                    });
+                }
+            }
+            AssetSource::Search(asset_name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
@@ -110,7 +251,7 @@ impl AssetIo for SiteAssetIo {
                 match self.get_path_from_env() {
                     Ok(mut path) => {
                         // Check if file exists
-                        path.push(&name);
+                        path.push(&asset_name);
                         if path.exists() {
                             return Box::pin(async move { self.load_from_file(path) });
                         }
@@ -122,25 +263,20 @@ impl AssetIo for SiteAssetIo {
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     let mut asset_path = cache_path();
-                    asset_path.push(PathBuf::from(&name));
+                    asset_path.push(PathBuf::from(&asset_name));
                     if asset_path.exists() {
                         return Box::pin(async move { self.load_from_file(asset_path) });
                     }
                 }
 
-                // Fetch from remote server
-                Box::pin(async move {
-                    let uri = String::from(SITE_EDITOR_MODELS_URI) + &name;
-                    let bytes = surf::get(uri).recv_bytes().await.map_err(|e| {
-                        AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                    })?;
+                let remote_url = match self.generate_remote_asset_url(&asset_name) {
+                    Ok(uri) => uri,
+                    Err(e) => return Box::pin(async move { Err(e) }),
+                };
 
-                    #[cfg(not(target_arch = "wasm32"))]
-                    {
-                        self.save_to_cache(&name, &bytes);
-                    }
-                    Ok(bytes)
-                })
+                // It cannot be found locally, so let's try to fetch it from the
+                // remote server
+                self.fetch_asset(remote_url, asset_name)
             }
         }
     }
@@ -190,10 +326,14 @@ pub struct SiteAssetIoPlugin;
 
 impl Plugin for SiteAssetIoPlugin {
     fn build(&self, app: &mut App) {
-        let asset_io = {
+        let mut asset_io = {
             let default_io = AssetPlugin::default().create_platform_default_asset_io();
-            SiteAssetIo { default_io }
+            SiteAssetIo {
+                default_io,
+                bundled_assets: HashMap::new(),
+            }
         };
+        asset_io.add_bundled_assets();
 
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io));
