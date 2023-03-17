@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{Anchor, ModelMarker, Pose, FloorMarker, WallMarker};
+use rmf_site_format::{Anchor, Model, ModelMarker, Pose, FloorMarker, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -104,14 +104,25 @@ impl Cursor {
 
     // This will leave orphaned models, they will be cleaned up by the
     // remove_orphaned_model_previews system
-    pub fn set_model_preview(&mut self, commands: &mut Commands, e: Option<Entity>) {
+    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(self.frame).remove_children(&[current_preview]);
+            // TODO(luca) having this causes a nasty issue where assets disappear once clicking.
+            // My intuition is that despawning causes the asset server to drop the asset because no
+            // handles refer to it while another load instance for the new one is taking place.
+            // Possible solution is to move the despawn + spawn logic into a parent reassignment,
+            // which also reduces flicker. However this seems to cause some issues with outlines
+            // not being displayed and one frame lag in pose update. Leaving this commented for now
+            // will leak an entity but behave correctly
+            // commands.entity(current_preview).despawn_recursive();
         }
-        if let Some(e) = e {
+        if let Some(model) = model {
+            let e = commands.spawn(model).id();
             commands.entity(self.frame).push_children(&[e]);
+            self.preview_model = Some(e);
+        } else {
+            self.preview_model = None;
         }
-        self.preview_model = e;
     }
 
     pub fn remove_child(&mut self, commands: &mut Commands, e: Entity) {

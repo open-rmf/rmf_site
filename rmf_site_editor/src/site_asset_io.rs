@@ -336,6 +336,7 @@ impl Plugin for SiteAssetIoPlugin {
         asset_io.add_bundled_assets();
 
         // the asset server is constructed and added the resource manager
-        app.insert_resource(AssetServer::new(asset_io));
+        app.insert_resource(AssetServer::new(asset_io))
+            .add_plugin(bevy_stl::StlPlugin);
     }
 }

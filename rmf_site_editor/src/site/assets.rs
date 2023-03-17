@@ -49,6 +49,7 @@ pub struct SiteAssets {
     pub translucent_white: Handle<StandardMaterial>,
     pub physical_camera_material: Handle<StandardMaterial>,
     pub occupied_material: Handle<StandardMaterial>,
+    pub default_mesh_grey_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -141,6 +142,7 @@ impl FromWorld for SiteAssets {
         });
         let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
         let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
+        let default_mesh_grey_material = materials.add(Color::rgb(0.7, 0.7, 0.7).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
@@ -230,6 +232,7 @@ impl FromWorld for SiteAssets {
             translucent_white,
             physical_camera_material,
             occupied_material,
+            default_mesh_grey_material,
         }
     }
 }

@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{DragPlaneBundle, Selectable},
-    site::{Category, PreventDeletion},
+    site::{Category, PreventDeletion, SiteAssets},
 };
 use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
@@ -25,17 +25,11 @@ use rmf_site_format::{AssetSource, ModelMarker, Pose};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
-#[derive(Default, Debug, Clone, Deref, DerefMut, Resource)]
-pub struct LoadingModels(pub HashMap<Entity, Handle<Scene>>);
+#[derive(Component, Debug, Deref, DerefMut, Clone)]
+pub struct ModelScene(Option<Entity>);
 
-#[derive(Default, Debug, Clone, Resource)]
-pub struct SpawnedModels(Vec<Entity>);
-
-#[derive(Component, Debug, Clone)]
-pub struct ModelScene {
-    source: AssetSource,
-    scene_entity: Option<Entity>,
-}
+#[derive(Component, Deref, DerefMut)]
+pub struct PendingSpawning(HandleUntyped);
 
 /// A unit component to mark where a scene begins
 #[derive(Component, Debug, Clone, Copy)]
@@ -48,9 +42,12 @@ pub fn update_model_scenes(
         (Changed<AssetSource>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    mut loading_models: ResMut<LoadingModels>,
-    mut spawned_models: ResMut<SpawnedModels>,
+    mut loading_models: Query<(Entity, &PendingSpawning)>,
+    mut spawned_models: Query<Entity, (Without<PendingSpawning>, With<PreventDeletion>)>,
     mut current_scenes: Query<&mut ModelScene>,
+    site_assets: Res<SiteAssets>,
+    meshes: Res<Assets<Mesh>>,
+    scenes: Res<Assets<Scene>>,
 ) {
     fn spawn_model(
         e: Entity,
@@ -58,14 +55,10 @@ pub fn update_model_scenes(
         pose: &Pose,
         asset_server: &AssetServer,
         commands: &mut Commands,
-        loading_models: &mut LoadingModels,
     ) {
         let mut commands = commands.entity(e);
         commands
-            .insert(ModelScene {
-                source: source.clone(),
-                scene_entity: None,
-            })
+            .insert(ModelScene(None))
             .insert(SpatialBundle {
                 transform: pose.transform(),
                 ..default()
@@ -79,7 +72,12 @@ pub fn update_model_scenes(
                 AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string())
             }
             AssetSource::Local(filename) => {
-                AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
+                // TODO(luca) remove this to make a generic solution for local files
+                if filename.ends_with("glb") {
+                    AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
+                } else {
+                    source.clone()
+                }
             }
             AssetSource::Search(name) => {
                 println!("Asset name is {}", name);
@@ -89,11 +87,10 @@ pub fn update_model_scenes(
                 AssetSource::Bundled(name.to_owned() + &".glb#Scene0".to_string())
             }
         };
-        let scene: Handle<Scene> = asset_server.load(&String::from(&asset_source));
-        loading_models.insert(e, scene.clone());
+        let handle = asset_server.load_untyped(&String::from(&asset_source));
         commands.insert(PreventDeletion::because(
-            "Waiting for model to spawn".to_string(),
-        ));
+            "Waiting for model to spawn".to_string()))
+            .insert(PendingSpawning(handle));
     }
 
     // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
@@ -101,67 +98,67 @@ pub fn update_model_scenes(
     // Work around it by checking the `spawned` container BEFORE updating it so that
     // entities are only despawned at the next frame. This also ensures that entities are
     // "fully spawned" before despawning.
-    for e in spawned_models.0.iter() {
-        commands.entity(*e).remove::<PreventDeletion>();
+    for e in spawned_models.iter() {
+        commands.entity(e).remove::<PreventDeletion>();
     }
-    spawned_models.0.clear();
 
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, h) in loading_models.0.iter() {
-        if asset_server.get_load_state(h) == LoadState::Loaded {
-            let model_scene_id = commands.entity(*e).add_children(|parent| {
-                parent
-                    .spawn(SceneBundle {
-                        scene: h.clone(),
-                        ..default()
-                    })
-                    .insert(ModelSceneRoot)
-                    .insert(Selectable::new(*e))
-                    .id()
-            });
+    for (e, h) in loading_models.iter() {
+        if asset_server.get_load_state(&h.0) == LoadState::Loaded {
+            if scenes.contains(&h.0.clone().typed::<Scene>()) {
+                let model_scene_id = commands.entity(e).add_children(|parent| {
+                    let h_typed = h.0.clone().typed::<Scene>();
+                    parent
+                        .spawn(SceneBundle {
+                            scene: h_typed,
+                            ..default()
+                        })
+                        .insert(ModelSceneRoot)
+                        .insert(Selectable::new(e))
+                        .id()
+                });
 
-            current_scenes.get_mut(*e).unwrap().scene_entity = Some(model_scene_id);
-            spawned_models.0.push(*e);
+                **current_scenes.get_mut(e).unwrap() = Some(model_scene_id);
+                commands.entity(e).remove::<PendingSpawning>();
+            } else if meshes.contains(&h.0.clone().typed::<Mesh>()) {
+                let model_scene_id = commands.entity(e).add_children(|parent| {
+                    let h_typed = h.0.clone().typed::<Mesh>();
+                    parent
+                        .spawn(PbrBundle {
+                            mesh: h_typed,
+                            material: site_assets.default_mesh_grey_material.clone(),
+                            ..default()
+                        })
+                        .insert(ModelSceneRoot)
+                        .insert(Selectable::new(e))
+                        .id()
+                });
+
+                **current_scenes.get_mut(e).unwrap() = Some(model_scene_id);
+                commands.entity(e).remove::<PendingSpawning>();
+            } else {
+                println!("Asset not found!");
+            }
         }
-    }
-
-    // for any models whose scenes have finished spawning, remove them from the
-    // list of models that are loading
-    for e in spawned_models.0.iter() {
-        loading_models.0.remove(e);
     }
 
     // update changed models
     for (e, source, pose) in changed_models.iter_mut() {
         if let Ok(mut current_scene) = current_scenes.get_mut(e) {
-            if current_scene.source != *source {
-                if let Some(scene_entity) = current_scene.scene_entity {
-                    commands.entity(scene_entity).despawn_recursive();
-                }
-                current_scene.scene_entity = None;
-                spawn_model(
-                    e,
-                    source,
-                    pose,
-                    &asset_server,
-                    &mut commands,
-                    &mut loading_models,
-                );
+            if let Some(scene_entity) = **current_scene {
+                commands.entity(scene_entity).despawn_recursive();
             }
-        } else {
-            // If there isn't a current scene, then we will assume this model
-            // is being added for the first time.
-            spawn_model(
-                e,
-                source,
-                pose,
-                &asset_server,
-                &mut commands,
-                &mut loading_models,
-            );
+            **current_scene = None;
         }
+        spawn_model(
+            e,
+            source,
+            pose,
+            &asset_server,
+            &mut commands,
+        );
     }
 }
 

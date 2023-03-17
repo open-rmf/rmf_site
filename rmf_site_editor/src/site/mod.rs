@@ -136,8 +136,6 @@ impl Plugin for SitePlugin {
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .insert_resource(FloorVisibility::default())
             .init_resource::<SiteAssets>()
-            .init_resource::<SpawnedModels>()
-            .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
             .init_resource::<CachedLevels>()

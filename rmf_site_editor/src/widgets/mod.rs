@@ -20,6 +20,7 @@ use crate::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D,
         SpawnPreview,
     },
+    inspector::InspectAssetSource,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -38,7 +39,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader},
+    egui::{self, Button, CollapsingHeader, Sense},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -299,6 +300,7 @@ fn site_ui_layout(
 fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    pending_asset_sources: Query<(Entity, &AssetSource), With<Pending>>,
     inspector_params: InspectorParams,
     mut events: AppEvents,
 ) {
@@ -325,17 +327,32 @@ fn workcell_ui_layout(
                                             .into(),
                                     ));
                                 }
-                                // TODO(luca) Spawn window to select model asset source variant,
-                                // allowing local filesystem choice for non wasm targets
-                                if ui.button("Model").clicked() {
-                                    let mut model = Model::default();
-                                    model.source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                                    events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point()
-                                            .for_model(model)
-                                            .into(),
-                                    ));
-                                }
+                                if let Ok((e, source)) = pending_asset_sources.get_single() {
+                                    // TODO(luca) actual recall
+                                    ui.add_space(10.0);
+                                    ui.label("New model");
+                                    if let Some(new_asset_source) = InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui) {
+                                        events
+                                            .change
+                                            .asset_source
+                                            .send(Change::new(new_asset_source, e));
+                                    }
+                                    if ui.button("Spawn").clicked() {
+                                        let mut model = Model::default();
+                                        model.source = source.clone();
+                                        events.request.change_mode.send(ChangeMode::To(
+                                            SelectAnchor3D::create_new_point()
+                                                .for_model(model)
+                                                .into(),
+                                        ));
+                                    }
+                                    ui.add_space(10.0);
+                                } else {
+                                    // Spawn one
+                                    let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
+                                    events.commands.spawn(source.clone()).insert(Pending);
+                                    return;
+                                };
                             });
                         ui.separator();
                     });
@@ -353,7 +370,7 @@ fn workcell_ui_layout(
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
                         events.file_events.save.send(SaveWorkspace {to_file: None});
                     }
-                    // TODO(luca) implement shortcuts for save as and open
+                    // TODO(luca) implement shortcut for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
                             events.file_events.save.send(SaveWorkspace {to_file: Some(path)});

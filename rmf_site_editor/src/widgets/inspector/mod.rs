@@ -123,7 +123,7 @@ pub struct InspectorComponentParams<'w, 's> {
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
-    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
     pub constraint_dependents: Query<'w, 's, With<ConstraintDependents>>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,

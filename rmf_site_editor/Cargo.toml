@@ -17,6 +17,7 @@ bevy_mod_picking = "0.10"
 bevy_mod_raycast = "0.7"
 bevy_mod_outline = "0.3.3"
 bevy_infinite_grid = "0.6"
+bevy_stl = "0.7"
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"

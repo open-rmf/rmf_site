@@ -2095,9 +2095,7 @@ pub fn handle_select_anchor_3d_mode(
             },
             PlaceableObject::Model(ref m) => {
                 // Spawn the model as a child of the cursor
-                let mut model = m.clone();
-                let id = params.commands.spawn(model).id();
-                params.cursor.set_model_preview(&mut params.commands, Some(id));
+                params.cursor.set_model_preview(&mut params.commands, Some(m.clone()));
             },
         }
 

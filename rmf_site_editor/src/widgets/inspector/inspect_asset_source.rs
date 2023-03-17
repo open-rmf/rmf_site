@@ -59,8 +59,7 @@ impl<'a> InspectAssetSource<'a> {
         match &mut new_source {
             AssetSource::Local(name) => {
                 ui.horizontal(|ui| {
-                    // Button to load from file
-                    // TODO implement async file loading in wasm
+                    // Button to load from file, disabled for wasm since there are no local files
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
                         if let Some(file) = FileDialog::new().pick_file() {
