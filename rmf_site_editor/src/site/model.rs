@@ -107,7 +107,7 @@ pub fn update_model_scenes(
     // model entity and make it selectable.
     for (e, h) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
-            if scenes.contains(&h.0.clone().typed::<Scene>()) {
+            let model_id = if scenes.contains(&h.typed_weak::<Scene>()) {
                 let model_scene_id = commands.entity(e).add_children(|parent| {
                     let h_typed = h.0.clone().typed::<Scene>();
                     parent
@@ -115,14 +115,10 @@ pub fn update_model_scenes(
                             scene: h_typed,
                             ..default()
                         })
-                        .insert(ModelSceneRoot)
-                        .insert(Selectable::new(e))
                         .id()
                 });
-
-                **current_scenes.get_mut(e).unwrap() = Some(model_scene_id);
-                commands.entity(e).remove::<PendingSpawning>();
-            } else if meshes.contains(&h.0.clone().typed::<Mesh>()) {
+                Some(model_scene_id)
+            } else if meshes.contains(&h.typed_weak::<Mesh>()) {
                 let model_scene_id = commands.entity(e).add_children(|parent| {
                     let h_typed = h.0.clone().typed::<Mesh>();
                     parent
@@ -131,15 +127,19 @@ pub fn update_model_scenes(
                             material: site_assets.default_mesh_grey_material.clone(),
                             ..default()
                         })
-                        .insert(ModelSceneRoot)
-                        .insert(Selectable::new(e))
                         .id()
                 });
-
-                **current_scenes.get_mut(e).unwrap() = Some(model_scene_id);
-                commands.entity(e).remove::<PendingSpawning>();
+                Some(model_scene_id)
             } else {
                 println!("Asset not found!");
+                None
+            };
+            if let Some(id) = model_id {
+                commands.entity(e)
+                    .insert(ModelSceneRoot)
+                    .insert(Selectable::new(e));
+                **current_scenes.get_mut(e).unwrap() = Some(id);
+                commands.entity(e).remove::<PendingSpawning>();
             }
         }
     }
