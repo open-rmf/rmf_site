@@ -38,6 +38,14 @@ pub enum WorkcellGenerationError {
     InvalidWorkcellEntity(Entity),
 }
 
+fn parent_in_workcell(
+    q_parents: &Query<&Parent>,
+    entity: Entity,
+    root: Entity,
+) -> bool {
+    AncestorIter::new(q_parents, entity).find(|p| *p == root).is_some()
+}
+
 // This is mostly duplicated with the function in site/save.rs, however this case
 // is a lot simpler, also site/save.rs checks for children of levels but there are no levels here
 fn assign_site_ids(world: &mut World, workcell: Entity) {
@@ -61,41 +69,16 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     }
 }
 
-fn generate_anchors(
-    q_anchors: &Query<(&Anchor, &SiteID, &Parent)>,
-    q_ids: &Query<&SiteID>,
-) -> BTreeMap<u32, Parented<u32, Frame>> {
-    let mut anchors = BTreeMap::new();
-
-    for (anchor, id, parent) in q_anchors {
-        let parent = match q_ids.get(parent.get()) {
-            Ok(parent) => Some(parent.0),
-            Err(_) => None,
-        };
-        anchors.insert(
-            id.0,
-            Parented {
-                parent: parent,
-                bundle: Frame {
-                    anchor: anchor.clone(),
-                    marker: FrameMarker,
-                }
-            },
-        );
-    }
-
-    anchors
-}
-
 pub fn generate_workcell(
     world: &mut World,
     root: Entity,
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID, &Parent, Option<&MeshConstraint<Entity>>)>,
+        Query<(Entity, &Anchor, &SiteID, &Parent, Option<&MeshConstraint<Entity>>), Without<Pending>>,
         Query<
             (
+                Entity,
                 &NameInSite,
                 &AssetSource,
                 &Pose,
@@ -108,8 +91,9 @@ pub fn generate_workcell(
         >,
         Query<&SiteID>,
         Query<&WorkcellProperties>,
+        Query<&Parent>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_site_id, q_properties) = state.get(world);
+    let (q_anchors, q_models, q_site_id, q_properties, q_parents) = state.get(world);
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
@@ -122,7 +106,10 @@ pub fn generate_workcell(
     }
 
     // Models
-    for (name, source, pose, is_static, constraint_dependents, id, parent) in &q_models {
+    for (e, name, source, pose, is_static, constraint_dependents, id, parent) in &q_models {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
         // Get the parent SiteID
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => Some(parent.0),
@@ -145,7 +132,10 @@ pub fn generate_workcell(
     }
 
     // Anchors
-    for (anchor, id, parent, constraint) in &q_anchors {
+    for (e, anchor, id, parent, constraint) in &q_anchors {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => Some(parent.0),
             Err(_) => None,

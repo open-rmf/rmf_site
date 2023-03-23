@@ -117,7 +117,7 @@ impl Cursor {
             // commands.entity(current_preview).despawn_recursive();
         }
         if let Some(model) = model {
-            let e = commands.spawn(model).id();
+            let e = commands.spawn(model).insert(Pending).id();
             commands.entity(self.frame).push_children(&[e]);
             self.preview_model = Some(e);
         } else {
