@@ -46,6 +46,8 @@ use workspace::*;
 
 mod simulation_state;
 mod site_asset_io;
+mod urdf_loader;
+use urdf_loader::*;
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
@@ -151,7 +153,7 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
-                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         );
     }
 

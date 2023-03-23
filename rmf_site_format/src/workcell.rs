@@ -70,6 +70,39 @@ pub struct WorkcellProperties {
     pub name: String,
 }
 
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct NameInWorkcell(String);
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Link {
+    pub name: NameInWorkcell,
+}
+
+impl Link {
+    pub fn new(name: String) -> Self {
+        Self {
+            name: NameInWorkcell(name),
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Joint {
+    pub name: NameInWorkcell,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum MeshPrimitive {
+    Box{size: [f32; 3]},
+    Cylinder{radius: f32, length: f32},
+    Capsule{radius: f32, length: f32},
+    Sphere{radius: f32},
+}
+
 // TODO(luca) we might need a different bundle to denote a workcell included in site
 // editor mode to deal with serde of workcells there (that would only have an asset source?)
 /// Container for serialization / deserialization of workcells
@@ -114,28 +147,3 @@ impl Workcell {
         serde_json::from_slice(s)
     }
 }
-
-/*
-/// Populated in workcell editor mode, in site editor a Workcell will have
-/// a series of non mutable WorkcellElement child entities
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct WorkcellElement {
-    /// Unique name to identify the element
-    pub name: NameInSite,
-    /// Workcell elements are normal meshes, point to where the mesh is stored
-    pub source: AssetSource,
-    /// Workcell element poses are defined relative to other entities
-    pub pose: Pose,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct WorkcellAnchor {
-    /// Anchor element
-    pub anchor: Anchor,
-    // TODO(luca) Add mesh constraint
-    /// Pose are defined relative to other entities
-    pub pose: Pose,
-}
-*/

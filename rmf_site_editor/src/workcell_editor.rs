@@ -30,6 +30,8 @@ use rmf_site_format::{
     Anchor, Angle, AssetSource, Category, Model, ModelMarker, NameInSite, Pose, Rotation, Workcell,
 };
 
+use bevy_rapier3d::prelude::*;
+
 /*
 #[derive(Resource)]
 pub enum WorkcellEditorState {
@@ -143,6 +145,8 @@ impl Plugin for WorkcellEditorPlugin {
             })
             //.insert_resource(WireframeConfig { global: false })
             .add_plugin(WireframePlugin)
+            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
@@ -150,10 +154,12 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
-                .with_system(add_wireframe_to_meshes)
+                //.with_system(add_wireframe_to_meshes)
                 .with_system(update_constraint_dependents)
                 .with_system(update_model_scenes)
-                .with_system(make_models_selectable),
+                .with_system(make_models_selectable)
+                .with_system(handle_new_mesh_primitives)
+                .with_system(handle_new_urdf_roots),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)

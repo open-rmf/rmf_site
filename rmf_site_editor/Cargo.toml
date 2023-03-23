@@ -17,7 +17,8 @@ bevy_mod_picking = "0.10"
 bevy_mod_raycast = "0.7"
 bevy_mod_outline = "0.3.3"
 bevy_infinite_grid = "0.6"
-bevy_stl = "0.7"
+bevy_stl = "=0.7.0"
+bevy_rapier3d = "0.20.0"
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
@@ -33,6 +34,7 @@ thiserror = "*"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
 bitfield = "*"
+urdf-rs = "0.6"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]

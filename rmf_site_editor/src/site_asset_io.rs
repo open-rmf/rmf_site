@@ -11,6 +11,9 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
+use crate::urdf_loader::UrdfPlugin;
+use urdf_rs::utils::expand_package_path;
+
 use rmf_site_format::AssetSource;
 
 pub fn cache_path() -> PathBuf {
@@ -240,6 +243,12 @@ impl AssetIo for SiteAssetIo {
                     });
                 }
             }
+            AssetSource::Package(_) => Box::pin(async move {
+                // Split into package and path
+                let path = expand_package_path(&String::from(&asset_source), None);
+                println!("Found package in {:}", path);
+                self.load_from_file(PathBuf::from(path))
+            }),
             AssetSource::Search(asset_name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
@@ -337,6 +346,7 @@ impl Plugin for SiteAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io))
-            .add_plugin(bevy_stl::StlPlugin);
+            .add_plugin(bevy_stl::StlPlugin)
+            .add_plugin(UrdfPlugin);
     }
 }

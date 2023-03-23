@@ -349,7 +349,8 @@ fn workcell_ui_layout(
                                     ui.add_space(10.0);
                                 } else {
                                     // Spawn one
-                                    let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
+                                    //let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
+                                    let source = AssetSource::Local("../robot.urdf".to_string());
                                     events.commands.spawn(source.clone()).insert(Pending);
                                     return;
                                 };

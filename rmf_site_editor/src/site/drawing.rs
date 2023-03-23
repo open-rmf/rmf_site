@@ -52,21 +52,18 @@ pub fn add_drawing_visuals(
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<FloorVisibility>,
 ) {
-    // TODO support for remote sources
     let file_path = match get_current_site_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &new_drawings {
         // Append file name to path if it's a local file
-        // TODO cleanup
+        // TODO(luca) cleanup
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(_) => source.clone(),
-            AssetSource::Search(_) => source.clone(),
-            AssetSource::Bundled(_) => source.clone(),
+            _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
@@ -160,14 +157,11 @@ pub fn update_drawing_visuals(
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
-        // TODO cleanup
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(_) => source.clone(),
-            AssetSource::Search(_) => source.clone(),
-            AssetSource::Bundled(_) => source.clone(),
+            _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings

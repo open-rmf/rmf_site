@@ -18,6 +18,7 @@
 use crate::{
     interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion, SiteAssets},
+    UrdfRoot,
 };
 use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
@@ -48,6 +49,7 @@ pub fn update_model_scenes(
     site_assets: Res<SiteAssets>,
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
+    urdfs: Res<Assets<UrdfRoot>>,
 ) {
     fn spawn_model(
         e: Entity,
@@ -85,6 +87,10 @@ pub fn update_model_scenes(
             }
             AssetSource::Bundled(name) => {
                 AssetSource::Bundled(name.to_owned() + &".glb#Scene0".to_string())
+            }
+            AssetSource::Package(path) => {
+                // TODO(luca) support glb here?
+                source.clone()
             }
         };
         let handle = asset_server.load_untyped(&String::from(&asset_source));
@@ -130,6 +136,22 @@ pub fn update_model_scenes(
                         .id()
                 });
                 Some(model_scene_id)
+            } else if urdfs.contains(&h.typed_weak::<UrdfRoot>()) {
+                println!("Urdf found");
+                let h_typed = h.0.clone().typed::<UrdfRoot>();
+                if let Some(urdf) = urdfs.get(&h_typed) {
+                    let model_scene_id = commands.entity(e).add_children(|parent| {
+                        let h_typed = h.0.clone().typed::<Mesh>();
+                        parent
+                            .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                            .insert(urdf.clone())
+                            .insert(Category::Workcell)
+                            .id()
+                    });
+                    Some(model_scene_id)
+                } else {
+                    None
+                }
             } else {
                 println!("Asset not found!");
                 None

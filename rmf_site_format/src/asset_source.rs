@@ -28,6 +28,7 @@ pub enum AssetSource {
     Remote(String),
     Search(String),
     Bundled(String),
+    Package(String),
 }
 
 impl AssetSource {
@@ -37,6 +38,7 @@ impl AssetSource {
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
+            Self::Package(_) => "Package",
         }
     }
 }
@@ -50,23 +52,28 @@ impl Default for AssetSource {
 // Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
 impl From<&Path> for AssetSource {
     fn from(path: &Path) -> Self {
-        // TODO pattern matching here would make sure unimplemented variants are a compile error
-        if path.starts_with("rmf-server://") {
-            let without_prefix = path
-                .to_str()
-                .unwrap()
-                .strip_prefix("rmf-server://")
-                .unwrap();
-            return AssetSource::Remote(String::from(without_prefix));
-        } else if path.starts_with("file://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("file://").unwrap();
-            return AssetSource::Local(String::from(without_prefix));
-        } else if path.starts_with("search://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("search://").unwrap();
-            return AssetSource::Search(String::from(without_prefix));
-        } else if path.starts_with("bundled://") {
-            let without_prefix = path.to_str().unwrap().strip_prefix("bundled://").unwrap();
-            return AssetSource::Bundled(String::from(without_prefix));
+        if let Some(path) = path.to_str().and_then(|p| Some(String::from(p))) {
+            AssetSource::from(&path)
+        } else {
+            AssetSource::default()
+        }
+    }
+}
+
+// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
+impl From<&String> for AssetSource {
+    fn from(path: &String) -> Self {
+        // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
+        if let Some(path) = path.strip_prefix("rmf-server://").and_then(|p| Some(p.to_string())) {
+            return AssetSource::Remote(path);
+        } else if let Some(path) = path.strip_prefix("file://").and_then(|p| Some(p.to_string())) {
+            return AssetSource::Local(path);
+        } else if let Some(path) = path.strip_prefix("search://").and_then(|p| Some(p.to_string())) {
+            return AssetSource::Search(path);
+        } else if let Some(path) = path.strip_prefix("bundled://").and_then(|p| Some(p.to_string())) {
+            return AssetSource::Bundled(path);
+        } else if let Some(path) = path.strip_prefix("package://").and_then(|p| Some(p.to_string())) {
+            return AssetSource::Package(path);
         }
         AssetSource::default()
     }
@@ -79,6 +86,7 @@ impl From<&AssetSource> for String {
             AssetSource::Local(filename) => String::from("file://") + &filename,
             AssetSource::Search(name) => String::from("search://") + &name,
             AssetSource::Bundled(name) => String::from("bundled://") + &name,
+            AssetSource::Package(path) => String::from("package://") + &path,
         }
     }
 }
@@ -90,6 +98,7 @@ pub struct RecallAssetSource {
     pub remote_uri: Option<String>,
     pub search_name: Option<String>,
     pub bundled_name: Option<String>,
+    pub package_path: Option<String>,
 }
 
 impl Recall for RecallAssetSource {
@@ -108,6 +117,9 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Bundled(name) => {
                 self.bundled_name = Some(name.clone());
+            }
+            AssetSource::Package(path) => {
+                self.package_path = Some(path.clone());
             }
         }
     }
