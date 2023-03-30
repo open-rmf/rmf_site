@@ -21,7 +21,12 @@ use std::io;
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+#[cfg(feature = "bevy")]
+use bevy::reflect::TypeUuid;
+#[cfg(feature = "bevy")]
+use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize, Serializer};
+use urdf_rs::Robot;
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -36,10 +41,10 @@ pub struct Parented<P: RefTrait, T> {
 pub struct FrameMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Frame {
     #[serde(flatten)]
     pub anchor: Anchor,
+    pub mesh_constraint: Option<MeshConstraint<u32>>,
     #[serde(skip)]
     pub marker: FrameMarker,
 }
@@ -71,21 +76,32 @@ pub struct WorkcellProperties {
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct NameInWorkcell(pub String);
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct Mass(f32);
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct NameInWorkcell(String);
+pub struct Inertia {
+
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Inertial {
+    pub origin: Pose,
+    pub mass: Mass,
+    pub inertia: Inertia,
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Link {
     pub name: NameInWorkcell,
-}
-
-impl Link {
-    pub fn new(name: String) -> Self {
-        Self {
-            name: NameInWorkcell(name),
-        }
-    }
+    pub inertial: Inertial,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -95,12 +111,66 @@ pub struct Joint {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+pub enum Geometry {
+    //#[serde(flatten)]
+    Primitive(MeshPrimitive),
+    Mesh{filename: String},
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum MeshPrimitive {
     Box{size: [f32; 3]},
     Cylinder{radius: f32, length: f32},
     Capsule{radius: f32, length: f32},
     Sphere{radius: f32},
+}
+
+impl Default for Geometry {
+    fn default() -> Self {
+        Geometry::Primitive(MeshPrimitive::Box{size: [0.0; 3]})
+    }
+}
+
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct WorkcellVisualMarker;
+
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct WorkcellCollisionMarker;
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+pub struct WorkcellModel {
+    pub name: String,
+    pub geometry: Geometry,
+    pub pose: Pose,
+}
+
+#[cfg(feature = "bevy")]
+impl WorkcellModel {
+    pub fn add_bevy_components(&self, mut commands: EntityCommands) {
+        match &self.geometry {
+            Geometry::Primitive(primitive) => {
+                commands.insert((primitive.clone(), self.pose.clone(), NameInSite(self.name.clone())));
+            },
+            Geometry::Mesh{filename} => {
+                println!("Setting pose of {:?} to {:?}", filename, self.pose);
+                commands.insert(Model {
+                    // TODO(luca) move away from NameInSite and using NameInWorkcell? Also will
+                    // mean moving away from Model bundle
+                    name: NameInSite(self.name.clone()),
+                    source: AssetSource::from(filename),
+                    pose: self.pose.clone(),
+                    // TODO*luca) parametrize is_static, default false for visuals and true for
+                    // collisions
+                    is_static: misc::IsStatic(false),
+                    constraints: ConstraintDependents::default(),
+                    marker: ModelMarker,
+                });
+            },
+        }
+    }
 }
 
 // TODO(luca) we might need a different bundle to denote a workcell included in site
@@ -115,13 +185,11 @@ pub struct Workcell {
     pub id: u32,
     /// Frames, key is their id, used for hierarchy
     pub frames: BTreeMap<u32, Parented<u32, Frame>>,
-    /// Models, key is their id, used for hierarchy
-    pub models: BTreeMap<u32, Parented<u32, Model>>,
-    /// Mesh constraints, key is their id, matches an anchor id
-    // TODO(luca) merge with frames? Not immediate since optional components are not allowed in
-    // bundles
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub mesh_constraints: BTreeMap<u32, MeshConstraint<u32>>,
+    /// Visuals, key is their id, used for hierarchy
+    pub visuals: BTreeMap<u32, Parented<u32, WorkcellModel>>,
+    /// Collisions, key is their id, used for hierarchy
+    pub collisions: BTreeMap<u32, Parented<u32, WorkcellModel>>,
+    // TODO(luca) Joints
 }
 
 impl Workcell {
@@ -134,8 +202,6 @@ impl Workcell {
     }
 
     pub fn from_reader<R: io::Read>(reader: R) -> serde_json::Result<Self> {
-        // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
-        // belong to the same level.
         serde_json::de::from_reader(reader)
     }
 
@@ -145,5 +211,39 @@ impl Workcell {
 
     pub fn from_bytes<'a>(s: &'a [u8]) -> serde_json::Result<Self> {
         serde_json::from_slice(s)
+    }
+}
+
+#[cfg_attr(feature = "bevy", derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid))]
+#[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
+pub struct UrdfRoot(pub Robot);
+
+// TODO(luca) feature gate urdf support
+impl From::<&urdf_rs::Geometry> for Geometry {
+    fn from(geom: &urdf_rs::Geometry) -> Self {
+        match geom {
+            urdf_rs::Geometry::Box(urdf_rs::BoxGeometry {size}) => Geometry::Primitive(MeshPrimitive::Box{size: (**size).map(|f| f as f32)}),
+            urdf_rs::Geometry::Cylinder(urdf_rs::CylinderGeometry {radius, length}) => Geometry::Primitive(MeshPrimitive::Cylinder{radius: *radius as f32, length: *length as f32}),
+            urdf_rs::Geometry::Capsule(urdf_rs::CapsuleGeometry {radius, length}) => Geometry::Primitive(MeshPrimitive::Capsule{radius: *radius as f32, length: *length as f32}),
+            urdf_rs::Geometry::Sphere(urdf_rs::SphereGeometry {radius}) => Geometry::Primitive(MeshPrimitive::Sphere{radius: *radius as f32}),
+            // TODO(luca) mesh scale support
+            urdf_rs::Geometry::Mesh(urdf_rs::MeshGeometry {filename, ..}) => Geometry::Mesh{filename: filename.clone()},
+        }
+    }
+}
+
+impl From::<&urdf_rs::Link> for Link {
+    fn from(link: &urdf_rs::Link) -> Self {
+        Self {
+            name: NameInWorkcell(link.name.clone()),
+            inertial: Inertial {
+                origin: Pose {
+                    trans: link.inertial.origin.xyz.0.map(|v| v as f32),
+                    rot: Rotation::EulerExtrinsicXYZ(link.inertial.origin.rpy.map(|v| Angle::Rad(v as f32))),
+                },
+                mass: Mass(link.inertial.mass.value as f32),
+                inertia: Inertia::default(),
+            },
+        }
     }
 }

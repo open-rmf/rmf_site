@@ -264,23 +264,26 @@ fn handle_workspace_data(
         },
         WorkspaceData::Workcell(data) => {
             println!("Opening workcell file");
-            if let Ok(workcell) = Workcell::from_bytes(&data) {
-                // Switch state
-                match app_state.set(AppState::WorkcellEditor) {
-                    Ok(_) => {
-                        load_workcell.send(LoadWorkcell {
-                            workcell,
-                            focus: true,
-                            default_file: file,
-                        });
-                        interaction_state.set(InteractionState::Enable).ok();
+            match Workcell::from_bytes(&data) {
+                Ok(workcell) => {
+                    // Switch state
+                    match app_state.set(AppState::WorkcellEditor) {
+                        Ok(_) => {
+                            load_workcell.send(LoadWorkcell {
+                                workcell,
+                                focus: true,
+                                default_file: file,
+                            });
+                            interaction_state.set(InteractionState::Enable).ok();
+                        }
+                        Err(err) => {
+                            println!("Failed to enter traffic editor: {:?}", err);
+                        }
                     }
-                    Err(err) => {
-                        println!("Failed to enter traffic editor: {:?}", err);
-                    }
+                },
+                Err(err) =>  {
+                println!("Failed loading workcell {:?}", err);
                 }
-            } else {
-                println!("Failed loading workcell");
             }
         },
     }

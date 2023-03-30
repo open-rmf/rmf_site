@@ -57,37 +57,33 @@ fn generate_workcell_entities(
         .id();
     id_to_entity.insert(&workcell.id, root);
 
+    for (id, parented_visual) in &workcell.visuals {
+        let cmd = commands.spawn(SiteID(*id));
+        let e = cmd.id();
+        parented_visual.bundle.add_bevy_components(cmd);
+        // TODO(luca) this hashmap update is duplicated, refactor into function
+        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_visual.parent).or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
     for (id, parented_anchor) in &workcell.frames {
         let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
-            .insert(FrameMarker)
             .insert(SiteID(*id))
             .id();
+        if let Some(c) = &parented_anchor.bundle.mesh_constraint {
+            let model_entity = *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing model");
+            commands.entity(e).insert(MeshConstraint {
+                entity: model_entity,
+                element: c.element.clone(),
+                relative_pose: c.relative_pose,
+            });
+            let mut constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
+            constraint_dependents.insert(e);
+        }
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
-    }
-
-    for (id, parented_model) in &workcell.models {
-        let e = commands.spawn(parented_model.bundle.clone())
-            .insert(SiteID(*id))
-            .id();
-        // TODO(luca) this hashmap update is duplicated, refactor into function
-        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_model.parent).or_default();
-        child_entities.push(e);
-        id_to_entity.insert(id, e);
-    }
-
-    // TODO(luca) don't panic for failed loads, Result return and graceful failure instead
-    for (id, c) in &workcell.mesh_constraints {
-        let model_entity = *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing model");
-        let entity = *id_to_entity.get(id).expect("Mesh constraint refers to non existing anchor");
-        commands.entity(entity).insert(MeshConstraint {
-            entity: model_entity,
-            element: c.element.clone(),
-            relative_pose: c.relative_pose,
-        });
-        let mut constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
-        constraint_dependents.insert(entity);
     }
 
     // Add constraint dependents to models

@@ -17,6 +17,7 @@ thiserror = "*"
 glam = "0.22"
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { version = "0.9", optional = true }
+urdf-rs = { git = "https://github.com/luca-della-vedova/urdf-rs", branch = "luca/serialize_urdf" }
 
 [target.'cfg(target_arch = "wasm")'.dependencies]
 optimization_engine = { version = "0.7", features = ["wasm"] }

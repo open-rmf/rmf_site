@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{Anchor, Model, ModelMarker, Pose, FloorMarker, WallMarker};
+use rmf_site_format::{Anchor, Model, ModelMarker, Pose, FloorMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -118,6 +118,21 @@ impl Cursor {
         }
         if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
+            commands.entity(self.frame).push_children(&[e]);
+            self.preview_model = Some(e);
+        } else {
+            self.preview_model = None;
+        }
+    }
+
+    pub fn set_workcell_model_preview(&mut self, commands: &mut Commands, model: Option<WorkcellModel>) {
+        if let Some(current_preview) = self.preview_model {
+            commands.entity(self.frame).remove_children(&[current_preview]);
+        }
+        if let Some(model) = model {
+            let cmd = commands.spawn(Pending);
+            let e = cmd.id();
+            model.add_bevy_components(cmd);
             commands.entity(self.frame).push_children(&[e]);
             self.preview_model = Some(e);
         } else {

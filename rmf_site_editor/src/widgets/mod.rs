@@ -36,6 +36,7 @@ use crate::{
     CurrentWorkspace,
     LoadWorkspace,
     SaveWorkspace,
+    ExportFormat,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -130,8 +131,6 @@ pub struct ChangeEvents<'w, 's> {
 #[derive(SystemParam)]
 pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
-    // TODO(luca) change into generic load workspace
-    pub load_workcell: EventWriter<'w, 's, LoadWorkcell>,
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
 }
@@ -263,12 +262,12 @@ fn site_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace {to_file: None});
+                        events.file_events.save.send(SaveWorkspace::default());
                     }
-                    // TODO(luca) implement shortcuts for save as and open
+                    // TODO(luca) implement shortcuts for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace {to_file: Some(path)});
+                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), ..default()});
                         }
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
@@ -337,22 +336,24 @@ fn workcell_ui_layout(
                                             .asset_source
                                             .send(Change::new(new_asset_source, e));
                                     }
-                                    if ui.button("Spawn").clicked() {
-                                        let mut model = Model::default();
-                                        model.source = source.clone();
+                                    if ui.button("Spawn visual").clicked() {
+                                        let model = Model {source: source.clone(), ..default()};
+                                        let workcell_model = WorkcellModel {
+                                            geometry: Geometry::Mesh{filename: source.into()}, ..default()};
                                         events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
-                                                .for_model(model)
+                                                .for_visual(workcell_model)
                                                 .into(),
                                         ));
+                                        events.commands.entity(e).despawn_recursive();
                                     }
                                     ui.add_space(10.0);
-                                } else {
+                                } else if pending_asset_sources.is_empty() {
                                     // Spawn one
                                     //let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
                                     let source = AssetSource::Local("../robot.urdf".to_string());
+                                    //let source = AssetSource::Search("OpenRobotics/OfficeChairGrey".to_string());
                                     events.commands.spawn(source.clone()).insert(Pending);
-                                    return;
                                 };
                             });
                         ui.separator();
@@ -369,28 +370,21 @@ fn workcell_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace {to_file: None});
+                        events.file_events.save.send(SaveWorkspace::default());
                     }
                     // TODO(luca) implement shortcut for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace {to_file: Some(path)});
+                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), ..default()});
+                        }
+                    }
+                    if ui.add(Button::new("Export urdf").shortcut_text("Ctrl+E")).clicked() {
+                        if let Some(path) = FileDialog::new().save_file() {
+                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), format: ExportFormat::Urdf});
                         }
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
                         events.file_events.load_workspace.send(LoadWorkspace::Dialog);
-                        /*
-                        if let Some(path) = FileDialog::new().add_filter("Workcells", &["workcell.json"]).pick_file() {
-                            let data = std::fs::read(&path);
-                            if let Some(workcell) = data.ok().and_then(|d| Workcell::from_bytes(&d).ok()) {
-                                events.file_events.load_workcell.send(LoadWorkcell {
-                                    workcell,
-                                    focus: true,
-                                    default_file: Some(path),
-                                });
-                            }
-                        }
-                        */
                     }
                 }
             });

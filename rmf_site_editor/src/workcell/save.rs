@@ -20,7 +20,8 @@ use bevy::prelude::*;
 use std::path::PathBuf;
 use std::collections::BTreeMap;
 
-use crate::site::{DefaultFile, Pending};
+use crate::ExportFormat;
+use crate::site::Pending;
 
 use thiserror::Error as ThisError;
 
@@ -30,6 +31,7 @@ use rmf_site_format::*;
 pub struct SaveWorkcell {
     pub root: Entity,
     pub to_file: PathBuf,
+    pub format: ExportFormat,
 }
 
 #[derive(ThisError, Debug, Clone)]
@@ -52,7 +54,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     // TODO(luca) actually keep site IDs instead of always generating them from scratch
     // (as it is done in site editor)
     let mut state: SystemState<(
-        Query<Entity, (Or<(With<Anchor>, With<ModelMarker>)>, Without<Pending>)>,
+        Query<Entity, (Or<(With<Anchor>, With<WorkcellVisualMarker>)>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
     let (q_used_entities, q_children) = state.get(&world);
@@ -80,14 +82,13 @@ pub fn generate_workcell(
             (
                 Entity,
                 &NameInSite,
-                &AssetSource,
+                Option<&AssetSource>,
+                Option<&MeshPrimitive>,
                 &Pose,
-                &IsStatic,
-                &ConstraintDependents,
                 &SiteID,
                 &Parent,
             ),
-            (With<ModelMarker>, Without<Pending>),
+            (With<WorkcellVisualMarker>, Without<Pending>),
         >,
         Query<&SiteID>,
         Query<&WorkcellProperties>,
@@ -105,8 +106,9 @@ pub fn generate_workcell(
         }
     }
 
-    // Models
-    for (e, name, source, pose, is_static, constraint_dependents, id, parent) in &q_models {
+    // Visuals
+    for (e, name, source, primitive, pose, id, parent) in &q_models {
+        println!("Found visual");
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -115,17 +117,23 @@ pub fn generate_workcell(
             Ok(parent) => Some(parent.0),
             Err(_) => None,
         };
-        workcell.models.insert(
+        let geom = if let Some(source) = source {
+            // It's a model
+            Geometry::Mesh{filename: String::from(source)}
+        } else if let Some(primitive) = primitive {
+            Geometry::Primitive(primitive.clone())
+        } else {
+            println!("DEV Error, visual without primitive or mesh");
+            continue;
+        };
+        workcell.visuals.insert(
             id.0,
             Parented {
                 parent: parent,
-                bundle: Model {
-                    name: name.clone(),
-                    source: source.clone(),
+                bundle: WorkcellModel {
+                    name: name.0.clone(),
+                    geometry: geom,
                     pose: pose.clone(),
-                    is_static: is_static.clone(),
-                    constraints: constraint_dependents.clone(),
-                    marker: ModelMarker,
                 },
             },
         );
@@ -142,27 +150,27 @@ pub fn generate_workcell(
         };
         // TODO(luca) is duplication here OK? same information is contained in mesh constraint and
         // anchor
+        let constraint = if let Some(c) = constraint {
+            Some(MeshConstraint {
+                entity: **q_site_id.get(c.entity).unwrap(),
+                element: c.element.clone(),
+                relative_pose: c.relative_pose,
+            })
+        } else {
+            None
+        };
+
         workcell.frames.insert(
             id.0,
             Parented {
                 parent: parent,
                 bundle: Frame {
                     anchor: anchor.clone(),
+                    mesh_constraint: constraint,
                     marker: FrameMarker,
                 }
             },
         );
-        if let Some(c) = constraint {
-            // Also add a mehs constraint
-            workcell.mesh_constraints.insert(
-                id.0,
-                MeshConstraint {
-                    entity: **q_site_id.get(c.entity).unwrap(),
-                    element: c.element.clone(),
-                    relative_pose: c.relative_pose,
-                },
-            );
-        }
     }
 
     Ok(workcell)
@@ -197,13 +205,21 @@ pub fn save_workcell(world: &mut World) {
 
         dbg!(&workcell);
 
-        match workcell.to_writer(f) {
-            Ok(()) => {
-                println!("Save successful");
-            }
-            Err(err) => {
-                println!("Save failed: {err}");
-            }
+        match save_event.format {
+            ExportFormat::Default => {
+                match workcell.to_writer(f) {
+                    Ok(()) => {
+                        println!("Save successful");
+                    }
+                    Err(err) => {
+                        println!("Save failed: {err}");
+                    }
+                }
+            },
+            ExportFormat::Urdf => {
+                println!("Saving to urdf");
+            },
         }
+
     }
 }

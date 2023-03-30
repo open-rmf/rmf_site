@@ -22,8 +22,19 @@ use crate::workcell::SaveWorkcell;
 
 use std::path::PathBuf;
 
+#[derive(Default)]
 pub struct SaveWorkspace {
+    /// If specified workspace will be saved to requested file, otherwise the default file
     pub to_file: Option<PathBuf>,
+    /// If specified the workspace will be exported to a specific format
+    pub format: ExportFormat,
+}
+
+#[derive(Clone, Default, Debug)]
+pub enum ExportFormat {
+    #[default]
+    Default,
+    Urdf,
 }
 
 pub struct SavePlugin;
@@ -51,6 +62,7 @@ pub fn dispatch_save_events(
                         save_workcell.send(SaveWorkcell {
                             root: ws_root,
                             to_file: file,
+                            format: event.format.clone(),
                         });
                     }
                     // TODO(luca) migrate site/save as well to non optional path?

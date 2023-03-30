@@ -72,53 +72,8 @@
       }
     }
   },
-  "models": {
-    "4": {
-      "parent": 1,
-      "name": "test_chair",
-      "source": {
-        "Search": "OpenRobotics/OfficeChairGrey"
-      },
-      "pose": {
-        "trans": [
-          1.0,
-          0.0,
-          0.0
-        ],
-        "rot": {
-          "yaw": {
-            "deg": 0.0
-          }
-        }
-      }
-    }
+  "visuals": {
   },
-  "mesh_constraints": {
-    "3": {
-      "entity": 4,
-      "element": {
-        "Vertex": 0
-      },
-      "relative_pose": {
-        "trans": [
-          5.9604645e-8,
-          0.31817698,
-          0.60250926
-        ],
-        "rot": {
-          "euler_xyz": [
-            {
-              "deg": 92.75838
-            },
-            {
-              "deg": -73.071754
-            },
-            {
-              "deg": -171.64337
-            }
-          ]
-        }
-      }
-    }
+  "collisions": {
   }
 }

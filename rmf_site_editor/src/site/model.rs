@@ -18,11 +18,10 @@
 use crate::{
     interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion, SiteAssets},
-    UrdfRoot,
 };
 use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pose};
+use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 

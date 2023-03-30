@@ -102,7 +102,7 @@ fn handle_keyboard_input(
     if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
         if keyboard_input.just_pressed(KeyCode::S) {
             // TODO(luca) on Shift open file dialog
-            save_workspace.send(SaveWorkspace{ to_file: None });
+            save_workspace.send(SaveWorkspace::default());
         }
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a

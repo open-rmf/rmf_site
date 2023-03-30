@@ -20,7 +20,8 @@ use bevy::asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy::utils::BoxedFuture;
 use bevy::reflect::TypeUuid;
 
-use urdf_rs::Robot;
+use rmf_site_format::UrdfRoot;
+
 use thiserror::Error;
 
 pub struct UrdfPlugin;
@@ -75,10 +76,6 @@ pub enum UrdfError {
     ParsingError,
     //Io(#[from] std::io::Error),
 }
-
-#[derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)]
-#[uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002"]
-pub struct UrdfRoot(Robot);
 
 async fn load_urdf<'a, 'b>(
     bytes: &'a [u8],
