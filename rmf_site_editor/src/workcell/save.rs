@@ -54,7 +54,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     // TODO(luca) actually keep site IDs instead of always generating them from scratch
     // (as it is done in site editor)
     let mut state: SystemState<(
-        Query<Entity, (Or<(With<Anchor>, With<WorkcellVisualMarker>)>, Without<Pending>)>,
+        Query<Entity, (Or<(With<Anchor>, With<LinkMarker>, With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>, Without<Pending>)>,
         Query<&Children>,
     )> = SystemState::new(world);
     let (q_used_entities, q_children) = state.get(&world);
@@ -77,7 +77,7 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(Entity, &Anchor, &SiteID, &Parent, Option<&MeshConstraint<Entity>>), Without<Pending>>,
+        Query<(Entity, &Anchor, Option<&NameInWorkcell>, &SiteID, &Parent, Option<&MeshConstraint<Entity>>), Without<Pending>>,
         Query<
             (
                 Entity,
@@ -88,13 +88,15 @@ pub fn generate_workcell(
                 &SiteID,
                 &Parent,
             ),
-            (With<WorkcellVisualMarker>, Without<Pending>),
+            (Or<(With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>, Without<Pending>),
         >,
+        Query<&WorkcellVisualMarker>,
+        Query<&WorkcellCollisionMarker>,
         Query<&SiteID>,
         Query<&WorkcellProperties>,
         Query<&Parent>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_site_id, q_properties, q_parents) = state.get(world);
+    let (q_anchors, q_models, q_visuals, q_collisions, q_site_id, q_properties, q_parents) = state.get(world);
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
@@ -108,7 +110,6 @@ pub fn generate_workcell(
 
     // Visuals
     for (e, name, source, primitive, pose, id, parent) in &q_models {
-        println!("Found visual");
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -119,28 +120,46 @@ pub fn generate_workcell(
         };
         let geom = if let Some(source) = source {
             // It's a model
-            Geometry::Mesh{filename: String::from(source)}
+            // TODO(luca) serialize scale
+            Geometry::Mesh{filename: String::from(source), scale: None}
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
         } else {
             println!("DEV Error, visual without primitive or mesh");
             continue;
         };
-        workcell.visuals.insert(
-            id.0,
-            Parented {
-                parent: parent,
-                bundle: WorkcellModel {
-                    name: name.0.clone(),
-                    geometry: geom,
-                    pose: pose.clone(),
+        if q_visuals.get(e).is_ok() {
+            println!("Found visual");
+            workcell.visuals.insert(
+                id.0,
+                Parented {
+                    parent: parent,
+                    bundle: WorkcellModel {
+                        name: name.0.clone(),
+                        geometry: geom,
+                        pose: pose.clone(),
+                    },
                 },
-            },
-        );
+            );
+        } else if q_collisions.get(e).is_ok() {
+            println!("Found collision");
+            // TODO(luca) reduce duplication with above branch
+            workcell.collisions.insert(
+                id.0,
+                Parented {
+                    parent: parent,
+                    bundle: WorkcellModel {
+                        name: name.0.clone(),
+                        geometry: geom,
+                        pose: pose.clone(),
+                    },
+                },
+            );
+        }
     }
 
     // Anchors
-    for (e, anchor, id, parent, constraint) in &q_anchors {
+    for (e, anchor, name, id, parent, constraint) in &q_anchors {
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -166,6 +185,7 @@ pub fn generate_workcell(
                 parent: parent,
                 bundle: Frame {
                     anchor: anchor.clone(),
+                    name: name.cloned(),
                     mesh_constraint: constraint,
                     marker: FrameMarker,
                 }

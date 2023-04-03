@@ -24,7 +24,7 @@ use std::collections::HashSet;
 use crate::workcell::{ChangeCurrentWorkcell};
 use crate::site::{AnchorBundle, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, NameInSite, PreventDeletion, SiteState};
 
-use rmf_site_format::{Category, FrameMarker, SiteID};
+use rmf_site_format::{Category, FrameMarker, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
 
 pub struct LoadWorkcell {
     /// The site data to load
@@ -58,11 +58,21 @@ fn generate_workcell_entities(
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn(SiteID(*id));
+        let cmd = commands.spawn((SiteID(*id), WorkcellVisualMarker));
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_visual.parent).or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
+    for (id, parented_collision) in &workcell.collisions {
+        let cmd = commands.spawn((SiteID(*id), WorkcellCollisionMarker));
+        let e = cmd.id();
+        parented_collision.bundle.add_bevy_components(cmd);
+        // TODO(luca) this hashmap update is duplicated, refactor into function
+        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_collision.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
@@ -80,6 +90,9 @@ fn generate_workcell_entities(
             });
             let mut constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
             constraint_dependents.insert(e);
+        }
+        if let Some(name) = &parented_anchor.bundle.name {
+            commands.entity(e).insert(name.clone());
         }
         let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
         child_entities.push(e);

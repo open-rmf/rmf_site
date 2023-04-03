@@ -183,6 +183,8 @@ pub struct AppEvents<'w, 's> {
     pub change: ChangeEvents<'w, 's>,
     // TODO(luca) Move to main change SystemParam once there is no more 16 param limit
     pub change_mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
+    pub change_mesh_primitives: EventWriter<'w, 's, Change<MeshPrimitive>>,
+    pub change_name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
@@ -339,10 +341,21 @@ fn workcell_ui_layout(
                                     if ui.button("Spawn visual").clicked() {
                                         let model = Model {source: source.clone(), ..default()};
                                         let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into()}, ..default()};
+                                            geometry: Geometry::Mesh{filename: source.into(), scale: None}, ..default()};
                                         events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_visual(workcell_model)
+                                                .into(),
+                                        ));
+                                        events.commands.entity(e).despawn_recursive();
+                                    }
+                                    if ui.button("Spawn collision").clicked() {
+                                        let model = Model {source: source.clone(), ..default()};
+                                        let workcell_model = WorkcellModel {
+                                            geometry: Geometry::Mesh{filename: source.into(), scale: None}, ..default()};
+                                        events.request.change_mode.send(ChangeMode::To(
+                                            SelectAnchor3D::create_new_point()
+                                                .for_collision(workcell_model)
                                                 .into(),
                                         ));
                                         events.commands.entity(e).despawn_recursive();
@@ -351,8 +364,8 @@ fn workcell_ui_layout(
                                 } else if pending_asset_sources.is_empty() {
                                     // Spawn one
                                     //let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
-                                    let source = AssetSource::Local("../robot.urdf".to_string());
-                                    //let source = AssetSource::Search("OpenRobotics/OfficeChairGrey".to_string());
+                                    //let source = AssetSource::Local("../robot.urdf".to_string());
+                                    let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
                                     events.commands.spawn(source.clone()).insert(Pending);
                                 };
                             });

@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
     is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic, Location, LocationTag, LocationTags,
-    Model, ModelMarker, NameInSite, Pose,
+    Model, ModelMarker, NameInSite, Pose, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -64,6 +64,7 @@ impl Vertex {
                 pose: Pose::default(),
                 is_static: IsStatic(false),
                 constraints: ConstraintDependents::default(),
+                scale: Scale::default(),
                 marker: ModelMarker,
             }))
         }

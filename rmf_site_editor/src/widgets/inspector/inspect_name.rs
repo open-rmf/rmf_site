@@ -16,7 +16,7 @@
 */
 
 use bevy_egui::egui::Ui;
-use rmf_site_format::NameInSite;
+use rmf_site_format::{NameInSite, NameInWorkcell};
 
 pub struct InspectName<'a> {
     pub name: &'a NameInSite,
@@ -28,6 +28,30 @@ impl<'a> InspectName<'a> {
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<NameInSite> {
+        ui.horizontal(|ui| {
+            ui.label("Name");
+            let mut new_name = self.name.clone();
+            ui.text_edit_singleline(&mut new_name.0);
+            if new_name != *self.name {
+                Some(new_name)
+            } else {
+                None
+            }
+        })
+        .inner
+    }
+}
+
+pub struct InspectNameInWorkcell<'a> {
+    pub name: &'a NameInWorkcell,
+}
+
+impl<'a> InspectNameInWorkcell<'a> {
+    pub fn new(name: &'a NameInWorkcell) -> Self {
+        Self { name }
+    }
+
+    pub fn show(self, ui: &mut Ui) -> Option<NameInWorkcell> {
         ui.horizontal(|ui| {
             ui.label("Name");
             let mut new_name = self.name.clone();

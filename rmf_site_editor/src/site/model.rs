@@ -21,7 +21,7 @@ use crate::{
 };
 use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot};
+use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot, Scale};
 use smallvec::SmallVec;
 use std::collections::HashMap;
 
@@ -42,7 +42,7 @@ pub fn update_model_scenes(
         (Changed<AssetSource>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    mut loading_models: Query<(Entity, &PendingSpawning)>,
+    mut loading_models: Query<(Entity, &PendingSpawning, &Scale)>,
     mut spawned_models: Query<Entity, (Without<PendingSpawning>, With<PreventDeletion>)>,
     mut current_scenes: Query<&mut ModelScene>,
     site_assets: Res<SiteAssets>,
@@ -110,7 +110,7 @@ pub fn update_model_scenes(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, h) in loading_models.iter() {
+    for (e, h, scale) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if scenes.contains(&h.typed_weak::<Scene>()) {
                 let model_scene_id = commands.entity(e).add_children(|parent| {
@@ -130,6 +130,7 @@ pub fn update_model_scenes(
                         .spawn(PbrBundle {
                             mesh: h_typed,
                             material: site_assets.default_mesh_grey_material.clone(),
+                            transform: Transform::from_scale(**scale),
                             ..default()
                         })
                         .id()

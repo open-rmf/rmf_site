@@ -19,10 +19,11 @@ use bevy::prelude::*;
 use bevy::render::mesh::shape::{Capsule, UVSphere};
 use std::collections::{HashMap, HashSet};
 
+use crate::interaction::Selectable;
 use crate::site::{AnchorBundle, SiteAssets};
 use crate::shapes::{make_box, make_cylinder};
 
-use rmf_site_format::{Anchor, Angle, AssetSource, Category, Geometry, Link, MeshPrimitive, Model, NameInSite, NameInWorkcell, Pose, Rotation, UrdfRoot, WorkcellModel, WorkcellVisualMarker};
+use rmf_site_format::{Anchor, Angle, AssetSource, Category, Geometry, Link, MeshPrimitive, Model, NameInSite, NameInWorkcell, Pose, Rotation, UrdfRoot, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker};
 
 use urdf_rs::{JointType};
 
@@ -53,14 +54,15 @@ pub fn handle_new_urdf_roots(
             link_name_to_entity.insert(link.name.clone(), link_entity);
             root_links.insert(link_entity);
             for visual in &link.visual {
-                let trans = visual.origin.xyz.map(|t| t as f32);
-                let rot = Rotation::EulerExtrinsicXYZ(visual.origin.rpy.map(|t| Angle::Rad(t as f32)));
-                let model = WorkcellModel {
-                    name: visual.name.clone().unwrap_or_default(),
-                    geometry: (&urdf_rs::Geometry::from(&visual.geometry)).into(),
-                    pose: Pose{trans, rot},
-                };
-                let mut cmd = commands.spawn(SpatialBundle::VISIBLE_IDENTITY);
+                let model = WorkcellModel::from(visual);
+                let mut cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellVisualMarker));
+                let id = cmd.id();
+                model.add_bevy_components(cmd);
+                commands.entity(link_entity).add_child(id);
+            }
+            for collision in &link.collision {
+                let model = WorkcellModel::from(collision);
+                let mut cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellCollisionMarker));
                 let id = cmd.id();
                 model.add_bevy_components(cmd);
                 commands.entity(link_entity).add_child(id);
@@ -80,7 +82,7 @@ pub fn handle_new_urdf_roots(
                             let joint = RevoluteJointBuilder::new(axis)
                                 //.local_anchor2(trans)
                                 .limits([joint.limit.lower as f32, joint.limit.upper as f32]);
-                            MultibodyJoint::new(*parent, joint)
+                            ImpulseJoint::new(*parent, joint)
                         },
                         JointType::Prismatic => {
                             let axis = Vec3::from_array(joint.axis.xyz.map(|t| t as f32));
@@ -88,24 +90,25 @@ pub fn handle_new_urdf_roots(
                                 //.local_anchor2(trans)
                                 .local_axis2(axis)
                                 .limits([joint.limit.lower as f32, joint.limit.upper as f32]);
-                            MultibodyJoint::new(*parent, joint)
+                            ImpulseJoint::new(*parent, joint)
                         },
                         JointType::Fixed => {
                             let joint = FixedJointBuilder::new()
                                 .local_anchor1(trans)
+                                //.local_anchor2(trans)
                                 //.local_basis2(rot.into())
                                 ;
-                            MultibodyJoint::new(*parent, joint)
+                            ImpulseJoint::new(*parent, joint)
                         },
                         _ => {todo!("Unimplemented joint type {:?}", joint.joint_type);}
                     };
                     let trans = joint.origin.xyz.map(|t| t as f32);
                     let mut rot = Rotation::EulerExtrinsicXYZ(joint.origin.rpy.map(|angle| Angle::Rad(angle as f32)));
-                    commands.entity(*child).insert(AnchorBundle::new(Anchor::Pose3D(Pose {trans, rot})));
+                    //commands.entity(*child).insert(AnchorBundle::new(Anchor::Pose3D(Pose {trans, rot})));
                     commands.entity(*parent).add_child(*child);
                     root_links.remove(child);
                     println!("Adding joint between {:?} - {} and {:?} - {}", *parent, &joint.parent.link, *child, &joint.child.link);
-                    commands.entity(*child).with_children(|children| {children.spawn(joint_data);});
+                    commands.entity(*child).with_children(|children| {children.spawn(SpatialBundle::VISIBLE_IDENTITY).insert(joint_data).insert(Anchor::Pose3D(Pose {trans, rot}));});
                 }
             }
         }
@@ -130,12 +133,12 @@ pub fn handle_new_mesh_primitives(
             MeshPrimitive::Capsule{radius, length} => {Mesh::from(Capsule{radius: *radius, depth: *length, ..default()})}
             MeshPrimitive::Sphere{radius} => {Mesh::from(UVSphere{radius: *radius, ..default()})}
         };
-        dbg!(&primitive);
         let child_id = commands.spawn(PbrBundle {
             mesh: meshes.add(mesh),
             material: site_assets.default_mesh_grey_material.clone(),
-            ..default()
-        }).id();
+            ..default()})
+            .insert(Selectable::new(e))
+            .id();
         commands.entity(e).push_children(&[child_id]);
     }
 }

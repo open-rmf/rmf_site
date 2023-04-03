@@ -1,5 +1,5 @@
 use crate::{
-    Angle, AssetSource, ConstraintDependents, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation,
+    Angle, AssetSource, ConstraintDependents, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -33,6 +33,7 @@ impl Model {
             },
             is_static: IsStatic(self.static_),
             constraints: ConstraintDependents::default(),
+            scale: Scale::default(),
             marker: ModelMarker,
         }
     }

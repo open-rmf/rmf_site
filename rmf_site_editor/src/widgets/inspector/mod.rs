@@ -54,6 +54,9 @@ pub use inspect_location::*;
 pub mod inspect_mesh_constraint;
 pub use inspect_mesh_constraint::*;
 
+pub mod inspect_mesh_primitive;
+pub use inspect_mesh_primitive::*;
+
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
@@ -97,6 +100,9 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
+    // TODO(luca) move to new systemparam, reached 16 limit on main one
+    pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
+    pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -187,6 +193,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change
                         .name
+                        .send(Change::new(new_name, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(name) = self.params.names_in_workcell.get(selection) {
+                if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
+                    self.events
+                        .change_name_in_workcell
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
@@ -321,6 +336,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
                 ui.add_space(10.0);
             }
+
+            if let Ok((source, recall)) = self.params.mesh_primitives.get(selection) {
+                if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui) {
+                    self.events
+                        .change_mesh_primitives
+                        .send(Change::new(new_mesh_primitive, selection));
+                }
+                ui.add_space(10.0);
+            }
+
             if self.params.component.constraint_dependents.get(selection).is_ok() {
                 InspectModelDependentsWidget::new(
                     selection,
@@ -330,6 +355,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 .show(ui);
                 ui.add_space(10.0);
             }
+
             if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
                 if let Some(new_ppm) =
                     InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)

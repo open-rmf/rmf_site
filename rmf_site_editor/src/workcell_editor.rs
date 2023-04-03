@@ -27,7 +27,7 @@ use crate::workcell::*;
 use crate::{AppState, CurrentWorkspace};
 
 use rmf_site_format::{
-    Anchor, Angle, AssetSource, Category, Model, ModelMarker, NameInSite, Pose, Rotation, Workcell,
+    Anchor, Angle, AssetSource, Category, Model, ModelMarker, NameInSite, NameInWorkcell, Pose, Rotation, Workcell,
 };
 
 use bevy_rapier3d::prelude::*;
@@ -158,6 +158,7 @@ impl Plugin for WorkcellEditorPlugin {
                 .with_system(update_constraint_dependents)
                 .with_system(update_model_scenes)
                 .with_system(make_models_selectable)
+                .with_system(handle_workcell_keyboard_input)
                 .with_system(handle_new_mesh_primitives)
                 .with_system(handle_new_urdf_roots),
             )

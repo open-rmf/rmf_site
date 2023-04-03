@@ -20,13 +20,16 @@ use std::io;
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, SpatialBundle};
+#[cfg(feature = "bevy")]
+use bevy::transform::components::Transform;
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
 use serde::{Deserialize, Serialize, Serializer};
 use urdf_rs::Robot;
+use glam::Vec3;
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -44,12 +47,15 @@ pub struct FrameMarker;
 pub struct Frame {
     #[serde(flatten)]
     pub anchor: Anchor,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub name: Option<NameInWorkcell>,
+    #[serde(default, skip_serializing_if = "is_default")]
     pub mesh_constraint: Option<MeshConstraint<u32>>,
     #[serde(skip)]
     pub marker: FrameMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct MeshConstraint<T: RefTrait> {
     pub entity: T,
@@ -57,7 +63,7 @@ pub struct MeshConstraint<T: RefTrait> {
     pub relative_pose: Pose,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum MeshElement {
     Vertex(u32),
     // TODO(luca) edge and vertices
@@ -75,7 +81,7 @@ pub struct WorkcellProperties {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct NameInWorkcell(pub String);
 
@@ -102,7 +108,13 @@ pub struct Inertial {
 pub struct Link {
     pub name: NameInWorkcell,
     pub inertial: Inertial,
+    #[serde(skip)]
+    pub marker: LinkMarker,
 }
+
+#[derive(Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct LinkMarker;
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -114,16 +126,83 @@ pub struct Joint {
 pub enum Geometry {
     //#[serde(flatten)]
     Primitive(MeshPrimitive),
-    Mesh{filename: String},
+    Mesh{
+        filename: String,
+        #[serde(default, skip_serializing_if = "is_default")]
+        scale: Option<Vec3>
+    },
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum MeshPrimitive {
     Box{size: [f32; 3]},
     Cylinder{radius: f32, length: f32},
     Capsule{radius: f32, length: f32},
     Sphere{radius: f32},
+}
+
+impl MeshPrimitive {
+    pub fn label(&self) -> String {
+        match &self {
+            MeshPrimitive::Box{..} => "Box",
+            MeshPrimitive::Cylinder{..} => "Cylinder",
+            MeshPrimitive::Capsule{..} => "Capsule",
+            MeshPrimitive::Sphere{..} => "Sphere",
+        }.to_string()
+    }
+}
+
+#[derive(Clone, Debug, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct RecallMeshPrimitive {
+    pub box_size: Option<[f32; 3]>,
+    pub cylinder_radius: Option<f32>,
+    pub cylinder_length: Option<f32>,
+    pub capsule_radius: Option<f32>,
+    pub capsule_length: Option<f32>,
+    pub sphere_radius: Option<f32>,
+}
+
+impl Recall for RecallMeshPrimitive {
+    type Source = MeshPrimitive;
+
+    fn remember(&mut self, source: &MeshPrimitive) {
+        match source {
+            MeshPrimitive::Box{size} => {
+                self.box_size = Some(*size);
+            },
+            MeshPrimitive::Cylinder{radius, length} => {
+                self.cylinder_radius = Some(*radius);
+                self.cylinder_length = Some(*length);
+            },
+            MeshPrimitive::Capsule{radius, length} => {
+                self.capsule_radius = Some(*radius);
+                self.capsule_length = Some(*length);
+            },
+            MeshPrimitive::Sphere{radius} => {
+                self.sphere_radius = Some(*radius);
+            },
+        }
+    }
+}
+
+impl RecallMeshPrimitive {
+    pub fn assume_box(&self, current: &MeshPrimitive) -> MeshPrimitive {
+        MeshPrimitive::Box{size: self.box_size.unwrap_or_default()}
+    }
+
+    pub fn assume_cylinder(&self, current: &MeshPrimitive) -> MeshPrimitive {
+        MeshPrimitive::Cylinder{radius: self.cylinder_radius.unwrap_or_default(), length: self.cylinder_length.unwrap_or_default()}
+    }
+
+    pub fn assume_capsule(&self, current: &MeshPrimitive) -> MeshPrimitive {
+        MeshPrimitive::Capsule{radius: self.capsule_radius.unwrap_or_default(), length: self.capsule_length.unwrap_or_default()}
+    }
+
+    pub fn assume_sphere(&self, current: &MeshPrimitive) -> MeshPrimitive {
+        MeshPrimitive::Sphere{radius: self.sphere_radius.unwrap_or_default()}
+    }
 }
 
 impl Default for Geometry {
@@ -154,8 +233,9 @@ impl WorkcellModel {
             Geometry::Primitive(primitive) => {
                 commands.insert((primitive.clone(), self.pose.clone(), NameInSite(self.name.clone())));
             },
-            Geometry::Mesh{filename} => {
+            Geometry::Mesh{filename, scale} => {
                 println!("Setting pose of {:?} to {:?}", filename, self.pose);
+                let scale = Scale(scale.unwrap_or_default());
                 commands.insert(Model {
                     // TODO(luca) move away from NameInSite and using NameInWorkcell? Also will
                     // mean moving away from Model bundle
@@ -166,6 +246,7 @@ impl WorkcellModel {
                     // collisions
                     is_static: misc::IsStatic(false),
                     constraints: ConstraintDependents::default(),
+                    scale,
                     marker: ModelMarker,
                 });
             },
@@ -227,7 +308,14 @@ impl From::<&urdf_rs::Geometry> for Geometry {
             urdf_rs::Geometry::Capsule(urdf_rs::CapsuleGeometry {radius, length}) => Geometry::Primitive(MeshPrimitive::Capsule{radius: *radius as f32, length: *length as f32}),
             urdf_rs::Geometry::Sphere(urdf_rs::SphereGeometry {radius}) => Geometry::Primitive(MeshPrimitive::Sphere{radius: *radius as f32}),
             // TODO(luca) mesh scale support
-            urdf_rs::Geometry::Mesh(urdf_rs::MeshGeometry {filename, ..}) => Geometry::Mesh{filename: filename.clone()},
+            urdf_rs::Geometry::Mesh(urdf_rs::MeshGeometry {filename, scale}) => {
+                let scale = if let Some(scale) = scale {
+                    Some(Vec3::from_array(scale.map(|s| s as f32)))
+                } else {
+                    None
+                };
+                Geometry::Mesh{filename: filename.clone(), scale}
+            }
         }
     }
 }
@@ -244,6 +332,32 @@ impl From::<&urdf_rs::Link> for Link {
                 mass: Mass(link.inertial.mass.value as f32),
                 inertia: Inertia::default(),
             },
+            marker: LinkMarker,
+        }
+    }
+}
+
+// TODO(luca) reduce duplication here by refactoring
+impl From::<&urdf_rs::Visual> for WorkcellModel {
+    fn from(visual: &urdf_rs::Visual) -> Self {
+        let trans = visual.origin.xyz.map(|t| t as f32);
+        let rot = Rotation::EulerExtrinsicXYZ(visual.origin.rpy.map(|t| Angle::Rad(t as f32)));
+        WorkcellModel {
+            name: visual.name.clone().unwrap_or_default(),
+            geometry: (&urdf_rs::Geometry::from(&visual.geometry)).into(),
+            pose: Pose{trans, rot},
+        }
+    }
+}
+
+impl From::<&urdf_rs::Collision> for WorkcellModel {
+    fn from(collision: &urdf_rs::Collision) -> Self {
+        let trans = collision.origin.xyz.map(|t| t as f32);
+        let rot = Rotation::EulerExtrinsicXYZ(collision.origin.rpy.map(|t| Angle::Rad(t as f32)));
+        WorkcellModel {
+            name: collision.name.clone().unwrap_or_default(),
+            geometry: (&urdf_rs::Geometry::from(&collision.geometry)).into(),
+            pose: Pose{trans, rot},
         }
     }
 }

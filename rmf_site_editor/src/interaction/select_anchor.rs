@@ -26,7 +26,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
     AssetSource, ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, Path, Point, Pose, Side,
-    SiteProperties, Wall, WorkcellModel, WorkcellVisualMarker,
+    SiteProperties, Wall, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 use std::sync::Arc;
 
@@ -1240,6 +1240,15 @@ impl SelectAnchorPointBuilder {
         }
     }
 
+    pub fn for_collision(self, model: WorkcellModel) -> SelectAnchor3D {
+        SelectAnchor3D {
+            bundle: PlaceableObject::WorkcellCollision(model),
+            parent: None,
+            target: self.for_element,
+            continuity: self.continuity,
+        }
+    }
+
     pub fn for_anchor(self, parent: Option<Entity>) -> SelectAnchor3D {
         SelectAnchor3D {
             bundle: PlaceableObject::Anchor,
@@ -1598,6 +1607,7 @@ enum PlaceableObject {
     Model(Model),
     Anchor,
     WorkcellVisual(WorkcellModel),
+    WorkcellCollision(WorkcellModel),
 }
 
 #[derive(Clone)]
@@ -2107,7 +2117,7 @@ pub fn handle_select_anchor_3d_mode(
                 // Spawn the model as a child of the cursor
                 params.cursor.set_model_preview(&mut params.commands, Some(m.clone()));
             },
-            PlaceableObject::WorkcellVisual(ref m) => {
+            PlaceableObject::WorkcellVisual(ref m) | PlaceableObject::WorkcellCollision(ref m) => {
                 // Spawn the model as a child of the cursor
                 params.cursor.set_workcell_model_preview(&mut params.commands, Some(m.clone()));
             },
@@ -2176,10 +2186,20 @@ pub fn handle_select_anchor_3d_mode(
                         let mut model = a.clone();
                         let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
                         let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        dbg!(&pose);
                         model.pose = pose;
                         let mut cmd = params.commands.entity(id);
                         cmd.insert(WorkcellVisualMarker);
+                        model.add_bevy_components(cmd);
+                        parent
+                    }
+                    PlaceableObject::WorkcellCollision(ref a) => {
+                        println!("Creating collision for entity {:?}", id);
+                        let mut model = a.clone();
+                        let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
+                        let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
+                        model.pose = pose;
+                        let mut cmd = params.commands.entity(id);
+                        cmd.insert(WorkcellCollisionMarker);
                         model.add_bevy_components(cmd);
                         parent
                     }
