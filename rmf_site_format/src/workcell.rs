@@ -18,7 +18,6 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io;
 
-use glam::Vec3;
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
@@ -37,32 +36,17 @@ pub struct Parented<P: RefTrait, T> {
     pub bundle: T,
 }
 
-/// Joint data, parent frame will be encoded in the frame that contains this structure, child frame
-/// will be encoded in the Parented<> RefTrait at the root level
-pub struct Joint {
-    #[serde(rename = "type")]
-    pub joint_type: JointType,
-    pub axis: JointAxis,
-    pub limits: JointLimits,
-}
-
-pub enum FrameType {
-    /// Just an empty frame, used to mark locations
-    Empty,
-    /// The frame is a joint, it will contain the joint that connects it to another frame
-    Joint(Joint),
-    /// The frame is a link, it will contain a link with inertial, visual and collision data
-    Link(Link),
-}
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct FrameMarker;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Frame {
     #[serde(flatten)]
     pub anchor: Anchor,
     pub mesh_constraint: Option<MeshConstraint<u32>>,
-    pub name: NameInWorkcell,
-    #[serde(flatten)]
-    pub frame_type: FrameType,
+    #[serde(skip)]
+    pub marker: FrameMarker,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -72,25 +56,6 @@ pub struct MeshConstraint<T: RefTrait> {
     pub element: MeshElement,
     pub relative_pose: Pose,
 }
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Inertial {
-    /// Pose of the inertial element relataive to the origin of the link
-    pub origin: Pose,
-    pub mass: Mass,
-    pub inertia: Inertia,
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Link {
-    pub name: NameInWorkcell,
-    pub inertial: Inertial,
-    pub visuals: Vec<WorkcellVisual>,
-    pub collisions: Vec<WorkcellCollision>,
-}
-
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum MeshElement {
@@ -121,12 +86,28 @@ pub struct Mass(f32);
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Inertia {
-    ixx: f32,
-    ixy: f32,
-    ixz: f32,
-    iyy: f32,
-    iyz: f32,
-    izz: f32,
+
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Inertial {
+    pub origin: Pose,
+    pub mass: Mass,
+    pub inertia: Inertia,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Link {
+    pub name: NameInWorkcell,
+    pub inertial: Inertial,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Joint {
+    pub name: NameInWorkcell,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -162,15 +143,12 @@ pub struct WorkcellCollisionMarker;
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct WorkcellModel {
     pub name: String,
-    pub id: u32,
     pub geometry: Geometry,
     pub pose: Pose,
 }
 
 #[cfg(feature = "bevy")]
 impl WorkcellModel {
-    // TODO(luca) An API to mark it as a visual or collision, inserting the correct marker
-    // component maybe making WorkcellModel generic?
     pub fn add_bevy_components(&self, mut commands: EntityCommands) {
         match &self.geometry {
             Geometry::Primitive(primitive) => {
@@ -203,10 +181,15 @@ pub struct Workcell {
     /// Workcell specific properties
     #[serde(flatten)]
     pub properties: WorkcellProperties,
-    /// Workcell ID, used for entities to set their parent to the root workcell
+    /// Site ID, used for entities to set their parent to the root workcell
     pub id: u32,
-    /// Frames, key is their id
+    /// Frames, key is their id, used for hierarchy
     pub frames: BTreeMap<u32, Parented<u32, Frame>>,
+    /// Visuals, key is their id, used for hierarchy
+    pub visuals: BTreeMap<u32, Parented<u32, WorkcellModel>>,
+    /// Collisions, key is their id, used for hierarchy
+    pub collisions: BTreeMap<u32, Parented<u32, WorkcellModel>>,
+    // TODO(luca) Joints
 }
 
 impl Workcell {
