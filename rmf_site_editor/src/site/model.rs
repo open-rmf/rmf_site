@@ -118,6 +118,7 @@ pub fn update_model_scenes(
                     parent
                         .spawn(SceneBundle {
                             scene: h_typed,
+                            transform: Transform::from_scale(**scale),
                             ..default()
                         })
                         .id()
@@ -181,6 +182,20 @@ pub fn update_model_scenes(
             &asset_server,
             &mut commands,
         );
+    }
+}
+
+pub fn update_model_scales(
+    mut commands: Commands,
+    changed_scales: Query<(&Scale, &ModelScene), (Changed<Scale>)>,
+    mut transforms: Query<&mut Transform>,
+) {
+    for (scale, scene) in changed_scales.iter() {
+        if let Some(scene) = **scene {
+            if let Ok(mut tf) = transforms.get_mut(scene) {
+                tf.scale = **scale;
+            }
+        }
     }
 }
 

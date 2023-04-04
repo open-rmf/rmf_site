@@ -231,24 +231,18 @@ impl WorkcellModel {
     pub fn add_bevy_components(&self, mut commands: EntityCommands) {
         match &self.geometry {
             Geometry::Primitive(primitive) => {
-                commands.insert((primitive.clone(), self.pose.clone(), NameInSite(self.name.clone())));
+                commands.insert((primitive.clone(), self.pose.clone(), NameInWorkcell(self.name.clone())));
             },
             Geometry::Mesh{filename, scale} => {
                 println!("Setting pose of {:?} to {:?}", filename, self.pose);
                 let scale = Scale(scale.unwrap_or_default());
-                commands.insert(Model {
-                    // TODO(luca) move away from NameInSite and using NameInWorkcell? Also will
-                    // mean moving away from Model bundle
-                    name: NameInSite(self.name.clone()),
-                    source: AssetSource::from(filename),
-                    pose: self.pose.clone(),
-                    // TODO*luca) parametrize is_static, default false for visuals and true for
-                    // collisions
-                    is_static: misc::IsStatic(false),
-                    constraints: ConstraintDependents::default(),
+                // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
+                commands.insert((NameInWorkcell(self.name.clone()),
+                    AssetSource::from(filename),
+                    self.pose.clone(),
+                    ConstraintDependents::default(),
                     scale,
-                    marker: ModelMarker,
-                });
+                    ModelMarker));
             },
         }
     }

@@ -134,7 +134,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 if let Some(new_pose) = InspectPose::new(&c.relative_pose).for_rotation().show(ui) {
                                     // TODO(luca) Using moveto doesn't allow switching between variants of
                                     // Pose3D
-                                    self.events.change_mesh_constraints.send(Change::new(MeshConstraint{
+                                    self.events.workcell_change.mesh_constraints.send(Change::new(MeshConstraint{
                                             entity: c.entity,
                                             element: c.element.clone(),
                                             relative_pose: new_pose,

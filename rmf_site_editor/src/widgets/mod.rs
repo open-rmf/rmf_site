@@ -20,7 +20,7 @@ use crate::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D,
         SpawnPreview,
     },
-    inspector::InspectAssetSource,
+    inspector::{InspectAssetSource, InspectScale},
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -129,6 +129,14 @@ pub struct ChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct WorkcellChangeEvents<'w, 's> {
+    pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
+    pub mesh_primitives: EventWriter<'w, 's, Change<MeshPrimitive>>,
+    pub name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
+    pub scale: EventWriter<'w, 's, Change<Scale>>,
+}
+
+#[derive(SystemParam)]
 pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
@@ -181,10 +189,7 @@ pub struct LayerEvents<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
-    // TODO(luca) Move to main change SystemParam once there is no more 16 param limit
-    pub change_mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
-    pub change_mesh_primitives: EventWriter<'w, 's, Change<MeshPrimitive>>,
-    pub change_name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
+    pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
@@ -301,7 +306,7 @@ fn site_ui_layout(
 fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    pending_asset_sources: Query<(Entity, &AssetSource), With<Pending>>,
+    pending_asset_sources: Query<(Entity, &AssetSource, &Scale), With<Pending>>,
     inspector_params: InspectorParams,
     mut events: AppEvents,
 ) {
@@ -328,7 +333,7 @@ fn workcell_ui_layout(
                                             .into(),
                                     ));
                                 }
-                                if let Ok((e, source)) = pending_asset_sources.get_single() {
+                                if let Ok((e, source, scale)) = pending_asset_sources.get_single() {
                                     // TODO(luca) actual recall
                                     ui.add_space(10.0);
                                     ui.label("New model");
@@ -338,10 +343,18 @@ fn workcell_ui_layout(
                                             .asset_source
                                             .send(Change::new(new_asset_source, e));
                                     }
+                                    ui.add_space(5.0);
+                                    if let Some(new_scale) = InspectScale::new(scale).show(ui) {
+                                        events
+                                            .workcell_change
+                                            .scale
+                                            .send(Change::new(new_scale, e));
+                                    }
+                                    ui.add_space(5.0);
                                     if ui.button("Spawn visual").clicked() {
                                         let model = Model {source: source.clone(), ..default()};
                                         let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: None}, ..default()};
+                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
                                         events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_visual(workcell_model)
@@ -352,7 +365,7 @@ fn workcell_ui_layout(
                                     if ui.button("Spawn collision").clicked() {
                                         let model = Model {source: source.clone(), ..default()};
                                         let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: None}, ..default()};
+                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
                                         events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_collision(workcell_model)
@@ -366,7 +379,10 @@ fn workcell_ui_layout(
                                     //let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
                                     //let source = AssetSource::Local("../robot.urdf".to_string());
                                     let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                                    events.commands.spawn(source.clone()).insert(Pending);
+                                    events.commands
+                                        .spawn(source.clone())
+                                        .insert(Scale::default())
+                                        .insert(Pending);
                                 };
                             });
                         ui.separator();

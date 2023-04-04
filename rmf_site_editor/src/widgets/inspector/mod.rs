@@ -72,6 +72,9 @@ pub use inspect_physical_camera_properties::*;
 pub mod inspect_pose;
 pub use inspect_pose::*;
 
+pub mod inspect_scale;
+pub use inspect_scale::*;
+
 pub mod inspect_side;
 pub use inspect_side::*;
 
@@ -103,6 +106,7 @@ pub struct InspectorParams<'w, 's> {
     // TODO(luca) move to new systemparam, reached 16 limit on main one
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
+    pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -201,7 +205,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(name) = self.params.names_in_workcell.get(selection) {
                 if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
                     self.events
-                        .change_name_in_workcell
+                        .workcell_change
+                        .name_in_workcell
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
@@ -307,6 +312,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
+            if let Ok(scale) = self.params.scales.get(selection) {
+                if let Some(new_scale) = InspectScale::new(scale).show(ui) {
+                    self.events
+                        .workcell_change
+                        .scale
+                        .send(Change::new(new_scale, selection));
+                }
+                ui.add_space(10.0);
+            }
+
             if let Ok((light, recall)) = self.params.component.lights.get(selection) {
                 if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
                     self.events
@@ -340,7 +355,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok((source, recall)) = self.params.mesh_primitives.get(selection) {
                 if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui) {
                     self.events
-                        .change_mesh_primitives
+                        .workcell_change
+                        .mesh_primitives
                         .send(Change::new(new_mesh_primitive, selection));
                 }
                 ui.add_space(10.0);
