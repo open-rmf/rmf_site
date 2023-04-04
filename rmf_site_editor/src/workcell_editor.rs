@@ -154,7 +154,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
-                //.with_system(add_wireframe_to_meshes)
+                .with_system(add_wireframe_to_meshes)
                 .with_system(update_constraint_dependents)
                 .with_system(update_model_scenes)
                 .with_system(make_models_selectable)

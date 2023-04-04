@@ -25,7 +25,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    AssetSource, ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, Path, Point, Pose, Side,
+    AssetSource, ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point, Pose, Side,
     SiteProperties, Wall, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 use std::sync::Arc;
@@ -2145,7 +2145,7 @@ pub fn handle_select_anchor_3d_mode(
                 // were selected.
                 let cursor_tf = transforms.get(params.cursor.frame).expect("Unable to get transform for cursor frame");
 
-                let id = params.commands.spawn_empty().id();
+                let id = params.commands.spawn(NameInWorkcell("Unnamed".to_string())).id();
                 let parent = match request.bundle {
                     PlaceableObject::Anchor => {
                         // If parent is a mesh this will be a mesh constraint, otherwise an anchor

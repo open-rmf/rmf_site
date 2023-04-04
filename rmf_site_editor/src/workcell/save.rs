@@ -81,12 +81,13 @@ pub fn generate_workcell(
         Query<
             (
                 Entity,
-                &NameInSite,
+                &NameInWorkcell,
                 Option<&AssetSource>,
                 Option<&MeshPrimitive>,
                 &Pose,
                 &SiteID,
                 &Parent,
+                &Scale,
             ),
             (Or<(With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>, Without<Pending>),
         >,
@@ -109,7 +110,7 @@ pub fn generate_workcell(
     }
 
     // Visuals
-    for (e, name, source, primitive, pose, id, parent) in &q_models {
+    for (e, name, source, primitive, pose, id, parent, scale) in &q_models {
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -121,7 +122,7 @@ pub fn generate_workcell(
         let geom = if let Some(source) = source {
             // It's a model
             // TODO(luca) serialize scale
-            Geometry::Mesh{filename: String::from(source), scale: None}
+            Geometry::Mesh{filename: String::from(source), scale: Some(**scale)}
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
         } else {
