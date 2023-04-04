@@ -116,8 +116,11 @@ pub fn generate_workcell(
         }
         // Get the parent SiteID
         let parent = match q_site_id.get(parent.get()) {
-            Ok(parent) => Some(parent.0),
-            Err(_) => None,
+            Ok(parent) => parent.0,
+            Err(_) => {
+                println!("DEV Error: Parent not found for visual {:?}", parent.get());
+                continue;
+            }
         };
         let geom = if let Some(source) = source {
             // It's a model
@@ -165,8 +168,11 @@ pub fn generate_workcell(
             continue;
         }
         let parent = match q_site_id.get(parent.get()) {
-            Ok(parent) => Some(parent.0),
-            Err(_) => None,
+            Ok(parent) => parent.0,
+            Err(_) => {
+                println!("DEV Error: Parent not found for anchor {:?}", parent.get());
+                continue;
+            }
         };
         // TODO(luca) is duplication here OK? same information is contained in mesh constraint and
         // anchor

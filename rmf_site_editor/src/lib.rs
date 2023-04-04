@@ -36,10 +36,9 @@ mod main_menu;
 use main_menu::Autoload;
 mod site;
 // mod warehouse_generator;
-mod workcell_editor;
-use workcell_editor::WorkcellEditorPlugin;
-mod interaction;
 mod workcell;
+use workcell::WorkcellEditorPlugin;
+mod interaction;
 
 mod workspace;
 use workspace::*;

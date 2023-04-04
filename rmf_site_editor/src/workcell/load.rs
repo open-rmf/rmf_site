@@ -50,7 +50,7 @@ fn generate_workcell_entities(
     // or only spawn / inspect workcell properties
     let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
-        //.insert(NameInSite(workcell.properties.name.clone()))
+        .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
         .insert(PreventDeletion {reason: Some("Workcell root cannot be deleted".to_string())})
@@ -105,25 +105,15 @@ fn generate_workcell_entities(
     }
 
     for (parent, children) in parent_to_child_entities {
-        let parent = match parent {
-            Some(parent) => {
-                // Child of an entity
-                if let Some(parent) = id_to_entity.get(&parent) {
-                    parent
-                }
-                else {
-                    println!("DEV error, didn't find matching entity for id {}", parent);
-                    continue;
-                }
-            },
-            None => {
-                // Child of root
-                &root
-            },
-        };
-        commands.entity(*parent)
-            .insert(Dependents(HashSet::from_iter(children.clone())))
-            .push_children(&children);
+        if let Some(parent) = id_to_entity.get(&parent) {
+            commands.entity(*parent)
+                .insert(Dependents(HashSet::from_iter(children.clone())))
+                .push_children(&children);
+        }
+        else {
+            println!("DEV error, didn't find matching entity for id {}", parent);
+            continue;
+        }
         // Update dependents as well
         // TODO(luca) A system to synchronize dependents and children?
     }

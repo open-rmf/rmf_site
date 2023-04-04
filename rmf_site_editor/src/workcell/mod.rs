@@ -32,3 +32,108 @@ pub use workcell::*;
 
 pub mod urdf;
 pub use urdf::*;
+
+use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
+use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
+use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
+
+use crate::site::{update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
+use crate::interaction::{Gizmo, handle_select_anchor_3d_mode};
+use crate::{AppState, CurrentWorkspace};
+
+use rmf_site_format::ModelMarker;
+
+use bevy_rapier3d::prelude::*;
+
+#[derive(Default)]
+pub struct WorkcellEditorPlugin;
+
+fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
+    // Infinite grid is flipped
+    let mut grid = InfiniteGrid::default();
+    grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
+    grid.z_axis_color = Color::rgb(0.2, 1.0, 0.2);
+    commands
+        .spawn(InfiniteGridBundle {
+            grid: grid,
+            ..Default::default()
+        })
+        .insert(Transform::from_rotation(Quat::from_rotation_x(
+            90_f32.to_radians(),
+        )));
+}
+
+fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>) {
+    for grid in grids.iter() {
+        commands.entity(grid).despawn_recursive();
+    }
+}
+
+fn add_wireframe_to_meshes(
+    mut commands: Commands,
+    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    parents: Query<&Parent>,
+    models: Query<Entity, With<ModelMarker>>,
+) {
+    for e in new_meshes.iter() {
+        for ancestor in AncestorIter::new(&parents, e) {
+            if let Ok(_) = models.get(ancestor) {
+                println!("Adding wireframe to mesh {:?}", e);
+                commands.entity(e).insert(Wireframe);
+            }
+        }
+    }
+}
+
+fn disable_dragging(
+    mut commands: Commands,
+    new_draggables: Query<Entity, Added<Gizmo>>,
+) {
+    for e in new_draggables.iter() {
+        commands.entity(e).remove::<Gizmo>();
+    }
+}
+
+impl Plugin for WorkcellEditorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugin(InfiniteGridPlugin)
+            .insert_resource(WgpuSettings {
+                features: WgpuFeatures::POLYGON_MODE_LINE,
+                ..default()
+            })
+            //.insert_resource(WireframeConfig { global: false })
+            .add_plugin(WireframePlugin)
+            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
+            .add_event::<SaveWorkcell>()
+            .add_event::<LoadWorkcell>()
+            .add_event::<ChangeCurrentWorkcell>()
+            .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
+            .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                .with_system(add_wireframe_to_meshes)
+                .with_system(update_constraint_dependents)
+                .with_system(update_model_scenes)
+                .with_system(make_models_selectable)
+                .with_system(handle_workcell_keyboard_input)
+                .with_system(handle_new_mesh_primitives)
+                .with_system(handle_new_urdf_roots),
+            )
+            .add_system(load_workcell)
+            .add_system(save_workcell)
+            .add_system(add_workcell_visualization)
+            .add_system(change_workcell.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                    .before(TransformSystem::TransformPropagate)
+                    .after(VisibilitySystems::VisibilityPropagate)
+                    .with_system(update_anchor_transforms)
+                    .with_system(add_anchors_for_new_mesh_constraints.before(update_anchor_transforms))
+                    .with_system(update_transforms_for_changed_poses)
+                    .with_system(handle_select_anchor_3d_mode)
+                    .with_system(disable_dragging)
+            );
+    }
+}
