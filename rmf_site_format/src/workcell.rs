@@ -34,7 +34,7 @@ use glam::Vec3;
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
 pub struct Parented<P: RefTrait, T> {
-    pub parent: Option<P>,
+    pub parent: P,
     #[serde(flatten)]
     pub bundle: T,
 }
@@ -297,17 +297,12 @@ pub struct UrdfRoot(pub Robot);
 impl From::<&urdf_rs::Geometry> for Geometry {
     fn from(geom: &urdf_rs::Geometry) -> Self {
         match geom {
-            urdf_rs::Geometry::Box(urdf_rs::BoxGeometry {size}) => Geometry::Primitive(MeshPrimitive::Box{size: (**size).map(|f| f as f32)}),
-            urdf_rs::Geometry::Cylinder(urdf_rs::CylinderGeometry {radius, length}) => Geometry::Primitive(MeshPrimitive::Cylinder{radius: *radius as f32, length: *length as f32}),
-            urdf_rs::Geometry::Capsule(urdf_rs::CapsuleGeometry {radius, length}) => Geometry::Primitive(MeshPrimitive::Capsule{radius: *radius as f32, length: *length as f32}),
-            urdf_rs::Geometry::Sphere(urdf_rs::SphereGeometry {radius}) => Geometry::Primitive(MeshPrimitive::Sphere{radius: *radius as f32}),
-            // TODO(luca) mesh scale support
-            urdf_rs::Geometry::Mesh(urdf_rs::MeshGeometry {filename, scale}) => {
-                let scale = if let Some(scale) = scale {
-                    Some(Vec3::from_array(scale.map(|s| s as f32)))
-                } else {
-                    None
-                };
+            urdf_rs::Geometry::Box{size} => Geometry::Primitive(MeshPrimitive::Box{size: (**size).map(|f| f as f32)}),
+            urdf_rs::Geometry::Cylinder{radius, length} => Geometry::Primitive(MeshPrimitive::Cylinder{radius: *radius as f32, length: *length as f32}),
+            urdf_rs::Geometry::Capsule{radius, length} => Geometry::Primitive(MeshPrimitive::Capsule{radius: *radius as f32, length: *length as f32}),
+            urdf_rs::Geometry::Sphere{radius} => Geometry::Primitive(MeshPrimitive::Sphere{radius: *radius as f32}),
+            urdf_rs::Geometry::Mesh{filename, scale} => {
+                let scale = scale.clone().and_then(|s| Some(Vec3::from_array(s.map(|v| v as f32))));
                 Geometry::Mesh{filename: filename.clone(), scale}
             }
         }
@@ -331,27 +326,26 @@ impl From::<&urdf_rs::Link> for Link {
     }
 }
 
-// TODO(luca) reduce duplication here by refactoring
-impl From::<&urdf_rs::Visual> for WorkcellModel {
-    fn from(visual: &urdf_rs::Visual) -> Self {
-        let trans = visual.origin.xyz.map(|t| t as f32);
-        let rot = Rotation::EulerExtrinsicXYZ(visual.origin.rpy.map(|t| Angle::Rad(t as f32)));
+impl WorkcellModel {
+    fn from_urdf_data(pose: &urdf_rs::Pose, name: &Option<String>, geometry: &urdf_rs::Geometry) -> Self {
+        let trans = pose.xyz.map(|t| t as f32);
+        let rot = Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32)));
         WorkcellModel {
-            name: visual.name.clone().unwrap_or_default(),
-            geometry: (&urdf_rs::Geometry::from(&visual.geometry)).into(),
+            name: name.clone().unwrap_or_default(),
+            geometry: geometry.into(),
             pose: Pose{trans, rot},
         }
     }
 }
 
+impl From::<&urdf_rs::Visual> for WorkcellModel {
+    fn from(visual: &urdf_rs::Visual) -> Self {
+        WorkcellModel::from_urdf_data(&visual.origin, &visual.name, &visual.geometry)
+    }
+}
+
 impl From::<&urdf_rs::Collision> for WorkcellModel {
     fn from(collision: &urdf_rs::Collision) -> Self {
-        let trans = collision.origin.xyz.map(|t| t as f32);
-        let rot = Rotation::EulerExtrinsicXYZ(collision.origin.rpy.map(|t| Angle::Rad(t as f32)));
-        WorkcellModel {
-            name: collision.name.clone().unwrap_or_default(),
-            geometry: (&urdf_rs::Geometry::from(&collision.geometry)).into(),
-            pose: Pose{trans, rot},
-        }
+        WorkcellModel::from_urdf_data(&collision.origin, &collision.name, &collision.geometry)
     }
 }
