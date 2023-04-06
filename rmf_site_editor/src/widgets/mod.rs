@@ -269,12 +269,12 @@ fn site_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::default());
+                        events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
                     }
                     // TODO(luca) implement shortcuts for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), ..default()});
+                            events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
                         }
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
@@ -399,17 +399,17 @@ fn workcell_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::default());
+                        events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
                     }
                     // TODO(luca) implement shortcut for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), ..default()});
+                            events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
                         }
                     }
                     if ui.add(Button::new("Export urdf").shortcut_text("Ctrl+E")).clicked() {
                         if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace {to_file: Some(path), format: ExportFormat::Urdf});
+                            events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf().build());
                         }
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {

@@ -20,14 +20,66 @@ use crate::{AppState, CurrentWorkspace};
 use crate::site::{DefaultFile, SaveSite};
 use crate::workcell::SaveWorkcell;
 
+use rfd::FileDialog;
+
 use std::path::PathBuf;
 
-#[derive(Default)]
 pub struct SaveWorkspace {
     /// If specified workspace will be saved to requested file, otherwise the default file
-    pub to_file: Option<PathBuf>,
+    pub destination: SaveWorkspaceDestination,
     /// If specified the workspace will be exported to a specific format
     pub format: ExportFormat,
+}
+
+impl SaveWorkspace {
+    pub fn new() -> SaveWorkspaceBuilder {
+        SaveWorkspaceBuilder {
+            destination: SaveWorkspaceDestination::default(),
+            format: ExportFormat::default(),
+        }
+    }
+}
+
+pub struct SaveWorkspaceBuilder {
+    destination: SaveWorkspaceDestination,
+    format: ExportFormat,
+}
+
+impl SaveWorkspaceBuilder {
+    pub fn to_default_file(&mut self) -> &mut Self {
+        self.destination = SaveWorkspaceDestination::DefaultFile;
+        self
+    }
+
+    pub fn to_dialog(&mut self) -> &mut Self {
+        self.destination = SaveWorkspaceDestination::Dialog;
+        self
+    }
+
+    pub fn to_path(&mut self, path: &PathBuf) -> &mut Self {
+        self.destination = SaveWorkspaceDestination::Path(path.clone());
+        self
+    }
+
+    pub fn to_urdf(&mut self) -> &mut Self {
+        self.format = ExportFormat::Urdf;
+        self
+    }
+
+    pub fn build(&self) -> SaveWorkspace {
+        SaveWorkspace {
+            destination: self.destination.clone(),
+            format: self.format.clone()
+        }
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub enum SaveWorkspaceDestination {
+    #[default]
+    DefaultFile,
+    Dialog,
+    Path(PathBuf),
 }
 
 #[derive(Clone, Default, Debug)]
@@ -56,27 +108,43 @@ pub fn dispatch_save_events(
 ) {
     for event in save_events.iter() {
         if let Some(ws_root) = workspace.root {
-            if let Some(file) = event.to_file.clone().or(default_files.get(ws_root).ok().map(|f| f.0.clone())) {
-                match app_state.current() {
-                    AppState::WorkcellEditor => {
-                        save_workcell.send(SaveWorkcell {
-                            root: ws_root,
-                            to_file: file,
-                            format: event.format.clone(),
-                        });
+            let path = match &event.destination {
+                SaveWorkspaceDestination::DefaultFile => {
+                    if let Some(file) =  default_files.get(ws_root).ok().map(|f| f.0.clone()) {
+                        file
+                    } else {
+                        let Some(file) =  FileDialog::new().save_file() else {
+                            continue;
+                        };
+                        file
                     }
-                    // TODO(luca) migrate site/save as well to non optional path?
-                    AppState::SiteEditor => {
-                        save_site.send(SaveSite {
-                            site: ws_root,
-                            to_file: Some(file),
-                        });
-                    }
-                    AppState::MainMenu => { /* Noop */ }
                 }
-            } else {
-                println!("No file specified, use File -> Save As");
-                continue;
+                SaveWorkspaceDestination::Dialog => {
+                    // TODO(luca) async impl?
+                    let Some(file) = FileDialog::new().save_file() else {
+                        continue;
+                    };
+                    file
+                }
+                SaveWorkspaceDestination::Path(path) => {
+                    path.clone()
+                }
+            };
+            match app_state.current() {
+                AppState::WorkcellEditor => {
+                    save_workcell.send(SaveWorkcell {
+                        root: ws_root,
+                        to_file: path,
+                        format: event.format.clone(),
+                    });
+                }
+                AppState::SiteEditor => {
+                    save_site.send(SaveSite {
+                        site: ws_root,
+                        to_file: path,
+                    });
+                }
+                AppState::MainMenu => { /* Noop */ }
             }
         } else {
             println!("Unable to save, no workspace loaded");

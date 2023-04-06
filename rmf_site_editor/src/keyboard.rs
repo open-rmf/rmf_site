@@ -101,8 +101,11 @@ fn handle_keyboard_input(
     // Ctrl keybindings
     if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
         if keyboard_input.just_pressed(KeyCode::S) {
-            // TODO(luca) on Shift open file dialog
-            save_workspace.send(SaveWorkspace::default());
+            if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
+                save_workspace.send(SaveWorkspace::new().to_dialog().build());
+            } else {
+                save_workspace.send(SaveWorkspace::new().to_default_file().build());
+            }
         }
 
         // TODO(luca) pop up a confirmation prompt if the current file is not saved, or create a
