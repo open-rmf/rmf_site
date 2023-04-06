@@ -36,7 +36,7 @@ pub use urdf::*;
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
-use bevy_infinite_grid::{GridShadowCamera, InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
+use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::site::{update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
 use crate::interaction::{Gizmo, handle_select_anchor_3d_mode};
@@ -49,7 +49,7 @@ use bevy_rapier3d::prelude::*;
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
 
-fn spawn_grid(mut commands: Commands, mut workspace: ResMut<CurrentWorkspace>) {
+fn spawn_grid(mut commands: Commands) {
     // Infinite grid is flipped
     let mut grid = InfiniteGrid::default();
     grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);

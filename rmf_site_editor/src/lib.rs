@@ -46,7 +46,7 @@ use workspace::*;
 mod simulation_state;
 mod site_asset_io;
 mod urdf_loader;
-use urdf_loader::*;
+
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;

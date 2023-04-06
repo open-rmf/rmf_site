@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{Anchor, Model, ModelMarker, Pose, FloorMarker, WallMarker, WorkcellModel};
+use rmf_site_format::{Model, ModelMarker, FloorMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -348,7 +348,7 @@ pub fn update_cursor_transform(
             *transform = Transform::from_translation(intersection);
         }
         // TODO(luca) snap to features of meshes
-        InteractionMode::SelectAnchor3D(mode) => {
+        InteractionMode::SelectAnchor3D(_mode) => {
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
                 Err(_) => {

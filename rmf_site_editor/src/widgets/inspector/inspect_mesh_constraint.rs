@@ -20,8 +20,8 @@ use std::collections::{BTreeMap, HashSet};
 use rmf_site_format::*;
 
 use crate::{
-    site::{Anchor, AssociatedGraphs, Category, Dependents, LocationTags, SiteID, Subordinate},
-    widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
+    site::{Category, SiteID},
+    widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 

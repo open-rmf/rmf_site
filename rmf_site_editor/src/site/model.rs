@@ -23,7 +23,7 @@ use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot, Scale};
 use smallvec::SmallVec;
-use std::collections::HashMap;
+
 
 #[derive(Component, Debug, Deref, DerefMut, Clone)]
 pub struct ModelScene(Option<Entity>);
@@ -42,8 +42,8 @@ pub fn update_model_scenes(
         (Changed<AssetSource>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    mut loading_models: Query<(Entity, &PendingSpawning, &Scale)>,
-    mut spawned_models: Query<Entity, (Without<PendingSpawning>, With<PreventDeletion>)>,
+    loading_models: Query<(Entity, &PendingSpawning, &Scale)>,
+    spawned_models: Query<Entity, (Without<PendingSpawning>, With<PreventDeletion>)>,
     mut current_scenes: Query<&mut ModelScene>,
     site_assets: Res<SiteAssets>,
     meshes: Res<Assets<Mesh>>,
@@ -142,7 +142,6 @@ pub fn update_model_scenes(
                 let h_typed = h.0.clone().typed::<UrdfRoot>();
                 if let Some(urdf) = urdfs.get(&h_typed) {
                     let model_scene_id = commands.entity(e).add_children(|parent| {
-                        let h_typed = h.0.clone().typed::<Mesh>();
                         parent
                             .spawn(SpatialBundle::VISIBLE_IDENTITY)
                             .insert(urdf.clone())
@@ -186,8 +185,7 @@ pub fn update_model_scenes(
 }
 
 pub fn update_model_scales(
-    mut commands: Commands,
-    changed_scales: Query<(&Scale, &ModelScene), (Changed<Scale>)>,
+    changed_scales: Query<(&Scale, &ModelScene), Changed<Scale>>,
     mut transforms: Query<&mut Transform>,
 ) {
     for (scale, scene) in changed_scales.iter() {

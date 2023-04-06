@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Categorized, Category, MeshConstraint, Point, Pose, RefTrait};
+use crate::{Categorized, Category, Pose};
 #[cfg(feature = "bevy")]
 use bevy::{
     ecs::{query::QueryEntityError, system::SystemParam},

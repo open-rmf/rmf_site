@@ -20,10 +20,10 @@ use bevy::render::mesh::shape::{Capsule, UVSphere};
 use std::collections::{HashMap, HashSet};
 
 use crate::interaction::Selectable;
-use crate::site::{AnchorBundle, SiteAssets};
+use crate::site::{SiteAssets};
 use crate::shapes::{make_box, make_cylinder};
 
-use rmf_site_format::{Anchor, Angle, AssetSource, Category, Geometry, Link, MeshPrimitive, Model, NameInSite, NameInWorkcell, Pose, Rotation, UrdfRoot, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker};
+use rmf_site_format::{Anchor, Angle, Category, Link, MeshPrimitive, Pose, Rotation, UrdfRoot, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker};
 
 use urdf_rs::{JointType};
 
@@ -55,14 +55,14 @@ pub fn handle_new_urdf_roots(
             root_links.insert(link_entity);
             for visual in &link.visual {
                 let model = WorkcellModel::from(visual);
-                let mut cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellVisualMarker));
+                let cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellVisualMarker));
                 let id = cmd.id();
                 model.add_bevy_components(cmd);
                 commands.entity(link_entity).add_child(id);
             }
             for collision in &link.collision {
                 let model = WorkcellModel::from(collision);
-                let mut cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellCollisionMarker));
+                let cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellCollisionMarker));
                 let id = cmd.id();
                 model.add_bevy_components(cmd);
                 commands.entity(link_entity).add_child(id);
@@ -103,7 +103,7 @@ pub fn handle_new_urdf_roots(
                         _ => {todo!("Unimplemented joint type {:?}", joint.joint_type);}
                     };
                     let trans = joint.origin.xyz.map(|t| t as f32);
-                    let mut rot = Rotation::EulerExtrinsicXYZ(joint.origin.rpy.map(|angle| Angle::Rad(angle as f32)));
+                    let rot = Rotation::EulerExtrinsicXYZ(joint.origin.rpy.map(|angle| Angle::Rad(angle as f32)));
                     //commands.entity(*child).insert(AnchorBundle::new(Anchor::Pose3D(Pose {trans, rot})));
                     commands.entity(*parent).add_child(*child);
                     root_links.remove(child);

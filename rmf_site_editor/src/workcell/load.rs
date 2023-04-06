@@ -22,9 +22,9 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 // TODO(luca) this shouldn't be site specific but shared
 use crate::workcell::{ChangeCurrentWorkcell};
-use crate::site::{AnchorBundle, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, NameInSite, PreventDeletion, SiteState};
+use crate::site::{AnchorBundle, ConstraintDependents, DefaultFile, Dependents, MeshConstraint, PreventDeletion, SiteState};
 
-use rmf_site_format::{Category, FrameMarker, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
+use rmf_site_format::{Category, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
 
 pub struct LoadWorkcell {
     /// The site data to load
@@ -46,7 +46,7 @@ fn generate_workcell_entities(
     // Hashmap of parent model entity to constraint dependent entity
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
-    let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
+    let root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
@@ -60,7 +60,7 @@ fn generate_workcell_entities(
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
-        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_visual.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_visual.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
@@ -70,7 +70,7 @@ fn generate_workcell_entities(
         let e = cmd.id();
         parented_collision.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
-        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_collision.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_collision.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
@@ -86,13 +86,13 @@ fn generate_workcell_entities(
                 element: c.element.clone(),
                 relative_pose: c.relative_pose,
             });
-            let mut constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
+            let constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
             constraint_dependents.insert(e);
         }
         if let Some(name) = &parented_anchor.bundle.name {
             commands.entity(e).insert(name.clone());
         }
-        let mut child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }

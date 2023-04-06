@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 use bevy::asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy::utils::BoxedFuture;
-use bevy::reflect::TypeUuid;
+
 
 use rmf_site_format::UrdfRoot;
 

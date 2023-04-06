@@ -20,10 +20,8 @@ use crate::site::AnchorBundle;
 use rmf_site_format::{Anchor, Pose, ConstraintDependents, MeshConstraint, ModelMarker};
 
 pub fn update_constraint_dependents(
-    mut commands: Commands,
     updated_models: Query<(&ConstraintDependents, &Transform), (Changed<Transform>, With<ModelMarker>)>,
     mut transforms: Query<&mut Transform, Without<ModelMarker>>,
-    anchors: Query<&Anchor>,
     mesh_constraints: Query<&MeshConstraint<Entity>>,
 ) {
     // TODO(luca) Add widget for parent reassignment in models, otherwise Changed<Parent> will
@@ -52,15 +50,13 @@ pub fn add_anchors_for_new_mesh_constraints(
     parents: Query<&Parent>,
 ) {
     for (e, constraint) in changed_constraints.iter() {
-        if let parent_tf = parents.get(e).and_then(|p| transforms.get(**p)) {
-            if let Ok(model_tf) = transforms.get(constraint.entity) {
-                let tf = *model_tf * constraint.relative_pose.transform();
-                let mut pose = Pose::default();
-                pose.align_with(&tf);
-                // TODO(luca) is this OK performance wise or should we detect if the component is
-                // already present and change its value?
-                commands.entity(e).insert(AnchorBundle::new(Anchor::Pose3D(pose)));
-            }
+        if let Ok(model_tf) = transforms.get(constraint.entity) {
+            let tf = *model_tf * constraint.relative_pose.transform();
+            let mut pose = Pose::default();
+            pose.align_with(&tf);
+            // TODO(luca) is this OK performance wise or should we detect if the component is
+            // already present and change its value?
+            commands.entity(e).insert(AnchorBundle::new(Anchor::Pose3D(pose)));
         }
     }
 }

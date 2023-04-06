@@ -19,14 +19,14 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use rfd::{AsyncFileDialog, FileHandle};
+use rfd::{AsyncFileDialog};
 use futures_lite::future;
 use std::path::PathBuf;
 
 use crate::AppState;
 use crate::interaction::InteractionState;
-use crate::site::{ChangeCurrentSite, LoadSite};
-use crate::workcell::{ChangeCurrentWorkcell, LoadWorkcell};
+use crate::site::{LoadSite};
+use crate::workcell::{LoadWorkcell};
 use rmf_site_format::{Site, SiteProperties, Workcell};
 use rmf_site_format::legacy::building_map::BuildingMap;
 
@@ -116,13 +116,12 @@ impl Plugin for WorkspacePlugin {
 }
 
 pub fn dispatch_new_workspace_events(
-    mut commands: Commands,
     state: Res<State<AppState>>,
     mut new_workspace: EventReader<CreateNewWorkspace>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
-    if let Some(cmd) = new_workspace.iter().last() {
+    if let Some(_cmd) = new_workspace.iter().last() {
         match state.current() {
             AppState::MainMenu => {
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
@@ -178,10 +177,10 @@ pub fn dispatch_load_workspace_events(
 fn handle_workspace_data(
     file: Option<PathBuf>,
     workspace_data: &WorkspaceData,
-    mut app_state: &mut ResMut<State<AppState>>,
-    mut interaction_state: &mut ResMut<State<InteractionState>>,
-    mut load_site: &mut EventWriter<LoadSite>,
-    mut load_workcell: &mut EventWriter<LoadWorkcell>,
+    app_state: &mut ResMut<State<AppState>>,
+    interaction_state: &mut ResMut<State<InteractionState>>,
+    load_site: &mut EventWriter<LoadSite>,
+    load_workcell: &mut EventWriter<LoadWorkcell>,
 ) {
     match workspace_data {
         WorkspaceData::LegacyBuilding(data) => {

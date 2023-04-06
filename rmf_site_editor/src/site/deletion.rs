@@ -20,7 +20,7 @@ use crate::{
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use rmf_site_format::{Anchor, ConstraintDependents, Edge, MeshConstraint, Path, Point, Pose};
+use rmf_site_format::{Anchor, ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
