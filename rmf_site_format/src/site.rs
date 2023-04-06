@@ -29,7 +29,13 @@ pub struct SiteProperties {
     pub name: String,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+impl Default for SiteProperties {
+    fn default() -> Self {
+        Self { name: "new_site".to_string() }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Site {
     /// The site data format that is being used
     pub format_version: SemVer,

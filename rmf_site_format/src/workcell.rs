@@ -20,14 +20,12 @@ use std::io;
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, SpatialBundle};
-#[cfg(feature = "bevy")]
-use bevy::transform::components::Transform;
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
-use serde::{Deserialize, Serialize, Serializer};
+use serde::{Deserialize, Serialize};
 use urdf_rs::Robot;
 use glam::Vec3;
 

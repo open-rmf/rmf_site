@@ -109,11 +109,9 @@ impl Plugin for WorkspacePlugin {
            .init_resource::<RecallWorkspace>()
            .add_system(dispatch_new_workspace_events)
            .add_system(workspace_file_load_complete)
-           //.add_system(dispatch_change_workspace_events)
            .add_system(sync_workspace_visibility);
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(dispatch_load_workspace_events);
-
     }
 }
 
@@ -129,17 +127,8 @@ pub fn dispatch_new_workspace_events(
             AppState::MainMenu => {
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
             },
-            // TODO(luca) should we just implement a default for sites?
             AppState::SiteEditor => {
-                load_site.send(LoadSite { site: Site {
-                    format_version: Default::default(),
-                    anchors: Default::default(),
-                    properties: SiteProperties {name: "new_site".to_string()},
-                    levels: Default::default(),
-                    lifts: Default::default(),
-                    navigation: Default::default(),
-                    agents: Default::default(),
-                }, focus: true, default_file: None });
+                load_site.send(LoadSite { site: Site::default(), focus: true, default_file: None });
             },
             AppState::WorkcellEditor => {
                 load_workcell.send(LoadWorkcell { workcell: Workcell::default(), focus: true, default_file: None });
@@ -185,30 +174,6 @@ pub fn dispatch_load_workspace_events(
         }
     }
 }
-
-/*
-pub fn dispatch_change_workspace_events(
-    mut commands: Commands,
-    state: Res<State<AppState>>,
-    mut change_workspace: EventReader<ChangeCurrentWorkspace>,
-    mut change_site: EventWriter<ChangeCurrentSite>,
-    mut change_workcell: EventWriter<ChangeCurrentWorkcell>,
-) {
-    if let Some(cmd) = change_workspace.iter().last() {
-        match state.current() {
-            AppState::MainMenu => {
-                println!("DEV ERROR: Sent generic change workspace while in main menu");
-            },
-            AppState::SiteEditor => {
-                change_site.send(ChangeCurrentSite { site: cmd.root, level: None });
-            },
-            AppState::WorkcellEditor => {
-                change_workcell.send(ChangeCurrentWorkcell { root: cmd.root });
-            },
-        }
-    }
-}
-*/
 
 fn handle_workspace_data(
     file: Option<PathBuf>,

@@ -46,14 +46,12 @@ fn generate_workcell_entities(
     // Hashmap of parent model entity to constraint dependent entity
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
-    // TODO(luca) See whether to duplicate name info between workcell properties and name in site
-    // or only spawn / inspect workcell properties
     let mut root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
-        .insert(PreventDeletion {reason: Some("Workcell root cannot be deleted".to_string())})
+        .insert(PreventDeletion::because("Workcell root cannot be deleted".to_string()))
         .id();
     id_to_entity.insert(&workcell.id, root);
 
@@ -114,8 +112,6 @@ fn generate_workcell_entities(
             println!("DEV error, didn't find matching entity for id {}", parent);
             continue;
         }
-        // Update dependents as well
-        // TODO(luca) A system to synchronize dependents and children?
     }
     root
 }

@@ -198,7 +198,10 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
-                    .with_system(change_site),
+                    // TODO(luca) without this specific ordering site changing might fail because
+                    // the command to spawn the site is queued but not executed until a flush point
+                    // is reached and the switch is requested, hence switching fails
+                    .with_system(change_site.before(load_site)),
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::AssignOrphans,
