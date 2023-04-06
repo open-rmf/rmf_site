@@ -102,7 +102,6 @@ impl Plugin for WorkcellEditorPlugin {
                 features: WgpuFeatures::POLYGON_MODE_LINE,
                 ..default()
             })
-            //.insert_resource(WireframeConfig { global: false })
             .add_plugin(WireframePlugin)
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             .add_plugin(RapierDebugRenderPlugin::default())
@@ -119,12 +118,12 @@ impl Plugin for WorkcellEditorPlugin {
                 .with_system(make_models_selectable)
                 .with_system(handle_workcell_keyboard_input)
                 .with_system(handle_new_mesh_primitives)
+                .with_system(change_workcell)
                 .with_system(handle_new_urdf_roots),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
             .add_system(add_workcell_visualization)
-            .add_system(change_workcell.before(load_workcell)) // TODO(luca) remove this hack, needed now otherwise queries might fail
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .before(TransformSystem::TransformPropagate)

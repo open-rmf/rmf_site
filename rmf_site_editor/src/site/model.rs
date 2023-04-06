@@ -25,8 +25,11 @@ use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot, Scale};
 use smallvec::SmallVec;
 
 
-#[derive(Component, Debug, Deref, DerefMut, Clone)]
-pub struct ModelScene(Option<Entity>);
+#[derive(Component, Debug, Clone)]
+pub struct ModelScene {
+    source: AssetSource,
+    entity: Option<Entity>,
+}
 
 #[derive(Component, Deref, DerefMut)]
 pub struct PendingSpawning(HandleUntyped);
@@ -59,7 +62,7 @@ pub fn update_model_scenes(
     ) {
         let mut commands = commands.entity(e);
         commands
-            .insert(ModelScene(None))
+            .insert(ModelScene{source: source.clone(), entity: None})
             .insert(SpatialBundle {
                 transform: pose.transform(),
                 ..default()
@@ -81,7 +84,6 @@ pub fn update_model_scenes(
                 }
             }
             AssetSource::Search(name) => {
-                println!("Asset name is {}", name);
                 AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
             }
             AssetSource::Bundled(name) => {
@@ -138,7 +140,6 @@ pub fn update_model_scenes(
                 });
                 Some(model_scene_id)
             } else if urdfs.contains(&h.typed_weak::<UrdfRoot>()) {
-                println!("Urdf found");
                 let h_typed = h.0.clone().typed::<UrdfRoot>();
                 if let Some(urdf) = urdfs.get(&h_typed) {
                     let model_scene_id = commands.entity(e).add_children(|parent| {
@@ -160,7 +161,7 @@ pub fn update_model_scenes(
                 commands.entity(e)
                     .insert(ModelSceneRoot)
                     .insert(Selectable::new(e));
-                **current_scenes.get_mut(e).unwrap() = Some(id);
+                current_scenes.get_mut(e).unwrap().entity = Some(id);
                 commands.entity(e).remove::<PendingSpawning>();
             }
         }
@@ -169,18 +170,32 @@ pub fn update_model_scenes(
     // update changed models
     for (e, source, pose) in changed_models.iter_mut() {
         if let Ok(mut current_scene) = current_scenes.get_mut(e) {
-            if let Some(scene_entity) = **current_scene {
-                commands.entity(scene_entity).despawn_recursive();
+            // Avoid respawning if spurious change detection was triggered
+            if current_scene.source != *source {
+                if let Some(scene_entity) = current_scene.entity {
+                    commands.entity(scene_entity).despawn_recursive();
+                    commands.entity(e).remove_children(&[scene_entity]);
+                    commands.entity(e).remove::<ModelSceneRoot>();
+                }
+                // Updated model
+                spawn_model(
+                    e,
+                    source,
+                    pose,
+                    &asset_server,
+                    &mut commands,
+                );
             }
-            **current_scene = None;
+        } else {
+            // New model
+            spawn_model(
+                e,
+                source,
+                pose,
+                &asset_server,
+                &mut commands,
+            );
         }
-        spawn_model(
-            e,
-            source,
-            pose,
-            &asset_server,
-            &mut commands,
-        );
     }
 }
 
@@ -189,7 +204,7 @@ pub fn update_model_scales(
     mut transforms: Query<&mut Transform>,
 ) {
     for (scale, scene) in changed_scales.iter() {
-        if let Some(scene) = **scene {
+        if let Some(scene) = scene.entity {
             if let Ok(mut tf) = transforms.get_mut(scene) {
                 tf.scale = **scale;
             }
@@ -199,16 +214,13 @@ pub fn update_model_scales(
 
 pub fn make_models_selectable(
     mut commands: Commands,
-    model_scene_roots: Query<(Entity, &Selectable), (With<ModelSceneRoot>, Changed<Children>)>,
+    model_scene_roots: Query<(Entity, &Selectable), Added<ModelSceneRoot>>,
     all_children: Query<&Children>,
     mesh_handles: Query<&Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
-    // If the children of a model scene root changed, then we assume that the
-    // scene was just populated with its meshes and that all its children should
-    // recursively be made selectable. This might be a fragile assumption if
-    // another plugin happens to modify the children of the ModelSceneRoot, so
-    // we may want to reconsider this in the future.
+    // We use adding of scene root as a marker of models being spawned, the component is added when
+    // the scene fininshed loading and is spawned
     for (model_scene_root, selectable) in &model_scene_roots {
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 16 is typically

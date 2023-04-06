@@ -187,19 +187,13 @@ fn handle_workspace_data(
             println!("Opening legacy building map file");
             if let Some(site) = BuildingMap::from_bytes(&data).ok().and_then(|b| b.to_site().ok()) {
                 // Switch state
-                match app_state.set(AppState::SiteEditor) {
-                    Ok(_) => {
-                        load_site.send(LoadSite {
-                            site,
-                            focus: true,
-                            default_file: file,
-                        });
-                        interaction_state.set(InteractionState::Enable).ok();
-                    }
-                    Err(err) => {
-                        println!("Failed to enter traffic editor: {:?}", err);
-                    }
-                }
+                app_state.set(AppState::SiteEditor).ok();
+                load_site.send(LoadSite {
+                    site,
+                    focus: true,
+                    default_file: file,
+                });
+                interaction_state.set(InteractionState::Enable).ok();
             } else {
                 // TODO(luca) restore more informative errors
                 println!("Failed loading legacy building");
@@ -209,19 +203,13 @@ fn handle_workspace_data(
             println!("Opening site file");
             if let Ok(site) = Site::from_bytes(&data) {
                 // Switch state
-                match app_state.set(AppState::SiteEditor) {
-                    Ok(_) => {
-                        load_site.send(LoadSite {
-                            site,
-                            focus: true,
-                            default_file: file,
-                        });
-                        interaction_state.set(InteractionState::Enable).ok();
-                    }
-                    Err(err) => {
-                        println!("Failed to enter traffic editor: {:?}", err);
-                    }
-                }
+                app_state.set(AppState::SiteEditor).ok();
+                load_site.send(LoadSite {
+                    site,
+                    focus: true,
+                    default_file: file,
+                });
+                interaction_state.set(InteractionState::Enable).ok();
             } else {
                 println!("Failed loading site");
             }
@@ -231,19 +219,13 @@ fn handle_workspace_data(
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
-                    match app_state.set(AppState::WorkcellEditor) {
-                        Ok(_) => {
-                            load_workcell.send(LoadWorkcell {
-                                workcell,
-                                focus: true,
-                                default_file: file,
-                            });
-                            interaction_state.set(InteractionState::Enable).ok();
-                        }
-                        Err(err) => {
-                            println!("Failed to enter traffic editor: {:?}", err);
-                        }
-                    }
+                    app_state.set(AppState::WorkcellEditor).ok();
+                    load_workcell.send(LoadWorkcell {
+                        workcell,
+                        focus: true,
+                        default_file: file,
+                    });
+                    interaction_state.set(InteractionState::Enable).ok();
                 },
                 Err(err) =>  {
                 println!("Failed loading workcell {:?}", err);

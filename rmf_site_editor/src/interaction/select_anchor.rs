@@ -1601,7 +1601,6 @@ impl SelectAnchor {
     }
 }
 
-// TODO(luca) populate model (i.e. through a load file window) and empty Anchor
 #[derive(Clone)]
 enum PlaceableObject {
     Model(Model),
