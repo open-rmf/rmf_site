@@ -21,6 +21,7 @@ use crate::{
         ChangeMode, InteractionMode, Selection,
     },
     site::Delete,
+    widgets::console::Logs,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
@@ -55,6 +56,7 @@ fn handle_keyboard_input(
     mut delete: EventWriter<Delete>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
+    mut logs: ResMut<Logs>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -82,13 +84,18 @@ fn handle_keyboard_input(
             if let Some(selection) = selection.0 {
                 delete.send(Delete::new(selection));
             } else {
-                println!("No selected entity to delete");
+                logs.warn("No selected entity to delete");
             }
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::D) {
         debug_mode.0 = !debug_mode.0;
-        println!("Toggling debug mode: {debug_mode:?}");
+        let msg = String::from("Toggling debug mode: ") + &debug_mode.0.to_string();
+        logs.status(&msg);
+    }
+
+    if keyboard_input.just_pressed(KeyCode::H) {
+        logs.hint("You just pressed hint!!");
     }
 }

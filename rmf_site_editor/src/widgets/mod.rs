@@ -52,6 +52,9 @@ use view_nav_graphs::*;
 pub mod view_occupancy;
 use view_occupancy::*;
 
+pub mod console;
+pub use console::*;
+
 pub mod icons;
 pub use icons::*;
 
@@ -73,6 +76,7 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
+            .init_resource::<Logs>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
@@ -116,6 +120,7 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
+    pub logs: ResMut<'w, Logs>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -222,6 +227,15 @@ fn standard_ui_layout(
                             });
                     });
                 });
+        });
+
+        egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(160.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ViewConsole::new(&mut events).show(ui);
         });
 
     let egui_context = egui_context.ctx_mut();
