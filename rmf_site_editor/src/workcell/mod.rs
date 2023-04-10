@@ -33,13 +33,16 @@ pub use workcell::*;
 pub mod urdf;
 pub use urdf::*;
 
-use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
+use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
-use crate::site::{update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
 use crate::interaction::Gizmo;
+use crate::site::{
+    make_models_selectable, update_anchor_transforms, update_model_scenes,
+    update_transforms_for_changed_poses,
+};
 use crate::AppState;
 
 use rmf_site_format::ModelMarker;
@@ -86,10 +89,7 @@ fn add_wireframe_to_meshes(
     }
 }
 
-fn disable_dragging(
-    mut commands: Commands,
-    new_draggables: Query<Entity, Added<Gizmo>>,
-) {
+fn disable_dragging(mut commands: Commands, new_draggables: Query<Entity, Added<Gizmo>>) {
     for e in new_draggables.iter() {
         commands.entity(e).remove::<Gizmo>();
     }
@@ -112,14 +112,14 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
-                .with_system(add_wireframe_to_meshes)
-                .with_system(update_constraint_dependents)
-                .with_system(update_model_scenes)
-                .with_system(make_models_selectable)
-                .with_system(handle_workcell_keyboard_input)
-                .with_system(handle_new_mesh_primitives)
-                .with_system(change_workcell.before(load_workcell))
-                .with_system(handle_new_urdf_roots),
+                    .with_system(add_wireframe_to_meshes)
+                    .with_system(update_constraint_dependents)
+                    .with_system(update_model_scenes)
+                    .with_system(make_models_selectable)
+                    .with_system(handle_workcell_keyboard_input)
+                    .with_system(handle_new_mesh_primitives)
+                    .with_system(change_workcell.before(load_workcell))
+                    .with_system(handle_new_urdf_roots),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
@@ -129,9 +129,11 @@ impl Plugin for WorkcellEditorPlugin {
                     .before(TransformSystem::TransformPropagate)
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
-                    .with_system(add_anchors_for_new_mesh_constraints.before(update_anchor_transforms))
+                    .with_system(
+                        add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
+                    )
                     .with_system(update_transforms_for_changed_poses)
-                    .with_system(disable_dragging)
+                    .with_system(disable_dragging),
             );
     }
 }

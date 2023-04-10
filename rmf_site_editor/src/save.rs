@@ -15,10 +15,10 @@
  *
 */
 
-use bevy::prelude::*;
-use crate::{AppState, CurrentWorkspace};
 use crate::site::{DefaultFile, SaveSite};
 use crate::workcell::SaveWorkcell;
+use crate::{AppState, CurrentWorkspace};
+use bevy::prelude::*;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
@@ -61,7 +61,6 @@ impl SaveWorkspace {
     }
 }
 
-
 #[derive(Default, Debug, Clone)]
 pub enum SaveWorkspaceDestination {
     #[default]
@@ -100,7 +99,7 @@ pub fn dispatch_save_events(
         if let Some(ws_root) = workspace.root {
             let path = match &event.destination {
                 SaveWorkspaceDestination::DefaultFile => {
-                    if let Some(file) =  default_files.get(ws_root).ok().map(|f| f.0.clone()) {
+                    if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
                         file
                     } else {
                         let Some(file) =  FileDialog::new().save_file() else {
@@ -116,9 +115,7 @@ pub fn dispatch_save_events(
                     };
                     file
                 }
-                SaveWorkspaceDestination::Path(path) => {
-                    path.clone()
-                }
+                SaveWorkspaceDestination::Path(path) => path.clone(),
             };
             match app_state.current() {
                 AppState::WorkcellEditor => {

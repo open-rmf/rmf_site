@@ -15,10 +15,10 @@
  *
 */
 
-use bevy::prelude::*;
-use crate::CurrentWorkspace;
 use crate::interaction::{InteractionAssets, Selectable};
 use crate::site::SiteAssets;
+use crate::CurrentWorkspace;
+use bevy::prelude::*;
 use rmf_site_format::WorkcellProperties;
 
 /// Used as an event to command that a new workcell should be made the current one

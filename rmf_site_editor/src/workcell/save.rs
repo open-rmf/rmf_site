@@ -19,9 +19,8 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use std::path::PathBuf;
 
-
-use crate::ExportFormat;
 use crate::site::Pending;
+use crate::ExportFormat;
 
 use thiserror::Error as ThisError;
 
@@ -40,12 +39,10 @@ pub enum WorkcellGenerationError {
     InvalidWorkcellEntity(Entity),
 }
 
-fn parent_in_workcell(
-    q_parents: &Query<&Parent>,
-    entity: Entity,
-    root: Entity,
-) -> bool {
-    AncestorIter::new(q_parents, entity).find(|p| *p == root).is_some()
+fn parent_in_workcell(q_parents: &Query<&Parent>, entity: Entity, root: Entity) -> bool {
+    AncestorIter::new(q_parents, entity)
+        .find(|p| *p == root)
+        .is_some()
 }
 
 // This is mostly duplicated with the function in site/save.rs, however this case
@@ -54,12 +51,23 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     // TODO(luca) actually keep site IDs instead of always generating them from scratch
     // (as it is done in site editor)
     let mut state: SystemState<(
-        Query<Entity, (Or<(With<Anchor>, With<LinkMarker>, With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>, Without<Pending>)>,
+        Query<
+            Entity,
+            (
+                Or<(
+                    With<Anchor>,
+                    With<LinkMarker>,
+                    With<WorkcellVisualMarker>,
+                    With<WorkcellCollisionMarker>,
+                )>,
+                Without<Pending>,
+            ),
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
     let (q_used_entities, q_children) = state.get(&world);
 
-    let mut new_entities = vec!(workcell);
+    let mut new_entities = vec![workcell];
     for e in q_children.iter_descendants(workcell) {
         if let Ok(_) = q_used_entities.get(e) {
             new_entities.push(e);
@@ -67,7 +75,9 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
     }
 
     for (idx, entity) in new_entities.iter().enumerate() {
-        world.entity_mut(*entity).insert(SiteID(idx.try_into().unwrap()));
+        world
+            .entity_mut(*entity)
+            .insert(SiteID(idx.try_into().unwrap()));
     }
 }
 
@@ -77,7 +87,17 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<(Entity, &Anchor, Option<&NameInWorkcell>, &SiteID, &Parent, Option<&MeshConstraint<Entity>>), Without<Pending>>,
+        Query<
+            (
+                Entity,
+                &Anchor,
+                Option<&NameInWorkcell>,
+                &SiteID,
+                &Parent,
+                Option<&MeshConstraint<Entity>>,
+            ),
+            Without<Pending>,
+        >,
         Query<
             (
                 Entity,
@@ -89,7 +109,10 @@ pub fn generate_workcell(
                 &Parent,
                 &Scale,
             ),
-            (Or<(With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>, Without<Pending>),
+            (
+                Or<(With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>,
+                Without<Pending>,
+            ),
         >,
         Query<&WorkcellVisualMarker>,
         Query<&WorkcellCollisionMarker>,
@@ -97,7 +120,8 @@ pub fn generate_workcell(
         Query<&WorkcellProperties>,
         Query<&Parent>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_visuals, q_collisions, q_site_id, q_properties, q_parents) = state.get(world);
+    let (q_anchors, q_models, q_visuals, q_collisions, q_site_id, q_properties, q_parents) =
+        state.get(world);
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
@@ -124,7 +148,10 @@ pub fn generate_workcell(
         };
         let geom = if let Some(source) = source {
             // It's a model
-            Geometry::Mesh{filename: String::from(source), scale: Some(**scale)}
+            Geometry::Mesh {
+                filename: String::from(source),
+                scale: Some(**scale),
+            }
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
         } else {
@@ -192,7 +219,7 @@ pub fn generate_workcell(
                     name: name.cloned(),
                     mesh_constraint: constraint,
                     marker: FrameMarker,
-                }
+                },
             },
         );
     }
@@ -228,20 +255,17 @@ pub fn save_workcell(world: &mut World) {
         };
 
         match save_event.format {
-            ExportFormat::Default => {
-                match workcell.to_writer(f) {
-                    Ok(()) => {
-                        println!("Save successful");
-                    }
-                    Err(err) => {
-                        println!("Save failed: {err}");
-                    }
+            ExportFormat::Default => match workcell.to_writer(f) {
+                Ok(()) => {
+                    println!("Save successful");
+                }
+                Err(err) => {
+                    println!("Save failed: {err}");
                 }
             },
             ExportFormat::Urdf => {
                 println!("Saving to urdf");
-            },
+            }
         }
-
     }
 }

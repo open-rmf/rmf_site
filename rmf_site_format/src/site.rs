@@ -31,7 +31,9 @@ pub struct SiteProperties {
 
 impl Default for SiteProperties {
     fn default() -> Self {
-        Self { name: "new_site".to_string() }
+        Self {
+            name: "new_site".to_string(),
+        }
     }
 }
 

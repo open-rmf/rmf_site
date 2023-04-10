@@ -19,16 +19,16 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use rfd::{AsyncFileDialog};
 use futures_lite::future;
+use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
-use crate::AppState;
 use crate::interaction::InteractionState;
-use crate::site::{LoadSite};
-use crate::workcell::{LoadWorkcell};
-use rmf_site_format::{Site, SiteProperties, Workcell};
+use crate::site::LoadSite;
+use crate::workcell::LoadWorkcell;
+use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
+use rmf_site_format::{Site, SiteProperties, Workcell};
 
 /// Used as an event to command that a new workspace should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -103,13 +103,13 @@ pub struct WorkspacePlugin;
 impl Plugin for WorkspacePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ChangeCurrentWorkspace>()
-           .add_event::<CreateNewWorkspace>()
-           .add_event::<LoadWorkspace>()
-           .init_resource::<CurrentWorkspace>()
-           .init_resource::<RecallWorkspace>()
-           .add_system(dispatch_new_workspace_events)
-           .add_system(workspace_file_load_complete)
-           .add_system(sync_workspace_visibility);
+            .add_event::<CreateNewWorkspace>()
+            .add_event::<LoadWorkspace>()
+            .init_resource::<CurrentWorkspace>()
+            .init_resource::<RecallWorkspace>()
+            .add_system(dispatch_new_workspace_events)
+            .add_system(workspace_file_load_complete)
+            .add_system(sync_workspace_visibility);
         #[cfg(not(target_arch = "wasm32"))]
         app.add_system(dispatch_load_workspace_events);
     }
@@ -125,13 +125,21 @@ pub fn dispatch_new_workspace_events(
         match state.current() {
             AppState::MainMenu => {
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
-            },
+            }
             AppState::SiteEditor => {
-                load_site.send(LoadSite { site: Site::default(), focus: true, default_file: None });
-            },
+                load_site.send(LoadSite {
+                    site: Site::default(),
+                    focus: true,
+                    default_file: None,
+                });
+            }
             AppState::WorkcellEditor => {
-                load_workcell.send(LoadWorkcell { workcell: Workcell::default(), focus: true, default_file: None });
-            },
+                load_workcell.send(LoadWorkcell {
+                    workcell: Workcell::default(),
+                    focus: true,
+                    default_file: None,
+                });
+            }
         }
     }
 }
@@ -155,22 +163,36 @@ pub fn dispatch_load_workspace_events(
                     // TODO(luca) on wasm there is no file path, only file name, put a config guard to
                     // populate accordingly
                     // Full Wasm file loading support would need adding a crate for channels and detaching the thread
-                    Some(LoadWorkspaceFile(
-                        file.path().to_path_buf(),
-                        data
-                    ))
+                    Some(LoadWorkspaceFile(file.path().to_path_buf(), data))
                 });
                 commands.spawn(LoadWorkspaceFileTask(future));
-            },
+            }
             LoadWorkspace::Path(path) => {
-                if let Some(data) = std::fs::read(&path).ok().and_then(|d| WorkspaceData::new(&path, d)) {
-                    handle_workspace_data(Some(path.clone()), &data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
+                if let Some(data) = std::fs::read(&path)
+                    .ok()
+                    .and_then(|d| WorkspaceData::new(&path, d))
+                {
+                    handle_workspace_data(
+                        Some(path.clone()),
+                        &data,
+                        &mut app_state,
+                        &mut interaction_state,
+                        &mut load_site,
+                        &mut load_workcell,
+                    );
                 }
-            },
+            }
             LoadWorkspace::Data(data) => {
                 // Do a sync load and state update
-                handle_workspace_data(None, &data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
-            },
+                handle_workspace_data(
+                    None,
+                    &data,
+                    &mut app_state,
+                    &mut interaction_state,
+                    &mut load_site,
+                    &mut load_workcell,
+                );
+            }
         }
     }
 }
@@ -186,7 +208,10 @@ fn handle_workspace_data(
     match workspace_data {
         WorkspaceData::LegacyBuilding(data) => {
             println!("Opening legacy building map file");
-            if let Some(site) = BuildingMap::from_bytes(&data).ok().and_then(|b| b.to_site().ok()) {
+            if let Some(site) = BuildingMap::from_bytes(&data)
+                .ok()
+                .and_then(|b| b.to_site().ok())
+            {
                 // Switch state
                 app_state.set(AppState::SiteEditor).ok();
                 load_site.send(LoadSite {
@@ -199,7 +224,7 @@ fn handle_workspace_data(
                 // TODO(luca) restore more informative errors
                 println!("Failed loading legacy building");
             }
-        },
+        }
         WorkspaceData::Site(data) => {
             println!("Opening site file");
             if let Ok(site) = Site::from_bytes(&data) {
@@ -214,7 +239,7 @@ fn handle_workspace_data(
             } else {
                 println!("Failed loading site");
             }
-        },
+        }
         WorkspaceData::Workcell(data) => {
             println!("Opening workcell file");
             match Workcell::from_bytes(&data) {
@@ -227,12 +252,12 @@ fn handle_workspace_data(
                         default_file: file,
                     });
                     interaction_state.set(InteractionState::Enable).ok();
-                },
-                Err(err) =>  {
-                println!("Failed loading workcell {:?}", err);
+                }
+                Err(err) => {
+                    println!("Failed loading workcell {:?}", err);
                 }
             }
-        },
+        }
     }
 }
 
@@ -251,7 +276,14 @@ fn workspace_file_load_complete(
             if let Some(result) = result {
                 let LoadWorkspaceFile(file, data) = result;
                 if let Some(workspace_data) = WorkspaceData::new(&file, data) {
-                    handle_workspace_data(Some(file), &workspace_data, &mut app_state, &mut interaction_state, &mut load_site, &mut load_workcell);
+                    handle_workspace_data(
+                        Some(file),
+                        &workspace_data,
+                        &mut app_state,
+                        &mut interaction_state,
+                        &mut load_site,
+                        &mut load_workcell,
+                    );
                 }
             }
         }

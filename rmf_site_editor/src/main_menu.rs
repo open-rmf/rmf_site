@@ -17,11 +17,7 @@
 
 use super::demo_world::*;
 use crate::{AppState, LoadWorkspace, WorkspaceData};
-use bevy::{
-    app::AppExit,
-    prelude::*,
-    tasks::Task,
-};
+use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContext};
 use std::path::PathBuf;
 
@@ -71,7 +67,9 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(demo_office())));
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+                        demo_office(),
+                    )));
                 }
 
                 #[cfg(not(target_arch = "wasm32"))]
@@ -82,7 +80,9 @@ fn egui_ui(
                 }
 
                 if ui.button("Workcell Editor").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(demo_workcell())));
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
+                        demo_workcell(),
+                    )));
                 }
 
                 // TODO(MXG): Bring this back when we have time to fix the

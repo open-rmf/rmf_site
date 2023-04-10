@@ -15,15 +15,18 @@
  *
 */
 
-use std::path::PathBuf;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
+use crate::site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState};
+use crate::workcell::ChangeCurrentWorkcell;
 use bevy::prelude::*;
 use std::collections::HashSet;
-use crate::workcell::{ChangeCurrentWorkcell};
-use crate::site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState};
 
-use rmf_site_format::{Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
+use rmf_site_format::{
+    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID,
+    WorkcellCollisionMarker, WorkcellVisualMarker,
+};
 
 pub struct LoadWorkcell {
     /// The site data to load
@@ -45,12 +48,15 @@ fn generate_workcell_entities(
     // Hashmap of parent model entity to constraint dependent entity
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
-    let root = commands.spawn(SpatialBundle::VISIBLE_IDENTITY)
+    let root = commands
+        .spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
-        .insert(PreventDeletion::because("Workcell root cannot be deleted".to_string()))
+        .insert(PreventDeletion::because(
+            "Workcell root cannot be deleted".to_string(),
+        ))
         .id();
     id_to_entity.insert(&workcell.id, root);
 
@@ -59,7 +65,9 @@ fn generate_workcell_entities(
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
-        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_visual.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_visual.parent)
+            .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
@@ -69,45 +77,57 @@ fn generate_workcell_entities(
         let e = cmd.id();
         parented_collision.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
-        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_collision.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_collision.parent)
+            .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
 
     for (id, parented_anchor) in &workcell.frames {
-        let e = commands.spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
+        let e = commands
+            .spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
             .insert(SiteID(*id))
             .id();
         if let Some(c) = &parented_anchor.bundle.mesh_constraint {
-            let model_entity = *id_to_entity.get(&c.entity).expect("Mesh constraint refers to non existing model");
+            let model_entity = *id_to_entity
+                .get(&c.entity)
+                .expect("Mesh constraint refers to non existing model");
             commands.entity(e).insert(MeshConstraint {
                 entity: model_entity,
                 element: c.element.clone(),
                 relative_pose: c.relative_pose,
             });
-            let constraint_dependents: &mut HashSet<Entity> = model_to_constraint_dependent_entities.entry(model_entity).or_default();
+            let constraint_dependents: &mut HashSet<Entity> =
+                model_to_constraint_dependent_entities
+                    .entry(model_entity)
+                    .or_default();
             constraint_dependents.insert(e);
         }
         if let Some(name) = &parented_anchor.bundle.name {
             commands.entity(e).insert(name.clone());
         }
-        let child_entities: &mut Vec<Entity> = parent_to_child_entities.entry(parented_anchor.parent).or_default();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_anchor.parent)
+            .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
     }
 
     // Add constraint dependents to models
     for (model, dependents) in model_to_constraint_dependent_entities {
-        commands.entity(model).insert(ConstraintDependents(dependents));
+        commands
+            .entity(model)
+            .insert(ConstraintDependents(dependents));
     }
 
     for (parent, children) in parent_to_child_entities {
         if let Some(parent) = id_to_entity.get(&parent) {
-            commands.entity(*parent)
+            commands
+                .entity(*parent)
                 .insert(Dependents(HashSet::from_iter(children.clone())))
                 .push_children(&children);
-        }
-        else {
+        } else {
             println!("DEV error, didn't find matching entity for id {}", parent);
             continue;
         }

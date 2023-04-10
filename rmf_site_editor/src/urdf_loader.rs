@@ -15,10 +15,9 @@
  *
 */
 
-use bevy::prelude::*;
 use bevy::asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy::prelude::*;
 use bevy::utils::BoxedFuture;
-
 
 use rmf_site_format::UrdfRoot;
 
@@ -30,7 +29,7 @@ impl Plugin for UrdfPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset_loader::<UrdfLoader>()
             .add_asset::<UrdfRoot>();
-            //.init_asset_loader::<XacroLoader>();
+        //.init_asset_loader::<XacroLoader>();
     }
 }
 
@@ -81,7 +80,10 @@ async fn load_urdf<'a, 'b>(
     bytes: &'a [u8],
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<(), UrdfError> {
-    if let Some(res) = std::str::from_utf8(bytes).ok().and_then(|utf| urdf_rs::read_from_string(utf).ok()) {
+    if let Some(res) = std::str::from_utf8(bytes)
+        .ok()
+        .and_then(|utf| urdf_rs::read_from_string(utf).ok())
+    {
         load_context.set_default_asset(LoadedAsset::new(UrdfRoot(res)));
         return Ok(());
     } else {

@@ -95,7 +95,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 .params
                 .levels
                 .iter()
-                .filter(|(e, _props)| AncestorIter::new(&self.params.parents, *e).any(|e| Some(e) == self.events.request.current_workspace.root))
+                .filter(|(e, _props)| {
+                    AncestorIter::new(&self.params.parents, *e)
+                        .any(|e| Some(e) == self.events.request.current_workspace.root)
+                })
                 .map(|(e, props)| (Reverse(props.elevation), e))
                 .collect();
 

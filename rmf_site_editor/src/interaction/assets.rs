@@ -42,12 +42,7 @@ pub struct InteractionAssets {
 }
 
 impl InteractionAssets {
-    pub fn make_orientation_cue_meshes(
-        &self,
-        commands: &mut Commands,
-        parent: Entity,
-        scale: f32,
-    ) {
+    pub fn make_orientation_cue_meshes(&self, commands: &mut Commands, parent: Entity, scale: f32) {
         // The arrows should originate in the mesh origin
         let pos = Vec3::splat(0.0);
         let rot_x = Quat::from_rotation_y(90_f32.to_radians());

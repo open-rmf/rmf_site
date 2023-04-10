@@ -20,14 +20,14 @@ use std::io;
 
 use crate::*;
 #[cfg(feature = "bevy")]
+use bevy::ecs::system::EntityCommands;
+#[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
-#[cfg(feature = "bevy")]
-use bevy::ecs::system::EntityCommands;
+use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use urdf_rs::Robot;
-use glam::Vec3;
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -89,9 +89,7 @@ pub struct Mass(f32);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Inertia {
-
-}
+pub struct Inertia {}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -124,30 +122,31 @@ pub struct Joint {
 pub enum Geometry {
     //#[serde(flatten)]
     Primitive(MeshPrimitive),
-    Mesh{
+    Mesh {
         filename: String,
         #[serde(default, skip_serializing_if = "is_default")]
-        scale: Option<Vec3>
+        scale: Option<Vec3>,
     },
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum MeshPrimitive {
-    Box{size: [f32; 3]},
-    Cylinder{radius: f32, length: f32},
-    Capsule{radius: f32, length: f32},
-    Sphere{radius: f32},
+    Box { size: [f32; 3] },
+    Cylinder { radius: f32, length: f32 },
+    Capsule { radius: f32, length: f32 },
+    Sphere { radius: f32 },
 }
 
 impl MeshPrimitive {
     pub fn label(&self) -> String {
         match &self {
-            MeshPrimitive::Box{..} => "Box",
-            MeshPrimitive::Cylinder{..} => "Cylinder",
-            MeshPrimitive::Capsule{..} => "Capsule",
-            MeshPrimitive::Sphere{..} => "Sphere",
-        }.to_string()
+            MeshPrimitive::Box { .. } => "Box",
+            MeshPrimitive::Cylinder { .. } => "Cylinder",
+            MeshPrimitive::Capsule { .. } => "Capsule",
+            MeshPrimitive::Sphere { .. } => "Sphere",
+        }
+        .to_string()
     }
 }
 
@@ -167,45 +166,55 @@ impl Recall for RecallMeshPrimitive {
 
     fn remember(&mut self, source: &MeshPrimitive) {
         match source {
-            MeshPrimitive::Box{size} => {
+            MeshPrimitive::Box { size } => {
                 self.box_size = Some(*size);
-            },
-            MeshPrimitive::Cylinder{radius, length} => {
+            }
+            MeshPrimitive::Cylinder { radius, length } => {
                 self.cylinder_radius = Some(*radius);
                 self.cylinder_length = Some(*length);
-            },
-            MeshPrimitive::Capsule{radius, length} => {
+            }
+            MeshPrimitive::Capsule { radius, length } => {
                 self.capsule_radius = Some(*radius);
                 self.capsule_length = Some(*length);
-            },
-            MeshPrimitive::Sphere{radius} => {
+            }
+            MeshPrimitive::Sphere { radius } => {
                 self.sphere_radius = Some(*radius);
-            },
+            }
         }
     }
 }
 
 impl RecallMeshPrimitive {
     pub fn assume_box(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Box{size: self.box_size.unwrap_or_default()}
+        MeshPrimitive::Box {
+            size: self.box_size.unwrap_or_default(),
+        }
     }
 
     pub fn assume_cylinder(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Cylinder{radius: self.cylinder_radius.unwrap_or_default(), length: self.cylinder_length.unwrap_or_default()}
+        MeshPrimitive::Cylinder {
+            radius: self.cylinder_radius.unwrap_or_default(),
+            length: self.cylinder_length.unwrap_or_default(),
+        }
     }
 
     pub fn assume_capsule(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Capsule{radius: self.capsule_radius.unwrap_or_default(), length: self.capsule_length.unwrap_or_default()}
+        MeshPrimitive::Capsule {
+            radius: self.capsule_radius.unwrap_or_default(),
+            length: self.capsule_length.unwrap_or_default(),
+        }
     }
 
     pub fn assume_sphere(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Sphere{radius: self.sphere_radius.unwrap_or_default()}
+        MeshPrimitive::Sphere {
+            radius: self.sphere_radius.unwrap_or_default(),
+        }
     }
 }
 
 impl Default for Geometry {
     fn default() -> Self {
-        Geometry::Primitive(MeshPrimitive::Box{size: [0.0; 3]})
+        Geometry::Primitive(MeshPrimitive::Box { size: [0.0; 3] })
     }
 }
 
@@ -229,19 +238,25 @@ impl WorkcellModel {
     pub fn add_bevy_components(&self, mut commands: EntityCommands) {
         match &self.geometry {
             Geometry::Primitive(primitive) => {
-                commands.insert((primitive.clone(), self.pose.clone(), NameInWorkcell(self.name.clone())));
-            },
-            Geometry::Mesh{filename, scale} => {
+                commands.insert((
+                    primitive.clone(),
+                    self.pose.clone(),
+                    NameInWorkcell(self.name.clone()),
+                ));
+            }
+            Geometry::Mesh { filename, scale } => {
                 println!("Setting pose of {:?} to {:?}", filename, self.pose);
                 let scale = Scale(scale.unwrap_or_default());
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
-                commands.insert((NameInWorkcell(self.name.clone()),
+                commands.insert((
+                    NameInWorkcell(self.name.clone()),
                     AssetSource::from(filename),
                     self.pose.clone(),
                     ConstraintDependents::default(),
                     scale,
-                    ModelMarker));
-            },
+                    ModelMarker,
+                ));
+            }
         }
     }
 }
@@ -287,34 +302,58 @@ impl Workcell {
     }
 }
 
-#[cfg_attr(feature = "bevy", derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid))]
+#[cfg_attr(
+    feature = "bevy",
+    derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)
+)]
 #[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
 pub struct UrdfRoot(pub Robot);
 
 // TODO(luca) feature gate urdf support
-impl From::<&urdf_rs::Geometry> for Geometry {
+impl From<&urdf_rs::Geometry> for Geometry {
     fn from(geom: &urdf_rs::Geometry) -> Self {
         match geom {
-            urdf_rs::Geometry::Box{size} => Geometry::Primitive(MeshPrimitive::Box{size: (**size).map(|f| f as f32)}),
-            urdf_rs::Geometry::Cylinder{radius, length} => Geometry::Primitive(MeshPrimitive::Cylinder{radius: *radius as f32, length: *length as f32}),
-            urdf_rs::Geometry::Capsule{radius, length} => Geometry::Primitive(MeshPrimitive::Capsule{radius: *radius as f32, length: *length as f32}),
-            urdf_rs::Geometry::Sphere{radius} => Geometry::Primitive(MeshPrimitive::Sphere{radius: *radius as f32}),
-            urdf_rs::Geometry::Mesh{filename, scale} => {
-                let scale = scale.clone().and_then(|s| Some(Vec3::from_array(s.map(|v| v as f32))));
-                Geometry::Mesh{filename: filename.clone(), scale}
+            urdf_rs::Geometry::Box { size } => Geometry::Primitive(MeshPrimitive::Box {
+                size: (**size).map(|f| f as f32),
+            }),
+            urdf_rs::Geometry::Cylinder { radius, length } => {
+                Geometry::Primitive(MeshPrimitive::Cylinder {
+                    radius: *radius as f32,
+                    length: *length as f32,
+                })
+            }
+            urdf_rs::Geometry::Capsule { radius, length } => {
+                Geometry::Primitive(MeshPrimitive::Capsule {
+                    radius: *radius as f32,
+                    length: *length as f32,
+                })
+            }
+            urdf_rs::Geometry::Sphere { radius } => Geometry::Primitive(MeshPrimitive::Sphere {
+                radius: *radius as f32,
+            }),
+            urdf_rs::Geometry::Mesh { filename, scale } => {
+                let scale = scale
+                    .clone()
+                    .and_then(|s| Some(Vec3::from_array(s.map(|v| v as f32))));
+                Geometry::Mesh {
+                    filename: filename.clone(),
+                    scale,
+                }
             }
         }
     }
 }
 
-impl From::<&urdf_rs::Link> for Link {
+impl From<&urdf_rs::Link> for Link {
     fn from(link: &urdf_rs::Link) -> Self {
         Self {
             name: NameInWorkcell(link.name.clone()),
             inertial: Inertial {
                 origin: Pose {
                     trans: link.inertial.origin.xyz.0.map(|v| v as f32),
-                    rot: Rotation::EulerExtrinsicXYZ(link.inertial.origin.rpy.map(|v| Angle::Rad(v as f32))),
+                    rot: Rotation::EulerExtrinsicXYZ(
+                        link.inertial.origin.rpy.map(|v| Angle::Rad(v as f32)),
+                    ),
                 },
                 mass: Mass(link.inertial.mass.value as f32),
                 inertia: Inertia::default(),
@@ -325,24 +364,28 @@ impl From::<&urdf_rs::Link> for Link {
 }
 
 impl WorkcellModel {
-    fn from_urdf_data(pose: &urdf_rs::Pose, name: &Option<String>, geometry: &urdf_rs::Geometry) -> Self {
+    fn from_urdf_data(
+        pose: &urdf_rs::Pose,
+        name: &Option<String>,
+        geometry: &urdf_rs::Geometry,
+    ) -> Self {
         let trans = pose.xyz.map(|t| t as f32);
         let rot = Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32)));
         WorkcellModel {
             name: name.clone().unwrap_or_default(),
             geometry: geometry.into(),
-            pose: Pose{trans, rot},
+            pose: Pose { trans, rot },
         }
     }
 }
 
-impl From::<&urdf_rs::Visual> for WorkcellModel {
+impl From<&urdf_rs::Visual> for WorkcellModel {
     fn from(visual: &urdf_rs::Visual) -> Self {
         WorkcellModel::from_urdf_data(&visual.origin, &visual.name, &visual.geometry)
     }
 }
 
-impl From::<&urdf_rs::Collision> for WorkcellModel {
+impl From<&urdf_rs::Collision> for WorkcellModel {
     fn from(collision: &urdf_rs::Collision) -> Self {
         WorkcellModel::from_urdf_data(&collision.origin, &collision.name, &collision.geometry)
     }

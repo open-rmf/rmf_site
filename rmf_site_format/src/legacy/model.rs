@@ -1,5 +1,6 @@
 use crate::{
-    Angle, AssetSource, ConstraintDependents, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation, Scale,
+    Angle, AssetSource, ConstraintDependents, IsStatic, Model as SiteModel, ModelMarker,
+    NameInSite, Pose, Rotation, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

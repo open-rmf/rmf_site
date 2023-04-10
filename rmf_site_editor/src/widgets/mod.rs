@@ -17,21 +17,16 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
-        SpawnPreview,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
-        SiteState, ToggleLiftDoorAvailability,
+        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        ToggleLiftDoorAvailability,
     },
-    AppState,
-    CreateNewWorkspace,
-    CurrentWorkspace,
-    LoadWorkspace,
-    SaveWorkspace,
+    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -187,7 +182,8 @@ pub struct AppEvents<'w, 's> {
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
     pub app_state: Res<'w, State<AppState>>,
-    pub pending_asset_sources: Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
+    pub pending_asset_sources:
+        Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
 }
 
 fn site_ui_layout(
@@ -262,14 +258,32 @@ fn site_ui_layout(
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_default_file());
+                    if ui
+                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_default_file());
                     }
-                    if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog());
+                    if ui
+                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog());
                     }
-                    if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
-                        events.file_events.load_workspace.send(LoadWorkspace::Dialog);
+                    if ui
+                        .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .load_workspace
+                            .send(LoadWorkspace::Dialog);
                     }
                 }
             });
@@ -331,17 +345,41 @@ fn workcell_ui_layout(
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_default_file());
+                    if ui
+                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_default_file());
                     }
-                    if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog());
+                    if ui
+                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog());
                     }
-                    if ui.add(Button::new("Export urdf").shortcut_text("Ctrl+E")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf());
+                    if ui
+                        .add(Button::new("Export urdf").shortcut_text("Ctrl+E"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog().to_urdf());
                     }
-                    if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
-                        events.file_events.load_workspace.send(LoadWorkspace::Dialog);
+                    if ui
+                        .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .load_workspace
+                            .send(LoadWorkspace::Dialog);
                     }
                 }
             });

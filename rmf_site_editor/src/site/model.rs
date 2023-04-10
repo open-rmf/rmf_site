@@ -21,9 +21,8 @@ use crate::{
 };
 use bevy::{asset::LoadState, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pose, UrdfRoot, Scale};
+use rmf_site_format::{AssetSource, ModelMarker, Pose, Scale, UrdfRoot};
 use smallvec::SmallVec;
-
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -62,7 +61,10 @@ pub fn update_model_scenes(
     ) {
         let mut commands = commands.entity(e);
         commands
-            .insert(ModelScene{source: source.clone(), entity: None})
+            .insert(ModelScene {
+                source: source.clone(),
+                entity: None,
+            })
             .insert(SpatialBundle {
                 transform: pose.transform(),
                 ..default()
@@ -95,8 +97,10 @@ pub fn update_model_scenes(
             }
         };
         let handle = asset_server.load_untyped(&String::from(&asset_source));
-        commands.insert(PreventDeletion::because(
-            "Waiting for model to spawn".to_string()))
+        commands
+            .insert(PreventDeletion::because(
+                "Waiting for model to spawn".to_string(),
+            ))
             .insert(PendingSpawning(handle));
     }
 
@@ -158,7 +162,8 @@ pub fn update_model_scenes(
                 None
             };
             if let Some(id) = model_id {
-                commands.entity(e)
+                commands
+                    .entity(e)
                     .insert(ModelSceneRoot)
                     .insert(Selectable::new(e));
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
@@ -178,23 +183,11 @@ pub fn update_model_scenes(
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
-                spawn_model(
-                    e,
-                    source,
-                    pose,
-                    &asset_server,
-                    &mut commands,
-                );
+                spawn_model(e, source, pose, &asset_server, &mut commands);
             }
         } else {
             // New model
-            spawn_model(
-                e,
-                source,
-                pose,
-                &asset_server,
-                &mut commands,
-            );
+            spawn_model(e, source, pose, &asset_server, &mut commands);
         }
     }
 }

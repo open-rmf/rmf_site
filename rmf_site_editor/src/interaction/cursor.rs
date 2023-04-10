@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{Model, ModelMarker, FloorMarker, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -104,7 +104,9 @@ impl Cursor {
 
     fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands.entity(self.frame).remove_children(&[current_preview]);
+            commands
+                .entity(self.frame)
+                .remove_children(&[current_preview]);
             commands.entity(current_preview).despawn_recursive();
         }
     }
@@ -121,7 +123,11 @@ impl Cursor {
         }
     }
 
-    pub fn set_workcell_model_preview(&mut self, commands: &mut Commands, model: Option<WorkcellModel>) {
+    pub fn set_workcell_model_preview(
+        &mut self,
+        commands: &mut Commands,
+        model: Option<WorkcellModel>,
+    ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let cmd = commands.spawn(Pending);
@@ -229,7 +235,13 @@ impl FromWorld for Cursor {
 
         let cursor = world
             .spawn(VisualCue::no_outline())
-            .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement, frame_placement])
+            .push_children(&[
+                halo,
+                dagger,
+                level_anchor_placement,
+                site_anchor_placement,
+                frame_placement,
+            ])
             .insert(SpatialBundle {
                 visibility: Visibility { is_visible: false },
                 ..default()
@@ -348,7 +360,11 @@ pub fn update_cursor_transform(
             };
             // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
             // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
-            if let Some((Some(triangle), Some(position), Some(normal))) = intersections.iter().last().and_then(|data| Some((data.world_triangle(), data.position(), data.normal()))) {
+            if let Some((Some(triangle), Some(position), Some(normal))) = intersections
+                .iter()
+                .last()
+                .and_then(|data| Some((data.world_triangle(), data.position(), data.normal())))
+            {
                 // Make sure we are hovering over a model and not anything else (i.e. anchor)
                 match cursor.preview_model {
                     None => {
@@ -370,19 +386,24 @@ pub fn update_cursor_transform(
                             }
                             //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
                             let ray = Ray3d::new(closest_vertex.into(), normal);
-                            *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
+                            *transform = Transform::from_matrix(
+                                ray.to_aligned_transform([0., 0., 1.].into()),
+                            );
                             set_visibility(cursor.frame, &mut visibility, true);
                         } else {
                             // Hide the cursor
                             set_visibility(cursor.frame, &mut visibility, false);
                         }
-                    },
+                    }
                     Some(_) => {
                         // If we are placing a model avoid snapping to faced and just project to
                         // ground plane
-                        let intersection = match intersect_ground_params.ground_plane_intersection() {
+                        let intersection = match intersect_ground_params.ground_plane_intersection()
+                        {
                             Some(intersection) => intersection,
-                            None => { return; }
+                            None => {
+                                return;
+                            }
                         };
                         set_visibility(cursor.frame, &mut visibility, true);
                         *transform = Transform::from_translation(intersection);
@@ -391,7 +412,9 @@ pub fn update_cursor_transform(
             } else {
                 let intersection = match intersect_ground_params.ground_plane_intersection() {
                     Some(intersection) => intersection,
-                    None => { return; }
+                    None => {
+                        return;
+                    }
                 };
                 set_visibility(cursor.frame, &mut visibility, true);
                 *transform = Transform::from_translation(intersection);

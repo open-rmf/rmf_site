@@ -47,7 +47,6 @@ mod simulation_state;
 mod site_asset_io;
 mod urdf_loader;
 
-
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;

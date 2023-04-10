@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic, Location, LocationTag, LocationTags,
-    Model, ModelMarker, NameInSite, Pose, Scale,
+    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic, Location,
+    LocationTag, LocationTags, Model, ModelMarker, NameInSite, Pose, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

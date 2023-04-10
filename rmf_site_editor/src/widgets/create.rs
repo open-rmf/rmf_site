@@ -16,16 +16,17 @@
 */
 
 use crate::{
+    inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
     site::Change,
-    inspector::{InspectScale, InspectAssetSource},
-    AppEvents,
-    AppState,
+    AppEvents, AppState,
 };
-use bevy_egui::egui::{CollapsingHeader, Ui};
 use bevy::prelude::*;
+use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{AssetSource, Geometry, Model, Scale, Pending, RecallAssetSource, WorkcellModel};
+use rmf_site_format::{
+    AssetSource, Geometry, Model, Pending, RecallAssetSource, Scale, WorkcellModel,
+};
 
 pub struct CreateWidget<'a, 'w, 's> {
     pub events: &'a mut AppEvents<'w, 's>,
@@ -39,7 +40,9 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
             match self.events.app_state.current() {
-                AppState::MainMenu => { return; },
+                AppState::MainMenu => {
+                    return;
+                }
                 AppState::SiteEditor => {
                     if ui.button("Lane").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
@@ -82,16 +85,14 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_one_new_edge().for_measurement().into(),
                         ));
                     }
-                },
+                }
                 AppState::WorkcellEditor => {
                     if ui.button("Frame").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor3D::create_new_point()
-                                .for_anchor(None)
-                                .into(),
+                            SelectAnchor3D::create_new_point().for_anchor(None).into(),
                         ));
                     }
-                },
+                }
             }
             if let Ok((e, source, scale)) = self.events.pending_asset_sources.get_single() {
                 // TODO(luca) actual recall
@@ -99,7 +100,9 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                 CollapsingHeader::new("New model")
                     .default_open(false)
                     .show(ui, |ui| {
-                        if let Some(new_asset_source) = InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui) {
+                        if let Some(new_asset_source) =
+                            InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui)
+                        {
                             self.events
                                 .change
                                 .asset_source
@@ -114,11 +117,18 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         }
                         ui.add_space(5.0);
                         match self.events.app_state.current() {
-                            AppState::MainMenu => { unreachable!(); },
+                            AppState::MainMenu => {
+                                unreachable!();
+                            }
                             AppState::SiteEditor => {
-                                if let Ok((_e, source, _scale)) = self.events.pending_asset_sources.get_single() {
+                                if let Ok((_e, source, _scale)) =
+                                    self.events.pending_asset_sources.get_single()
+                                {
                                     if ui.button("Spawn model").clicked() {
-                                        let model = Model {source: source.clone(), ..default()};
+                                        let model = Model {
+                                            source: source.clone(),
+                                            ..default()
+                                        };
                                         self.events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_model(model)
@@ -126,13 +136,23 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         ));
                                     }
                                 }
-                            },
+                            }
                             AppState::WorkcellEditor => {
-                                if let Ok((_e, source, scale)) = self.events.pending_asset_sources.get_single() {
+                                if let Ok((_e, source, scale)) =
+                                    self.events.pending_asset_sources.get_single()
+                                {
                                     if ui.button("Spawn visual").clicked() {
-                                        let model = Model {source: source.clone(), ..default()};
+                                        let model = Model {
+                                            source: source.clone(),
+                                            ..default()
+                                        };
                                         let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
+                                            geometry: Geometry::Mesh {
+                                                filename: source.into(),
+                                                scale: Some(**scale),
+                                            },
+                                            ..default()
+                                        };
                                         self.events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_visual(workcell_model)
@@ -140,9 +160,17 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         ));
                                     }
                                     if ui.button("Spawn collision").clicked() {
-                                        let model = Model {source: source.clone(), ..default()};
+                                        let model = Model {
+                                            source: source.clone(),
+                                            ..default()
+                                        };
                                         let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
+                                            geometry: Geometry::Mesh {
+                                                filename: source.into(),
+                                                scale: Some(**scale),
+                                            },
+                                            ..default()
+                                        };
                                         self.events.request.change_mode.send(ChangeMode::To(
                                             SelectAnchor3D::create_new_point()
                                                 .for_collision(workcell_model)
@@ -151,13 +179,14 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     }
                                     ui.add_space(10.0);
                                 }
-                            },
+                            }
                         }
-                });
+                    });
             } else if self.events.pending_asset_sources.is_empty() {
                 // Spawn one
                 let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                self.events.commands
+                self.events
+                    .commands
                     .spawn(source.clone())
                     .insert(Scale::default())
                     .insert(Pending);

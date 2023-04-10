@@ -202,7 +202,10 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         if let Ok(dependents) = params.constraint_dependents.get(e) {
             for dep in dependents.iter() {
                 // Remove MeshConstraint component from dependent
-                params.commands.entity(*dep).remove::<MeshConstraint<Entity>>();
+                params
+                    .commands
+                    .entity(*dep)
+                    .remove::<MeshConstraint<Entity>>();
             }
         }
 

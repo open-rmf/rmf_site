@@ -27,7 +27,10 @@ pub struct InspectPose<'a> {
 
 impl<'a> InspectPose<'a> {
     pub fn new(pose: &'a Pose) -> Self {
-        Self { pose, for_rotation: &false }
+        Self {
+            pose,
+            for_rotation: &false,
+        }
     }
 
     pub fn for_rotation(mut self) -> Self {

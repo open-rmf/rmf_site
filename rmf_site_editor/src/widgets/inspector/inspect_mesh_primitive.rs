@@ -48,17 +48,14 @@ impl<'a> InspectMeshPrimitive<'a> {
                 });
         });
         match &mut new_primitive {
-            MeshPrimitive::Box{size} => {
+            MeshPrimitive::Box { size } => {
                 ui.add(DragValue::new(&mut size[0]).clamp_range(0_f32..=std::f32::INFINITY));
                 ui.add(DragValue::new(&mut size[1]).clamp_range(0_f32..=std::f32::INFINITY));
                 ui.add(DragValue::new(&mut size[2]).clamp_range(0_f32..=std::f32::INFINITY));
-            },
-            MeshPrimitive::Cylinder{radius, length} => {
-            },
-            MeshPrimitive::Capsule{radius, length} => {
-            },
-            MeshPrimitive::Sphere{radius} => {
-            },
+            }
+            MeshPrimitive::Cylinder { radius, length } => {}
+            MeshPrimitive::Capsule { radius, length } => {}
+            MeshPrimitive::Sphere { radius } => {}
         }
         if &new_primitive != self.primitive {
             Some(new_primitive)
@@ -67,4 +64,3 @@ impl<'a> InspectMeshPrimitive<'a> {
         }
     }
 }
-

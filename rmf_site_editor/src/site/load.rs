@@ -18,9 +18,9 @@
 use crate::{recency::RecencyRanking, site::*, Autoload, CurrentWorkspace};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
+use rmf_site_format::legacy::building_map::BuildingMap;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
-use rmf_site_format::legacy::building_map::BuildingMap;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileHandle;

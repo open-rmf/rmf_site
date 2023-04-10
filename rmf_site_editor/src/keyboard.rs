@@ -21,9 +21,7 @@ use crate::{
         ChangeMode, InteractionMode, Selection,
     },
     site::Delete,
-    LoadWorkspace,
-    SaveWorkspace,
-    CreateNewWorkspace,
+    CreateNewWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;

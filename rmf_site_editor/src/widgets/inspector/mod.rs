@@ -133,7 +133,8 @@ pub struct InspectorComponentParams<'w, 's> {
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
-    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
+    pub asset_sources:
+        Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
     pub constraint_dependents: Query<'w, 's, With<ConstraintDependents>>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
@@ -353,7 +354,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((source, recall)) = self.params.mesh_primitives.get(selection) {
-                if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui) {
+                if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui)
+                {
                     self.events
                         .workcell_change
                         .mesh_primitives
@@ -362,7 +364,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if self.params.component.constraint_dependents.get(selection).is_ok() {
+            if self
+                .params
+                .component
+                .constraint_dependents
+                .get(selection)
+                .is_ok()
+            {
                 InspectModelDependentsWidget::new(
                     selection,
                     &self.params.constraint_dependents_params,

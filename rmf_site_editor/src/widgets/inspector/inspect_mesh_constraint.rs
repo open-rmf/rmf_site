@@ -16,8 +16,8 @@
 */
 
 use bevy_egui::egui::Ui;
-use std::collections::{BTreeMap, HashSet};
 use rmf_site_format::*;
+use std::collections::{BTreeMap, HashSet};
 
 use crate::{
     site::{Category, SiteID},

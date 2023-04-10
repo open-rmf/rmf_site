@@ -15,8 +15,8 @@
  *
 */
 
-use bevy::prelude::*;
 use crate::CurrentWorkspace;
+use bevy::prelude::*;
 use rmf_site_format::{LevelProperties, SiteProperties};
 
 /// Used as an event to command that a new site should be made the current one
