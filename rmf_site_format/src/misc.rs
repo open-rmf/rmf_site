@@ -325,7 +325,7 @@ impl Pose {
         }
     }
 
-    pub fn align_with(&mut self, tf: &Transform) {
+    pub fn align_with(&mut self, tf: &Transform) -> Self {
         self.trans = tf.translation.into();
 
         match self.rot {
@@ -355,6 +355,7 @@ impl Pose {
                 self.rot = Rotation::Quat(tf.rotation.to_array());
             }
         }
+        *self
     }
 }
 

@@ -50,7 +50,6 @@ impl Anchor {
         match self {
             Self::Translate2D(v) => v,
             Self::CategorizedTranslate2D(v) => v.for_category(category),
-            // TODO(luca) check if this implementation is appropriate
             Self::Pose3D(p) => to_slice(&p.trans[0..2]),
         }
     }
@@ -103,12 +102,15 @@ impl Anchor {
             },
             Self::Pose3D(p_left) => match other {
                 Self::Translate2D(p_right) => {
-                    // TODO(luca) do we ignore Z or assume Z = 0?
-                    return true;
+                    let p_left = Vec3::from_array(p_left.trans);
+                    let p_right = Vec3::from_array([p_right[0], p_right[1], 0.0]);
+                    return (p_left - p_right).length() <= dist;
                 }
                 Self::CategorizedTranslate2D(p_right) => {
-                    // TODO(luca) do we ignore Z or assume Z = 0?
-                    return true;
+                    let p_right = p_right.for_general();
+                    let p_left = Vec3::from_array(p_left.trans);
+                    let p_right = Vec3::from_array([p_right[0], p_right[1], 0.0]);
+                    return (p_left - p_right).length() <= dist;
                 }
                 Self::Pose3D(p_right) => {
                     let p_left = Vec3::from_array(p_left.trans);
@@ -144,7 +146,6 @@ impl Anchor {
         }
     }
 
-    // TODO(luca) make this return Self for inplace edits
     pub fn move_to(&mut self, tf: &Transform) {
         match self {
             Anchor::Translate2D(p) => {

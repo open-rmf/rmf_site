@@ -2045,15 +2045,13 @@ fn compute_parent_inverse_pose(
     transforms: &Query<&GlobalTransform>,
     parent: Entity,
 ) -> Pose {
-    let mut pose = Pose::default();
     let parent_tf = transforms
         .get(parent)
         .expect("Failed in fetching parent transform");
 
     let inv_tf = parent_tf.affine().inverse();
     let goal_tf = tf.affine();
-    pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()));
-    pose
+    Pose::default().align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
 }
 
 fn find_mesh_element(

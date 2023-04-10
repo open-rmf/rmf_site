@@ -54,8 +54,7 @@ pub fn add_anchors_for_new_mesh_constraints(
     for (e, constraint) in changed_constraints.iter() {
         if let Ok(model_tf) = transforms.get(constraint.entity) {
             let tf = *model_tf * constraint.relative_pose.transform();
-            let mut pose = Pose::default();
-            pose.align_with(&tf);
+            let pose = Pose::default().align_with(&tf);
             // TODO(luca) is this OK performance wise or should we detect if the component is
             // already present and change its value?
             commands
