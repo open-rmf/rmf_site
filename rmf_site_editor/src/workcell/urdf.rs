@@ -34,7 +34,6 @@ use bevy_rapier3d::na::geometry::{Rotation as RapierRotation};
 pub fn handle_new_urdf_roots(
     mut commands: Commands,
     new_urdfs: Query<(Entity, &UrdfRoot)>,
-    site_assets: Res<SiteAssets>,
 ) {
     let mut link_name_to_entity = HashMap::new();
     // Keep track of which links have a parent, add the ones that don't as a root child

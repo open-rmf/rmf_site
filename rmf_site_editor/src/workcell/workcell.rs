@@ -21,10 +21,10 @@ use crate::interaction::{InteractionAssets, Selectable};
 use crate::site::SiteAssets;
 use rmf_site_format::WorkcellProperties;
 
-/// Used as an event to command that a new site should be made the current one
+/// Used as an event to command that a new workcell should be made the current one
 #[derive(Clone, Copy, Debug)]
 pub struct ChangeCurrentWorkcell {
-    /// What should the current site be
+    /// What should the current workcell root be
     pub root: Entity,
 }
 
@@ -56,17 +56,13 @@ pub fn add_workcell_visualization(
     for e in new_workcells.iter() {
         let body_mesh = site_assets.site_anchor_mesh.clone();
         let mut entity_commands = commands.entity(e);
-        let body = entity_commands.add_children(|parent| {
+        entity_commands.add_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
             });
             body.insert(Selectable::new(e));
-            let body = body.id();
-            // TODO(luca) make workcell not deletable
-
-            body
         });
         interaction_assets.make_orientation_cue_meshes(&mut commands, e, 1.0);
     }

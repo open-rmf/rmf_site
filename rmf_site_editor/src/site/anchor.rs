@@ -94,9 +94,7 @@ pub struct PreviewAnchor {
 
 pub fn update_anchor_transforms(
     mut changed_anchors: Query<(&Anchor, &mut Transform), (Changed<Anchor>, Without<ModelMarker>)>,
-    models: Query<&Transform, With<ModelMarker>>,
 ) {
-    // For mesh constraints the pose is given by the model and the constraint's relative pose
     for (anchor, mut tf) in &mut changed_anchors {
         *tf = anchor.local_transform(Category::General);
     }

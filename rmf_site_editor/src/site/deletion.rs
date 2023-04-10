@@ -20,7 +20,7 @@ use crate::{
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use rmf_site_format::{Anchor, ConstraintDependents, Edge, MeshConstraint, Path, Point};
+use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -78,9 +78,7 @@ struct DeletionParams<'w, 's> {
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
     parents: Query<'w, 's, &'static mut Parent>,
-    transforms: Query<'w, 's, &'static Transform>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    anchors: Query<'w, 's, &'static mut Anchor>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     mesh_constraints: Query<'w, 's, &'static mut MeshConstraint<Entity>>,
     children: Query<'w, 's, &'static Children>,

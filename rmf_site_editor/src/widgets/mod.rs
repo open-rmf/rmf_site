@@ -263,10 +263,10 @@ fn site_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
+                        events.file_events.save.send(SaveWorkspace::new().to_default_file());
                     }
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog());
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
                         events.file_events.load_workspace.send(LoadWorkspace::Dialog);
@@ -332,13 +332,13 @@ fn workcell_ui_layout(
                 #[cfg(not(target_arch = "wasm32"))]
                 {
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
+                        events.file_events.save.send(SaveWorkspace::new().to_default_file());
                     }
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog());
                     }
                     if ui.add(Button::new("Export urdf").shortcut_text("Ctrl+E")).clicked() {
-                        events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf().build());
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf());
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
                         events.file_events.load_workspace.send(LoadWorkspace::Dialog);

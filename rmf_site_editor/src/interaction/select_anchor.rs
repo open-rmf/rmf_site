@@ -25,7 +25,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    AssetSource, ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point, Pose, Side,
+    ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point, Pose, Side,
     SiteProperties, Wall, WorkcellModel, WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 use std::sync::Arc;
@@ -1761,7 +1761,7 @@ impl SelectAnchor3D {
     ) -> Result<(), ()> {
         match self.parent {
             Some(parent) => {
-                if let Ok((e, anchor)) = params.anchors.get_mut(parent) {
+                if let Ok((e, _anchor)) = params.anchors.get_mut(parent) {
                     if let Ok(mut deps) = params.dependents.get_mut(e) {
                         deps.remove(&target);
                         params.commands.entity(e).remove_children(&[target]);
@@ -2042,9 +2042,7 @@ fn compute_parent_inverse_pose(
     let parent_tf = transforms.get(parent).expect("Failed in fetching parent transform");
 
     let inv_tf = parent_tf.affine().inverse();
-    let mut goal_tf = tf.affine();
-    // TODO(luca) verify whether we need to keep parent anchor rotation or not
-    // goal_tf.matrix3 = parent_tf.affine().matrix3;
+    let goal_tf = tf.affine();
     pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()));
     pose
 }
@@ -2067,13 +2065,11 @@ pub fn handle_select_anchor_3d_mode(
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut params: SelectAnchorPlacementParams,
-    mut selected: Query<&mut Selected>,
-    mut selection: ResMut<Selection>,
+    selection: Res<Selection>,
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor3D(request) => request.clone(),
@@ -2125,9 +2121,7 @@ pub fn handle_select_anchor_3d_mode(
         // Set the request parent to the currently selected element, to spawn new object as
         // children of selected frames
         if request.begin_creating() {
-            if let Some(previous_selection) = selection.0 {
-                request.parent = selection.0;
-            }
+            request.parent = selection.0;
         }
     }
 
@@ -2174,9 +2168,8 @@ pub fn handle_select_anchor_3d_mode(
                     PlaceableObject::Model(ref a) => {
                         println!("Creating model for entity {:?}", id);
                         let mut model = a.clone();
-                        let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
-                        let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        model.pose = pose;
+                        let parent = workspace.root.expect("No workspace");
+                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         params.commands.entity(id).insert(model);
                         parent
                     }
@@ -2184,8 +2177,7 @@ pub fn handle_select_anchor_3d_mode(
                         println!("Creating visual for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
-                        let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        model.pose = pose;
+                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         let mut cmd = params.commands.entity(id);
                         cmd.insert(WorkcellVisualMarker);
                         model.add_bevy_components(cmd);
@@ -2195,8 +2187,7 @@ pub fn handle_select_anchor_3d_mode(
                         println!("Creating collision for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
-                        let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        model.pose = pose;
+                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         let mut cmd = params.commands.entity(id);
                         cmd.insert(WorkcellCollisionMarker);
                         model.add_bevy_components(cmd);

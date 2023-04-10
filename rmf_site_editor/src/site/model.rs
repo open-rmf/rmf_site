@@ -169,7 +169,7 @@ pub fn update_model_scenes(
 
     // update changed models
     for (e, source, pose) in changed_models.iter_mut() {
-        if let Ok(mut current_scene) = current_scenes.get_mut(e) {
+        if let Ok(current_scene) = current_scenes.get_mut(e) {
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source {
                 if let Some(scene_entity) = current_scene.entity {

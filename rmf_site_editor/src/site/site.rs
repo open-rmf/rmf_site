@@ -18,7 +18,6 @@
 use bevy::prelude::*;
 use crate::CurrentWorkspace;
 use rmf_site_format::{LevelProperties, SiteProperties};
-use std::collections::HashMap;
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -48,7 +47,7 @@ pub fn change_site(
     mut change_current_site: EventReader<ChangeCurrentSite>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
-    mut cached_levels: Query<&mut CachedLevel>,
+    cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<SiteProperties>>,
     children: Query<&Children>,

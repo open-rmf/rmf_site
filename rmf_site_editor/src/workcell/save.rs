@@ -124,7 +124,6 @@ pub fn generate_workcell(
         };
         let geom = if let Some(source) = source {
             // It's a model
-            // TODO(luca) serialize scale
             Geometry::Mesh{filename: String::from(source), scale: Some(**scale)}
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
@@ -133,7 +132,6 @@ pub fn generate_workcell(
             continue;
         };
         if q_visuals.get(e).is_ok() {
-            println!("Found visual");
             workcell.visuals.insert(
                 id.0,
                 Parented {
@@ -146,7 +144,6 @@ pub fn generate_workcell(
                 },
             );
         } else if q_collisions.get(e).is_ok() {
-            println!("Found collision");
             // TODO(luca) reduce duplication with above branch
             workcell.collisions.insert(
                 id.0,
@@ -229,8 +226,6 @@ pub fn save_workcell(world: &mut World) {
                 continue;
             }
         };
-
-        dbg!(&workcell);
 
         match save_event.format {
             ExportFormat::Default => {

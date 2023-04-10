@@ -102,9 +102,9 @@ fn handle_keyboard_input(
     if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
         if keyboard_input.just_pressed(KeyCode::S) {
             if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
-                save_workspace.send(SaveWorkspace::new().to_dialog().build());
+                save_workspace.send(SaveWorkspace::new().to_dialog());
             } else {
-                save_workspace.send(SaveWorkspace::new().to_default_file().build());
+                save_workspace.send(SaveWorkspace::new().to_default_file());
             }
         }
 

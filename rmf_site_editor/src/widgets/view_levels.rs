@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    CurrentWorkspace,
     site::{Category, Change, Delete, LevelProperties},
     widgets::{AppEvents, Icons},
 };

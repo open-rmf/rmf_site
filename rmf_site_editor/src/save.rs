@@ -33,47 +33,34 @@ pub struct SaveWorkspace {
 }
 
 impl SaveWorkspace {
-    pub fn new() -> SaveWorkspaceBuilder {
-        SaveWorkspaceBuilder {
+    pub fn new() -> Self {
+        Self {
             destination: SaveWorkspaceDestination::default(),
             format: ExportFormat::default(),
         }
     }
-}
 
-pub struct SaveWorkspaceBuilder {
-    destination: SaveWorkspaceDestination,
-    format: ExportFormat,
-}
-
-impl SaveWorkspaceBuilder {
-    pub fn to_default_file(&mut self) -> &mut Self {
+    pub fn to_default_file(mut self) -> Self {
         self.destination = SaveWorkspaceDestination::DefaultFile;
         self
     }
 
-    pub fn to_dialog(&mut self) -> &mut Self {
+    pub fn to_dialog(mut self) -> Self {
         self.destination = SaveWorkspaceDestination::Dialog;
         self
     }
 
-    pub fn to_path(&mut self, path: &PathBuf) -> &mut Self {
+    pub fn to_path(mut self, path: &PathBuf) -> Self {
         self.destination = SaveWorkspaceDestination::Path(path.clone());
         self
     }
 
-    pub fn to_urdf(&mut self) -> &mut Self {
+    pub fn to_urdf(mut self) -> Self {
         self.format = ExportFormat::Urdf;
         self
     }
-
-    pub fn build(&self) -> SaveWorkspace {
-        SaveWorkspace {
-            destination: self.destination.clone(),
-            format: self.format.clone()
-        }
-    }
 }
+
 
 #[derive(Default, Debug, Clone)]
 pub enum SaveWorkspaceDestination {

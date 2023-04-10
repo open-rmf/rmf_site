@@ -102,39 +102,36 @@ impl Cursor {
         }
     }
 
-    // TODO(luca) reduce duplication here
-    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
+    fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(self.frame).remove_children(&[current_preview]);
             commands.entity(current_preview).despawn_recursive();
         }
-        if let Some(model) = model {
+    }
+
+    // TODO(luca) reduce duplication here
+    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
+        self.remove_preview(commands);
+        self.preview_model = if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
             commands.entity(self.frame).push_children(&[e]);
-            self.preview_model = Some(e);
+            Some(e)
         } else {
-            self.preview_model = None;
+            None
         }
     }
 
     pub fn set_workcell_model_preview(&mut self, commands: &mut Commands, model: Option<WorkcellModel>) {
-        if let Some(current_preview) = self.preview_model {
-            commands.entity(self.frame).remove_children(&[current_preview]);
-            commands.entity(current_preview).despawn_recursive();
-        }
-        if let Some(model) = model {
+        self.remove_preview(commands);
+        self.preview_model = if let Some(model) = model {
             let cmd = commands.spawn(Pending);
             let e = cmd.id();
             model.add_bevy_components(cmd);
             commands.entity(self.frame).push_children(&[e]);
-            self.preview_model = Some(e);
+            Some(e)
         } else {
-            self.preview_model = None;
+            None
         }
-    }
-
-    pub fn remove_child(&mut self, commands: &mut Commands, e: Entity) {
-        commands.entity(self.frame).remove_children(&[e]);
     }
 
     pub fn should_be_visible(&self) -> bool {

@@ -39,8 +39,8 @@ use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::site::{update_anchor_transforms, update_model_scenes, make_models_selectable, update_transforms_for_changed_poses};
-use crate::interaction::{Gizmo, handle_select_anchor_3d_mode};
-use crate::{AppState, CurrentWorkspace};
+use crate::interaction::Gizmo;
+use crate::AppState;
 
 use rmf_site_format::ModelMarker;
 

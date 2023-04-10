@@ -116,7 +116,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         match self.events.app_state.current() {
                             AppState::MainMenu => { unreachable!(); },
                             AppState::SiteEditor => {
-                                if let Ok((_e, source, scale)) = self.events.pending_asset_sources.get_single() {
+                                if let Ok((_e, source, _scale)) = self.events.pending_asset_sources.get_single() {
                                     if ui.button("Spawn model").clicked() {
                                         let model = Model {source: source.clone(), ..default()};
                                         self.events.request.change_mode.send(ChangeMode::To(

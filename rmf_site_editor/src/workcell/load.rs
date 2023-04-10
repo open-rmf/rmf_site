@@ -23,7 +23,7 @@ use std::collections::HashSet;
 use crate::workcell::{ChangeCurrentWorkcell};
 use crate::site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState};
 
-use rmf_site_format::{Category, ConstraintDependents, MeshConstraint, NameInSite, FrameMarker, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
+use rmf_site_format::{Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, WorkcellCollisionMarker, WorkcellVisualMarker};
 
 pub struct LoadWorkcell {
     /// The site data to load

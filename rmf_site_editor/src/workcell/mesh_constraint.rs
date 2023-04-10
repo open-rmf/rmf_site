@@ -47,7 +47,6 @@ pub fn add_anchors_for_new_mesh_constraints(
     mut commands: Commands,
     changed_constraints: Query<(Entity, &MeshConstraint<Entity>), Changed<MeshConstraint<Entity>>>,
     transforms: Query<&Transform>,
-    parents: Query<&Parent>,
 ) {
     for (e, constraint) in changed_constraints.iter() {
         if let Ok(model_tf) = transforms.get(constraint.entity) {
