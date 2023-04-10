@@ -29,18 +29,10 @@ pub struct ChangeCurrentWorkcell {
 }
 
 pub fn change_workcell(
-    mut commands: Commands,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut change_current_workcell: EventReader<ChangeCurrentWorkcell>,
     open_workcells: Query<Entity, With<WorkcellProperties>>,
-    mut visibility: Query<&mut Visibility>,
 ) {
-    let mut set_visibility = |entity, value| {
-        if let Ok(mut v) = visibility.get_mut(entity) {
-            v.is_visible = value;
-        }
-    };
-
     if let Some(cmd) = change_current_workcell.iter().last() {
         if open_workcells.get(cmd.root).is_err() {
             println!(
@@ -50,16 +42,8 @@ pub fn change_workcell(
             return;
         }
 
-        // Remove visibility for current root and make the new one visible
-        // TODO(luca) should this be despawn instead? There is currently no UI way to restore
-        if current_workspace.root != Some(cmd.root) {
-            // Hide current workspace before showing the new one
-            if let Some(cur_root) = current_workspace.root {
-                set_visibility(cur_root, false);
-            }
-            current_workspace.root = Some(cmd.root);
-            current_workspace.display = true;
-        }
+        current_workspace.root = Some(cmd.root);
+        current_workspace.display = true;
     }
 }
 

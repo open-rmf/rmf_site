@@ -17,10 +17,9 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SelectAnchor3D,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
         SpawnPreview,
     },
-    inspector::{InspectAssetSource, InspectScale},
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -28,15 +27,11 @@ use crate::{
         Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
         SiteState, ToggleLiftDoorAvailability,
     },
-    workcell::{
-        LoadWorkcell
-    },
     AppState,
     CreateNewWorkspace,
     CurrentWorkspace,
     LoadWorkspace,
     SaveWorkspace,
-    ExportFormat,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -44,9 +39,6 @@ use bevy_egui::{
     EguiContext,
 };
 use rmf_site_format::*;
-
-#[cfg(not(target_arch = "wasm32"))]
-use rfd::FileDialog;
 
 pub mod create;
 use create::CreateWidget;
@@ -194,6 +186,8 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
+    pub app_state: Res<'w, State<AppState>>,
+    pub pending_asset_sources: Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
 }
 
 fn site_ui_layout(
@@ -271,11 +265,8 @@ fn site_ui_layout(
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
                         events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
                     }
-                    // TODO(luca) implement shortcuts for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
-                        }
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
                         events.file_events.load_workspace.send(LoadWorkspace::Dialog);
@@ -306,7 +297,6 @@ fn site_ui_layout(
 fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    pending_asset_sources: Query<(Entity, &AssetSource, &Scale), With<Pending>>,
     inspector_params: InspectorParams,
     mut events: AppEvents,
 ) {
@@ -326,64 +316,7 @@ fn workcell_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                if ui.button("Frame").clicked() {
-                                    events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point()
-                                            .for_anchor(None)
-                                            .into(),
-                                    ));
-                                }
-                                if let Ok((e, source, scale)) = pending_asset_sources.get_single() {
-                                    // TODO(luca) actual recall
-                                    ui.add_space(10.0);
-                                    ui.label("New model");
-                                    if let Some(new_asset_source) = InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui) {
-                                        events
-                                            .change
-                                            .asset_source
-                                            .send(Change::new(new_asset_source, e));
-                                    }
-                                    ui.add_space(5.0);
-                                    if let Some(new_scale) = InspectScale::new(scale).show(ui) {
-                                        events
-                                            .workcell_change
-                                            .scale
-                                            .send(Change::new(new_scale, e));
-                                    }
-                                    ui.add_space(5.0);
-                                    if ui.button("Spawn visual").clicked() {
-                                        let model = Model {source: source.clone(), ..default()};
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
-                                        events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_visual(workcell_model)
-                                                .into(),
-                                        ));
-                                        events.commands.entity(e).despawn_recursive();
-                                    }
-                                    if ui.button("Spawn collision").clicked() {
-                                        let model = Model {source: source.clone(), ..default()};
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh{filename: source.into(), scale: Some(**scale)}, ..default()};
-                                        events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_collision(workcell_model)
-                                                .into(),
-                                        ));
-                                        events.commands.entity(e).despawn_recursive();
-                                    }
-                                    ui.add_space(10.0);
-                                } else if pending_asset_sources.is_empty() {
-                                    // Spawn one
-                                    //let source = AssetSource::Local("../bevy_stl/assets/models/disc.stl".to_string());
-                                    //let source = AssetSource::Local("../robot.urdf".to_string());
-                                    let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                                    events.commands
-                                        .spawn(source.clone())
-                                        .insert(Scale::default())
-                                        .insert(Pending);
-                                };
+                                CreateWidget::new(&mut events).show(ui);
                             });
                         ui.separator();
                     });
@@ -401,16 +334,11 @@ fn workcell_ui_layout(
                     if ui.add(Button::new("Save").shortcut_text("Ctrl+S")).clicked() {
                         events.file_events.save.send(SaveWorkspace::new().to_default_file().build());
                     }
-                    // TODO(luca) implement shortcut for save as
                     if ui.add(Button::new("Save As").shortcut_text("Ctrl+Shift+S")).clicked() {
-                        if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
-                        }
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog().build());
                     }
                     if ui.add(Button::new("Export urdf").shortcut_text("Ctrl+E")).clicked() {
-                        if let Some(path) = FileDialog::new().save_file() {
-                            events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf().build());
-                        }
+                        events.file_events.save.send(SaveWorkspace::new().to_dialog().to_urdf().build());
                     }
                     if ui.add(Button::new("Open").shortcut_text("Ctrl+O")).clicked() {
                         events.file_events.load_workspace.send(LoadWorkspace::Dialog);

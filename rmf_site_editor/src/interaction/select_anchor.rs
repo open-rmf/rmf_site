@@ -2225,7 +2225,7 @@ pub fn handle_select_anchor_3d_mode(
                 match request.preview(hovered, &mut params) {
                     PreviewResult::Updated(next) => {
                         // We should never get here
-                        todo!();
+                        unreachable!();
                     }
                     PreviewResult::Updated3D(next) => {
                         *mode = InteractionMode::SelectAnchor3D(next);

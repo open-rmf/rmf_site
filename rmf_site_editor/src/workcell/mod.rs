@@ -118,7 +118,7 @@ impl Plugin for WorkcellEditorPlugin {
                 .with_system(make_models_selectable)
                 .with_system(handle_workcell_keyboard_input)
                 .with_system(handle_new_mesh_primitives)
-                .with_system(change_workcell)
+                .with_system(change_workcell.before(load_workcell))
                 .with_system(handle_new_urdf_roots),
             )
             .add_system(load_workcell)
@@ -131,7 +131,6 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(update_anchor_transforms)
                     .with_system(add_anchors_for_new_mesh_constraints.before(update_anchor_transforms))
                     .with_system(update_transforms_for_changed_poses)
-                    .with_system(handle_select_anchor_3d_mode)
                     .with_system(disable_dragging)
             );
     }

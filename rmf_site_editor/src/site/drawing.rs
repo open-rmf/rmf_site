@@ -19,7 +19,7 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_site_path, Category, DefaultFile, FloorVisibility, RecencyRank,
+        get_current_workspace_path, Category, DefaultFile, FloorVisibility, RecencyRank,
         FLOOR_LAYER_START,
     },
     CurrentWorkspace,
@@ -52,7 +52,7 @@ pub fn add_drawing_visuals(
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<FloorVisibility>,
 ) {
-    let file_path = match get_current_site_path(current_workspace, site_files) {
+    let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
@@ -152,7 +152,7 @@ pub fn update_drawing_visuals(
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
 ) {
-    let file_path = match get_current_site_path(current_workspace, site_files) {
+    let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };

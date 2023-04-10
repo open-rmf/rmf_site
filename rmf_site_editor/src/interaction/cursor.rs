@@ -102,19 +102,11 @@ impl Cursor {
         }
     }
 
-    // This will leave orphaned models, they will be cleaned up by the
-    // remove_orphaned_model_previews system
+    // TODO(luca) reduce duplication here
     pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(self.frame).remove_children(&[current_preview]);
-            // TODO(luca) having this causes a nasty issue where assets disappear once clicking.
-            // My intuition is that despawning causes the asset server to drop the asset because no
-            // handles refer to it while another load instance for the new one is taking place.
-            // Possible solution is to move the despawn + spawn logic into a parent reassignment,
-            // which also reduces flicker. However this seems to cause some issues with outlines
-            // not being displayed and one frame lag in pose update. Leaving this commented for now
-            // will leak an entity but behave correctly
-            // commands.entity(current_preview).despawn_recursive();
+            commands.entity(current_preview).despawn_recursive();
         }
         if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
@@ -128,6 +120,7 @@ impl Cursor {
     pub fn set_workcell_model_preview(&mut self, commands: &mut Commands, model: Option<WorkcellModel>) {
         if let Some(current_preview) = self.preview_model {
             commands.entity(self.frame).remove_children(&[current_preview]);
+            commands.entity(current_preview).despawn_recursive();
         }
         if let Some(model) = model {
             let cmd = commands.spawn(Pending);
@@ -445,15 +438,6 @@ pub fn update_cursor_hover_visualization(
 
     for e in removed.iter() {
         cursor.remove_dependent(e, &mut visibility);
-    }
-}
-
-pub fn remove_orphaned_model_previews(
-    mut commands: Commands,
-    orphaned_previews: Query<Entity, (With<ModelMarker>, Without<Parent>)>,
-) {
-    for orphaned in orphaned_previews.iter() {
-        commands.entity(orphaned).despawn_recursive();
     }
 }
 

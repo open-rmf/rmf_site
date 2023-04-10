@@ -154,6 +154,7 @@ pub fn dispatch_load_workspace_events(
 
                     // TODO(luca) on wasm there is no file path, only file name, put a config guard to
                     // populate accordingly
+                    // Full Wasm file loading support would need adding a crate for channels and detaching the thread
                     Some(LoadWorkspaceFile(
                         file.path().to_path_buf(),
                         data

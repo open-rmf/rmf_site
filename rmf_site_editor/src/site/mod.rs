@@ -138,7 +138,6 @@ impl Plugin for SitePlugin {
             .init_resource::<SiteAssets>()
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
-            .init_resource::<CachedLevels>()
             .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
@@ -198,7 +197,7 @@ impl Plugin for SitePlugin {
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
-                    .with_system(change_site),
+                    .with_system(change_site.before(load_site)),
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::AssignOrphans,

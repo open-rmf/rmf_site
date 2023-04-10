@@ -36,13 +36,12 @@ pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transf
     }
 }
 
-// TODO(luca) unify for workspaces (i.e. workcells) to allow fetching meshes
-pub fn get_current_site_path(
+pub fn get_current_workspace_path(
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
 ) -> Option<PathBuf> {
-    let site_entity = (*current_workspace).root?;
-    site_files.get(site_entity).map(|f| f.0.clone()).ok()
+    let root_entity = (*current_workspace).root?;
+    site_files.get(root_entity).map(|f| f.0.clone()).ok()
 }
 
 /// This component indicates what labels are used to refer to the start/left

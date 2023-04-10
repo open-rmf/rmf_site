@@ -33,10 +33,10 @@ pub struct ChangeCurrentSite {
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentLevel(pub Option<Entity>);
 
-/// Used as a resource that maps from the site entity to the level entity which
+/// Used as a component that maps from the site entity to the level entity which
 /// was most recently selected for it.
-#[derive(Clone, Debug, Default, Resource)]
-pub struct CachedLevels(pub HashMap<Entity, Entity>);
+#[derive(Component, Clone, Deref, DerefMut, Debug)]
+pub struct CachedLevel(Entity);
 
 /// This component is placed on the Site entity to keep track of what the next
 /// SiteID should be when saving.
@@ -48,7 +48,7 @@ pub fn change_site(
     mut change_current_site: EventReader<ChangeCurrentSite>,
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
-    mut cached_levels: ResMut<CachedLevels>,
+    mut cached_levels: Query<&mut CachedLevel>,
     mut visibility: Query<&mut Visibility>,
     open_sites: Query<Entity, With<SiteProperties>>,
     children: Query<&Children>,
@@ -86,14 +86,8 @@ pub fn change_site(
             }
         }
 
-        if current_workspace.root != Some(cmd.site) {
-            if let Some(previous_site) = current_workspace.root {
-                set_visibility(previous_site, false);
-            }
-            set_visibility(cmd.site, true);
-            current_workspace.root = Some(cmd.site);
-            current_workspace.display = true;
-        }
+        current_workspace.root = Some(cmd.site);
+        current_workspace.display = true;
 
         if let Some(new_level) = cmd.level {
             if let Some(previous_level) = current_level.0 {
@@ -103,18 +97,18 @@ pub fn change_site(
             }
 
             set_visibility(new_level, true);
-            cached_levels.0.insert(cmd.site, new_level);
+            commands.entity(cmd.site).insert(CachedLevel(new_level));
             current_level.0 = Some(new_level);
         } else {
-            if let Some(cached_level) = cached_levels.0.get(&cmd.site) {
-                set_visibility(*cached_level, true);
-                current_level.0 = Some(*cached_level);
+            if let Ok(cached_level) = cached_levels.get(cmd.site) {
+                set_visibility(**cached_level, true);
+                current_level.0 = Some(**cached_level);
             } else {
                 if let Ok(children) = children.get(cmd.site) {
                     let mut found_level = false;
                     for child in children {
                         if let Ok(level) = levels.get(*child) {
-                            cached_levels.0.insert(cmd.site, level);
+                            commands.entity(cmd.site).insert(CachedLevel(level));
                             current_level.0 = Some(level);
                             found_level = true;
                             set_visibility(level, true);
@@ -132,7 +126,7 @@ pub fn change_site(
                                 .id()
                         });
 
-                        cached_levels.0.insert(cmd.site, new_level);
+                        commands.entity(cmd.site).insert(CachedLevel(new_level));
                         current_level.0 = Some(new_level);
                     }
                 }

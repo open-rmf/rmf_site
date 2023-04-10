@@ -16,6 +16,7 @@
 */
 
 use crate::{
+    CurrentWorkspace,
     site::{Category, Change, Delete, LevelProperties},
     widgets::{AppEvents, Icons},
 };
@@ -47,6 +48,7 @@ impl Default for LevelDisplay {
 #[derive(SystemParam)]
 pub struct LevelParams<'w, 's> {
     pub levels: Query<'w, 's, (Entity, &'static LevelProperties)>,
+    pub parents: Query<'w, 's, &'static Parent>,
     pub icons: Res<'w, Icons>,
 }
 
@@ -94,6 +96,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 .params
                 .levels
                 .iter()
+                .filter(|(e, _props)| AncestorIter::new(&self.params.parents, *e).any(|e| Some(e) == self.events.request.current_workspace.root))
                 .map(|(e, props)| (Reverse(props.elevation), e))
                 .collect();
 

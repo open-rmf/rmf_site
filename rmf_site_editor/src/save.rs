@@ -20,6 +20,7 @@ use crate::{AppState, CurrentWorkspace};
 use crate::site::{DefaultFile, SaveSite};
 use crate::workcell::SaveWorkcell;
 
+#[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
 use std::path::PathBuf;
@@ -93,11 +94,13 @@ pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SaveWorkspace>()
-           .add_system(dispatch_save_events);
+        app.add_event::<SaveWorkspace>();
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_system(dispatch_save_events);
     }
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 pub fn dispatch_save_events(
     mut save_events: EventReader<SaveWorkspace>,
     mut save_site: EventWriter<SaveSite>,
