@@ -37,7 +37,6 @@ mod site;
 // mod warehouse_generator;
 mod interaction;
 
-mod simulation_state;
 mod site_asset_io;
 
 use aabb::AabbUpdatePlugin;
