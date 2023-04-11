@@ -232,10 +232,10 @@ fn standard_ui_layout(
         egui::TopBottomPanel::bottom("log_console")
         .resizable(true)
         .min_height(30.)
-        .max_height(160.)
+        .max_height(300.)
         .show(egui_context.ctx_mut(), |ui| {
             ui.add_space(10.0);
-            ViewConsole::new(&mut events).show(ui);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     let egui_context = egui_context.ctx_mut();
