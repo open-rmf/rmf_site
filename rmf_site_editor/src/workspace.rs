@@ -17,9 +17,8 @@
 
 use bevy::{
     prelude::*,
-    tasks::{AsyncComputeTaskPool, Task},
+    tasks::AsyncComputeTaskPool,
 };
-use futures_lite::future;
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
@@ -29,6 +28,9 @@ use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{Site, SiteProperties, Workcell};
+
+use crossbeam_channel::{Receiver, Sender};
+
 
 /// Used as an event to command that a new workspace should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -82,10 +84,22 @@ pub struct CurrentWorkspace {
     pub display: bool,
 }
 
-struct LoadWorkspaceFile(pub std::path::PathBuf, pub Vec<u8>);
+pub struct LoadWorkspaceFile(pub std::path::PathBuf, pub Vec<u8>);
 
-#[derive(Component)]
-struct LoadWorkspaceFileTask(pub Task<Option<LoadWorkspaceFile>>);
+/// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
+/// be cloned and moved into async functions therefore don't have lifetime issues
+#[derive(Debug, Resource)]
+pub struct LoadWorkspaceChannels {
+    pub sender: Sender<LoadWorkspaceFile>,
+    pub receiver: Receiver<LoadWorkspaceFile>,
+}
+
+impl Default for LoadWorkspaceChannels {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        Self {sender, receiver}
+    }
+}
 
 /// Used to keep track of visibility when switching workspace
 #[derive(Debug, Default, Resource)]
@@ -107,11 +121,11 @@ impl Plugin for WorkspacePlugin {
             .add_event::<LoadWorkspace>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
+            .init_resource::<LoadWorkspaceChannels>()
             .add_system(dispatch_new_workspace_events)
             .add_system(workspace_file_load_complete)
-            .add_system(sync_workspace_visibility);
-        #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(dispatch_load_workspace_events);
+            .add_system(sync_workspace_visibility)
+            .add_system(dispatch_load_workspace_events);
     }
 }
 
@@ -144,11 +158,11 @@ pub fn dispatch_new_workspace_events(
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
 pub fn dispatch_load_workspace_events(
     mut commands: Commands,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
+    mut load_channels: ResMut<LoadWorkspaceChannels>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
     mut load_workspace: EventReader<LoadWorkspace>,
@@ -156,16 +170,16 @@ pub fn dispatch_load_workspace_events(
     if let Some(cmd) = load_workspace.iter().last() {
         match cmd {
             LoadWorkspace::Dialog => {
-                let future = AsyncComputeTaskPool::get().spawn(async move {
-                    let file = AsyncFileDialog::new().pick_file().await?;
-                    let data = file.read().await;
-
-                    // TODO(luca) on wasm there is no file path, only file name, put a config guard to
-                    // populate accordingly
-                    // Full Wasm file loading support would need adding a crate for channels and detaching the thread
-                    Some(LoadWorkspaceFile(file.path().to_path_buf(), data))
-                });
-                commands.spawn(LoadWorkspaceFileTask(future));
+                let sender = load_channels.sender.clone();
+                AsyncComputeTaskPool::get().spawn(async move {
+                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
+                        let data = file.read().await;
+                        #[cfg(not(target_arch = "wasm32"))]
+                        sender.send(LoadWorkspaceFile(file.path().to_path_buf(), data)).expect("Failed sending file event");
+                        #[cfg(target_arch = "wasm32")]
+                        sender.send(LoadWorkspaceFile(PathBuf::from(file.file_name()), data)).expect("Failed sending file event");
+                    }
+                }).detach();
             }
             LoadWorkspace::Path(path) => {
                 if let Some(data) = std::fs::read(&path)
@@ -264,28 +278,23 @@ fn handle_workspace_data(
 /// Handles the file opening events
 fn workspace_file_load_complete(
     mut commands: Commands,
-    mut tasks: Query<(Entity, &mut LoadWorkspaceFileTask)>,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
+    mut load_channels: ResMut<LoadWorkspaceChannels>,
 ) {
-    for (entity, mut task) in tasks.iter_mut() {
-        if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
-            commands.entity(entity).despawn();
-            if let Some(result) = result {
-                let LoadWorkspaceFile(file, data) = result;
-                if let Some(workspace_data) = WorkspaceData::new(&file, data) {
-                    handle_workspace_data(
-                        Some(file),
-                        &workspace_data,
-                        &mut app_state,
-                        &mut interaction_state,
-                        &mut load_site,
-                        &mut load_workcell,
-                    );
-                }
-            }
+    if let Ok(result) = load_channels.receiver.try_recv() {
+        let LoadWorkspaceFile(file, data) = result;
+        if let Some(workspace_data) = WorkspaceData::new(&file, data) {
+            handle_workspace_data(
+                Some(file),
+                &workspace_data,
+                &mut app_state,
+                &mut interaction_state,
+                &mut load_site,
+                &mut load_workcell,
+            );
         }
     }
 }

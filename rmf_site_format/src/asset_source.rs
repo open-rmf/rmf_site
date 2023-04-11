@@ -65,28 +65,23 @@ impl From<&String> for AssetSource {
     fn from(path: &String) -> Self {
         // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
         if let Some(path) = path
-            .strip_prefix("rmf-server://")
-            .and_then(|p| Some(p.to_string()))
+            .strip_prefix("rmf-server://").map(|p| p.to_string())
         {
             return AssetSource::Remote(path);
         } else if let Some(path) = path
-            .strip_prefix("file://")
-            .and_then(|p| Some(p.to_string()))
+            .strip_prefix("file://").map(|p| p.to_string())
         {
             return AssetSource::Local(path);
         } else if let Some(path) = path
-            .strip_prefix("search://")
-            .and_then(|p| Some(p.to_string()))
+            .strip_prefix("search://").map(|p| p.to_string())
         {
             return AssetSource::Search(path);
         } else if let Some(path) = path
-            .strip_prefix("bundled://")
-            .and_then(|p| Some(p.to_string()))
+            .strip_prefix("bundled://").map(|p| p.to_string())
         {
             return AssetSource::Bundled(path);
         } else if let Some(path) = path
-            .strip_prefix("package://")
-            .and_then(|p| Some(p.to_string()))
+            .strip_prefix("package://").map(|p| p.to_string())
         {
             return AssetSource::Package(path);
         }
@@ -97,11 +92,11 @@ impl From<&String> for AssetSource {
 impl From<&AssetSource> for String {
     fn from(asset_source: &AssetSource) -> String {
         match asset_source {
-            AssetSource::Remote(uri) => String::from("rmf-server://") + &uri,
-            AssetSource::Local(filename) => String::from("file://") + &filename,
-            AssetSource::Search(name) => String::from("search://") + &name,
-            AssetSource::Bundled(name) => String::from("bundled://") + &name,
-            AssetSource::Package(path) => String::from("package://") + &path,
+            AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
+            AssetSource::Local(filename) => String::from("file://") + filename,
+            AssetSource::Search(name) => String::from("search://") + name,
+            AssetSource::Bundled(name) => String::from("bundled://") + name,
+            AssetSource::Package(path) => String::from("package://") + path,
         }
     }
 }

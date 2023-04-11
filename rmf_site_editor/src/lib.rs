@@ -129,7 +129,7 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
-                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         )
         .add_system_set(
             SystemSet::new()

@@ -276,15 +276,15 @@ fn site_ui_layout(
                             .save
                             .send(SaveWorkspace::new().to_dialog());
                     }
-                    if ui
-                        .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .load_workspace
-                            .send(LoadWorkspace::Dialog);
-                    }
+                }
+                if ui
+                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                    .clicked()
+                {
+                    events
+                        .file_events
+                        .load_workspace
+                        .send(LoadWorkspace::Dialog);
                 }
             });
         });
@@ -372,15 +372,15 @@ fn workcell_ui_layout(
                             .save
                             .send(SaveWorkspace::new().to_dialog().to_urdf());
                     }
-                    if ui
-                        .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .load_workspace
-                            .send(LoadWorkspace::Dialog);
-                    }
+                }
+                if ui
+                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                    .clicked()
+                {
+                    events
+                        .file_events
+                        .load_workspace
+                        .send(LoadWorkspace::Dialog);
                 }
             });
         });
