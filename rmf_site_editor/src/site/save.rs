@@ -836,6 +836,68 @@ fn generate_locations(
     Ok(locations)
 }
 
+fn generate_passages(
+    world: &mut World,
+    site: Entity,
+) -> Result<BTreeMap<u32, Passage<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<
+            (
+                &Edge<Entity>,
+                Option<&Original<Edge<Entity>>>,
+                &PassageAlignment,
+                &PassageCells,
+                &AssociatedGraphs<Entity>,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
+        Query<&SiteID, With<NavGraphMarker>>,
+        Query<&SiteID, With<Anchor>>,
+    )> = SystemState::new(world);
+
+    let (q_passages, q_nav_graphs, q_anchors) = state.get(world);
+
+    let get_anchor_id = |entity| {
+        let site_id = q_anchors
+            .get(entity)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
+        Ok(site_id.0)
+    };
+
+    let get_anchor_id_edge = |edge: &Edge<Entity>| {
+        let left = get_anchor_id(edge.left())?;
+        let right = get_anchor_id(edge.right())?;
+        Ok(Edge::new(left, right))
+    };
+
+    let mut passages = BTreeMap::new();
+    for (edge, o_edge, alignment, cells, graphs, passage_id, parent) in &q_passages {
+        if parent.get() != site {
+            continue;
+        }
+
+        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+        let edge = get_anchor_id_edge(edge)?;
+        let graphs = graphs
+            .to_u32(&q_nav_graphs)
+            .map_err(|e| SiteGenerationError::BrokenNavGraphReference(e))?;
+
+        passages.insert(
+            passage_id.0,
+            Passage {
+                anchors: edge.clone(),
+                alignment: alignment.clone(),
+                cells: cells.clone(),
+                graphs,
+            }
+        );
+    }
+
+    Ok(passages)
+}
+
 fn generate_graph_rankings(
     world: &mut World,
     site: Entity,
@@ -871,6 +933,7 @@ pub fn generate_site(
     let lifts = generate_lifts(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
+    let passages = generate_passages(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
 
@@ -893,6 +956,7 @@ pub fn generate_site(
                 ranking: graph_ranking,
                 lanes,
                 locations,
+                passages,
             },
         },
         // TODO(MXG): Parse agent information once the spec is figured out

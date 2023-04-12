@@ -75,6 +75,9 @@ pub use nav_graph::*;
 pub mod navigation;
 pub use navigation::*;
 
+pub mod passage;
+pub use passage::*;
+
 pub mod path;
 pub use path::*;
 
@@ -99,8 +102,8 @@ pub use texture::*;
 pub mod wall;
 pub use wall::*;
 
-mod is_default;
-pub(crate) use is_default::*;
+mod serde_utils;
+pub(crate) use serde_utils::*;
 
 pub const CURRENT_MAJOR_VERSION: u32 = 0;
 pub const CURRENT_MINOR_VERSION: u32 = 1;

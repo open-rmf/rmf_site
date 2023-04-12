@@ -21,7 +21,7 @@ use rmf_site_format::{Edge, LaneMarker};
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,
-    new_lane_segments: Query<(Entity, &LaneSegments), Added<LaneSegments>>,
+    new_lane_segments: Query<(Entity, &LaneSkeleton), Added<LaneSkeleton>>,
 ) {
     for (e, segments) in &new_lane_segments {
         commands.entity(e).insert(VisualCue::no_outline());
@@ -31,7 +31,7 @@ pub fn add_lane_visual_cues(
 
 pub fn update_lane_visual_cues(
     mut lanes: Query<
-        (&Hovered, &Selected, &LaneSegments, &mut Transform),
+        (&Hovered, &Selected, &LaneSkeleton, &mut Transform),
         (
             With<LaneMarker>,
             Without<AnchorVisualization>,

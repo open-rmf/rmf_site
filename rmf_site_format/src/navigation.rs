@@ -35,7 +35,7 @@ impl Navigation {
 pub struct Guided {
     /// Properties of each nav graph
     pub graphs: BTreeMap<u32, NavGraph>,
-    /// The "ranking" of the graphs, which indicates which is displayed on top.
+    /// The "ranking" of the graphs, indicating which is graph displayed on top.
     /// Each element is the unique ID of a NavGraph entity. IDs that come
     /// earlier in the array will be displayed over IDs that come later.
     pub ranking: Vec<u32>,
@@ -43,6 +43,9 @@ pub struct Guided {
     pub lanes: BTreeMap<u32, Lane<u32>>,
     /// Properties of each special location
     pub locations: BTreeMap<u32, Location<u32>>,
+    /// Passages that can be used as freespace navigation regions within the
+    /// graph.
+    pub passages: BTreeMap<u32, Passage<u32>>,
 }
 
 impl Guided {

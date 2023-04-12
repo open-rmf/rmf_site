@@ -16,8 +16,10 @@
 */
 
 use crate::site::*;
-use bevy::prelude::*;
-use rmf_site_format::{Edge, LaneMarker};
+use bevy::{
+    prelude::*,
+    ecs::system::SystemParam,
+};
 
 pub const SELECTED_LANE_OFFSET: f32 = 0.001;
 pub const HOVERED_LANE_OFFSET: f32 = 0.002;
@@ -29,7 +31,7 @@ pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
 pub const LANE_WIDTH: f32 = 0.5;
 
 #[derive(Component, Debug, Clone, Copy)]
-pub struct LaneSegments {
+pub struct LaneSkeleton {
     pub layer: Entity,
     pub start: Entity,
     pub mid: Entity,
@@ -37,30 +39,36 @@ pub struct LaneSegments {
     pub outlines: [Entity; 3],
 }
 
-impl LaneSegments {
+impl LaneSkeleton {
     pub fn iter(&self) -> [Entity; 3] {
         [self.start, self.mid, self.end]
     }
 }
 
-// TODO(MXG): Refactor these function arguments into a SystemParam
-fn should_display_lane(
-    edge: &Edge<Entity>,
-    associated: &AssociatedGraphs<Entity>,
-    parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
-    current_level: &Res<CurrentLevel>,
-    graphs: &GraphSelect,
-) -> bool {
-    for anchor in edge.array() {
-        if let Ok(parent) = parents.get(anchor) {
-            if levels.contains(parent.get()) && Some(parent.get()) != ***current_level {
-                return false;
+#[derive(SystemParam)]
+pub struct ShouldDisplayGraph<'w, 's> {
+    pub parents: Query<'w, 's, &'static Parent>,
+    pub levels: Query<'w, 's, (), With<LevelProperties>>,
+    pub current_level: Res<'w, CurrentLevel>,
+    pub graphs: GraphSelect<'w, 's>,
+}
+
+impl<'w, 's> ShouldDisplayGraph<'w, 's> {
+    pub fn edge(
+        &self,
+        edge: &Edge<Entity>,
+        associated: &AssociatedGraphs<Entity>,
+    ) -> bool {
+        for anchor in edge.array() {
+            if let Ok(parent) = self.parents.get(anchor) {
+                if self.levels.contains(parent.get()) && Some(parent.get()) != **self.current_level {
+                    return false;
+                }
             }
         }
-    }
 
-    graphs.should_display(associated)
+        self.graphs.should_display(associated)
+    }
 }
 
 pub fn assign_orphan_nav_elements_to_site(
@@ -69,7 +77,7 @@ pub fn assign_orphan_nav_elements_to_site(
         Entity,
         (
             Without<Parent>,
-            Or<(With<LaneMarker>, With<LocationTags>, With<NavGraphMarker>)>,
+            Or<(With<LaneMarker>, With<LocationTags>, With<PassageCells>, With<NavGraphMarker>)>,
         ),
     >,
     current_site: Res<CurrentSite>,
@@ -85,12 +93,10 @@ pub fn add_lane_visuals(
     mut commands: Commands,
     lanes: Query<(Entity, &Edge<Entity>, &AssociatedGraphs<Entity>), Added<LaneMarker>>,
     graphs: GraphSelect,
+    should_display: ShouldDisplayGraph,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
-    current_level: Res<CurrentLevel>,
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
@@ -100,14 +106,7 @@ pub fn add_lane_visuals(
         }
 
         let (lane_material, height) = graphs.display_style(associated_graphs);
-        let is_visible = should_display_lane(
-            edge,
-            associated_graphs,
-            &parents,
-            &levels,
-            &current_level,
-            &graphs,
-        );
+        let is_visible = should_display.edge(edge, associated_graphs);
 
         let start_anchor = anchors
             .point_in_parent_frame_of(edge.start(), Category::Lane, e)
@@ -184,7 +183,7 @@ pub fn add_lane_visuals(
         });
 
         commands
-            .insert(LaneSegments {
+            .insert(LaneSkeleton {
                 layer,
                 start,
                 mid,
@@ -204,7 +203,7 @@ pub fn add_lane_visuals(
 fn update_lane_visuals(
     entity: Entity,
     edge: &Edge<Entity>,
-    segments: &LaneSegments,
+    segments: &LaneSkeleton,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
 ) {
@@ -232,23 +231,19 @@ pub fn update_changed_lane(
             Entity,
             &Edge<Entity>,
             &AssociatedGraphs<Entity>,
-            &LaneSegments,
+            &LaneSkeleton,
             &mut Visibility,
         ),
         (Changed<Edge<Entity>>, Without<NavGraphMarker>),
     >,
     anchors: AnchorParams,
-    parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
-    graphs: GraphSelect,
+    should_display: ShouldDisplayGraph,
     mut transforms: Query<&mut Transform>,
-    current_level: Res<CurrentLevel>,
 ) {
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible =
-            should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
+        let is_visible = should_display.edge(edge, associated);
         if visibility.is_visible != is_visible {
             visibility.is_visible = is_visible;
         }
@@ -256,7 +251,7 @@ pub fn update_changed_lane(
 }
 
 pub fn update_lane_for_moved_anchor(
-    lanes: Query<(Entity, &Edge<Entity>, &LaneSegments)>,
+    lanes: Query<(Entity, &Edge<Entity>, &LaneSkeleton)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -301,17 +296,15 @@ pub fn update_visibility_for_lanes(
         (
             &Edge<Entity>,
             &AssociatedGraphs<Entity>,
-            &LaneSegments,
+            &LaneSkeleton,
             &mut Visibility,
         ),
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
-    parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
-    current_level: Res<CurrentLevel>,
+    should_display: ShouldDisplayGraph,
     graphs: GraphSelect,
     lanes_with_changed_association: Query<
-        (Entity, &AssociatedGraphs<Entity>, &LaneSegments),
+        (Entity, &AssociatedGraphs<Entity>, &LaneSkeleton),
         (With<LaneMarker>, Changed<AssociatedGraphs<Entity>>),
     >,
     mut materials: Query<&mut Handle<StandardMaterial>, Without<NavGraphMarker>>,
@@ -326,11 +319,10 @@ pub fn update_visibility_for_lanes(
     removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
-    let update_all = current_level.is_changed() || graph_change;
+    let update_all = should_display.current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let is_visible =
-                should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
+            let is_visible = should_display.edge(edge, associated);
             if visibility.is_visible != is_visible {
                 visibility.is_visible = is_visible;
             }
@@ -338,14 +330,7 @@ pub fn update_visibility_for_lanes(
     } else {
         for (e, _, _) in &lanes_with_changed_association {
             if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
-                let is_visible = should_display_lane(
-                    edge,
-                    associated,
-                    &parents,
-                    &levels,
-                    &current_level,
-                    &graphs,
-                );
+                let is_visible = should_display.edge(edge, associated);
                 if visibility.is_visible != is_visible {
                     visibility.is_visible = is_visible;
                 }

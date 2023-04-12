@@ -197,6 +197,26 @@ impl SiteAssetIo {
             "textures/global.png".to_owned(),
             include_bytes!("../../assets/textures/global.png").to_vec(),
         );
+        self.bundled_assets.insert(
+            "textures/compass/white/empty.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/white/empty.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/compass/white/single.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/white/single.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/compass/white/L.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/white/L.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/compass/white/triple.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/white/triple.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/compass/white/polar.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/white/polar.png").to_vec(),
+        );
     }
 }
 

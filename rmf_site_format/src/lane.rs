@@ -94,8 +94,9 @@ impl Recall for RecallMotion {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Default)]
 pub enum OrientationConstraint {
+    #[default]
     None,
     Forwards,
     Backwards,
@@ -130,12 +131,6 @@ impl OrientationConstraint {
             Self::RelativeYaw(_) => "Relative Yaw",
             Self::AbsoluteYaw(_) => "Absolute Yaw",
         }
-    }
-}
-
-impl Default for OrientationConstraint {
-    fn default() -> Self {
-        Self::None
     }
 }
 

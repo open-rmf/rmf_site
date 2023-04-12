@@ -389,6 +389,7 @@ impl BuildingMap {
                     ranking: Vec::new(),
                     lanes,
                     locations,
+                    passages: BTreeMap::new(),
                 },
             },
             agents: Default::default(),

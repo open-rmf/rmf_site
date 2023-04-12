@@ -226,6 +226,15 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 id_to_entity.insert(*location_id, location);
                 consider_id(*location_id);
             }
+
+            for (passage_id, passage_data) in &site_data.navigation.guided.passages {
+                let passage = site
+                    .spawn(passage_data.to_ecs(&id_to_entity))
+                    .insert(SiteID(*passage_id))
+                    .id();
+                id_to_entity.insert(*passage_id, passage);
+                consider_id(*passage_id);
+            }
         });
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

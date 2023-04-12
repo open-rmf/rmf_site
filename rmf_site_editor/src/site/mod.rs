@@ -66,6 +66,9 @@ pub use model::*;
 pub mod nav_graph;
 pub use nav_graph::*;
 
+pub mod passage;
+pub use passage::*;
+
 pub mod path;
 pub use path::*;
 
@@ -135,6 +138,7 @@ impl Plugin for SitePlugin {
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .insert_resource(FloorVisibility::default())
             .init_resource::<SiteAssets>()
+            .init_resource::<CompassTextures>()
             .init_resource::<SpawnedModels>()
             .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()

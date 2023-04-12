@@ -18,3 +18,23 @@
 pub fn is_default<T: Default + PartialEq>(v: &T) -> bool {
     *v == T::default()
 }
+
+pub fn float_one() -> f32 {
+    1.0
+}
+
+pub fn float_zero() -> f32 {
+    0.0
+}
+
+pub fn has_zero_overflow(overflow: &[i32; 2]) -> bool {
+    overflow[0] == 0 && overflow[1] == 0
+}
+
+pub fn is_zero(value: &f32) -> bool {
+    *value == 0.0
+}
+
+pub fn is_one(value: &f32) -> bool {
+    *value == 1.0
+}
