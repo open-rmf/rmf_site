@@ -24,7 +24,7 @@ use bevy_egui::{
     egui::{self, CollapsingHeader, RichText, FontId, Color32, Ui},
     EguiContext
 };
-use std::fmt;
+use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Copy, PartialEq)]
 pub enum LogCategory {
@@ -69,27 +69,50 @@ impl Default for Logs {
           log_history: Vec::new(),
           current_log: None,
           filter_category: LogCategory::All,
-          display_limit: 110,
+          display_limit: 100,
           show_full_history: false,
           category_count: vec![0; 3], // for Status, Warning, Error
       }
   }
 }
 
+pub trait FormatInput {
+    fn format_to_string(&self) -> String;
+}
+
+impl FormatInput for &str {
+    fn format_to_string(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl FormatInput for fmt::Arguments<'_> {
+    fn format_to_string(&self) -> String {
+        let mut s = String::new();
+        let ag = &self;
+        write!(&mut s, "{ag}");
+        s
+    }
+}
+
 impl Logs {
-    pub fn status(&mut self, msg: &str) {
+    pub fn status<T: FormatInput>(&mut self, args: T) {
+        let msg = args.format_to_string();
         self.append_log(LogCategory::Status, msg);
     }
 
-    pub fn hint(&mut self, msg: &str) {
+    pub fn hint<T: FormatInput>(&mut self, args: T) {
+        let msg = args.format_to_string();
         self.append_log(LogCategory::Hint, msg);
     }
 
-    pub fn warn(&mut self, msg: &str) {
+    pub fn warn<T: FormatInput>(&mut self, args: T) {
+        let msg = args.format_to_string();
         self.append_log(LogCategory::Warning, msg);
     }
 
-    pub fn err(&mut self, msg: &str) {
+    pub fn err<T: FormatInput>(&mut self, args: T) {
+        let msg = args.format_to_string();
         self.append_log(LogCategory::Error, msg);
     }
 
@@ -98,6 +121,7 @@ impl Logs {
 
         if self.filter_category == LogCategory::All {
             for log in &self.log_history {
+                output_string.push_str(&log.category.to_string());
                 output_string.push_str(&log.message);
                 output_string.push_str("\n");
             }
@@ -105,6 +129,7 @@ impl Logs {
         else {
             for log in &self.log_history {
                 if self.filter_category == log.category {
+                    output_string.push_str(&log.category.to_string());
                     output_string.push_str(&log.message);
                     output_string.push_str("\n");
                 }
@@ -149,11 +174,11 @@ impl Logs {
         &self.category_count
     }
 
-    fn append_log(&mut self, log_category: LogCategory, msg: &str) {
+    fn append_log(&mut self, log_category: LogCategory, msg: String) {
         println!("{}", msg);
         let new_log = Log {
             category: log_category,
-            message: String::from(msg),
+            message: msg,
         };
         self.current_log = Some(new_log.clone());
         if new_log.category != LogCategory::Hint {
