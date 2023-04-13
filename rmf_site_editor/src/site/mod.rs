@@ -235,10 +235,14 @@ impl Plugin for SitePlugin {
                     .with_system(update_floor_for_moved_anchors)
                     .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
+                    .with_system(add_passage_visuals)
                     .with_system(add_location_visuals)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
+                    .with_system(update_passage_visuals)
+                    .with_system(update_passage_for_changed_alignment)
+                    .with_system(update_visibility_for_passages)
                     .with_system(remove_association_for_deleted_graphs)
                     .with_system(
                         update_visibility_for_lanes.after(remove_association_for_deleted_graphs),

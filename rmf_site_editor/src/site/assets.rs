@@ -21,7 +21,7 @@ use bevy::{math::Affine3A, prelude::*};
 #[derive(Resource)]
 pub struct SiteAssets {
     pub lift_floor_material: Handle<StandardMaterial>,
-    pub lane_mid_mesh: Handle<Mesh>,
+    pub unit_square_flat_mesh: Handle<Mesh>,
     pub lane_mid_outline: Handle<Mesh>,
     pub lane_end_mesh: Handle<Mesh>,
     pub lane_end_outline: Handle<Mesh>,
@@ -156,7 +156,7 @@ impl FromWorld for SiteAssets {
                 Affine3A::from_translation([0.0, 0.0, 0.15 / 2.0].into()),
             )));
         let site_anchor_mesh = meshes.add(Mesh::from(make_cylinder(0.15, 0.15)));
-        let lane_mid_mesh = meshes.add(make_flat_square_mesh(1.0).into());
+        let unit_square_flat_mesh = meshes.add(make_flat_square_mesh(1.0).into());
         let lane_mid_outline = meshes.add(make_flat_rect_mesh(1.0, 1.125).into());
         let lane_end_mesh = meshes.add(
             make_flat_disk(
@@ -202,7 +202,7 @@ impl FromWorld for SiteAssets {
             lift_anchor_mesh,
             site_anchor_mesh,
             lift_floor_material,
-            lane_mid_mesh,
+            unit_square_flat_mesh,
             lane_mid_outline,
             lane_end_mesh,
             lane_end_outline,

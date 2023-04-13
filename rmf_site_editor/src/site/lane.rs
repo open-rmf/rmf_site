@@ -143,7 +143,7 @@ pub fn add_lane_visuals(
                 let start = start.id();
 
                 let mut mid = parent.spawn(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
+                    mesh: assets.unit_square_flat_mesh.clone(),
                     material: lane_material.clone(),
                     transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
                     ..default()
@@ -339,28 +339,28 @@ pub fn update_visibility_for_lanes(
     }
 
     if graph_change {
-        for (_, associated_graphs, segments, _) in &lanes {
+        for (_, associated_graphs, skeleton, _) in &lanes {
             let (mat, height) = graphs.display_style(associated_graphs);
-            for e in segments.iter() {
+            for e in skeleton.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = mat.clone();
                 }
             }
 
-            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
+            if let Ok(mut tf) = transforms.get_mut(skeleton.layer) {
                 tf.translation.z = height;
             }
         }
     } else {
-        for (_, associated_graphs, segments) in &lanes_with_changed_association {
+        for (_, associated_graphs, skeleton) in &lanes_with_changed_association {
             let (mat, height) = graphs.display_style(associated_graphs);
-            for e in segments.iter() {
+            for e in skeleton.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = mat.clone();
                 }
             }
 
-            if let Ok(mut tf) = transforms.get_mut(segments.layer) {
+            if let Ok(mut tf) = transforms.get_mut(skeleton.layer) {
                 tf.translation.z = height;
             }
         }

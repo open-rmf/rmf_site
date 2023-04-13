@@ -30,7 +30,7 @@ pub fn add_measurement_visuals(
         commands
             .entity(e)
             .insert(PbrBundle {
-                mesh: assets.lane_mid_mesh.clone(),
+                mesh: assets.unit_square_flat_mesh.clone(),
                 material: assets.measurement_material.clone(),
                 transform: line_stroke_transform(
                     &anchors

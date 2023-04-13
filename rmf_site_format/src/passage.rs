@@ -154,7 +154,7 @@ impl<T: RefTrait> From<Edge<T>> for Passage<T> {
             anchors: edge,
             alignment: PassageAlignment {
                 longitudinal: 0.0,
-                lateral: PassageLateralAlignment::Center(0.0),
+                lateral: PassageLateralAlignment::Left(0.0),
             },
             cells: PassageCells {
                 lanes: 1,

@@ -24,6 +24,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
     Door, Edge, Floor, Lane, LiftProperties, Location, Measurement, Path, Point, Side, Wall,
+    Passage,
 };
 use std::sync::Arc;
 
@@ -1141,6 +1142,15 @@ impl SelectAnchorEdgeBuilder {
         SelectAnchor {
             target: self.for_element,
             placement: EdgePlacement::new::<Lane<Entity>>(self.placement),
+            continuity: self.continuity,
+            scope: Scope::General,
+        }
+    }
+
+    pub fn for_passage(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: EdgePlacement::new::<Passage<Entity>>(self.placement),
             continuity: self.continuity,
             scope: Scope::General,
         }

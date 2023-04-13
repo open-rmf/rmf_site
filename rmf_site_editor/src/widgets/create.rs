@@ -32,6 +32,12 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
 
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
+            if ui.button("Passage").clicked() {
+                self.events.request.change_mode.send(ChangeMode::To(
+                    SelectAnchor::create_one_new_edge().for_passage().into(),
+                ));
+            }
+
             if ui.button("Lane").clicked() {
                 self.events.request.change_mode.send(ChangeMode::To(
                     SelectAnchor::create_new_edge_sequence().for_lane().into(),
