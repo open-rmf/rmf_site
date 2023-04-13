@@ -17,7 +17,6 @@
 
 use crate::{interaction::*, site::*};
 use bevy::prelude::*;
-use rmf_site_format::{Edge, LaneMarker};
 
 pub fn add_lane_visual_cues(
     mut commands: Commands,

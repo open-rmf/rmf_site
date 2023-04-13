@@ -1199,6 +1199,7 @@ impl SelectAnchorEdgeBuilder {
             Category::Wall => Some(self.for_wall()),
             Category::Door => Some(self.for_door()),
             Category::Lift => Some(self.for_lift()),
+            Category::Passage => Some(self.for_passage()),
             _ => None,
         }
     }

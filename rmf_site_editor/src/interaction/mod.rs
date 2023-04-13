@@ -50,6 +50,9 @@ pub use mode::*;
 pub mod outline;
 pub use outline::*;
 
+pub mod passage;
+pub use passage::*;
+
 pub mod path;
 pub use path::*;
 
@@ -153,6 +156,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
                     .with_system(remove_deleted_supports_from_visual_cues)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_passage_cell_visual_cues.after(maintain_selected_entities))
                     .with_system(update_edge_visual_cues.after(maintain_selected_entities))
                     .with_system(update_point_visual_cues.after(maintain_selected_entities))
                     .with_system(update_path_visual_cues.after(maintain_selected_entities))
@@ -179,6 +183,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_anchor_visual_cues)
                     .with_system(remove_interaction_for_subordinate_anchors)
                     .with_system(add_lane_visual_cues)
+                    .with_system(add_passage_cell_visual_cues)
                     .with_system(add_edge_visual_cues)
                     .with_system(add_point_visual_cues)
                     .with_system(add_path_visual_cues)

@@ -15,15 +15,8 @@
  *
 */
 
-use crate::{
-    site::*,
-    shapes::make_flat_square_mesh,
-};
-use bevy::{
-    ecs::system::EntityCommands,
-    math::Affine3A,
-    prelude::*
-};
+use crate::site::*;
+use bevy::prelude::*;
 use smallvec::SmallVec;
 
 pub const PASSAGE_LAYER_START: f32 = LANE_LAYER_LIMIT + 0.001;
@@ -121,6 +114,8 @@ pub struct CompassMaterials {
     capital_l: Handle<StandardMaterial>,
     polar: Handle<StandardMaterial>,
     triple: Handle<StandardMaterial>,
+    pub selected: Handle<StandardMaterial>,
+    pub hovered: Handle<StandardMaterial>,
 }
 
 impl CompassMaterials {
@@ -144,7 +139,23 @@ impl CompassMaterials {
         let polar = make_mat(textures.polar.clone());
         let triple = make_mat(textures.triple.clone());
 
-        Self { empty, single, capital_l, polar, triple }
+        let mut selected_color = color;
+        selected_color.set_a(0.2);
+        let selected = materials.add(StandardMaterial {
+            base_color: selected_color,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+
+        let mut hovered_color = color;
+        hovered_color.set_a(0.5);
+        let hovered = materials.add(StandardMaterial {
+            base_color: hovered_color,
+            alpha_mode: AlphaMode::Blend,
+            ..default()
+        });
+
+        Self { empty, single, capital_l, polar, triple, selected, hovered }
     }
 
     fn orient(&self, constraints: &CellConstraints) -> (f32, Handle<StandardMaterial>) {
@@ -251,7 +262,8 @@ fn create_passage_cells(
                     material,
                     ..default()
                 })
-                .insert(CellTag { coords: [row, column], for_passage });
+                .insert(CellTag { coords: [row, column], for_passage })
+                .insert(Category::PassageCell);
             }
         }
     });
@@ -291,16 +303,19 @@ fn update_passage_geometry(
             cells.constraints.get(&[row, column])
             .unwrap_or(&cells.default_constraints)
         );
+        let is_visible = new_rows[0] <= row && row < new_rows[1] && column < new_columns as i32;
 
         parent.spawn(PbrBundle {
             mesh: skeleton.mesh.clone(),
             transform: Transform::from_translation(Vec3::new(x, y, 0.0))
                 .with_rotation(Quat::from_axis_angle(Vec3::Z, yaw))
                 .with_scale(Vec3::splat(cells.cell_size)),
+            visibility: Visibility { is_visible },
             material,
             ..default()
         })
-        .insert(CellTag { coords: [row, column], for_passage });
+        .insert(CellTag { coords: [row, column], for_passage })
+        .insert(Category::PassageCell);
     };
 
     commands.entity(skeleton.cell_group).add_children(|parent| {
@@ -328,18 +343,14 @@ fn update_passage_geometry(
     if let Ok(children) = children.get(skeleton.cell_group) {
         for child in children {
             let Ok((cell, mut vis, mut mat, mut tf)) = q_cell.get_mut(*child) else { continue };
-            let [x, y] = cell.coords;
-            let visible = new_rows[0] <= x && x < new_rows[1] && y < new_columns as i32;
+            let [row, column] = cell.coords;
+            let visible = new_rows[0] <= row && row < new_rows[1] && column < new_columns as i32;
             if vis.is_visible != visible {
                 vis.is_visible = visible;
             }
 
-            if !vis.is_visible {
-                continue;
-            }
-
             let (new_yaw, new_material) = skeleton.compass.orient(
-                cells.constraints.get(&[x, y])
+                cells.constraints.get(&[row, column])
                 .unwrap_or(&cells.default_constraints)
             );
 
@@ -348,8 +359,13 @@ fn update_passage_geometry(
                 tf.rotation = orientation;
             }
 
-            if f32::abs(tf.scale[0] - cells.cell_size) > 1e-3 {
+            if f32::abs(tf.scale[0] - cells.cell_size) > 1e-6 {
+                dbg!(cells.cell_size);
                 tf.scale = Vec3::splat(cells.cell_size);
+                let x = cells.cell_size * (row as f32 + 0.5);
+                let y = cells.cell_size * (column as f32 + 0.5);
+                tf.translation.x = x;
+                tf.translation.y = y;
             }
 
             if mat.id() != new_material.id() {

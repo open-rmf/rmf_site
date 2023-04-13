@@ -80,7 +80,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
+    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID, CellTag},
     widgets::AppEvents,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -97,6 +97,12 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
     pub layer: InspectorLayerParams<'w, 's>,
+}
+
+#[derive(SystemParam)]
+pub struct PassageParams<'w, 's> {
+    pub params: Query<'w, 's, &'static PassageCells>,
+    pub cells: Query<'w, 's, &'static CellTag>,
 }
 
 // NOTE: We may need to split this struct into multiple structs if we ever need
@@ -120,8 +126,8 @@ pub struct InspectorComponentParams<'w, 's> {
     pub names: Query<'w, 's, &'static NameInSite>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
-    pub passages: Query<'w, 's, &'static PassageCells>,
     pub lifts: InspectLiftParams<'w, 's>,
+    pub passages: PassageParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
@@ -246,14 +252,26 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
-            if let Ok(cells) = self.params.component.passages.get(selection) {
-                if let Some(new_cells) = InspectPassage::new(cells, None).show(ui) {
+            if let Ok(params) = self.params.component.passages.params.get(selection) {
+                if let Some(new_params) = InspectPassage::new(params, None).show(ui) {
                     self.events
                         .change
                         .nav.passage_cells
-                        .send(Change::new(new_cells, selection));
+                        .send(Change::new(new_params, selection));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(cell_tag) = self.params.component.passages.cells.get(selection) {
+                if let Ok(params) = self.params.component.passages.params.get(cell_tag.for_passage) {
+                    if let Some(new_params) = InspectPassage::new(params, Some(cell_tag.coords)).show(ui) {
+                        self.events
+                            .change
+                            .nav.passage_cells
+                            .send(Change::new(new_params, cell_tag.for_passage));
+                    }
+                    ui.add_space(10.0);
+                }
             }
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
