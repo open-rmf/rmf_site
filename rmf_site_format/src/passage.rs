@@ -76,7 +76,7 @@ pub struct PassageCells {
     pub constraints: BTreeMap<[i32; 2], CellConstraints>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CellConstraints {
     #[serde(default, skip_serializing_if="CellTransition::is_unconstrained")]
     pub forward: CellTransition,
@@ -88,6 +88,17 @@ pub struct CellConstraints {
     pub right: CellTransition,
 }
 
+impl Default for CellConstraints {
+    fn default() -> Self {
+        Self {
+            forward: CellTransition::Unconstrained,
+            backward: CellTransition::Disabled,
+            left: CellTransition::Disabled,
+            right: CellTransition::Disabled,
+        }
+    }
+}
+
 impl CellConstraints {
     pub fn is_default(&self) -> bool {
         self.forward.is_unconstrained()
@@ -97,7 +108,7 @@ impl CellConstraints {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 pub enum CellTransition {
     #[default]
     Unconstrained,
@@ -111,7 +122,7 @@ impl CellTransition {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CellTransitionConstraint {
     /// The speed limit for agents making this cell transition.
     pub speed_limit: Option<f32>,
@@ -122,7 +133,7 @@ pub struct CellTransitionConstraint {
     pub orientation: OrientationConstraint,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct CellTransitionPenalty {
     /// Multiply the ordinary cost of the cell transition by this factor. It is
     /// recommended to only use values greater than or equal to 1.0.

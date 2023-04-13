@@ -258,19 +258,19 @@ impl FromWorld for CompassTextures {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let empty = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/compass/white/empty.png".to_owned()
+            "textures/compass/empty.png".to_owned()
         )));
         let single = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/compass/white/single.png".to_owned()
+            "textures/compass/single.png".to_owned()
         )));
         let capital_l = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/compass/white/L.png".to_owned()
+            "textures/compass/L.png".to_owned()
         )));
         let triple = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/compass/white/triple.png".to_owned()
+            "textures/compass/triple.png".to_owned()
         )));
         let polar = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/compass/white/polar.png".to_owned()
+            "textures/compass/polar.png".to_owned()
         )));
 
         Self { empty, single, capital_l, triple, polar }

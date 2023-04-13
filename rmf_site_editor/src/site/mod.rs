@@ -160,6 +160,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
+            .add_plugin(ChangePlugin::<PassageCells>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())

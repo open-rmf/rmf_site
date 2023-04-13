@@ -21,10 +21,10 @@ use bevy::{
     ecs::system::SystemParam,
 };
 
-pub const SELECTED_LANE_OFFSET: f32 = 0.001;
-pub const HOVERED_LANE_OFFSET: f32 = 0.002;
+pub const SELECTED_LANE_OFFSET: f32 = 0.002;
+pub const HOVERED_LANE_OFFSET: f32 = 0.003;
 pub const LANE_LAYER_START: f32 = FLOOR_LAYER_START + 0.001;
-pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + SELECTED_LANE_OFFSET;
+pub const LANE_LAYER_LIMIT: f32 = LANE_LAYER_START + 0.001;
 
 // TODO(MXG): Make this configurable, perhaps even a field in the Lane data
 // so users can customize the lane width per lane.
@@ -105,7 +105,7 @@ pub fn add_lane_visuals(
             }
         }
 
-        let (lane_material, height) = graphs.display_style(associated_graphs);
+        let (lane_material, height) = graphs.lane_display_style(associated_graphs);
         let is_visible = should_display.edge(edge, associated_graphs);
 
         let start_anchor = anchors
@@ -340,7 +340,7 @@ pub fn update_visibility_for_lanes(
 
     if graph_change {
         for (_, associated_graphs, skeleton, _) in &lanes {
-            let (mat, height) = graphs.display_style(associated_graphs);
+            let (mat, height) = graphs.lane_display_style(associated_graphs);
             for e in skeleton.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = mat.clone();
@@ -353,7 +353,7 @@ pub fn update_visibility_for_lanes(
         }
     } else {
         for (_, associated_graphs, skeleton) in &lanes_with_changed_association {
-            let (mat, height) = graphs.display_style(associated_graphs);
+            let (mat, height) = graphs.lane_display_style(associated_graphs);
             for e in skeleton.iter() {
                 if let Ok(mut m) = materials.get_mut(e) {
                     *m = mat.clone();

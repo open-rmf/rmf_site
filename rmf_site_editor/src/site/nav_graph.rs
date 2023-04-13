@@ -40,9 +40,25 @@ impl<'w, 's> GraphSelect<'w, 's> {
     // will have to wait until a future release where https://github.com/bevyengine/bevy/pull/7847
     // has been merged. It will also require the picking algorithm to be
     // sensitive to ranks.
+    pub fn lane_display_style(
+        &self,
+        associated_graphs: &AssociatedGraphs<Entity>,
+    ) -> (Handle<StandardMaterial>, f32) {
+        self.display_style(associated_graphs, LANE_LAYER_START, LANE_LAYER_LIMIT)
+    }
+
+    pub fn passage_display_style(
+        &self,
+        associated_graphs: &AssociatedGraphs<Entity>,
+    ) -> (Handle<StandardMaterial>, f32) {
+        self.display_style(associated_graphs, PASSAGE_LAYER_START, PASSAGE_LAYER_LIMIT)
+    }
+
     pub fn display_style(
         &self,
         associated_graphs: &AssociatedGraphs<Entity>,
+        start: f32,
+        stop: f32,
     ) -> (Handle<StandardMaterial>, f32) {
         match associated_graphs {
             AssociatedGraphs::All => self
@@ -79,12 +95,12 @@ impl<'w, 's> GraphSelect<'w, 's> {
         .map(|(m, d)| {
             (
                 m,
-                d.proportion() * (LANE_LAYER_LIMIT - LANE_LAYER_START) + LANE_LAYER_START,
+                d.proportion() * (stop - start) + start,
             )
         })
         .unwrap_or((
             self.assets.unassigned_lane_material.clone(),
-            LANE_LAYER_LIMIT,
+            stop,
         ))
     }
 

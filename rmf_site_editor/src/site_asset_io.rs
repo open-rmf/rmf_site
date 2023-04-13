@@ -198,24 +198,24 @@ impl SiteAssetIo {
             include_bytes!("../../assets/textures/global.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/compass/white/empty.png".to_owned(),
-            include_bytes!("../../assets/textures/compass/white/empty.png").to_vec(),
+            "textures/compass/empty.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/empty.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/compass/white/single.png".to_owned(),
-            include_bytes!("../../assets/textures/compass/white/single.png").to_vec(),
+            "textures/compass/single.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/single.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/compass/white/L.png".to_owned(),
-            include_bytes!("../../assets/textures/compass/white/L.png").to_vec(),
+            "textures/compass/L.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/L.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/compass/white/triple.png".to_owned(),
-            include_bytes!("../../assets/textures/compass/white/triple.png").to_vec(),
+            "textures/compass/triple.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/triple.png").to_vec(),
         );
         self.bundled_assets.insert(
-            "textures/compass/white/polar.png".to_owned(),
-            include_bytes!("../../assets/textures/compass/white/polar.png").to_vec(),
+            "textures/compass/polar.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/polar.png").to_vec(),
         );
     }
 }

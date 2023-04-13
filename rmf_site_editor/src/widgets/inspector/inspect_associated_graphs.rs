@@ -148,7 +148,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectAssociatedGraphsWidget<'a, 'w1, 's1, 'w2, 's
         if new_associated != *associated {
             self.events
                 .change
-                .associated_graphs
+                .nav.associated_graphs
                 .send(Change::new(new_associated, self.entity));
         }
 

@@ -26,6 +26,9 @@ use bevy::{
 };
 use smallvec::SmallVec;
 
+pub const PASSAGE_LAYER_START: f32 = LANE_LAYER_LIMIT + 0.001;
+pub const PASSAGE_LAYER_LIMIT: f32 = PASSAGE_LAYER_START + 0.001;
+
 #[derive(Component)]
 pub struct PassageSkeleton {
     pub cell_group: Entity,
@@ -109,10 +112,9 @@ fn compute_passage_frame_transform(
     .with_rotation(Quat::from_axis_angle(Vec3::Z, yaw))
 }
 
-// TODO(@mxgrey): We could potentially share these across many passages instead
-// of recreating them per passage if we linked it to the nav graph instead of
-// storing them in the PassageSkeleton. That would align better with how lane
-// materials work.
+// TODO(@mxgrey): We need to linked this to the nav graph instead of
+// storing them in the PassageSkeleton so that their colors can be automatically
+// updated correctly.
 pub struct CompassMaterials {
     empty: Handle<StandardMaterial>,
     single: Handle<StandardMaterial>,
@@ -131,6 +133,7 @@ impl CompassMaterials {
             materials.add(StandardMaterial {
                 base_color: color,
                 base_color_texture: Some(texture),
+                alpha_mode: AlphaMode::Blend,
                 ..default()
             })
         };
@@ -158,13 +161,13 @@ impl CompassMaterials {
         let (v, mat) = if dirs.len() >= 4 {
             return (0.0, self.empty.clone());
         } else if dirs.len() == 3 {
-            if dirs[0].dot(dirs[1]) < 1e-3 {
+            if dirs[0].dot(dirs[1]).abs() < 1e-3 {
                 (dirs[0], self.triple.clone())
             } else {
                 (dirs[2], self.triple.clone())
             }
         } else if dirs.len() == 2 {
-            if dirs[0].dot(dirs[1]) < 1e-3 {
+            if dirs[0].dot(dirs[1]) < -0.1 {
                 (dirs[0], self.polar.clone())
             } else if dirs[0].cross(dirs[1]).z > 0.0 {
                 (dirs[1], self.capital_l.clone())
@@ -180,6 +183,7 @@ impl CompassMaterials {
         };
 
         let yaw = f32::atan2(v.y, v.x);
+        // (yaw, mat)
         (yaw, mat)
     }
 
@@ -223,7 +227,7 @@ fn create_passage_cells(
         return PassageSkeleton::empty(entity_commands.id(), mesh.clone(), compass);
     }
 
-    let columns = usize::min(cells.lanes, 1);
+    let columns = usize::max(cells.lanes, 1);
     let rows = [
         -cells.overflow[0],
         i32::max((length / cells.cell_size) as i32 + cells.overflow[1], 1),
@@ -274,7 +278,7 @@ fn update_passage_geometry(
         return transform;
     }
 
-    let new_columns = usize::min(cells.lanes, 1);
+    let new_columns = usize::max(cells.lanes, 1);
     let new_rows = [
         -cells.overflow[0],
         i32::max((length / cells.cell_size) as i32 + cells.overflow[1], 1),
@@ -321,37 +325,35 @@ fn update_passage_geometry(
         }
     });
 
-    if new_rows != skeleton.rows || new_columns != skeleton.columns {
-        if let Ok(children) = children.get(skeleton.cell_group) {
-            for child in children {
-                let Ok((cell, mut vis, mut mat, mut tf)) = q_cell.get_mut(*child) else { continue };
-                let [x, y] = cell.coords;
-                let visible = new_rows[0] <= x && x < new_rows[1] && y < new_columns as i32;
-                if vis.is_visible != visible {
-                    vis.is_visible = visible;
-                }
+    if let Ok(children) = children.get(skeleton.cell_group) {
+        for child in children {
+            let Ok((cell, mut vis, mut mat, mut tf)) = q_cell.get_mut(*child) else { continue };
+            let [x, y] = cell.coords;
+            let visible = new_rows[0] <= x && x < new_rows[1] && y < new_columns as i32;
+            if vis.is_visible != visible {
+                vis.is_visible = visible;
+            }
 
-                if !vis.is_visible {
-                    continue;
-                }
+            if !vis.is_visible {
+                continue;
+            }
 
-                let (new_yaw, new_material) = skeleton.compass.orient(
-                    cells.constraints.get(&[x, y])
-                    .unwrap_or(&cells.default_constraints)
-                );
+            let (new_yaw, new_material) = skeleton.compass.orient(
+                cells.constraints.get(&[x, y])
+                .unwrap_or(&cells.default_constraints)
+            );
 
-                let orientation = Quat::from_axis_angle(Vec3::Z, new_yaw);
-                if tf.rotation.angle_between(orientation) > 1e-2 {
-                    tf.rotation = orientation;
-                }
+            let orientation = Quat::from_axis_angle(Vec3::Z, new_yaw);
+            if tf.rotation.angle_between(orientation) > 1e-2 {
+                tf.rotation = orientation;
+            }
 
-                if f32::abs(tf.scale[0] - cells.cell_size) > 1e-3 {
-                    tf.scale = Vec3::splat(cells.cell_size);
-                }
+            if f32::abs(tf.scale[0] - cells.cell_size) > 1e-3 {
+                tf.scale = Vec3::splat(cells.cell_size);
+            }
 
-                if mat.id() != new_material.id() {
-                    *mat = new_material;
-                }
+            if mat.id() != new_material.id() {
+                *mat = new_material;
             }
         }
     }
@@ -388,7 +390,7 @@ pub fn add_passage_visuals(
             }
         }
 
-        let (graph_material, height) = graphs.display_style(associated_graphs);
+        let (graph_material, height) = graphs.passage_display_style(associated_graphs);
         let is_visible = should_display.edge(edge, associated_graphs);
 
         let start_anchor = anchors
@@ -554,7 +556,7 @@ pub fn update_visibility_for_passages(
 
     if graph_change {
         for (_, associated_graphs, skeleton, _) in &mut passages {
-            let (mat, height) = should_display.graphs.display_style(associated_graphs);
+            let (mat, height) = should_display.graphs.passage_display_style(associated_graphs);
             update_cell_material(
                 skeleton,
                 &mat,
@@ -568,7 +570,7 @@ pub fn update_visibility_for_passages(
     } else {
         for e in &passages_with_changed_association {
             let Ok((_, associated_graphs, skeleton, _)) = passages.get_mut(e) else { continue };
-            let (mat, height) = should_display.graphs.display_style(associated_graphs);
+            let (mat, height) = should_display.graphs.passage_display_style(associated_graphs);
             update_cell_material(
                 skeleton,
                 &mat,

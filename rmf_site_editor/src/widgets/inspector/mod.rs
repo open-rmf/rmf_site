@@ -60,6 +60,9 @@ pub use inspect_name::*;
 pub mod inspect_option_f32;
 pub use inspect_option_f32::*;
 
+pub mod inspect_passage;
+pub use inspect_passage::*;
+
 pub mod inspect_physical_camera_properties;
 pub use inspect_physical_camera_properties::*;
 
@@ -117,6 +120,7 @@ pub struct InspectorComponentParams<'w, 's> {
     pub names: Query<'w, 's, &'static NameInSite>,
     pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
+    pub passages: Query<'w, 's, &'static PassageCells>,
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
@@ -237,9 +241,19 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 {
                     self.events
                         .change
-                        .location_tags
+                        .nav.location_tags
                         .send(Change::new(new_tags, selection));
                 }
+            }
+
+            if let Ok(cells) = self.params.component.passages.get(selection) {
+                if let Some(new_cells) = InspectPassage::new(cells, None).show(ui) {
+                    self.events
+                        .change
+                        .nav.passage_cells
+                        .send(Change::new(new_cells, selection));
+                }
+                ui.add_space(10.0);
             }
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
@@ -247,7 +261,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
                     self.events
                         .change
-                        .lane_motion
+                        .nav.motion
                         .send(Change::new(new_motion, selection));
                 }
                 ui.add_space(10.0);
@@ -259,7 +273,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     if let Some(new_reverse) = InspectReverseWidget::new(reverse, recall).show(ui) {
                         self.events
                             .change
-                            .lane_reverse
+                            .nav.reverse
                             .send(Change::new(new_reverse, selection));
                     }
                 });

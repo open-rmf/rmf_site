@@ -91,9 +91,17 @@ impl Plugin for StandardUiLayout {
 }
 
 #[derive(SystemParam)]
+pub struct NavChangeEvents<'w, 's> {
+    pub motion: EventWriter<'w, 's, Change<Motion>>,
+    pub reverse: EventWriter<'w, 's, Change<ReverseLane>>,
+    pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
+    pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
+    pub passage_cells: EventWriter<'w, 's, Change<PassageCells>>,
+}
+
+#[derive(SystemParam)]
 pub struct ChangeEvents<'w, 's> {
-    pub lane_motion: EventWriter<'w, 's, Change<Motion>>,
-    pub lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
+    pub nav: NavChangeEvents<'w, 's>,
     pub name: EventWriter<'w, 's, Change<NameInSite>>,
     pub label: EventWriter<'w, 's, Change<Label>>,
     pub pose: EventWriter<'w, 's, Change<Pose>>,
@@ -106,8 +114,6 @@ pub struct ChangeEvents<'w, 's> {
     pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
     pub color: EventWriter<'w, 's, Change<DisplayColor>>,
     pub visibility: EventWriter<'w, 's, Change<Visibility>>,
-    pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
-    pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
 }
 
 #[derive(SystemParam)]
