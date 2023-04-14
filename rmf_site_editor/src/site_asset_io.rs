@@ -113,10 +113,11 @@ impl SiteAssetIo {
     }
 
     fn generate_remote_asset_url(&self, name: &String) -> Result<String, AssetIoError> {
-        // Expected format:  OrgName/ModelName.glb
+        // Expected format: OrgName/ModelName/FileName.ext
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
-        let name_no_suffix = match name.strip_suffix(".glb") {
+        let name_buf  = PathBuf::from(name);
+        let filename = match name_buf.file_name().and_then(|f| f.to_str()) {
             Some(s) => s,
             None => {
                 return Err(AssetIoError::Io(io::Error::new(
@@ -125,7 +126,8 @@ impl SiteAssetIo {
                 )));
             }
         };
-        let mut tokens = name_no_suffix.split("/");
+        let binding = name.clone();
+        let mut tokens = binding.split("/");
         let org_name = match tokens.next() {
             Some(token) => token,
             None => {
@@ -144,9 +146,11 @@ impl SiteAssetIo {
                 )));
             }
         };
+        let binding = PathBuf::from(model_name);
+        let model_name = binding.file_stem().unwrap().to_str().unwrap();
         let uri = format!(
-            "{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
-            FUEL_BASE_URI, org_name, model_name
+            "{0}/{1}/models/{2}/tip/files/meshes/{3}",
+            FUEL_BASE_URI, org_name, model_name, filename
         );
         return Ok(uri);
     }
@@ -256,7 +260,7 @@ impl AssetIo for SiteAssetIo {
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
-                // TODO checking whether it's an sdf folder or a glb file
+                // TODO checking whether it's an sdf folder or a obj file
                 match self.get_path_from_env() {
                     Ok(mut path) => {
                         // Check if file exists
@@ -347,6 +351,7 @@ impl Plugin for SiteAssetIoPlugin {
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io))
             .add_plugin(bevy_stl::StlPlugin)
+            .add_plugin(bevy_obj::ObjPlugin)
             .add_plugin(UrdfPlugin);
     }
 }

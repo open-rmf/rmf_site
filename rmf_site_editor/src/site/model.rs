@@ -86,7 +86,8 @@ pub fn update_model_scenes(
                 }
             }
             AssetSource::Search(name) => {
-                AssetSource::Search(name.to_owned() + &".glb#Scene0".to_string())
+                let model_name = name.split('/').last().unwrap();
+                AssetSource::Search(name.to_owned() + "/" + model_name + &".obj".to_string())
             }
             AssetSource::Bundled(name) => {
                 AssetSource::Bundled(name.to_owned() + &".glb#Scene0".to_string())

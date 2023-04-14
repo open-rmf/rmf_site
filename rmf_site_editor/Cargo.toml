@@ -18,6 +18,8 @@ bevy_mod_raycast = "0.7"
 bevy_mod_outline = "0.3.3"
 bevy_infinite_grid = "0.6"
 bevy_stl = "0.7.0"
+#bevy_obj = { path = "../../bevy_obj", features = ["scene"] }
+bevy_obj = { git = "https://github.com/luca-della-vedova/bevy_obj", branch = "luca/scene_0.9", features = ["scene"]}
 bevy_rapier3d = "0.20.0"
 crossbeam-channel = "0.5.0"
 smallvec = "*"

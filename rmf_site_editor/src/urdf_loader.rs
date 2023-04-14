@@ -29,15 +29,11 @@ impl Plugin for UrdfPlugin {
     fn build(&self, app: &mut App) {
         app.init_asset_loader::<UrdfLoader>()
             .add_asset::<UrdfRoot>();
-        //.init_asset_loader::<XacroLoader>();
     }
 }
 
 #[derive(Default)]
 struct UrdfLoader;
-
-#[derive(Default)]
-struct XacroLoader;
 
 impl AssetLoader for UrdfLoader {
     fn load<'a>(
@@ -50,21 +46,6 @@ impl AssetLoader for UrdfLoader {
 
     fn extensions(&self) -> &[&str] {
         static EXTENSIONS: &[&str] = &["urdf"];
-        EXTENSIONS
-    }
-}
-
-impl AssetLoader for XacroLoader {
-    fn load<'a>(
-        &'a self,
-        bytes: &'a [u8],
-        load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), bevy::asset::Error>> {
-        Box::pin(async move { Ok(load_xacro(bytes, load_context).await?) })
-    }
-
-    fn extensions(&self) -> &[&str] {
-        static EXTENSIONS: &[&str] = &["xacro"];
         EXTENSIONS
     }
 }
@@ -89,12 +70,4 @@ async fn load_urdf<'a, 'b>(
     } else {
         return Err(UrdfError::ParsingError);
     }
-}
-
-// TODO(luca) write to a tempfile then call the urdf-rs xacro utility to get the urdf
-async fn load_xacro<'a, 'b>(
-    bytes: &'a [u8],
-    load_context: &'a mut LoadContext<'b>,
-) -> Result<(), UrdfError> {
-    return Err(UrdfError::ParsingError);
 }
