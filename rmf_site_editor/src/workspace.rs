@@ -15,10 +15,7 @@
  *
 */
 
-use bevy::{
-    prelude::*,
-    tasks::AsyncComputeTaskPool,
-};
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
 use std::path::PathBuf;
 
@@ -30,7 +27,6 @@ use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
-
 
 /// Used as an event to command that a new workspace should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -97,7 +93,7 @@ pub struct LoadWorkspaceChannels {
 impl Default for LoadWorkspaceChannels {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
-        Self {sender, receiver}
+        Self { sender, receiver }
     }
 }
 
@@ -171,15 +167,21 @@ pub fn dispatch_load_workspace_events(
         match cmd {
             LoadWorkspace::Dialog => {
                 let sender = load_channels.sender.clone();
-                AsyncComputeTaskPool::get().spawn(async move {
-                    if let Some(file) = AsyncFileDialog::new().pick_file().await {
-                        let data = file.read().await;
-                        #[cfg(not(target_arch = "wasm32"))]
-                        sender.send(LoadWorkspaceFile(file.path().to_path_buf(), data)).expect("Failed sending file event");
-                        #[cfg(target_arch = "wasm32")]
-                        sender.send(LoadWorkspaceFile(PathBuf::from(file.file_name()), data)).expect("Failed sending file event");
-                    }
-                }).detach();
+                AsyncComputeTaskPool::get()
+                    .spawn(async move {
+                        if let Some(file) = AsyncFileDialog::new().pick_file().await {
+                            let data = file.read().await;
+                            #[cfg(not(target_arch = "wasm32"))]
+                            sender
+                                .send(LoadWorkspaceFile(file.path().to_path_buf(), data))
+                                .expect("Failed sending file event");
+                            #[cfg(target_arch = "wasm32")]
+                            sender
+                                .send(LoadWorkspaceFile(PathBuf::from(file.file_name()), data))
+                                .expect("Failed sending file event");
+                        }
+                    })
+                    .detach();
             }
             LoadWorkspace::Path(path) => {
                 if let Some(data) = std::fs::read(&path)

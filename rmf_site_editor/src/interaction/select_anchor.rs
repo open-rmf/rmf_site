@@ -2051,7 +2051,9 @@ fn compute_parent_inverse_pose(
 
     let inv_tf = parent_tf.affine().inverse();
     let goal_tf = tf.affine();
-    Pose::default().align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
+    let mut pose = Pose::default();
+    pose.rot = pose.rot.as_euler_extrinsic_xyz();
+    pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
 }
 
 fn find_mesh_element(

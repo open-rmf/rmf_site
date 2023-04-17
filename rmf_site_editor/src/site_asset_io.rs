@@ -116,7 +116,7 @@ impl SiteAssetIo {
         // Expected format: OrgName/ModelName/FileName.ext
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
-        let name_buf  = PathBuf::from(name);
+        let name_buf = PathBuf::from(name);
         let filename = match name_buf.file_name().and_then(|f| f.to_str()) {
             Some(s) => s,
             None => {

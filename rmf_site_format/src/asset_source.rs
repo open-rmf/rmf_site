@@ -64,25 +64,15 @@ impl From<&Path> for AssetSource {
 impl From<&String> for AssetSource {
     fn from(path: &String) -> Self {
         // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
-        if let Some(path) = path
-            .strip_prefix("rmf-server://").map(|p| p.to_string())
-        {
+        if let Some(path) = path.strip_prefix("rmf-server://").map(|p| p.to_string()) {
             return AssetSource::Remote(path);
-        } else if let Some(path) = path
-            .strip_prefix("file://").map(|p| p.to_string())
-        {
+        } else if let Some(path) = path.strip_prefix("file://").map(|p| p.to_string()) {
             return AssetSource::Local(path);
-        } else if let Some(path) = path
-            .strip_prefix("search://").map(|p| p.to_string())
-        {
+        } else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
             return AssetSource::Search(path);
-        } else if let Some(path) = path
-            .strip_prefix("bundled://").map(|p| p.to_string())
-        {
+        } else if let Some(path) = path.strip_prefix("bundled://").map(|p| p.to_string()) {
             return AssetSource::Bundled(path);
-        } else if let Some(path) = path
-            .strip_prefix("package://").map(|p| p.to_string())
-        {
+        } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
         }
         AssetSource::default()
