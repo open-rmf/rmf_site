@@ -15,14 +15,11 @@
  *
 */
 
-use crate::{
-    site::*,
-    widgets::AppEvents,
-};
+use crate::{site::*, widgets::AppEvents};
 use bevy::prelude::*;
 use bevy_egui::{
-    egui::{self, CollapsingHeader, RichText, FontId, Color32, Ui},
-    EguiContext
+    egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
+    EguiContext,
 };
 use std::fmt::{self, Write};
 
@@ -49,8 +46,8 @@ impl fmt::Display for LogCategory {
 
 #[derive(Debug, Clone, Component)]
 pub struct Log {
-  pub category: LogCategory,
-  pub message: String,
+    pub category: LogCategory,
+    pub message: String,
 }
 
 #[derive(Resource)]
@@ -64,16 +61,16 @@ pub struct Logs {
 }
 
 impl Default for Logs {
-  fn default() -> Self {
-      Self {
-          log_history: Vec::new(),
-          current_log: None,
-          filter_category: LogCategory::All,
-          display_limit: 100,
-          show_full_history: false,
-          category_count: vec![0; 3], // for Status, Warning, Error
-      }
-  }
+    fn default() -> Self {
+        Self {
+            log_history: Vec::new(),
+            current_log: None,
+            filter_category: LogCategory::All,
+            display_limit: 100,
+            show_full_history: false,
+            category_count: vec![0; 3], // for Status, Warning, Error
+        }
+    }
 }
 
 pub trait FormatInput {
@@ -125,8 +122,7 @@ impl Logs {
                 output_string.push_str(&log.message);
                 output_string.push_str("\n");
             }
-        }
-        else {
+        } else {
             for log in &self.log_history {
                 if self.filter_category == log.category {
                     output_string.push_str(&log.category.to_string());
@@ -201,7 +197,10 @@ fn print_log(ui: &mut egui::Ui, log: &Log) {
         };
         ui.label(RichText::new(log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
-        if ui.selectable_label(false, log.message.to_string()).clicked() {
+        if ui
+            .selectable_label(false, log.message.to_string())
+            .clicked()
+        {
             ui.output().copied_text = log.category.to_string() + &log.message;
         }
     });
@@ -209,9 +208,9 @@ fn print_log(ui: &mut egui::Ui, log: &Log) {
 
 pub struct ConsoleWidget<'a, 'w2, 's2> {
     events: &'a mut AppEvents<'w2, 's2>,
-    }
+}
 
-    impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
+impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
     pub fn new(events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { events }
     }
@@ -238,17 +237,36 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                             ui.style_mut().wrap = Some(false);
                             ui.set_min_width(40.0);
                             // Intentionally left out Hint logs as they shouldn't be saved to the log history
-                            ui.selectable_value(self.events.display.logs.set_filter(), LogCategory::All, "All");
-                            ui.selectable_value(self.events.display.logs.set_filter(), LogCategory::Status, "Status");
-                            ui.selectable_value(self.events.display.logs.set_filter(), LogCategory::Warning, "Warning");
-                            ui.selectable_value(self.events.display.logs.set_filter(), LogCategory::Error, "Error");
+                            ui.selectable_value(
+                                self.events.display.logs.set_filter(),
+                                LogCategory::All,
+                                "All",
+                            );
+                            ui.selectable_value(
+                                self.events.display.logs.set_filter(),
+                                LogCategory::Status,
+                                "Status",
+                            );
+                            ui.selectable_value(
+                                self.events.display.logs.set_filter(),
+                                LogCategory::Warning,
+                                "Warning",
+                            );
+                            ui.selectable_value(
+                                self.events.display.logs.set_filter(),
+                                LogCategory::Error,
+                                "Error",
+                            );
                         });
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
                         ui.output().copied_text = self.events.display.logs.copy_log_history();
                     };
                     // Slider to adjust display limit
-                    ui.add(egui::Slider::new(self.events.display.logs.set_display_limit(), 10..=1000));
+                    ui.add(egui::Slider::new(
+                        self.events.display.logs.set_display_limit(),
+                        10..=1000,
+                    ));
                 });
                 ui.add_space(10.);
 
@@ -256,7 +274,6 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                     .auto_shrink([false, false])
                     .stick_to_bottom(true)
                     .show(ui, |ui| {
-
                         // Show all entries
                         if *self.events.display.logs.get_show_all() {
                             // Display entries
@@ -273,7 +290,9 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                                 }
                             }
                             // See Less button if there are too many entries
-                            if self.events.display.logs.get_log_history().len() > *self.events.display.logs.get_display_limit() {
+                            if self.events.display.logs.get_log_history().len()
+                                > *self.events.display.logs.get_display_limit()
+                            {
                                 ui.add_space(5.0);
                                 if ui.button("See Less").clicked() {
                                     // toggle to show less
@@ -281,21 +300,25 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                                 }
                             }
                         }
-
                         // Show only limited entries
                         else {
                             // Display x entries from all categories
                             if self.events.display.logs.get_filter() == &LogCategory::All {
                                 // Full log history within limit, display full log history
-                                if self.events.display.logs.get_log_history().len() < *self.events.display.logs.get_display_limit() {
+                                if self.events.display.logs.get_log_history().len()
+                                    < *self.events.display.logs.get_display_limit()
+                                {
                                     for log in self.events.display.logs.get_log_history() {
                                         print_log(ui, log);
                                     }
                                 }
                                 // Full log history exceeds the limit, display last xx entries
                                 else {
-                                    let start_idx = self.events.display.logs.get_log_history().len() - self.events.display.logs.get_display_limit();
-                                    let logs_slice = &self.events.display.logs.get_log_history()[start_idx..];
+                                    let start_idx =
+                                        self.events.display.logs.get_log_history().len()
+                                            - self.events.display.logs.get_display_limit();
+                                    let logs_slice =
+                                        &self.events.display.logs.get_log_history()[start_idx..];
                                     for log in logs_slice {
                                         print_log(ui, log);
                                     }
@@ -309,7 +332,8 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                             }
                             // Display x entries from selected category
                             else {
-                                let count = self.events.display.logs.get_category_count()[*self.events.display.logs.get_filter() as usize];
+                                let count = self.events.display.logs.get_category_count()
+                                    [*self.events.display.logs.get_filter() as usize];
                                 // Total entries from selected category doesn't exceed limit, display all entries
                                 if count < *self.events.display.logs.get_display_limit() {
                                     for log in self.events.display.logs.get_log_history() {
@@ -321,10 +345,13 @@ pub struct ConsoleWidget<'a, 'w2, 's2> {
                                 // Total entries from selected category exceeds limit, display last x entries
                                 else {
                                     let mut n: usize = 0;
-                                    let start_idx = count - self.events.display.logs.get_display_limit();
+                                    let start_idx =
+                                        count - self.events.display.logs.get_display_limit();
                                     for log in self.events.display.logs.get_log_history() {
                                         // Only display logs from start index onwards
-                                        if (self.events.display.logs.get_filter() == &log.category) && n >= start_idx {
+                                        if (self.events.display.logs.get_filter() == &log.category)
+                                            && n >= start_idx
+                                        {
                                             print_log(ui, log);
                                         }
                                         n += 1;

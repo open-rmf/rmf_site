@@ -229,7 +229,7 @@ fn standard_ui_layout(
                 });
         });
 
-        egui::TopBottomPanel::bottom("log_console")
+    egui::TopBottomPanel::bottom("log_console")
         .resizable(true)
         .min_height(30.)
         .max_height(300.)
