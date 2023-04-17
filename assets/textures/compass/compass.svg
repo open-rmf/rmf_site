@@ -7,7 +7,7 @@
    viewBox="0 0 256 256.00001"
    version="1.1"
    id="svg5"
-   inkscape:export-filename="/yui/projects/site/src/rmf_site/assets/textures/compass/L.png"
+   inkscape:export-filename="/yui/projects/site/src/rmf_site/assets/textures/compass/dot.png"
    inkscape:export-xdpi="390"
    inkscape:export-ydpi="390"
    inkscape:version="1.1.2 (0a00cf5339, 2022-02-04)"
@@ -35,8 +35,8 @@
      inkscape:object-paths="true"
      inkscape:snap-intersection-paths="true"
      inkscape:zoom="4"
-     inkscape:cx="81.5"
-     inkscape:cy="128.125"
+     inkscape:cx="101"
+     inkscape:cy="126.875"
      inkscape:window-width="3766"
      inkscape:window-height="2096"
      inkscape:window-x="0"
@@ -312,7 +312,7 @@
      inkscape:groupmode="layer"
      id="layer3"
      inkscape:label="West Stroke"
-     style="display:none"
+     style="display:inline"
      sodipodi:insensitive="true">
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:#000000;stroke-width:3;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -334,7 +334,7 @@
      inkscape:groupmode="layer"
      id="layer2"
      inkscape:label="North Stroke"
-     style="display:none"
+     style="display:inline"
      sodipodi:insensitive="true">
     <path
        style="fill:none;stroke:#000000;stroke-width:3;stroke-linecap:butt;stroke-linejoin:round;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -369,7 +369,7 @@
      inkscape:groupmode="layer"
      id="g4237"
      inkscape:label="West Fill"
-     style="display:none"
+     style="display:inline"
      sodipodi:insensitive="true">
     <path
        style="fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1.00157;stroke-linecap:butt;stroke-linejoin:miter;stroke-miterlimit:4;stroke-dasharray:none;stroke-opacity:1"
@@ -391,7 +391,7 @@
      inkscape:groupmode="layer"
      id="g4245"
      inkscape:label="North Fill"
-     style="display:none"
+     style="display:inline"
      sodipodi:insensitive="true">
     <path
        style="display:inline;fill:#ffffff;fill-opacity:1;stroke:none;stroke-width:1px;stroke-linecap:butt;stroke-linejoin:miter;stroke-opacity:1"

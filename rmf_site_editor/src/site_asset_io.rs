@@ -217,6 +217,10 @@ impl SiteAssetIo {
             "textures/compass/polar.png".to_owned(),
             include_bytes!("../../assets/textures/compass/polar.png").to_vec(),
         );
+        self.bundled_assets.insert(
+            "textures/compass/dot.png".to_owned(),
+            include_bytes!("../../assets/textures/compass/dot.png").to_vec(),
+        );
     }
 }
 

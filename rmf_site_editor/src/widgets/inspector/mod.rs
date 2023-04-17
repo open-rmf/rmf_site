@@ -171,6 +171,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
     pub fn show(mut self, ui: &mut Ui) {
         if let Some(selection) = self.params.selection.0 {
+
+            // Generalize this to work for other types of sub-object selection
+            let (selection, cell_tag) = if let Ok(cell_tag) = self.params.component.passages.cells.get(selection) {
+                (cell_tag.for_passage, Some(cell_tag))
+            } else {
+                (selection, None)
+            };
+
             self.heading(selection, ui);
             if self.params.anchor_params.anchors.contains(selection) {
                 ui.horizontal(|ui| {
@@ -253,25 +261,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok(params) = self.params.component.passages.params.get(selection) {
-                if let Some(new_params) = InspectPassage::new(params, None).show(ui) {
+                if let Some(new_params) = InspectPassage::new(params, cell_tag.map(|c| c.coords)).show(ui) {
                     self.events
                         .change
                         .nav.passage_cells
                         .send(Change::new(new_params, selection));
                 }
                 ui.add_space(10.0);
-            }
-
-            if let Ok(cell_tag) = self.params.component.passages.cells.get(selection) {
-                if let Ok(params) = self.params.component.passages.params.get(cell_tag.for_passage) {
-                    if let Some(new_params) = InspectPassage::new(params, Some(cell_tag.coords)).show(ui) {
-                        self.events
-                            .change
-                            .nav.passage_cells
-                            .send(Change::new(new_params, cell_tag.for_passage));
-                    }
-                    ui.add_space(10.0);
-                }
             }
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {

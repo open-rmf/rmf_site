@@ -33,6 +33,11 @@ pub struct PreventDeletion {
     pub reason: Option<String>,
 }
 
+/// When a deletion is requested for an entity with this component, the deletion
+/// request is redirected to another entity.
+#[derive(Component, Debug, Clone, Copy)]
+pub struct RedirectDeletion(pub Entity);
+
 impl PreventDeletion {
     pub fn because(reason: String) -> Self {
         PreventDeletion {
@@ -99,12 +104,17 @@ impl Plugin for DeletionPlugin {
     }
 }
 
-fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: DeletionParams) {
+fn handle_deletion_requests(
+    mut deletions: EventReader<Delete>,
+    mut params: DeletionParams,
+    redirect: Query<&RedirectDeletion>,
+) {
     for delete in deletions.iter() {
+        let target = redirect.get(delete.element).map(|r| r.0).unwrap_or(delete.element);
         if delete.and_dependents {
-            recursive_dependent_delete(delete.element, &mut params);
+            recursive_dependent_delete(target, &mut params);
         } else {
-            cautious_delete(delete.element, &mut params);
+            cautious_delete(target, &mut params);
         }
     }
 }

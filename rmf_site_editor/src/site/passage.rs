@@ -114,6 +114,7 @@ pub struct CompassMaterials {
     capital_l: Handle<StandardMaterial>,
     polar: Handle<StandardMaterial>,
     triple: Handle<StandardMaterial>,
+    dot: Handle<StandardMaterial>,
     pub selected: Handle<StandardMaterial>,
     pub hovered: Handle<StandardMaterial>,
 }
@@ -138,6 +139,7 @@ impl CompassMaterials {
         let capital_l = make_mat(textures.capital_l.clone());
         let polar = make_mat(textures.polar.clone());
         let triple = make_mat(textures.triple.clone());
+        let dot = make_mat(textures.dot.clone());
 
         let mut selected_color = color;
         selected_color.set_a(0.2);
@@ -155,7 +157,7 @@ impl CompassMaterials {
             ..default()
         });
 
-        Self { empty, single, capital_l, polar, triple, selected, hovered }
+        Self { empty, single, capital_l, polar, triple, dot, selected, hovered }
     }
 
     fn orient(&self, constraints: &CellConstraints) -> (f32, Handle<StandardMaterial>) {
@@ -188,9 +190,7 @@ impl CompassMaterials {
         } else if dirs.len() == 1 {
             (dirs[0], self.single.clone())
         } else {
-            // TODO(@mxgrey): Somehow visualize the fact that the cell is a
-            // permanent inescapable sink.
-            return (0.0, self.empty.clone())
+            return (0.0, self.dot.clone())
         };
 
         let yaw = f32::atan2(v.y, v.x);
@@ -263,6 +263,7 @@ fn create_passage_cells(
                     ..default()
                 })
                 .insert(CellTag { coords: [row, column], for_passage })
+                .insert(RedirectDeletion(for_passage))
                 .insert(Category::PassageCell);
             }
         }
@@ -315,6 +316,7 @@ fn update_passage_geometry(
             ..default()
         })
         .insert(CellTag { coords: [row, column], for_passage })
+        .insert(RedirectDeletion(for_passage))
         .insert(Category::PassageCell);
     };
 
@@ -360,7 +362,6 @@ fn update_passage_geometry(
             }
 
             if f32::abs(tf.scale[0] - cells.cell_size) > 1e-6 {
-                dbg!(cells.cell_size);
                 tf.scale = Vec3::splat(cells.cell_size);
                 let x = cells.cell_size * (row as f32 + 0.5);
                 let y = cells.cell_size * (column as f32 + 0.5);

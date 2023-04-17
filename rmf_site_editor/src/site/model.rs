@@ -187,6 +187,7 @@ pub fn make_models_selectable(
             commands
                 .entity(e)
                 .insert(selectable.clone())
+                // TODO(@mxgrey): Provide a widget to toggle dragging on and off for each model
                 .insert(DragPlaneBundle::new(selectable.element, Vec3::Z));
 
             if let Ok(mesh_handle) = mesh_handles.get(e) {

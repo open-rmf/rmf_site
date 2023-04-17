@@ -252,6 +252,7 @@ pub struct CompassTextures {
     pub capital_l: Handle<Image>,
     pub triple: Handle<Image>,
     pub polar: Handle<Image>,
+    pub dot: Handle<Image>,
 }
 
 impl FromWorld for CompassTextures {
@@ -272,7 +273,10 @@ impl FromWorld for CompassTextures {
         let polar = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/compass/polar.png".to_owned()
         )));
+        let dot = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/compass/dot.png".to_owned()
+        )));
 
-        Self { empty, single, capital_l, triple, polar }
+        Self { empty, single, capital_l, triple, polar, dot }
     }
 }

@@ -105,10 +105,8 @@ impl BuildingMap {
         }
 
         for (_, lift) in map.lifts.iter_mut() {
-            let tf = alignments
-                .get(&lift.reference_floor_name)
-                .unwrap()
-                .to_affine();
+            let Some(tf) = alignments.get(&lift.reference_floor_name) else { continue };
+            let tf = tf.to_affine();
             let p = tf.transform_point2(lift.to_vec());
             lift.x = p.x;
             lift.y = -p.y;

@@ -76,7 +76,7 @@ pub struct PassageCells {
     pub constraints: BTreeMap<[i32; 2], CellConstraints>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
 pub struct CellConstraints {
     #[serde(default, skip_serializing_if="CellTransition::is_unconstrained")]
     pub forward: CellTransition,
@@ -86,17 +86,6 @@ pub struct CellConstraints {
     pub left: CellTransition,
     #[serde(default, skip_serializing_if="CellTransition::is_unconstrained")]
     pub right: CellTransition,
-}
-
-impl Default for CellConstraints {
-    fn default() -> Self {
-        Self {
-            forward: CellTransition::Unconstrained,
-            backward: CellTransition::Disabled,
-            left: CellTransition::Disabled,
-            right: CellTransition::Disabled,
-        }
-    }
 }
 
 impl CellConstraints {
