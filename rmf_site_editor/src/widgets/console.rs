@@ -22,14 +22,14 @@ use bevy_egui::{
     EguiContext,
 };
 use std::fmt::{self, Write};
+use std::collections::HashMap;
 
-#[derive(Debug, Clone, Copy, PartialEq)]
+#[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum LogCategory {
     Status = 0,
     Warning = 1,
     Error = 2,
     Hint = 3,
-    All = 4,
 }
 
 impl fmt::Display for LogCategory {
@@ -39,7 +39,6 @@ impl fmt::Display for LogCategory {
             LogCategory::Status => write!(f, "[STATUS] "),
             LogCategory::Warning => write!(f, "[WARNING] "),
             LogCategory::Error => write!(f, "[ERROR] "),
-            _ => write!(f, "[OTHER] "),
         }
     }
 }
@@ -54,7 +53,9 @@ pub struct Log {
 pub struct Logs {
     log_history: Vec<Log>,
     current_log: Option<Log>,
-    filter_category: LogCategory,
+    filter_map: HashMap::<LogCategory, bool>,
+    checked_all: bool, // True if "All" box is checked
+    stored_checked_all: bool, // Stored state of "All" checkbox
     display_limit: usize,
     show_full_history: bool,
     category_count: Vec<usize>,
@@ -62,10 +63,17 @@ pub struct Logs {
 
 impl Default for Logs {
     fn default() -> Self {
+        let mut filter_hashmap = HashMap::new();
+        filter_hashmap.insert(LogCategory::Status, true);
+        filter_hashmap.insert(LogCategory::Warning, true);
+        filter_hashmap.insert(LogCategory::Error, true);
+
         Self {
             log_history: Vec::new(),
             current_log: None,
-            filter_category: LogCategory::All,
+            filter_map: filter_hashmap,
+            checked_all: true,
+            stored_checked_all: true,
             display_limit: 100,
             show_full_history: false,
             category_count: vec![0; 3], // for Status, Warning, Error
@@ -116,19 +124,11 @@ impl Logs {
     pub fn copy_log_history(&self) -> String {
         let mut output_string = String::new();
 
-        if self.filter_category == LogCategory::All {
-            for log in &self.log_history {
+        for log in &self.log_history {
+            if *self.filter_map.get(&log.category).unwrap() {
                 output_string.push_str(&log.category.to_string());
                 output_string.push_str(&log.message);
                 output_string.push_str("\n");
-            }
-        } else {
-            for log in &self.log_history {
-                if self.filter_category == log.category {
-                    output_string.push_str(&log.category.to_string());
-                    output_string.push_str(&log.message);
-                    output_string.push_str("\n");
-                }
             }
         }
         output_string
@@ -142,20 +142,43 @@ impl Logs {
         &self.log_history
     }
 
+    pub fn checked_all_mut(&mut self) -> &mut bool {
+        // If "All" checkbox is freshly clicked
+        if self.stored_checked_all != self.checked_all {
+            self.stored_checked_all = self.checked_all;
+            if self.checked_all {
+                for (cat, present) in &mut self.filter_map {
+                    *present = true;
+                }
+            }
+        }
+        &mut self.checked_all
+    }
+
+    pub fn category_present(&self, category: &LogCategory) -> &bool {
+        self.filter_map.get(category).unwrap()
+    }
+
+    pub fn category_present_mut(&mut self, category: LogCategory) -> &mut bool {
+        self.filter_map.get_mut(&category).unwrap()
+    }
+
+    pub fn displayed_category_count(&mut self) -> usize {
+        let mut total_count: usize = 0;
+        for (category, present) in &self.filter_map {
+            if *present {
+                total_count += &self.category_count[*category as usize];
+            }
+        }
+        total_count
+    }
+
     pub fn get_display_limit(&self) -> &usize {
         &self.display_limit
     }
 
     pub fn set_display_limit(&mut self) -> &mut usize {
         &mut self.display_limit
-    }
-
-    pub fn get_filter(&self) -> &LogCategory {
-        &self.filter_category
-    }
-
-    pub fn set_filter(&mut self) -> &mut LogCategory {
-        &mut self.filter_category
     }
 
     pub fn get_show_all(&mut self) -> &bool {
@@ -166,8 +189,21 @@ impl Logs {
         self.show_full_history = see_more;
     }
 
-    pub fn get_category_count(&self) -> &Vec<usize> {
-        &self.category_count
+    pub fn update_filter(&mut self) {
+        let mut all_categories_present = true;
+        for (cat, present) in &mut self.filter_map {
+            if !*present && self.stored_checked_all {
+                self.checked_all = false;
+                self.stored_checked_all = false;
+                return;
+            } else if !*present {
+                all_categories_present = false;
+            }
+        }
+        if all_categories_present && !self.stored_checked_all {
+            self.checked_all = true;
+            self.stored_checked_all = true;
+        }
     }
 
     fn append_log(&mut self, log_category: LogCategory, msg: String) {
@@ -193,7 +229,7 @@ fn print_log(ui: &mut egui::Ui, log: &Log) {
             LogCategory::Hint => Color32::LIGHT_GREEN,
             LogCategory::Status => Color32::WHITE,
             LogCategory::Warning => Color32::YELLOW,
-            _ => Color32::RED,
+            LogCategory::Error => Color32::RED,
         };
         ui.label(RichText::new(log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
@@ -231,33 +267,10 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing.x = 10.0;
                     // Filter logs by category
-                    egui::ComboBox::from_label("")
-                        .selected_text(format!("{:?}", self.events.display.logs.set_filter()))
-                        .show_ui(ui, |ui| {
-                            ui.style_mut().wrap = Some(false);
-                            ui.set_min_width(40.0);
-                            // Intentionally left out Hint logs as they shouldn't be saved to the log history
-                            ui.selectable_value(
-                                self.events.display.logs.set_filter(),
-                                LogCategory::All,
-                                "All",
-                            );
-                            ui.selectable_value(
-                                self.events.display.logs.set_filter(),
-                                LogCategory::Status,
-                                "Status",
-                            );
-                            ui.selectable_value(
-                                self.events.display.logs.set_filter(),
-                                LogCategory::Warning,
-                                "Warning",
-                            );
-                            ui.selectable_value(
-                                self.events.display.logs.set_filter(),
-                                LogCategory::Error,
-                                "Error",
-                            );
-                        });
+                    ui.checkbox(self.events.display.logs.checked_all_mut(), "All");
+                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Status), "Status");
+                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Warning), "Warning");
+                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Error), "Error");
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
                         ui.output().copied_text = self.events.display.logs.copy_log_history();
@@ -267,6 +280,7 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                         self.events.display.logs.set_display_limit(),
                         10..=1000,
                     ));
+                    self.events.display.logs.update_filter();
                 });
                 ui.add_space(10.);
 
@@ -278,15 +292,8 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                         if *self.events.display.logs.get_show_all() {
                             // Display entries
                             for log in self.events.display.logs.get_log_history() {
-                                // View all categories
-                                if self.events.display.logs.get_filter() == &LogCategory::All {
+                                if *self.events.display.logs.category_present(&log.category) {
                                     print_log(ui, log);
-                                }
-                                // View selected categories
-                                else {
-                                    if self.events.display.logs.get_filter() == &log.category {
-                                        print_log(ui, log);
-                                    }
                                 }
                             }
                             // See Less button if there are too many entries
@@ -302,66 +309,32 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                         }
                         // Show only limited entries
                         else {
-                            // Display x entries from all categories
-                            if self.events.display.logs.get_filter() == &LogCategory::All {
-                                // Full log history within limit, display full log history
-                                if self.events.display.logs.get_log_history().len()
-                                    < *self.events.display.logs.get_display_limit()
-                                {
-                                    for log in self.events.display.logs.get_log_history() {
+                            let count = self.events.display.logs.displayed_category_count();
+                            // Total entries don't exceed limit, display all entries
+                            if count < *self.events.display.logs.get_display_limit() {
+                                for log in self.events.display.logs.get_log_history() {
+                                    if *self.events.display.logs.category_present(&log.category) {
                                         print_log(ui, log);
-                                    }
-                                }
-                                // Full log history exceeds the limit, display last xx entries
-                                else {
-                                    let start_idx =
-                                        self.events.display.logs.get_log_history().len()
-                                            - self.events.display.logs.get_display_limit();
-                                    let logs_slice =
-                                        &self.events.display.logs.get_log_history()[start_idx..];
-                                    for log in logs_slice {
-                                        print_log(ui, log);
-                                    }
-                                    // See more button to view full logs
-                                    ui.add_space(5.0);
-                                    if ui.button("See more").clicked() {
-                                        // toggle to show all
-                                        self.events.display.logs.set_show_all(true);
                                     }
                                 }
                             }
-                            // Display x entries from selected category
+                            // Total entries exceed limit, display last x entries
                             else {
-                                let count = self.events.display.logs.get_category_count()
-                                    [*self.events.display.logs.get_filter() as usize];
-                                // Total entries from selected category doesn't exceed limit, display all entries
-                                if count < *self.events.display.logs.get_display_limit() {
-                                    for log in self.events.display.logs.get_log_history() {
-                                        if self.events.display.logs.get_filter() == &log.category {
-                                            print_log(ui, log);
-                                        }
+                                //
+                                let mut n: usize = 0;
+                                let start_idx = count - self.events.display.logs.get_display_limit();
+                                for log in self.events.display.logs.get_log_history() {
+                                    // Only display logs from start index onwards
+                                    if *self.events.display.logs.category_present(&log.category) && n >= start_idx {
+                                        print_log(ui, log);
                                     }
+                                    n += 1;
                                 }
-                                // Total entries from selected category exceeds limit, display last x entries
-                                else {
-                                    let mut n: usize = 0;
-                                    let start_idx =
-                                        count - self.events.display.logs.get_display_limit();
-                                    for log in self.events.display.logs.get_log_history() {
-                                        // Only display logs from start index onwards
-                                        if (self.events.display.logs.get_filter() == &log.category)
-                                            && n >= start_idx
-                                        {
-                                            print_log(ui, log);
-                                        }
-                                        n += 1;
-                                    }
-                                    // See more button to view full logs
-                                    ui.add_space(5.0);
-                                    if ui.button("See more").clicked() {
-                                        // toggle to show all
-                                        self.events.display.logs.set_show_all(true);
-                                    }
+                                // See more button to view full logs
+                                ui.add_space(5.0);
+                                if ui.button("See more").clicked() {
+                                    // toggle to show all
+                                    self.events.display.logs.set_show_all(true);
                                 }
                             }
                         }
