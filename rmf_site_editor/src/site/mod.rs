@@ -254,6 +254,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_model_scenes)
                     .with_system(update_model_scales)
+                    .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)

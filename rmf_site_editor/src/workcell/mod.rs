@@ -41,7 +41,7 @@ use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 use crate::interaction::Gizmo;
 use crate::site::{
     make_models_selectable, update_anchor_transforms, update_model_scenes,
-    update_transforms_for_changed_poses,
+    update_model_tentative_formats, update_transforms_for_changed_poses,
 };
 use crate::AppState;
 
@@ -115,6 +115,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(add_wireframe_to_meshes)
                     .with_system(update_constraint_dependents)
                     .with_system(update_model_scenes)
+                    .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)
                     .with_system(handle_workcell_keyboard_input)
                     .with_system(handle_new_mesh_primitives)

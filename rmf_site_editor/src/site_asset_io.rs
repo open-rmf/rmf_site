@@ -231,8 +231,7 @@ impl AssetIo for SiteAssetIo {
                 self.fetch_asset(remote_url, asset_name)
             }
             AssetSource::Local(filename) => Box::pin(async move {
-                let mut full_path = PathBuf::new();
-                full_path.push(filename);
+                let full_path = PathBuf::from(filename);
                 self.load_from_file(full_path)
             }),
             AssetSource::Bundled(filename) => {

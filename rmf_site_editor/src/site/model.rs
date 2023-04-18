@@ -19,7 +19,7 @@ use crate::{
     interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion, SiteAssets},
 };
-use bevy::{asset::LoadState, prelude::*};
+use bevy::{asset::LoadState, gltf::Gltf, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pose, Scale, UrdfRoot};
 use smallvec::SmallVec;
@@ -27,7 +27,43 @@ use smallvec::SmallVec;
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
     source: AssetSource,
+    format: TentativeModelFormat,
     entity: Option<Entity>,
+}
+
+/// Stores a sequence of model formats to try loading, the site editor will try them in a sequence
+/// until one is successful, or all fail
+#[derive(Component, Debug, Default, Clone, PartialEq)]
+pub enum TentativeModelFormat {
+    #[default]
+    Obj = 0,
+    GlbFlat,
+    Stl,
+    GlbFolder,
+}
+
+impl TentativeModelFormat {
+    pub fn next(&self) -> Option<Self> {
+        use TentativeModelFormat::*;
+        match self {
+            Obj => Some(GlbFlat),
+            GlbFlat => Some(GlbFolder),
+            Stl => Some(GlbFolder),
+            GlbFolder => None,
+        }
+    }
+
+    // Returns what should be appended to the asset source to make it work with the bevy asset
+    // loader matching the format
+    pub fn to_string(&self, model_name: &str) -> String {
+        use TentativeModelFormat::*;
+        match self {
+            Obj => ("/".to_owned() + model_name + ".obj").into(),
+            GlbFlat => ".glb".into(),
+            Stl => ".stl".into(),
+            GlbFolder => ("/".to_owned() + model_name + ".glb").into(),
+        }
+    }
 }
 
 #[derive(Component, Deref, DerefMut)]
@@ -39,17 +75,28 @@ pub struct ModelSceneRoot;
 
 pub fn update_model_scenes(
     mut commands: Commands,
-    mut changed_models: Query<
-        (Entity, &AssetSource, &Pose),
-        (Changed<AssetSource>, With<ModelMarker>),
+    changed_models: Query<
+        (Entity, &AssetSource, &Pose, &TentativeModelFormat),
+        (Changed<TentativeModelFormat>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    loading_models: Query<(Entity, &PendingSpawning, &Scale)>,
-    spawned_models: Query<Entity, (Without<PendingSpawning>, With<PreventDeletion>)>,
+    loading_models: Query<
+        (Entity, &TentativeModelFormat, &PendingSpawning, &Scale),
+        With<ModelMarker>,
+    >,
+    spawned_models: Query<
+        Entity,
+        (
+            Without<PendingSpawning>,
+            With<ModelMarker>,
+            With<PreventDeletion>,
+        ),
+    >,
     mut current_scenes: Query<&mut ModelScene>,
     site_assets: Res<SiteAssets>,
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
+    gltfs: Res<Assets<Gltf>>,
     urdfs: Res<Assets<UrdfRoot>>,
 ) {
     fn spawn_model(
@@ -57,12 +104,14 @@ pub fn update_model_scenes(
         source: &AssetSource,
         pose: &Pose,
         asset_server: &AssetServer,
+        tentative_format: &TentativeModelFormat,
         commands: &mut Commands,
     ) {
         let mut commands = commands.entity(e);
         commands
             .insert(ModelScene {
                 source: source.clone(),
+                format: tentative_format.clone(),
                 entity: None,
             })
             .insert(SpatialBundle {
@@ -71,31 +120,13 @@ pub fn update_model_scenes(
             })
             .insert(Category::Model);
 
-        // TODO remove glb hardcoding? might create havoc with supported formats though
-        // TODO is there a cleaner way to do this?
+        // For search assets, look at subfolders and iterate through file formats
         let asset_source = match source {
-            AssetSource::Remote(path) => {
-                AssetSource::Remote(path.to_owned() + &".glb#Scene0".to_string())
-            }
-            AssetSource::Local(filename) => {
-                // TODO(luca) remove this to make a generic solution for local files
-                if filename.ends_with("glb") {
-                    AssetSource::Local(filename.to_owned() + &"#Scene0".to_string())
-                } else {
-                    source.clone()
-                }
-            }
             AssetSource::Search(name) => {
                 let model_name = name.split('/').last().unwrap();
-                AssetSource::Search(name.to_owned() + "/" + model_name + &".obj".to_string())
+                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
             }
-            AssetSource::Bundled(name) => {
-                AssetSource::Bundled(name.to_owned() + &".glb#Scene0".to_string())
-            }
-            AssetSource::Package(path) => {
-                // TODO(luca) support glb here?
-                source.clone()
-            }
+            _ => source.clone(),
         };
         let handle = asset_server.load_untyped(&String::from(&asset_source));
         commands
@@ -117,10 +148,26 @@ pub fn update_model_scenes(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, h, scale) in loading_models.iter() {
+    for (e, tentative_format, h, scale) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
-            let model_id = if scenes.contains(&h.typed_weak::<Scene>()) {
-                let model_scene_id = commands.entity(e).add_children(|parent| {
+            let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
+                Some(commands.entity(e).add_children(|parent| {
+                    // Get default scene if present, otherwise index 0
+                    let scene = gltf
+                        .default_scene
+                        .as_ref()
+                        .map(|s| s.clone())
+                        .unwrap_or(gltf.scenes.get(0).unwrap().clone());
+                    parent
+                        .spawn(SceneBundle {
+                            scene,
+                            transform: Transform::from_scale(**scale),
+                            ..default()
+                        })
+                        .id()
+                }))
+            } else if scenes.contains(&h.typed_weak::<Scene>()) {
+                Some(commands.entity(e).add_children(|parent| {
                     let h_typed = h.0.clone().typed::<Scene>();
                     parent
                         .spawn(SceneBundle {
@@ -129,10 +176,9 @@ pub fn update_model_scenes(
                             ..default()
                         })
                         .id()
-                });
-                Some(model_scene_id)
+                }))
             } else if meshes.contains(&h.typed_weak::<Mesh>()) {
-                let model_scene_id = commands.entity(e).add_children(|parent| {
+                Some(commands.entity(e).add_children(|parent| {
                     let h_typed = h.0.clone().typed::<Mesh>();
                     parent
                         .spawn(PbrBundle {
@@ -142,24 +188,16 @@ pub fn update_model_scenes(
                             ..default()
                         })
                         .id()
-                });
-                Some(model_scene_id)
-            } else if urdfs.contains(&h.typed_weak::<UrdfRoot>()) {
-                let h_typed = h.0.clone().typed::<UrdfRoot>();
-                if let Some(urdf) = urdfs.get(&h_typed) {
-                    let model_scene_id = commands.entity(e).add_children(|parent| {
-                        parent
-                            .spawn(SpatialBundle::VISIBLE_IDENTITY)
-                            .insert(urdf.clone())
-                            .insert(Category::Workcell)
-                            .id()
-                    });
-                    Some(model_scene_id)
-                } else {
-                    None
-                }
+                }))
+            } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
+                Some(commands.entity(e).add_children(|parent| {
+                    parent
+                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .insert(urdf.clone())
+                        .insert(Category::Workcell)
+                        .id()
+                }))
             } else {
-                println!("Asset not found!");
                 None
             };
             if let Some(id) = model_id {
@@ -167,28 +205,72 @@ pub fn update_model_scenes(
                     .entity(e)
                     .insert(ModelSceneRoot)
                     .insert(Selectable::new(e));
-                current_scenes.get_mut(e).unwrap().entity = Some(id);
                 commands.entity(e).remove::<PendingSpawning>();
+                current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
         }
     }
 
     // update changed models
-    for (e, source, pose) in changed_models.iter_mut() {
+    for (e, source, pose, tentative_format) in changed_models.iter() {
         if let Ok(current_scene) = current_scenes.get_mut(e) {
             // Avoid respawning if spurious change detection was triggered
-            if current_scene.source != *source {
+            if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
                     commands.entity(scene_entity).despawn_recursive();
                     commands.entity(e).remove_children(&[scene_entity]);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
-                spawn_model(e, source, pose, &asset_server, &mut commands);
+                spawn_model(
+                    e,
+                    source,
+                    pose,
+                    &asset_server,
+                    tentative_format,
+                    &mut commands,
+                );
             }
         } else {
             // New model
-            spawn_model(e, source, pose, &asset_server, &mut commands);
+            spawn_model(
+                e,
+                source,
+                pose,
+                &asset_server,
+                tentative_format,
+                &mut commands,
+            );
+        }
+    }
+}
+
+pub fn update_model_tentative_formats(
+    mut commands: Commands,
+    changed_models: Query<Entity, (Changed<AssetSource>, With<ModelMarker>)>,
+    mut loading_models: Query<
+        (Entity, &mut TentativeModelFormat, &PendingSpawning),
+        With<ModelMarker>,
+    >,
+    asset_server: Res<AssetServer>,
+) {
+    for e in changed_models.iter() {
+        // Reset to the first format
+        commands.entity(e).insert(TentativeModelFormat::default());
+    }
+    // Check from the asset server if any format failed, if it did try the next
+    for (e, mut tentative_format, h) in loading_models.iter_mut() {
+        match asset_server.get_load_state(&h.0) {
+            LoadState::Failed => {
+                if let Some(fmt) = tentative_format.next() {
+                    *tentative_format = fmt;
+                    commands.entity(e).remove::<PendingSpawning>();
+                } else {
+                    // TODO(luca) Handle the failure case when all formats have been tried but
+                    // failed, for now we will keep going in this branch forever
+                }
+            }
+            _ => {}
         }
     }
 }
