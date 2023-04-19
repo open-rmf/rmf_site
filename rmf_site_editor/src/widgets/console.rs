@@ -16,7 +16,7 @@
 */
 
 use crate::{site::*, widgets::AppEvents};
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
     EguiContext,
@@ -47,6 +47,60 @@ impl fmt::Display for LogCategory {
 pub struct Log {
     pub category: LogCategory,
     pub message: String,
+}
+
+pub trait FormatInput {
+    fn format_to_string(&self) -> String;
+}
+
+impl FormatInput for &str {
+    fn format_to_string(&self) -> String {
+        self.to_string()
+    }
+}
+
+impl FormatInput for fmt::Arguments<'_> {
+    fn format_to_string(&self) -> String {
+        let mut s = String::new();
+        let ag = &self;
+        write!(&mut s, "{ag}");
+        s
+    }
+}
+
+#[derive(SystemParam)]
+pub struct Logger<'w, 's> {
+    writer: EventWriter<'w, 's, Log>,
+}
+
+impl<'w, 's> Logger<'w, 's> {
+    pub fn status<T: FormatInput>(&mut self, message: T) {
+        self.writer.send(Log {
+            category: LogCategory::Status,
+            message: message.format_to_string(),
+        });
+    }
+
+    pub fn warn<T: FormatInput>(&mut self, message: T) {
+        self.writer.send(Log {
+            category: LogCategory::Warning,
+            message: message.format_to_string(),
+        });
+    }
+
+    pub fn err<T: FormatInput>(&mut self, message: T) {
+        self.writer.send(Log {
+            category: LogCategory::Error,
+            message: message.format_to_string(),
+        });
+    }
+
+    pub fn hint<T: FormatInput>(&mut self, message: T) {
+        self.writer.send(Log {
+            category: LogCategory::Hint,
+            message: message.format_to_string(),
+        });
+    }
 }
 
 #[derive(Resource)]
@@ -81,46 +135,7 @@ impl Default for Logs {
     }
 }
 
-pub trait FormatInput {
-    fn format_to_string(&self) -> String;
-}
-
-impl FormatInput for &str {
-    fn format_to_string(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl FormatInput for fmt::Arguments<'_> {
-    fn format_to_string(&self) -> String {
-        let mut s = String::new();
-        let ag = &self;
-        write!(&mut s, "{ag}");
-        s
-    }
-}
-
 impl Logs {
-    pub fn status<T: FormatInput>(&mut self, args: T) {
-        let msg = args.format_to_string();
-        self.append_log(LogCategory::Status, msg);
-    }
-
-    pub fn hint<T: FormatInput>(&mut self, args: T) {
-        let msg = args.format_to_string();
-        self.append_log(LogCategory::Hint, msg);
-    }
-
-    pub fn warn<T: FormatInput>(&mut self, args: T) {
-        let msg = args.format_to_string();
-        self.append_log(LogCategory::Warning, msg);
-    }
-
-    pub fn err<T: FormatInput>(&mut self, args: T) {
-        let msg = args.format_to_string();
-        self.append_log(LogCategory::Error, msg);
-    }
-
     pub fn copy_log_history(&self) -> String {
         let mut output_string = String::new();
 
@@ -206,17 +221,22 @@ impl Logs {
         }
     }
 
-    fn append_log(&mut self, log_category: LogCategory, msg: String) {
-        println!("{}", msg);
-        let new_log = Log {
-            category: log_category,
-            message: msg,
-        };
-        self.current_log = Some(new_log.clone());
-        if new_log.category != LogCategory::Hint {
-            self.category_count[new_log.category as usize] += 1;
-            self.log_history.push(new_log);
+    fn append_log(&mut self, log: Log) {
+        println!("{}", log.message);
+        self.current_log = Some(log.clone());
+        if log.category != LogCategory::Hint {
+            self.category_count[log.category as usize] += 1;
+            self.log_history.push(log);
         }
+    }
+}
+
+pub fn handle_log_entries(
+    mut logger: EventReader<Log>,
+    mut events: AppEvents,
+) {
+    for lg in logger.iter() {
+        events.display.logs.append_log(lg.clone());
     }
 }
 

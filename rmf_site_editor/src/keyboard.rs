@@ -21,7 +21,7 @@ use crate::{
         ChangeMode, InteractionMode, Selection,
     },
     site::Delete,
-    widgets::console::Logs,
+    widgets::console::Logger,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
@@ -56,7 +56,7 @@ fn handle_keyboard_input(
     mut delete: EventWriter<Delete>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
-    mut logger: ResMut<Logs>,
+    mut logger: Logger,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
