@@ -21,8 +21,8 @@ use bevy_egui::{
     egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
     EguiContext,
 };
-use std::fmt::{self, Write};
 use std::collections::HashMap;
+use std::fmt::{self, Write};
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum LogCategory {
@@ -107,8 +107,8 @@ impl<'w, 's> Logger<'w, 's> {
 pub struct LogHistory {
     log_history: Vec<Log>,
     current_log: Option<Log>,
-    category_filter: HashMap::<LogCategory, bool>,
-    checked_all: bool, // True if "All" box is checked
+    category_filter: HashMap<LogCategory, bool>,
+    checked_all: bool,        // True if "All" box is checked
     stored_checked_all: bool, // Stored state of "All" checkbox
     display_limit: usize,
     show_full_history: bool,
@@ -231,10 +231,7 @@ impl LogHistory {
     }
 }
 
-pub fn handle_log_entries(
-    mut logger: EventReader<Log>,
-    mut events: AppEvents,
-) {
+pub fn handle_log_entries(mut logger: EventReader<Log>, mut events: AppEvents) {
     for lg in logger.iter() {
         events.display.log_history.append_log(lg.clone());
     }
@@ -288,12 +285,31 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                     ui.spacing_mut().item_spacing.x = 10.0;
                     // Filter logs by category
                     ui.checkbox(self.events.display.log_history.checked_all_mut(), "All");
-                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Status), "Status");
-                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Warning), "Warning");
-                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Error), "Error");
+                    ui.checkbox(
+                        self.events
+                            .display
+                            .log_history
+                            .category_present_mut(LogCategory::Status),
+                        "Status",
+                    );
+                    ui.checkbox(
+                        self.events
+                            .display
+                            .log_history
+                            .category_present_mut(LogCategory::Warning),
+                        "Warning",
+                    );
+                    ui.checkbox(
+                        self.events
+                            .display
+                            .log_history
+                            .category_present_mut(LogCategory::Error),
+                        "Error",
+                    );
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
-                        ui.output().copied_text = self.events.display.log_history.copy_log_history();
+                        ui.output().copied_text =
+                            self.events.display.log_history.copy_log_history();
                     };
                     // Slider to adjust display limit
                     ui.add(egui::Slider::new(
@@ -312,7 +328,12 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                         if self.events.display.log_history.show_all() {
                             // Display entries
                             for log in self.events.display.log_history.log_history() {
-                                if *self.events.display.log_history.category_present(&log.category) {
+                                if *self
+                                    .events
+                                    .display
+                                    .log_history
+                                    .category_present(&log.category)
+                                {
                                     print_log(ui, log);
                                 }
                             }
@@ -333,7 +354,12 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                             // Total entries don't exceed limit, display all entries
                             if count < *self.events.display.log_history.display_limit() {
                                 for log in self.events.display.log_history.log_history() {
-                                    if *self.events.display.log_history.category_present(&log.category) {
+                                    if *self
+                                        .events
+                                        .display
+                                        .log_history
+                                        .category_present(&log.category)
+                                    {
                                         print_log(ui, log);
                                     }
                                 }
@@ -342,10 +368,17 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                             else {
                                 //
                                 let mut n: usize = 0;
-                                let start_idx = count - self.events.display.log_history.display_limit();
+                                let start_idx =
+                                    count - self.events.display.log_history.display_limit();
                                 for log in self.events.display.log_history.log_history() {
                                     // Only display logs from start index onwards
-                                    if *self.events.display.log_history.category_present(&log.category) && n >= start_idx {
+                                    if *self
+                                        .events
+                                        .display
+                                        .log_history
+                                        .category_present(&log.category)
+                                        && n >= start_idx
+                                    {
                                         print_log(ui, log);
                                     }
                                     n += 1;
