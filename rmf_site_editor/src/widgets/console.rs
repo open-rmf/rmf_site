@@ -104,10 +104,10 @@ impl<'w, 's> Logger<'w, 's> {
 }
 
 #[derive(Resource)]
-pub struct Logs {
+pub struct LogHistory {
     log_history: Vec<Log>,
     current_log: Option<Log>,
-    filter_map: HashMap::<LogCategory, bool>,
+    category_filter: HashMap::<LogCategory, bool>,
     checked_all: bool, // True if "All" box is checked
     stored_checked_all: bool, // Stored state of "All" checkbox
     display_limit: usize,
@@ -115,7 +115,7 @@ pub struct Logs {
     category_count: Vec<usize>,
 }
 
-impl Default for Logs {
+impl Default for LogHistory {
     fn default() -> Self {
         let mut filter_hashmap = HashMap::new();
         filter_hashmap.insert(LogCategory::Status, true);
@@ -125,7 +125,7 @@ impl Default for Logs {
         Self {
             log_history: Vec::new(),
             current_log: None,
-            filter_map: filter_hashmap,
+            category_filter: filter_hashmap,
             checked_all: true,
             stored_checked_all: true,
             display_limit: 100,
@@ -135,12 +135,12 @@ impl Default for Logs {
     }
 }
 
-impl Logs {
+impl LogHistory {
     pub fn copy_log_history(&self) -> String {
         let mut output_string = String::new();
 
         for log in &self.log_history {
-            if *self.filter_map.get(&log.category).unwrap() {
+            if *self.category_filter.get(&log.category).unwrap() {
                 output_string.push_str(&log.category.to_string());
                 output_string.push_str(&log.message);
                 output_string.push_str("\n");
@@ -149,11 +149,11 @@ impl Logs {
         output_string
     }
 
-    pub fn get_current_log(&self) -> &Option<Log> {
+    pub fn current_log(&self) -> &Option<Log> {
         &self.current_log
     }
 
-    pub fn get_log_history(&self) -> &Vec<Log> {
+    pub fn log_history(&self) -> &Vec<Log> {
         &self.log_history
     }
 
@@ -162,7 +162,7 @@ impl Logs {
         if self.stored_checked_all != self.checked_all {
             self.stored_checked_all = self.checked_all;
             if self.checked_all {
-                for (cat, present) in &mut self.filter_map {
+                for (cat, present) in &mut self.category_filter {
                     *present = true;
                 }
             }
@@ -171,16 +171,16 @@ impl Logs {
     }
 
     pub fn category_present(&self, category: &LogCategory) -> &bool {
-        self.filter_map.get(category).unwrap()
+        self.category_filter.get(category).unwrap()
     }
 
     pub fn category_present_mut(&mut self, category: LogCategory) -> &mut bool {
-        self.filter_map.get_mut(&category).unwrap()
+        self.category_filter.get_mut(&category).unwrap()
     }
 
     pub fn displayed_category_count(&mut self) -> usize {
         let mut total_count: usize = 0;
-        for (category, present) in &self.filter_map {
+        for (category, present) in &self.category_filter {
             if *present {
                 total_count += &self.category_count[*category as usize];
             }
@@ -188,25 +188,25 @@ impl Logs {
         total_count
     }
 
-    pub fn get_display_limit(&self) -> &usize {
+    pub fn display_limit(&self) -> &usize {
         &self.display_limit
     }
 
-    pub fn set_display_limit(&mut self) -> &mut usize {
+    pub fn display_limit_mut(&mut self) -> &mut usize {
         &mut self.display_limit
     }
 
-    pub fn get_show_all(&mut self) -> &bool {
-        &self.show_full_history
+    pub fn show_all(&self) -> bool {
+        self.show_full_history
     }
 
-    pub fn set_show_all(&mut self, see_more: bool) {
+    pub fn show_all_mut(&mut self, see_more: bool) {
         self.show_full_history = see_more;
     }
 
     pub fn update_filter(&mut self) {
         let mut all_categories_present = true;
-        for (cat, present) in &mut self.filter_map {
+        for (cat, present) in &mut self.category_filter {
             if !*present && self.stored_checked_all {
                 self.checked_all = false;
                 self.stored_checked_all = false;
@@ -236,7 +236,7 @@ pub fn handle_log_entries(
     mut events: AppEvents,
 ) {
     for lg in logger.iter() {
-        events.display.logs.append_log(lg.clone());
+        events.display.log_history.append_log(lg.clone());
     }
 }
 
@@ -274,7 +274,7 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
     pub fn show(mut self, ui: &mut Ui) {
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = 0.5;
-            let status = self.events.display.logs.get_current_log();
+            let status = self.events.display.log_history.current_log();
             match status {
                 Some(log) => print_log(ui, log),
                 None => (),
@@ -287,20 +287,20 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                 ui.horizontal_wrapped(|ui| {
                     ui.spacing_mut().item_spacing.x = 10.0;
                     // Filter logs by category
-                    ui.checkbox(self.events.display.logs.checked_all_mut(), "All");
-                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Status), "Status");
-                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Warning), "Warning");
-                    ui.checkbox(self.events.display.logs.category_present_mut(LogCategory::Error), "Error");
+                    ui.checkbox(self.events.display.log_history.checked_all_mut(), "All");
+                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Status), "Status");
+                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Warning), "Warning");
+                    ui.checkbox(self.events.display.log_history.category_present_mut(LogCategory::Error), "Error");
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
-                        ui.output().copied_text = self.events.display.logs.copy_log_history();
+                        ui.output().copied_text = self.events.display.log_history.copy_log_history();
                     };
                     // Slider to adjust display limit
                     ui.add(egui::Slider::new(
-                        self.events.display.logs.set_display_limit(),
+                        self.events.display.log_history.display_limit_mut(),
                         10..=1000,
                     ));
-                    self.events.display.logs.update_filter();
+                    self.events.display.log_history.update_filter();
                 });
                 ui.add_space(10.);
 
@@ -309,31 +309,31 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                     .stick_to_bottom(true)
                     .show(ui, |ui| {
                         // Show all entries
-                        if *self.events.display.logs.get_show_all() {
+                        if self.events.display.log_history.show_all() {
                             // Display entries
-                            for log in self.events.display.logs.get_log_history() {
-                                if *self.events.display.logs.category_present(&log.category) {
+                            for log in self.events.display.log_history.log_history() {
+                                if *self.events.display.log_history.category_present(&log.category) {
                                     print_log(ui, log);
                                 }
                             }
                             // See Less button if there are too many entries
-                            if self.events.display.logs.get_log_history().len()
-                                > *self.events.display.logs.get_display_limit()
+                            if self.events.display.log_history.log_history().len()
+                                > *self.events.display.log_history.display_limit()
                             {
                                 ui.add_space(5.0);
                                 if ui.button("See Less").clicked() {
                                     // toggle to show less
-                                    self.events.display.logs.set_show_all(false);
+                                    self.events.display.log_history.show_all_mut(false);
                                 }
                             }
                         }
                         // Show only limited entries
                         else {
-                            let count = self.events.display.logs.displayed_category_count();
+                            let count = self.events.display.log_history.displayed_category_count();
                             // Total entries don't exceed limit, display all entries
-                            if count < *self.events.display.logs.get_display_limit() {
-                                for log in self.events.display.logs.get_log_history() {
-                                    if *self.events.display.logs.category_present(&log.category) {
+                            if count < *self.events.display.log_history.display_limit() {
+                                for log in self.events.display.log_history.log_history() {
+                                    if *self.events.display.log_history.category_present(&log.category) {
                                         print_log(ui, log);
                                     }
                                 }
@@ -342,10 +342,10 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                             else {
                                 //
                                 let mut n: usize = 0;
-                                let start_idx = count - self.events.display.logs.get_display_limit();
-                                for log in self.events.display.logs.get_log_history() {
+                                let start_idx = count - self.events.display.log_history.display_limit();
+                                for log in self.events.display.log_history.log_history() {
                                     // Only display logs from start index onwards
-                                    if *self.events.display.logs.category_present(&log.category) && n >= start_idx {
+                                    if *self.events.display.log_history.category_present(&log.category) && n >= start_idx {
                                         print_log(ui, log);
                                     }
                                     n += 1;
@@ -354,7 +354,7 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                                 ui.add_space(5.0);
                                 if ui.button("See more").clicked() {
                                     // toggle to show all
-                                    self.events.display.logs.set_show_all(true);
+                                    self.events.display.log_history.show_all_mut(true);
                                 }
                             }
                         }

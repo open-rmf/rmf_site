@@ -76,7 +76,7 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
-            .init_resource::<Logs>()
+            .init_resource::<LogHistory>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
@@ -122,7 +122,7 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
-    pub logs: ResMut<'w, Logs>,
+    pub log_history: ResMut<'w, LogHistory>,
     _ignore: Query<'w, 's, ()>,
 }
 
