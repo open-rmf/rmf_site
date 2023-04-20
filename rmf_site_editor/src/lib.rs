@@ -1,4 +1,6 @@
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo};
+use bevy::{
+    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
+};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -43,9 +45,11 @@ mod interaction;
 mod workspace;
 use workspace::*;
 
+mod sdf_loader;
 mod simulation_state;
 mod site_asset_io;
 mod urdf_loader;
+use sdf_loader::*;
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
@@ -151,6 +155,10 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
+                .set(LogPlugin {
+                    filter: "bevy_asset=error,wgpu=error".to_string(),
+                    ..default()
+                })
                 .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         );
     }
@@ -162,6 +170,7 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)
         .add_plugin(SavePlugin)
+        .add_plugin(SdfPlugin)
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
         // .add_plugin(WarehouseGeneratorPlugin)

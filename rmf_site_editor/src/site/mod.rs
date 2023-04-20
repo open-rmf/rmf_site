@@ -78,6 +78,9 @@ pub use pose::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod sdf;
+pub use sdf::*;
+
 pub mod save;
 pub use save::*;
 
@@ -253,6 +256,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_model_scenes)
+                    .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)
                     .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)

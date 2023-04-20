@@ -18,6 +18,7 @@
 use crate::{
     interaction::{DragPlaneBundle, Selectable},
     site::{Category, PreventDeletion, SiteAssets},
+    SdfRoot,
 };
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
@@ -36,20 +37,22 @@ pub struct ModelScene {
 #[derive(Component, Debug, Default, Clone, PartialEq)]
 pub enum TentativeModelFormat {
     #[default]
-    Obj = 0,
     GlbFlat,
+    Obj,
     Stl,
     GlbFolder,
+    Sdf,
 }
 
 impl TentativeModelFormat {
     pub fn next(&self) -> Option<Self> {
         use TentativeModelFormat::*;
         match self {
-            Obj => Some(GlbFlat),
-            GlbFlat => Some(GlbFolder),
+            GlbFlat => Some(Obj),
+            Obj => Some(Stl),
             Stl => Some(GlbFolder),
-            GlbFolder => None,
+            GlbFolder => Some(Sdf),
+            Sdf => None,
         }
     }
 
@@ -62,6 +65,7 @@ impl TentativeModelFormat {
             GlbFlat => ".glb".into(),
             Stl => ".stl".into(),
             GlbFolder => ("/".to_owned() + model_name + ".glb").into(),
+            Sdf => "/model.sdf".to_owned(),
         }
     }
 }
@@ -98,6 +102,7 @@ pub fn update_model_scenes(
     scenes: Res<Assets<Scene>>,
     gltfs: Res<Assets<Gltf>>,
     urdfs: Res<Assets<UrdfRoot>>,
+    sdfs: Res<Assets<SdfRoot>>,
 ) {
     fn spawn_model(
         e: Entity,
@@ -121,6 +126,7 @@ pub fn update_model_scenes(
             .insert(Category::Model);
 
         // For search assets, look at subfolders and iterate through file formats
+        // TODO(luca) This will also iterate for non search assets, fix
         let asset_source = match source {
             AssetSource::Search(name) => {
                 let model_name = name.split('/').last().unwrap();
@@ -197,6 +203,13 @@ pub fn update_model_scenes(
                         .insert(Category::Workcell)
                         .id()
                 }))
+            } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
+                Some(commands.entity(e).add_children(|parent| {
+                    parent
+                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .insert(sdf.clone())
+                        .id()
+                }))
             } else {
                 None
             };
@@ -249,7 +262,12 @@ pub fn update_model_tentative_formats(
     mut commands: Commands,
     changed_models: Query<Entity, (Changed<AssetSource>, With<ModelMarker>)>,
     mut loading_models: Query<
-        (Entity, &mut TentativeModelFormat, &PendingSpawning),
+        (
+            Entity,
+            &mut TentativeModelFormat,
+            &PendingSpawning,
+            &AssetSource,
+        ),
         With<ModelMarker>,
     >,
     asset_server: Res<AssetServer>,
@@ -259,15 +277,18 @@ pub fn update_model_tentative_formats(
         commands.entity(e).insert(TentativeModelFormat::default());
     }
     // Check from the asset server if any format failed, if it did try the next
-    for (e, mut tentative_format, h) in loading_models.iter_mut() {
+    for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
         match asset_server.get_load_state(&h.0) {
             LoadState::Failed => {
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
                     commands.entity(e).remove::<PendingSpawning>();
                 } else {
-                    // TODO(luca) Handle the failure case when all formats have been tried but
-                    // failed, for now we will keep going in this branch forever
+                    println!(
+                        "WARNING: Model with source {} not found",
+                        String::from(source)
+                    );
+                    commands.entity(e).remove::<TentativeModelFormat>();
                 }
             }
             _ => {}

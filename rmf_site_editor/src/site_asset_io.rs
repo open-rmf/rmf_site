@@ -117,15 +117,6 @@ impl SiteAssetIo {
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
         let name_buf = PathBuf::from(name);
-        let filename = match name_buf.file_name().and_then(|f| f.to_str()) {
-            Some(s) => s,
-            None => {
-                return Err(AssetIoError::Io(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Unable to parse into org/model names: {name}"),
-                )));
-            }
-        };
         let binding = name.clone();
         let mut tokens = binding.split("/");
         let org_name = match tokens.next() {
@@ -146,10 +137,14 @@ impl SiteAssetIo {
                 )));
             }
         };
+        let binding = name.clone();
+        let filename = binding.splitn(3, "/").collect::<Vec<_>>()[2];
+        /*
         let binding = PathBuf::from(model_name);
         let model_name = binding.file_stem().unwrap().to_str().unwrap();
+        */
         let uri = format!(
-            "{0}/{1}/models/{2}/tip/files/meshes/{3}",
+            "{0}/{1}/models/{2}/tip/files/{3}",
             FUEL_BASE_URI, org_name, model_name, filename
         );
         return Ok(uri);
@@ -249,28 +244,33 @@ impl AssetIo for SiteAssetIo {
             AssetSource::Package(_) => Box::pin(async move {
                 // Split into package and path
                 let path = expand_package_path(&String::from(&asset_source), None);
-                println!("Found package in {:}", path);
                 self.load_from_file(PathBuf::from(path))
             }),
             AssetSource::Search(asset_name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
+                // For SDF Only:
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
                 // TODO checking whether it's an sdf folder or a obj file
-                match self.get_path_from_env() {
-                    Ok(mut path) => {
-                        // Check if file exists
-                        path.push(&asset_name);
-                        if path.exists() {
-                            return Box::pin(async move { self.load_from_file(path) });
-                        }
+                if let Ok(mut path) = self.get_path_from_env() {
+                    // Check if file exists
+                    path.push(&asset_name);
+                    if path.exists() {
+                        return Box::pin(async move { self.load_from_file(path) });
                     }
-                    Err(_) => {}
                 }
 
+                if !asset_name.ends_with(".sdf") {
+                    return Box::pin(async move {
+                        Err(AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Asset {} not found", asset_name),
+                        )))
+                    });
+                }
                 // Try local cache
                 #[cfg(not(target_arch = "wasm32"))]
                 {
