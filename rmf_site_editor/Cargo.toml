@@ -43,7 +43,7 @@ urdf-rs = { git = "https://github.com/openrr/urdf-rs", rev = "c62dd92" }
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
-bevy = { version = "0.9", features = ["dynamic"] }
+bevy = { version = "0.9", features = ["dynamic", "jpeg", "tga"] }
 surf = { version = "2.3" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
@@ -51,7 +51,7 @@ clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "su
 
 # windows doesnt work well with dynamic feature yet
 [target.'cfg(target_os = "windows")'.dependencies]
-bevy = "0.9"
+bevy = { version = "0.9", features = ["jpeg", "tga"] }
 surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]

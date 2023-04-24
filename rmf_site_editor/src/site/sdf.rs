@@ -33,7 +33,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
             return AssetSource::Remote(path);
         }
     } else {
-        println!("Non model path found, not spawning! {}", uri);
+        println!("Non model path found, not spawning! {}, {}", uri, path);
     }
     // TODO handle other paths?
     AssetSource::Remote(String::new())
