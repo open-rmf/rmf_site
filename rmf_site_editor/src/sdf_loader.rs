@@ -63,6 +63,7 @@ pub struct SdfVisual {
 #[derive(YaDeserialize, YaSerialize, Debug, Clone)]
 pub struct SdfMesh {
     pub uri: String,
+    pub scale: Option<String>,
 }
 
 #[derive(YaDeserialize, YaSerialize, Debug, Clone)]
@@ -73,7 +74,7 @@ pub enum SdfGeometry {
 
 impl Default for SdfGeometry {
     fn default() -> Self {
-        SdfGeometry::Mesh(SdfMesh { uri: String::new() })
+        SdfGeometry::Mesh(SdfMesh { uri: String::new(), scale: None })
     }
 }
 

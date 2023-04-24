@@ -39,6 +39,24 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
     AssetSource::Remote(String::new())
 }
 
+fn parse_scale(scale: &Option<String>) -> Scale {
+    match scale {
+        Some(v) => {
+            let split_results: Vec<_> = v
+                .split_whitespace()
+                .filter_map(|s| s.parse::<f32>().ok())
+                .collect();
+            if split_results.len() != 3 {
+                return Scale::default();
+            }
+            let mut res = [0.0f32; 3];
+            res.copy_from_slice(&split_results);
+            Scale(Vec3::from_slice(&res))
+        }
+        None => Scale::default()
+    }
+}
+
 pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &SdfRoot)>) {
     for (e, sdf) in new_sdfs.iter() {
         for link in &sdf.model.link {
@@ -52,7 +70,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                                 pose: Pose::default(),
                                 is_static: IsStatic::default(),
                                 constraints: ConstraintDependents::default(),
-                                scale: Scale::default(),
+                                scale: parse_scale(&mesh.scale),
                                 marker: ModelMarker,
                             })
                             .id();

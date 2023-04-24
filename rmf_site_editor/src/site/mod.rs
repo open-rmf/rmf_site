@@ -193,6 +193,7 @@ impl Plugin for SitePlugin {
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
+                    .with_system(update_model_tentative_formats)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -258,7 +259,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_scenes)
                     .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)
-                    .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
