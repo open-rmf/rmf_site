@@ -23,20 +23,21 @@ use rmf_site_format::{
     AssetSource, ConstraintDependents, IsStatic, Model, ModelMarker, NameInSite, Pose, Scale,
 };
 
+// TODO(luca) reduce chances for panic and do proper error handling here
 fn compute_model_source(path: &str, uri: &str) -> AssetSource {
+    let binding = path.strip_prefix("search://").unwrap();
     if let Some(stripped) = uri.strip_prefix("model://") {
         // Get the org name from context, model name from this and combine
-        let binding = path.strip_prefix("search://").unwrap();
-        let mut tokens = binding.split("/");
-        if let Some(org_name) = tokens.next() {
-            let path = org_name.to_owned() + "/" + stripped;
-            return AssetSource::Remote(path);
-        }
+        let org_name = binding.split("/").next().unwrap();
+        let path = org_name.to_owned() + "/" + stripped;
+        AssetSource::Remote(path)
+    } else if let Some(path_idx) = binding.rfind("/") {
+        // It's a path relative to this model, remove file and append uri
+        let (model_path, _model_name) = binding.split_at(path_idx);
+        AssetSource::Remote(model_path.to_owned() + "/" + uri)
     } else {
-        println!("Non model path found, not spawning! {}, {}", uri, path);
+        AssetSource::Remote("".into())
     }
-    // TODO handle other paths?
-    AssetSource::Remote(String::new())
 }
 
 fn parse_scale(scale: &Option<String>) -> Scale {
