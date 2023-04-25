@@ -17,10 +17,12 @@
 
 use bevy::prelude::*;
 
-use crate::{SdfGeometry, SdfRoot};
+use crate::SdfRoot;
+use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    AssetSource, ConstraintDependents, IsStatic, Model, ModelMarker, NameInSite, Pose, Scale,
+    Angle, AssetSource, ConstraintDependents, IsStatic, Model, ModelMarker, NameInSite, Pose,
+    Rotation, Scale,
 };
 
 // TODO(luca) reduce chances for panic and do proper error handling here
@@ -40,21 +42,30 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
     }
 }
 
-fn parse_scale(scale: &Option<String>) -> Scale {
+fn parse_scale(scale: &Option<Vector3d>) -> Scale {
     match scale {
-        Some(v) => {
-            let split_results: Vec<_> = v
-                .split_whitespace()
-                .filter_map(|s| s.parse::<f32>().ok())
-                .collect();
-            if split_results.len() != 3 {
-                return Scale::default();
-            }
-            let mut res = [0.0f32; 3];
-            res.copy_from_slice(&split_results);
-            Scale(Vec3::from_slice(&res))
-        }
+        Some(v) => Scale(Vec3::new(v.0.x as f32, v.0.y as f32, v.0.z as f32)),
         None => Scale::default(),
+    }
+}
+
+fn parse_pose(pose: &Option<SdfPose>) -> Pose {
+    if let Some(pose) = pose.clone().and_then(|p| p.get_pose().ok()) {
+        let rot = pose.rotation.euler_angles();
+        Pose {
+            trans: [
+                pose.translation.x as f32,
+                pose.translation.y as f32,
+                pose.translation.z as f32,
+            ],
+            rot: Rotation::EulerExtrinsicXYZ([
+                Angle::Rad(rot.0 as f32),
+                Angle::Rad(rot.1 as f32),
+                Angle::Rad(rot.2 as f32),
+            ]),
+        }
+    } else {
+        Pose::default()
     }
 }
 
@@ -68,7 +79,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                             .spawn(Model {
                                 name: NameInSite("Unnamed".to_string()),
                                 source: compute_model_source(&sdf.path, &mesh.uri),
-                                pose: Pose::default(),
+                                pose: parse_pose(&visual.pose),
                                 is_static: IsStatic::default(),
                                 constraints: ConstraintDependents::default(),
                                 scale: parse_scale(&mesh.scale),
@@ -77,6 +88,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                             .id();
                         commands.entity(e).add_child(id);
                     }
+                    _ => println!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
             }
             /*

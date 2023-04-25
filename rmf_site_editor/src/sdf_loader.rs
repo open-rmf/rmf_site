@@ -20,10 +20,9 @@ use bevy::prelude::*;
 use bevy::reflect::TypeUuid;
 use bevy::utils::BoxedFuture;
 
-use yaserde_derive::YaDeserialize;
-use yaserde_derive::YaSerialize;
-
 use thiserror::Error;
+
+use sdformat_rs::SdfModel;
 
 pub struct SdfPlugin;
 
@@ -33,52 +32,12 @@ impl Plugin for SdfPlugin {
     }
 }
 
-// TODO(luca) remove most of this when a crate for SDF Yaserde support is available
-#[derive(Component, YaDeserialize, YaSerialize, Default, Debug, TypeUuid, Clone)]
+#[derive(Component, Default, Debug, TypeUuid, Clone)]
 #[uuid = "fe707f9e-c6f3-11ed-afa2-0242ac120002"]
-#[yaserde(rename = "sdf")]
 pub struct SdfRoot {
     pub model: SdfModel,
-    #[yaserde(skip)]
     // TODO(make this a AssetSource)
     pub path: String,
-}
-
-#[derive(YaDeserialize, YaSerialize, Default, Debug, Clone)]
-pub struct SdfModel {
-    pub link: Vec<SdfLink>,
-    // TODO(luca) scales, collisions
-}
-
-#[derive(YaDeserialize, YaSerialize, Default, Debug, Clone)]
-pub struct SdfLink {
-    pub visual: Vec<SdfVisual>,
-}
-
-#[derive(YaDeserialize, YaSerialize, Default, Debug, Clone)]
-pub struct SdfVisual {
-    pub geometry: SdfGeometry,
-}
-
-#[derive(YaDeserialize, YaSerialize, Debug, Clone)]
-pub struct SdfMesh {
-    pub uri: String,
-    pub scale: Option<String>,
-}
-
-#[derive(YaDeserialize, YaSerialize, Debug, Clone)]
-pub enum SdfGeometry {
-    #[yaserde(rename = "mesh")]
-    Mesh(SdfMesh),
-}
-
-impl Default for SdfGeometry {
-    fn default() -> Self {
-        SdfGeometry::Mesh(SdfMesh {
-            uri: String::new(),
-            scale: None,
-        })
-    }
 }
 
 #[derive(Default)]
@@ -103,6 +62,8 @@ impl AssetLoader for SdfLoader {
 pub enum SdfError {
     #[error("Yaserde loading error: {0}")]
     YaserdeError(String),
+    #[error("No <model> tag found in model.sdf file")]
+    MissingModelTag,
 }
 
 async fn load_model<'a, 'b>(
@@ -110,12 +71,17 @@ async fn load_model<'a, 'b>(
     load_context: &'a mut LoadContext<'b>,
 ) -> Result<(), SdfError> {
     let sdf_str = std::str::from_utf8(bytes).unwrap();
-    let mut sdf = yaserde::de::from_str::<SdfRoot>(sdf_str);
-    match sdf {
-        Ok(mut sdf) => {
-            sdf.path = load_context.path().clone().to_str().unwrap().to_string();
-            load_context.set_default_asset(LoadedAsset::new(sdf));
-            Ok(())
+    let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
+    match root {
+        Ok(root) => {
+            if let Some(model) = root.model {
+                let path = load_context.path().clone().to_str().unwrap().to_string();
+                let sdf_root = SdfRoot { model, path };
+                load_context.set_default_asset(LoadedAsset::new(sdf_root));
+                Ok(())
+            } else {
+                Err(SdfError::MissingModelTag)
+            }
         }
         Err(err) => Err(SdfError::YaserdeError(err)),
     }
