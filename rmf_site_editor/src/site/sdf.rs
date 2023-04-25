@@ -54,7 +54,7 @@ fn parse_scale(scale: &Option<String>) -> Scale {
             res.copy_from_slice(&split_results);
             Scale(Vec3::from_slice(&res))
         }
-        None => Scale::default()
+        None => Scale::default(),
     }
 }
 

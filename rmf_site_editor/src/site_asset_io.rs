@@ -243,7 +243,7 @@ impl AssetIo for SiteAssetIo {
             }
             AssetSource::Package(_) => Box::pin(async move {
                 // Split into package and path
-                let path = expand_package_path(&String::from(&asset_source), None);
+                let path = (*expand_package_path(&String::from(&asset_source), None)).to_owned();
                 self.load_from_file(PathBuf::from(path))
             }),
             AssetSource::Search(asset_name) => {

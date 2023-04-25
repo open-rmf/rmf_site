@@ -39,7 +39,7 @@ rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
 bitfield = "*"
 rfd = "0.11"
-urdf-rs = { git = "https://github.com/openrr/urdf-rs", rev = "c62dd92" }
+urdf-rs = "0.7"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]

@@ -311,18 +311,27 @@ pub fn update_model_scales(
 
 pub fn make_models_selectable(
     mut commands: Commands,
-    model_scene_roots: Query<(Entity, &Selectable), Added<ModelSceneRoot>>,
+    new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
+    parents: Query<&Parent>,
+    scene_roots: Query<&Selectable, With<ModelSceneRoot>>,
     all_children: Query<&Children>,
     mesh_handles: Query<&Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
 ) {
     // We use adding of scene root as a marker of models being spawned, the component is added when
     // the scene fininshed loading and is spawned
-    for (model_scene_root, selectable) in &model_scene_roots {
+    for model_scene_root in &new_scene_roots {
         // Use a small vec here to try to dodge heap allocation if possible.
         // TODO(MXG): Run some tests to see if an allocation of 16 is typically
         // sufficient.
         let mut queue: SmallVec<[Entity; 16]> = SmallVec::new();
+        // A root might be a child of another root, for example for SDF models that have multiple
+        // submeshes. We need to traverse up to find the highest level scene to use for selecting
+        // behavior
+        let selectable = AncestorIter::new(&parents, model_scene_root)
+            .filter_map(|p| scene_roots.get(p).ok())
+            .last()
+            .unwrap_or(scene_roots.get(model_scene_root).unwrap());
         queue.push(model_scene_root);
 
         while let Some(e) = queue.pop() {

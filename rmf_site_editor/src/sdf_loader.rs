@@ -74,7 +74,10 @@ pub enum SdfGeometry {
 
 impl Default for SdfGeometry {
     fn default() -> Self {
-        SdfGeometry::Mesh(SdfMesh { uri: String::new(), scale: None })
+        SdfGeometry::Mesh(SdfMesh {
+            uri: String::new(),
+            scale: None,
+        })
     }
 }
 
