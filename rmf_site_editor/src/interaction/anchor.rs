@@ -65,7 +65,7 @@ pub fn add_anchor_visual_cues(
 
         entity_commands
             .insert(AnchorVisualization { body, drag: None })
-            .insert(OutlineVisualization::Anchor);
+            .insert(OutlineVisualization::Anchor { body });
 
         // 3D anchors should always be visible with arrow cue meshes
         match anchor {
