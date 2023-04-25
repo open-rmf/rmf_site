@@ -105,7 +105,6 @@ pub fn assign_orphan_anchors_to_parent(
     mut commands: Commands,
     mut current_level: ResMut<CurrentLevel>,
     lifts: Query<(
-        Entity,
         &LiftCabin<Entity>,
         &ChildCabinAnchorGroup,
         &GlobalTransform,
@@ -124,7 +123,7 @@ pub fn assign_orphan_anchors_to_parent(
 
         let mut assigned_to_lift: bool = false;
         // First check if the new anchor is inside the footprint of any lift cabins
-        for (e_lift, cabin, anchor_group, global_lift_tf) in &lifts {
+        for (cabin, anchor_group, global_lift_tf) in &lifts {
             let cabin_aabb = match cabin {
                 LiftCabin::Rect(params) => params.aabb(),
                 // LiftCabin::Model(_) => {

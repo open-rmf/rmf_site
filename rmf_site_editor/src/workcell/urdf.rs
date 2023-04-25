@@ -21,7 +21,7 @@ use std::collections::{HashMap, HashSet};
 
 use crate::interaction::Selectable;
 use crate::shapes::{make_box, make_cylinder};
-use crate::site::SiteAssets;
+use crate::site::{SiteAssets, AnchorBundle};
 
 use rmf_site_format::{
     Anchor, Angle, Category, Link, MeshPrimitive, Pose, Rotation, UrdfRoot,
