@@ -77,14 +77,20 @@ fn parse_pose(pose: &Option<SdfPose>) -> Pose {
 pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &SdfRoot)>) {
     for (e, sdf) in new_sdfs.iter() {
         for link in &sdf.model.link {
+            let link_pose = parse_pose(&link.pose);
+            let link_id = commands
+                .spawn(SpatialBundle::from_transform(link_pose.transform()))
+                .id();
+            commands.entity(e).add_child(link_id);
             for visual in &link.visual {
+                let pose = parse_pose(&visual.pose);
                 let id = match &visual.geometry {
                     SdfGeometry::Mesh(mesh) => Some(
                         commands
                             .spawn(Model {
                                 name: NameInSite(visual.name.clone()),
                                 source: compute_model_source(&sdf.path, &mesh.uri),
-                                pose: parse_pose(&visual.pose),
+                                pose,
                                 is_static: IsStatic(sdf.model.r#static.unwrap_or(false)),
                                 constraints: ConstraintDependents::default(),
                                 scale: parse_scale(&mesh.scale),
@@ -99,7 +105,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                                 .spawn(MeshPrimitive::Box {
                                     size: [s.x as f32, s.y as f32, s.z as f32],
                                 })
-                                .insert(parse_pose(&visual.pose))
+                                .insert(pose)
                                 .insert(SpatialBundle::VISIBLE_IDENTITY)
                                 .id(),
                         )
@@ -110,7 +116,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                                 radius: c.radius as f32,
                                 length: c.length as f32,
                             })
-                            .insert(parse_pose(&visual.pose))
+                            .insert(pose)
                             .insert(SpatialBundle::VISIBLE_IDENTITY)
                             .id(),
                     ),
@@ -120,7 +126,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                                 radius: c.radius as f32,
                                 length: c.length as f32,
                             })
-                            .insert(parse_pose(&visual.pose))
+                            .insert(pose)
                             .insert(SpatialBundle::VISIBLE_IDENTITY)
                             .id(),
                     ),
@@ -129,7 +135,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                             .spawn(MeshPrimitive::Sphere {
                                 radius: s.radius as f32,
                             })
-                            .insert(parse_pose(&visual.pose))
+                            .insert(pose)
                             .insert(SpatialBundle::VISIBLE_IDENTITY)
                             .id(),
                     ),
@@ -137,7 +143,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                 };
                 match id {
                     Some(id) => {
-                        commands.entity(e).add_child(id);
+                        commands.entity(link_id).add_child(id);
                     }
                     None => println!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
