@@ -72,11 +72,8 @@ fn egui_ui(
                     )));
                 }
 
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui.button("Open a file").clicked() {
-                        _load_workspace.send(LoadWorkspace::Dialog);
-                    }
+                if ui.button("Open a file").clicked() {
+                    _load_workspace.send(LoadWorkspace::Dialog);
                 }
 
                 if ui.button("Workcell Editor").clicked() {

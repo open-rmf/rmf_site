@@ -224,36 +224,45 @@ fn handle_workspace_data(
     match workspace_data {
         WorkspaceData::LegacyBuilding(data) => {
             println!("Opening legacy building map file");
-            if let Some(site) = BuildingMap::from_bytes(&data)
-                .ok()
-                .and_then(|b| b.to_site().ok())
-            {
-                // Switch state
-                app_state.set(AppState::SiteEditor).ok();
-                load_site.send(LoadSite {
-                    site,
-                    focus: true,
-                    default_file: file,
-                });
-                interaction_state.set(InteractionState::Enable).ok();
-            } else {
-                // TODO(luca) restore more informative errors
-                println!("Failed loading legacy building");
+            match BuildingMap::from_bytes(&data) {
+                Ok(building) => {
+                    match building.to_site() {
+                        Ok(site) => {
+                            // Switch state
+                            app_state.set(AppState::SiteEditor).ok();
+                            load_site.send(LoadSite {
+                                site,
+                                focus: true,
+                                default_file: file,
+                            });
+                            interaction_state.set(InteractionState::Enable).ok();
+                        }
+                        Err(err) => {
+                            println!("Failed converting to site {:?}", err);
+                        }
+                    }
+                }
+                Err(err) => {
+                    println!("Failed loading legacy building {:?}", err);
+                }
             }
         }
         WorkspaceData::Site(data) => {
             println!("Opening site file");
-            if let Ok(site) = Site::from_bytes(&data) {
-                // Switch state
-                app_state.set(AppState::SiteEditor).ok();
-                load_site.send(LoadSite {
-                    site,
-                    focus: true,
-                    default_file: file,
-                });
-                interaction_state.set(InteractionState::Enable).ok();
-            } else {
-                println!("Failed loading site");
+            match Site::from_bytes(&data) {
+                Ok(site) => {
+                    // Switch state
+                    app_state.set(AppState::SiteEditor).ok();
+                    load_site.send(LoadSite {
+                        site,
+                        focus: true,
+                        default_file: file,
+                    });
+                    interaction_state.set(InteractionState::Enable).ok();
+                }
+                Err(err) => {
+                    println!("Failed loading site {:?}", err);
+                }
             }
         }
         WorkspaceData::Workcell(data) => {
