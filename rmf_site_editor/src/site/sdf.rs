@@ -16,13 +16,17 @@
 */
 
 use bevy::prelude::*;
+use bevy::render::mesh::shape::{Capsule, UVSphere};
 
+use crate::interaction::Selectable;
+use crate::shapes::make_cylinder;
+use crate::site::SiteAssets;
 use crate::SdfRoot;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    Angle, AssetSource, ConstraintDependents, IsStatic, Model, ModelMarker, NameInSite, Pose,
-    Rotation, Scale,
+    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, MeshPrimitive, Model,
+    ModelMarker, NameInSite, Pose, Rotation, Scale, WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 
 // TODO(luca) reduce chances for panic and do proper error handling here
@@ -69,39 +73,128 @@ fn parse_pose(pose: &Option<SdfPose>) -> Pose {
     }
 }
 
+// TODO(luca) reduce duplication between sdf -> MeshPrimitive and urdf -> MeshPrimitive
 pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &SdfRoot)>) {
     for (e, sdf) in new_sdfs.iter() {
         for link in &sdf.model.link {
             for visual in &link.visual {
-                match &visual.geometry {
-                    SdfGeometry::Mesh(mesh) => {
-                        let id = commands
+                let id = match &visual.geometry {
+                    SdfGeometry::Mesh(mesh) => Some(
+                        commands
                             .spawn(Model {
-                                name: NameInSite("Unnamed".to_string()),
+                                name: NameInSite(visual.name.clone()),
                                 source: compute_model_source(&sdf.path, &mesh.uri),
                                 pose: parse_pose(&visual.pose),
-                                is_static: IsStatic::default(),
+                                is_static: IsStatic(sdf.model.r#static.unwrap_or(false)),
                                 constraints: ConstraintDependents::default(),
                                 scale: parse_scale(&mesh.scale),
                                 marker: ModelMarker,
                             })
-                            .id();
+                            .id(),
+                    ),
+                    SdfGeometry::Box(b) => {
+                        let s = &b.size.0;
+                        Some(
+                            commands
+                                .spawn(MeshPrimitive::Box {
+                                    size: [s.x as f32, s.y as f32, s.z as f32],
+                                })
+                                .insert(parse_pose(&visual.pose))
+                                .insert(SpatialBundle::VISIBLE_IDENTITY)
+                                .id(),
+                        )
+                    }
+                    SdfGeometry::Capsule(c) => Some(
+                        commands
+                            .spawn(MeshPrimitive::Capsule {
+                                radius: c.radius as f32,
+                                length: c.length as f32,
+                            })
+                            .insert(parse_pose(&visual.pose))
+                            .insert(SpatialBundle::VISIBLE_IDENTITY)
+                            .id(),
+                    ),
+                    SdfGeometry::Cylinder(c) => Some(
+                        commands
+                            .spawn(MeshPrimitive::Cylinder {
+                                radius: c.radius as f32,
+                                length: c.length as f32,
+                            })
+                            .insert(parse_pose(&visual.pose))
+                            .insert(SpatialBundle::VISIBLE_IDENTITY)
+                            .id(),
+                    ),
+                    SdfGeometry::Sphere(s) => Some(
+                        commands
+                            .spawn(MeshPrimitive::Sphere {
+                                radius: s.radius as f32,
+                            })
+                            .insert(parse_pose(&visual.pose))
+                            .insert(SpatialBundle::VISIBLE_IDENTITY)
+                            .id(),
+                    ),
+                    _ => None,
+                };
+                match id {
+                    Some(id) => {
                         commands.entity(e).add_child(id);
                     }
-                    _ => println!("Found unhandled geometry type {:?}", &visual.geometry),
+                    None => println!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
             }
-            /*
-            for collision in &link.collision {
-                let model = WorkcellModel::from(collision);
-                let cmd =
-                    commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellCollisionMarker));
-                let id = cmd.id();
-                model.add_bevy_components(cmd);
-                commands.entity(link_entity).add_child(id);
-            }
-            */
+            // TODO(luca) parse and display collisions
         }
         commands.entity(e).remove::<SdfRoot>();
+    }
+}
+
+pub fn handle_new_mesh_primitives(
+    mut commands: Commands,
+    primitives: Query<(Entity, &MeshPrimitive), Added<MeshPrimitive>>,
+    parents: Query<&Parent>,
+    selectables: Query<
+        &Selectable,
+        Or<(
+            With<ModelMarker>,
+            With<WorkcellVisualMarker>,
+            With<WorkcellCollisionMarker>,
+        )>,
+    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    site_assets: Res<SiteAssets>,
+) {
+    for (e, primitive) in primitives.iter() {
+        let mesh = match primitive {
+            MeshPrimitive::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            MeshPrimitive::Cylinder { radius, length } => {
+                // TODO(luca) Use builtin cylinder making when migrating to bevy 0.10
+                Mesh::from(make_cylinder(*length / 2.0, *radius))
+            }
+            MeshPrimitive::Capsule { radius, length } => Mesh::from(Capsule {
+                radius: *radius,
+                depth: *length,
+                ..default()
+            }),
+            MeshPrimitive::Sphere { radius } => Mesh::from(UVSphere {
+                radius: *radius,
+                ..default()
+            }),
+        };
+        // Parent is the first of ModelMarker and / or WorkcellVisualMarker or
+        // WorkcelLCollisionMarker
+        let child_id = commands
+            .spawn(PbrBundle {
+                mesh: meshes.add(mesh),
+                material: site_assets.default_mesh_grey_material.clone(),
+                ..default()
+            })
+            .id();
+        if let Some(selectable) = AncestorIter::new(&parents, e)
+            .filter_map(|p| selectables.get(p).ok())
+            .last()
+        {
+            commands.entity(child_id).insert(selectable.clone());
+        }
+        commands.entity(e).push_children(&[child_id]);
     }
 }

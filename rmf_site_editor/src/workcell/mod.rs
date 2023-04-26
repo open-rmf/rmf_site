@@ -40,8 +40,8 @@ use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::interaction::Gizmo;
 use crate::site::{
-    make_models_selectable, update_anchor_transforms, update_model_scenes,
-    update_model_tentative_formats, update_transforms_for_changed_poses,
+    handle_new_mesh_primitives, make_models_selectable, update_anchor_transforms,
+    update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
 };
 use crate::AppState;
 

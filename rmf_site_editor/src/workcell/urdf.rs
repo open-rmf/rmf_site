@@ -16,12 +16,7 @@
 */
 
 use bevy::prelude::*;
-use bevy::render::mesh::shape::{Capsule, UVSphere};
 use std::collections::{HashMap, HashSet};
-
-use crate::interaction::Selectable;
-use crate::shapes::{make_box, make_cylinder};
-use crate::site::SiteAssets;
 
 use rmf_site_format::{
     Anchor, Angle, Category, Link, MeshPrimitive, Pose, Rotation, UrdfRoot,
@@ -129,39 +124,5 @@ pub fn handle_new_urdf_roots(mut commands: Commands, new_urdfs: Query<(Entity, &
             commands.entity(e).add_child(*link);
         }
         commands.entity(e).remove::<UrdfRoot>();
-    }
-}
-
-pub fn handle_new_mesh_primitives(
-    mut commands: Commands,
-    primitives: Query<(Entity, &MeshPrimitive), Added<MeshPrimitive>>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    site_assets: Res<SiteAssets>,
-) {
-    for (e, primitive) in primitives.iter() {
-        let mesh = match primitive {
-            MeshPrimitive::Box { size } => Mesh::from(make_box(size[0], size[1], size[2])),
-            MeshPrimitive::Cylinder { radius, length } => {
-                Mesh::from(make_cylinder(*length, *radius))
-            }
-            MeshPrimitive::Capsule { radius, length } => Mesh::from(Capsule {
-                radius: *radius,
-                depth: *length,
-                ..default()
-            }),
-            MeshPrimitive::Sphere { radius } => Mesh::from(UVSphere {
-                radius: *radius,
-                ..default()
-            }),
-        };
-        let child_id = commands
-            .spawn(PbrBundle {
-                mesh: meshes.add(mesh),
-                material: site_assets.default_mesh_grey_material.clone(),
-                ..default()
-            })
-            .insert(Selectable::new(e))
-            .id();
-        commands.entity(e).push_children(&[child_id]);
     }
 }

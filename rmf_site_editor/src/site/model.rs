@@ -313,7 +313,7 @@ pub fn make_models_selectable(
     mut commands: Commands,
     new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
     parents: Query<&Parent>,
-    scene_roots: Query<&Selectable, With<ModelSceneRoot>>,
+    scene_roots: Query<&Selectable, With<ModelMarker>>,
     all_children: Query<&Children>,
     mesh_handles: Query<&Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
