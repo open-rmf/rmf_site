@@ -173,8 +173,7 @@ pub fn handle_new_mesh_primitives(
         let mesh = match primitive {
             MeshPrimitive::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
             MeshPrimitive::Cylinder { radius, length } => {
-                // TODO(luca) Use builtin cylinder making when migrating to bevy 0.10
-                Mesh::from(make_cylinder(*length / 2.0, *radius))
+                Mesh::from(make_cylinder(*length, *radius))
             }
             MeshPrimitive::Capsule { radius, length } => Mesh::from(Capsule {
                 radius: *radius,

@@ -461,10 +461,10 @@ pub(crate) fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> Mesh
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_box(x_extent: f32, y_extent: f32, z_extent: f32) -> MeshBuffer {
-    let (min_x, max_x) = (-x_extent, x_extent);
-    let (min_y, max_y) = (-y_extent, y_extent);
-    let (min_z, max_z) = (-z_extent, z_extent);
+pub(crate) fn make_box(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
+    let (min_x, max_x) = (-x_size / 2.0, x_size / 2.0);
+    let (min_y, max_y) = (-y_size / 2.0, y_size / 2.0);
+    let (min_z, max_z) = (-z_size / 2.0, z_size / 2.0);
     let vertices = &[
         // Top
         ([min_x, min_y, max_z], [0., 0., 1.]),
@@ -557,7 +557,7 @@ pub(crate) fn make_wall_mesh(
         [0., 1.],     // 22
         [length, 1.], // 23
     ];
-    make_box(length / 2.0, thickness / 2.0, height / 2.0)
+    make_box(length, thickness, height)
         .with_uv(uv)
         .transform_by(
             Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
@@ -637,13 +637,13 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
 }
 
 pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
-    let top_circle = Circle { height, radius };
+    let top_circle = Circle { height: height / 2.0, radius };
     let mid_circle = Circle {
         height: 0.0,
         radius,
     };
     let bottom_circle = Circle {
-        height: -height,
+        height: -height / 2.0,
         radius,
     };
     let resolution = 32;
@@ -1059,7 +1059,7 @@ pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshB
     let mut mesh = make_ring(radius, radius + width / 2.0, 32);
     for i in 0..segments {
         mesh = mesh.merge_with(
-            make_box(width / 2.0, width / 2.0, height / 2.0)
+            make_box(width, width, height)
                 .transform_by(Affine3A::from_translation(Vec3::new(
                     radius + width / 2.0,
                     0.0,

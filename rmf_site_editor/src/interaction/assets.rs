@@ -168,7 +168,7 @@ impl FromWorld for InteractionAssets {
         let halo_mesh = meshes.add(make_halo_mesh());
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
-            make_cylinder(0.03, 0.02)
+            make_cylinder(0.06, 0.02)
                 .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
                 .into(),
         );
@@ -214,14 +214,14 @@ impl FromWorld for InteractionAssets {
         );
         let directional_light_cover_mesh = meshes.add(
             Mesh::from(
-                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
+                make_cylinder(0.02, 0.1).transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
             )
             .with_generated_outline_normals()
             .unwrap(),
         );
         let directional_light_shine_mesh = meshes.add(
             Mesh::from(
-                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
+                make_cylinder(0.02, 0.1).transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
             )
             .with_generated_outline_normals()
             .unwrap(),
