@@ -21,14 +21,10 @@ use bevy_egui::{
     egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
     EguiContext,
 };
+use bevy_utils::tracing::{field::Field, span::Record, Event, Id, Level, Subscriber};
+use crossbeam_channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};
-use bevy_utils::tracing::{
-    field::Field,
-    span::Record,
-    Event, Id, Level, Subscriber,
-};
-use crossbeam_channel::{unbounded, Sender, Receiver, SendError, TryRecvError};
 use tracing_subscriber::{field::Visit, layer::Context, prelude::*, EnvFilter, Layer};
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
@@ -255,10 +251,15 @@ pub struct LogSubscriber {
     sender: Sender<Log>,
 }
 
-
-impl<S> Layer<S> for LogSubscriber where S: tracing::Subscriber {
-    //
-    fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
+impl<S> Layer<S> for LogSubscriber
+where
+    S: tracing::Subscriber,
+{
+    fn on_event(
+        &self,
+        event: &tracing::Event<'_>,
+        _ctx: tracing_subscriber::layer::Context<'_, S>,
+    ) {
         let mut recorder = LogRecorder::new();
         event.record(&mut recorder);
 

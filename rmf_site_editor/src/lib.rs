@@ -1,4 +1,6 @@
-use bevy::{log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo};
+use bevy::{
+    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
+};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -112,7 +114,8 @@ pub fn run(command_line_args: Vec<String>) {
     {
         app.add_plugins(
             DefaultPlugins
-                .build().disable::<LogPlugin>()
+                .build()
+                .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     window: WindowDescriptor {
                         title: "RMF Site Editor".to_owned(),
@@ -134,7 +137,8 @@ pub fn run(command_line_args: Vec<String>) {
     {
         app.add_plugins(
             DefaultPlugins
-                .build().disable::<LogPlugin>()
+                .build()
+                .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     window: WindowDescriptor {
                         title: "RMF Site Editor".to_owned(),
