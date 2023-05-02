@@ -84,8 +84,7 @@ impl Plugin for StandardUiLayout {
             .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
-                    .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi))
-                    .with_system(handle_log_entries),
+                    .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,

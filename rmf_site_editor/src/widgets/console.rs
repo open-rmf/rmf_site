@@ -22,14 +22,22 @@ use bevy_egui::{
     EguiContext,
 };
 use std::collections::HashMap;
-use std::fmt::{self, Write};
+use std::fmt::{self, Debug, Write};
+use bevy_utils::tracing::{
+    field::Field,
+    span::Record,
+    Event, Id, Level, Subscriber,
+};
+use crossbeam_channel::{unbounded, Sender, Receiver, SendError, TryRecvError};
+use tracing_subscriber::{field::Visit, layer::Context, prelude::*, EnvFilter, Layer};
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum LogCategory {
     Status = 0,
     Warning = 1,
     Error = 2,
-    Hint = 3,
+    Bevy = 3,
+    Hint = 4,
 }
 
 impl fmt::Display for LogCategory {
@@ -39,6 +47,7 @@ impl fmt::Display for LogCategory {
             LogCategory::Status => write!(f, "[STATUS] "),
             LogCategory::Warning => write!(f, "[WARNING] "),
             LogCategory::Error => write!(f, "[ERROR] "),
+            LogCategory::Bevy => write!(f, "[BEVY] "),
         }
     }
 }
@@ -47,60 +56,6 @@ impl fmt::Display for LogCategory {
 pub struct Log {
     pub category: LogCategory,
     pub message: String,
-}
-
-pub trait FormatInput {
-    fn format_to_string(&self) -> String;
-}
-
-impl FormatInput for &str {
-    fn format_to_string(&self) -> String {
-        self.to_string()
-    }
-}
-
-impl FormatInput for fmt::Arguments<'_> {
-    fn format_to_string(&self) -> String {
-        let mut s = String::new();
-        let ag = &self;
-        write!(&mut s, "{ag}");
-        s
-    }
-}
-
-#[derive(SystemParam)]
-pub struct Logger<'w, 's> {
-    writer: EventWriter<'w, 's, Log>,
-}
-
-impl<'w, 's> Logger<'w, 's> {
-    pub fn status<T: FormatInput>(&mut self, message: T) {
-        self.writer.send(Log {
-            category: LogCategory::Status,
-            message: message.format_to_string(),
-        });
-    }
-
-    pub fn warn<T: FormatInput>(&mut self, message: T) {
-        self.writer.send(Log {
-            category: LogCategory::Warning,
-            message: message.format_to_string(),
-        });
-    }
-
-    pub fn err<T: FormatInput>(&mut self, message: T) {
-        self.writer.send(Log {
-            category: LogCategory::Error,
-            message: message.format_to_string(),
-        });
-    }
-
-    pub fn hint<T: FormatInput>(&mut self, message: T) {
-        self.writer.send(Log {
-            category: LogCategory::Hint,
-            message: message.format_to_string(),
-        });
-    }
 }
 
 #[derive(Resource)]
@@ -113,6 +68,7 @@ pub struct LogHistory {
     display_limit: usize,
     show_full_history: bool,
     category_count: Vec<usize>,
+    receiver: Receiver<Log>,
 }
 
 impl Default for LogHistory {
@@ -121,6 +77,22 @@ impl Default for LogHistory {
         filter_hashmap.insert(LogCategory::Status, true);
         filter_hashmap.insert(LogCategory::Warning, true);
         filter_hashmap.insert(LogCategory::Error, true);
+        filter_hashmap.insert(LogCategory::Bevy, false);
+
+        let (tx, rx) = unbounded();
+        let tx_2 = tx.clone();
+        let rx_2 = rx.clone();
+
+        let level_name = Level::INFO;
+        let filter_name = "wgpu=error".to_string();
+        let default_filter = { format!("{},{}", level_name, filter_name) };
+        let filter_layer = EnvFilter::try_from_default_env()
+            .or_else(|_| EnvFilter::try_new(&default_filter))
+            .unwrap();
+
+        let subscriber = tracing_subscriber::registry().with(LogSubscriber { sender: tx_2 });
+        let subscriber = subscriber.with(filter_layer);
+        tracing::subscriber::set_global_default(subscriber);
 
         Self {
             log_history: Vec::new(),
@@ -130,7 +102,8 @@ impl Default for LogHistory {
             stored_checked_all: true,
             display_limit: 100,
             show_full_history: false,
-            category_count: vec![0; 3], // for Status, Warning, Error
+            category_count: vec![0; 4], // for Status, Warning, Error, Bevy
+            receiver: rx_2,
         }
     }
 }
@@ -196,6 +169,14 @@ impl LogHistory {
         &mut self.display_limit
     }
 
+    pub fn receive_log(&mut self) {
+        match self.receiver.try_recv() {
+            Ok(msg) => self.append_log(msg),
+            Err(TryRecvError::Disconnected) => println!("Unable to receive log: Disconnected"),
+            Err(TryRecvError::Empty) => (),
+        }
+    }
+
     pub fn show_all(&self) -> bool {
         self.show_full_history
     }
@@ -222,7 +203,6 @@ impl LogHistory {
     }
 
     fn append_log(&mut self, log: Log) {
-        println!("{}", log.message);
         self.current_log = Some(log.clone());
         if log.category != LogCategory::Hint {
             self.category_count[log.category as usize] += 1;
@@ -231,9 +211,81 @@ impl LogHistory {
     }
 }
 
-pub fn handle_log_entries(mut logger: EventReader<Log>, mut events: AppEvents) {
-    for lg in logger.iter() {
-        events.display.log_history.append_log(lg.clone());
+struct LogRecorder(String, bool);
+impl LogRecorder {
+    fn new() -> Self {
+        LogRecorder(String::new(), false)
+    }
+}
+
+impl Visit for LogRecorder {
+    fn record_debug(&mut self, field: &Field, value: &dyn Debug) {
+        if field.name() == "message" {
+            if !self.0.is_empty() {
+                self.0 = format!("{:?}\n{}", value, self.0)
+            } else {
+                self.0 = format!("{:?}", value)
+            }
+        } else {
+            if self.1 {
+                // following args
+                write!(self.0, " ").unwrap();
+            } else {
+                // first arg
+                self.1 = true;
+            }
+            write!(self.0, "{} = {:?};", field.name(), value).unwrap();
+        }
+    }
+}
+
+impl fmt::Display for LogRecorder {
+    fn fmt(&self, mut f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        if !self.0.is_empty() {
+            write!(&mut f, " {}", self.0)
+        } else {
+            Ok(())
+        }
+    }
+}
+
+pub struct LogSubscriber {
+    sender: Sender<Log>,
+}
+
+
+impl<S> Layer<S> for LogSubscriber where S: tracing::Subscriber {
+    //
+    fn on_event(&self, event: &tracing::Event<'_>, _ctx: tracing_subscriber::layer::Context<'_, S>) {
+        let mut recorder = LogRecorder::new();
+        event.record(&mut recorder);
+
+        // Default category
+        let mut category = LogCategory::Status;
+        let message = format!("{}\0", recorder);
+
+        // Check if this is a Bevy or RMF Site log
+        if event.metadata().target().contains("bevy") {
+            category = LogCategory::Bevy;
+        } else {
+            category = match *event.metadata().level() {
+                Level::INFO => LogCategory::Status,
+                Level::WARN => LogCategory::Warning,
+                Level::ERROR => LogCategory::Error,
+                _ => LogCategory::Hint,
+            };
+        }
+
+        let log = Log {
+            category: category,
+            message: message,
+        };
+
+        let send_message = self.sender.send(log);
+        match send_message {
+            Ok(()) => send_message.unwrap(),
+            Err(SendError(e)) => println!("Unable to send log: {:?}", e),
+        }
     }
 }
 
@@ -247,6 +299,7 @@ fn print_log(ui: &mut egui::Ui, log: &Log) {
             LogCategory::Status => Color32::WHITE,
             LogCategory::Warning => Color32::YELLOW,
             LogCategory::Error => Color32::RED,
+            LogCategory::Bevy => Color32::LIGHT_BLUE,
         };
         ui.label(RichText::new(log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
@@ -268,7 +321,10 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
         Self { events }
     }
 
-    pub fn show(mut self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui) {
+        // Check updated logs
+        self.events.display.log_history.receive_log();
+
         ui.horizontal_wrapped(|ui| {
             ui.spacing_mut().item_spacing.x = 0.5;
             let status = self.events.display.log_history.current_log();
@@ -305,6 +361,13 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                             .log_history
                             .category_present_mut(LogCategory::Error),
                         "Error",
+                    );
+                    ui.checkbox(
+                        self.events
+                            .display
+                            .log_history
+                            .category_present_mut(LogCategory::Bevy),
+                        "Bevy",
                     );
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
