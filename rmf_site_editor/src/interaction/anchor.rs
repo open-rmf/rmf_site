@@ -73,14 +73,6 @@ pub fn add_anchor_visual_cues(
         } else {
             entity_commands.insert(VisualCue::outline().irregular());
         }
-        // match anchor {
-        //     Anchor::Pose3D(_) => {
-        //         interaction_assets.make_orientation_cue_meshes(&mut commands, e, 0.2);
-        //     }
-        //     _ => {
-        //         entity_commands.insert(VisualCue::outline().irregular());
-        //     }
-        // }
     }
 }
 
@@ -104,9 +96,7 @@ pub fn move_anchor(
     mut move_to: EventReader<MoveTo>,
 ) {
     for move_to in move_to.iter() {
-        dbg!(&move_to.transform);
         if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
-            dbg!((&anchor, &move_to.transform));
             anchor.move_to(&move_to.transform);
         }
     }
@@ -272,7 +262,6 @@ pub fn update_anchor_visual_cues(
             if select_tracker.is_changed() || hover_tracker.is_changed() {
                 if selected.cue() || hovered.cue() {
                     if shapes.drag.is_none() {
-                        dbg!(subordinate);
                         interaction_assets.add_anchor_gizmos_3D(
                             &mut commands,
                             a,

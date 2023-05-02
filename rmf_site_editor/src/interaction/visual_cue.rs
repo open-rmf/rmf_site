@@ -107,6 +107,11 @@ impl VisualCue {
         self
     }
 
+    pub fn always_xray(mut self) -> VisualCue {
+        self.xray.set_always(true);
+        self
+    }
+
     pub fn layers(&self) -> RenderLayers {
         let mut layers = RenderLayers::none();
         if self.regular.any() {
