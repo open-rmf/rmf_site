@@ -234,7 +234,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     ) {
         Ok(r) => r,
         Err(id) => {
-            println!(
+            error!(
                 "ERROR: Nav Graph ranking could not load because a graph with \
                 id {id} does not exist."
             );
@@ -511,7 +511,7 @@ pub fn import_nav_graph(
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {
-            println!("Failed to import nav graph: {err}");
+            error!("Failed to import nav graph: {err}");
         }
     }
 
@@ -571,7 +571,7 @@ pub fn import_nav_graph(
 
             if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data)
             {
-                println!("Failed to auto-import nav graph: {err}");
+                error!("Failed to auto-import nav graph: {err}");
             }
         }
     }

@@ -126,7 +126,7 @@ pub fn add_tags_to_lift(
             if let Some(current_site) = current_site.0 {
                 commands.entity(current_site).add_child(e);
             } else {
-                println!("Could not find a current site to put a newly created lift inside of!");
+                error!("Could not find a current site to put a newly created lift inside of!");
             }
         }
 
@@ -362,7 +362,7 @@ pub fn update_lift_door_availability(
             if !all_levels.contains(toggle.on_level) {
                 // If we're being asked to toggle availability on for something
                 // that isn't a level, then ignore this request.
-                println!(
+                error!(
                     "DEV ERROR: Asking to turn on lift {:?} door {:?} availability \
                     for a level {:?} that does not exist.",
                     toggle.for_lift, toggle.cabin_door, toggle.on_level,
@@ -530,7 +530,7 @@ pub fn update_lift_door_availability(
             let e_lift = match parents.get(e_door) {
                 Ok(e_lift) => e_lift,
                 Err(_) => {
-                    println!(
+                    error!(
                         "DEV ERROR: Unable to find parent for lift door \
                         {e_door:?} while handling a removed level"
                     );
@@ -540,7 +540,7 @@ pub fn update_lift_door_availability(
             let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
                 Ok(cabin) => cabin,
                 Err(_) => {
-                    println!("DEV ERROR: Unable to find cabin for lift {e_lift:?}");
+                    error!("DEV ERROR: Unable to find cabin for lift {e_lift:?}");
                     continue;
                 }
             };

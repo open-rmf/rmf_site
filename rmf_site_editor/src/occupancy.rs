@@ -176,7 +176,7 @@ fn calculate_grid(
         let levels_of_sites = get_levels_of_sites(&levels, &parents);
 
         let physical_entities = collect_physical_entities(&bodies, &meta);
-        println!("Checking {:?} physical entities", physical_entities.len());
+        info!("Checking {:?} physical entities", physical_entities.len());
         for e in &physical_entities {
             let (_, mesh, aabb, tf) = match bodies.get(*e) {
                 Ok(body) => body,
@@ -210,7 +210,7 @@ fn calculate_grid(
                 let indices = match mesh.indices() {
                     Some(Indices::U32(indices)) => indices,
                     _ => {
-                        println!(
+                        warn!(
                             "Unexpected index set for mesh of {e:?}:\n{:?}",
                             mesh.indices()
                         );
@@ -243,7 +243,7 @@ fn calculate_grid(
 
         let finish_time = Instant::now();
         let delta = finish_time - start_time;
-        println!("Occupancy calculation time: {}", delta.as_secs_f32());
+        info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
         for grid in &grids {
             commands.entity(grid).despawn_recursive();

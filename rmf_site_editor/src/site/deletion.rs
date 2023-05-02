@@ -125,7 +125,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
-                println!(
+                warn!(
                     "Element {:?} cannot be deleted because: {}",
                     element,
                     prevent
@@ -134,7 +134,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 );
             } else {
-                println!(
+                warn!(
                     "Element {:?} is an ancestor of {:?} which cannot be \
                     deleted because: {}",
                     element,
@@ -152,7 +152,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             for dep in dependents.iter() {
                 if !all_descendents.contains(dep) {
                     if *descendent == element {
-                        println!(
+                        warn!(
                             "Cannot delete {:?} because it has {} dependents. \
                             Only elements with no outside dependents can be \
                             deleted.",
@@ -160,7 +160,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                             dependents.len(),
                         );
                     } else {
-                        println!(
+                        warn!(
                             "Element {:?} is an ancestor of {:?} \
                             which cannot be deleted because {:?} depends \
                             on it.",
@@ -211,7 +211,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     while let Some(top) = queue.pop() {
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
-                println!(
+                warn!(
                     "Cannot delete {:?} because: {}",
                     element,
                     prevent
@@ -220,7 +220,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
                         .unwrap_or(&"<.. no reason given>".to_string()),
                 );
             } else {
-                println!(
+                warn!(
                     "Cannot delete {:?} because we would need to also delete \
                     {:?} which cannot be deleted because: {}",
                     element,

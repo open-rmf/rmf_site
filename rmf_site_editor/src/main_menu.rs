@@ -109,12 +109,12 @@ fn egui_ui(
                                 Ok(building) => match building.to_site() {
                                     Ok(site) => site,
                                     Err(err) => {
-                                        println!("{err:?}");
+                                        error!("{err:?}");
                                         return None;
                                     }
                                 },
                                 Err(err) => {
-                                    println!("{:?}", err);
+                                    error!("{:?}", err);
                                     return None;
                                 }
                             };
@@ -142,16 +142,16 @@ fn egui_ui(
                                             _interaction_state.set(InteractionState::Enable).ok();
                                         }
                                         Err(err) => {
-                                            println!("Failed to enter traffic editor: {:?}", err);
+                                            error!("Failed to enter traffic editor: {:?}", err);
                                         }
                                     }
                                 }
                                 Err(err) => {
-                                    println!("{err:?}");
+                                    error!("{err:?}");
                                 }
                             },
                             Err(err) => {
-                                println!("{:?}", err);
+                                error!("{:?}", err);
                             }
                         }
                     }
@@ -167,11 +167,11 @@ fn egui_ui(
                             let file = match AsyncFileDialog::new().pick_file().await {
                                 Some(file) => file,
                                 None => {
-                                    println!("No file selected");
+                                    warn!("No file selected");
                                     return None;
                                 }
                             };
-                            println!("Loading site map");
+                            info!("Loading site map");
 
                             let site = load_site_file(&file).await?;
                             Some(LoadSiteFileResult(
@@ -186,7 +186,7 @@ fn egui_ui(
                 // TODO(MXG): Bring this back when we have time to fix the
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
-                //     println!("Entering warehouse generator");
+                //     info!("Entering warehouse generator");
                 //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
             });
@@ -216,12 +216,12 @@ fn site_file_load_complete(
 ) {
     for (entity, mut task) in tasks.iter_mut() {
         if let Some(result) = future::block_on(future::poll_once(&mut task.0)) {
-            println!("Site map loaded");
+            info!("Site map loaded");
             commands.entity(entity).despawn();
 
             match result {
                 Some(result) => {
-                    println!("Entering traffic editor");
+                    info!("Entering traffic editor");
                     match app_state.set(AppState::SiteEditor) {
                         Ok(_) => {
                             let LoadSiteFileResult(file, site) = result;
@@ -233,7 +233,7 @@ fn site_file_load_complete(
                             interaction_state.set(InteractionState::Enable).ok();
                         }
                         Err(err) => {
-                            println!("Failed to enter traffic editor: {:?}", err);
+                            error!("Failed to enter traffic editor: {:?}", err);
                         }
                     }
                 }
@@ -265,12 +265,12 @@ pub async fn load_site_file(file: &FileHandle) -> Option<Site> {
             Ok(building) => match building.to_site() {
                 Ok(site) => Some(site),
                 Err(err) => {
-                    println!("{:?}", err);
+                    error!("{:?}", err);
                     return None;
                 }
             },
             Err(err) => {
-                println!("{:?}", err);
+                error!("{:?}", err);
                 return None;
             }
         }
@@ -278,7 +278,7 @@ pub async fn load_site_file(file: &FileHandle) -> Option<Site> {
         match Site::from_bytes(&data) {
             Ok(site) => Some(site),
             Err(err) => {
-                println!("{:?}", err);
+                error!("{:?}", err);
                 return None;
             }
         }

@@ -38,7 +38,7 @@ pub fn assign_orphan_levels_to_site(
         if let Some(site) = **current_site {
             commands.entity(site).add_child(level);
         } else {
-            println!(
+            warn!(
                 "Unable to assign level {:?} to any site because there is no \
                 current site",
                 level,

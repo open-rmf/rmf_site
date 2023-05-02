@@ -915,20 +915,20 @@ pub fn save_site(world: &mut World) {
                         .get::<SiteProperties>()
                         .map(|site| site.name.clone())
                         .unwrap_or("<invalid site>".to_string());
-                    println!("No default save file for {name}, please use [Save As]");
+                    warn!("No default save file for {name}, please use [Save As]");
                     continue;
                 }
             }
         };
 
-        println!(
+        info!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
-                println!("Unable to save file: {err}");
+                error!("Unable to save file: {err}");
                 continue;
             }
         };
@@ -936,17 +936,17 @@ pub fn save_site(world: &mut World) {
         let site = match generate_site(world, save_event.site) {
             Ok(site) => site,
             Err(err) => {
-                println!("Unable to compile site: {err}");
+                error!("Unable to compile site: {err}");
                 continue;
             }
         };
 
         match site.to_writer(f) {
             Ok(()) => {
-                println!("Save successful");
+                info!("Save successful");
             }
             Err(err) => {
-                println!("Save failed: {err}");
+                error!("Save failed: {err}");
             }
         }
     }
@@ -963,7 +963,7 @@ pub fn save_nav_graphs(world: &mut World) {
         let mut site = match generate_site(world, save_event.site) {
             Ok(site) => site,
             Err(err) => {
-                println!("Unable to compile site: {err}");
+                error!("Unable to compile site: {err}");
                 continue;
             }
         };
@@ -971,19 +971,19 @@ pub fn save_nav_graphs(world: &mut World) {
         for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
             let mut graph_file = path.clone();
             graph_file.set_file_name(name + ".nav.yaml");
-            println!(
+            info!(
                 "Saving legacy nav graph to {}",
                 graph_file.to_str().unwrap_or("<failed to render??>")
             );
             let f = match std::fs::File::create(graph_file) {
                 Ok(f) => f,
                 Err(err) => {
-                    println!("Unable to save nav graph: {err}");
+                    error!("Unable to save nav graph: {err}");
                     continue;
                 }
             };
             if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
-                println!("Failed to save nav graph: {err}");
+                error!("Failed to save nav graph: {err}");
             }
         }
 
@@ -999,24 +999,24 @@ pub fn save_nav_graphs(world: &mut World) {
             level.walls.clear();
         }
 
-        println!(
+        info!(
             "Saving all site nav graphs to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
-                println!("Unable to save file: {err}");
+                error!("Unable to save file: {err}");
                 continue;
             }
         };
 
         match site.to_writer(f) {
             Ok(()) => {
-                println!("Save successful");
+                info!("Save successful");
             }
             Err(err) => {
-                println!("Save failed: {err}");
+                error!("Save failed: {err}");
             }
         }
     }
