@@ -1224,8 +1224,10 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
 
 const X_AXIS_COLOR: Color = Color::rgb(1.0, 0.2, 0.2);
 const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
+const Z_AXIS_COLOR: Color = Color::rgb(0.2, 0.2, 1.0);
 const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
 const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
+const NEG_Z_AXIS_COLOR: Color = Color::rgb(0.0, 0.0, 0.5);
 
 pub(crate) fn make_infinite_grid(
     scale: f32,
@@ -1251,6 +1253,7 @@ pub(crate) fn make_infinite_grid(
 }
 
 const POLYLINE_SEPARATOR: Vec3 = Vec3::splat(std::f32::NAN);
+const POLYLINE_DEPTH_BIAS: f32 = -0.0001;
 
 pub(crate) fn make_finite_grid(
     scale: f32,
@@ -1259,7 +1262,7 @@ pub(crate) fn make_finite_grid(
     weights: BTreeMap<u32, f32>,
 ) -> Vec<(Polyline, PolylineMaterial)> {
     let d_max = count as f32 * scale;
-    let depth_bias = -0.0001;
+    let depth_bias = POLYLINE_DEPTH_BIAS;
     let perspective = true;
 
     let make_point = |i, j, d, w| {
@@ -1328,4 +1331,46 @@ pub(crate) fn make_metric_finite_grid(
         color,
         [(1, 0.5), (5, 1.0), (10, 1.5)].into(),
     )
+}
+
+pub(crate) fn make_axes(
+    r_start: f32,
+    r_finish: f32,
+    width: f32,
+) -> Vec<(Polyline, PolylineMaterial)> {
+    let depth_bias = POLYLINE_DEPTH_BIAS;
+    let perspective = true;
+    let make_point = |i, r| {
+        let mut p = Vec3::ZERO;
+        p[i] = r;
+        p
+    };
+
+    let mut result = Vec::new();
+    for (sign, axes) in [
+        (1.0, [X_AXIS_COLOR, Y_AXIS_COLOR, Z_AXIS_COLOR]),
+        (-1.0, [NEG_X_AXIS_COLOR, NEG_Y_AXIS_COLOR, NEG_Z_AXIS_COLOR])
+    ] {
+        for (i, color) in axes.into_iter().enumerate() {
+            let p0 = make_point(i, sign * r_start);
+            let p1 = make_point(i, sign * r_finish);
+            let polyline = Polyline { vertices: vec![p0, p1] };
+            let material = PolylineMaterial { width, color, depth_bias, perspective };
+            result.push((polyline, material));
+        }
+    }
+
+    result
+}
+
+pub(crate) fn polyline_assets_to_handles(
+    world: &mut World,
+    assets: Vec<(Polyline, PolylineMaterial)>,
+) -> Vec<(Handle<Polyline>, Handle<PolylineMaterial>)> {
+    let (polylines, polyline_mats): (Vec<_>, Vec<_>) = assets.into_iter().unzip();
+    let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();
+    let polylines: Vec<Handle<Polyline>> = polylines.into_iter().map(|p| polyline_assets.add(p)).collect();
+    let mut polyline_mat_assets = world.get_resource_mut::<Assets<PolylineMaterial>>().unwrap();
+    let polyline_mats: Vec<Handle<PolylineMaterial>> = polyline_mats.into_iter().map(|m| polyline_mat_assets.add(m)).collect();
+    polylines.into_iter().zip(polyline_mats.into_iter()).collect()
 }

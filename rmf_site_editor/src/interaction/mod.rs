@@ -96,7 +96,9 @@ pub enum InteractionUpdateStage {
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_state(InteractionState::Disable)
+        app
+            .add_plugin(PolylinePlugin)
+            .add_state(InteractionState::Disable)
             .add_stage_after(
                 SiteUpdateStage::AssignOrphans,
                 InteractionUpdateStage::AddVisuals,
@@ -116,7 +118,6 @@ impl Plugin for InteractionPlugin {
                 InteractionState::Disable,
             )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
-            .add_plugin(PolylinePlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()

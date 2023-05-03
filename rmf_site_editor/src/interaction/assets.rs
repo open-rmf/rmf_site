@@ -353,14 +353,9 @@ impl FromWorld for InteractionAssets {
             }),
         };
 
-        let centimeter_finite_grid = {
-            let (polylines, polyline_mats): (Vec<_>, Vec<_>) = make_metric_finite_grid(0.01, 100, Color::WHITE).into_iter().unzip();
-            let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();
-            let polylines: Vec<Handle<Polyline>> = polylines.into_iter().map(|p| polyline_assets.add(p)).collect();
-            let mut polyline_mat_assets = world.get_resource_mut::<Assets<PolylineMaterial>>().unwrap();
-            let polyline_mats: Vec<Handle<PolylineMaterial>> = polyline_mats.into_iter().map(|m| polyline_mat_assets.add(m)).collect();
-            polylines.into_iter().zip(polyline_mats.into_iter()).collect()
-        };
+        let centimeter_finite_grid = polyline_assets_to_handles(
+            world, make_metric_finite_grid(0.01, 100, Color::WHITE)
+        );
 
         Self {
             dagger_mesh,

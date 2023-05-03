@@ -15,7 +15,10 @@
  *
 */
 
-use crate::interaction::PickingBlockers;
+use crate::{
+    interaction::PickingBlockers,
+    shapes::{make_axes, polyline_assets_to_handles},
+};
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
@@ -26,6 +29,7 @@ use bevy::{
         view::RenderLayers,
     },
 };
+use bevy_polyline::polyline::PolylineBundle;
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -81,14 +85,22 @@ impl ProjectionMode {
 #[derive(Debug, Clone, Reflect, Resource)]
 pub struct CameraControls {
     mode: ProjectionMode,
+    pub camera_target: CameraTarget,
     pub perspective_camera_entities: [Entity; 4],
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
-    pub orbit_center: Vec3,
-    pub orbit_radius: f32,
     pub orbit_upside_down: bool,
     pub was_oribiting: bool,
+}
+
+#[derive(Debug, Clone, Reflect)]
+pub struct CameraTarget {
+    translation: Entity,
+    orientation: Entity,
+    perspective_zoom: Entity,
+    global_cues: Entity,
+    oriented_cues: Entity,
 }
 
 /// True/false for whether the headlight should be on or off
@@ -296,8 +308,77 @@ impl FromWorld for CameraControls {
             .push_children(&orthographic_child_cameras)
             .id();
 
+        let global_axes = polyline_assets_to_handles(world, make_axes(0.1, 0.2, 3.0));
+        let oriented_axes = polyline_assets_to_handles(world, make_axes(0.0, 0.1, 3.0));
+
+        let camera_target = {
+            let perspective_zoom = world
+                .spawn(SpatialBundle {
+                    transform: Transform::from_translation(Vec3::new(0.0, 0.0, 15.0)),
+                    ..default()
+                })
+                .push_children(&[perspective_base_camera])
+                .id();
+
+            let oriented_cues = world
+                .spawn(SpatialBundle {
+                    visibility: Visibility::INVISIBLE,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for (polyline, material) in oriented_axes {
+                        parent.spawn(PolylineBundle {
+                            polyline,
+                            material,
+                            ..default()
+                        })
+                        .insert(RenderLayers::layer(XRAY_RENDER_LAYER));
+                    }
+                })
+                .id();
+
+            let orientation = world
+                .spawn(SpatialBundle::default())
+                .push_children(&[perspective_zoom, oriented_cues])
+                .id();
+
+            let orthographic_zoom = world
+                .spawn()
+
+            let global_cues = world
+                .spawn(SpatialBundle {
+                    visibility: Visibility::INVISIBLE,
+                    ..default()
+                })
+                .with_children(|parent| {
+                    for (polyline, material) in global_axes {
+                        parent.spawn(PolylineBundle {
+                            polyline,
+                            material,
+                            ..default()
+                        })
+                        .insert(RenderLayers::layer(XRAY_RENDER_LAYER));
+                    }
+                })
+                .id();
+
+            let translation = world
+                .spawn(SpatialBundle::default())
+                .push_children(&[orientation, global_cues, orthographic_camera_entity])
+                .id();
+
+            CameraTarget {
+                translation,
+                orientation,
+                perspective_zoom,
+                global_cues,
+                oriented_cues,
+            }
+        };
+
         CameraControls {
             mode: ProjectionMode::Perspective,
+            camera_target,
             perspective_camera_entities: [
                 perspective_base_camera,
                 perspective_child_cameras[0],
@@ -312,8 +393,6 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
-            orbit_center: Vec3::ZERO,
-            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
             orbit_upside_down: false,
             was_oribiting: false,
         }
