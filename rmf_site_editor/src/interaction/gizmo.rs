@@ -20,7 +20,7 @@ use bevy::{
     prelude::*,
     math::Affine3A,
 };
-use bevy_mod_picking::{PickableBundle, PickableMesh, PickingRaycastSet};
+use bevy_mod_picking::{PickableBundle, PickingRaycastSet};
 use bevy_mod_raycast::{Intersection, Ray3d};
 use rmf_site_format::Pose;
 

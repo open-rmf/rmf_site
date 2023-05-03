@@ -30,6 +30,8 @@ use bevy::{
     },
 };
 use bevy_polyline::polyline::PolylineBundle;
+use bevy_mod_picking::PickingRaycastSet;
+use bevy_mod_raycast::{Intersection, Ray3d};
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -90,8 +92,8 @@ pub struct CameraControls {
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
-    pub orbit_upside_down: bool,
-    pub was_oribiting: bool,
+    pub panning: Option<Vec3>,
+    pub orbiting: Option<Vec3>,
 }
 
 #[derive(Debug, Clone, Reflect)]
@@ -183,6 +185,13 @@ impl CameraControls {
         if let Ok(mut v) = visibility.get_mut(self.orthographic_headlight) {
             v.is_visible = toggle && self.mode.is_orthographic();
         }
+    }
+
+    fn acceptable_pick(
+        p: Vec3,
+        global_tfs: &Query<&GlobalTransform
+    ) -> bool {
+
     }
 }
 
@@ -393,8 +402,8 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
-            orbit_upside_down: false,
-            was_oribiting: false,
+            orbiting: None,
+            panning: None,
         }
     }
 }
@@ -409,8 +418,10 @@ fn camera_controls(
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut visibility: Query<&mut Visibility>,
+    global_tf: Query<&GlobalTransform>,
     headlight_toggle: Res<HeadlightToggle>,
     picking_blockers: Res<PickingBlockers>,
+    intersections: Query<&Intersection<PickingRaycastSet>>,
 ) {
     if headlight_toggle.is_changed() {
         controls.toggle_lights(headlight_toggle.0, &mut visibility);
@@ -425,8 +436,35 @@ fn camera_controls(
         input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
     let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
 
-    let is_orbiting = input_mouse.pressed(MouseButton::Middle)
-        || (input_mouse.pressed(MouseButton::Right) && is_shifting);
+    let is_orbiting = controls.mode.is_perspective() && (
+        input_mouse.pressed(MouseButton::Middle)
+        || (input_mouse.pressed(MouseButton::Right) && is_shifting)
+    );
+
+    'movement: {
+        let is_moving = is_panning || is_orbiting;
+        if controls.panning.is_none() && controls.orbiting.is_none() && is_moving {
+            let pick = if let Some(intersection) = intersections.iter().filter_map(|i| i.position().copied()).next() {
+                intersection
+            } else {
+
+            };
+
+            if is_panning {
+
+            } else if is_orbiting {
+
+            }
+        } else if let Some(panning) = controls.panning {
+            if !is_panning {
+                controls.panning = None;
+                break 'movement;
+            }
+
+        } else if let Some(orbiting) = controls.orbiting {
+
+        }
+    }
     let started_orbiting = !controls.was_oribiting && is_orbiting;
     let released_orbiting = controls.was_oribiting && !is_orbiting;
     controls.was_oribiting = is_orbiting;
