@@ -279,21 +279,14 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Vec3> {
-        let window = self.windows.get_primary()?;
-        let cursor_position = window.cursor_position()?;
-        let e_active_camera = self.camera_controls.active_camera();
-        let active_camera = self.cameras.get(e_active_camera).ok()?;
-        let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
-        let ray = Ray3d::from_screenspace(cursor_position, active_camera, camera_tf)?;
-        let n_p = Vec3::Z;
-        let n_r = ray.direction();
-        let denom = n_p.dot(n_r);
-        if denom.abs() < 1e-3 {
-            // Too close to parallel
-            return None;
-        }
-
-        Some(ray.origin() - n_r * ray.origin().dot(n_p) / denom)
+        cursor_plane_intersection(
+            Vec3::ZERO,
+            Vec3::Z,
+            &self.windows,
+            &self.camera_controls,
+            &self.cameras,
+            &self.global_transforms
+        )
     }
 }
 

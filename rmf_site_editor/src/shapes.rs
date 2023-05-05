@@ -1339,7 +1339,8 @@ pub(crate) fn make_axes(
     width: f32,
 ) -> Vec<(Polyline, PolylineMaterial)> {
     let depth_bias = POLYLINE_DEPTH_BIAS;
-    let perspective = true;
+    // let perspective = true;
+    let perspective = false;
     let make_point = |i, r| {
         let mut p = Vec3::ZERO;
         p[i] = r;
