@@ -28,6 +28,7 @@ use bevy::{
         camera::{Camera, Projection, ScalingMode, WindowOrigin},
         view::RenderLayers,
     },
+    math::{Affine3A, Vec3A},
 };
 use bevy_polyline::polyline::PolylineBundle;
 use bevy_mod_picking::PickingRaycastSet;
@@ -131,7 +132,6 @@ pub struct PanningConditions {
 #[derive(Debug, Clone, Copy)]
 pub struct OrbitingConditions {
     initial_pick: Vec3,
-    side: OrbitSide,
 }
 
 #[derive(Debug, Clone, Copy)]
@@ -451,10 +451,28 @@ pub fn cursor_ray(
 ) -> Option<Ray3d> {
     let window = windows.get_primary()?;
     let cursor_position = window.cursor_position()?;
+    screen_ray(cursor_position, camera_controls, cameras, global_transforms)
+}
+
+pub fn screen_ray(
+    p: Vec2,
+    camera_controls: &CameraControls,
+    cameras: &Query<&Camera>,
+    global_transforms: &Query<&GlobalTransform>,
+) -> Option<Ray3d> {
     let e_active_camera = camera_controls.active_camera();
     let active_camera = cameras.get(e_active_camera).ok()?;
     let camera_tf = global_transforms.get(e_active_camera).ok()?;
-    Ray3d::from_screenspace(cursor_position, active_camera, camera_tf)
+    Ray3d::from_screenspace(p, active_camera, camera_tf)
+}
+
+pub fn ray_closest_point(
+    ray: Ray3d,
+    closest_to_point: Vec3,
+) -> Vec3 {
+    let n_ray = ray.direction();
+    let p_ray = ray.origin();
+    (closest_to_point - p_ray).dot(n_ray) * n_ray + p_ray
 }
 
 pub fn cursor_plane_intersection(
@@ -474,6 +492,47 @@ pub fn cursor_plane_intersection(
     }
 
     Some(ray.origin() - n_r * (ray.origin() - o_plane).dot(n_plane) / denom)
+}
+
+/// Find the point on the sphere which is closest to the ray out of the cursor.
+/// If there is no intersection, "overflow" around the back of the sphere based
+/// on the distance of the ray from the sphere's closest point.
+pub fn cursor_sphere_intersection_with_overflow(
+    o_sphere: Vec3,
+    radius: f32,
+    view_normal: Vec3,
+    windows: &Windows,
+    controls: &CameraControls,
+    cameras: &Query<&Camera>,
+    global_tfs: &Query<&GlobalTransform>,
+) -> Option<Vec3> {
+    let ray = cursor_ray(&windows, &controls, &cameras, &global_tfs)?;
+    let n_ray = ray.direction();
+    let p_ray = ray.origin();
+    // Find the point on the ray closest to the center of rotation
+    let p_nearest = (o_sphere - p_ray).dot(n_ray) * n_ray + p_ray;
+    let d = (p_nearest - o_sphere).length();
+
+    // Calculate the point of the orbital sphere currently under the
+    // cursor to calculate a rotational error term
+    if d >= radius {
+        // The ray does not intersect the desired circle so we need to
+        // target the closest point on the circle and then overflow from there.
+        let n = (p_nearest - o_sphere).try_normalize()?;
+        let p_local = radius * n;
+        let d_overflow = d - radius;
+        let overflow_angle = d_overflow/radius;
+        let overflow_axis = view_normal.cross(n).try_normalize()?;
+        let tf = Affine3A::from_scale_rotation_translation(
+            Vec3::ONE,
+            Quat::from_axis_angle(overflow_axis, overflow_angle),
+            o_sphere,
+        );
+        Some(tf.transform_point3(p_local))
+    } else {
+        let delta_ray = f32::sqrt(f32::powi(radius, 2) - f32::powi(d, 2));
+        Some(p_nearest - delta_ray * n_ray)
+    }
 }
 
 fn camera_controls(
@@ -525,39 +584,56 @@ fn camera_controls(
     'movement: {
         if !was_camera_moving && is_camera_moving {
             let Some(target_tf) = get_target_tf(&controls) else { break 'movement };
-            let initial_pick = if let Some(intersection) = intersections.iter().filter_map(|i| i.position().copied()).next() {
-                intersection
-            } else {
-                let Some(n_plane) = target_tf.affine().matrix3.z_axis.try_normalize() else { break 'movement };
-                let n_plane: Vec3 = n_plane.into();
-                let o_plane: Vec3 = target_tf.affine().translation.into();
-                match cursor_plane_intersection(
-                    o_plane, n_plane, &windows, &controls, &cameras, &global_tfs
-                ) {
-                    Some(p) => p,
-                    None => break 'movement,
-                }
-            };
-
-            dbg!(cursor_ray(&windows, &controls, &cameras, &global_tfs));
-
             if is_panning {
+                let initial_pick = if let Some(intersection) = intersections.iter().filter_map(|i| i.position().copied()).next() {
+                    intersection
+                } else {
+                    let Some(n_plane) = target_tf.affine().matrix3.z_axis.try_normalize() else { break 'movement };
+                    let n_plane: Vec3 = n_plane.into();
+                    let o_plane: Vec3 = target_tf.affine().translation.into();
+                    match cursor_plane_intersection(
+                        o_plane, n_plane, &windows, &controls, &cameras, &global_tfs
+                    ) {
+                        Some(p) => p,
+                        None => break 'movement,
+                    }
+                };
+
                 controls.moving = CameraMoveConditions::Panning(PanningConditions {
                     initial_pick,
                     normal: target_tf.affine().matrix3.z_axis.into(),
                 });
             } else if is_orbiting {
                 let p0 = target_tf.translation();
-                let z: Vec3 = target_tf.affine().matrix3.z_axis.into();
-                let side = if (initial_pick - p0).dot(z) <= 1e-3 {
-                    OrbitSide::Behind
-                } else {
-                    OrbitSide::Front
+                let n: Vec3 = target_tf.affine().matrix3.z_axis.into();
+                let Some(window) = windows.get_primary() else { break 'movement };
+                let x = Vec2::new(window.width(), 0.0);
+                let x_p = ray_closest_point(
+                    match screen_ray(x, &controls, &cameras, &global_tfs) {
+                        Some(p) => p,
+                        None => break 'movement,
+                    },
+                    p0,
+                );
+                let x_r = (x_p - p0).length();
+                let y = Vec2::new(0.0, window.height());
+                let y_p = ray_closest_point(
+                    match screen_ray(y, &controls, &cameras, &global_tfs) {
+                        Some(p) => p,
+                        None => break 'movement,
+                    },
+                    p0,
+                );
+                let y_r = (y_p - p0).length();
+                let r = f32::min(x_r, y_r)/3.0;
+                let Some(initial_pick) = cursor_sphere_intersection_with_overflow(
+                    p0, r, n, &windows, &controls, &cameras, &global_tfs
+                ) else {
+                    break 'movement
                 };
 
                 controls.moving = CameraMoveConditions::Orbiting(OrbitingConditions {
                     initial_pick,
-                    side
                 });
             }
         } else if let Some(panning) = controls.moving.panning() {
@@ -587,32 +663,12 @@ fn camera_controls(
                 break 'movement;
             }
 
-            let Ok(mut target_tf) = transforms.get_mut(controls.camera_target.orientation) else { break 'movement };
-            let p0 = target_tf.translation;
+            let Ok(mut local_target_tf) = transforms.get_mut(controls.camera_target.orientation) else { break 'movement };
+            let Ok(global_target_tf) = global_tfs.get(controls.camera_target.orientation) else { break 'movement };
+            let p0 = global_target_tf.translation();
+            let n: Vec3 = global_target_tf.affine().matrix3.z_axis.into();
             let r = (orbiting.initial_pick - p0).length();
-            let Some(ray) = cursor_ray(&windows, &controls, &cameras, &global_tfs) else { break 'movement };
-            let n_ray = ray.direction();
-            let p_ray = ray.origin();
-            // Find the point on the ray closest to the center of rotation
-            let p_nearest = dbg!(dbg!(dbg!(p0 - p_ray).dot(n_ray)) * n_ray) + p_ray;
-            let d = (p_nearest - p0).length();
-
-            // Calculate the point of the orbital sphere currently under the
-            // cursor to calculate a rotational error term
-            let p = if d >= r {
-                // The ray does not intersect the desired circle so we need to
-                // target the closest point on the circle
-                let Some(n) = (p_nearest - p0).try_normalize() else { break 'movement };
-                p0 + dbg!(r * n)
-            } else {
-                let delta_ray = f32::sqrt(f32::powi(r, 2) - f32::powi(d, 2));
-                let delta_ray = match orbiting.side {
-                    OrbitSide::Front => -delta_ray,
-                    OrbitSide::Behind => delta_ray,
-                };
-                p_nearest + dbg!(dbg!(delta_ray) * n_ray)
-            };
-
+            let Some(p) = cursor_sphere_intersection_with_overflow(p0, r, n, &windows, &controls, &cameras, &global_tfs) else { break 'movement };
             let dp = p - p0;
             let dpick = orbiting.initial_pick - p0;
             let n_cross = dp.cross(dpick);
@@ -622,10 +678,7 @@ fn camera_controls(
             }
             let n_cross = n_cross / cross_length;
             let angle = f32::asin(cross_length / (dp.length() * dpick.length()));
-            dbg!((orbiting, p, dp, dpick, n_cross, angle.to_degrees()));
-            dbg!((ray, r, d, p0, p_nearest));
-            target_tf.rotate_axis(n_cross, angle);
-            // target_tf.rotate_local_axis(n_cross, angle);
+            local_target_tf.rotate_axis(n_cross, angle);
         }
     }
 
