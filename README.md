@@ -47,6 +47,8 @@ $ sudo apt install libgtk-3-dev libasound2-dev libudev-dev
 
 Make sure you install rust from the main rust website. Cargo should take care of the rest of the magic for you.
 
+⚠️ Note: If you are building inside of a Windows Subsystem for Linux (WSL) environment, you should follow the Ubuntu instructions. We do not have build instructions for other choices of Linux distros inside of WSL.
+
 # Install extra dependencies for WebAssembly
 
 These are only needed if you're going to build a WebAssembly binary:

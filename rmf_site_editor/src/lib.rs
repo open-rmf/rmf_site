@@ -46,7 +46,7 @@ mod workspace;
 use workspace::*;
 
 mod sdf_loader;
-mod simulation_state;
+
 mod site_asset_io;
 mod urdf_loader;
 use sdf_loader::*;
