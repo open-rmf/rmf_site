@@ -637,7 +637,10 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
 }
 
 pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
-    let top_circle = Circle { height: height / 2.0, radius };
+    let top_circle = Circle {
+        height: height / 2.0,
+        radius,
+    };
     let mid_circle = Circle {
         height: 0.0,
         radius,
