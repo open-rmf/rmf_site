@@ -39,7 +39,7 @@ bitfield = "*"
 rfd = "0.11"
 urdf-rs = "0.7"
 # sdformat_rs = { path = "../../sdf_rust_experimental/sdformat_rs"}
-sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", branch = "luca/library_improvements"}
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "f86344f"}
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
