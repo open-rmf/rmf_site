@@ -22,7 +22,7 @@ use crate::{
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
-    input::mouse::{MouseButton, MouseWheel},
+    input::mouse::{MouseButton, MouseWheel, MouseScrollUnit},
     prelude::*,
     render::{
         camera::{Camera, Projection, ScalingMode, WindowOrigin},
@@ -272,7 +272,7 @@ impl FromWorld for CameraControls {
 
         let perspective_base_camera = world
             .spawn(Camera3dBundle {
-                transform: Transform::from_xyz(0.0, 0.0, 10.).looking_at(Vec3::ZERO, Vec3::Y),
+                transform: Transform::from_xyz(0.0, 0.0, 0.0).looking_at(Vec3::new(0.0, 0.0, -1.0), Vec3::Y),
                 projection: Projection::Perspective(Default::default()),
                 ..default()
             })
@@ -691,6 +691,31 @@ fn camera_controls(
                 if vis.is_visible != is_camera_moving {
                     vis.is_visible = is_camera_moving;
                 }
+            }
+        }
+    }
+
+    if !is_camera_moving {
+        let scroll_amount = |s: &MouseWheel| -> f32 {
+            let scale = match s.unit {
+                MouseScrollUnit::Line => 10.0,
+                MouseScrollUnit::Pixel => 1.0,
+            };
+            -s.y * scale
+        };
+
+        let scrolling = ev_scroll.iter().map(scroll_amount).sum();
+        if scrolling != 0.0 {
+            // TODO(@mxgrey): Handle orthogonal camera
+            if let Ok(mut tf) = transforms.get_mut(controls.camera_target.perspective_zoom) {
+                // From experimentation, it feels like a scroll value of 20 should
+                // give a 5% change in zoom.
+                // TODO(@mxgrey): consider using lazy_static here until log is
+                // supported as a const function.
+                let base = f32::powf(1.05, 1.0/20.0);
+                let factor = f32::powf(base, scrolling);
+
+                tf.translation.z = factor * tf.translation.z;
             }
         }
     }
