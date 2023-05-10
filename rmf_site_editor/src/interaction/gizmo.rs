@@ -16,10 +16,7 @@
 */
 
 use crate::interaction::*;
-use bevy::{
-    prelude::*,
-    math::Affine3A,
-};
+use bevy::{math::Affine3A, prelude::*};
 use bevy_mod_picking::{PickableBundle, PickableMesh, PickingRaycastSet};
 use bevy_mod_raycast::{Intersection, Ray3d};
 use rmf_site_format::Pose;

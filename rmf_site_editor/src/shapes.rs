@@ -23,11 +23,11 @@ use bevy::{
         primitives::Aabb,
     },
 };
+use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle};
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
+use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use rmf_site_format::Angle;
-use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle};
-use bevy_polyline::{polyline::Polyline, material::PolylineMaterial};
 use std::collections::{BTreeMap, HashMap};
 
 pub(crate) trait WithOutlineMeshExt: Sized {
@@ -1242,8 +1242,7 @@ pub(crate) fn make_infinite_grid(
     grid.z_axis_color = Y_AXIS_COLOR;
     grid.fadeout_distance = fadeout_distance;
     grid.shadow_color = shadow_color;
-    let transform =
-        Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
+    let transform = Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
         .with_scale(Vec3::splat(scale));
 
     InfiniteGridBundle {
@@ -1272,9 +1271,7 @@ pub(crate) fn make_finite_grid(
         p
     };
 
-    let make_points = |i, j, d| {
-        [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)]
-    };
+    let make_points = |i, j, d| [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)];
 
     let mut polylines: HashMap<u32, Polyline> = HashMap::new();
     let mut result = {
@@ -1288,8 +1285,15 @@ pub(crate) fn make_finite_grid(
             for (i, j, color) in [(0, 1, x_axis_color), (1, 0, y_axis_color)] {
                 let p0 = Vec3::ZERO;
                 let p1 = make_point(i, j, 0.0, sign * d_max);
-                let polyline = Polyline { vertices: vec![p0, p1] };
-                let material = PolylineMaterial { width, color, depth_bias, perspective };
+                let polyline = Polyline {
+                    vertices: vec![p0, p1],
+                };
+                let material = PolylineMaterial {
+                    width,
+                    color,
+                    depth_bias,
+                    perspective,
+                };
                 axes.push((polyline, material));
             }
         }
@@ -1314,7 +1318,12 @@ pub(crate) fn make_finite_grid(
 
     result.extend(polylines.into_iter().map(|(n, polyline)| {
         let width = *weights.get(&n).unwrap();
-        let material = PolylineMaterial { width, color, depth_bias, perspective };
+        let material = PolylineMaterial {
+            width,
+            color,
+            depth_bias,
+            perspective,
+        };
         (polyline, material)
     }));
     result
@@ -1325,10 +1334,5 @@ pub(crate) fn make_metric_finite_grid(
     count: u32,
     color: Color,
 ) -> Vec<(Polyline, PolylineMaterial)> {
-    make_finite_grid(
-        scale,
-        count,
-        color,
-        [(1, 0.5), (5, 1.0), (10, 1.5)].into(),
-    )
+    make_finite_grid(scale, count, color, [(1, 0.5), (5, 1.0), (10, 1.5)].into())
 }

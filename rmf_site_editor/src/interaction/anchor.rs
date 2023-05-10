@@ -198,7 +198,18 @@ pub fn update_anchor_visual_cues(
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
 ) {
-    for (a, anchor, hovered, selected, mut shapes, mut cue, subordinate, hover_tracker, select_tracker) in &mut anchors {
+    for (
+        a,
+        anchor,
+        hovered,
+        selected,
+        mut shapes,
+        mut cue,
+        subordinate,
+        hover_tracker,
+        select_tracker,
+    ) in &mut anchors
+    {
         if debug_mode.as_ref().filter(|d| d.0).is_some() {
             // NOTE(MXG): I have witnessed a scenario where a lane is deleted
             // and then the anchors that supported it are permanently stuck as
@@ -280,11 +291,7 @@ pub fn update_anchor_visual_cues(
             if select_tracker.is_changed() {
                 if selected.cue() {
                     if shapes.drag.is_none() && subordinate.is_none() {
-                        interaction_assets.add_anchor_gizmos_2D(
-                            &mut commands,
-                            a,
-                            shapes.as_mut(),
-                        );
+                        interaction_assets.add_anchor_gizmos_2D(&mut commands, a, shapes.as_mut());
                     }
                 } else {
                     if let Some(drag) = shapes.drag {

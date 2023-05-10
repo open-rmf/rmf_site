@@ -29,7 +29,7 @@ use smallvec::SmallVec;
 #[derive(Component)]
 pub enum OutlineVisualization {
     Ordinary,
-    Anchor{ body: Entity },
+    Anchor { body: Entity },
 }
 
 impl Default for OutlineVisualization {

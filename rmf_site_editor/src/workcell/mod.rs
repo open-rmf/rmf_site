@@ -39,14 +39,14 @@ use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::T
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::interaction::Gizmo;
+use crate::AppState;
 use crate::{
+    shapes::make_infinite_grid,
     site::{
         handle_new_mesh_primitives, make_models_selectable, update_anchor_transforms,
         update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
     },
-    shapes::make_infinite_grid,
 };
-use crate::AppState;
 
 use rmf_site_format::ModelMarker;
 
