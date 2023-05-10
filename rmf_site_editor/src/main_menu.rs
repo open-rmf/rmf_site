@@ -76,13 +76,15 @@ fn egui_ui(
                     _load_workspace.send(LoadWorkspace::Dialog);
                 }
 
-                if ui.button("Workcell Editor").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
-                        demo_workcell(),
-                    )));
-                }
+                // TODO(@mxgrey): Bring this back when we have finished developing
+                // the key features for workcell editing.
+                // if ui.button("Workcell Editor").clicked() {
+                //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
+                //         demo_workcell(),
+                //     )));
+                // }
 
-                // TODO(MXG): Bring this back when we have time to fix the
+                // TODO(@mxgrey): Bring this back when we have time to fix the
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
                 //     println!("Entering warehouse generator");
