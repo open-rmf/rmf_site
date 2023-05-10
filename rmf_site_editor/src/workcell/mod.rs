@@ -39,9 +39,12 @@ use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::T
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
 
 use crate::interaction::Gizmo;
-use crate::site::{
-    handle_new_mesh_primitives, make_models_selectable, update_anchor_transforms,
-    update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
+use crate::{
+    site::{
+        handle_new_mesh_primitives, make_models_selectable, update_anchor_transforms,
+        update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
+    },
+    shapes::make_infinite_grid,
 };
 use crate::AppState;
 
@@ -53,18 +56,7 @@ use bevy_rapier3d::prelude::*;
 pub struct WorkcellEditorPlugin;
 
 fn spawn_grid(mut commands: Commands) {
-    // Infinite grid is flipped
-    let mut grid = InfiniteGrid::default();
-    grid.x_axis_color = Color::rgb(1.0, 0.2, 0.2);
-    grid.z_axis_color = Color::rgb(0.2, 1.0, 0.2);
-    commands
-        .spawn(InfiniteGridBundle {
-            grid: grid,
-            ..Default::default()
-        })
-        .insert(Transform::from_rotation(Quat::from_rotation_x(
-            90_f32.to_radians(),
-        )));
+    commands.spawn(make_infinite_grid(1.0, 100.0, None));
 }
 
 fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>) {
@@ -86,12 +78,6 @@ fn add_wireframe_to_meshes(
                 commands.entity(e).insert(Wireframe);
             }
         }
-    }
-}
-
-fn disable_dragging(mut commands: Commands, new_draggables: Query<Entity, Added<Gizmo>>) {
-    for e in new_draggables.iter() {
-        commands.entity(e).remove::<Gizmo>();
     }
 }
 
@@ -133,8 +119,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(
                         add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
                     )
-                    .with_system(update_transforms_for_changed_poses)
-                    .with_system(disable_dragging),
+                    .with_system(update_transforms_for_changed_poses),
             );
     }
 }

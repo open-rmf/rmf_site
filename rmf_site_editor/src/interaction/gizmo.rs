@@ -16,15 +16,19 @@
 */
 
 use crate::interaction::*;
-use bevy::prelude::*;
-use bevy_mod_picking::{PickableBundle, PickingRaycastSet};
+use bevy::{
+    prelude::*,
+    math::Affine3A,
+};
+use bevy_mod_picking::{PickableBundle, PickableMesh, PickingRaycastSet};
 use bevy_mod_raycast::{Intersection, Ray3d};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
 pub struct InitialDragConditions {
     click_point: Vec3,
-    entity_tf: Transform,
+    tf_for_entity_global: Transform,
+    tf_for_entity_parent_inv: Affine3A,
 }
 
 #[derive(Debug, Clone)]
@@ -241,7 +245,7 @@ pub fn update_gizmo_click_start(
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
-    transforms: Query<&GlobalTransform>,
+    transforms: Query<(&Transform, &GlobalTransform)>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
     mut cursor: ResMut<Cursor>,
     mut gizmo_state: ResMut<GizmoState>,
@@ -289,11 +293,14 @@ pub fn update_gizmo_click_start(
             click.send(GizmoClicked(e));
             if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
-                    if let Ok(tf) = transforms.get(draggable.for_entity) {
+                    if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
                         selection_blocker.dragging = true;
+                        let tf_for_entity_parent_inv =
+                            local_tf.compute_affine() * global_tf.affine().inverse();
                         draggable.drag = Some(InitialDragConditions {
                             click_point: intersection.clone(),
-                            entity_tf: tf.compute_transform(),
+                            tf_for_entity_global: global_tf.compute_transform(),
+                            tf_for_entity_parent_inv,
                         });
                         if let Some(drag_materials) = &gizmo.materials {
                             *material = drag_materials.drag.clone();
@@ -383,82 +390,70 @@ pub fn update_drag_motions(
 
         if let Ok((axis, draggable, drag_tf)) = drag_axis.get(dragging) {
             if let Some(initial) = &draggable.drag {
-                if let Some((for_local_tf, for_global_tf)) =
-                    transforms.get(draggable.for_entity).ok()
-                {
-                    let n = if axis.frame.is_local() {
-                        drag_tf
-                            .affine()
-                            .transform_vector3(axis.along)
-                            .normalize_or_zero()
-                    } else {
-                        axis.along.normalize_or_zero()
-                    };
-                    let dp = ray.origin() - initial.click_point;
-                    let a = ray.direction().dot(n);
-                    let b = ray.direction().dot(dp);
-                    let c = n.dot(dp);
+                let n = if axis.frame.is_local() {
+                    drag_tf
+                        .affine()
+                        .transform_vector3(axis.along)
+                        .normalize_or_zero()
+                } else {
+                    axis.along.normalize_or_zero()
+                };
+                let dp = ray.origin() - initial.click_point;
+                let a = ray.direction().dot(n);
+                let b = ray.direction().dot(dp);
+                let c = n.dot(dp);
 
-                    let denom = a.powi(2) - 1.;
-                    if denom.abs() < 1e-3 {
-                        // The rays are nearly parallel, so we should not attempt moving
-                        // because the motion will be too extreme
-                        return;
-                    }
-
-                    let t = (a * b - c) / denom;
-                    let delta = t * n;
-                    let tf_goal = initial
-                        .entity_tf
-                        .with_translation(initial.entity_tf.translation + delta);
-                    let tf_parent_inv =
-                        for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                    move_to.send(MoveTo {
-                        entity: draggable.for_entity,
-                        transform: Transform::from_matrix(
-                            (tf_parent_inv * tf_goal.compute_affine()).into(),
-                        ),
-                    });
+                let denom = a.powi(2) - 1.;
+                if denom.abs() < 1e-3 {
+                    // The rays are nearly parallel, so we should not attempt moving
+                    // because the motion will be too extreme
+                    return;
                 }
+
+                let t = (a * b - c) / denom;
+                let delta = t * n;
+                let tf_goal = initial
+                    .tf_for_entity_global
+                    .with_translation(initial.tf_for_entity_global.translation + delta);
+                move_to.send(MoveTo {
+                    entity: draggable.for_entity,
+                    transform: Transform::from_matrix(
+                        (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
+                    ),
+                });
             }
         }
 
         if let Ok((plane, draggable, drag_tf)) = drag_plane.get(dragging) {
             if let Some(initial) = &draggable.drag {
-                if let Some((for_local_tf, for_global_tf)) =
-                    transforms.get(draggable.for_entity).ok()
-                {
-                    let n_p = if plane.frame.is_local() {
-                        drag_tf
-                            .affine()
-                            .transform_vector3(plane.in_plane)
-                            .normalize_or_zero()
-                    } else {
-                        plane.in_plane.normalize_or_zero()
-                    };
+                let n_p = if plane.frame.is_local() {
+                    drag_tf
+                        .affine()
+                        .transform_vector3(plane.in_plane)
+                        .normalize_or_zero()
+                } else {
+                    plane.in_plane.normalize_or_zero()
+                };
 
-                    let n_r = ray.direction();
-                    let denom = n_p.dot(n_r);
-                    if denom.abs() < 1e-3 {
-                        // The rays are nearly parallel so we should not attempt
-                        // moving because the motion will be too extreme
-                        return;
-                    }
-
-                    let t = (initial.click_point - ray.origin()).dot(n_p) / denom;
-                    let delta = ray.position(t) - initial.click_point;
-                    let tf_goal = initial
-                        .entity_tf
-                        .with_translation(initial.entity_tf.translation + delta);
-                    let tf_parent_inv =
-                        for_local_tf.compute_affine() * for_global_tf.affine().inverse();
-                    move_to.send(MoveTo {
-                        entity: draggable.for_entity,
-                        transform: Transform::from_matrix(
-                            (tf_parent_inv * tf_goal.compute_affine()).into(),
-                        ),
-                    });
+                let n_r = ray.direction();
+                let denom = n_p.dot(n_r);
+                if denom.abs() < 1e-3 {
+                    // The rays are nearly parallel so we should not attempt
+                    // moving because the motion will be too extreme
+                    return;
                 }
+
+                let t = (initial.click_point - ray.origin()).dot(n_p) / denom;
+                let delta = ray.position(t) - initial.click_point;
+                let tf_goal = initial
+                    .tf_for_entity_global
+                    .with_translation(initial.tf_for_entity_global.translation + delta);
+                move_to.send(MoveTo {
+                    entity: draggable.for_entity,
+                    transform: Transform::from_matrix(
+                        (initial.tf_for_entity_parent_inv * tf_goal.compute_affine()).into(),
+                    ),
+                });
             }
         }
     }

@@ -74,6 +74,7 @@ pub use visual_cue::*;
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
+use bevy_polyline::PolylinePlugin;
 
 #[derive(Default)]
 pub struct InteractionPlugin;
@@ -115,6 +116,7 @@ impl Plugin for InteractionPlugin {
                 InteractionState::Disable,
             )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
+            .add_plugin(PolylinePlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()

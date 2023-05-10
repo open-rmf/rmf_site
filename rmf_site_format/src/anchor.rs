@@ -120,6 +120,11 @@ impl Anchor {
             },
         }
     }
+
+    #[allow(non_snake_case)]
+    pub fn is_3D(&self) -> bool {
+        matches!(self, Anchor::Pose3D { .. })
+    }
 }
 
 #[cfg(feature = "bevy")]

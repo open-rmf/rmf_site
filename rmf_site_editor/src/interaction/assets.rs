@@ -16,7 +16,8 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*};
+use bevy::{math::Affine3A, prelude::*, render::view::visibility::RenderLayers};
+use bevy_polyline::{polyline::{Polyline, PolylineBundle}, material::PolylineMaterial};
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
@@ -39,6 +40,7 @@ pub struct InteractionAssets {
     pub z_plane_materials: GizmoMaterialSet,
     pub lift_doormat_available_materials: GizmoMaterialSet,
     pub lift_doormat_unavailable_materials: GizmoMaterialSet,
+    pub centimeter_finite_grid: Vec<(Handle<Polyline>, Handle<PolylineMaterial>)>,
 }
 
 impl InteractionAssets {
@@ -68,21 +70,25 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        return command.entity(parent).add_children(|parent| {
-            let mut child_entity = parent.spawn(PbrBundle {
-                transform: Transform::from_rotation(rotation)
-                    .with_translation(offset)
-                    .with_scale(Vec3::splat(scale)),
-                mesh: self.arrow_mesh.clone(),
-                material: material_set.passive.clone(),
-                ..default()
+        return command
+            .entity(parent)
+            .add_children(|parent| {
+                let mut child_entity = parent
+                    .spawn(PbrBundle {
+                        transform: Transform::from_rotation(rotation)
+                            .with_translation(offset)
+                            .with_scale(Vec3::splat(scale)),
+                        mesh: self.arrow_mesh.clone(),
+                        material: material_set.passive.clone(),
+                        ..default()
+                    });
+
+                if let Some(for_entity) = for_entity_opt {
+                    child_entity
+                        .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
+                }
+                child_entity.id()
             });
-            if let Some(for_entity) = for_entity_opt {
-                child_entity
-                    .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
-            }
-            child_entity.id()
-        });
     }
 
     pub fn make_draggable_axis(
@@ -108,20 +114,21 @@ impl InteractionAssets {
         )
     }
 
-    pub fn add_anchor_draggable_arrows(
+    #[allow(non_snake_case)]
+    pub fn add_anchor_gizmos_2D(
         &self,
-        command: &mut Commands,
+        commands: &mut Commands,
         anchor: Entity,
         cue: &mut AnchorVisualization,
     ) {
-        let drag_parent = command.entity(anchor).add_children(|parent| {
+        let drag_parent = commands.entity(anchor).add_children(|parent| {
             parent
                 .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline())
+                .insert(VisualCue::no_outline().irregular().always_xray())
                 .id()
         });
 
-        let height = 0.01;
+        let height = 0.0;
         let scale = 0.2;
         let offset = 0.15;
         for (m, p, r) in [
@@ -146,8 +153,59 @@ impl InteractionAssets {
                 Quat::from_rotation_x(90_f32.to_radians()),
             ),
         ] {
-            self.make_draggable_axis(command, anchor, drag_parent, m, p, r, scale);
+            self.make_draggable_axis(commands, anchor, drag_parent, m, p, r, scale);
         }
+
+        cue.drag = Some(drag_parent);
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_anchor_gizmos_3D(
+        &self,
+        commands: &mut Commands,
+        anchor: Entity,
+        cue: &mut AnchorVisualization,
+        draggable: bool,
+    ) {
+        let drag_parent = commands.entity(anchor).add_children(|parent| {
+            parent
+                .spawn(SpatialBundle::default())
+                .insert(VisualCue::no_outline().irregular().always_xray())
+                .id()
+        });
+
+        let for_entity = if draggable { Some(anchor) } else { None };
+        let scale = 0.2;
+        let offset = 0.15;
+        for (m, p, r) in [
+            (
+                self.x_axis_materials.clone(),
+                Vec3::new(offset, 0., 0.),
+                Quat::from_rotation_y(90_f32.to_radians()),
+            ),
+            (
+                self.y_axis_materials.clone(),
+                Vec3::new(0., offset, 0.),
+                Quat::from_rotation_x(-90_f32.to_radians()),
+            ),
+            (
+                self.z_axis_materials.clone(),
+                Vec3::new(0., 0., offset),
+                Quat::IDENTITY,
+            ),
+        ] {
+            self.make_axis(commands, for_entity, drag_parent, m, p, r, scale);
+        }
+
+        commands.entity(drag_parent).add_children(|parent| {
+            for (polyline, material) in &self.centimeter_finite_grid {
+                parent.spawn(PolylineBundle {
+                    polyline: polyline.clone(),
+                    material: material.clone(),
+                    ..default()
+                });
+            }
+        });
 
         cue.drag = Some(drag_parent);
     }
@@ -295,6 +353,15 @@ impl FromWorld for InteractionAssets {
             }),
         };
 
+        let centimeter_finite_grid = {
+            let (polylines, polyline_mats): (Vec<_>, Vec<_>) = make_metric_finite_grid(0.01, 100, Color::WHITE).into_iter().unzip();
+            let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();
+            let polylines: Vec<Handle<Polyline>> = polylines.into_iter().map(|p| polyline_assets.add(p)).collect();
+            let mut polyline_mat_assets = world.get_resource_mut::<Assets<PolylineMaterial>>().unwrap();
+            let polyline_mats: Vec<Handle<PolylineMaterial>> = polyline_mats.into_iter().map(|m| polyline_mat_assets.add(m)).collect();
+            polylines.into_iter().zip(polyline_mats.into_iter()).collect()
+        };
+
         Self {
             dagger_mesh,
             dagger_material,
@@ -315,6 +382,7 @@ impl FromWorld for InteractionAssets {
             z_plane_materials,
             lift_doormat_available_materials,
             lift_doormat_unavailable_materials,
+            centimeter_finite_grid,
         }
     }
 }
