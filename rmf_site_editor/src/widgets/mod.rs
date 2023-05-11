@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview, TriggerUndo,
     },
     occupancy::CalculateGrid,
     recency::ChangeRank,
@@ -176,6 +176,7 @@ pub struct LayerEvents<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    pub undo_events: EventWriter<'w, 's, TriggerUndo>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
@@ -285,6 +286,13 @@ fn site_ui_layout(
                         .file_events
                         .load_workspace
                         .send(LoadWorkspace::Dialog);
+                }
+            });
+
+            ui.menu_button("Edit", |ui| {
+                if ui.add(Button::new("Undo").shortcut_text("Ctrl+Z")).clicked() {
+                    events.undo_events.send(TriggerUndo {  });
+                    println!("Sending undo")
                 }
             });
         });
