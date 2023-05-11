@@ -234,6 +234,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
+                    .with_system(add_robot_to_spawn_location)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)

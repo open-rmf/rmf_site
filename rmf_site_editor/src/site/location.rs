@@ -22,6 +22,9 @@ use bevy::prelude::*;
 // experience z-fighting.
 const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
 
+#[derive(Component, Debug, Clone)]
+pub struct LocationRobotModel(Entity);
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -83,6 +86,66 @@ pub fn add_location_visuals(
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
             .insert(VisualCue::outline());
+    }
+}
+
+pub fn add_robot_to_spawn_location(
+    mut commands: Commands,
+    locations: Query<
+        (
+            Entity,
+            &Point<Entity>,
+            &LocationTags,
+            Option<&LocationRobotModel>,
+        ),
+        Changed<LocationTags>,
+    >,
+    levels: Query<(), With<LevelProperties>>,
+    mut models: Query<&mut AssetSource, With<ModelMarker>>,
+    anchors: AnchorParams,
+    parents: Query<&Parent>,
+) {
+    for (e, point, location_tags, location_model) in &locations {
+        let position = anchors
+            .point_in_parent_frame_of(point.0, Category::Location, e)
+            .unwrap();
+
+        let parent = AncestorIter::new(&parents, point.0).find(|p| levels.get(*p).is_ok());
+
+        let mut found_robot = false;
+        if let Some(parent) = parent {
+            for location_tag in location_tags.iter() {
+                if let LocationTag::SpawnRobot(m) = location_tag {
+                    if let Some(location_model) = location_model {
+                        // Update existing model
+                        if let Ok(mut source) = models.get_mut(location_model.0) {
+                            *source = m.source.clone();
+                        }
+                    } else {
+                        // Spawn new model
+                        let mut model = m.clone();
+                        model.pose = Pose {
+                            trans: position.into(),
+                            ..default()
+                        };
+                        // TODO(luca) there should be a marker component to denote this is a robot
+                        // as well as set it non static
+                        // Robots should probably be made non deletable, since their spawning is
+                        // controlled by the location property
+                        let child = commands.spawn(model).id();
+                        commands.entity(parent).push_children(&[child]);
+                        commands.entity(e).insert(LocationRobotModel(child));
+                    }
+                    found_robot = true;
+                }
+            }
+        }
+        if !found_robot {
+            if let Some(location_model) = location_model {
+                commands.entity(location_model.0).despawn_recursive();
+                commands.entity(e).remove::<LocationRobotModel>();
+            }
+        }
     }
 }
 
