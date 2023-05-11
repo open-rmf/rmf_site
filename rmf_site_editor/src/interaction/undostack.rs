@@ -1,5 +1,5 @@
 use bevy::{prelude::*};
-use rmf_site_format::Anchor;
+use rmf_site_format::{Anchor, Pose};
 use std::collections::VecDeque;
 
 use crate::site::Subordinate;
@@ -23,6 +23,7 @@ pub fn perform_undo(
     mut ev_trigger_undo: EventReader<TriggerUndo>,
     mut undo_stack: ResMut<UndoStack>,
     mut anchors: Query<&mut Anchor, Without<Subordinate>>,
+    mut poses: Query<&mut Pose>,
 )
 {
     for _undo in ev_trigger_undo.iter() {
@@ -32,7 +33,12 @@ pub fn perform_undo(
                     if let Ok(mut anchor) = anchors.get_mut(entity) {
                         anchor.move_to(&old_pose);
                     }
-                }
+                },
+                UndoEvent::MovePoseObject(entity, old_pose) => {
+                    if let Ok(mut pose) = poses.get_mut(entity) {
+                        pose.align_with(&old_pose);
+                    }
+                },
                 _ => {}
             }
         }

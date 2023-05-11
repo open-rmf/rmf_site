@@ -292,7 +292,6 @@ fn site_ui_layout(
             ui.menu_button("Edit", |ui| {
                 if ui.add(Button::new("Undo").shortcut_text("Ctrl+Z")).clicked() {
                     events.undo_events.send(TriggerUndo {  });
-                    println!("Sending undo")
                 }
             });
         });
