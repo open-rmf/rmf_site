@@ -92,12 +92,37 @@ pub fn remove_interaction_for_subordinate_anchors(
 }
 
 pub fn move_anchor(
-    mut anchors: Query<&mut Anchor, Without<Subordinate>>,
+    mut anchors: Query<(&mut Anchor, &Parent), Without<Subordinate>>,
+    categories: Query<&Category>,
     mut move_to: EventReader<MoveTo>,
+    mut undo_stack: ResMut<UndoStack>
 ) {
     for move_to in move_to.iter() {
-        if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
-            anchor.move_to(&move_to.transform);
+        if let Ok((mut anchor, parent)) = anchors.get_mut(move_to.entity) {
+            if let Ok(category) = categories.get(parent.get()) {
+                
+                if let Some(undo_event) = undo_stack.actions.front()
+                {
+                    if let UndoEvent::MoveAnchor(entity, _transform) = undo_event
+                    {
+                        if *entity != move_to.entity {
+                            undo_stack.actions.push_front(UndoEvent::MoveAnchor(
+                                move_to.entity, anchor.local_transform(*category)));
+                        }
+                    }
+                    else
+                    {
+                        undo_stack.actions.push_front(UndoEvent::MoveAnchor(
+                            move_to.entity, anchor.local_transform(*category)));
+                    }
+                }
+                else {
+                    undo_stack.actions.push_front(UndoEvent::MoveAnchor(
+                        move_to.entity, anchor.local_transform(*category)));
+                }
+               
+                anchor.move_to(&move_to.transform);
+            }
         }
     }
 }

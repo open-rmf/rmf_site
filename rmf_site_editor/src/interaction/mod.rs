@@ -71,6 +71,9 @@ pub use select_anchor::*;
 pub mod visual_cue;
 pub use visual_cue::*;
 
+pub mod undostack;
+pub use undostack::*;
+
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
@@ -127,6 +130,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
+            .init_resource::<UndoStack>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -134,6 +138,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<ChangeMode>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
+            .add_event::<TriggerUndo>()
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
             .add_plugin(CameraControlsPlugin)
@@ -200,7 +205,9 @@ impl Plugin for InteractionPlugin {
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(move_anchor.before(update_anchor_transforms))
                     .with_system(move_pose)
-                    .with_system(make_gizmos_pickable),
+                    .with_system(make_gizmos_pickable)
+                    // TODO(arjo): Move to Last?
+                    .with_system(perform_undo),
             )
             .add_system_set_to_stage(
                 CoreStage::First,

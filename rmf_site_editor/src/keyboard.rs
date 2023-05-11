@@ -18,7 +18,7 @@
 use crate::{
     interaction::{
         camera_controls::{CameraControls, HeadlightToggle},
-        ChangeMode, InteractionMode, Selection,
+        ChangeMode, InteractionMode, Selection, TriggerUndo,
     },
     site::Delete,
     CreateNewWorkspace, LoadWorkspace, SaveWorkspace,
@@ -57,6 +57,7 @@ fn handle_keyboard_input(
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
+    mut undo_trigger: EventWriter<TriggerUndo>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
 ) {
@@ -114,6 +115,10 @@ fn handle_keyboard_input(
 
         if keyboard_input.just_pressed(KeyCode::O) {
             load_workspace.send(LoadWorkspace::Dialog);
+        }
+
+        if keyboard_input.just_pressed(KeyCode::Z) {
+            undo_trigger.send(TriggerUndo{});
         }
     }
 }
