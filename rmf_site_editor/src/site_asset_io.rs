@@ -137,12 +137,16 @@ impl SiteAssetIo {
                 )));
             }
         };
-        let binding = name.clone();
-        let filename = binding.splitn(3, "/").collect::<Vec<_>>()[2];
-        /*
-        let binding = PathBuf::from(model_name);
-        let model_name = binding.file_stem().unwrap().to_str().unwrap();
-        */
+        // TODO(luca) migrate to split.remainder once
+        // https://github.com/rust-lang/rust/issues/77998 is stabilized
+        let binding = tokens.fold(String::new(), |prefix, path| prefix + "/" + path);
+        if binding.len() < 2 {
+            return Err(AssetIoError::Io(io::Error::new(
+                io::ErrorKind::Other,
+                format!("File name not found for: {name}"),
+            )));
+        }
+        let filename = binding.split_at(1).1;
         let uri = format!(
             "{0}/{1}/models/{2}/tip/files/{3}",
             FUEL_BASE_URI, org_name, model_name, filename
