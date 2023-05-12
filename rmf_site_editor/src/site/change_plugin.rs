@@ -16,6 +16,7 @@
 */
 
 use crate::site::{SiteState, SiteUpdateLabel};
+use crate::AppState;
 use bevy::prelude::*;
 use std::fmt::Debug;
 
@@ -60,12 +61,18 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<Change<T>>().add_system_set_to_stage(
-            CoreStage::PreUpdate,
-            SystemSet::on_update(SiteState::Display)
-                .label(SiteUpdateLabel::ProcessChanges)
-                .with_system(update_changed_values::<T>),
-        );
+        // TODO(luca) this is duplicated, refactor app states to avoid?
+        app.add_event::<Change<T>>()
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(SiteState::Display)
+                    .label(SiteUpdateLabel::ProcessChanges)
+                    .with_system(update_changed_values::<T>),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                    .with_system(update_changed_values::<T>),
+            );
     }
 }
 

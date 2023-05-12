@@ -1,5 +1,6 @@
 use crate::{
-    Angle, AssetSource, IsStatic, Model as SiteModel, ModelMarker, NameInSite, Pose, Rotation,
+    Angle, AssetSource, ConstraintDependents, IsStatic, Model as SiteModel, ModelMarker,
+    NameInSite, Pose, Rotation, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -32,6 +33,8 @@ impl Model {
                 rot: Rotation::Yaw(Angle::Deg(self.yaw.to_degrees() as f32)),
             },
             is_static: IsStatic(self.static_),
+            constraints: ConstraintDependents::default(),
+            scale: Scale::default(),
             marker: ModelMarker,
         }
     }

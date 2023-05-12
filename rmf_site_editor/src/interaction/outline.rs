@@ -29,7 +29,7 @@ use smallvec::SmallVec;
 #[derive(Component)]
 pub enum OutlineVisualization {
     Ordinary,
-    Anchor,
+    Anchor { body: Entity },
 }
 
 impl Default for OutlineVisualization {
@@ -54,7 +54,7 @@ impl OutlineVisualization {
                     Some(Color::WHITE)
                 }
             }
-            OutlineVisualization::Anchor => {
+            OutlineVisualization::Anchor { .. } => {
                 if hovered.is_hovered {
                     Some(Color::WHITE)
                 } else {
@@ -75,7 +75,7 @@ impl OutlineVisualization {
                     OutlineRenderLayers(RenderLayers::none())
                 }
             }
-            OutlineVisualization::Anchor => {
+            OutlineVisualization::Anchor { .. } => {
                 OutlineRenderLayers(RenderLayers::layer(XRAY_RENDER_LAYER))
             }
         }
@@ -92,6 +92,15 @@ impl OutlineVisualization {
     pub fn depth(&self) -> SetOutlineDepth {
         SetOutlineDepth::Flat {
             model_origin: Vec3::ZERO,
+        }
+    }
+
+    /// If this element should use a different entity as its root for
+    /// highlighting then that will be given here.
+    pub fn root(&self) -> Option<Entity> {
+        match self {
+            OutlineVisualization::Ordinary => None,
+            OutlineVisualization::Anchor { body } => Some(*body),
         }
     }
 }
@@ -133,9 +142,10 @@ pub fn update_outline_visualization(
         let color = vis.color(hovered, selected);
         let layers = vis.layers(hovered, selected);
         let depth = vis.depth();
+        let root = vis.root().unwrap_or(e);
 
         let mut queue: SmallVec<[Entity; 10]> = SmallVec::new();
-        queue.push(e);
+        queue.push(root);
         while let Some(top) = queue.pop() {
             if let Ok((children, cue)) = descendants.get(top) {
                 if let Some(cue) = cue {

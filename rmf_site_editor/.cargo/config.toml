@@ -1,2 +1,3 @@
 [target.x86_64-pc-windows-msvc]
-rustflags = ["-Zshare-generics=off"]
+linker = "clang"
+rustflags = ["-C", "link-arg=-fuse-ld=/usr/bin/mold", "-Zshare-generics=off"]

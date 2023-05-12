@@ -125,6 +125,16 @@ impl RectFace {
     }
 }
 
+#[derive(Serialize, Deserialize, Deref, DerefMut, PartialEq, Clone, Debug)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Scale(pub Vec3);
+
+impl Default for Scale {
+    fn default() -> Self {
+        Self(Vec3::ONE)
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd)]
 #[serde(rename_all = "snake_case")]
 pub enum Angle {
@@ -315,7 +325,7 @@ impl Pose {
         }
     }
 
-    pub fn align_with(&mut self, tf: &Transform) {
+    pub fn align_with(&mut self, tf: &Transform) -> Self {
         self.trans = tf.translation.into();
 
         match self.rot {
@@ -345,6 +355,7 @@ impl Pose {
                 self.rot = Rotation::Quat(tf.rotation.to_array());
             }
         }
+        *self
     }
 }
 

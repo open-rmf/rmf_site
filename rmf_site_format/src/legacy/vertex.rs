@@ -1,7 +1,7 @@
 use super::rbmf::*;
 use crate::{
-    is_default, AssetSource, AssociatedGraphs, IsStatic, Location, LocationTag, LocationTags,
-    Model, ModelMarker, NameInSite, Pose,
+    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic, Location,
+    LocationTag, LocationTags, Model, ModelMarker, NameInSite, Pose, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -63,6 +63,8 @@ impl Vertex {
                 source: AssetSource::Search(me.spawn_robot_type.1.clone()),
                 pose: Pose::default(),
                 is_static: IsStatic(false),
+                constraints: ConstraintDependents::default(),
+                scale: Scale::default(),
                 marker: ModelMarker,
             }))
         }

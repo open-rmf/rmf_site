@@ -78,6 +78,9 @@ pub use pose::*;
 pub mod recall_plugin;
 pub use recall_plugin::RecallPlugin;
 
+pub mod sdf;
+pub use sdf::*;
+
 pub mod save;
 pub use save::*;
 
@@ -135,13 +138,8 @@ impl Plugin for SitePlugin {
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .insert_resource(FloorVisibility::default())
             .init_resource::<SiteAssets>()
-            .init_resource::<SpawnedModels>()
-            .init_resource::<LoadingModels>()
             .init_resource::<LoadingDrawings>()
-            .init_resource::<OpenSites>()
-            .init_resource::<CurrentSite>()
             .init_resource::<CurrentLevel>()
-            .init_resource::<CachedLevels>()
             .init_resource::<PhysicalLightToggle>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
@@ -159,7 +157,10 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
+            .add_plugin(ChangePlugin::<NameInWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
+            .add_plugin(ChangePlugin::<Scale>::default())
+            .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
@@ -169,6 +170,8 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
             .add_plugin(RecallPlugin::<RecallAssetSource>::default())
+            .add_plugin(ChangePlugin::<MeshPrimitive>::default())
+            .add_plugin(RecallPlugin::<RecallMeshPrimitive>::default())
             .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
             .add_plugin(ChangePlugin::<PhysicalCameraProperties>::default())
             .add_plugin(ChangePlugin::<LightKind>::default())
@@ -184,21 +187,20 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
-            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(site_display_on))
-            .add_system_set(SystemSet::on_exit(SiteState::Display).with_system(site_display_off))
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
+                    .with_system(update_model_tentative_formats)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
                     .with_system(save_site)
                     .with_system(save_nav_graphs)
-                    .with_system(change_site),
+                    .with_system(change_site.before(load_site)),
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::AssignOrphans,
@@ -255,7 +257,10 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_model_scenes)
+                    .with_system(handle_new_sdf_roots)
+                    .with_system(update_model_scales)
                     .with_system(make_models_selectable)
+                    .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_visuals)

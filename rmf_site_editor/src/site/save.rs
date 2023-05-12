@@ -27,7 +27,7 @@ use rmf_site_format::*;
 
 pub struct SaveSite {
     pub site: Entity,
-    pub to_file: Option<PathBuf>,
+    pub to_file: PathBuf,
 }
 
 pub struct SaveNavGraphs {
@@ -244,6 +244,8 @@ fn generate_levels(
                 &AssetSource,
                 &Pose,
                 &IsStatic,
+                &ConstraintDependents,
+                &Scale,
                 &SiteID,
                 &Parent,
             ),
@@ -448,7 +450,7 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_static, id, parent) in &q_models {
+    for (name, source, pose, is_static, constraint_dependents, scale, id, parent) in &q_models {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
@@ -458,6 +460,8 @@ fn generate_levels(
                         source: source.clone(),
                         pose: pose.clone(),
                         is_static: is_static.clone(),
+                        constraints: constraint_dependents.clone(),
+                        scale: scale.clone(),
                         marker: ModelMarker,
                     },
                 );
@@ -903,24 +907,7 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let path = {
-            if let Some(to_file) = save_event.to_file {
-                to_file
-            } else {
-                if let Some(to_file) = world.entity(save_event.site).get::<DefaultFile>() {
-                    to_file.0.clone()
-                } else {
-                    let name = world
-                        .entity(save_event.site)
-                        .get::<SiteProperties>()
-                        .map(|site| site.name.clone())
-                        .unwrap_or("<invalid site>".to_string());
-                    println!("No default save file for {name}, please use [Save As]");
-                    continue;
-                }
-            }
-        };
-
+        let path = save_event.to_file;
         println!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")

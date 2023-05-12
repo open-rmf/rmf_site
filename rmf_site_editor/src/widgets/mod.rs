@@ -23,13 +23,14 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        CurrentSite, Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs,
-        SiteState, ToggleLiftDoorAvailability,
+        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        ToggleLiftDoorAvailability,
     },
+    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, CollapsingHeader},
+    egui::{self, Button, CollapsingHeader, Sense},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -76,10 +77,14 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
-            .add_system_set(SystemSet::on_enter(SiteState::Display).with_system(init_ui_style))
+            .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(standard_ui_layout.label(UiUpdateLabel::DrawUi)),
+                SystemSet::on_update(AppState::SiteEditor)
+                    .with_system(site_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::WorkcellEditor)
+                    .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -111,6 +116,21 @@ pub struct ChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct WorkcellChangeEvents<'w, 's> {
+    pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
+    pub mesh_primitives: EventWriter<'w, 's, Change<MeshPrimitive>>,
+    pub name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
+    pub scale: EventWriter<'w, 's, Change<Scale>>,
+}
+
+#[derive(SystemParam)]
+pub struct FileEvents<'w, 's> {
+    pub save: EventWriter<'w, 's, SaveWorkspace>,
+    pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
+    pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
+}
+
+#[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -125,7 +145,7 @@ pub struct Requests<'w, 's> {
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, 's, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
-    pub current_site: ResMut<'w, CurrentSite>,
+    pub current_workspace: ResMut<'w, CurrentWorkspace>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
     pub delete: EventWriter<'w, 's, Delete>,
     pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
@@ -156,14 +176,20 @@ pub struct LayerEvents<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
+    pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
+    pub app_state: Res<'w, State<AppState>>,
+    pub pending_asset_sources:
+        Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
 }
 
-fn standard_ui_layout(
+fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
@@ -187,7 +213,7 @@ fn standard_ui_layout(
                         CollapsingHeader::new("Navigation Graphs")
                             .default_open(true)
                             .show(ui, |ui| {
-                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui);
+                                ViewNavGraphs::new(&nav_graphs, &mut events).show(ui, &open_sites);
                             });
                         ui.separator();
                         // TODO(MXG): Consider combining Nav Graphs and Layers
@@ -223,6 +249,142 @@ fn standard_ui_layout(
                     });
                 });
         });
+
+    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
+                    events.file_events.new_workspace.send(CreateNewWorkspace);
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui
+                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_default_file());
+                    }
+                    if ui
+                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog());
+                    }
+                }
+                if ui
+                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                    .clicked()
+                {
+                    events
+                        .file_events
+                        .load_workspace
+                        .send(LoadWorkspace::Dialog);
+                }
+            });
+        });
+    });
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn workcell_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    inspector_params: InspectorParams,
+    mut events: AppEvents,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Inspect")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Create")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                CreateWidget::new(&mut events).show(ui);
+                            });
+                        ui.separator();
+                    });
+                });
+        });
+
+    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+        egui::menu::bar(ui, |ui| {
+            ui.menu_button("File", |ui| {
+                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
+                    events.file_events.new_workspace.send(CreateNewWorkspace);
+                }
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    if ui
+                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_default_file());
+                    }
+                    if ui
+                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog());
+                    }
+                    if ui
+                        .add(Button::new("Export urdf").shortcut_text("Ctrl+E"))
+                        .clicked()
+                    {
+                        events
+                            .file_events
+                            .save
+                            .send(SaveWorkspace::new().to_dialog().to_urdf());
+                    }
+                }
+                if ui
+                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                    .clicked()
+                {
+                    events
+                        .file_events
+                        .load_workspace
+                        .send(LoadWorkspace::Dialog);
+                }
+            });
+        });
+    });
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

@@ -1,4 +1,6 @@
-use bevy::{pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo};
+use bevy::{
+    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
+};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -20,7 +22,8 @@ use keyboard::*;
 
 mod settings;
 use settings::*;
-
+mod save;
+use save::*;
 mod widgets;
 use widgets::*;
 
@@ -35,9 +38,18 @@ mod main_menu;
 use main_menu::Autoload;
 mod site;
 // mod warehouse_generator;
+mod workcell;
+use workcell::WorkcellEditorPlugin;
 mod interaction;
 
+mod workspace;
+use workspace::*;
+
+mod sdf_loader;
+
 mod site_asset_io;
+mod urdf_loader;
+use sdf_loader::*;
 
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
@@ -59,7 +71,8 @@ struct CommandLineArgs {
 pub enum AppState {
     MainMenu,
     SiteEditor,
-    WarehouseGenerator,
+    //WarehouseGenerator,
+    WorkcellEditor,
 }
 
 pub struct OpenedMapFile(std::path::PathBuf);
@@ -120,7 +133,7 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
-                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         )
         .add_system_set(
             SystemSet::new()
@@ -142,7 +155,11 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
-                .add_before::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+                .set(LogPlugin {
+                    filter: "bevy_asset=error,wgpu=error".to_string(),
+                    ..default()
+                })
+                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         );
     }
 
@@ -152,13 +169,17 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)
+        .add_plugin(SavePlugin)
+        .add_plugin(SdfPlugin)
         .add_state(AppState::MainMenu)
         .add_plugin(MainMenuPlugin)
         // .add_plugin(WarehouseGeneratorPlugin)
+        .add_plugin(WorkcellEditorPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
         .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
         .add_plugin(OccupancyPlugin)
+        .add_plugin(WorkspacePlugin)
         .run();
 }

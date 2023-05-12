@@ -18,8 +18,6 @@ jobs:
 
     - name: rust-wasm-target
       run: |
-        rustup toolchain install nightly
-        rustup default nightly
         rustup target add wasm32-unknown-unknown
 
     - name: apt-deps
@@ -29,7 +27,7 @@ jobs:
 
     - name: cargo-deps
       run: |
-        cargo install wasm-bindgen-cli
+        cargo install wasm-bindgen-cli --vers =0.2.84
 
     - uses: actions/checkout@v3
 
