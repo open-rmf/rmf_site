@@ -22,9 +22,8 @@ use crate::{
 };
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pose, Scale, UrdfRoot};
+use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale, UrdfRoot};
 use smallvec::SmallVec;
-use rmf_site_format::Pending;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
