@@ -24,6 +24,7 @@ use bevy::{asset::LoadState, gltf::Gltf, prelude::*};
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pose, Scale, UrdfRoot};
 use smallvec::SmallVec;
+use rmf_site_format::Pending;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -311,7 +312,7 @@ pub fn update_model_scales(
 
 pub fn make_models_selectable(
     mut commands: Commands,
-    new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
+    new_scene_roots: Query<Entity, (Added<ModelSceneRoot>, Without<Pending>)>,
     parents: Query<&Parent>,
     scene_roots: Query<&Selectable, With<ModelMarker>>,
     all_children: Query<&Children>,
