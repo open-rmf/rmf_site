@@ -24,7 +24,7 @@ use crate::{
     },
     CurrentWorkspace,
 };
-use bevy::{math::Affine3A, prelude::*, utils::HashMap};
+use bevy::{asset::LoadState, math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
 pub const DRAWING_LAYER_START: f32 = 0.0;
@@ -36,8 +36,8 @@ pub struct DrawingSegments {
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
-#[derive(Default, Resource)]
-pub struct LoadingDrawings(pub HashMap<Handle<Image>, (Entity, Pose, PixelsPerMeter)>);
+#[derive(Component)]
+pub struct LoadingDrawing(Handle<Image>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
     rank.map(|r| r.proportion() * (FLOOR_LAYER_START - DRAWING_LAYER_START) + DRAWING_LAYER_START)
@@ -45,12 +45,12 @@ fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
 }
 
 pub fn add_drawing_visuals(
+    mut commands: Commands,
     new_drawings: Query<
         (Entity, &AssetSource, &Pose, &PixelsPerMeter),
         (With<DrawingMarker>, Changed<AssetSource>),
     >,
     asset_server: Res<AssetServer>,
-    mut loading_drawings: ResMut<LoadingDrawings>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<FloorVisibility>,
@@ -69,9 +69,7 @@ pub fn add_drawing_visuals(
             _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
-        loading_drawings
-            .0
-            .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
+        commands.entity(e).insert(LoadingDrawing(texture_handle));
     }
 
     if !new_drawings.is_empty() {
@@ -82,18 +80,24 @@ pub fn add_drawing_visuals(
 // Asset event handler for loaded drawings
 pub fn handle_loaded_drawing(
     mut commands: Commands,
-    mut ev_asset: EventReader<AssetEvent<Image>>,
     assets: Res<Assets<Image>>,
-    mut loading_drawings: ResMut<LoadingDrawings>,
+    loading_drawings: Query<(
+        Entity,
+        &AssetSource,
+        &Pose,
+        &PixelsPerMeter,
+        &LoadingDrawing,
+    )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rank: Query<&RecencyRank<DrawingMarker>>,
-    mut segments: Query<(&DrawingSegments, &mut Transform)>,
+    segments: Query<&DrawingSegments>,
 ) {
-    for ev in ev_asset.iter() {
-        if let AssetEvent::Created { handle } = ev {
-            if let Some((entity, pose, pixels_per_meter)) = loading_drawings.0.remove(handle) {
-                let img = assets.get(handle).unwrap();
+    for (entity, source, pose, pixels_per_meter, handle) in loading_drawings.iter() {
+        match asset_server.get_load_state(&handle.0) {
+            LoadState::Loaded => {
+                let img = assets.get(&handle.0).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
 
@@ -103,7 +107,7 @@ pub fn handle_loaded_drawing(
                 );
                 let mesh = mesh_assets.add(mesh.into());
 
-                let leaf = if let Ok((segment, mut tf)) = segments.get_mut(entity) {
+                let leaf = if let Ok(segment) = segments.get(entity) {
                     segment.leaf
                     // We can ignore the layer height here since that update
                     // will be handled by another system.
@@ -129,13 +133,19 @@ pub fn handle_loaded_drawing(
                 commands.entity(leaf).insert(PbrBundle {
                     mesh,
                     material: materials.add(StandardMaterial {
-                        base_color_texture: Some(handle.clone()),
+                        base_color_texture: Some(handle.0.clone()),
                         ..default()
                     }),
                     transform: Transform::from_xyz(0.0, 0.0, z),
                     ..default()
                 });
+                commands.entity(entity).remove::<LoadingDrawing>();
             }
+            LoadState::Failed => {
+                error!("Failed loading drawing {:?}", String::from(source));
+                commands.entity(entity).remove::<LoadingDrawing>();
+            }
+            _ => {}
         }
     }
 }
