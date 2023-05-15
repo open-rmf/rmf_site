@@ -456,31 +456,31 @@ pub fn update_drag_motions(
     }
 }
 
-pub fn move_pose(mut poses: Query<&mut Pose>,
+pub fn move_pose(
+    mut poses: Query<&mut Pose>,
     mut move_to: EventReader<MoveTo>,
-    mut undo_stack: ResMut<UndoStack>) {
+    mut undo_stack: ResMut<UndoStack>,
+) {
     for move_to in move_to.iter() {
-        if let Ok(mut pose) = poses.get_mut(move_to.entity) {     
+        if let Ok(mut pose) = poses.get_mut(move_to.entity) {
             let old_transform = pose.transform();
-            
-            if let Some(undo_event) = undo_stack.actions.front()
-            {
-                if let UndoEvent::MovePoseObject(entity, _transform) = undo_event
-                {
+
+            if let Some(undo_event) = undo_stack.actions.front() {
+                if let UndoEvent::MovePoseObject(entity, _transform) = undo_event {
                     if *entity != move_to.entity {
-                        undo_stack.actions.push_front(UndoEvent::MovePoseObject(
-                            move_to.entity, old_transform));
+                        undo_stack
+                            .actions
+                            .push_front(UndoEvent::MovePoseObject(move_to.entity, old_transform));
                     }
+                } else {
+                    undo_stack
+                        .actions
+                        .push_front(UndoEvent::MovePoseObject(move_to.entity, old_transform));
                 }
-                else
-                {
-                    undo_stack.actions.push_front(UndoEvent::MovePoseObject(
-                        move_to.entity, old_transform));
-                }
-            }
-            else {
-                undo_stack.actions.push_front(UndoEvent::MovePoseObject(
-                    move_to.entity, old_transform));
+            } else {
+                undo_stack
+                    .actions
+                    .push_front(UndoEvent::MovePoseObject(move_to.entity, old_transform));
             }
             pose.align_with(&move_to.transform);
         }

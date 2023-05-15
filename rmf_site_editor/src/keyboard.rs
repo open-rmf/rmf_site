@@ -118,7 +118,7 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::Z) {
-            undo_trigger.send(TriggerUndo{});
+            undo_trigger.send(TriggerUndo {});
         }
     }
 }

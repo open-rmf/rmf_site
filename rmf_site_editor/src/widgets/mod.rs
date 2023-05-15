@@ -17,7 +17,8 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview, TriggerUndo,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+        TriggerUndo,
     },
     occupancy::CalculateGrid,
     recency::ChangeRank,
@@ -290,8 +291,11 @@ fn site_ui_layout(
             });
 
             ui.menu_button("Edit", |ui| {
-                if ui.add(Button::new("Undo").shortcut_text("Ctrl+Z")).clicked() {
-                    events.undo_events.send(TriggerUndo {  });
+                if ui
+                    .add(Button::new("Undo").shortcut_text("Ctrl+Z"))
+                    .clicked()
+                {
+                    events.undo_events.send(TriggerUndo {});
                 }
             });
         });
