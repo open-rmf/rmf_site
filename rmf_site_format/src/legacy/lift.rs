@@ -45,8 +45,8 @@ impl Lift {
         // TODO(MXG): Rewrite this with glam now that we've accepted it as a dependency
         let x = self.x as f32;
         let y = self.y as f32;
-        let d = self.depth as f32 / 2.0;
-        let w = self.width as f32 / 2.0;
+        let d = self.width as f32 / 2.0;
+        let w = self.depth as f32 / 2.0;
         let theta = self.yaw as f32;
         let rotate = |x, y| {
             (
@@ -95,8 +95,8 @@ impl Lift {
 
             let dx = door.x as f32;
             let dy = door.y as f32;
-            let half_width = self.width as f32 / 2.0;
-            let half_depth = self.depth as f32 / 2.0;
+            let half_width = self.depth as f32 / 2.0;
+            let half_depth = self.width as f32 / 2.0;
 
             let cabin_face = if dx.abs() < 1e-3 {
                 // Very small x value means the door must be on the left or right face
@@ -208,8 +208,8 @@ impl Lift {
             }
         }
 
-        let width = self.width as f32;
-        let depth = self.depth as f32;
+        let width = self.depth as f32;
+        let depth = self.width as f32;
         let cabin = RectangularLiftCabin {
             width,
             depth,
