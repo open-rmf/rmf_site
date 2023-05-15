@@ -85,12 +85,19 @@ impl Default for LogHistory {
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
             .unwrap();
-        let fmt_layer = tracing_subscriber::fmt::Layer::default();
 
         let subscriber = tracing_subscriber::registry().with(LogSubscriber { sender: tx_2 });
         let subscriber = subscriber.with(filter_layer);
-        let subscriber = subscriber.with(fmt_layer);
-        tracing::subscriber::set_global_default(subscriber);
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let fmt_layer = tracing_subscriber::fmt::Layer::default();
+            let subscriber = subscriber.with(fmt_layer);
+            tracing::subscriber::set_global_default(subscriber);
+        }
+        #[cfg(target_arch = "wasm32")]
+        {
+            tracing::subscriber::set_global_default(subscriber);
+        }
 
         Self {
             log_history: Vec::new(),
