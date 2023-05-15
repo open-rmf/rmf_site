@@ -159,10 +159,6 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
-                .set(LogPlugin {
-                    filter: "bevy_asset=error,wgpu=error".to_string(),
-                    ..default()
-                })
                 .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         );
     }
