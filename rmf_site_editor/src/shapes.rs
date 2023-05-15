@@ -23,9 +23,12 @@ use bevy::{
         primitives::Aabb,
     },
 };
+use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle};
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
+use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use rmf_site_format::Angle;
+use std::collections::{BTreeMap, HashMap};
 
 pub(crate) trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -461,10 +464,10 @@ pub(crate) fn make_cone(circle: Circle, peak: [f32; 3], resolution: u32) -> Mesh
     return MeshBuffer::new(positions, normals, indices);
 }
 
-pub(crate) fn make_box(x_extent: f32, y_extent: f32, z_extent: f32) -> MeshBuffer {
-    let (min_x, max_x) = (-x_extent, x_extent);
-    let (min_y, max_y) = (-y_extent, y_extent);
-    let (min_z, max_z) = (-z_extent, z_extent);
+pub(crate) fn make_box(x_size: f32, y_size: f32, z_size: f32) -> MeshBuffer {
+    let (min_x, max_x) = (-x_size / 2.0, x_size / 2.0);
+    let (min_y, max_y) = (-y_size / 2.0, y_size / 2.0);
+    let (min_z, max_z) = (-z_size / 2.0, z_size / 2.0);
     let vertices = &[
         // Top
         ([min_x, min_y, max_z], [0., 0., 1.]),
@@ -557,7 +560,7 @@ pub(crate) fn make_wall_mesh(
         [0., 1.],     // 22
         [length, 1.], // 23
     ];
-    make_box(length / 2.0, thickness / 2.0, height / 2.0)
+    make_box(length, thickness, height)
         .with_uv(uv)
         .transform_by(
             Affine3A::from_translation(Vec3::new(center.x, center.y, height / 2.0))
@@ -637,13 +640,16 @@ pub(crate) fn make_dagger_mesh() -> Mesh {
 }
 
 pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
-    let top_circle = Circle { height, radius };
+    let top_circle = Circle {
+        height: height / 2.0,
+        radius,
+    };
     let mid_circle = Circle {
         height: 0.0,
         radius,
     };
     let bottom_circle = Circle {
-        height: -height,
+        height: -height / 2.0,
         radius,
     };
     let resolution = 32;
@@ -659,17 +665,17 @@ pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
 }
 
 pub(crate) fn make_cylinder_arrow_mesh() -> Mesh {
-    let tip = [0., 0., 1.];
+    let tip = [0., 0., 1.0];
     let l_head = 0.2;
     let r_head = 0.15;
     let r_base = 0.1;
     let head_base = Circle {
         radius: r_head,
-        height: 1. - l_head,
+        height: 1.0 - l_head,
     };
     let cylinder_top = Circle {
         radius: r_base,
-        height: 1. - l_head,
+        height: 1.0 - l_head,
     };
     let cylinder_bottom = Circle {
         radius: r_base,
@@ -1059,7 +1065,7 @@ pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshB
     let mut mesh = make_ring(radius, radius + width / 2.0, 32);
     for i in 0..segments {
         mesh = mesh.merge_with(
-            make_box(width / 2.0, width / 2.0, height / 2.0)
+            make_box(width, width, height)
                 .transform_by(Affine3A::from_translation(Vec3::new(
                     radius + width / 2.0,
                     0.0,
@@ -1217,4 +1223,116 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
     MeshBuffer::new(positions, normals, indices)
         .with_uv(uv)
         .copy_outline_normals()
+}
+
+const X_AXIS_COLOR: Color = Color::rgb(1.0, 0.2, 0.2);
+const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
+const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
+const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
+
+pub(crate) fn make_infinite_grid(
+    scale: f32,
+    fadeout_distance: f32,
+    shadow_color: Option<Color>,
+) -> InfiniteGridBundle {
+    let mut grid = InfiniteGrid::default();
+    // The upstream bevy_infinite_grid developers use an x-z plane grid but we
+    // use an x-y plane grid, so we need to make some tweaks.
+    grid.x_axis_color = X_AXIS_COLOR;
+    grid.z_axis_color = Y_AXIS_COLOR;
+    grid.fadeout_distance = fadeout_distance;
+    grid.shadow_color = shadow_color;
+    let transform = Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
+        .with_scale(Vec3::splat(scale));
+
+    InfiniteGridBundle {
+        grid,
+        transform,
+        ..Default::default()
+    }
+}
+
+const POLYLINE_SEPARATOR: Vec3 = Vec3::splat(std::f32::NAN);
+
+pub(crate) fn make_finite_grid(
+    scale: f32,
+    count: u32,
+    color: Color,
+    weights: BTreeMap<u32, f32>,
+) -> Vec<(Polyline, PolylineMaterial)> {
+    let d_max = count as f32 * scale;
+    let depth_bias = -0.0001;
+    let perspective = true;
+
+    let make_point = |i, j, d, w| {
+        let mut p = Vec3::ZERO;
+        p[i] = w;
+        p[j] = d;
+        p
+    };
+
+    let make_points = |i, j, d| [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)];
+
+    let mut polylines: HashMap<u32, Polyline> = HashMap::new();
+    let mut result = {
+        let Some(width) = weights.values().last().copied() else { return Vec::new() };
+        let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
+
+        for (sign, x_axis_color, y_axis_color) in [
+            (1.0, X_AXIS_COLOR, Y_AXIS_COLOR),
+            (-1.0, NEG_X_AXIS_COLOR, NEG_Y_AXIS_COLOR),
+        ] {
+            for (i, j, color) in [(0, 1, x_axis_color), (1, 0, y_axis_color)] {
+                let p0 = Vec3::ZERO;
+                let p1 = make_point(i, j, 0.0, sign * d_max);
+                let polyline = Polyline {
+                    vertices: vec![p0, p1],
+                };
+                let material = PolylineMaterial {
+                    width,
+                    color,
+                    depth_bias,
+                    perspective,
+                };
+                axes.push((polyline, material));
+            }
+        }
+
+        axes
+    };
+
+    for n in 1..=count {
+        let d = n as f32 * scale;
+        let polylines = {
+            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else { continue };
+            polylines.entry(*weight_key).or_default()
+        };
+
+        for (i, j) in [(0, 1), (1, 0)] {
+            polylines.vertices.extend(make_points(i, j, d));
+            polylines.vertices.push(POLYLINE_SEPARATOR);
+            polylines.vertices.extend(make_points(i, j, -d));
+            polylines.vertices.push(POLYLINE_SEPARATOR);
+        }
+    }
+
+    result.extend(polylines.into_iter().map(|(n, polyline)| {
+        let width = *weights.get(&n).unwrap();
+        let material = PolylineMaterial {
+            width,
+            color,
+            depth_bias,
+            perspective,
+        };
+        (polyline, material)
+    }));
+    result
+}
+
+pub(crate) fn make_metric_finite_grid(
+    scale: f32,
+    count: u32,
+    color: Color,
+) -> Vec<(Polyline, PolylineMaterial)> {
+    make_finite_grid(scale, count, color, [(1, 0.5), (5, 1.0), (10, 1.5)].into())
 }

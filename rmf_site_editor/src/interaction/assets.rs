@@ -16,7 +16,11 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*};
+use bevy::{math::Affine3A, prelude::*, render::view::visibility::RenderLayers};
+use bevy_polyline::{
+    material::PolylineMaterial,
+    polyline::{Polyline, PolylineBundle},
+};
 
 #[derive(Clone, Debug, Resource)]
 pub struct InteractionAssets {
@@ -35,12 +39,58 @@ pub struct InteractionAssets {
     pub direction_light_cover_material: Handle<StandardMaterial>,
     pub x_axis_materials: GizmoMaterialSet,
     pub y_axis_materials: GizmoMaterialSet,
+    pub z_axis_materials: GizmoMaterialSet,
     pub z_plane_materials: GizmoMaterialSet,
     pub lift_doormat_available_materials: GizmoMaterialSet,
     pub lift_doormat_unavailable_materials: GizmoMaterialSet,
+    pub centimeter_finite_grid: Vec<(Handle<Polyline>, Handle<PolylineMaterial>)>,
 }
 
 impl InteractionAssets {
+    pub fn make_orientation_cue_meshes(&self, commands: &mut Commands, parent: Entity, scale: f32) {
+        // The arrows should originate in the mesh origin
+        let pos = Vec3::splat(0.0);
+        let rot_x = Quat::from_rotation_y(90_f32.to_radians());
+        let rot_y = Quat::from_rotation_x(-90_f32.to_radians());
+        let rot_z = Quat::default();
+        let x_mat = self.x_axis_materials.clone();
+        let y_mat = self.y_axis_materials.clone();
+        let z_mat = self.z_axis_materials.clone();
+        self.make_axis(commands, None, parent, x_mat, pos, rot_x, scale);
+        self.make_axis(commands, None, parent, y_mat, pos, rot_y, scale);
+        self.make_axis(commands, None, parent, z_mat, pos, rot_z, scale);
+    }
+
+    pub fn make_axis(
+        &self,
+        command: &mut Commands,
+        // What entity will be moved when this gizmo is dragged
+        for_entity_opt: Option<Entity>,
+        // What entity should be the parent frame of this gizmo
+        parent: Entity,
+        material_set: GizmoMaterialSet,
+        offset: Vec3,
+        rotation: Quat,
+        scale: f32,
+    ) -> Entity {
+        return command.entity(parent).add_children(|parent| {
+            let mut child_entity = parent.spawn(PbrBundle {
+                transform: Transform::from_rotation(rotation)
+                    .with_translation(offset)
+                    .with_scale(Vec3::splat(scale)),
+                mesh: self.arrow_mesh.clone(),
+                material: material_set.passive.clone(),
+                ..default()
+            });
+
+            if let Some(for_entity) = for_entity_opt {
+                child_entity
+                    .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
+            }
+            child_entity.id()
+        });
+    }
+
     pub fn make_draggable_axis(
         &self,
         command: &mut Commands,
@@ -53,35 +103,32 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        return command.entity(parent).add_children(|parent| {
-            parent
-                .spawn(PbrBundle {
-                    transform: Transform::from_rotation(rotation)
-                        .with_translation(offset)
-                        .with_scale(Vec3::splat(scale)),
-                    mesh: self.arrow_mesh.clone(),
-                    material: material_set.passive.clone(),
-                    ..default()
-                })
-                .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set))
-                .id()
-        });
+        self.make_axis(
+            command,
+            Some(for_entity),
+            parent,
+            material_set,
+            offset,
+            rotation,
+            scale,
+        )
     }
 
-    pub fn add_anchor_draggable_arrows(
+    #[allow(non_snake_case)]
+    pub fn add_anchor_gizmos_2D(
         &self,
-        command: &mut Commands,
+        commands: &mut Commands,
         anchor: Entity,
         cue: &mut AnchorVisualization,
     ) {
-        let drag_parent = command.entity(anchor).add_children(|parent| {
+        let drag_parent = commands.entity(anchor).add_children(|parent| {
             parent
                 .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline())
+                .insert(VisualCue::no_outline().irregular().always_xray())
                 .id()
         });
 
-        let height = 0.01;
+        let height = 0.0;
         let scale = 0.2;
         let offset = 0.15;
         for (m, p, r) in [
@@ -106,8 +153,59 @@ impl InteractionAssets {
                 Quat::from_rotation_x(90_f32.to_radians()),
             ),
         ] {
-            self.make_draggable_axis(command, anchor, drag_parent, m, p, r, scale);
+            self.make_draggable_axis(commands, anchor, drag_parent, m, p, r, scale);
         }
+
+        cue.drag = Some(drag_parent);
+    }
+
+    #[allow(non_snake_case)]
+    pub fn add_anchor_gizmos_3D(
+        &self,
+        commands: &mut Commands,
+        anchor: Entity,
+        cue: &mut AnchorVisualization,
+        draggable: bool,
+    ) {
+        let drag_parent = commands.entity(anchor).add_children(|parent| {
+            parent
+                .spawn(SpatialBundle::default())
+                .insert(VisualCue::no_outline().irregular().always_xray())
+                .id()
+        });
+
+        let for_entity = if draggable { Some(anchor) } else { None };
+        let scale = 0.2;
+        let offset = 0.15;
+        for (m, p, r) in [
+            (
+                self.x_axis_materials.clone(),
+                Vec3::new(offset, 0., 0.),
+                Quat::from_rotation_y(90_f32.to_radians()),
+            ),
+            (
+                self.y_axis_materials.clone(),
+                Vec3::new(0., offset, 0.),
+                Quat::from_rotation_x(-90_f32.to_radians()),
+            ),
+            (
+                self.z_axis_materials.clone(),
+                Vec3::new(0., 0., offset),
+                Quat::IDENTITY,
+            ),
+        ] {
+            self.make_axis(commands, for_entity, drag_parent, m, p, r, scale);
+        }
+
+        commands.entity(drag_parent).add_children(|parent| {
+            for (polyline, material) in &self.centimeter_finite_grid {
+                parent.spawn(PolylineBundle {
+                    polyline: polyline.clone(),
+                    material: material.clone(),
+                    ..default()
+                });
+            }
+        });
 
         cue.drag = Some(drag_parent);
     }
@@ -128,7 +226,7 @@ impl FromWorld for InteractionAssets {
         let halo_mesh = meshes.add(make_halo_mesh());
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
-            make_cylinder(0.03, 0.02)
+            make_cylinder(0.06, 0.02)
                 .transform_by(Affine3A::from_translation(0.04 * Vec3::Z))
                 .into(),
         );
@@ -174,14 +272,14 @@ impl FromWorld for InteractionAssets {
         );
         let directional_light_cover_mesh = meshes.add(
             Mesh::from(
-                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
+                make_cylinder(0.02, 0.1).transform_by(Affine3A::from_translation(0.01 * Vec3::Z)),
             )
             .with_generated_outline_normals()
             .unwrap(),
         );
         let directional_light_shine_mesh = meshes.add(
             Mesh::from(
-                make_cylinder(0.01, 0.1).transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
+                make_cylinder(0.02, 0.1).transform_by(Affine3A::from_translation(-0.01 * Vec3::Z)),
             )
             .with_generated_outline_normals()
             .unwrap(),
@@ -212,6 +310,7 @@ impl FromWorld for InteractionAssets {
         });
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
         let y_axis_materials = GizmoMaterialSet::make_y_axis(&mut materials);
+        let z_axis_materials = GizmoMaterialSet::make_z_axis(&mut materials);
         let z_plane_materials = GizmoMaterialSet::make_z_plane(&mut materials);
         let lift_doormat_available_materials = GizmoMaterialSet {
             passive: materials.add(StandardMaterial {
@@ -254,6 +353,29 @@ impl FromWorld for InteractionAssets {
             }),
         };
 
+        let centimeter_finite_grid = {
+            let (polylines, polyline_mats): (Vec<_>, Vec<_>) =
+                make_metric_finite_grid(0.01, 100, Color::WHITE)
+                    .into_iter()
+                    .unzip();
+            let mut polyline_assets = world.get_resource_mut::<Assets<Polyline>>().unwrap();
+            let polylines: Vec<Handle<Polyline>> = polylines
+                .into_iter()
+                .map(|p| polyline_assets.add(p))
+                .collect();
+            let mut polyline_mat_assets = world
+                .get_resource_mut::<Assets<PolylineMaterial>>()
+                .unwrap();
+            let polyline_mats: Vec<Handle<PolylineMaterial>> = polyline_mats
+                .into_iter()
+                .map(|m| polyline_mat_assets.add(m))
+                .collect();
+            polylines
+                .into_iter()
+                .zip(polyline_mats.into_iter())
+                .collect()
+        };
+
         Self {
             dagger_mesh,
             dagger_material,
@@ -270,9 +392,11 @@ impl FromWorld for InteractionAssets {
             direction_light_cover_material,
             x_axis_materials,
             y_axis_materials,
+            z_axis_materials,
             z_plane_materials,
             lift_doormat_available_materials,
             lift_doormat_unavailable_materials,
+            centimeter_finite_grid,
         }
     }
 }

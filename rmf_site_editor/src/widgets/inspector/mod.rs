@@ -51,6 +51,12 @@ pub use inspect_light::*;
 pub mod inspect_location;
 pub use inspect_location::*;
 
+pub mod inspect_mesh_constraint;
+pub use inspect_mesh_constraint::*;
+
+pub mod inspect_mesh_primitive;
+pub use inspect_mesh_primitive::*;
+
 pub mod inspect_motion;
 pub use inspect_motion::*;
 
@@ -65,6 +71,9 @@ pub use inspect_physical_camera_properties::*;
 
 pub mod inspect_pose;
 pub use inspect_pose::*;
+
+pub mod inspect_scale;
+pub use inspect_scale::*;
 
 pub mod inspect_side;
 pub use inspect_side::*;
@@ -92,7 +101,12 @@ pub struct InspectorParams<'w, 's> {
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
+    pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
+    // TODO(luca) move to new systemparam, reached 16 limit on main one
+    pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
+    pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
+    pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -119,7 +133,9 @@ pub struct InspectorComponentParams<'w, 's> {
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
-    pub asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource)>,
+    pub asset_sources:
+        Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
+    pub constraint_dependents: Query<'w, 's, With<ConstraintDependents>>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
@@ -182,6 +198,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change
                         .name
+                        .send(Change::new(new_name, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(name) = self.params.names_in_workcell.get(selection) {
+                if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
+                    self.events
+                        .workcell_change
+                        .name_in_workcell
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
@@ -287,6 +313,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
+            if let Ok(scale) = self.params.scales.get(selection) {
+                if let Some(new_scale) = InspectScale::new(scale).show(ui) {
+                    self.events
+                        .workcell_change
+                        .scale
+                        .send(Change::new(new_scale, selection));
+                }
+                ui.add_space(10.0);
+            }
+
             if let Ok((light, recall)) = self.params.component.lights.get(selection) {
                 if let Some(new_light) = InspectLightKind::new(light, recall).show(ui) {
                     self.events
@@ -314,6 +350,33 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .asset_source
                         .send(Change::new(new_asset_source, selection));
                 }
+                ui.add_space(10.0);
+            }
+
+            if let Ok((source, recall)) = self.params.mesh_primitives.get(selection) {
+                if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui)
+                {
+                    self.events
+                        .workcell_change
+                        .mesh_primitives
+                        .send(Change::new(new_mesh_primitive, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if self
+                .params
+                .component
+                .constraint_dependents
+                .get(selection)
+                .is_ok()
+            {
+                InspectModelDependentsWidget::new(
+                    selection,
+                    &self.params.constraint_dependents_params,
+                    self.events,
+                )
+                .show(ui);
                 ui.add_space(10.0);
             }
 

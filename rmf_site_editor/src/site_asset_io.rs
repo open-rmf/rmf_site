@@ -11,6 +11,9 @@ use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 
+use crate::urdf_loader::UrdfPlugin;
+use urdf_rs::utils::expand_package_path;
+
 use rmf_site_format::AssetSource;
 
 pub fn cache_path() -> PathBuf {
@@ -110,19 +113,12 @@ impl SiteAssetIo {
     }
 
     fn generate_remote_asset_url(&self, name: &String) -> Result<String, AssetIoError> {
-        // Expected format:  OrgName/ModelName.glb
+        // Expected format: OrgName/ModelName/FileName.ext
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
-        let name_no_suffix = match name.strip_suffix(".glb") {
-            Some(s) => s,
-            None => {
-                return Err(AssetIoError::Io(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("Unable to parse into org/model names: {name}"),
-                )));
-            }
-        };
-        let mut tokens = name_no_suffix.split("/");
+        let name_buf = PathBuf::from(name);
+        let binding = name.clone();
+        let mut tokens = binding.split("/");
         let org_name = match tokens.next() {
             Some(token) => token,
             None => {
@@ -141,9 +137,19 @@ impl SiteAssetIo {
                 )));
             }
         };
+        // TODO(luca) migrate to split.remainder once
+        // https://github.com/rust-lang/rust/issues/77998 is stabilized
+        let binding = tokens.fold(String::new(), |prefix, path| prefix + "/" + path);
+        if binding.len() < 2 {
+            return Err(AssetIoError::Io(io::Error::new(
+                io::ErrorKind::Other,
+                format!("File name not found for: {name}"),
+            )));
+        }
+        let filename = binding.split_at(1).1;
         let uri = format!(
-            "{0}/{1}/models/{2}/1/files/meshes/{2}.glb",
-            FUEL_BASE_URI, org_name, model_name
+            "{0}/{1}/models/{2}/tip/files/{3}",
+            FUEL_BASE_URI, org_name, model_name, filename
         );
         return Ok(uri);
     }
@@ -224,8 +230,7 @@ impl AssetIo for SiteAssetIo {
                 self.fetch_asset(remote_url, asset_name)
             }
             AssetSource::Local(filename) => Box::pin(async move {
-                let mut full_path = PathBuf::new();
-                full_path.push(filename);
+                let full_path = PathBuf::from(filename);
                 self.load_from_file(full_path)
             }),
             AssetSource::Bundled(filename) => {
@@ -240,25 +245,36 @@ impl AssetIo for SiteAssetIo {
                     });
                 }
             }
+            AssetSource::Package(_) => Box::pin(async move {
+                // Split into package and path
+                let path = (*expand_package_path(&String::from(&asset_source), None)).to_owned();
+                self.load_from_file(PathBuf::from(path))
+            }),
             AssetSource::Search(asset_name) => {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
+                // For SDF Only:
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
-                // TODO checking whether it's an sdf folder or a glb file
-                match self.get_path_from_env() {
-                    Ok(mut path) => {
-                        // Check if file exists
-                        path.push(&asset_name);
-                        if path.exists() {
-                            return Box::pin(async move { self.load_from_file(path) });
-                        }
+                // TODO checking whether it's an sdf folder or a obj file
+                if let Ok(mut path) = self.get_path_from_env() {
+                    // Check if file exists
+                    path.push(&asset_name);
+                    if path.exists() {
+                        return Box::pin(async move { self.load_from_file(path) });
                     }
-                    Err(_) => {}
                 }
 
+                if !asset_name.ends_with(".sdf") {
+                    return Box::pin(async move {
+                        Err(AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Asset {} not found", asset_name),
+                        )))
+                    });
+                }
                 // Try local cache
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -336,6 +352,9 @@ impl Plugin for SiteAssetIoPlugin {
         asset_io.add_bundled_assets();
 
         // the asset server is constructed and added the resource manager
-        app.insert_resource(AssetServer::new(asset_io));
+        app.insert_resource(AssetServer::new(asset_io))
+            .add_plugin(bevy_stl::StlPlugin)
+            .add_plugin(bevy_obj::ObjPlugin)
+            .add_plugin(UrdfPlugin);
     }
 }

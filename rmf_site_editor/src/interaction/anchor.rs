@@ -32,20 +32,23 @@ pub struct AnchorVisualization {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<(Entity, &Parent, Option<&Subordinate>), (Added<Anchor>, Without<Preview>)>,
+    new_anchors: Query<
+        (Entity, &Parent, Option<&Subordinate>, &Anchor),
+        (Added<Anchor>, Without<Preview>),
+    >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (e, parent, subordinate) in &new_anchors {
+    for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),
         };
 
-        let mut commands = commands.entity(e);
-        let body = commands.add_children(|parent| {
+        let mut entity_commands = commands.entity(e);
+        let body = entity_commands.add_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
@@ -60,10 +63,16 @@ pub fn add_anchor_visual_cues(
             body
         });
 
-        commands
+        entity_commands
             .insert(AnchorVisualization { body, drag: None })
-            .insert(OutlineVisualization::Anchor)
-            .insert(VisualCue::outline().irregular());
+            .insert(OutlineVisualization::Anchor { body });
+
+        // 3D anchors should always be visible with arrow cue meshes
+        if anchor.is_3D() {
+            entity_commands.insert(VisualCue::outline());
+        } else {
+            entity_commands.insert(VisualCue::outline().irregular());
+        }
     }
 }
 
@@ -166,15 +175,17 @@ pub fn update_anchor_cues_for_mode(
 }
 
 pub fn update_anchor_visual_cues(
-    mut command: Commands,
+    mut commands: Commands,
     mut anchors: Query<
         (
             Entity,
+            &Anchor,
             &Hovered,
             &Selected,
             &mut AnchorVisualization,
             &mut VisualCue,
             Option<&Subordinate>,
+            ChangeTrackers<Hovered>,
             ChangeTrackers<Selected>,
         ),
         Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
@@ -187,7 +198,18 @@ pub fn update_anchor_visual_cues(
     interaction_assets: Res<InteractionAssets>,
     debug_mode: Option<Res<DebugMode>>,
 ) {
-    for (a, hovered, selected, mut shapes, mut cue, subordinate, select_tracker) in &mut anchors {
+    for (
+        a,
+        anchor,
+        hovered,
+        selected,
+        mut shapes,
+        mut cue,
+        subordinate,
+        hover_tracker,
+        select_tracker,
+    ) in &mut anchors
+    {
         if debug_mode.as_ref().filter(|d| d.0).is_some() {
             // NOTE(MXG): I have witnessed a scenario where a lane is deleted
             // and then the anchors that supported it are permanently stuck as
@@ -247,20 +269,36 @@ pub fn update_anchor_visual_cues(
             );
         }
 
-        if select_tracker.is_changed() {
-            if selected.cue() {
-                if shapes.drag.is_none() && subordinate.is_none() {
-                    interaction_assets.add_anchor_draggable_arrows(
-                        &mut command,
-                        a,
-                        shapes.as_mut(),
-                    );
+        if anchor.is_3D() {
+            if select_tracker.is_changed() || hover_tracker.is_changed() {
+                if selected.cue() || hovered.cue() {
+                    if shapes.drag.is_none() {
+                        interaction_assets.add_anchor_gizmos_3D(
+                            &mut commands,
+                            a,
+                            shapes.as_mut(),
+                            subordinate.is_none(),
+                        );
+                    }
+                } else {
+                    if let Some(drag) = shapes.drag {
+                        commands.entity(drag).despawn_recursive();
+                    }
+                    shapes.drag = None;
                 }
-            } else {
-                if let Some(drag) = shapes.drag {
-                    command.entity(drag).despawn_recursive();
+            }
+        } else {
+            if select_tracker.is_changed() {
+                if selected.cue() {
+                    if shapes.drag.is_none() && subordinate.is_none() {
+                        interaction_assets.add_anchor_gizmos_2D(&mut commands, a, shapes.as_mut());
+                    }
+                } else {
+                    if let Some(drag) = shapes.drag {
+                        commands.entity(drag).despawn_recursive();
+                    }
+                    shapes.drag = None;
                 }
-                shapes.drag = None;
             }
         }
     }

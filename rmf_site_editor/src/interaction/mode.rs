@@ -27,6 +27,9 @@ pub enum InteractionMode {
     Inspect,
     /// The user must select an
     SelectAnchor(SelectAnchor),
+    /// 3D version of SelectAnchor
+    // TODO(anyone) rename above SelectAnchor2D and this SelectAnchor
+    SelectAnchor3D(SelectAnchor3D),
 }
 
 impl Default for InteractionMode {
@@ -40,6 +43,7 @@ impl InteractionMode {
         match self {
             Self::Inspect => true,
             Self::SelectAnchor(_) => true,
+            Self::SelectAnchor3D(_) => true,
             // _ => false,
         }
     }
@@ -63,6 +67,9 @@ impl InteractionMode {
                 None
             }
             Self::SelectAnchor(select_anchor) => {
+                Some(select_anchor.backout(&mut params.select_anchor))
+            }
+            Self::SelectAnchor3D(select_anchor) => {
                 Some(select_anchor.backout(&mut params.select_anchor))
             }
         };

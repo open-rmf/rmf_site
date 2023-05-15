@@ -74,6 +74,7 @@ pub use visual_cue::*;
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_picking::{PickingPlugin, PickingSystem};
+use bevy_polyline::PolylinePlugin;
 
 #[derive(Default)]
 pub struct InteractionPlugin;
@@ -115,6 +116,7 @@ impl Plugin for InteractionPlugin {
                 InteractionState::Disable,
             )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
+            .add_plugin(PolylinePlugin)
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -147,11 +149,13 @@ impl Plugin for InteractionPlugin {
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))
                     .with_system(maintain_selected_entities.after(maintain_hovered_entities))
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
+                    .with_system(handle_select_anchor_3d_mode.after(maintain_selected_entities))
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
                     .with_system(update_unassigned_anchor_cues)
                     .with_system(update_anchor_cues_for_mode)
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
                     .with_system(remove_deleted_supports_from_visual_cues)
+                    .with_system(make_model_previews_not_selectable)
                     .with_system(update_lane_visual_cues.after(maintain_selected_entities))
                     .with_system(update_edge_visual_cues.after(maintain_selected_entities))
                     .with_system(update_point_visual_cues.after(maintain_selected_entities))

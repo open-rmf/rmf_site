@@ -16,9 +16,12 @@
 */
 
 use crate::{
-    interaction::{Hover, MoveTo},
-    site::{Anchor, AssociatedGraphs, Category, Dependents, LocationTags, SiteID, Subordinate},
-    widgets::{inspector::SelectionWidget, AppEvents, Icons},
+    interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
+    site::{
+        Anchor, AssociatedGraphs, Category, Change, Dependents, LocationTags, MeshConstraint,
+        SiteID, Subordinate,
+    },
+    widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
@@ -26,7 +29,17 @@ use std::collections::{BTreeMap, HashSet};
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
-    pub anchors: Query<'w, 's, (&'static Transform, Option<&'static Subordinate>), With<Anchor>>,
+    pub anchors: Query<
+        'w,
+        's,
+        (
+            &'static Anchor,
+            &'static Transform,
+            Option<&'static Subordinate>,
+            &'static Parent,
+            Option<&'static MeshConstraint<Entity>>,
+        ),
+    >,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
@@ -81,7 +94,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok((tf, subordinate)) = self.params.anchors.get(self.anchor) {
+        if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) =
+            self.params.anchors.get(self.anchor)
+        {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {
@@ -101,24 +116,114 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 });
             } else {
-                if !self.is_dependency {
-                    ui.label("x");
-                }
-                let mut x = tf.translation.x;
-                ui.add(DragValue::new(&mut x).speed(0.01));
-                // TODO(MXG): Make the drag speed a user-defined setting
+                match anchor {
+                    Anchor::Translate2D(anchor) => {
+                        if !self.is_dependency {
+                            ui.label("x");
+                        }
+                        let mut x = tf.translation.x;
+                        ui.add(DragValue::new(&mut x).speed(0.01));
+                        // TODO(MXG): Make the drag speed a user-defined setting
 
-                if !self.is_dependency {
-                    ui.label("y");
-                }
-                let mut y = tf.translation.y;
-                ui.add(DragValue::new(&mut y).speed(0.01));
+                        if !self.is_dependency {
+                            ui.label("y");
+                        }
+                        let mut y = tf.translation.y;
+                        ui.add(DragValue::new(&mut y).speed(0.01));
 
-                if x != tf.translation.x || y != tf.translation.y {
-                    self.events.request.move_to.send(MoveTo {
-                        entity: self.anchor,
-                        transform: Transform::from_translation([x, y, 0.0].into()),
-                    });
+                        if x != tf.translation.x || y != tf.translation.y {
+                            self.events.request.move_to.send(MoveTo {
+                                entity: self.anchor,
+                                transform: Transform::from_translation([x, y, 0.0].into()),
+                            });
+                        }
+                    }
+                    Anchor::CategorizedTranslate2D(anchor) => {
+                        todo!("Categorized translate inspector not implemented yet");
+                    }
+                    Anchor::Pose3D(pose) => {
+                        ui.vertical(|ui| {
+                            if let Some(c) = mesh_constraint {
+                                // For mesh constraints we only allow rotation and inspection of
+                                // parents
+                                if let Some(new_pose) =
+                                    InspectPose::new(&c.relative_pose).for_rotation().show(ui)
+                                {
+                                    // TODO(luca) Using moveto doesn't allow switching between variants of
+                                    // Pose3D
+                                    self.events
+                                        .workcell_change
+                                        .mesh_constraints
+                                        .send(Change::new(
+                                            MeshConstraint {
+                                                entity: c.entity,
+                                                element: c.element.clone(),
+                                                relative_pose: new_pose,
+                                            },
+                                            self.anchor,
+                                        ));
+                                }
+                                ui.label("Mesh Parent");
+                                SelectionWidget::new(
+                                    c.entity,
+                                    self.params.site_id.get(c.entity).ok().cloned(),
+                                    self.params.icons.as_ref(),
+                                    self.events,
+                                )
+                                .show(ui);
+
+                                ui.label("Frame Parent");
+                                SelectionWidget::new(
+                                    parent.get(),
+                                    self.params.site_id.get(parent.get()).ok().cloned(),
+                                    self.params.icons.as_ref(),
+                                    self.events,
+                                )
+                                .show(ui);
+                            } else {
+                                if let Some(new_pose) = InspectPose::new(pose).show(ui) {
+                                    // TODO(luca) Using moveto doesn't allow switching between variants of
+                                    // Pose3D
+                                    self.events.request.move_to.send(MoveTo {
+                                        entity: self.anchor,
+                                        transform: new_pose.transform(),
+                                    });
+                                }
+
+                                // Parent reassigning widget
+                                ui.label("Parent");
+                                SelectionWidget::new(
+                                    parent.get(),
+                                    self.params.site_id.get(parent.get()).ok().cloned(),
+                                    self.params.icons.as_ref(),
+                                    self.events,
+                                )
+                                .show(ui);
+
+                                let assign_response = ui.add(ImageButton::new(
+                                    self.params.icons.edit.egui(),
+                                    [18., 18.],
+                                ));
+
+                                if assign_response.hovered() {
+                                    self.events.request.hover.send(Hover(Some(self.anchor)));
+                                }
+
+                                let parent_replace = assign_response.clicked();
+                                assign_response.on_hover_text("Reassign");
+
+                                if parent_replace {
+                                    let request =
+                                        SelectAnchor3D::replace_point(self.anchor, parent.get())
+                                            .for_anchor(Some(parent.get()));
+                                    self.events
+                                        .request
+                                        .change_mode
+                                        .send(ChangeMode::To(request.into()));
+                                }
+                            }
+                        });
+                    }
                 }
             }
         }

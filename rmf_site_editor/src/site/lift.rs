@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
 use bevy::{prelude::*, render::primitives::Aabb};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
@@ -110,8 +110,9 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     for (e, edge) in &new_lifts {
         let mut lift_cmds = commands.entity(e);
@@ -123,7 +124,7 @@ pub fn add_tags_to_lift(
         if orphan_lifts.contains(e) {
             // Assume that a newly created lift that doesn't have a parent
             // belongs in whatever the current site happens to be.
-            if let Some(current_site) = current_site.0 {
+            if let Some(current_site) = current_workspace.to_site(&open_sites) {
                 commands.entity(current_site).add_child(e);
             } else {
                 error!("Could not find a current site to put a newly created lift inside of!");

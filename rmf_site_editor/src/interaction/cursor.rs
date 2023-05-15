@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{FloorMarker, WallMarker};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -36,6 +36,8 @@ pub struct Cursor {
     // TODO(MXG): Switch the anchor preview when the anchor enters a lift
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
+    pub frame_placement: Entity,
+    pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
     modes: HashSet<&'static str>,
@@ -100,6 +102,44 @@ impl Cursor {
         }
     }
 
+    fn remove_preview(&mut self, commands: &mut Commands) {
+        if let Some(current_preview) = self.preview_model {
+            commands
+                .entity(self.frame)
+                .remove_children(&[current_preview]);
+            commands.entity(current_preview).despawn_recursive();
+        }
+    }
+
+    // TODO(luca) reduce duplication here
+    pub fn set_model_preview(&mut self, commands: &mut Commands, model: Option<Model>) {
+        self.remove_preview(commands);
+        self.preview_model = if let Some(model) = model {
+            let e = commands.spawn(model).insert(Pending).id();
+            commands.entity(self.frame).push_children(&[e]);
+            Some(e)
+        } else {
+            None
+        }
+    }
+
+    pub fn set_workcell_model_preview(
+        &mut self,
+        commands: &mut Commands,
+        model: Option<WorkcellModel>,
+    ) {
+        self.remove_preview(commands);
+        self.preview_model = if let Some(model) = model {
+            let cmd = commands.spawn(Pending);
+            let e = cmd.id();
+            model.add_bevy_components(cmd);
+            commands.entity(self.frame).push_children(&[e]);
+            Some(e)
+        } else {
+            None
+        }
+    }
+
     pub fn should_be_visible(&self) -> bool {
         (!self.dependents.is_empty() || !self.modes.is_empty()) && self.blockers.is_empty()
     }
@@ -122,7 +162,9 @@ impl FromWorld for Cursor {
         let dagger_material = interaction_assets.dagger_material.clone();
         let level_anchor_mesh = site_assets.level_anchor_mesh.clone();
         let site_anchor_mesh = site_assets.site_anchor_mesh.clone();
+        let frame_mesh = interaction_assets.arrow_mesh.clone();
         let preview_anchor_material = site_assets.preview_anchor_material.clone();
+        let preview_frame_material = site_assets.preview_anchor_material.clone();
 
         let halo = world
             .spawn(PbrBundle {
@@ -176,9 +218,30 @@ impl FromWorld for Cursor {
             })
             .id();
 
+        let frame_placement = world
+            .spawn(AnchorBundle::new([0., 0.].into()).visible(false))
+            .insert(Pending)
+            .insert(Preview)
+            .insert(VisualCue::no_outline())
+            .with_children(|parent| {
+                parent.spawn(PbrBundle {
+                    mesh: frame_mesh,
+                    material: preview_frame_material,
+                    transform: Transform::from_scale(Vec3::new(0.2, 0.2, 0.2)),
+                    ..default()
+                });
+            })
+            .id();
+
         let cursor = world
             .spawn(VisualCue::no_outline())
-            .push_children(&[halo, dagger, level_anchor_placement, site_anchor_placement])
+            .push_children(&[
+                halo,
+                dagger,
+                level_anchor_placement,
+                site_anchor_placement,
+                frame_placement,
+            ])
             .insert(SpatialBundle {
                 visibility: Visibility { is_visible: false },
                 ..default()
@@ -191,6 +254,8 @@ impl FromWorld for Cursor {
             dagger,
             level_anchor_placement,
             site_anchor_placement,
+            frame_placement,
+            preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),
             blockers: Default::default(),
@@ -236,10 +301,13 @@ pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
+    models: Query<(), With<ModelMarker>>,
     mut transforms: Query<&mut Transform>,
+    hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
+    mut visibility: Query<&mut Visibility>,
 ) {
-    match *mode {
+    match &*mode {
         InteractionMode::Inspect => {
             let intersection = match intersections.iter().last() {
                 Some(intersection) => intersection,
@@ -281,6 +349,77 @@ pub fn update_cursor_transform(
 
             *transform = Transform::from_translation(intersection);
         }
+        // TODO(luca) snap to features of meshes
+        InteractionMode::SelectAnchor3D(_mode) => {
+            let mut transform = match transforms.get_mut(cursor.frame) {
+                Ok(transform) => transform,
+                Err(_) => {
+                    println!("No cursor transform found");
+                    return;
+                }
+            };
+            // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
+            // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
+            if let Some((Some(triangle), Some(position), Some(normal))) = intersections
+                .iter()
+                .last()
+                .and_then(|data| Some((data.world_triangle(), data.position(), data.normal())))
+            {
+                // Make sure we are hovering over a model and not anything else (i.e. anchor)
+                match cursor.preview_model {
+                    None => {
+                        if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
+                            // Find the closest triangle vertex
+                            // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
+                            // to area, then populate a MeshConstraint component to be used by downstream
+                            // spawning methods
+                            // TODO(luca) there must be a better way to find a minimum given predicate in Rust
+                            let triangle_vecs = vec![triangle.v1, triangle.v2];
+                            let mut closest_vertex = triangle.v0;
+                            let mut closest_dist = position.distance(triangle.v0.into());
+                            for v in triangle_vecs {
+                                let dist = position.distance(v.into());
+                                if dist < closest_dist {
+                                    closest_dist = dist;
+                                    closest_vertex = v;
+                                }
+                            }
+                            //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
+                            let ray = Ray3d::new(closest_vertex.into(), normal);
+                            *transform = Transform::from_matrix(
+                                ray.to_aligned_transform([0., 0., 1.].into()),
+                            );
+                            set_visibility(cursor.frame, &mut visibility, true);
+                        } else {
+                            // Hide the cursor
+                            set_visibility(cursor.frame, &mut visibility, false);
+                        }
+                    }
+                    Some(_) => {
+                        // If we are placing a model avoid snapping to faced and just project to
+                        // ground plane
+                        let intersection = match intersect_ground_params.ground_plane_intersection()
+                        {
+                            Some(intersection) => intersection,
+                            None => {
+                                return;
+                            }
+                        };
+                        set_visibility(cursor.frame, &mut visibility, true);
+                        *transform = Transform::from_translation(intersection);
+                    }
+                }
+            } else {
+                let intersection = match intersect_ground_params.ground_plane_intersection() {
+                    Some(intersection) => intersection,
+                    None => {
+                        return;
+                    }
+                };
+                set_visibility(cursor.frame, &mut visibility, true);
+                *transform = Transform::from_translation(intersection);
+            }
+        }
     }
 }
 
@@ -319,5 +458,17 @@ pub fn update_cursor_hover_visualization(
 
     for e in removed.iter() {
         cursor.remove_dependent(e, &mut visibility);
+    }
+}
+
+// This system makes sure model previews are not picked up by raycasting
+pub fn make_model_previews_not_selectable(
+    mut commands: Commands,
+    new_models: Query<Entity, (With<ModelMarker>, Added<Selectable>)>,
+    cursor: Res<Cursor>,
+) {
+    if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
+        commands.entity(e).remove::<Selectable>();
+        commands.entity(e).remove::<PickableBundle>();
     }
 }

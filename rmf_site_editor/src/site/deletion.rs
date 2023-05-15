@@ -20,7 +20,7 @@ use crate::{
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use rmf_site_format::{Edge, Path, Point};
+use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
 use std::collections::HashSet;
 
 // TODO(MXG): Use this module to implement the deletion buffer. The role of the
@@ -77,7 +77,10 @@ struct DeletionParams<'w, 's> {
     edges: Query<'w, 's, &'static Edge<Entity>>,
     points: Query<'w, 's, &'static Point<Entity>>,
     paths: Query<'w, 's, &'static Path<Entity>>,
+    parents: Query<'w, 's, &'static mut Parent>,
     dependents: Query<'w, 's, &'static mut Dependents>,
+    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
+    mesh_constraints: Query<'w, 's, &'static mut MeshConstraint<Entity>>,
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
@@ -196,8 +199,32 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             }
         }
 
+        if let Ok(dependents) = params.constraint_dependents.get(e) {
+            for dep in dependents.iter() {
+                // Remove MeshConstraint component from dependent
+                params
+                    .commands
+                    .entity(*dep)
+                    .remove::<MeshConstraint<Entity>>();
+            }
+        }
+
+        if let Ok(constraint) = params.mesh_constraints.get(e) {
+            if let Ok(mut parent) = params.constraint_dependents.get_mut(constraint.entity) {
+                parent.remove(&e);
+            }
+        }
+
         if **params.selection == Some(e) {
             params.select.send(Select(None));
+        }
+    }
+
+    // Fetch the parent and delete this dependent
+    // TODO(luca) should we add this snippet to the recursive delete also?
+    if let Ok(parent) = params.parents.get(element) {
+        if let Ok(mut parent_dependents) = params.dependents.get_mut(**parent) {
+            parent_dependents.remove(&element);
         }
     }
 

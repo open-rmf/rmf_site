@@ -15,13 +15,9 @@
  *
 */
 
+use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{LevelProperties, SiteProperties};
-use std::collections::HashMap;
-
-/// Used as a resource that keeps track of the current site entity
-#[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
-pub struct CurrentSite(pub Option<Entity>);
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -36,14 +32,10 @@ pub struct ChangeCurrentSite {
 #[derive(Clone, Copy, Debug, Default, Deref, DerefMut, Resource)]
 pub struct CurrentLevel(pub Option<Entity>);
 
-/// Used as a resource that maps from the site entity to the level entity which
+/// Used as a component that maps from the site entity to the level entity which
 /// was most recently selected for it.
-#[derive(Clone, Debug, Default, Resource)]
-pub struct CachedLevels(pub HashMap<Entity, Entity>);
-
-/// Used as a resource to keep track of all currently opened sites
-#[derive(Clone, Debug, Default, Resource)]
-pub struct OpenSites(pub Vec<Entity>);
+#[derive(Component, Clone, Deref, DerefMut, Debug)]
+pub struct CachedLevel(Entity);
 
 /// This component is placed on the Site entity to keep track of what the next
 /// SiteID should be when saving.
@@ -53,11 +45,11 @@ pub struct NextSiteID(pub u32);
 pub fn change_site(
     mut commands: Commands,
     mut change_current_site: EventReader<ChangeCurrentSite>,
-    mut current_site: ResMut<CurrentSite>,
+    mut current_workspace: ResMut<CurrentWorkspace>,
     mut current_level: ResMut<CurrentLevel>,
-    mut cached_levels: ResMut<CachedLevels>,
+    cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
-    open_sites: Res<OpenSites>,
+    open_sites: Query<Entity, With<SiteProperties>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
@@ -69,9 +61,9 @@ pub fn change_site(
     };
 
     if let Some(cmd) = change_current_site.iter().last() {
-        if open_sites.0.iter().find(|s| **s == cmd.site).is_none() {
+        if open_sites.get(cmd.site).is_err() {
             warn!(
-                "Requested site change to an entity that is not an open site: {:?}",
+                "Requested workspace change to an entity that is not an open site: {:?}",
                 cmd.site
             );
             return;
@@ -93,13 +85,8 @@ pub fn change_site(
             }
         }
 
-        if current_site.0 != Some(cmd.site) {
-            if let Some(previous_site) = current_site.0 {
-                set_visibility(previous_site, false);
-            }
-            set_visibility(cmd.site, true);
-            current_site.0 = Some(cmd.site);
-        }
+        current_workspace.root = Some(cmd.site);
+        current_workspace.display = true;
 
         if let Some(new_level) = cmd.level {
             if let Some(previous_level) = current_level.0 {
@@ -109,18 +96,18 @@ pub fn change_site(
             }
 
             set_visibility(new_level, true);
-            cached_levels.0.insert(cmd.site, new_level);
+            commands.entity(cmd.site).insert(CachedLevel(new_level));
             current_level.0 = Some(new_level);
         } else {
-            if let Some(cached_level) = cached_levels.0.get(&cmd.site) {
-                set_visibility(*cached_level, true);
-                current_level.0 = Some(*cached_level);
+            if let Ok(cached_level) = cached_levels.get(cmd.site) {
+                set_visibility(**cached_level, true);
+                current_level.0 = Some(**cached_level);
             } else {
                 if let Ok(children) = children.get(cmd.site) {
                     let mut found_level = false;
                     for child in children {
                         if let Ok(level) = levels.get(*child) {
-                            cached_levels.0.insert(cmd.site, level);
+                            commands.entity(cmd.site).insert(CachedLevel(level));
                             current_level.0 = Some(level);
                             found_level = true;
                             set_visibility(level, true);
@@ -138,33 +125,11 @@ pub fn change_site(
                                 .id()
                         });
 
-                        cached_levels.0.insert(cmd.site, new_level);
+                        commands.entity(cmd.site).insert(CachedLevel(new_level));
                         current_level.0 = Some(new_level);
                     }
                 }
             }
-        }
-    }
-}
-
-pub fn site_display_on(
-    current_site: Res<CurrentSite>,
-    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
-) {
-    if let Some(current_site) = current_site.0 {
-        if let Ok(mut v) = visibility.get_mut(current_site) {
-            v.is_visible = true;
-        }
-    }
-}
-
-pub fn site_display_off(
-    current_site: Res<CurrentSite>,
-    mut visibility: Query<&mut Visibility, With<SiteProperties>>,
-) {
-    if let Some(current_site) = current_site.0 {
-        if let Ok(mut v) = visibility.get_mut(current_site) {
-            v.is_visible = false;
         }
     }
 }

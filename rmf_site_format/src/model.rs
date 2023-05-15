@@ -32,6 +32,13 @@ pub struct Model {
     #[serde(default, skip_serializing_if = "is_default")]
     /// Whether this model should be able to move in simulation
     pub is_static: IsStatic,
+    #[serde(skip)]
+    /// List of mesh constraints that apply to this model
+    /// Skipped in serialization since the information is already contained in MeshConstraints
+    pub constraints: ConstraintDependents,
+    /// Scale to be applied to the model
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub scale: Scale,
     /// Only relevant for bevy
     #[serde(skip)]
     pub marker: ModelMarker,
@@ -48,6 +55,8 @@ impl Default for Model {
             source: AssetSource::default(),
             pose: Pose::default(),
             is_static: IsStatic(false),
+            constraints: ConstraintDependents::default(),
+            scale: Scale::default(),
             marker: ModelMarker,
         }
     }

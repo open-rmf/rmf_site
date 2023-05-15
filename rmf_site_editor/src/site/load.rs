@@ -15,18 +15,19 @@
  *
 */
 
-use crate::{recency::RecencyRanking, site::*, Autoload};
+use crate::{recency::RecencyRanking, site::*, Autoload, CurrentWorkspace};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
+use rmf_site_format::legacy::building_map::BuildingMap;
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 #[cfg(not(target_arch = "wasm32"))]
-use {crate::main_menu::load_site_file, rfd::FileHandle};
+use rfd::FileHandle;
 
-/// This component is given to the site to kee ptrack of what file it should be
+/// This component is given to the site to keep track of what file it should be
 /// saved to by default.
-#[derive(Component, Clone, Debug)]
+#[derive(Component, Clone, Debug, Deref)]
 pub struct DefaultFile(pub PathBuf);
 
 pub struct LoadSite {
@@ -263,7 +264,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
 pub fn load_site(
     mut commands: Commands,
-    mut opened_sites: ResMut<OpenSites>,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
     mut site_display_state: ResMut<State<SiteState>>,
@@ -273,7 +273,6 @@ pub fn load_site(
         if let Some(path) = &cmd.default_file {
             commands.entity(site).insert(DefaultFile(path.clone()));
         }
-        opened_sites.0.push(site);
 
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite { site, level: None });
@@ -507,7 +506,8 @@ pub fn import_nav_graph(
     mut params: ImportNavGraphParams,
     mut import_requests: EventReader<ImportNavGraphs>,
     mut autoload: Option<ResMut<Autoload>>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
+    open_sites: Query<Entity, With<SiteProperties>>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {
@@ -532,7 +532,7 @@ pub fn import_nav_graph(
                 None => break 'import,
             };
 
-            let current_site = match current_site.0 {
+            let current_site = match current_workspace.to_site(&open_sites) {
                 Some(s) => s,
                 None => break 'import,
             };
@@ -572,6 +572,36 @@ pub fn import_nav_graph(
             if let Err(err) = generate_imported_nav_graphs(&mut params, into_site, &from_site_data)
             {
                 error!("Failed to auto-import nav graph: {err}");
+            }
+        }
+    }
+}
+
+// TODO(luca) see if we can remove this
+#[cfg(not(target_arch = "wasm32"))]
+async fn load_site_file(file: &FileHandle) -> Option<Site> {
+    let is_legacy = file.file_name().ends_with(".building.yaml");
+    let data = file.read().await;
+    if is_legacy {
+        match BuildingMap::from_bytes(&data) {
+            Ok(building) => match building.to_site() {
+                Ok(site) => Some(site),
+                Err(err) => {
+                    println!("{:?}", err);
+                    return None;
+                }
+            },
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
+            }
+        }
+    } else {
+        match Site::from_bytes(&data) {
+            Ok(site) => Some(site),
+            Err(err) => {
+                println!("{:?}", err);
+                return None;
             }
         }
     }

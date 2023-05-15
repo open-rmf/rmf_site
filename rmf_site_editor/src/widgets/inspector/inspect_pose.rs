@@ -22,27 +22,38 @@ use rmf_site_format::{Pose, Rotation};
 
 pub struct InspectPose<'a> {
     pub pose: &'a Pose,
+    pub for_rotation: &'a bool,
 }
 
 impl<'a> InspectPose<'a> {
     pub fn new(pose: &'a Pose) -> Self {
-        Self { pose }
+        Self {
+            pose,
+            for_rotation: &false,
+        }
+    }
+
+    pub fn for_rotation(mut self) -> Self {
+        self.for_rotation = &true;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Pose> {
         let mut new_pose = self.pose.clone();
-        Grid::new("inspect_pose_translation").show(ui, |ui| {
-            ui.label("x");
-            ui.label("y");
-            ui.label("z");
-            ui.end_row();
+        if !self.for_rotation {
+            Grid::new("inspect_pose_translation").show(ui, |ui| {
+                ui.label("x");
+                ui.label("y");
+                ui.label("z");
+                ui.end_row();
 
-            ui.add(DragValue::new(&mut new_pose.trans[0]).speed(0.01));
-            ui.add(DragValue::new(&mut new_pose.trans[1]).speed(0.01));
-            ui.add(DragValue::new(&mut new_pose.trans[2]).speed(0.01));
-            ui.end_row();
-        });
-        ui.add_space(5.0);
+                ui.add(DragValue::new(&mut new_pose.trans[0]).speed(0.01));
+                ui.add(DragValue::new(&mut new_pose.trans[1]).speed(0.01));
+                ui.add(DragValue::new(&mut new_pose.trans[2]).speed(0.01));
+                ui.end_row();
+            });
+            ui.add_space(5.0);
+        }
 
         ui.horizontal(|ui| {
             ui.label("Rotation");

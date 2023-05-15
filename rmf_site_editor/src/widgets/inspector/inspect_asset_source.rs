@@ -33,12 +33,13 @@ impl<'a> InspectAssetSource<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
-        // TODO implement recall plugin
+        // TODO(luca) implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,
             AssetSource::Search(name) => name,
             AssetSource::Bundled(name) => name,
+            AssetSource::Package(path) => path,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -50,6 +51,7 @@ impl<'a> InspectAssetSource<'a> {
                         AssetSource::Remote(assumed_source.clone()),
                         AssetSource::Search(assumed_source.clone()),
                         AssetSource::Bundled(assumed_source.clone()),
+                        AssetSource::Package(assumed_source.clone()),
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
                     }
@@ -59,8 +61,7 @@ impl<'a> InspectAssetSource<'a> {
         match &mut new_source {
             AssetSource::Local(name) => {
                 ui.horizontal(|ui| {
-                    // Button to load from file
-                    // TODO implement async file loading in wasm
+                    // Button to load from file, disabled for wasm since there are no local files
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
                         if let Some(file) = FileDialog::new().pick_file() {
@@ -80,6 +81,9 @@ impl<'a> InspectAssetSource<'a> {
             }
             AssetSource::Bundled(name) => {
                 ui.text_edit_singleline(name);
+            }
+            AssetSource::Package(path) => {
+                ui.text_edit_singleline(path);
             }
         }
         if &new_source != self.source {

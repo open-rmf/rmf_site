@@ -19,9 +19,10 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_site_path, Category, CurrentSite, DefaultFile, FloorVisibility, RecencyRank,
+        get_current_workspace_path, Category, DefaultFile, FloorVisibility, RecencyRank,
         FLOOR_LAYER_START,
     },
+    CurrentWorkspace,
 };
 use bevy::{math::Affine3A, prelude::*, utils::HashMap};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
@@ -47,25 +48,22 @@ pub fn add_drawing_visuals(
     new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<FloorVisibility>,
 ) {
-    // TODO support for remote sources
-    let file_path = match get_current_site_path(current_site, site_files) {
+    let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &new_drawings {
         // Append file name to path if it's a local file
-        // TODO cleanup
+        // TODO(luca) cleanup
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(_) => source.clone(),
-            AssetSource::Search(_) => source.clone(),
-            AssetSource::Bundled(_) => source.clone(),
+            _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
@@ -151,22 +149,19 @@ pub fn update_drawing_visuals(
     changed_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Changed<AssetSource>>,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
-    current_site: Res<CurrentSite>,
+    current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
 ) {
-    let file_path = match get_current_site_path(current_site, site_files) {
+    let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,
     };
     for (e, source, pose, pixels_per_meter) in &changed_drawings {
-        // TODO cleanup
         let asset_source = match source {
             AssetSource::Local(name) => AssetSource::Local(String::from(
                 file_path.with_file_name(name).to_str().unwrap(),
             )),
-            AssetSource::Remote(_) => source.clone(),
-            AssetSource::Search(_) => source.clone(),
-            AssetSource::Bundled(_) => source.clone(),
+            _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
         loading_drawings
