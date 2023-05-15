@@ -45,7 +45,10 @@ fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
 }
 
 pub fn add_drawing_visuals(
-    new_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Added<DrawingMarker>>,
+    new_drawings: Query<
+        (Entity, &AssetSource, &Pose, &PixelsPerMeter),
+        (With<DrawingMarker>, Changed<AssetSource>),
+    >,
     asset_server: Res<AssetServer>,
     mut loading_drawings: ResMut<LoadingDrawings>,
     current_workspace: Res<CurrentWorkspace>,
@@ -86,7 +89,6 @@ pub fn handle_loaded_drawing(
     mut materials: ResMut<Assets<StandardMaterial>>,
     rank: Query<&RecencyRank<DrawingMarker>>,
     mut segments: Query<(&DrawingSegments, &mut Transform)>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
     for ev in ev_asset.iter() {
         if let AssetEvent::Created { handle } = ev {
@@ -100,37 +102,19 @@ pub fn handle_loaded_drawing(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
                 let mesh = mesh_assets.add(mesh.into());
-                let pose = pose.clone();
-                let transform = pose.transform().with_scale(Vec3::new(
-                    1.0 / pixels_per_meter.0,
-                    1.0 / pixels_per_meter.0,
-                    1.,
-                ));
 
-                if let Ok((segment, mut tf)) = segments.get_mut(entity) {
-                    *tf = transform;
-                    if let Ok(mut mesh_handle) = mesh_handles.get_mut(segment.leaf) {
-                        *mesh_handle = mesh;
-                    } else {
-                        println!("DEV ERROR: Partially-constructed Drawing entity detected");
-                    }
+                let leaf = if let Ok((segment, mut tf)) = segments.get_mut(entity) {
+                    segment.leaf
                     // We can ignore the layer height here since that update
                     // will be handled by another system.
                 } else {
-                    let z = drawing_layer_height(rank.get(entity).ok());
+                    let transform = pose.transform().with_scale(Vec3::new(
+                        1.0 / pixels_per_meter.0,
+                        1.0 / pixels_per_meter.0,
+                        1.,
+                    ));
                     let mut cmd = commands.entity(entity);
-                    let leaf = cmd.add_children(|p| {
-                        p.spawn(PbrBundle {
-                            mesh,
-                            material: materials.add(StandardMaterial {
-                                base_color_texture: Some(handle.clone()),
-                                ..default()
-                            }),
-                            transform: Transform::from_xyz(0.0, 0.0, z),
-                            ..default()
-                        })
-                        .id()
-                    });
+                    let leaf = cmd.add_children(|p| p.spawn_empty().id());
 
                     cmd.insert(SpatialBundle {
                         transform,
@@ -139,34 +123,20 @@ pub fn handle_loaded_drawing(
                     .insert(DrawingSegments { leaf })
                     .insert(Selectable::new(entity))
                     .insert(Category::Drawing);
-                }
+                    leaf
+                };
+                let z = drawing_layer_height(rank.get(entity).ok());
+                commands.entity(leaf).insert(PbrBundle {
+                    mesh,
+                    material: materials.add(StandardMaterial {
+                        base_color_texture: Some(handle.clone()),
+                        ..default()
+                    }),
+                    transform: Transform::from_xyz(0.0, 0.0, z),
+                    ..default()
+                });
             }
         }
-    }
-}
-
-pub fn update_drawing_visuals(
-    changed_drawings: Query<(Entity, &AssetSource, &Pose, &PixelsPerMeter), Changed<AssetSource>>,
-    asset_server: Res<AssetServer>,
-    mut loading_drawings: ResMut<LoadingDrawings>,
-    current_workspace: Res<CurrentWorkspace>,
-    site_files: Query<&DefaultFile>,
-) {
-    let file_path = match get_current_workspace_path(current_workspace, site_files) {
-        Some(file_path) => file_path,
-        None => return,
-    };
-    for (e, source, pose, pixels_per_meter) in &changed_drawings {
-        let asset_source = match source {
-            AssetSource::Local(name) => AssetSource::Local(String::from(
-                file_path.with_file_name(name).to_str().unwrap(),
-            )),
-            _ => source.clone(),
-        };
-        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
-        loading_drawings
-            .0
-            .insert(texture_handle, (e, pose.clone(), pixels_per_meter.clone()));
     }
 }
 

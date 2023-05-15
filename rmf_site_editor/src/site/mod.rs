@@ -263,7 +263,6 @@ impl Plugin for SitePlugin {
                     .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
-                    .with_system(update_drawing_visuals)
                     .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(add_physical_camera_visuals)
