@@ -175,10 +175,12 @@ impl LogHistory {
     }
 
     pub fn receive_log(&mut self) {
-        match self.receiver.try_recv() {
-            Ok(msg) => self.append_log(msg),
-            Err(TryRecvError::Disconnected) => println!("Unable to receive log: Disconnected"),
-            Err(TryRecvError::Empty) => (),
+        for msg_idx in 0..self.receiver.len() {
+            match self.receiver.try_recv() {
+                Ok(msg) => self.append_log(msg),
+                Err(TryRecvError::Disconnected) => println!("Unable to receive log: Disconnected"),
+                Err(TryRecvError::Empty) => (),
+            }
         }
     }
 
