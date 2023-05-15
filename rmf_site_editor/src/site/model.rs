@@ -284,10 +284,7 @@ pub fn update_model_tentative_formats(
                     *tentative_format = fmt;
                     commands.entity(e).remove::<PendingSpawning>();
                 } else {
-                    warn!(
-                        "Model with source {} not found",
-                        String::from(source)
-                    );
+                    warn!("Model with source {} not found", String::from(source));
                     commands.entity(e).remove::<TentativeModelFormat>();
                 }
             }
