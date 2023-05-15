@@ -210,7 +210,11 @@ impl LogHistory {
     }
 
     fn append_log(&mut self, log: Log) {
-        self.current_log = Some(log.clone());
+        // Display current log in status bar unless it is a Bevy log
+        if log.category != LogCategory::Bevy {
+            self.current_log = Some(log.clone());
+        }
+        // Save to log history unless it is a Hint log
         if log.category != LogCategory::Hint {
             self.category_count[log.category as usize] += 1;
             self.log_history.push(log);
