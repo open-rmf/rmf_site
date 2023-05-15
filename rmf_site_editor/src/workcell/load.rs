@@ -128,7 +128,7 @@ fn generate_workcell_entities(
                 .insert(Dependents(HashSet::from_iter(children.clone())))
                 .push_children(&children);
         } else {
-            println!("DEV error, didn't find matching entity for id {}", parent);
+            error!("DEV error, didn't find matching entity for id {}", parent);
             continue;
         }
     }
@@ -142,7 +142,7 @@ pub fn load_workcell(
     mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_workcells.iter() {
-        println!("Loading workcell");
+        info!("Loading workcell");
         let root = generate_workcell_entities(&mut commands, &cmd.workcell);
         if let Some(path) = &cmd.default_file {
             commands.entity(root).insert(DefaultFile(path.clone()));

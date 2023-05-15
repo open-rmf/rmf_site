@@ -1665,7 +1665,7 @@ impl SelectAnchor3D {
             let (e, anchor) = match params.anchors.get_mut(target) {
                 Ok(l) => l,
                 Err(_) => {
-                    println!(
+                    error!(
                         "DEV ERROR: Unable to get anchor {:?} while \
                         replacing 3D Anchor.",
                         target
@@ -1722,14 +1722,14 @@ impl SelectAnchor3D {
                         return Ok(());
                     }
                     None => {
-                        println!("DEV ERROR: Reassigning parent for entity without a parent");
+                        error!("DEV ERROR: Reassigning parent for entity without a parent");
                         return Err(());
                     }
                 }
             }
             return Err(());
         } else {
-            println!("DEV error replacing anchor without original");
+            error!("DEV error replacing anchor without original");
             return Err(());
         }
     }
@@ -1790,7 +1790,7 @@ impl SelectAnchor3D {
                         return Err(());
                     }
                 } else {
-                    println!(
+                    error!(
                         "DEV ERROR: Cannot find point for location {target:?} while \
                         trying to back out of SelectAnchor mode"
                     );
@@ -2191,7 +2191,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::Model(ref a) => {
-                        println!("Creating model for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = workspace.root.expect("No workspace");
                         model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
@@ -2199,7 +2198,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::WorkcellVisual(ref a) => {
-                        println!("Creating visual for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request
                             .parent
@@ -2211,7 +2209,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::WorkcellCollision(ref a) => {
-                        println!("Creating collision for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request
                             .parent

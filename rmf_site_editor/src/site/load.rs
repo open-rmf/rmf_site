@@ -587,12 +587,12 @@ async fn load_site_file(file: &FileHandle) -> Option<Site> {
             Ok(building) => match building.to_site() {
                 Ok(site) => Some(site),
                 Err(err) => {
-                    println!("{:?}", err);
+                    error!("{:?}", err);
                     return None;
                 }
             },
             Err(err) => {
-                println!("{:?}", err);
+                error!("{:?}", err);
                 return None;
             }
         }
@@ -600,7 +600,7 @@ async fn load_site_file(file: &FileHandle) -> Option<Site> {
         match Site::from_bytes(&data) {
             Ok(site) => Some(site),
             Err(err) => {
-                println!("{:?}", err);
+                error!("{:?}", err);
                 return None;
             }
         }

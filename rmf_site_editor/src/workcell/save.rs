@@ -142,7 +142,7 @@ pub fn generate_workcell(
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => parent.0,
             Err(_) => {
-                println!("DEV Error: Parent not found for visual {:?}", parent.get());
+                error!("DEV Error: Parent not found for visual {:?}", parent.get());
                 continue;
             }
         };
@@ -155,7 +155,7 @@ pub fn generate_workcell(
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
         } else {
-            println!("DEV Error, visual without primitive or mesh");
+            error!("DEV Error, visual without primitive or mesh");
             continue;
         };
         if q_visuals.get(e).is_ok() {
@@ -194,7 +194,7 @@ pub fn generate_workcell(
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => parent.0,
             Err(_) => {
-                println!("DEV Error: Parent not found for anchor {:?}", parent.get());
+                error!("DEV Error: Parent not found for anchor {:?}", parent.get());
                 continue;
             }
         };
@@ -234,14 +234,14 @@ pub fn save_workcell(world: &mut World) {
         .collect();
     for save_event in save_events {
         let path = save_event.to_file;
-        println!(
+        info!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
-                println!("Unable to save file: {err}");
+                error!("Unable to save file: {err}");
                 continue;
             }
         };
@@ -249,7 +249,7 @@ pub fn save_workcell(world: &mut World) {
         let workcell = match generate_workcell(world, save_event.root) {
             Ok(root) => root,
             Err(err) => {
-                println!("Unable to compile workcell: {err}");
+                error!("Unable to compile workcell: {err}");
                 continue;
             }
         };
@@ -257,14 +257,14 @@ pub fn save_workcell(world: &mut World) {
         match save_event.format {
             ExportFormat::Default => match workcell.to_writer(f) {
                 Ok(()) => {
-                    println!("Save successful");
+                    info!("Save successful");
                 }
                 Err(err) => {
-                    println!("Save failed: {err}");
+                    error!("Save failed: {err}");
                 }
             },
             ExportFormat::Urdf => {
-                println!("Saving to urdf");
+                info!("Saving to urdf");
             }
         }
     }
