@@ -274,7 +274,7 @@ where
 
         // Default category
         let mut category = LogCategory::Status;
-        let message = format!("{}\0", recorder);
+        let message = format!("{}", recorder);
 
         // Check if this is a Bevy or RMF Site log
         if event.metadata().target().contains("bevy") {
