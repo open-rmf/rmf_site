@@ -182,7 +182,7 @@ impl BuildingMap {
                 let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
                     let p = a.translation;
                     let pose = Pose {
-                        trans: [p.x as f32, -p.y as f32, 0.0001 as f32],
+                        trans: [p.x as f32, -p.y as f32, 0.0 as f32],
                         rot: Rotation::Yaw(Angle::Rad(a.rotation as f32)),
                     };
                     (pose, PixelsPerMeter((1.0 / a.scale) as f32))

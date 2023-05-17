@@ -28,6 +28,7 @@ impl Alignment {
     }
 }
 
+// TODO(luca) add layers vector for robot maps
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct Level {
     #[serde(default)]

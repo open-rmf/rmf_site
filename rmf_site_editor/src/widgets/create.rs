@@ -25,7 +25,8 @@ use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, Geometry, Model, Pending, RecallAssetSource, Scale, WorkcellModel,
+    AssetSource, Drawing, DrawingMarker, Geometry, Model, Pending, PixelsPerMeter, Pose,
+    RecallAssetSource, Scale, WorkcellModel,
 };
 
 pub struct CreateWidget<'a, 'w, 's> {
@@ -86,6 +87,11 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         ));
                     }
                 }
+                AppState::SiteDrawingEditor => {
+                    if ui.button("Drawing").clicked() {
+                        println!("New drawing");
+                    }
+                }
                 AppState::WorkcellEditor => {
                     if ui.button("Frame").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
@@ -134,6 +140,20 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                                 .for_model(model)
                                                 .into(),
                                         ));
+                                    }
+                                }
+                            }
+                            AppState::SiteDrawingEditor => {
+                                if let Ok((_e, source, _scale)) =
+                                    self.events.pending_asset_sources.get_single()
+                                {
+                                    if ui.button("Add Drawing").clicked() {
+                                        let drawing = Drawing {
+                                            source: source.clone(),
+                                            pose: Pose::default(),
+                                            pixels_per_meter: PixelsPerMeter(100.0),
+                                            marker: DrawingMarker,
+                                        };
                                     }
                                 }
                             }

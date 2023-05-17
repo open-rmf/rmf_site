@@ -73,6 +73,7 @@ pub enum AppState {
     SiteEditor,
     //WarehouseGenerator,
     WorkcellEditor,
+    SiteDrawingEditor,
 }
 
 pub struct OpenedMapFile(std::path::PathBuf);

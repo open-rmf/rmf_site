@@ -289,6 +289,7 @@ pub fn update_model_tentative_formats(
                         String::from(source)
                     );
                     commands.entity(e).remove::<TentativeModelFormat>();
+                    commands.entity(e).remove::<PreventDeletion>();
                 }
             }
             _ => {}

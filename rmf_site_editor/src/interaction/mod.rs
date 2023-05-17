@@ -26,6 +26,9 @@ pub use assets::*;
 pub mod camera_controls;
 pub use camera_controls::*;
 
+pub mod category_visibility;
+pub use category_visibility::*;
+
 pub mod cursor;
 pub use cursor::*;
 
@@ -127,6 +130,9 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
+            .init_resource::<VisibilityCategoriesSettings>()
+            .init_resource::<RecallVisibilityCategoriesSettings>()
+            .init_resource::<VisibilitySettingsHiddenEntities>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -144,6 +150,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_cursor_transform)
                     .with_system(update_picking_cam)
                     .with_system(update_physical_light_visual_cues)
+                    .with_system(update_entity_category_visibilities)
                     .with_system(make_selectable_entities_pickable)
                     .with_system(handle_selection_picking)
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))

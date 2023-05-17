@@ -30,6 +30,9 @@ pub use deletion::*;
 pub mod display_color;
 pub use display_color::*;
 
+pub mod drawing_editor;
+pub use drawing_editor::*;
+
 pub mod door;
 pub use door::*;
 
@@ -184,6 +187,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
+            .add_plugin(DrawingEditorPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(

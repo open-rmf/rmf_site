@@ -86,6 +86,10 @@ impl Plugin for StandardUiLayout {
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteDrawingEditor)
+                    .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(SiteState::Display)
@@ -181,7 +185,7 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
-    pub app_state: Res<'w, State<AppState>>,
+    pub app_state: ResMut<'w, State<AppState>>,
     pub pending_asset_sources:
         Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
 }
@@ -246,6 +250,10 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
+                        if ui.add(Button::new("Drawing editor")).clicked() {
+                            events.app_state.set(AppState::SiteDrawingEditor).ok();
+                            println!("Entering drawing editor");
+                        }
                     });
                 });
         });
@@ -289,6 +297,71 @@ fn site_ui_layout(
             });
         });
     });
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn site_drawing_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    open_sites: Query<Entity, With<SiteProperties>>,
+    inspector_params: InspectorParams,
+    levels: LevelParams,
+    lights: LightParams,
+    nav_graphs: NavGraphParams,
+    layers: LayersParams,
+    mut events: AppEvents,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        // TODO(MXG): Consider combining Nav Graphs and Layers
+                        CollapsingHeader::new("Layers")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewLayers::new(&layers, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Inspect")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Create")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                CreateWidget::new(&mut events).show(ui);
+                            });
+                        ui.separator();
+                        if ui.add(Button::new("Optimize")).clicked() {
+                            println!("Entering drawing editor");
+                        }
+                        if ui.add(Button::new("Return to site editor")).clicked() {
+                            events.app_state.set(AppState::SiteEditor).ok();
+                        }
+                    });
+                });
+        });
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
