@@ -23,7 +23,7 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
+        Delete, ExportLights, FloorVisibility, GeoReferenceEvent, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
@@ -131,6 +131,11 @@ pub struct FileEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct ToolEvents<'w, 's> {
+    pub georeference: EventWriter<'w, 's, GeoReferenceEvent>
+}
+
+#[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -177,6 +182,7 @@ pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
+    pub tool_events: ToolEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
@@ -285,6 +291,12 @@ fn site_ui_layout(
                         .file_events
                         .load_workspace
                         .send(LoadWorkspace::Dialog);
+                }
+            });
+
+            ui.menu_button("Tools", |ui| {
+                if ui.add(Button::new("Georeference...")).clicked() {
+                    events.tool_events.georeference.send(GeoReferenceEvent {  })
                 }
             });
         });

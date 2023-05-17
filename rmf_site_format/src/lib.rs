@@ -45,6 +45,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod geo_reference;
+pub use geo_reference::*;
+
 pub mod lane;
 pub use lane::*;
 

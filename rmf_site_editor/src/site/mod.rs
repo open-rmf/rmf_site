@@ -39,6 +39,9 @@ pub use drawing::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod georeference;
+pub use georeference::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -150,6 +153,7 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
+            .add_event::<GeoReferenceEvent>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -261,6 +265,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
                     .with_system(handle_new_mesh_primitives)
+                    .with_system(add_georeference)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_visuals)
