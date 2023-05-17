@@ -122,6 +122,8 @@ pub enum SiteUpdateStage {
     /// Use a custom stage for deletions to make sure that all commands are
     /// flushed before and after deleting things.
     Deletion,
+    /// Window UI
+    WindowUI
 }
 
 pub struct SitePlugin;
@@ -132,6 +134,11 @@ impl Plugin for SitePlugin {
             .add_stage_after(
                 CoreStage::Update,
                 SiteUpdateStage::AssignOrphans,
+                SystemStage::parallel(),
+            )
+            .add_stage_after(
+                CoreStage::PreUpdate,
+                SiteUpdateStage::WindowUI,
                 SystemStage::parallel(),
             )
             .add_state_to_stage(CoreStage::First, SiteState::Off)
@@ -265,7 +272,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
                     .with_system(handle_new_mesh_primitives)
-                    .with_system(add_georeference)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_visuals)
@@ -277,6 +283,10 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(export_lights),
+            )
+            .add_system_set_to_stage(
+                SiteUpdateStage::WindowUI,
+                SystemSet::new().with_system(add_georeference)
             );
     }
 }

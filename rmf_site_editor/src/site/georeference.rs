@@ -5,7 +5,7 @@ use bevy_egui::{
 };
 use rmf_site_format::{Anchor, GeoReference, geo_reference};
 
-use crate::interaction::Selected;
+use crate::interaction::{Selected, PickingBlockers};
 pub struct GeoReferenceEvent{}
 
 enum SelectionMode {
@@ -51,7 +51,7 @@ pub fn add_georeference(
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
     mut geo_events: EventReader<GeoReferenceEvent>) {
-    
+
     for _event in geo_events.iter() {
         panel_state.enabled = true;
     }
@@ -75,9 +75,9 @@ pub fn add_georeference(
                     }
                 }
                 ui.label("Latitude: ");
-                //ui.add_sized([40.0,20.0], egui::TextEdit::singleline(&mut panel_state.latitude_raw_input1));
+                ui.add(egui::DragValue::new(&mut panel_state.latitude_raw_input1).speed(0.00001));
                 ui.label("Longitude: ");
-                //ui.add_sized([40.0,20.0], egui::TextEdit::singleline(&mut panel_state.longitude_raw_input1));
+                ui.add(egui::DragValue::new(&mut panel_state.longitude_raw_input1).speed(0.00001));
             });
             ui.horizontal(|ui| {
                 ui.label("Reference Anchor 2: ");
@@ -90,9 +90,9 @@ pub fn add_georeference(
                     }
                 }
                 ui.label("Latitude: ");
-                ui.add(egui::DragValue::new(&mut panel_state.latitude_raw_input1).speed(0.001));
+                ui.add(egui::DragValue::new(&mut panel_state.latitude_raw_input2).speed(0.001));
                 ui.label("Longitude: ");
-                ui.add(egui::DragValue::new(&mut panel_state.longitude_raw_input1).speed(0.001));
+                ui.add(egui::DragValue::new(&mut panel_state.longitude_raw_input2).speed(0.001));
             });
 
             if selected.len() != 0 && matches!(panel_state.selection_mode2, SelectionMode::AnchorSelect) {
