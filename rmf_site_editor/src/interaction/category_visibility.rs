@@ -48,7 +48,7 @@ impl Default for CategoryFlags {
             lifts: true,
             locations: true,
             models: true,
-            measurements: false,
+            measurements: true,
             walls: true,
         }
     }

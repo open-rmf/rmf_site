@@ -18,6 +18,7 @@
 use crate::{
     interaction::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+        VisibilityCategoriesSettings,
     },
     occupancy::CalculateGrid,
     recency::ChangeRank,
@@ -37,6 +38,9 @@ use rmf_site_format::*;
 
 pub mod create;
 use create::CreateWidget;
+
+pub mod menu_bar;
+use menu_bar::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -199,6 +203,7 @@ fn site_ui_layout(
     lights: LightParams,
     nav_graphs: NavGraphParams,
     layers: LayersParams,
+    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -258,45 +263,11 @@ fn site_ui_layout(
                 });
         });
 
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
-        egui::menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    events.file_events.new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_default_file());
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog());
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    events
-                        .file_events
-                        .load_workspace
-                        .send(LoadWorkspace::Dialog);
-                }
-            });
-        });
-    });
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut category_settings,
+    );
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -319,12 +290,9 @@ fn site_ui_layout(
 fn site_drawing_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
     inspector_params: InspectorParams,
-    levels: LevelParams,
-    lights: LightParams,
-    nav_graphs: NavGraphParams,
     layers: LayersParams,
+    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -363,6 +331,12 @@ fn site_drawing_ui_layout(
                 });
         });
 
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut category_settings,
+    );
+
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -385,6 +359,7 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -410,54 +385,11 @@ fn workcell_ui_layout(
                 });
         });
 
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
-        egui::menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    events.file_events.new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_default_file());
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog());
-                    }
-                    if ui
-                        .add(Button::new("Export urdf").shortcut_text("Ctrl+E"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog().to_urdf());
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    events
-                        .file_events
-                        .load_workspace
-                        .send(LoadWorkspace::Dialog);
-                }
-            });
-        });
-    });
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut category_settings,
+    );
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

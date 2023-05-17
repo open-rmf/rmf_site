@@ -130,7 +130,10 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
-            .init_resource::<VisibilityCategoriesSettings>()
+            .insert_resource(VisibilityCategoriesSettings(CategoryFlags {
+                measurements: false,
+                ..Default::default()
+            }))
             .init_resource::<RecallVisibilityCategoriesSettings>()
             .init_resource::<VisibilitySettingsHiddenEntities>()
             .add_event::<ChangePick>()
