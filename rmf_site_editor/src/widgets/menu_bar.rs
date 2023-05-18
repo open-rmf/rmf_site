@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    interaction::VisibilityCategoriesSettings, AppState, CreateNewWorkspace, CurrentWorkspace,
-    FileEvents, LoadWorkspace, SaveWorkspace,
+    interaction::VisibilityCategoriesSettings, CreateNewWorkspace, FileEvents, LoadWorkspace,
+    SaveWorkspace,
 };
 
 use bevy_egui::{
@@ -26,9 +26,9 @@ use bevy_egui::{
 };
 
 pub fn top_menu_bar(
-    mut egui_context: &mut EguiContext,
-    mut file_events: &mut FileEvents,
-    mut category_settings: &mut VisibilityCategoriesSettings,
+    egui_context: &mut EguiContext,
+    file_events: &mut FileEvents,
+    category_settings: &mut VisibilityCategoriesSettings,
 ) {
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {

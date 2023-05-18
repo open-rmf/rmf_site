@@ -17,9 +17,6 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy::utils::HashSet;
-
-use crate::{site::CurrentLevel, CurrentWorkspace};
 
 use rmf_site_format::{
     DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker,
@@ -82,7 +79,7 @@ pub struct FilterParams<'w, 's> {
 
 fn update_visibility(
     enabled: bool,
-    mut visibilities: &mut Query<&mut Visibility>,
+    visibilities: &mut Query<&mut Visibility>,
     entities: Vec<Entity>,
 ) {
     for e in entities.iter() {

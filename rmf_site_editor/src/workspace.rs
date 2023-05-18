@@ -155,7 +155,6 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut commands: Commands,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
@@ -288,7 +287,6 @@ fn handle_workspace_data(
 
 /// Handles the file opening events
 fn workspace_file_load_complete(
-    mut commands: Commands,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,

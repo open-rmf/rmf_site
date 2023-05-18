@@ -15,8 +15,9 @@
  *
 */
 
+use crate::interaction::VisualCue;
 use crate::site::*;
-use bevy::{prelude::*, render::primitives::Sphere};
+use bevy::prelude::*;
 
 pub fn add_fiducial_visuals(
     mut commands: Commands,
@@ -37,7 +38,8 @@ pub fn add_fiducial_visuals(
                 material: assets.fiducial_material.clone(),
                 ..default()
             })
-            .insert(Category::Fiducial);
+            .insert(Category::Fiducial)
+            .insert(VisualCue::outline());
     }
 }
 

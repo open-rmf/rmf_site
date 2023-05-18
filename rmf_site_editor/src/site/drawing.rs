@@ -24,7 +24,7 @@ use crate::{
     },
     CurrentWorkspace,
 };
-use bevy::{asset::LoadState, math::Affine3A, prelude::*, utils::HashMap};
+use bevy::{asset::LoadState, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 
 pub const DRAWING_LAYER_START: f32 = 0.0;
@@ -46,10 +46,7 @@ fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
 
 pub fn add_drawing_visuals(
     mut commands: Commands,
-    new_drawings: Query<
-        (Entity, &AssetSource, &Pose, &PixelsPerMeter),
-        (With<DrawingMarker>, Changed<AssetSource>),
-    >,
+    new_drawings: Query<(Entity, &AssetSource), (With<DrawingMarker>, Changed<AssetSource>)>,
     asset_server: Res<AssetServer>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
@@ -62,7 +59,7 @@ pub fn add_drawing_visuals(
         Some(file_path) => file_path,
         None => return,
     };
-    for (e, source, pose, pixels_per_meter) in &new_drawings {
+    for (e, source) in &new_drawings {
         // Append file name to path if it's a local file
         // TODO(luca) cleanup
         let asset_source = match source {

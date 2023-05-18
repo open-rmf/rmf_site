@@ -171,10 +171,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     self.events.pending_asset_sources.get_single()
                                 {
                                     if ui.button("Spawn visual").clicked() {
-                                        let model = Model {
-                                            source: source.clone(),
-                                            ..default()
-                                        };
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
                                                 filename: source.into(),
@@ -189,10 +185,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         ));
                                     }
                                     if ui.button("Spawn collision").clicked() {
-                                        let model = Model {
-                                            source: source.clone(),
-                                            ..default()
-                                        };
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
                                                 filename: source.into(),

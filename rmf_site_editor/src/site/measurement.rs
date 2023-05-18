@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*};
+use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
@@ -48,7 +48,6 @@ pub fn add_measurement_visuals(
                 transform,
                 ..default()
             })
-            .insert(Selectable::new(e))
             .insert(Category::Measurement)
             .insert(EdgeLabels::StartEnd);
 
