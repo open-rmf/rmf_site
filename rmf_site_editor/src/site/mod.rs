@@ -39,6 +39,9 @@ pub use door::*;
 pub mod drawing;
 pub use drawing::*;
 
+pub mod fiducial;
+pub use fiducial::*;
+
 pub mod floor;
 pub use floor::*;
 
@@ -237,6 +240,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
+                    .with_system(add_fiducial_visuals)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
@@ -250,6 +254,8 @@ impl Plugin for SitePlugin {
                     )
                     .with_system(update_changed_location)
                     .with_system(update_location_for_moved_anchors)
+                    .with_system(update_changed_fiducial)
+                    .with_system(update_fiducial_for_moved_anchors)
                     .with_system(handle_consider_associated_graph)
                     .with_system(handle_consider_location_tag)
                     .with_system(update_lift_for_moved_anchors)

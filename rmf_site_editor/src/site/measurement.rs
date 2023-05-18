@@ -19,6 +19,8 @@ use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
+pub const MEASUREMENT_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
+
 pub fn add_measurement_visuals(
     mut commands: Commands,
     measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
@@ -27,20 +29,23 @@ pub fn add_measurement_visuals(
     assets: Res<SiteAssets>,
 ) {
     for (e, edge) in &measurements {
+        let mut transform = line_stroke_transform(
+            &anchors
+                .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
+                .unwrap(),
+            &anchors
+                .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
+                .unwrap(),
+            LANE_WIDTH,
+        );
+        // TODO(luca) proper layering rather than hardcoded
+        transform.translation.z = MEASUREMENT_LAYER_START;
         commands
             .entity(e)
             .insert(PbrBundle {
                 mesh: assets.lane_mid_mesh.clone(),
                 material: assets.measurement_material.clone(),
-                transform: line_stroke_transform(
-                    &anchors
-                        .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
-                        .unwrap(),
-                    &anchors
-                        .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
-                        .unwrap(),
-                    LANE_WIDTH,
-                ),
+                transform,
                 ..default()
             })
             .insert(Selectable::new(e))
@@ -68,6 +73,7 @@ fn update_measurement_visual(
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
     *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
+    transform.translation.z = MEASUREMENT_LAYER_START;
 }
 
 pub fn update_changed_measurement(

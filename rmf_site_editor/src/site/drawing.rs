@@ -55,6 +55,9 @@ pub fn add_drawing_visuals(
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<FloorVisibility>,
 ) {
+    // TODO(luca) depending on when this system is executed, this function might be called between
+    // the creation of the drawing and the change of the workspace, making this silently fail
+    // Look into reordering systems, or adding a marker component, to make sure this doesn't happen
     let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
         None => return,

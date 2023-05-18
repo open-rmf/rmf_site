@@ -88,8 +88,16 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     }
                 }
                 AppState::SiteDrawingEditor => {
-                    if ui.button("Drawing").clicked() {
-                        println!("New drawing");
+                    if ui.button("Measurement").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_one_new_edge().for_measurement().into(),
+                        ));
+                    }
+                    // TODO(luca) implement
+                    if ui.button("Fiducial").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_new_point().for_location().into(),
+                        ));
                     }
                 }
                 AppState::WorkcellEditor => {
@@ -154,6 +162,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                             pixels_per_meter: PixelsPerMeter(100.0),
                                             marker: DrawingMarker,
                                         };
+                                        self.events.commands.spawn(drawing);
                                     }
                                 }
                             }

@@ -67,6 +67,7 @@ pub fn top_menu_bar(
                 ui.checkbox(&mut category_settings.0.lanes, "Lanes");
                 ui.checkbox(&mut category_settings.0.lifts, "Lifts");
                 ui.checkbox(&mut category_settings.0.locations, "Locations");
+                ui.checkbox(&mut category_settings.0.fiducials, "Fiducials");
                 ui.checkbox(&mut category_settings.0.measurements, "Measurements");
                 ui.checkbox(&mut category_settings.0.models, "Models");
                 ui.checkbox(&mut category_settings.0.walls, "Walls");
