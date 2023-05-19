@@ -57,6 +57,9 @@ use interaction::InteractionPlugin;
 use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
 
+pub mod osm_slippy_map;
+pub use osm_slippy_map::*;
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 struct CommandLineArgs {
     /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.

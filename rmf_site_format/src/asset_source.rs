@@ -29,6 +29,7 @@ pub enum AssetSource {
     Search(String),
     Bundled(String),
     Package(String),
+    OSMSlippyMap(f32,f32)
 }
 
 impl AssetSource {
@@ -39,6 +40,7 @@ impl AssetSource {
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
+            Self::OSMSlippyMap(_, _) => "Map"
         }
     }
 }
@@ -74,6 +76,25 @@ impl From<&String> for AssetSource {
             return AssetSource::Bundled(path);
         } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
+        } else if let Some(path) = path.strip_prefix("map://").map(|p| p.to_string()) {
+            let coordinates: Result<Vec<_>, _> = path.split(",")
+                .map(|f| f.parse::<f32>())
+                .collect();
+
+            match coordinates {
+                Err(_) => {
+                    println!("Invalid map coordinates {}", path);
+                    return AssetSource::default();
+                },
+                Ok(coordinates) => {
+                    if coordinates.len() != 2 {
+                        println!("Invalid map coordinates {}", path);
+                        return AssetSource::default();
+                    }
+
+                    return AssetSource::OSMSlippyMap(coordinates[0], coordinates[1]);
+                }
+            }
         }
         AssetSource::default()
     }
@@ -87,11 +108,12 @@ impl From<&AssetSource> for String {
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
+            AssetSource::OSMSlippyMap(lat, lon) => format!("map://{},{}", lat, lon)
         }
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallAssetSource {
     pub filename: Option<String>,
@@ -99,7 +121,11 @@ pub struct RecallAssetSource {
     pub search_name: Option<String>,
     pub bundled_name: Option<String>,
     pub package_path: Option<String>,
+    pub map: Option<(f32, f32)>
 }
+
+//TODO(arjo) This is a slippery slope
+impl Eq for RecallAssetSource {}
 
 impl Recall for RecallAssetSource {
     type Source = AssetSource;
@@ -120,6 +146,9 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
+            }
+            AssetSource::OSMSlippyMap(lat, lon) => {
+                self.map = Some((*lat, *lon));
             }
         }
     }
