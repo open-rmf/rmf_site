@@ -203,7 +203,14 @@ fn generate_levels(
             Without<Pending>,
         >,
         Query<
-            (&AssetSource, &Pose, &PixelsPerMeter, &SiteID, &Parent),
+            (
+                &NameInSite,
+                &AssetSource,
+                &Pose,
+                &PixelsPerMeter,
+                &SiteID,
+                &Parent,
+            ),
             (With<DrawingMarker>, Without<Pending>),
         >,
         Query<
@@ -368,12 +375,13 @@ fn generate_levels(
         }
     }
 
-    for (source, pose, pixels_per_meter, id, parent) in &q_drawings {
+    for (name, source, pose, pixels_per_meter, id, parent) in &q_drawings {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.drawings.insert(
                     id.0,
                     Drawing {
+                        name: name.clone(),
                         source: source.clone(),
                         pose: pose.clone(),
                         pixels_per_meter: pixels_per_meter.clone(),

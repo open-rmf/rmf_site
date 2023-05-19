@@ -30,7 +30,6 @@ pub fn add_fiducial_visuals(
             deps.insert(e);
         }
 
-        println!("Adding fiducial mesh");
         commands
             .entity(e)
             .insert(PbrBundle {

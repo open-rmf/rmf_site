@@ -10,6 +10,7 @@ use crate::{
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
+use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -194,6 +195,14 @@ impl BuildingMap {
                 drawings.insert(
                     id,
                     SiteDrawing {
+                        name: NameInSite(
+                            Path::new(&level.drawing.filename)
+                                .file_stem()
+                                .unwrap_or_default()
+                                .to_str()
+                                .unwrap()
+                                .to_string(),
+                        ),
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose,
                         pixels_per_meter,
@@ -222,6 +231,31 @@ impl BuildingMap {
                         marker: FiducialMarker,
                     },
                 );
+            }
+
+            for (name, layer) in &level.layers {
+                // TODO(luca) coordinates in site and traffic editor might be different, use
+                // optimization engine instead of parsing
+                let id = site_id.next().unwrap();
+                let pose = Pose {
+                    trans: [
+                        layer.transform.translation_x as f32,
+                        layer.transform.translation_y as f32,
+                        0.0 as f32,
+                    ],
+                    rot: Rotation::Yaw(Angle::Rad(layer.transform.yaw as f32)),
+                };
+                drawings.insert(
+                    id,
+                    SiteDrawing {
+                        name: NameInSite(name.clone()),
+                        source: AssetSource::Local(layer.filename.clone()),
+                        pose,
+                        pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
+                        marker: DrawingMarker,
+                    },
+                );
+                rankings.drawings.insert(0, id);
             }
 
             let mut floors = BTreeMap::new();

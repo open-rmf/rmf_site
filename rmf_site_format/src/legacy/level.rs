@@ -5,13 +5,14 @@ use super::{
 };
 use glam::{DAffine2, DVec2};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct LevelDrawing {
     pub filename: String,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Debug, Clone, Copy)]
 pub struct Alignment {
     pub translation: DVec2,
     pub rotation: f64,
@@ -26,6 +27,22 @@ impl Alignment {
             self.translation,
         )
     }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct LayerTransform {
+    pub scale: f64,
+    pub translation_x: f64,
+    pub translation_y: f64,
+    pub yaw: f64,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Layer {
+    // TODO(luca) add color and features
+    pub filename: String,
+    pub transform: LayerTransform,
+    pub visible: bool,
 }
 
 // TODO(luca) add layers vector for robot maps
@@ -48,6 +65,8 @@ pub struct Level {
     pub elevation: f64,
     #[serde(default)]
     pub floors: Vec<Floor>,
+    #[serde(default)]
+    pub layers: BTreeMap<String, Layer>,
     #[serde(default)]
     pub physical_cameras: Vec<PhysicalCamera>,
     #[serde(default)]

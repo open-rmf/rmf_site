@@ -30,10 +30,10 @@ impl Default for PixelsPerMeter {
     }
 }
 
-// TODO(MXG): Consider adding NameInSite field
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Drawing {
+    pub name: NameInSite,
     pub source: AssetSource,
     pub pose: Pose,
     pub pixels_per_meter: PixelsPerMeter,

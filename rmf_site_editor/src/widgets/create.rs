@@ -157,6 +157,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                 {
                                     if ui.button("Add Drawing").clicked() {
                                         let drawing = Drawing {
+                                            name: Default::default(),
                                             source: source.clone(),
                                             pose: Pose::default(),
                                             pixels_per_meter: PixelsPerMeter(100.0),
