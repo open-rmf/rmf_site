@@ -296,9 +296,10 @@ impl AssetIo for SiteAssetIo {
             },
             
             AssetSource::OSMSlippyMap(lat, lon) => {
-                // TODO(arjo): Support maps in wasm
+                println!("Slippy map");
                 return Box::pin(async move {
                     // TODO(don't hardcode zoom)
+                    println!("Fetch");
                     let tile = OSMTile::from_latlon(19, lat, lon);
                     tile.get_map_image().await.map_err(|e| 
                         AssetIoError::Io(io::Error::new(

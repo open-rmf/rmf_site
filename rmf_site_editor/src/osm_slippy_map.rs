@@ -57,7 +57,6 @@ fn test_haversine() {
     let sutd = (1.3417113432463037, 103.96381226270485);
 
     let d = haversine_distance(one_north.0, one_north.1, sutd.0, sutd.1);
-    println!("{}", d);
     assert!( (d - 20.2).abs() < 0.1 );
 
 }
@@ -106,6 +105,7 @@ impl OSMTile {
         .get_nw_corner()
     }
 
+    /// Returns size of tile in meters.
     pub fn tile_size(&self) -> (f32, f32) {
         let (lat1, lon1)= self.get_nw_corner();
         let dy = {
@@ -116,7 +116,7 @@ impl OSMTile {
             let (lat2, lon2)= self.get_ne_corner();
             haversine_distance(lat1, lon1, lat2, lon2)
         };
-        (dy, dx)
+        (dy * 1000.0, dx * 1000.0)
     }
 
     pub fn from_latlon(zoom: i32, lat_deg: f32, lon_deg: f32) -> Self {

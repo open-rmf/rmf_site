@@ -3,9 +3,10 @@ use bevy_egui::{
     egui::{self, Button, CollapsingHeader, Sense, panel},
     EguiContext,
 };
-use rmf_site_format::{Anchor, GeoReference, geo_reference};
+use rmf_site_format::{Anchor, GeoReference, geo_reference, AssetSource};
+use std::f32::consts::PI;
 
-use crate::interaction::{Selected, PickingBlockers};
+use crate::{interaction::{Selected, PickingBlockers}, OSMTile};
 pub struct GeoReferenceEvent{}
 
 enum SelectionMode {
@@ -50,7 +51,11 @@ pub fn add_georeference(
     selected_anchors: Query<(&Anchor, &Selected, Entity)>,
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
-    mut geo_events: EventReader<GeoReferenceEvent>) {
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
+    mut geo_events: EventReader<GeoReferenceEvent>,
+    mut commands: Commands) {
 
     for _event in geo_events.iter() {
         panel_state.enabled = true;
@@ -101,6 +106,43 @@ pub fn add_georeference(
 
             if selected.len() != 0 && matches!(panel_state.selection_mode1, SelectionMode::AnchorSelect) {
                 panel_state.selection_mode1 = SelectionMode::AnchorSelected(selected[0].2);
+            }
+            if ui.button("Preview Map").clicked() {
+                
+                println!("Preview");
+
+                let ulsan = (35.53330554519475, 129.38965867799482);
+                let tile = OSMTile::from_latlon(18, ulsan.0, ulsan.1);
+                let tile_size = tile.tile_size();
+                println!("{:?}", tile_size);
+                /*let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+                    tile_size.0,
+                    tile_size.1,
+                ))));
+                
+                let texture_handle: Handle<Image> = asset_server.load(String::from(
+                    &AssetSource::OSMSlippyMap(ulsan.0, ulsan.1)));
+                let material_handle = materials.add(StandardMaterial {
+                    base_color_texture: Some(texture_handle.clone()),
+                    alpha_mode: AlphaMode::Blend,
+                    unlit: true,
+                    ..default()
+                });
+                
+                commands.spawn(PbrBundle {
+                    mesh: quad_handle,
+                    material: material_handle,
+                    ..default()
+                });*/
+                let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
+                    tile_size.0,
+                    tile_size.1,
+                ))));
+                commands.spawn(PbrBundle {
+                    mesh: quad_handle,
+                    material: materials.add(Color::rgb(0.3, 0.5, 0.3).into()),
+                    ..default()
+                });
             }
         });
     }
