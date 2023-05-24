@@ -200,6 +200,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
+                    .with_system(update_anchor_and_fiducial_visuals_for_changed_pixels_per_meter)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -271,7 +272,6 @@ impl Plugin for SitePlugin {
                     .with_system(make_models_selectable)
                     .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
-                    .with_system(update_anchor_and_fiducial_visuals_for_changed_pixels_per_meter)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)

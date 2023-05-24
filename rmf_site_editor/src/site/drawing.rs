@@ -89,8 +89,6 @@ pub fn handle_loaded_drawing(
         &LoadingDrawing,
     )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
-    children: Query<&Children>,
-    mut anchors: Query<&mut Anchor>,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rank: Query<&RecencyRank<DrawingMarker>>,
@@ -103,27 +101,12 @@ pub fn handle_loaded_drawing(
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
 
-                //let centering_vec = Vec3::new(width / 2.0, -height / 2.0, 0.0);
-                let mut centering_vec = Vec3::new(0.0, 0.0, 0.0);
+                let centering_vec = Vec3::new(width / 2.0, -height / 2.0, 0.0);
 
                 // We set this up so that the origin of the drawing is in
                 let mesh = make_flat_rect_mesh(width, height)
                     .transform_by(Affine3A::from_translation(centering_vec));
                 let mesh = mesh_assets.add(mesh.into());
-
-                centering_vec = Vec3::new(-width / 2.0, height / 2.0, 0.0);
-
-                // Also translate the child anchors to center them
-                if let Ok(children) = children.get(entity) {
-                    for child in children.iter() {
-                        if let Ok(mut anchor) = anchors.get_mut(*child) {
-                            let original_tf = anchor.local_transform(Category::General);
-                            anchor.move_to(
-                                &(Transform::from_translation(centering_vec) * original_tf),
-                            );
-                        }
-                    }
-                }
 
                 let leaf = if let Ok(segment) = segments.get(entity) {
                     segment.leaf
