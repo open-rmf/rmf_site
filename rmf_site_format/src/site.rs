@@ -37,7 +37,7 @@ impl Default for SiteProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Site {
     /// The site data format that is being used
     pub format_version: SemVer,
@@ -60,25 +60,6 @@ pub struct Site {
     /// Properties that describe simulated agents in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
-}
-
-impl Default for Site {
-    fn default() -> Self {
-        let mut levels = BTreeMap::new();
-        levels.insert(
-            0,
-            Level::new(LevelProperties::default(), RankingsInLevel::default()),
-        );
-        Self {
-            format_version: SemVer::default(),
-            anchors: BTreeMap::default(),
-            properties: SiteProperties::default(),
-            levels,
-            lifts: BTreeMap::default(),
-            navigation: Navigation::default(),
-            agents: BTreeMap::default(),
-        }
-    }
 }
 
 fn default_style_config() -> Style {
