@@ -42,7 +42,27 @@ pub struct Layer {
     // TODO(luca) add color and features
     pub filename: String,
     pub transform: LayerTransform,
+    pub features: Vec<Feature>,
     pub visible: bool,
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Feature {
+    pub id: String,
+    pub name: String,
+    pub x: f64,
+    pub y: f64,
+}
+
+impl Feature {
+    pub fn to_vec(&self) -> DVec2 {
+        DVec2::new(self.x, self.y)
+    }
+}
+
+#[derive(Deserialize, Serialize, Clone, Debug)]
+pub struct Constraint {
+    pub ids: [String; 2],
 }
 
 // TODO(luca) add layers vector for robot maps
@@ -67,6 +87,10 @@ pub struct Level {
     pub floors: Vec<Floor>,
     #[serde(default)]
     pub layers: BTreeMap<String, Layer>,
+    #[serde(default)]
+    pub features: Vec<Feature>,
+    #[serde(default)]
+    pub constraints: Vec<Constraint>,
     #[serde(default)]
     pub physical_cameras: Vec<PhysicalCamera>,
     #[serde(default)]

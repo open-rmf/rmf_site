@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -31,8 +32,21 @@ impl Default for PixelsPerMeter {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Drawing {
+    pub name: NameInSite,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub anchors: BTreeMap<u32, Anchor>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    pub source: AssetSource,
+    pub pose: Pose,
+    pub pixels_per_meter: PixelsPerMeter,
+}
+
+// TODO(luca) move this to rmf_site_editor?
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct DrawingBundle {
     pub name: NameInSite,
     pub source: AssetSource,
     pub pose: Pose,

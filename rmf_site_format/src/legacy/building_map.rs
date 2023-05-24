@@ -99,9 +99,17 @@ impl BuildingMap {
             }
 
             for fiducial in &mut level.fiducials {
-                let p = tf.transform_point2(fiducial.to_vec());
-                fiducial.0 = p.x;
-                fiducial.1 = -p.y;
+                fiducial.1 = -fiducial.1;
+            }
+
+            for feature in &mut level.features {
+                feature.y = -feature.y;
+            }
+
+            for (_, layer) in &mut level.layers {
+                for feature in &mut layer.features {
+                    feature.y = -feature.y;
+                }
             }
         }
 
@@ -179,6 +187,7 @@ impl BuildingMap {
 
             let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
+            let mut feature_id_map = HashMap::new();
             if !level.drawing.filename.is_empty() {
                 let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
                     let p = a.translation;
@@ -190,6 +199,49 @@ impl BuildingMap {
                 } else {
                     (Pose::default(), PixelsPerMeter::default())
                 };
+
+                let mut anchors = BTreeMap::new();
+                let mut fiducials = BTreeMap::new();
+                for fiducial in &level.fiducials {
+                    let anchor_id = site_id.next().unwrap();
+                    anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
+                    // Do not add this anchor to the vertex_to_anchor_id map because
+                    // this fiducial is not really recognized as a vertex to the
+                    // building format.
+                    fiducials.insert(
+                        site_id.next().unwrap(),
+                        SiteFiducial {
+                            label: if fiducial.2.is_empty() {
+                                Label(None)
+                            } else {
+                                Label(Some(fiducial.2.clone()))
+                            },
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+                }
+
+                for feature in &level.features {
+                    let anchor_id = site_id.next().unwrap();
+                    anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
+                    feature_id_map.insert(feature.id.clone(), anchor_id);
+                    // Do not add this anchor to the vertex_to_anchor_id map because
+                    // this fiducial is not really recognized as a vertex to the
+                    // building format.
+                    fiducials.insert(
+                        site_id.next().unwrap(),
+                        SiteFiducial {
+                            label: if feature.name.is_empty() {
+                                Label(None)
+                            } else {
+                                Label(Some(feature.name.clone()))
+                            },
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+                }
 
                 let id = site_id.next().unwrap();
                 drawings.insert(
@@ -203,34 +255,14 @@ impl BuildingMap {
                                 .unwrap()
                                 .to_string(),
                         ),
+                        anchors,
+                        fiducials,
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose,
                         pixels_per_meter,
-                        marker: DrawingMarker,
                     },
                 );
                 rankings.drawings.insert(0, id);
-            }
-
-            let mut fiducials = BTreeMap::new();
-            for fiducial in &level.fiducials {
-                let anchor_id = site_id.next().unwrap();
-                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
-                // Do not add this anchor to the vertex_to_anchor_id map because
-                // this fiducial is not really recognized as a vertex to the
-                // building format.
-                fiducials.insert(
-                    site_id.next().unwrap(),
-                    SiteFiducial {
-                        label: if fiducial.2.is_empty() {
-                            Label(None)
-                        } else {
-                            Label(Some(fiducial.2.clone()))
-                        },
-                        anchor: anchor_id.into(),
-                        marker: FiducialMarker,
-                    },
-                );
             }
 
             for (name, layer) in &level.layers {
@@ -245,17 +277,40 @@ impl BuildingMap {
                     ],
                     rot: Rotation::Yaw(Angle::Rad(layer.transform.yaw as f32)),
                 };
+                rankings.drawings.insert(0, id);
+                let mut anchors = BTreeMap::new();
+                let mut fiducials = BTreeMap::new();
+                for feature in &layer.features {
+                    let anchor_id = site_id.next().unwrap();
+                    anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
+                    feature_id_map.insert(feature.id.clone(), anchor_id);
+                    // Do not add this anchor to the vertex_to_anchor_id map because
+                    // this fiducial is not really recognized as a vertex to the
+                    // building format.
+                    fiducials.insert(
+                        site_id.next().unwrap(),
+                        SiteFiducial {
+                            label: if feature.name.is_empty() {
+                                Label(None)
+                            } else {
+                                Label(Some(feature.name.clone()))
+                            },
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+                }
                 drawings.insert(
                     id,
                     SiteDrawing {
                         name: NameInSite(name.clone()),
+                        anchors,
+                        fiducials,
                         source: AssetSource::Local(layer.filename.clone()),
                         pose,
                         pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
-                        marker: DrawingMarker,
                     },
                 );
-                rankings.drawings.insert(0, id);
             }
 
             let mut floors = BTreeMap::new();
@@ -308,7 +363,6 @@ impl BuildingMap {
                     anchors,
                     doors,
                     drawings,
-                    fiducials,
                     floors,
                     lights,
                     measurements,

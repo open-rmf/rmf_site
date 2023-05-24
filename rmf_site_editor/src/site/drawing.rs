@@ -19,8 +19,8 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_workspace_path, Category, DefaultFile, FloorVisibility, RecencyRank,
-        FLOOR_LAYER_START,
+        get_current_workspace_path, Anchor, Category, DefaultFile, FiducialMarker, FloorVisibility,
+        RecencyRank, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
@@ -89,6 +89,8 @@ pub fn handle_loaded_drawing(
         &LoadingDrawing,
     )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    children: Query<&Children>,
+    mut anchors: Query<&mut Anchor>,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rank: Query<&RecencyRank<DrawingMarker>>,
@@ -101,32 +103,41 @@ pub fn handle_loaded_drawing(
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
 
+                //let centering_vec = Vec3::new(width / 2.0, -height / 2.0, 0.0);
+                let mut centering_vec = Vec3::new(0.0, 0.0, 0.0);
+
                 // We set this up so that the origin of the drawing is in
-                let mesh = make_flat_rect_mesh(width, height).transform_by(
-                    Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
-                );
+                let mesh = make_flat_rect_mesh(width, height)
+                    .transform_by(Affine3A::from_translation(centering_vec));
                 let mesh = mesh_assets.add(mesh.into());
+
+                centering_vec = Vec3::new(-width / 2.0, height / 2.0, 0.0);
+
+                // Also translate the child anchors to center them
+                if let Ok(children) = children.get(entity) {
+                    for child in children.iter() {
+                        if let Ok(mut anchor) = anchors.get_mut(*child) {
+                            let original_tf = anchor.local_transform(Category::General);
+                            anchor.move_to(
+                                &(Transform::from_translation(centering_vec) * original_tf),
+                            );
+                        }
+                    }
+                }
 
                 let leaf = if let Ok(segment) = segments.get(entity) {
                     segment.leaf
                     // We can ignore the layer height here since that update
                     // will be handled by another system.
                 } else {
-                    let transform = pose.transform().with_scale(Vec3::new(
-                        1.0 / pixels_per_meter.0,
-                        1.0 / pixels_per_meter.0,
-                        1.,
-                    ));
                     let mut cmd = commands.entity(entity);
                     let leaf = cmd.add_children(|p| p.spawn_empty().id());
 
-                    cmd.insert(SpatialBundle {
-                        transform,
-                        ..default()
-                    })
-                    .insert(DrawingSegments { leaf })
-                    .insert(Selectable::new(entity))
-                    .insert(Category::Drawing);
+                    cmd.insert(DrawingSegments { leaf })
+                        .insert(SpatialBundle::from_transform(pose.transform().with_scale(
+                            Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
+                        )))
+                        .insert(Selectable::new(entity));
                     leaf
                 };
                 let z = drawing_layer_height(rank.get(entity).ok());
@@ -168,7 +179,30 @@ pub fn update_drawing_rank(
 pub fn update_drawing_pixels_per_meter(
     mut changed_drawings: Query<(&mut Transform, &PixelsPerMeter), Changed<PixelsPerMeter>>,
 ) {
-    for (mut tf, pixels_per_meter) in &mut changed_drawings {
+    for (mut tf, pixels_per_meter) in changed_drawings.iter_mut() {
         tf.scale = Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.);
+    }
+}
+
+pub fn update_anchor_and_fiducial_visuals_for_changed_pixels_per_meter(
+    changed_drawings: Query<(Entity, &PixelsPerMeter), Changed<PixelsPerMeter>>,
+    visuals: Query<
+        Entity,
+        (
+            Without<DrawingMarker>,
+            Or<(With<Anchor>, With<FiducialMarker>)>,
+        ),
+    >,
+    children: Query<&Children>,
+    mut transforms: Query<&mut Transform>,
+) {
+    for (e, pixels_per_meter) in changed_drawings.iter() {
+        for child in DescendantIter::new(&children, e) {
+            if visuals.get(child).is_ok() {
+                if let Ok(mut tf) = transforms.get_mut(child) {
+                    tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
+                }
+            }
+        }
     }
 }

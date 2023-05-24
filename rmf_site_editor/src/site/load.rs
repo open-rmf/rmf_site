@@ -48,10 +48,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         }
     };
 
-    let mut site_cmd = commands.spawn(SpatialBundle {
-        visibility: Visibility { is_visible: false },
-        ..default()
-    });
+    let mut site_cmd = commands.spawn(SpatialBundle::INVISIBLE_IDENTITY);
     site_cmd
         .insert(Category::Site)
         .insert(site_data.properties.clone())
@@ -69,10 +66,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 let mut level_cmd = site.spawn(SiteID(*level_id));
 
                 level_cmd
-                    .insert(SpatialBundle {
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
+                    .insert(SpatialBundle::INVISIBLE_IDENTITY)
                     .insert(level_data.properties.clone())
                     .insert(Category::Level)
                     .with_children(|level| {
@@ -95,15 +89,35 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         }
 
                         for (drawing_id, drawing) in &level_data.drawings {
-                            level.spawn(drawing.clone()).insert(SiteID(*drawing_id));
+                            let drawing_entity = level
+                                .spawn(DrawingBundle {
+                                    name: drawing.name.clone(),
+                                    source: drawing.source.clone(),
+                                    pose: drawing.pose.clone(),
+                                    pixels_per_meter: drawing.pixels_per_meter.clone(),
+                                    marker: DrawingMarker,
+                                })
+                                .insert(SiteID(*drawing_id))
+                                .insert(Category::Drawing)
+                                .with_children(|drawing_parent| {
+                                    for (anchor_id, anchor) in &drawing.anchors {
+                                        let anchor_entity = drawing_parent
+                                            .spawn(AnchorBundle::new(anchor.clone()))
+                                            .insert(SiteID(*anchor_id))
+                                            .id();
+                                        id_to_entity.insert(*anchor_id, anchor_entity);
+                                        consider_id(*anchor_id);
+                                    }
+                                    for (fiducial_id, fiducial) in &drawing.fiducials {
+                                        drawing_parent
+                                            .spawn(fiducial.to_ecs(&id_to_entity))
+                                            .insert(SiteID(*fiducial_id));
+                                        //id_to_entity.insert(**fiducial_id, anchor_entity);
+                                        consider_id(*fiducial_id);
+                                    }
+                                })
+                                .id();
                             consider_id(*drawing_id);
-                        }
-
-                        for (fiducial_id, fiducial) in &level_data.fiducials {
-                            level
-                                .spawn(fiducial.to_ecs(&id_to_entity))
-                                .insert(SiteID(*fiducial_id));
-                            consider_id(*fiducial_id);
                         }
 
                         for (floor_id, floor) in &level_data.floors {

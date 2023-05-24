@@ -271,6 +271,7 @@ impl Plugin for SitePlugin {
                     .with_system(make_models_selectable)
                     .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
+                    .with_system(update_anchor_and_fiducial_visuals_for_changed_pixels_per_meter)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)

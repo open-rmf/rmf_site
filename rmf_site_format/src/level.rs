@@ -47,8 +47,6 @@ pub struct Level {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub drawings: BTreeMap<u32, Drawing>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub floors: BTreeMap<u32, Floor<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lights: BTreeMap<u32, Light>,
@@ -72,7 +70,6 @@ impl Level {
             anchors: Default::default(),
             doors: Default::default(),
             drawings: Default::default(),
-            fiducials: Default::default(),
             floors: Default::default(),
             lights: Default::default(),
             measurements: Default::default(),

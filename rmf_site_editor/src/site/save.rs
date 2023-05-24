@@ -382,10 +382,11 @@ fn generate_levels(
                     id.0,
                     Drawing {
                         name: name.clone(),
+                        anchors: BTreeMap::default(),
+                        fiducials: BTreeMap::default(),
                         source: source.clone(),
                         pose: pose.clone(),
                         pixels_per_meter: pixels_per_meter.clone(),
-                        marker: DrawingMarker,
                     },
                 );
             }
@@ -394,17 +395,31 @@ fn generate_levels(
 
     for (point, o_point, label, id, parent) in &q_fiducials {
         let point = o_point.map(|x| &x.0).unwrap_or(point);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchor = Point(get_anchor_id(point.0)?);
-                level.fiducials.insert(
-                    id.0,
-                    Fiducial {
-                        anchor,
-                        label: label.clone(),
-                        marker: FiducialMarker,
-                    },
-                );
+        // Fiducials have a drawing, then a level parent
+        if let Ok((_, _, _, _, drawing_id, drawing_parent)) = q_drawings.get(parent.get()) {
+            if let Ok((_, level_id, _, _, _)) = q_levels.get(drawing_parent.get()) {
+                if let Some(level) = levels.get_mut(&level_id.0) {
+                    if let Some(drawing) = level.drawings.get_mut(&drawing_id.0) {
+                        let anchor = Point(get_anchor_id(point.0)?);
+                        if let Ok((anchor, anchor_id, anchor_parent)) = q_anchors.get(point.0) {
+                            if let Ok((_, _, _, _, anchor_drawing_id, _)) =
+                                q_drawings.get(parent.get())
+                            {
+                                if anchor_drawing_id.0 == drawing_id.0 {
+                                    drawing.anchors.insert(anchor_id.0, anchor.clone());
+                                }
+                            }
+                        }
+                        drawing.fiducials.insert(
+                            id.0,
+                            Fiducial {
+                                anchor,
+                                label: label.clone(),
+                                marker: FiducialMarker,
+                            },
+                        );
+                    }
+                }
             }
         }
     }
@@ -986,7 +1001,6 @@ pub fn save_nav_graphs(world: &mut World) {
         for (_, level) in &mut site.levels {
             level.doors.clear();
             level.drawings.clear();
-            level.fiducials.clear();
             level.floors.clear();
             level.lights.clear();
             level.measurements.clear();

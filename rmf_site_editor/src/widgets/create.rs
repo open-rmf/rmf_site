@@ -25,7 +25,7 @@ use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, Drawing, DrawingMarker, Geometry, Model, Pending, PixelsPerMeter, Pose,
+    AssetSource, DrawingBundle, DrawingMarker, Geometry, Model, Pending, PixelsPerMeter, Pose,
     RecallAssetSource, Scale, WorkcellModel,
 };
 
@@ -156,7 +156,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     self.events.pending_asset_sources.get_single()
                                 {
                                     if ui.button("Add Drawing").clicked() {
-                                        let drawing = Drawing {
+                                        let drawing = DrawingBundle {
                                             name: Default::default(),
                                             source: source.clone(),
                                             pose: Pose::default(),
