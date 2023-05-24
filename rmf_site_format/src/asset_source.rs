@@ -29,7 +29,7 @@ pub enum AssetSource {
     Search(String),
     Bundled(String),
     Package(String),
-    OSMSlippyMap(f32,f32)
+    OSMSlippyMap(i32, f32, f32)
 }
 
 impl AssetSource {
@@ -40,7 +40,7 @@ impl AssetSource {
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
-            Self::OSMSlippyMap(_, _) => "Map"
+            Self::OSMSlippyMap(_, _, _) => "Map"
         }
     }
 }
@@ -77,23 +77,29 @@ impl From<&String> for AssetSource {
         } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
         } else if let Some(path) = path.strip_prefix("map://").map(|p| p.to_string()) {
-            let coordinates: Result<Vec<_>, _> = path.split(",")
-                .map(|f| f.parse::<f32>())
-                .collect();
+            if let Some(path) = path.strip_suffix(".png") {
+                let coordinates: Result<Vec<_>, _> = path.split(",")
+                    .map(|f| f.parse::<f32>())
+                    .collect();
 
-            match coordinates {
-                Err(_) => {
-                    println!("Invalid map coordinates {}", path);
-                    return AssetSource::default();
-                },
-                Ok(coordinates) => {
-                    if coordinates.len() != 2 {
+                match coordinates {
+                    Err(_) => {
                         println!("Invalid map coordinates {}", path);
                         return AssetSource::default();
-                    }
+                    },
+                    Ok(coordinates) => {
+                        if coordinates.len() != 3 {
+                            println!("Invalid map coordinates {}", path);
+                            return AssetSource::default();
+                        }
 
-                    return AssetSource::OSMSlippyMap(coordinates[0], coordinates[1]);
+                        return AssetSource::OSMSlippyMap(coordinates[0] as i32, coordinates[1], coordinates[2]);
+                    }
                 }
+            }
+            else {
+                println!("Invalid map coordinates {}", path);
+                return AssetSource::default();
             }
         }
         AssetSource::default()
@@ -108,7 +114,7 @@ impl From<&AssetSource> for String {
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
-            AssetSource::OSMSlippyMap(lat, lon) => format!("map://{},{}", lat, lon)
+            AssetSource::OSMSlippyMap(zoom, lat, lon) => format!("map://{},{},{}.png", zoom, lat, lon)
         }
     }
 }
@@ -121,7 +127,7 @@ pub struct RecallAssetSource {
     pub search_name: Option<String>,
     pub bundled_name: Option<String>,
     pub package_path: Option<String>,
-    pub map: Option<(f32, f32)>
+    pub map: Option<(i32, f32, f32)>
 }
 
 //TODO(arjo) This is a slippery slope
@@ -147,8 +153,8 @@ impl Recall for RecallAssetSource {
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
             }
-            AssetSource::OSMSlippyMap(lat, lon) => {
-                self.map = Some((*lat, *lon));
+            AssetSource::OSMSlippyMap(zoom, lat, lon) => {
+                self.map = Some((*zoom, *lat, *lon));
             }
         }
     }

@@ -42,7 +42,7 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Search(name) => name,
             AssetSource::Bundled(name) => name,
             AssetSource::Package(path) => path,
-            AssetSource::OSMSlippyMap(lat, lon) => &osm_string
+            AssetSource::OSMSlippyMap(_zoom, _lat, _lon) => &osm_string
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -88,7 +88,7 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Package(path) => {
                 ui.text_edit_singleline(path);
             }
-            AssetSource::OSMSlippyMap(lat, lon) => {
+            AssetSource::OSMSlippyMap(zoom, lat, lon) => {
                 ui.horizontal(|ui|
                 {
                     ui.add(Label::new("Latitude"));

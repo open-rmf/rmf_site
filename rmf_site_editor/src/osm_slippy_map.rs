@@ -15,8 +15,12 @@
  *
 */
 
-use std::f32::consts::PI;
-use std::io::Write;
+use std::{f32::consts::PI, io::Write};
+
+use bevy::prelude::Vec2;
+use utm::{to_utm_wgs84, lat_lon_to_zone_number};
+
+use crate::{site_asset_io::cache_path, site::latlon_to_world};
 
 const EARTH_RADIUS: f32 = 6371.0;
 
@@ -61,7 +65,11 @@ fn test_haversine() {
 
 }
 
-#[derive(Debug, Clone)]
+/*fn utm_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
+    latlon_to_world(lat1, lon1, (lat2, lon2)).length()
+}*/
+
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OSMTile {
     xtile: i32,
     ytile: i32,
@@ -69,11 +77,23 @@ pub struct OSMTile {
 }
 
 impl OSMTile {
+
+    pub fn zoom(&self) -> i32 {
+        self.zoom
+    }
     /// Returns the northwest corner
     pub fn get_nw_corner(&self) -> (f32, f32) {
         let n = 2f32.powi(self.zoom);
         let lon_deg = self.xtile as f32 / n * 360.0 - 180.0;
         let lat_rad = (PI * (1.0 - 2.0 * self.ytile as f32 / n)).sinh().atan();
+        let lat_deg = lat_rad.to_degrees();
+        (lat_deg, lon_deg)
+    }
+
+    pub fn get_center(&self) -> (f32, f32) {
+        let n = 2f32.powi(self.zoom);
+        let lon_deg = (self.xtile as f32 + 0.5) / n * 360.0 - 180.0;
+        let lat_rad = (PI * (1.0 - 2.0 * (self.ytile as f32 + 0.5) / n)).sinh().atan();
         let lat_deg = lat_rad.to_degrees();
         (lat_deg, lon_deg)
     }
@@ -103,6 +123,22 @@ impl OSMTile {
             ytile: self.ytile + 1,
         }
         .get_nw_corner()
+    }
+
+    /// Returns the position of an item in meters on the given tile
+    pub fn get_transform_from_lat_lon(&self, lat: f32, lon: f32) -> Result<Vec2, String> {
+        let (self_lat, self_lon)= self.get_center();
+        let (self_lat, self_lon) = (self_lat as f64, self_lon as f64);
+        let zone = lat_lon_to_zone_number(lat.into(), lon.into());
+        let self_zone = lat_lon_to_zone_number(self_lat.into(), self_lon.into());
+        
+        if zone != self_zone {
+            return Err("Scale is crossing zones. We don't know how to convert".to_string());
+        }
+        
+        let (northing, easting, _convergence) = to_utm_wgs84(lat as f64, lon as f64, zone);
+        let (self_northing, self_easting, _convergence) = to_utm_wgs84(self_lat, self_lon, zone);
+        Ok(Vec2::new( (easting - self_easting) as f32, (northing - self_northing) as f32))
     }
 
     /// Returns size of tile in meters.
@@ -138,29 +174,39 @@ impl OSMTile {
 
     pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
         
-        /*let cache_file_name = format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
-        if std::path::Path::new(&cache_file_name).exists() {
-            return Ok(std::fs::read(&cache_file_name).await?);
-        }*/
+        let cache_file_name = format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
+        let mut cache_path = cache_path();
+        cache_path.push("slippy_maps");
+        std::fs::create_dir_all(cache_path.clone());
+        cache_path.push(cache_file_name);
+        if std::path::Path::new(&cache_path).exists() {
+            return Ok(std::fs::read(&cache_path)?);
+        }
 
         let uri = format!(
             "https://tile.openstreetmap.org/{}/{}/{}.png",
             self.zoom, self.xtile, self.ytile
         );
-    
-        println!("Getting URI {uri}");
-    
+
         let mut result = surf::get(uri).await?;
     
         let bytes = result.body_bytes().await?;
     
-        /*let mut file = std::fs::File::create(cache_file_name)?;
-        file.write_all(&bytes)?;*/
+        let mut file = std::fs::File::create(cache_path)?;
+        file.write_all(&bytes)?;
     
         Ok(bytes)
     }
 }
 
+pub fn generate_map_tiles(lat1: f32, lon1: f32, lat2: f32, lon2: f32, zoom: i32)  -> impl Iterator<Item = OSMTile> {
+    let start_tile = OSMTile::from_latlon(zoom, lat1, lon1);
+    let end_tile = OSMTile::from_latlon(zoom, lat2, lon2);
+    
+    //TODO(arjo): Support world's end
+    (end_tile.ytile..start_tile.ytile+1)
+        .flat_map(move |y| (start_tile.xtile..end_tile.xtile+1).map(move |x| OSMTile { xtile: x, ytile: y, zoom }))
+}
 
 
 #[test]

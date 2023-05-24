@@ -287,6 +287,7 @@ impl Plugin for SitePlugin {
             .add_system_set_to_stage(
                 SiteUpdateStage::WindowUI,
                 SystemSet::new().with_system(add_georeference)
+                .with_system(render_map_tiles)
             );
     }
 }
