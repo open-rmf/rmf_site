@@ -17,6 +17,7 @@
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
@@ -24,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -137,8 +138,13 @@ pub fn dispatch_new_workspace_events(
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
             }
             AppState::SiteEditor => {
+                let mut levels = BTreeMap::new();
+                levels.insert(0, Level::default());
                 load_site.send(LoadSite {
-                    site: Site::default(),
+                    site: Site {
+                        levels,
+                        ..default()
+                    },
                     focus: true,
                     default_file: None,
                 });
