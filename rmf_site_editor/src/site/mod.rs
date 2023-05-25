@@ -123,7 +123,7 @@ pub enum SiteUpdateStage {
     /// flushed before and after deleting things.
     Deletion,
     /// Window UI
-    WindowUI
+    WindowUI,
 }
 
 pub struct SitePlugin;
@@ -287,8 +287,9 @@ impl Plugin for SitePlugin {
             )
             .add_system_set_to_stage(
                 SiteUpdateStage::WindowUI,
-                SystemSet::new().with_system(add_georeference)
-                .with_system(render_map_tiles)
+                SystemSet::new()
+                    .with_system(add_georeference)
+                    .with_system(render_map_tiles),
             );
     }
 }

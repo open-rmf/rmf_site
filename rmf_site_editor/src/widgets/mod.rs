@@ -23,8 +23,8 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, GeoReferenceEvent, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        Delete, ExportLights, FloorVisibility, GeoReferenceEvent, PhysicalLightToggle,
+        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -132,7 +132,7 @@ pub struct FileEvents<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct ToolEvents<'w, 's> {
-    pub georeference: EventWriter<'w, 's, GeoReferenceEvent>
+    pub georeference: EventWriter<'w, 's, GeoReferenceEvent>,
 }
 
 #[derive(SystemParam)]
@@ -296,7 +296,7 @@ fn site_ui_layout(
 
             ui.menu_button("Tools", |ui| {
                 if ui.add(Button::new("Georeference...")).clicked() {
-                    events.tool_events.georeference.send(GeoReferenceEvent {  })
+                    events.tool_events.georeference.send(GeoReferenceEvent {})
                 }
             });
         });

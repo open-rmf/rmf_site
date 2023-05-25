@@ -293,16 +293,17 @@ impl AssetIo for SiteAssetIo {
                 // It cannot be found locally, so let's try to fetch it from the
                 // remote server
                 self.fetch_asset(remote_url, asset_name)
-            },
-            
+            }
+
             AssetSource::OSMSlippyMap(zoom, lat, lon) => {
                 return Box::pin(async move {
                     let tile = OSMTile::from_latlon(zoom, lat, lon);
-                    tile.get_map_image().await.map_err(|e| 
+                    tile.get_map_image().await.map_err(|e| {
                         AssetIoError::Io(io::Error::new(
-                        io::ErrorKind::Other,
-                        format!("Unable to load map: {e}"),
-                    )))
+                            io::ErrorKind::Other,
+                            format!("Unable to load map: {e}"),
+                        ))
+                    })
                 });
             }
         }

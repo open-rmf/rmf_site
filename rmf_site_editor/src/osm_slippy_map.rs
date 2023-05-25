@@ -18,9 +18,9 @@
 use std::{f32::consts::PI, io::Write};
 
 use bevy::prelude::Vec2;
-use utm::{to_utm_wgs84, lat_lon_to_zone_number};
+use utm::{lat_lon_to_zone_number, to_utm_wgs84};
 
-use crate::{site_asset_io::cache_path, site::latlon_to_world};
+use crate::{site::latlon_to_world, site_asset_io::cache_path};
 
 const EARTH_RADIUS: f32 = 6371.0;
 
@@ -33,36 +33,39 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let dLat = lat2 - lat1;
     let dLon = lon2 - lon1;
 
-    let a = (dLat/2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dLon/2.0).sin().powi(2);
+    let a = (dLat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dLon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
     return c * EARTH_RADIUS;
 }
 
 enum DistanceError {
-    DifferentZones
+    DifferentZones,
 }
 
 #[test]
 fn test_haversine() {
-    
     // Distance from Singapore to Kolkata (about 2891KM)
     let d = haversine_distance(1.3521, 103.8198, 22.5726, 88.3639);
-    assert!( (d - 2891.0).abs() < 1.0 );
+    assert!((d - 2891.0).abs() < 1.0);
 
     // Distance from hyundai_factory to whale_museum (about 3.48KM)
     let hyundai_factory = (35.503201188171076, 129.3809451273798);
     let whale_museum = (35.53330554519475, 129.38965867799482);
 
-    let d = haversine_distance(hyundai_factory.0, hyundai_factory.1, whale_museum.0, whale_museum.1);
-    assert!( (d - 3.48).abs() < 0.1 );
+    let d = haversine_distance(
+        hyundai_factory.0,
+        hyundai_factory.1,
+        whale_museum.0,
+        whale_museum.1,
+    );
+    assert!((d - 3.48).abs() < 0.1);
 
     // Distance from one-north mrt in Singapore to SUTD (about 20.2KM)
     let one_north = (1.2991849898682075, 103.78709256771138);
     let sutd = (1.3417113432463037, 103.96381226270485);
 
     let d = haversine_distance(one_north.0, one_north.1, sutd.0, sutd.1);
-    assert!( (d - 20.2).abs() < 0.1 );
-
+    assert!((d - 20.2).abs() < 0.1);
 }
 
 /*fn utm_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
@@ -77,7 +80,6 @@ pub struct OSMTile {
 }
 
 impl OSMTile {
-
     pub fn zoom(&self) -> i32 {
         self.zoom
     }
@@ -93,7 +95,9 @@ impl OSMTile {
     pub fn get_center(&self) -> (f32, f32) {
         let n = 2f32.powi(self.zoom);
         let lon_deg = (self.xtile as f32 + 0.5) / n * 360.0 - 180.0;
-        let lat_rad = (PI * (1.0 - 2.0 * (self.ytile as f32 + 0.5) / n)).sinh().atan();
+        let lat_rad = (PI * (1.0 - 2.0 * (self.ytile as f32 + 0.5) / n))
+            .sinh()
+            .atan();
         let lat_deg = lat_rad.to_degrees();
         (lat_deg, lon_deg)
     }
@@ -127,29 +131,32 @@ impl OSMTile {
 
     /// Returns the position of an item in meters on the given tile
     pub fn get_transform_from_lat_lon(&self, lat: f32, lon: f32) -> Result<Vec2, String> {
-        let (self_lat, self_lon)= self.get_center();
+        let (self_lat, self_lon) = self.get_center();
         let (self_lat, self_lon) = (self_lat as f64, self_lon as f64);
         let zone = lat_lon_to_zone_number(lat.into(), lon.into());
         let self_zone = lat_lon_to_zone_number(self_lat.into(), self_lon.into());
-        
+
         if zone != self_zone {
             return Err("Scale is crossing zones. We don't know how to convert".to_string());
         }
-        
+
         let (northing, easting, _convergence) = to_utm_wgs84(lat as f64, lon as f64, zone);
         let (self_northing, self_easting, _convergence) = to_utm_wgs84(self_lat, self_lon, zone);
-        Ok(Vec2::new( (easting - self_easting) as f32, (northing - self_northing) as f32))
+        Ok(Vec2::new(
+            (easting - self_easting) as f32,
+            (northing - self_northing) as f32,
+        ))
     }
 
     /// Returns size of tile in meters.
     pub fn tile_size(&self) -> (f32, f32) {
-        let (lat1, lon1)= self.get_nw_corner();
+        let (lat1, lon1) = self.get_nw_corner();
         let dy = {
-            let (lat2, lon2)= self.get_sw_corner();
+            let (lat2, lon2) = self.get_sw_corner();
             haversine_distance(lat1, lon1, lat2, lon2)
         };
         let dx = {
-            let (lat2, lon2)= self.get_ne_corner();
+            let (lat2, lon2) = self.get_ne_corner();
             haversine_distance(lat1, lon1, lat2, lon2)
         };
         (dy * 1000.0, dx * 1000.0)
@@ -173,7 +180,6 @@ impl OSMTile {
     }
 
     pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
-        
         let cache_file_name = format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
         let mut cache_path = cache_path();
         cache_path.push("slippy_maps");
@@ -190,29 +196,38 @@ impl OSMTile {
         );
 
         let mut result = surf::get(uri).await?;
-    
+
         let bytes = result.body_bytes().await?;
-    
+
         let mut file = std::fs::File::create(cache_path)?;
         file.write_all(&bytes)?;
-    
+
         Ok(bytes)
     }
 }
 
-pub fn generate_map_tiles(lat1: f32, lon1: f32, lat2: f32, lon2: f32, zoom: i32)  -> impl Iterator<Item = OSMTile> {
+pub fn generate_map_tiles(
+    lat1: f32,
+    lon1: f32,
+    lat2: f32,
+    lon2: f32,
+    zoom: i32,
+) -> impl Iterator<Item = OSMTile> {
     let start_tile = OSMTile::from_latlon(zoom, lat1, lon1);
     let end_tile = OSMTile::from_latlon(zoom, lat2, lon2);
-    
-    //TODO(arjo): Support world's end
-    (end_tile.ytile..start_tile.ytile+1)
-        .flat_map(move |y| (start_tile.xtile..end_tile.xtile+1).map(move |x| OSMTile { xtile: x, ytile: y, zoom }))
-}
 
+    //TODO(arjo): Support world's end
+    (end_tile.ytile..start_tile.ytile + 1).flat_map(move |y| {
+        (start_tile.xtile..end_tile.xtile + 1).map(move |x| OSMTile {
+            xtile: x,
+            ytile: y,
+            zoom,
+        })
+    })
+}
 
 #[test]
 fn test_north_eastern_hemisphere() {
-
     // Singapore coordinates
     let (lat, lon) = (1.343_746, 103.824_04);
     let tile = OSMTile::from_latlon(11, lat, lon);
@@ -229,4 +244,3 @@ fn test_north_eastern_hemisphere() {
     assert!(se_lat < lat);
     assert!(se_lon > lon);
 }
-
