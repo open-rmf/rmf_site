@@ -1,12 +1,11 @@
-use bevy::{ecs::world, prelude::*, render::mesh::VertexAttributeValues};
+use bevy::prelude::*;
 use bevy_egui::{
-    egui::{self, panel, Button, CollapsingHeader, Sense, Slider},
+    egui::{self, Slider},
     EguiContext,
 };
 use bevy_mod_raycast::Ray3d;
-use bevy_rapier3d::na::Rotation;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{geo_reference, Anchor, AssetSource, GeoReference};
+use rmf_site_format::{geo_reference::GeoReference, Anchor, AssetSource};
 use std::{collections::HashSet, f32::consts::PI, ops::RangeInclusive};
 use utm::*;
 
@@ -47,8 +46,7 @@ pub struct GeoReferencePanelState {
     enabled: bool,
     latitude: f32,
     longitude: f32,
-    selection_mode1: SelectionMode,
-    selection_mode2: SelectionMode,
+    selection_mode: SelectionMode,
 }
 
 #[derive(Clone, Resource)]
@@ -95,13 +93,13 @@ pub fn add_georeference(
             ui.horizontal(|ui| {
                 ui.label("Reference Anchor: ");
                 if ui
-                    .button(selection_mode_labels(&panel_state.selection_mode1))
+                    .button(selection_mode_labels(&panel_state.selection_mode))
                     .clicked()
                 {
                     if selected.len() == 0 {
-                        panel_state.selection_mode1 = SelectionMode::AnchorSelect;
+                        panel_state.selection_mode = SelectionMode::AnchorSelect;
                     } else {
-                        panel_state.selection_mode1 = SelectionMode::AnchorSelected(selected[0].3);
+                        panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                         let translation = selected[0].2.translation();
                         let (lat, lon) =
                             world_to_latlon(translation, preview_state.anchor).unwrap();
@@ -143,15 +141,15 @@ pub fn add_georeference(
                     }
                 }
                 if ui.button("Move to lat/lon").clicked() {
-                    panel_state.selection_mode1 = SelectionMode::AnchorSelected(selected[0].3);
+                    panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                     let translation = selected[0].2.translation();
                 }
             });
 
             if selected.len() != 0
-                && matches!(panel_state.selection_mode2, SelectionMode::AnchorSelect)
+                && matches!(panel_state.selection_mode, SelectionMode::AnchorSelect)
             {
-                panel_state.selection_mode1 = SelectionMode::AnchorSelected(selected[0].3);
+                panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                 let translation = selected[0].2.translation();
                 let (lat, lon) = world_to_latlon(translation, preview_state.anchor).unwrap();
                 println!("Anchor at {:?}", (lat, lon));

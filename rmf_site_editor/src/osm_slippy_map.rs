@@ -20,7 +20,7 @@ use std::{f32::consts::PI, io::Write};
 use bevy::prelude::Vec2;
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
 
-use crate::{site::latlon_to_world, site_asset_io::cache_path};
+use crate::site_asset_io::cache_path;
 
 const EARTH_RADIUS: f32 = 6371.0;
 
@@ -67,10 +67,6 @@ fn test_haversine() {
     let d = haversine_distance(one_north.0, one_north.1, sutd.0, sutd.1);
     assert!((d - 20.2).abs() < 0.1);
 }
-
-/*fn utm_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
-    latlon_to_world(lat1, lon1, (lat2, lon2)).length()
-}*/
 
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct OSMTile {
