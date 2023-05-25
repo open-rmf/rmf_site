@@ -24,6 +24,9 @@ pub use assets::*;
 pub mod change_plugin;
 pub use change_plugin::*;
 
+pub mod constraint;
+pub use constraint::*;
+
 pub mod deletion;
 pub use deletion::*;
 
@@ -216,6 +219,7 @@ impl Plugin for SitePlugin {
                 SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
+                    .with_system(assign_orphan_constraints_to_site)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
                     .with_system(assign_orphan_elements_to_level::<DoorMarker>)
@@ -245,6 +249,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
                     .with_system(add_fiducial_visuals)
+                    .with_system(add_constraint_visuals)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
@@ -268,6 +273,8 @@ impl Plugin for SitePlugin {
                     .with_system(toggle_physical_lights)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
+                    .with_system(update_constraint_for_moved_anchors)
+                    .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
                     .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)

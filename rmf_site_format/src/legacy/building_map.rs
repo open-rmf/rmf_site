@@ -1,11 +1,11 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Fiducial as SiteFiducial,
-    FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
-    LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph, Navigation,
-    OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane, Rotation, Site,
-    SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    Constraint as SiteConstraint, ConstraintMarker, DisplayColor, Dock as SiteDock,
+    Drawing as SiteDrawing, Fiducial as SiteFiducial, FiducialMarker, Guided, Label,
+    Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelProperties as SiteLevelProperties,
+    Motion, NameInSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
+    RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -144,6 +144,7 @@ impl BuildingMap {
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
+        let mut constraints = BTreeMap::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
@@ -197,7 +198,7 @@ impl BuildingMap {
 
             let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
-            let mut feature_id_map = HashMap::new();
+            let mut feature_id_to_anchor_id = HashMap::new();
             if !level.drawing.filename.is_empty() {
                 let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
                     let p = a.translation;
@@ -216,17 +217,19 @@ impl BuildingMap {
                     let anchor_id = site_id.next().unwrap();
                     drawing_anchors
                         .insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
+                    let label = if fiducial.2.is_empty() {
+                        Label(None)
+                    } else {
+                        feature_id_to_anchor_id.insert(fiducial.2.clone(), anchor_id);
+                        Label(Some(fiducial.2.clone()))
+                    };
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
                     fiducials.insert(
                         site_id.next().unwrap(),
                         SiteFiducial {
-                            label: if fiducial.2.is_empty() {
-                                Label(None)
-                            } else {
-                                Label(Some(fiducial.2.clone()))
-                            },
+                            label,
                             anchor: anchor_id.into(),
                             marker: FiducialMarker,
                         },
@@ -236,7 +239,7 @@ impl BuildingMap {
                 for feature in &level.features {
                     let anchor_id = site_id.next().unwrap();
                     drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
-                    feature_id_map.insert(feature.id.clone(), anchor_id);
+                    feature_id_to_anchor_id.insert(feature.id.clone(), anchor_id);
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
@@ -316,7 +319,7 @@ impl BuildingMap {
                 for feature in &layer.features {
                     let anchor_id = site_id.next().unwrap();
                     anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
-                    feature_id_map.insert(feature.id.clone(), anchor_id);
+                    feature_id_to_anchor_id.insert(feature.id.clone(), anchor_id);
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
@@ -345,6 +348,24 @@ impl BuildingMap {
                         pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
                     },
                 );
+            }
+
+            // Now set the constraints
+            // TODO(luca) multilevel constraints with equally named fiducials
+            // Require generating unique key for each fiducial based on level and name
+            for constraint in &level.constraints {
+                if let Some(id_0) = feature_id_to_anchor_id.get(&constraint.ids[0]) {
+                    if let Some(id_1) = feature_id_to_anchor_id.get(&constraint.ids[1]) {
+                        let id = site_id.next().unwrap();
+                        constraints.insert(
+                            id,
+                            SiteConstraint {
+                                edge: [*id_0, *id_1].into(),
+                                marker: ConstraintMarker,
+                            },
+                        );
+                    }
+                }
             }
 
             let mut floors = BTreeMap::new();
@@ -492,6 +513,7 @@ impl BuildingMap {
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
+            constraints,
             properties: SiteProperties {
                 name: self.name.clone(),
             },

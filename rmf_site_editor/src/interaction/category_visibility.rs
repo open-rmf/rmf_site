@@ -19,8 +19,8 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use rmf_site_format::{
-    DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker,
-    LocationTags, MeasurementMarker, ModelMarker, WallMarker,
+    ConstraintMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
+    LiftCabinDoorMarker, LocationTags, MeasurementMarker, ModelMarker, WallMarker,
 };
 
 #[derive(Clone, Debug, PartialEq)]
@@ -31,6 +31,7 @@ pub struct CategoryFlags {
     pub lifts: bool,
     pub locations: bool,
     pub fiducials: bool,
+    pub constraints: bool,
     pub models: bool,
     pub measurements: bool,
     pub walls: bool,
@@ -46,6 +47,7 @@ impl Default for CategoryFlags {
             lifts: true,
             locations: true,
             fiducials: true,
+            constraints: true,
             models: true,
             measurements: true,
             walls: true,
@@ -69,6 +71,7 @@ pub struct FilterParams<'w, 's> {
     lifts: Query<'w, 's, Entity, Or<(With<LiftCabin<Entity>>, With<LiftCabinDoorMarker>)>>,
     locations: Query<'w, 's, Entity, With<LocationTags>>,
     fiducials: Query<'w, 's, Entity, With<FiducialMarker>>,
+    constraints: Query<'w, 's, Entity, With<ConstraintMarker>>,
     walls: Query<'w, 's, Entity, With<WallMarker>>,
     models: Query<'w, 's, Entity, With<ModelMarker>>,
     measurements: Query<'w, 's, Entity, With<MeasurementMarker>>,
@@ -132,6 +135,13 @@ pub fn update_entity_category_visibilities(mut params: FilterParams) {
             params.categories_settings.fiducials,
             &mut params.visibilities,
             params.fiducials.iter().collect::<Vec<_>>(),
+        );
+    }
+    if params.categories_settings.constraints != params.recall_categories_settings.constraints {
+        update_visibility(
+            params.categories_settings.constraints,
+            &mut params.visibilities,
+            params.constraints.iter().collect::<Vec<_>>(),
         );
     }
     if params.categories_settings.measurements != params.recall_categories_settings.measurements {

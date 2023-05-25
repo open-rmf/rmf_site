@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, io};
 
@@ -37,6 +37,19 @@ impl Default for SiteProperties {
     }
 }
 
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct Constraint<T: RefTrait> {
+    pub edge: Edge<T>,
+    /// Marker that tells bevy the entity is a Constraint-type
+    #[serde(skip)]
+    pub marker: ConstraintMarker,
+}
+
+#[derive(Clone, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct ConstraintMarker;
+
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Site {
     /// The site data format that is being used
@@ -46,6 +59,9 @@ pub struct Site {
     // from level anchors, or does the grouping make the intent obvious enough?
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
+    /// Constraints to be used for drawing scaling and floor alignment
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub constraints: BTreeMap<u32, Constraint<u32>>,
     /// Properties that are tied to the whole site
     pub properties: SiteProperties,
     /// Properties of each level
@@ -108,3 +124,16 @@ impl RefTrait for u32 {}
 
 #[cfg(feature = "bevy")]
 impl RefTrait for Entity {}
+
+#[cfg(feature = "bevy")]
+impl Constraint<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> Constraint<Entity> {
+        Constraint {
+            edge: self.edge.to_ecs(id_to_entity),
+            marker: Default::default(),
+        }
+    }
+}

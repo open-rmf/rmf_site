@@ -43,6 +43,7 @@ pub enum Category {
     Model,
     Camera,
     Drawing,
+    Constraint,
     Workcell,
 }
 
@@ -65,6 +66,7 @@ impl Category {
             Self::Model => "Model",
             Self::Camera => "Camera",
             Self::Drawing => "Drawing",
+            Self::Constraint => "Constraint",
             Self::Workcell => "Workcell",
         }
     }
