@@ -151,6 +151,7 @@ impl Plugin for SitePlugin {
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
+            .init_resource::<GeoReferencePreviewState>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()

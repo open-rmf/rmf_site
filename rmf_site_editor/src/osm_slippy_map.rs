@@ -180,6 +180,7 @@ impl OSMTile {
         std::fs::create_dir_all(cache_path.clone());
         cache_path.push(cache_file_name);
         if std::path::Path::new(&cache_path).exists() {
+            println!("Cache Exists");
             return Ok(std::fs::read(&cache_path)?);
         }
 
