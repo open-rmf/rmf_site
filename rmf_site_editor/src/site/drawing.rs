@@ -166,25 +166,23 @@ pub fn update_drawing_pixels_per_meter(
     }
 }
 
-pub fn update_meshes_for_changed_pixels_per_meter(
+pub fn update_drawing_children_to_pixel_coordinates(
+    mut commands: Commands,
     changed_drawings: Query<(Entity, &PixelsPerMeter, &Children), Changed<PixelsPerMeter>>,
-    points: Query<Entity, Or<(With<FiducialMarker>, With<Anchor>)>>,
-    measurements: Query<Entity, With<MeasurementMarker>>,
+    meshes: Query<Entity, Or<(With<FiducialMarker>, With<Anchor>, With<MeasurementMarker>)>>,
     mut transforms: Query<&mut Transform>,
 ) {
     for (e, pixels_per_meter, children) in changed_drawings.iter() {
         for child in children {
-            if points.get(*child).is_ok() {
+            if meshes.get(*child).is_ok() {
                 if let Ok(mut tf) = transforms.get_mut(*child) {
                     tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
-                }
-            } else if measurements.get(*child).is_ok() {
-                // Measurements are only scaled in width
-                // TODO(luca) This does nothing since measurements scale is overwritten when they
-                // are updated, fix it at the measurement level
-                // TODO(luca) make this actually only scale width
-                if let Ok(mut tf) = transforms.get_mut(*child) {
-                    tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
+                } else {
+                    commands
+                        .entity(*child)
+                        .insert(SpatialBundle::from_transform(Transform::from_scale(
+                            Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0),
+                        )));
                 }
             }
         }

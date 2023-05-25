@@ -15,11 +15,16 @@
  *
 */
 
+use crate::interaction::Selectable;
 use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
 pub const MEASUREMENT_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
+
+/// Stores which (child) entity contains the measurement mesh
+#[derive(Component, Debug, Clone, Deref, DerefMut)]
+pub struct MeasurementSegment(pub Entity);
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
@@ -40,16 +45,23 @@ pub fn add_measurement_visuals(
         );
         // TODO(luca) proper layering rather than hardcoded
         transform.translation.z = MEASUREMENT_LAYER_START;
-        commands
-            .entity(e)
-            .insert(PbrBundle {
+
+        let child_id = commands
+            .spawn(PbrBundle {
                 mesh: assets.lane_mid_mesh.clone(),
                 material: assets.measurement_material.clone(),
                 transform,
                 ..default()
             })
+            .insert(Selectable::new(e))
+            .id();
+
+        commands
+            .entity(e)
             .insert(Category::Measurement)
-            .insert(EdgeLabels::StartEnd);
+            .insert(MeasurementSegment(child_id))
+            .insert(EdgeLabels::StartEnd)
+            .push_children(&[child_id]);
 
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
@@ -77,18 +89,21 @@ fn update_measurement_visual(
 
 pub fn update_changed_measurement(
     mut measurements: Query<
-        (Entity, &Edge<Entity>, &mut Transform),
+        (Entity, &Edge<Entity>, &MeasurementSegment),
         (Changed<Edge<Entity>>, With<MeasurementMarker>),
     >,
     anchors: AnchorParams,
+    mut transforms: Query<&mut Transform>,
 ) {
-    for (e, edge, mut tf) in &mut measurements {
-        update_measurement_visual(e, edge, &anchors, tf.as_mut());
+    for (e, edge, segment) in &measurements {
+        if let Ok(mut tf) = transforms.get_mut(**segment) {
+            update_measurement_visual(**segment, edge, &anchors, tf.as_mut());
+        }
     }
 }
 
 pub fn update_measurement_for_moved_anchors(
-    mut measurements: Query<(Entity, &Edge<Entity>, &mut Transform), With<MeasurementMarker>>,
+    mut measurements: Query<(Entity, &Edge<Entity>, &MeasurementSegment), With<MeasurementMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -97,11 +112,16 @@ pub fn update_measurement_for_moved_anchors(
             Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
+    mut transforms: Query<&mut Transform>,
+    global_tf: Query<&GlobalTransform>,
+    vis: Query<&ComputedVisibility>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {
-            if let Some((e, measurement, mut tf)) = measurements.get_mut(*dependent).ok() {
-                update_measurement_visual(e, measurement, &anchors, tf.as_mut());
+            if let Some((e, measurement, segment)) = measurements.get_mut(*dependent).ok() {
+                if let Ok(mut tf) = transforms.get_mut(**segment) {
+                    update_measurement_visual(**segment, measurement, &anchors, tf.as_mut());
+                }
             }
         }
     }

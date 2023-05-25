@@ -200,8 +200,10 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
+                    // TODO(luca) getting query not match panics when this is moved back with the
+                    // others, refactor stages
                     .with_system(add_measurement_visuals)
-                    .with_system(update_meshes_for_changed_pixels_per_meter)
+                    .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
