@@ -205,7 +205,6 @@ impl FromWorld for SiteAssets {
             .with_generated_outline_normals()
             .unwrap(),
         );
-        // TODO(luca) have a different mesh
         let fiducial_mesh = meshes.add(
             Mesh::from(
                 make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4)

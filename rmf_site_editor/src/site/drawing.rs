@@ -101,11 +101,10 @@ pub fn handle_loaded_drawing(
                 let width = img.texture_descriptor.size.width as f32;
                 let height = img.texture_descriptor.size.height as f32;
 
-                let centering_vec = Vec3::new(width / 2.0, -height / 2.0, 0.0);
-
-                // We set this up so that the origin of the drawing is in
-                let mesh = make_flat_rect_mesh(width, height)
-                    .transform_by(Affine3A::from_translation(centering_vec));
+                // We set this up so that the origin of the drawing is in the top left corner
+                let mesh = make_flat_rect_mesh(width, height).transform_by(
+                    Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
+                );
                 let mesh = mesh_assets.add(mesh.into());
 
                 let leaf = if let Ok(segment) = segments.get(entity) {
@@ -162,7 +161,7 @@ pub fn update_drawing_rank(
 pub fn update_drawing_pixels_per_meter(
     mut changed_drawings: Query<(&mut Transform, &PixelsPerMeter), Changed<PixelsPerMeter>>,
 ) {
-    for (mut tf, pixels_per_meter) in changed_drawings.iter_mut() {
+    for (mut tf, pixels_per_meter) in &mut changed_drawings {
         tf.scale = Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.);
     }
 }
