@@ -9,7 +9,7 @@ use crate::{
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone)]
@@ -66,10 +66,20 @@ impl BuildingMap {
             let alignment = alignments.get(level_name).unwrap();
             let tf = alignment.to_affine();
             level.alignment = Some(alignment.clone());
-            for v in &mut level.vertices {
-                let p = tf.transform_point2(v.to_vec());
-                v.0 = p.x as f64;
-                v.1 = -p.y as f64;
+            // We need to keep the vertices associated with measurements in image coordinates
+            let mut drawing_vertices = HashSet::new();
+            for measurement in &level.measurements {
+                drawing_vertices.insert(measurement.0);
+                drawing_vertices.insert(measurement.1);
+            }
+            for (idx, mut v) in level.vertices.iter_mut().enumerate() {
+                if drawing_vertices.contains(&idx) {
+                    v.1 = -v.1;
+                } else {
+                    let p = tf.transform_point2(v.to_vec());
+                    v.0 = p.x as f64;
+                    v.1 = -p.y as f64;
+                }
             }
 
             let delta_yaw = get_delta_yaw(&tf);
@@ -200,11 +210,12 @@ impl BuildingMap {
                     (Pose::default(), PixelsPerMeter::default())
                 };
 
-                let mut anchors = BTreeMap::new();
+                let mut drawing_anchors = BTreeMap::new();
                 let mut fiducials = BTreeMap::new();
                 for fiducial in &level.fiducials {
                     let anchor_id = site_id.next().unwrap();
-                    anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
+                    drawing_anchors
+                        .insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
                     // building format.
@@ -224,7 +235,7 @@ impl BuildingMap {
 
                 for feature in &level.features {
                     let anchor_id = site_id.next().unwrap();
-                    anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
+                    drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
                     feature_id_map.insert(feature.id.clone(), anchor_id);
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
@@ -243,6 +254,27 @@ impl BuildingMap {
                     );
                 }
 
+                let mut measurements = BTreeMap::new();
+                for measurement in &level.measurements {
+                    let mut site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
+                    let edge = &mut site_measurement.anchors;
+                    let (start_anchor, end_anchor) = (
+                        anchors.get(&edge.left()).unwrap(),
+                        anchors.get(&edge.right()).unwrap(),
+                    );
+                    // Now get the anchors and duplicate them in the drawing
+                    let anchor_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, start_anchor.clone());
+                    *edge.left_mut() = anchor_id;
+                    let anchor_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, end_anchor.clone());
+                    *edge.right_mut() = anchor_id;
+                    //println!("Measurement edge is {:?}", edge);
+                    measurements.insert(site_id.next().unwrap(), site_measurement);
+                    // TODO(luca) remove original anchors if they have no other dependents
+                    // TODO(MXG): Have rankings for measurements
+                }
+
                 let id = site_id.next().unwrap();
                 drawings.insert(
                     id,
@@ -255,8 +287,9 @@ impl BuildingMap {
                                 .unwrap()
                                 .to_string(),
                         ),
-                        anchors,
+                        anchors: drawing_anchors,
                         fiducials,
+                        measurements,
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose,
                         pixels_per_meter,
@@ -306,6 +339,7 @@ impl BuildingMap {
                         name: NameInSite(name.clone()),
                         anchors,
                         fiducials,
+                        measurements: Default::default(),
                         source: AssetSource::Local(layer.filename.clone()),
                         pose,
                         pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
@@ -319,13 +353,6 @@ impl BuildingMap {
                 let id = site_id.next().unwrap();
                 floors.insert(id, site_floor);
                 rankings.floors.insert(0, id);
-            }
-
-            let mut measurements = BTreeMap::new();
-            for measurement in &level.measurements {
-                let site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
-                measurements.insert(site_id.next().unwrap(), site_measurement);
-                // TODO(MXG): Have rankings for measurements
             }
 
             let mut models = BTreeMap::new();
@@ -365,7 +392,6 @@ impl BuildingMap {
                     drawings,
                     floors,
                     lights,
-                    measurements,
                     models,
                     physical_cameras,
                     walls,

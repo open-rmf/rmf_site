@@ -32,16 +32,24 @@ pub struct AnchorVisualization {
 
 pub fn add_anchor_visual_cues(
     mut commands: Commands,
-    new_anchors: Query<
-        (Entity, &Parent, Option<&Subordinate>, &Anchor),
+    mut new_anchors: Query<
+        (
+            Entity,
+            &Parent,
+            Option<&Subordinate>,
+            &Anchor,
+            Option<&mut Transform>,
+        ),
         (Added<Anchor>, Without<Preview>),
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {
-    for (e, parent, subordinate, anchor) in &new_anchors {
-        let body_mesh = match categories.get(parent.get()).unwrap() {
+    for (e, parent, subordinate, anchor, mut tf) in new_anchors.iter_mut() {
+        let category = categories.get(parent.get()).unwrap();
+        let body_mesh = match &category {
+            Category::Drawing => site_assets.drawing_anchor_mesh.clone(),
             Category::Level => site_assets.level_anchor_mesh.clone(),
             Category::Lift => site_assets.lift_anchor_mesh.clone(),
             _ => site_assets.site_anchor_mesh.clone(),

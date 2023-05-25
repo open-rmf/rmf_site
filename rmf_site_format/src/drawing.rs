@@ -38,6 +38,8 @@ pub struct Drawing {
     pub anchors: BTreeMap<u32, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub measurements: BTreeMap<u32, Measurement<u32>>,
     pub source: AssetSource,
     pub pose: Pose,
     pub pixels_per_meter: PixelsPerMeter,

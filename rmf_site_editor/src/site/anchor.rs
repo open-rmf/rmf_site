@@ -96,7 +96,7 @@ pub fn update_anchor_transforms(
     mut changed_anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
 ) {
     for (anchor, mut tf) in &mut changed_anchors {
-        *tf = anchor.local_transform(Category::General);
+        tf.translation = anchor.local_transform(Category::General).translation;
     }
 }
 

@@ -204,6 +204,7 @@ fn generate_levels(
         >,
         Query<
             (
+                Entity,
                 &NameInSite,
                 &AssetSource,
                 &Pose,
@@ -289,6 +290,7 @@ fn generate_levels(
             Without<Pending>,
         >,
         Query<&SiteID>,
+        Query<&Children>,
     )> = SystemState::new(world);
 
     let (
@@ -304,6 +306,7 @@ fn generate_levels(
         q_walls,
         q_levels,
         q_site_ids,
+        q_children,
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
@@ -375,42 +378,33 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, pixels_per_meter, id, parent) in &q_drawings {
+    for (entity, name, source, pose, pixels_per_meter, id, parent) in &q_drawings {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
-                level.drawings.insert(
-                    id.0,
-                    Drawing {
-                        name: name.clone(),
-                        anchors: BTreeMap::default(),
-                        fiducials: BTreeMap::default(),
-                        source: source.clone(),
-                        pose: pose.clone(),
-                        pixels_per_meter: pixels_per_meter.clone(),
-                    },
-                );
-            }
-        }
-    }
-
-    for (point, o_point, label, id, parent) in &q_fiducials {
-        let point = o_point.map(|x| &x.0).unwrap_or(point);
-        // Fiducials have a drawing, then a level parent
-        if let Ok((_, _, _, _, drawing_id, drawing_parent)) = q_drawings.get(parent.get()) {
-            if let Ok((_, level_id, _, _, _)) = q_levels.get(drawing_parent.get()) {
-                if let Some(level) = levels.get_mut(&level_id.0) {
-                    if let Some(drawing) = level.drawings.get_mut(&drawing_id.0) {
+                let mut measurements = BTreeMap::new();
+                let mut fiducials = BTreeMap::new();
+                let mut anchors = BTreeMap::new();
+                for e in DescendantIter::new(&q_children, entity) {
+                    if let Ok((anchor, anchor_id, _)) = q_anchors.get(e) {
+                        anchors.insert(anchor_id.0, anchor.clone());
+                    }
+                    if let Ok((edge, o_edge, distance, label, id, parent)) = q_measurements.get(e) {
+                        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+                        let anchors = get_anchor_id_edge(edge)?;
+                        measurements.insert(
+                            id.0,
+                            Measurement {
+                                anchors,
+                                distance: distance.clone(),
+                                label: label.clone(),
+                                marker: MeasurementMarker,
+                            },
+                        );
+                    }
+                    if let Ok((point, o_point, label, id, parent)) = q_fiducials.get(e) {
+                        let point = o_point.map(|x| &x.0).unwrap_or(point);
                         let anchor = Point(get_anchor_id(point.0)?);
-                        if let Ok((anchor, anchor_id, anchor_parent)) = q_anchors.get(point.0) {
-                            if let Ok((_, _, _, _, anchor_drawing_id, _)) =
-                                q_drawings.get(parent.get())
-                            {
-                                if anchor_drawing_id.0 == drawing_id.0 {
-                                    drawing.anchors.insert(anchor_id.0, anchor.clone());
-                                }
-                            }
-                        }
-                        drawing.fiducials.insert(
+                        fiducials.insert(
                             id.0,
                             Fiducial {
                                 anchor,
@@ -420,6 +414,18 @@ fn generate_levels(
                         );
                     }
                 }
+                level.drawings.insert(
+                    id.0,
+                    Drawing {
+                        name: name.clone(),
+                        anchors,
+                        fiducials,
+                        measurements,
+                        source: source.clone(),
+                        pose: pose.clone(),
+                        pixels_per_meter: pixels_per_meter.clone(),
+                    },
+                );
             }
         }
     }
@@ -449,24 +455,6 @@ fn generate_levels(
                     Light {
                         pose: pose.clone(),
                         kind: kind.clone(),
-                    },
-                );
-            }
-        }
-    }
-
-    for (edge, o_edge, distance, label, id, parent) in &q_measurements {
-        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_edge(edge)?;
-                level.measurements.insert(
-                    id.0,
-                    Measurement {
-                        anchors,
-                        distance: distance.clone(),
-                        label: label.clone(),
-                        marker: MeasurementMarker,
                     },
                 );
             }
@@ -1003,7 +991,6 @@ pub fn save_nav_graphs(world: &mut World) {
             level.drawings.clear();
             level.floors.clear();
             level.lights.clear();
-            level.measurements.clear();
             level.models.clear();
             level.walls.clear();
         }

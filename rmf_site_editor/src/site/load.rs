@@ -115,6 +115,12 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                         //id_to_entity.insert(**fiducial_id, anchor_entity);
                                         consider_id(*fiducial_id);
                                     }
+                                    for (measurement_id, measurement) in &drawing.measurements {
+                                        drawing_parent
+                                            .spawn(measurement.to_ecs(&id_to_entity))
+                                            .insert(SiteID(*measurement_id));
+                                        consider_id(*measurement_id);
+                                    }
                                 })
                                 .id();
                             consider_id(*drawing_id);
@@ -130,13 +136,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         for (light_id, light) in &level_data.lights {
                             level.spawn(light.clone()).insert(SiteID(*light_id));
                             consider_id(*light_id);
-                        }
-
-                        for (measurement_id, measurement) in &level_data.measurements {
-                            level
-                                .spawn(measurement.to_ecs(&id_to_entity))
-                                .insert(SiteID(*measurement_id));
-                            consider_id(*measurement_id);
                         }
 
                         for (model_id, model) in &level_data.models {

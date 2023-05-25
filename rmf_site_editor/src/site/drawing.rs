@@ -20,7 +20,7 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, Category, DefaultFile, FiducialMarker, FloorVisibility,
-        RecencyRank, FLOOR_LAYER_START,
+        MeasurementMarker, RecencyRank, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
@@ -167,22 +167,24 @@ pub fn update_drawing_pixels_per_meter(
     }
 }
 
-pub fn update_anchor_and_fiducial_visuals_for_changed_pixels_per_meter(
-    changed_drawings: Query<(Entity, &PixelsPerMeter), Changed<PixelsPerMeter>>,
-    visuals: Query<
-        Entity,
-        (
-            Without<DrawingMarker>,
-            Or<(With<Anchor>, With<FiducialMarker>)>,
-        ),
-    >,
-    children: Query<&Children>,
+pub fn update_meshes_for_changed_pixels_per_meter(
+    changed_drawings: Query<(Entity, &PixelsPerMeter, &Children), Changed<PixelsPerMeter>>,
+    points: Query<Entity, Or<(With<FiducialMarker>, With<Anchor>)>>,
+    measurements: Query<Entity, With<MeasurementMarker>>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, pixels_per_meter) in changed_drawings.iter() {
-        for child in DescendantIter::new(&children, e) {
-            if visuals.get(child).is_ok() {
-                if let Ok(mut tf) = transforms.get_mut(child) {
+    for (e, pixels_per_meter, children) in changed_drawings.iter() {
+        for child in children {
+            if points.get(*child).is_ok() {
+                if let Ok(mut tf) = transforms.get_mut(*child) {
+                    tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
+                }
+            } else if measurements.get(*child).is_ok() {
+                // Measurements are only scaled in width
+                // TODO(luca) This does nothing since measurements scale is overwritten when they
+                // are updated, fix it at the measurement level
+                // TODO(luca) make this actually only scale width
+                if let Ok(mut tf) = transforms.get_mut(*child) {
                     tf.scale = Vec3::new(pixels_per_meter.0, pixels_per_meter.0, 1.0);
                 }
             }
