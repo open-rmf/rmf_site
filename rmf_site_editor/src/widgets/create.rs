@@ -19,14 +19,14 @@ use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
     site::Change,
-    AppEvents, AppState,
+    AppEvents, AppState, SuppressRecencyRank,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, DrawingBundle, DrawingMarker, Geometry, Model, Pending, PixelsPerMeter, Pose,
-    RecallAssetSource, Scale, WorkcellModel,
+    AssetSource, DrawingBundle, DrawingMarker, Geometry, Model, ModelMarker, Pending,
+    PixelsPerMeter, Pose, RecallAssetSource, Scale, WorkcellModel,
 };
 
 pub struct CreateWidget<'a, 'w, 's> {
@@ -106,7 +106,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     }
                 }
             }
-            if let Ok((e, source, scale)) = self.events.pending_asset_sources.get_single() {
+            if let Ok((e, source, scale)) = self.events.pending_models.get_single() {
                 ui.add_space(10.0);
                 CollapsingHeader::new("New model")
                     .default_open(false)
@@ -128,9 +128,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         }
                         ui.add_space(5.0);
                         match self.events.app_state.current() {
-                            AppState::MainMenu => {
-                                unreachable!();
-                            }
+                            AppState::MainMenu | AppState::SiteDrawingEditor => {}
                             AppState::SiteEditor => {
                                 if ui.button("Spawn model").clicked() {
                                     let model = Model {
@@ -140,19 +138,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     self.events.request.change_mode.send(ChangeMode::To(
                                         SelectAnchor3D::create_new_point().for_model(model).into(),
                                     ));
-                                }
-                            }
-                            AppState::SiteDrawingEditor => {
-                                if ui.button("Add Drawing").clicked() {
-                                    let drawing = DrawingBundle {
-                                        name: Default::default(),
-                                        source: source.clone(),
-                                        pose: Default::default(),
-                                        is_primary: Default::default(),
-                                        pixels_per_meter: Default::default(),
-                                        marker: DrawingMarker,
-                                    };
-                                    self.events.commands.spawn(drawing);
                                 }
                             }
                             AppState::WorkcellEditor => {
@@ -188,13 +173,64 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             }
                         }
                     });
-            } else if self.events.pending_asset_sources.is_empty() {
+            } else if self.events.pending_models.is_empty() {
                 // Spawn one
                 let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
                 self.events
                     .commands
                     .spawn(source.clone())
                     .insert(Scale::default())
+                    .insert(ModelMarker)
+                    .insert(Pending);
+            }
+            if let Ok((e, source, scale)) = self.events.pending_drawings.get_single() {
+                ui.add_space(10.0);
+                CollapsingHeader::new("New drawing")
+                    .default_open(false)
+                    .show(ui, |ui| {
+                        if let Some(new_asset_source) =
+                            InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui)
+                        {
+                            self.events
+                                .change
+                                .asset_source
+                                .send(Change::new(new_asset_source, e));
+                        }
+                        ui.add_space(5.0);
+                        if let Some(new_scale) = InspectScale::new(scale).show(ui) {
+                            self.events
+                                .workcell_change
+                                .scale
+                                .send(Change::new(new_scale, e));
+                        }
+                        ui.add_space(5.0);
+                        match self.events.app_state.current() {
+                            AppState::SiteEditor => {
+                                if ui.button("Add Drawing").clicked() {
+                                    let drawing = DrawingBundle {
+                                        name: Default::default(),
+                                        source: source.clone(),
+                                        pose: Default::default(),
+                                        is_primary: Default::default(),
+                                        pixels_per_meter: Default::default(),
+                                        marker: DrawingMarker,
+                                    };
+                                    self.events.commands.spawn(drawing);
+                                }
+                                ui.add_space(10.0);
+                            }
+                            _ => {}
+                        }
+                    });
+            } else if self.events.pending_drawings.is_empty() {
+                // Spawn one
+                let source = AssetSource::Local("clinic.png".to_string());
+                self.events
+                    .commands
+                    .spawn(source.clone())
+                    .insert(Scale::default())
+                    .insert(DrawingMarker)
+                    .insert(SuppressRecencyRank)
                     .insert(Pending);
             }
         });

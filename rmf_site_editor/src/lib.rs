@@ -32,6 +32,7 @@ use occupancy::OccupancyPlugin;
 
 mod demo_world;
 mod recency;
+use recency::*;
 mod shapes;
 
 mod main_menu;
