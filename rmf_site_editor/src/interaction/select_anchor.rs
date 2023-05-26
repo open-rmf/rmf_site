@@ -22,9 +22,9 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement,
-    MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point, Pose, Side,
-    SiteProperties, Wall, WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
+    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point,
+    Pose, Side, SiteProperties, Wall, WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
 };
 use std::sync::Arc;
 
@@ -1158,7 +1158,16 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: Scope::Drawing,
+        }
+    }
+
+    pub fn for_constraint(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: EdgePlacement::new::<Constraint<Entity>>(self.placement),
+            continuity: self.continuity,
+            scope: Scope::Drawing,
         }
     }
 
@@ -1213,6 +1222,15 @@ impl SelectAnchorPointBuilder {
             placement: PointPlacement::new::<Location<Entity>>(),
             continuity: self.continuity,
             scope: Scope::General,
+        }
+    }
+
+    pub fn for_fiducial(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: PointPlacement::new::<Fiducial<Entity>>(),
+            continuity: self.continuity,
+            scope: Scope::Drawing,
         }
     }
 
@@ -1274,6 +1292,7 @@ type PlacementArc = Arc<dyn Placement + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Scope {
+    Drawing,
     General,
     Site,
 }

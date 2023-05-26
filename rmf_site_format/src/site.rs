@@ -137,3 +137,12 @@ impl Constraint<u32> {
         }
     }
 }
+
+impl<T: RefTrait> From<Edge<T>> for Constraint<T> {
+    fn from(edge: Edge<T>) -> Self {
+        Constraint {
+            edge,
+            marker: Default::default(),
+        }
+    }
+}

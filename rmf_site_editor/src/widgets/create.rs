@@ -80,23 +80,21 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_new_path().for_floor().into(),
                         ));
                     }
-
-                    if ui.button("Measurement").clicked() {
-                        self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_measurement().into(),
-                        ));
-                    }
                 }
                 AppState::SiteDrawingEditor => {
+                    if ui.button("Fiducial").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_new_point().for_fiducial().into(),
+                        ));
+                    }
                     if ui.button("Measurement").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
                             SelectAnchor::create_one_new_edge().for_measurement().into(),
                         ));
                     }
-                    // TODO(luca) implement
-                    if ui.button("Fiducial").clicked() {
+                    if ui.button("Constraint").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point().for_location().into(),
+                            SelectAnchor::create_one_new_edge().for_constraint().into(),
                         ));
                     }
                 }

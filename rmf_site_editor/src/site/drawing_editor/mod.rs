@@ -18,10 +18,16 @@
 use bevy::prelude::*;
 
 use crate::interaction::{CameraControls, HeadlightToggle, VisibilityCategoriesSettings};
-use crate::AppState;
+use crate::site::{Anchor, DrawingMarker};
+use crate::{AppState, CurrentWorkspace};
+
+use std::collections::HashSet;
 
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
+
+#[derive(Resource, Default, Deref, DerefMut)]
+pub struct DrawingEditorHiddenAnchors(HashSet<Entity>);
 
 fn hide_level_entities(
     mut visibilities: Query<&mut Visibility>,
@@ -40,6 +46,33 @@ fn hide_level_entities(
     category_settings.0.walls = false;
 }
 
+fn hide_non_drawing_anchors(
+    mut anchors: Query<(Entity, &mut Visibility), With<Anchor>>,
+    parents: Query<&Parent>,
+    drawings: Query<(), With<DrawingMarker>>,
+    mut anchor_set: ResMut<DrawingEditorHiddenAnchors>,
+) {
+    for (e, mut vis) in &mut anchors {
+        if let Ok(parent) = parents.get(e) {
+            if drawings.get(**parent).is_err() {
+                if vis.is_visible {
+                    vis.is_visible = false;
+                    anchor_set.insert(e);
+                }
+            }
+        }
+    }
+}
+
+fn restore_non_drawing_anchors(
+    mut visibilities: Query<&mut Visibility>,
+    mut anchor_set: ResMut<DrawingEditorHiddenAnchors>,
+) {
+    for e in anchor_set.drain() {
+        visibilities.get_mut(e).map(|mut vis| vis.is_visible = true);
+    }
+}
+
 fn restore_level_entities(
     mut visibilities: Query<&mut Visibility>,
     mut camera_controls: ResMut<CameraControls>,
@@ -54,10 +87,15 @@ fn restore_level_entities(
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
-            SystemSet::on_enter(AppState::SiteDrawingEditor).with_system(hide_level_entities),
+            SystemSet::on_enter(AppState::SiteDrawingEditor)
+                .with_system(hide_level_entities)
+                .with_system(hide_non_drawing_anchors),
         )
         .add_system_set(
-            SystemSet::on_exit(AppState::SiteDrawingEditor).with_system(restore_level_entities),
-        );
+            SystemSet::on_exit(AppState::SiteDrawingEditor)
+                .with_system(restore_level_entities)
+                .with_system(restore_non_drawing_anchors),
+        )
+        .init_resource::<DrawingEditorHiddenAnchors>();
     }
 }
