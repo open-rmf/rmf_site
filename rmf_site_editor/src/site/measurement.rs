@@ -15,7 +15,11 @@
  *
 */
 
-use crate::{interaction::Selectable, site::*};
+use crate::{
+    interaction::Selectable,
+    site::*,
+    widgets::preferences::{self, PreferenceParameters},
+};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
@@ -25,6 +29,7 @@ pub fn add_measurement_visuals(
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
+    preferences: Res<PreferenceParameters>,
 ) {
     for (e, edge) in &measurements {
         commands
@@ -39,7 +44,7 @@ pub fn add_measurement_visuals(
                     &anchors
                         .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
                         .unwrap(),
-                    LANE_WIDTH,
+                    preferences.default_lane_width,
                 ),
                 ..default()
             })
@@ -60,6 +65,7 @@ fn update_measurement_visual(
     edge: &Edge<Entity>,
     anchors: &AnchorParams,
     transform: &mut Transform,
+    preferences: &Res<PreferenceParameters>,
 ) {
     let start_anchor = anchors
         .point_in_parent_frame_of(edge.start(), Category::Measurement, entity)
@@ -67,7 +73,7 @@ fn update_measurement_visual(
     let end_anchor = anchors
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
-    *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
+    *transform = line_stroke_transform(&start_anchor, &end_anchor, preferences.default_lane_width);
 }
 
 pub fn update_changed_measurement(
@@ -76,9 +82,10 @@ pub fn update_changed_measurement(
         (Changed<Edge<Entity>>, With<MeasurementMarker>),
     >,
     anchors: AnchorParams,
+    preferences: Res<PreferenceParameters>,
 ) {
     for (e, edge, mut tf) in &mut measurements {
-        update_measurement_visual(e, edge, &anchors, tf.as_mut());
+        update_measurement_visual(e, edge, &anchors, tf.as_mut(), &preferences);
     }
 }
 
@@ -92,11 +99,12 @@ pub fn update_measurement_for_moved_anchors(
             Or<(Changed<Anchor>, Changed<GlobalTransform>)>,
         ),
     >,
+    preferences: Res<PreferenceParameters>,
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {
             if let Some((e, measurement, mut tf)) = measurements.get_mut(*dependent).ok() {
-                update_measurement_visual(e, measurement, &anchors, tf.as_mut());
+                update_measurement_visual(e, measurement, &anchors, tf.as_mut(), &preferences);
             }
         }
     }

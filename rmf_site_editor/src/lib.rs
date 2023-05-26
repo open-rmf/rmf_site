@@ -181,5 +181,6 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(AnimationPlugin)
         .add_plugin(OccupancyPlugin)
         .add_plugin(WorkspacePlugin)
+        .add_plugin(PreferencePlugin)
         .run();
 }

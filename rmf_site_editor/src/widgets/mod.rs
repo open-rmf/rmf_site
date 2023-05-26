@@ -62,6 +62,9 @@ use inspector::{InspectorParams, InspectorWidget};
 pub mod move_layer;
 pub use move_layer::*;
 
+pub mod preferences;
+pub use preferences::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
@@ -131,6 +134,11 @@ pub struct FileEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct EditEvents<'w, 's> {
+    pub preference: EventWriter<'w, 's, PreferenceEvent>,
+}
+
+#[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -180,6 +188,7 @@ pub struct AppEvents<'w, 's> {
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
+    pub edit_events: EditEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
     pub app_state: Res<'w, State<AppState>>,
     pub pending_asset_sources:
@@ -285,6 +294,14 @@ fn site_ui_layout(
                         .file_events
                         .load_workspace
                         .send(LoadWorkspace::Dialog);
+                }
+            });
+            ui.menu_button("Edit", |ui| {
+                if ui
+                    .add(Button::new("Preferences..."))
+                    .clicked()
+                {
+                    events.edit_events.preference.send(PreferenceEvent)
                 }
             });
         });

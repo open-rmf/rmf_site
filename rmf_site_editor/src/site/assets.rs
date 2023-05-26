@@ -15,7 +15,11 @@
  *
 */
 
-use crate::{shapes::*, site::*};
+use crate::{
+    shapes::*,
+    site::*,
+    widgets::preferences::{self, PreferencePanel, PreferenceParameters},
+};
 use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Resource)]
@@ -55,6 +59,10 @@ pub struct SiteAssets {
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let preferences = world
+            .get_resource::<PreferenceParameters>()
+            .unwrap_or(&PreferenceParameters::default())
+            .clone();
         let wall_texture = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/default.png".to_string(),
         )));
@@ -166,7 +174,7 @@ impl FromWorld for SiteAssets {
         let lane_end_mesh = meshes.add(
             make_flat_disk(
                 Circle {
-                    radius: LANE_WIDTH / 2.0,
+                    radius: preferences.default_lane_width / 2.0,
                     height: 0.0,
                 },
                 32,
@@ -176,7 +184,7 @@ impl FromWorld for SiteAssets {
         let lane_end_outline = meshes.add(
             make_flat_disk(
                 Circle {
-                    radius: 1.125 * LANE_WIDTH / 2.0,
+                    radius: 1.125 * preferences.default_lane_width / 2.0,
                     height: 0.0,
                 },
                 32,
@@ -190,7 +198,7 @@ impl FromWorld for SiteAssets {
         );
         let location_mesh = meshes.add(
             Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
+                make_icon_halo(1.1 * preferences.default_lane_width / 2.0, 0.01, 6)
                     .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
             )
             .with_generated_outline_normals()
