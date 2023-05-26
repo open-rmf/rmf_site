@@ -20,7 +20,9 @@ use crate::site::*;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
-pub const MEASUREMENT_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
+// TODO(luca) proper recency ranking, this will break for > 10 drawings
+pub const MEASUREMENT_LAYER_START: f32 =
+    DRAWING_LAYER_START + (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 
 /// Stores which (child) entity contains the measurement mesh
 #[derive(Component, Debug, Clone, Deref, DerefMut)]

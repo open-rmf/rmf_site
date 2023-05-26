@@ -21,6 +21,9 @@ use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
 
+// TODO(luca) proper recency ranking, this will break for > 10 drawings
+pub const CONSTRAINT_LAYER_START: f32 =
+    FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 const CONSTRAINT_WIDTH: f32 = 0.2 * LANE_WIDTH;
 
 /// Stores which (child) entity contains the measurement mesh
@@ -64,7 +67,7 @@ pub fn add_constraint_visuals(
             CONSTRAINT_WIDTH,
         );
         // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = MEASUREMENT_LAYER_START;
+        transform.translation.z = CONSTRAINT_LAYER_START;
 
         let child_id = commands
             .spawn(PbrBundle {
@@ -79,7 +82,7 @@ pub fn add_constraint_visuals(
         commands
             .entity(e)
             .insert(SpatialBundle {
-                transform: Transform::from_translation([0., 0., MEASUREMENT_LAYER_START].into()),
+                transform: Transform::from_translation([0., 0., CONSTRAINT_LAYER_START].into()),
                 visibility: Visibility { is_visible },
                 ..default()
             })
@@ -109,7 +112,7 @@ fn update_constraint_visual(
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
     *transform = line_stroke_transform(&start_anchor, &end_anchor, CONSTRAINT_WIDTH);
-    transform.translation.z = MEASUREMENT_LAYER_START;
+    transform.translation.z = CONSTRAINT_LAYER_START;
 }
 
 pub fn update_changed_constraint(
