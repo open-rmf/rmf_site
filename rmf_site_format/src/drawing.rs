@@ -31,6 +31,12 @@ impl Default for PixelsPerMeter {
     }
 }
 
+/// Denote whether it is a primary drawing or not, primary drawings will be kept as a constant
+/// reference when scaling other drawings in the level
+#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct IsPrimary(pub bool);
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Drawing {
     pub name: NameInSite,
@@ -42,6 +48,7 @@ pub struct Drawing {
     pub measurements: BTreeMap<u32, Measurement<u32>>,
     pub source: AssetSource,
     pub pose: Pose,
+    pub is_primary: IsPrimary,
     pub pixels_per_meter: PixelsPerMeter,
 }
 
@@ -53,6 +60,7 @@ pub struct DrawingBundle {
     pub source: AssetSource,
     pub pose: Pose,
     pub pixels_per_meter: PixelsPerMeter,
+    pub is_primary: IsPrimary,
     #[serde(skip)]
     pub marker: DrawingMarker,
 }

@@ -2,7 +2,7 @@ use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     Constraint as SiteConstraint, ConstraintMarker, DisplayColor, Dock as SiteDock,
-    Drawing as SiteDrawing, Fiducial as SiteFiducial, FiducialMarker, Guided, Label,
+    Drawing as SiteDrawing, Fiducial as SiteFiducial, FiducialMarker, Guided, IsPrimary, Label,
     Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelProperties as SiteLevelProperties,
     Motion, NameInSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
     RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
@@ -295,6 +295,7 @@ impl BuildingMap {
                         measurements,
                         source: AssetSource::Local(level.drawing.filename.clone()),
                         pose,
+                        is_primary: IsPrimary(true),
                         pixels_per_meter,
                     },
                 );
@@ -345,6 +346,7 @@ impl BuildingMap {
                         measurements: Default::default(),
                         source: AssetSource::Local(layer.filename.clone()),
                         pose,
+                        is_primary: IsPrimary(false),
                         pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
                     },
                 );

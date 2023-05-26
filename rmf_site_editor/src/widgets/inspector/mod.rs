@@ -33,6 +33,9 @@ pub use inspect_door::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
+pub mod inspect_is_primary;
+pub use inspect_is_primary::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -107,6 +110,7 @@ pub struct InspectorParams<'w, 's> {
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
+    pub is_primary: Query<'w, 's, &'static IsPrimary>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -377,6 +381,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events,
                 )
                 .show(ui);
+                ui.add_space(10.0);
+            }
+
+            if let Ok(is_primary) = self.params.is_primary.get(selection) {
+                if let Some(new_is_primary) = InspectIsPrimary::new(is_primary).show(ui) {
+                    self.events
+                        .is_primary
+                        .send(Change::new(new_is_primary, selection));
+                }
                 ui.add_space(10.0);
             }
 

@@ -168,6 +168,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<NameInWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
             .add_plugin(ChangePlugin::<Scale>::default())
+            .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())

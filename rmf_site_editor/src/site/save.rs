@@ -215,6 +215,7 @@ fn generate_levels(
                 &NameInSite,
                 &AssetSource,
                 &Pose,
+                &IsPrimary,
                 &PixelsPerMeter,
                 &SiteID,
                 &Parent,
@@ -385,7 +386,7 @@ fn generate_levels(
         }
     }
 
-    for (entity, name, source, pose, pixels_per_meter, id, parent) in &q_drawings {
+    for (entity, name, source, pose, is_primary, pixels_per_meter, id, parent) in &q_drawings {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
@@ -430,6 +431,7 @@ fn generate_levels(
                         measurements,
                         source: source.clone(),
                         pose: pose.clone(),
+                        is_primary: is_primary.clone(),
                         pixels_per_meter: pixels_per_meter.clone(),
                     },
                 );

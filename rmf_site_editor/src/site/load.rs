@@ -94,6 +94,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                     name: drawing.name.clone(),
                                     source: drawing.source.clone(),
                                     pose: drawing.pose.clone(),
+                                    is_primary: drawing.is_primary.clone(),
                                     pixels_per_meter: drawing.pixels_per_meter.clone(),
                                     marker: DrawingMarker,
                                 })

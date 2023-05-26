@@ -192,6 +192,8 @@ pub struct AppEvents<'w, 's> {
     pub app_state: ResMut<'w, State<AppState>>,
     pub pending_asset_sources:
         Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
+    // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
+    pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
 }
 
 fn site_ui_layout(

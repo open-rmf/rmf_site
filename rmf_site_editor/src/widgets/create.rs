@@ -159,7 +159,8 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         let drawing = DrawingBundle {
                                             name: Default::default(),
                                             source: source.clone(),
-                                            pose: Pose::default(),
+                                            pose: Default::default(),
+                                            is_primary: Default::default(),
                                             pixels_per_meter: PixelsPerMeter(100.0),
                                             marker: DrawingMarker,
                                         };
