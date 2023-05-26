@@ -20,7 +20,7 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, Category, DefaultFile, FiducialMarker, FloorVisibility,
-        MeasurementMarker, RecencyRank, FLOOR_LAYER_START,
+        MeasurementSegment, MeasurementMarker, RecencyRank, DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
@@ -145,15 +145,26 @@ pub fn handle_loaded_drawing(
 
 pub fn update_drawing_rank(
     changed_rank: Query<
-        (&DrawingSegments, &RecencyRank<DrawingMarker>),
+        (Entity, &DrawingSegments, &RecencyRank<DrawingMarker>),
         Changed<RecencyRank<DrawingMarker>>,
     >,
+    measurements: Query<&MeasurementSegment>,
+    children: Query<&Children>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (segments, rank) in &changed_rank {
+    for (e, segments, rank) in &changed_rank {
         if let Ok(mut tf) = transforms.get_mut(segments.leaf) {
             let z = drawing_layer_height(Some(rank));
             tf.translation.z = z;
+            if let Ok(children) = children.get(e) {
+                for child in children {
+                    // TODO(luca) consider adding fiducials, for now they have a thickness hence
+                    // are always visible
+                    if let Ok(segment) = measurements.get(*child) {
+                        transforms.get_mut(**segment).map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET);
+                    }
+                }
+            }
         }
     }
 }

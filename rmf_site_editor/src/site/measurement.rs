@@ -21,7 +21,7 @@ use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
 // TODO(luca) proper recency ranking, this will break for > 10 drawings
-pub const MEASUREMENT_LAYER_START: f32 =
+pub const DEFAULT_MEASUREMENT_OFFSET: f32 =
     DRAWING_LAYER_START + (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 
 /// Stores which (child) entity contains the measurement mesh
@@ -46,7 +46,7 @@ pub fn add_measurement_visuals(
             LANE_WIDTH,
         );
         // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = MEASUREMENT_LAYER_START;
+        transform.translation.z = DEFAULT_MEASUREMENT_OFFSET;
 
         let child_id = commands
             .spawn(PbrBundle {
@@ -85,8 +85,9 @@ fn update_measurement_visual(
     let end_anchor = anchors
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
+    let z = transform.translation.z;
     *transform = line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH);
-    transform.translation.z = MEASUREMENT_LAYER_START;
+    transform.translation.z = z;
 }
 
 pub fn update_changed_measurement(
