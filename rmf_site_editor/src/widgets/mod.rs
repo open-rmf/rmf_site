@@ -257,10 +257,6 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
-                        if ui.add(Button::new("Drawing editor")).clicked() {
-                            events.app_state.set(AppState::SiteDrawingEditor).ok();
-                            println!("Entering drawing editor");
-                        }
                     });
                 });
         });

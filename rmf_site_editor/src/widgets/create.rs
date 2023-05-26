@@ -80,6 +80,11 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_new_path().for_floor().into(),
                         ));
                     }
+                    if ui.button("Constraint").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_one_new_edge().for_constraint().into(),
+                        ));
+                    }
                 }
                 AppState::SiteDrawingEditor => {
                     if ui.button("Fiducial").clicked() {
@@ -92,11 +97,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_one_new_edge().for_measurement().into(),
                         ));
                     }
-                    if ui.button("Constraint").clicked() {
-                        self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_constraint().into(),
-                        ));
-                    }
                 }
                 AppState::WorkcellEditor => {
                     if ui.button("Frame").clicked() {
@@ -107,7 +107,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                 }
             }
             if let Ok((e, source, scale)) = self.events.pending_asset_sources.get_single() {
-                // TODO(luca) actual recall
                 ui.add_space(10.0);
                 CollapsingHeader::new("New model")
                     .default_open(false)
@@ -133,73 +132,59 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                 unreachable!();
                             }
                             AppState::SiteEditor => {
-                                if let Ok((_e, source, _scale)) =
-                                    self.events.pending_asset_sources.get_single()
-                                {
-                                    if ui.button("Spawn model").clicked() {
-                                        let model = Model {
-                                            source: source.clone(),
-                                            ..default()
-                                        };
-                                        self.events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_model(model)
-                                                .into(),
-                                        ));
-                                    }
+                                if ui.button("Spawn model").clicked() {
+                                    let model = Model {
+                                        source: source.clone(),
+                                        ..default()
+                                    };
+                                    self.events.request.change_mode.send(ChangeMode::To(
+                                        SelectAnchor3D::create_new_point().for_model(model).into(),
+                                    ));
                                 }
                             }
                             AppState::SiteDrawingEditor => {
-                                if let Ok((_e, source, _scale)) =
-                                    self.events.pending_asset_sources.get_single()
-                                {
-                                    if ui.button("Add Drawing").clicked() {
-                                        let drawing = DrawingBundle {
-                                            name: Default::default(),
-                                            source: source.clone(),
-                                            pose: Default::default(),
-                                            is_primary: Default::default(),
-                                            pixels_per_meter: PixelsPerMeter(100.0),
-                                            marker: DrawingMarker,
-                                        };
-                                        self.events.commands.spawn(drawing);
-                                    }
+                                if ui.button("Add Drawing").clicked() {
+                                    let drawing = DrawingBundle {
+                                        name: Default::default(),
+                                        source: source.clone(),
+                                        pose: Default::default(),
+                                        is_primary: Default::default(),
+                                        pixels_per_meter: Default::default(),
+                                        marker: DrawingMarker,
+                                    };
+                                    self.events.commands.spawn(drawing);
                                 }
                             }
                             AppState::WorkcellEditor => {
-                                if let Ok((_e, source, scale)) =
-                                    self.events.pending_asset_sources.get_single()
-                                {
-                                    if ui.button("Spawn visual").clicked() {
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh {
-                                                filename: source.into(),
-                                                scale: Some(**scale),
-                                            },
-                                            ..default()
-                                        };
-                                        self.events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_visual(workcell_model)
-                                                .into(),
-                                        ));
-                                    }
-                                    if ui.button("Spawn collision").clicked() {
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh {
-                                                filename: source.into(),
-                                                scale: Some(**scale),
-                                            },
-                                            ..default()
-                                        };
-                                        self.events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_collision(workcell_model)
-                                                .into(),
-                                        ));
-                                    }
-                                    ui.add_space(10.0);
+                                if ui.button("Spawn visual").clicked() {
+                                    let workcell_model = WorkcellModel {
+                                        geometry: Geometry::Mesh {
+                                            filename: source.into(),
+                                            scale: Some(**scale),
+                                        },
+                                        ..default()
+                                    };
+                                    self.events.request.change_mode.send(ChangeMode::To(
+                                        SelectAnchor3D::create_new_point()
+                                            .for_visual(workcell_model)
+                                            .into(),
+                                    ));
                                 }
+                                if ui.button("Spawn collision").clicked() {
+                                    let workcell_model = WorkcellModel {
+                                        geometry: Geometry::Mesh {
+                                            filename: source.into(),
+                                            scale: Some(**scale),
+                                        },
+                                        ..default()
+                                    };
+                                    self.events.request.change_mode.send(ChangeMode::To(
+                                        SelectAnchor3D::create_new_point()
+                                            .for_collision(workcell_model)
+                                            .into(),
+                                    ));
+                                }
+                                ui.add_space(10.0);
                             }
                         }
                     });

@@ -20,7 +20,8 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, Category, DefaultFile, FiducialMarker, FloorVisibility,
-        MeasurementSegment, MeasurementMarker, RecencyRank, DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
+        MeasurementMarker, MeasurementSegment, RecencyRank, DEFAULT_MEASUREMENT_OFFSET,
+        FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
@@ -161,7 +162,10 @@ pub fn update_drawing_rank(
                     // TODO(luca) consider adding fiducials, for now they have a thickness hence
                     // are always visible
                     if let Ok(segment) = measurements.get(*child) {
-                        transforms.get_mut(**segment).map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET);
+                        transforms
+                            .get_mut(**segment)
+                            .map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET)
+                            .ok();
                     }
                 }
             }
