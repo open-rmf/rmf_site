@@ -21,7 +21,7 @@ use crate::interaction::{
     CameraControls, HeadlightToggle, Selection, VisibilityCategoriesSettings,
 };
 use crate::site::{
-    Anchor, DrawingMarker, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
+    Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
 };
 use crate::{AppState, CurrentWorkspace};
 
@@ -107,8 +107,10 @@ fn assign_drawing_parent_to_new_measurements_and_fiducials(
         (Entity, Option<&Parent>, &mut Transform),
         (
             Without<Pending>,
-            Or<(With<MeasurementMarker>, With<FiducialMarker>)>,
-            Changed<Point<Entity>>,
+            Or<(
+                (With<MeasurementMarker>, Changed<Edge<Entity>>),
+                (Changed<Point<Entity>>, With<FiducialMarker>),
+            )>,
         ),
     >,
     drawings: Query<(Entity, &Visibility, &PixelsPerMeter), With<DrawingMarker>>,

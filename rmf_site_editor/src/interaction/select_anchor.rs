@@ -2001,32 +2001,27 @@ pub fn handle_select_anchor_mode(
 
             let new_anchor = match request.scope {
                 Scope::Site => {
-                    if let Some(site) = workspace.to_site(&open_sites) {
-                        let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
-                        params.commands.entity(site).add_child(new_anchor);
-                        new_anchor
-                    } else {
-                        panic!("No current site??");
-                    }
+                    let site = workspace.to_site(&open_sites).expect("No current site??");
+                    let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
+                    params.commands.entity(site).add_child(new_anchor);
+                    new_anchor
                 }
                 Scope::Drawing => {
-                    if let Some((parent, ppm)) = params.get_visible_drawing() {
-                        // We also need to have a transform such that the anchor will spawn in the
-                        // right spot
-                        let drawing_tf =
-                            transforms.get(parent).expect("Drawing transform not found");
-                        let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
-                        let ppm = ppm.0;
-                        let new_anchor = params
-                            .commands
-                            .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
-                            .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
-                            .id();
-                        params.commands.entity(parent).add_child(new_anchor);
-                        new_anchor
-                    } else {
-                        panic!("No drawing while spawning drawing anchor");
-                    }
+                    let (parent, ppm) = params
+                        .get_visible_drawing()
+                        .expect("No drawing while spawning drawing anchor");
+                    // We also need to have a transform such that the anchor will spawn in the
+                    // right spot
+                    let drawing_tf = transforms.get(parent).expect("Drawing transform not found");
+                    let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
+                    let ppm = ppm.0;
+                    let new_anchor = params
+                        .commands
+                        .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
+                        .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
+                        .id();
+                    params.commands.entity(parent).add_child(new_anchor);
+                    new_anchor
                 }
                 _ => return,
             };
