@@ -196,12 +196,8 @@ pub struct AppEvents<'w, 's> {
         (Entity, &'static AssetSource, &'static Scale),
         (With<Pending>, With<ModelMarker>),
     >,
-    pub pending_drawings: Query<
-        'w,
-        's,
-        (Entity, &'static AssetSource, &'static Scale),
-        (With<Pending>, With<DrawingMarker>),
-    >,
+    pub pending_drawings:
+        Query<'w, 's, (Entity, &'static AssetSource), (With<Pending>, With<DrawingMarker>)>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
     pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
 }

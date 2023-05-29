@@ -20,7 +20,9 @@ use bevy::prelude::*;
 use crate::interaction::{
     CameraControls, HeadlightToggle, Selection, VisibilityCategoriesSettings,
 };
-use crate::site::{Anchor, DrawingMarker, FiducialMarker, MeasurementMarker, Pending};
+use crate::site::{
+    Anchor, DrawingMarker, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
+};
 use crate::{AppState, CurrentWorkspace};
 
 use std::collections::HashSet;
@@ -101,27 +103,28 @@ fn restore_level_entities(
 
 fn assign_drawing_parent_to_new_measurements_and_fiducials(
     mut commands: Commands,
-    new_elements: Query<
-        (Entity, Option<&Parent>),
+    mut new_elements: Query<
+        (Entity, Option<&Parent>, &mut Transform),
         (
             Without<Pending>,
-            Or<(Added<MeasurementMarker>, Added<FiducialMarker>)>,
+            Or<(With<MeasurementMarker>, With<FiducialMarker>)>,
+            Changed<Point<Entity>>,
         ),
     >,
-    drawings: Query<(Entity, &Visibility), With<DrawingMarker>>,
+    drawings: Query<(Entity, &Visibility, &PixelsPerMeter), With<DrawingMarker>>,
 ) {
     if new_elements.is_empty() {
         return;
     }
-    let parent = match drawings.iter().find(|(_, vis)| vis.is_visible == true) {
-        Some(parent) => parent.0,
+    let (parent, ppm) = match drawings.iter().find(|(_, vis, _)| vis.is_visible == true) {
+        Some(parent) => (parent.0, parent.2),
         None => return,
     };
-    for (e, old_parent) in &new_elements {
-        // TODO(luca) compute transform here
+    for (e, old_parent, mut tf) in &mut new_elements {
         if old_parent.map(|p| drawings.get(**p).ok()).is_none() {
-            println!("New entity detected");
             commands.entity(parent).add_child(e);
+            // Set its scale to the parent's pixels per meter to make it in pixel coordinates
+            tf.scale = Vec3::new(ppm.0, ppm.0, 1.0);
         }
     }
 }

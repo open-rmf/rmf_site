@@ -183,7 +183,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     .insert(ModelMarker)
                     .insert(Pending);
             }
-            if let Ok((e, source, scale)) = self.events.pending_drawings.get_single() {
+            if let Ok((e, source)) = self.events.pending_drawings.get_single() {
                 ui.add_space(10.0);
                 CollapsingHeader::new("New drawing")
                     .default_open(false)
@@ -195,13 +195,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                 .change
                                 .asset_source
                                 .send(Change::new(new_asset_source, e));
-                        }
-                        ui.add_space(5.0);
-                        if let Some(new_scale) = InspectScale::new(scale).show(ui) {
-                            self.events
-                                .workcell_change
-                                .scale
-                                .send(Change::new(new_scale, e));
                         }
                         ui.add_space(5.0);
                         match self.events.app_state.current() {
@@ -228,7 +221,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                 self.events
                     .commands
                     .spawn(source.clone())
-                    .insert(Scale::default())
                     .insert(DrawingMarker)
                     .insert(SuppressRecencyRank)
                     .insert(Pending);
