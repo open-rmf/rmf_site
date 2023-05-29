@@ -131,6 +131,19 @@ fn assign_drawing_parent_to_new_measurements_and_fiducials(
     }
 }
 
+fn make_drawing_default_selected(
+    drawings: Query<(Entity, &Visibility), With<DrawingMarker>>,
+    mut selection: ResMut<Selection>,
+) {
+    if selection.is_changed() {
+        if selection.0.is_none() {
+            if let Some(drawing) = drawings.iter().find(|(_, vis)| vis.is_visible == true) {
+                selection.0 = Some(drawing.0);
+            }
+        }
+    }
+}
+
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_system_set(
@@ -145,7 +158,8 @@ impl Plugin for DrawingEditorPlugin {
         )
         .add_system_set(
             SystemSet::on_update(AppState::SiteDrawingEditor)
-                .with_system(assign_drawing_parent_to_new_measurements_and_fiducials),
+                .with_system(assign_drawing_parent_to_new_measurements_and_fiducials)
+                .with_system(make_drawing_default_selected),
         )
         .init_resource::<DrawingEditorHiddenEntities>();
     }

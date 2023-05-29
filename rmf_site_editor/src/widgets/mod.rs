@@ -306,13 +306,6 @@ fn site_drawing_ui_layout(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
-                        // TODO(MXG): Consider combining Nav Graphs and Layers
-                        CollapsingHeader::new("Layers")
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                ViewLayers::new(&layers, &mut events).show(ui);
-                            });
-                        ui.separator();
                         CollapsingHeader::new("Inspect")
                             .default_open(true)
                             .show(ui, |ui| {
@@ -320,7 +313,7 @@ fn site_drawing_ui_layout(
                             });
                         ui.separator();
                         CollapsingHeader::new("Create")
-                            .default_open(false)
+                            .default_open(true)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
                             });
