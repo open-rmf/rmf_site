@@ -22,9 +22,10 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
-    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point,
-    Pose, Side, SiteProperties, Wall, WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    Constraint, ConstraintDependents, Door, DrawingMarker, Edge, Fiducial, Floor, Lane,
+    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
+    NameInWorkcell, Path, PixelsPerMeter, Point, Pose, Side, SiteProperties, Wall,
+    WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
 };
 use std::sync::Arc;
 
@@ -1063,6 +1064,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
+    drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
@@ -1116,6 +1118,14 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         };
         deps.remove(&dependent);
         Ok(())
+    }
+
+    fn get_visible_drawing(&self) -> Option<(Entity, &PixelsPerMeter)> {
+        self.drawings.iter().find(|(e, _)| {
+            self.visibility
+                .get(*e)
+                .map_or(false, |vis| vis.is_visible == true)
+        })
     }
 
     /// Use this when exiting SelectAnchor mode
@@ -1989,14 +1999,37 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
-            if request.scope.is_site() {
-                if let Some(site) = workspace.to_site(&open_sites) {
-                    params.commands.entity(site).add_child(new_anchor);
-                } else {
-                    panic!("No current site??");
+            let new_anchor = match request.scope {
+                Scope::Site => {
+                    if let Some(site) = workspace.to_site(&open_sites) {
+                        let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
+                        params.commands.entity(site).add_child(new_anchor);
+                        new_anchor
+                    } else {
+                        panic!("No current site??");
+                    }
                 }
-            }
+                Scope::Drawing => {
+                    if let Some((parent, ppm)) = params.get_visible_drawing() {
+                        // We also need to have a transform such that the anchor will spawn in the
+                        // right spot
+                        let drawing_tf =
+                            transforms.get(parent).expect("Drawing transform not found");
+                        let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
+                        let ppm = ppm.0;
+                        let new_anchor = params
+                            .commands
+                            .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
+                            .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
+                            .id();
+                        params.commands.entity(parent).add_child(new_anchor);
+                        new_anchor
+                    } else {
+                        panic!("No drawing while spawning drawing anchor");
+                    }
+                }
+                _ => return,
+            };
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
                 Some(next_mode) => next_mode,
