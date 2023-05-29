@@ -228,7 +228,6 @@ fn generate_levels(
                 Option<&Original<Point<Entity>>>,
                 &Label,
                 &SiteID,
-                &Parent,
             ),
             (With<FiducialMarker>, Without<Pending>),
         >,
@@ -250,7 +249,6 @@ fn generate_levels(
                 &Distance,
                 &Label,
                 &SiteID,
-                &Parent,
             ),
             (With<MeasurementMarker>, Without<Pending>),
         >,
@@ -396,7 +394,7 @@ fn generate_levels(
                     if let Ok((anchor, anchor_id, _)) = q_anchors.get(e) {
                         anchors.insert(anchor_id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, distance, label, id, parent)) = q_measurements.get(e) {
+                    if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(e) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         measurements.insert(
@@ -409,7 +407,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((point, o_point, label, id, parent)) = q_fiducials.get(e) {
+                    if let Ok((point, o_point, label, id)) = q_fiducials.get(e) {
                         let point = o_point.map(|x| &x.0).unwrap_or(point);
                         let anchor = Point(get_anchor_id(point.0)?);
                         fiducials.insert(

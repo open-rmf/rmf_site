@@ -2012,7 +2012,6 @@ pub fn handle_select_anchor_mode(
                         .expect("No drawing while spawning drawing anchor");
                     // We also need to have a transform such that the anchor will spawn in the
                     // right spot
-                    let drawing_tf = transforms.get(parent).expect("Drawing transform not found");
                     let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
                     let ppm = ppm.0;
                     let new_anchor = params

@@ -23,7 +23,7 @@ use crate::interaction::{
 use crate::site::{
     Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
 };
-use crate::{AppState, CurrentWorkspace};
+use crate::AppState;
 
 use std::collections::HashSet;
 

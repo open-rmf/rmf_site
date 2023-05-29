@@ -26,7 +26,7 @@ use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
     AssetSource, DrawingBundle, DrawingMarker, Geometry, Model, ModelMarker, Pending,
-    PixelsPerMeter, Pose, RecallAssetSource, Scale, WorkcellModel,
+    RecallAssetSource, Scale, WorkcellModel,
 };
 
 pub struct CreateWidget<'a, 'w, 's> {

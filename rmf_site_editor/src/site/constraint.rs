@@ -19,7 +19,7 @@ use crate::interaction::Selectable;
 use crate::site::*;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
-use rmf_site_format::{Edge, LaneMarker};
+use rmf_site_format::Edge;
 
 // TODO(luca) proper recency ranking, this will break for > 10 drawings
 pub const CONSTRAINT_LAYER_START: f32 =
@@ -50,7 +50,6 @@ pub fn add_constraint_visuals(
     constraints: Query<(Entity, &Edge<Entity>), Added<ConstraintMarker>>,
     anchors: AnchorParams,
     assets: Res<SiteAssets>,
-    global_tfs: Query<&GlobalTransform>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
 ) {
     for (e, edge) in &constraints {
@@ -117,13 +116,13 @@ fn update_constraint_visual(
 
 pub fn update_changed_constraint(
     constraints: Query<
-        (Entity, &Edge<Entity>, &ConstraintSegment),
+        (&Edge<Entity>, &ConstraintSegment),
         (Changed<Edge<Entity>>, With<ConstraintMarker>),
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, edge, segment) in &constraints {
+    for (edge, segment) in &constraints {
         if let Ok(mut tf) = transforms.get_mut(**segment) {
             update_constraint_visual(**segment, edge, &anchors, tf.as_mut());
         }
@@ -131,7 +130,7 @@ pub fn update_changed_constraint(
 }
 
 pub fn update_constraint_for_moved_anchors(
-    constraints: Query<(Entity, &Edge<Entity>, &ConstraintSegment), With<ConstraintMarker>>,
+    constraints: Query<(&Edge<Entity>, &ConstraintSegment), With<ConstraintMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -144,7 +143,7 @@ pub fn update_constraint_for_moved_anchors(
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {
-            if let Some((e, edge, segment)) = constraints.get(*dependent).ok() {
+            if let Some((edge, segment)) = constraints.get(*dependent).ok() {
                 if let Ok(mut tf) = transforms.get_mut(**segment) {
                     update_constraint_visual(**segment, edge, &anchors, tf.as_mut());
                 }

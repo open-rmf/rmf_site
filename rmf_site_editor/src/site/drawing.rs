@@ -19,7 +19,7 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_workspace_path, Anchor, Category, DefaultFile, FiducialMarker, FloorVisibility,
+        get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, FloorVisibility,
         MeasurementMarker, MeasurementSegment, RecencyRank, DEFAULT_MEASUREMENT_OFFSET,
         FLOOR_LAYER_START,
     },
@@ -146,27 +146,27 @@ pub fn handle_loaded_drawing(
 
 pub fn update_drawing_rank(
     changed_rank: Query<
-        (Entity, &DrawingSegments, &RecencyRank<DrawingMarker>),
-        Changed<RecencyRank<DrawingMarker>>,
+        (Entity, &DrawingSegments, &RecencyRank<DrawingMarker>, Option<&Children>),
+        Or<(Changed<RecencyRank<DrawingMarker>>, Changed<Children>)>,
     >,
     measurements: Query<&MeasurementSegment>,
     children: Query<&Children>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, segments, rank) in &changed_rank {
+    for (e, segments, rank, children) in &changed_rank {
+        let z = drawing_layer_height(Some(rank));
         if let Ok(mut tf) = transforms.get_mut(segments.leaf) {
-            let z = drawing_layer_height(Some(rank));
             tf.translation.z = z;
-            if let Ok(children) = children.get(e) {
-                for child in children {
-                    // TODO(luca) consider adding fiducials, for now they have a thickness hence
-                    // are always visible
-                    if let Ok(segment) = measurements.get(*child) {
-                        transforms
-                            .get_mut(**segment)
-                            .map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET)
-                            .ok();
-                    }
+        }
+        if let Some(children) = children {
+            for child in children {
+                // TODO(luca) consider adding fiducials, for now they have a thickness hence
+                // are always visible
+                if let Ok(segment) = measurements.get(*child) {
+                    transforms
+                        .get_mut(**segment)
+                        .map(|mut tf| tf.translation.z = z + DEFAULT_MEASUREMENT_OFFSET)
+                        .ok();
                 }
             }
         }
@@ -183,11 +183,11 @@ pub fn update_drawing_pixels_per_meter(
 
 pub fn update_drawing_children_to_pixel_coordinates(
     mut commands: Commands,
-    changed_drawings: Query<(Entity, &PixelsPerMeter, &Children), Changed<PixelsPerMeter>>,
+    changed_drawings: Query<(&PixelsPerMeter, &Children), Changed<PixelsPerMeter>>,
     meshes: Query<Entity, Or<(With<FiducialMarker>, With<Anchor>, With<MeasurementMarker>)>>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, pixels_per_meter, children) in changed_drawings.iter() {
+    for (pixels_per_meter, children) in changed_drawings.iter() {
         for child in children {
             if meshes.get(*child).is_ok() {
                 if let Ok(mut tf) = transforms.get_mut(*child) {

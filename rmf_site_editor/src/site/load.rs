@@ -89,7 +89,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                         }
 
                         for (drawing_id, drawing) in &level_data.drawings {
-                            let drawing_entity = level
+                            level
                                 .spawn(DrawingBundle {
                                     name: drawing.name.clone(),
                                     source: drawing.source.clone(),
@@ -122,8 +122,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                             .insert(SiteID(*measurement_id));
                                         consider_id(*measurement_id);
                                     }
-                                })
-                                .id();
+                                });
                             consider_id(*drawing_id);
                         }
 
