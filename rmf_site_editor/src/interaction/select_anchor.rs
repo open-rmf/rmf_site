@@ -2022,7 +2022,7 @@ pub fn handle_select_anchor_mode(
                     params.commands.entity(parent).add_child(new_anchor);
                     new_anchor
                 }
-                _ => return,
+                Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
             };
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
