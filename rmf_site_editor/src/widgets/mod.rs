@@ -200,6 +200,7 @@ pub struct AppEvents<'w, 's> {
         Query<'w, 's, (Entity, &'static AssetSource), (With<Pending>, With<DrawingMarker>)>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
     pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
+    pub distance: EventWriter<'w, 's, Change<Distance>>,
 }
 
 fn site_ui_layout(

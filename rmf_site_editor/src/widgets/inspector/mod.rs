@@ -107,11 +107,11 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
+    pub drawing: InspectDrawingParams<'w, 's>,
     // TODO(luca) move to new systemparam, reached 16 limit on main one
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
-    pub is_primary: Query<'w, 's, &'static IsPrimary>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -145,6 +145,12 @@ pub struct InspectorComponentParams<'w, 's> {
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
+}
+
+#[derive(SystemParam)]
+pub struct InspectDrawingParams<'w, 's> {
+    pub is_primary: Query<'w, 's, &'static IsPrimary>,
+    pub distance: Query<'w, 's, &'static Distance>,
 }
 
 #[derive(SystemParam)]
@@ -385,11 +391,28 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(is_primary) = self.params.is_primary.get(selection) {
+            if let Ok(is_primary) = self.params.drawing.is_primary.get(selection) {
                 if let Some(new_is_primary) = InspectIsPrimary::new(is_primary).show(ui) {
                     self.events
                         .is_primary
                         .send(Change::new(new_is_primary, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(distance) = self.params.drawing.distance.get(selection) {
+                if let Some(new_distance) =
+                    InspectOptionF32::new("Distance".to_string(), distance.0, 10.0)
+                        .clamp_range(0.0..=10000.0)
+                        .min_decimals(2)
+                        .max_decimals(2)
+                        .speed(0.01)
+                        .suffix(" m".to_string())
+                        .show(ui)
+                {
+                    self.events
+                        .distance
+                        .send(Change::new(Distance(new_distance), selection));
                 }
                 ui.add_space(10.0);
             }

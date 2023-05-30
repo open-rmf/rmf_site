@@ -170,6 +170,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<Scale>::default())
             .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
+            .add_plugin(ChangePlugin::<Distance>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
@@ -209,7 +210,6 @@ impl Plugin for SitePlugin {
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
-                    .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -285,6 +285,7 @@ impl Plugin for SitePlugin {
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
                     .with_system(update_drawing_pixels_per_meter)
+                    .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)
