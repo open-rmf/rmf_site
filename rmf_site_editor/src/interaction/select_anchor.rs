@@ -1177,7 +1177,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Constraint<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::Drawing,
+            scope: Scope::General,
         }
     }
 
