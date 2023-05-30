@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::Selectable,
-    site::*,
-};
+use crate::{interaction::Selectable, site::*};
 use bevy::prelude::*;
 use rmf_site_format::{Edge, MeasurementMarker};
 
@@ -43,7 +40,12 @@ pub fn add_measurement_visuals(
                     &anchors
                         .point_in_parent_frame_of(edge.end(), Category::Measurement, e)
                         .unwrap(),
-                    site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default().default_lane_width,
+                    site_properties
+                        .get_single()
+                        .unwrap_or(&Default::default())
+                        .preferences
+                        .unwrap_or_default()
+                        .default_lane_width,
                 ),
                 ..default()
             })
@@ -72,7 +74,16 @@ fn update_measurement_visual(
     let end_anchor = anchors
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
-    *transform = line_stroke_transform(&start_anchor, &end_anchor, site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default().default_lane_width);
+    *transform = line_stroke_transform(
+        &start_anchor,
+        &end_anchor,
+        site_properties
+            .get_single()
+            .unwrap_or(&Default::default())
+            .preferences
+            .unwrap_or_default()
+            .default_lane_width,
+    );
 }
 
 pub fn update_changed_measurement(

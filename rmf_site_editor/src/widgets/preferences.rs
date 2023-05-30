@@ -3,7 +3,7 @@ use bevy_egui::{
     egui::{self, DragValue, Slider},
     EguiContext,
 };
-use rmf_site_format::{AnchorParams, AssociatedGraphs, Edge, SiteProperties, Preferences};
+use rmf_site_format::{AnchorParams, AssociatedGraphs, Edge, Preferences, SiteProperties};
 
 use crate::site::{should_display_lane, update_lane_visuals, LaneEnds, LaneSegments, SiteAssets};
 pub struct PreferenceEvent;
@@ -34,9 +34,9 @@ fn draw_preference_ui(
     }
 
     let mut properties = site_properties.get_single_mut();
-    
+
     if let Ok(props) = properties.as_mut() {
-        // If SiteProperties doesn't exist it is probably because it has not loaded 
+        // If SiteProperties doesn't exist it is probably because it has not loaded
         if props.preferences.is_none() {
             props.preferences = Some(Default::default());
             println!("Setting default value");
@@ -57,9 +57,7 @@ fn draw_preference_ui(
                 }
             });
         }
-        
     }
-
 }
 
 fn redraw_lanes(
@@ -71,7 +69,11 @@ fn redraw_lanes(
     lane_ends: Query<Entity, With<LaneEnds>>,
 ) {
     // TODO(arjo): Refactor so no panics
-    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+    let preferences = site_properties
+        .get_single()
+        .unwrap_or(&Default::default())
+        .preferences
+        .unwrap_or_default();
 
     if redraw_lanes.len() == 0 {
         return;

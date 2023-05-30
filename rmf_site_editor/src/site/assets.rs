@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    shapes::*,
-    site::*,
-};
+use crate::{shapes::*, site::*};
 use bevy::{math::Affine3A, prelude::*};
 
 #[derive(Resource)]

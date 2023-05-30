@@ -95,7 +95,11 @@ pub fn add_lane_visuals(
     site_properties: Query<&SiteProperties>,
 ) {
     // TODO(arjo): Refactor so no panics
-    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+    let preferences = site_properties
+        .get_single()
+        .unwrap_or(&Default::default())
+        .preferences
+        .unwrap_or_default();
 
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
@@ -261,7 +265,11 @@ pub fn update_changed_lane(
     current_level: Res<CurrentLevel>,
     site_properties: Query<&SiteProperties>,
 ) {
-    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+    let preferences = site_properties
+        .get_single()
+        .unwrap_or(&Default::default())
+        .preferences
+        .unwrap_or_default();
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &preferences, &mut transforms);
 
@@ -286,7 +294,11 @@ pub fn update_lane_for_moved_anchor(
     mut transforms: Query<&mut Transform>,
     site_properties: Query<&SiteProperties>,
 ) {
-    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+    let preferences = site_properties
+        .get_single()
+        .unwrap_or(&Default::default())
+        .preferences
+        .unwrap_or_default();
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, edge, segments)) = lanes.get(*dependent) {

@@ -297,10 +297,7 @@ fn site_ui_layout(
                 }
             });
             ui.menu_button("Edit", |ui| {
-                if ui
-                    .add(Button::new("Preferences..."))
-                    .clicked()
-                {
+                if ui.add(Button::new("Preferences...")).clicked() {
                     events.edit_events.preference.send(PreferenceEvent)
                 }
             });
