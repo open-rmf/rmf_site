@@ -23,7 +23,8 @@ use rmf_site_format::{Edge, MeasurementMarker};
 // Used as an offset relative to its parent drawing (given by ranking)
 pub const DEFAULT_MEASUREMENT_OFFSET: f32 = (FLOOR_LAYER_START - DRAWING_LAYER_START) / 100.0;
 // Used as a default when spawning, at the top of the drawing layer
-pub const DEFAULT_MEASUREMENT_HEIGHT: f32 = FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 100.0;
+pub const DEFAULT_MEASUREMENT_HEIGHT: f32 =
+    FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 100.0;
 
 /// Stores which (child) entity contains the measurement mesh
 #[derive(Component, Debug, Clone, Deref, DerefMut)]

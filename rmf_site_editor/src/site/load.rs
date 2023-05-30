@@ -156,6 +156,15 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 .insert(SiteID(*wall_id));
                             consider_id(*wall_id);
                         }
+
+                        for (constraint_id, constraint_data) in &level_data.constraints {
+                            let constraint = level
+                                .spawn(constraint_data.to_ecs(&id_to_entity))
+                                .insert(SiteID(*constraint_id))
+                                .id();
+                            id_to_entity.insert(*constraint_id, constraint);
+                            consider_id(*constraint_id);
+                        }
                     });
 
                 // TODO(MXG): Log when a RecencyRanking fails to load correctly.

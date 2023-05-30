@@ -30,16 +30,19 @@ const CONSTRAINT_WIDTH: f32 = 0.2 * LANE_WIDTH;
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct ConstraintSegment(pub Entity);
 
-// TODO(luca) Figure out whether all constraints in site are OK or if we should have some in levels
-// instead
+// Constraints have to be assigned to levels if both their anchors are on the same level, otherwise
+// to the site
+// TODO*luca) Implement logic above
 pub fn assign_orphan_constraints_to_site(
     mut commands: Commands,
-    elements: Query<Entity, (Without<Parent>, With<ConstraintMarker>)>,
+    constraints: Query<(Entity, &Edge<Entity>), (Without<Parent>, With<ConstraintMarker>)>,
     current_workspace: Res<CurrentWorkspace>,
+    parents: Query<&Parent>,
+    levels: Query<Entity, With<LevelProperties>>,
     open_sites: Query<Entity, With<SiteProperties>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
-        for e in &elements {
+        for (e, edge) in &constraints {
             commands.entity(current_site).add_child(e);
         }
     }

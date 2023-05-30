@@ -27,6 +27,9 @@ pub use asset_source::*;
 pub mod category;
 pub use category::*;
 
+pub mod constraint;
+pub use constraint::*;
+
 pub mod dock;
 pub use dock::*;
 

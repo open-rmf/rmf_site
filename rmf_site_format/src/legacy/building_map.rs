@@ -144,7 +144,7 @@ impl BuildingMap {
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
-        let mut constraints = BTreeMap::new();
+        let mut site_constraints = BTreeMap::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
@@ -302,6 +302,7 @@ impl BuildingMap {
                 rankings.drawings.insert(0, id);
             }
 
+            let mut level_constraints = BTreeMap::new();
             for (name, layer) in &level.layers {
                 // TODO(luca) coordinates in site and traffic editor might be different, use
                 // optimization engine instead of parsing
@@ -359,7 +360,7 @@ impl BuildingMap {
                 if let Some(id_0) = feature_id_to_anchor_id.get(&constraint.ids[0]) {
                     if let Some(id_1) = feature_id_to_anchor_id.get(&constraint.ids[1]) {
                         let id = site_id.next().unwrap();
-                        constraints.insert(
+                        level_constraints.insert(
                             id,
                             SiteConstraint {
                                 edge: [*id_0, *id_1].into(),
@@ -411,6 +412,7 @@ impl BuildingMap {
                         elevation,
                     },
                     anchors,
+                    constraints: level_constraints,
                     doors,
                     drawings,
                     floors,
@@ -515,7 +517,7 @@ impl BuildingMap {
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
-            constraints,
+            constraints: site_constraints,
             properties: SiteProperties {
                 name: self.name.clone(),
             },

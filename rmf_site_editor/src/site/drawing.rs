@@ -146,7 +146,12 @@ pub fn handle_loaded_drawing(
 
 pub fn update_drawing_rank(
     changed_rank: Query<
-        (Entity, &DrawingSegments, &RecencyRank<DrawingMarker>, Option<&Children>),
+        (
+            Entity,
+            &DrawingSegments,
+            &RecencyRank<DrawingMarker>,
+            Option<&Children>,
+        ),
         Or<(Changed<RecencyRank<DrawingMarker>>, Changed<Children>)>,
     >,
     measurements: Query<&MeasurementSegment>,
