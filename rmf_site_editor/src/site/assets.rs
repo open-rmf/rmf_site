@@ -18,7 +18,6 @@
 use crate::{
     shapes::*,
     site::*,
-    widgets::preferences::{self, PreferencePanel, PreferenceParameters},
 };
 use bevy::{math::Affine3A, prelude::*};
 
@@ -59,10 +58,7 @@ pub struct SiteAssets {
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let preferences = world
-            .get_resource::<PreferenceParameters>()
-            .unwrap_or(&PreferenceParameters::default())
-            .clone();
+        let preferences = Preferences::default();
         let wall_texture = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/default.png".to_string(),
         )));

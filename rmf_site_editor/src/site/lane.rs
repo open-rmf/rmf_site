@@ -16,8 +16,6 @@
 */
 
 use crate::site::*;
-use crate::widgets::preferences;
-use crate::widgets::preferences::PreferenceParameters;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
@@ -94,8 +92,11 @@ pub fn add_lane_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
-    preferences: Res<PreferenceParameters>,
+    site_properties: Query<&SiteProperties>,
 ) {
+    // TODO(arjo): Refactor so no panics
+    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
@@ -220,7 +221,7 @@ pub fn update_lane_visuals(
     edge: &Edge<Entity>,
     segments: &LaneSegments,
     anchors: &AnchorParams,
-    preferences: &Res<PreferenceParameters>,
+    preferences: &Preferences,
     transforms: &mut Query<&mut Transform>,
 ) {
     let start_anchor = anchors
@@ -258,8 +259,9 @@ pub fn update_changed_lane(
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
     current_level: Res<CurrentLevel>,
-    preferences: Res<PreferenceParameters>,
+    site_properties: Query<&SiteProperties>,
 ) {
+    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &preferences, &mut transforms);
 
@@ -282,8 +284,9 @@ pub fn update_lane_for_moved_anchor(
         ),
     >,
     mut transforms: Query<&mut Transform>,
-    preferences: Res<PreferenceParameters>,
+    site_properties: Query<&SiteProperties>,
 ) {
+    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, edge, segments)) = lanes.get(*dependent) {

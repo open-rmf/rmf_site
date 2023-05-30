@@ -3,35 +3,10 @@ use bevy_egui::{
     egui::{self, DragValue, Slider},
     EguiContext,
 };
-use rmf_site_format::{AnchorParams, AssociatedGraphs, Edge};
+use rmf_site_format::{AnchorParams, AssociatedGraphs, Edge, SiteProperties, Preferences};
 
 use crate::site::{should_display_lane, update_lane_visuals, LaneEnds, LaneSegments, SiteAssets};
 pub struct PreferenceEvent;
-
-const LANE_DEFAULT_SIZE: f32 = 0.5;
-
-#[derive(Debug, Clone, Resource)]
-pub struct PreferenceParameters {
-    pub default_lane_width: f32,
-    /// TODO(arjo): scale anchors as well.
-    pub default_anchor_size: f32,
-}
-
-impl PreferenceParameters {
-    pub fn scale_lane_ends_by(&self) -> f32 {
-        self.default_lane_width / LANE_DEFAULT_SIZE
-    }
-}
-
-impl Default for PreferenceParameters {
-    fn default() -> Self {
-        Self {
-            default_lane_width: LANE_DEFAULT_SIZE,
-            default_anchor_size: 0.25,
-        }
-    }
-}
-
 #[derive(Debug, Clone, Resource, Default)]
 pub struct PreferencePanel {
     enable: bool,
@@ -50,7 +25,7 @@ struct RedrawLanes;
 
 fn draw_preference_ui(
     mut panel: ResMut<PreferencePanel>,
-    mut preference_paramters: ResMut<PreferenceParameters>,
+    mut site_properties: Query<&mut SiteProperties>,
     mut egui_context: ResMut<EguiContext>,
     mut redraw_lanes: EventWriter<RedrawLanes>,
 ) {
@@ -58,32 +33,46 @@ fn draw_preference_ui(
         return;
     }
 
-    egui::Window::new("Preferences").show(egui_context.ctx_mut(), |ui| {
-        ui.horizontal(|ui| {
-            ui.label("Default Lane Width: ");
-            let lane_width_entry = DragValue::new(&mut preference_paramters.default_lane_width)
-                .clamp_range(0.0..=10000.0);
-            if ui.add(lane_width_entry).changed() {
-                redraw_lanes.send(RedrawLanes);
-            }
-        });
-        if ui.button("Done").clicked() {
-            panel.enable = false;
-            redraw_lanes.send(RedrawLanes);
+    let mut properties = site_properties.get_single_mut();
+    
+    if let Ok(props) = properties.as_mut() {
+        // If SiteProperties doesn't exist it is probably because it has not loaded 
+        if props.preferences.is_none() {
+            props.preferences = Some(Default::default());
+            println!("Setting default value");
         }
-    });
+
+        if let Some(preferences) = props.preferences.as_mut() {
+            egui::Window::new("Preferences").show(egui_context.ctx_mut(), |ui| {
+                ui.horizontal(|ui| {
+                    ui.label("Default Lane Width: ");
+                    let lane_width_entry = DragValue::new(&mut preferences.default_lane_width)
+                        .clamp_range(0.0..=10000.0);
+                    if ui.add(lane_width_entry).changed() {
+                        redraw_lanes.send(RedrawLanes);
+                    }
+                });
+                if ui.button("Close").clicked() {
+                    panel.enable = false;
+                }
+            });
+        }
+        
+    }
+
 }
 
 fn redraw_lanes(
     redraw_lanes: EventReader<RedrawLanes>,
     mut lanes: Query<(Entity, &Edge<Entity>, &LaneSegments)>,
-    preferences: Res<PreferenceParameters>,
-    mut assets: ResMut<SiteAssets>,
-    mut meshes: ResMut<Assets<Mesh>>,
+    site_properties: Query<&SiteProperties>,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
     lane_ends: Query<Entity, With<LaneEnds>>,
 ) {
+    // TODO(arjo): Refactor so no panics
+    let preferences = site_properties.get_single().unwrap_or(&Default::default()).preferences.unwrap_or_default();
+
     if redraw_lanes.len() == 0 {
         return;
     }
@@ -95,8 +84,8 @@ fn redraw_lanes(
     for entity in &lane_ends {
         let mut transform = transforms.get_mut(entity);
         if let Ok(mut transform) = transform {
-            transform.scale.x = preferences.default_lane_width / LANE_DEFAULT_SIZE;
-            transform.scale.y = preferences.default_lane_width / LANE_DEFAULT_SIZE;
+            transform.scale.x = preferences.scale_lane_ends_by();
+            transform.scale.y = preferences.scale_lane_ends_by();
         }
     }
 }
@@ -108,7 +97,6 @@ impl Plugin for PreferencePlugin {
         app.add_event::<PreferenceEvent>()
             .add_event::<RedrawLanes>()
             .init_resource::<PreferencePanel>()
-            .init_resource::<PreferenceParameters>()
             .add_system_to_stage(CoreStage::Update, enable_preference_ui)
             .add_system_to_stage(CoreStage::PostUpdate, draw_preference_ui.label("ui"))
             .add_system_to_stage(CoreStage::PostUpdate, redraw_lanes.after("ui"));

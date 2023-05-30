@@ -106,6 +106,6 @@ mod is_default;
 pub(crate) use is_default::*;
 
 pub const CURRENT_MAJOR_VERSION: u32 = 0;
-pub const CURRENT_MINOR_VERSION: u32 = 1;
+pub const CURRENT_MINOR_VERSION: u32 = 2;
 
 pub mod legacy;

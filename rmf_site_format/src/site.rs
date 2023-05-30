@@ -23,16 +23,42 @@ use std::{collections::BTreeMap, io};
 
 pub use ron::ser::PrettyConfig as Style;
 
+const LANE_DEFAULT_SIZE: f32 = 0.5;
+
+#[derive(Serialize, Deserialize, Debug, Clone, Copy)]
+pub struct Preferences {
+    pub default_lane_width: f32
+}
+
+impl Default for Preferences {
+
+    fn default() -> Self {
+        Self {
+            default_lane_width: LANE_DEFAULT_SIZE
+        }
+    }
+}
+
+impl Preferences {
+    pub fn scale_lane_ends_by(&self) -> f32 {
+        self.default_lane_width / LANE_DEFAULT_SIZE
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct SiteProperties {
     pub name: String,
+
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub preferences: Option<Preferences>
 }
 
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
             name: "new_site".to_string(),
+            preferences: None
         }
     }
 }

@@ -7,6 +7,7 @@ use crate::{
     Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane,
     Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
+use bevy::prelude::default;
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap};
@@ -380,6 +381,7 @@ impl BuildingMap {
             anchors: site_anchors,
             properties: SiteProperties {
                 name: self.name.clone(),
+                ..default()
             },
             levels,
             lifts,
