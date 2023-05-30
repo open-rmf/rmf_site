@@ -27,14 +27,14 @@ const LANE_DEFAULT_SIZE: f32 = 0.5;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 pub struct Preferences {
-    pub default_lane_width: f32
+    pub default_lane_width: f32,
 }
 
 impl Default for Preferences {
 
     fn default() -> Self {
         Self {
-            default_lane_width: LANE_DEFAULT_SIZE
+            default_lane_width: LANE_DEFAULT_SIZE,
         }
     }
 }
@@ -51,14 +51,14 @@ pub struct SiteProperties {
     pub name: String,
 
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub preferences: Option<Preferences>
+    pub preferences: Option<Preferences>,
 }
 
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
             name: "new_site".to_string(),
-            preferences: None
+            preferences: None,
         }
     }
 }
