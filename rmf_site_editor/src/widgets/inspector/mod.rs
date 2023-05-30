@@ -89,7 +89,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
+    site::{Category, Change, EdgeLabels, FloorVisibility, Original, ScaleDrawing, SiteID},
     widgets::AppEvents,
     AppState,
 };
@@ -430,8 +430,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(PixelsPerMeter(new_ppm), selection));
                 }
                 ui.add_space(10.0);
-                if ui.add(Button::new("Drawing editor")).clicked() {
-                    self.events.app_state.set(AppState::SiteDrawingEditor).ok();
+                match self.events.app_state.current() {
+                    AppState::SiteEditor => {
+                        if ui.add(Button::new("Drawing editor")).clicked() {
+                            self.events.app_state.set(AppState::SiteDrawingEditor).ok();
+                        }
+                    }
+                    AppState::SiteDrawingEditor => {
+                        if ui.add(Button::new("Scale drawing")).clicked() {
+                            self.events.scale_drawing.send(ScaleDrawing(selection));
+                        }
+                    }
+                    _ => {}
                 }
             }
 

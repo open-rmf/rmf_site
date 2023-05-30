@@ -24,8 +24,8 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
+        SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -201,6 +201,7 @@ pub struct AppEvents<'w, 's> {
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
     pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
+    pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
 }
 
 fn site_ui_layout(
@@ -319,9 +320,6 @@ fn site_drawing_ui_layout(
                                 CreateWidget::new(&mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Optimize")).clicked() {
-                            println!("Entering drawing editor");
-                        }
                         if ui.add(Button::new("Return to site editor")).clicked() {
                             events.app_state.set(AppState::SiteEditor).ok();
                         }

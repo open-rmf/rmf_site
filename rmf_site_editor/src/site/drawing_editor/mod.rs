@@ -17,6 +17,9 @@
 
 use bevy::prelude::*;
 
+mod optimizer;
+use optimizer::*;
+
 use crate::interaction::{
     CameraControls, HeadlightToggle, Selection, VisibilityCategoriesSettings,
 };
@@ -32,6 +35,9 @@ pub struct DrawingEditorPlugin;
 
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct DrawingEditorHiddenEntities(HashSet<Entity>);
+
+#[derive(Deref, DerefMut)]
+pub struct ScaleDrawing(pub Entity);
 
 fn hide_level_entities(
     mut visibilities: Query<&mut Visibility>,
@@ -146,21 +152,23 @@ fn make_drawing_default_selected(
 
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_enter(AppState::SiteDrawingEditor)
-                .with_system(hide_level_entities)
-                .with_system(hide_non_drawing_entities),
-        )
-        .add_system_set(
-            SystemSet::on_exit(AppState::SiteDrawingEditor)
-                .with_system(restore_level_entities)
-                .with_system(restore_non_drawing_entities),
-        )
-        .add_system_set(
-            SystemSet::on_update(AppState::SiteDrawingEditor)
-                .with_system(assign_drawing_parent_to_new_measurements_and_fiducials)
-                .with_system(make_drawing_default_selected),
-        )
-        .init_resource::<DrawingEditorHiddenEntities>();
+        app.add_event::<ScaleDrawing>()
+            .add_system_set(
+                SystemSet::on_enter(AppState::SiteDrawingEditor)
+                    .with_system(hide_level_entities)
+                    .with_system(hide_non_drawing_entities),
+            )
+            .add_system_set(
+                SystemSet::on_exit(AppState::SiteDrawingEditor)
+                    .with_system(restore_level_entities)
+                    .with_system(restore_non_drawing_entities),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteDrawingEditor)
+                    .with_system(assign_drawing_parent_to_new_measurements_and_fiducials)
+                    .with_system(scale_drawings)
+                    .with_system(make_drawing_default_selected),
+            )
+            .init_resource::<DrawingEditorHiddenEntities>();
     }
 }
