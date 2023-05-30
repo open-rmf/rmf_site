@@ -31,7 +31,6 @@ pub struct Preferences {
 }
 
 impl Default for Preferences {
-
     fn default() -> Self {
         Self {
             default_lane_width: LANE_DEFAULT_SIZE,
