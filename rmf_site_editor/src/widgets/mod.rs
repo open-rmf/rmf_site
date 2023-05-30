@@ -17,8 +17,8 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
-        VisibilityCategoriesSettings,
+        CategoryVisibility, ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
+        SetCategoryVisibility, SpawnPreview,
     },
     occupancy::CalculateGrid,
     recency::ChangeRank,
@@ -176,6 +176,43 @@ pub struct LayerEvents<'w, 's> {
     pub global_floor_vis: ResMut<'w, FloorVisibility>,
 }
 
+#[derive(SystemParam)]
+pub struct VisibilityEvents<'w, 's> {
+    pub doors: EventWriter<'w, 's, SetCategoryVisibility<DoorMarker>>,
+    pub floors: EventWriter<'w, 's, SetCategoryVisibility<FloorMarker>>,
+    pub lanes: EventWriter<'w, 's, SetCategoryVisibility<LaneMarker>>,
+    pub lift_cabins: EventWriter<'w, 's, SetCategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: EventWriter<'w, 's, SetCategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
+    pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
+    pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
+    pub models: EventWriter<'w, 's, SetCategoryVisibility<ModelMarker>>,
+    pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
+    pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
+}
+
+#[derive(SystemParam)]
+pub struct VisibilityResources<'w, 's> {
+    pub doors: Res<'w, CategoryVisibility<DoorMarker>>,
+    pub floors: Res<'w, CategoryVisibility<FloorMarker>>,
+    pub lanes: Res<'w, CategoryVisibility<LaneMarker>>,
+    pub lift_cabins: Res<'w, CategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: Res<'w, CategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: Res<'w, CategoryVisibility<LocationTags>>,
+    pub fiducials: Res<'w, CategoryVisibility<FiducialMarker>>,
+    pub constraints: Res<'w, CategoryVisibility<ConstraintMarker>>,
+    pub models: Res<'w, CategoryVisibility<ModelMarker>>,
+    pub measurements: Res<'w, CategoryVisibility<MeasurementMarker>>,
+    pub walls: Res<'w, CategoryVisibility<WallMarker>>,
+    _ignore: Query<'w, 's, ()>,
+}
+
+#[derive(SystemParam)]
+pub struct VisibilityParameters<'w, 's> {
+    events: VisibilityEvents<'w, 's>,
+    resources: VisibilityResources<'w, 's>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -190,6 +227,7 @@ pub struct AppEvents<'w, 's> {
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
+    pub visibility_parameters: VisibilityParameters<'w, 's>,
     pub pending_models: Query<
         'w,
         's,
@@ -213,7 +251,6 @@ fn site_ui_layout(
     lights: LightParams,
     nav_graphs: NavGraphParams,
     layers: LayersParams,
-    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -272,7 +309,7 @@ fn site_ui_layout(
     top_menu_bar(
         &mut egui_context,
         &mut events.file_events,
-        &mut category_settings,
+        &mut events.visibility_parameters,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -298,7 +335,6 @@ fn site_drawing_ui_layout(
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     layers: LayersParams,
-    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -330,7 +366,7 @@ fn site_drawing_ui_layout(
     top_menu_bar(
         &mut egui_context,
         &mut events.file_events,
-        &mut category_settings,
+        &mut events.visibility_parameters,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -355,7 +391,6 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    mut category_settings: ResMut<VisibilityCategoriesSettings>,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -384,7 +419,7 @@ fn workcell_ui_layout(
     top_menu_bar(
         &mut egui_context,
         &mut events.file_events,
-        &mut category_settings,
+        &mut events.visibility_parameters,
     );
 
     let egui_context = egui_context.ctx_mut();

@@ -15,7 +15,11 @@
  *
 */
 
-use crate::site::{update_anchor_transforms, SiteUpdateStage};
+use crate::site::{
+    update_anchor_transforms, ConstraintMarker, DoorMarker, FiducialMarker, FloorMarker,
+    LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, ModelMarker,
+    SiteUpdateStage, WallMarker,
+};
 
 pub mod anchor;
 pub use anchor::*;
@@ -130,8 +134,6 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
-            .init_resource::<VisibilityCategoriesSettings>()
-            .init_resource::<RecallVisibilityCategoriesSettings>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -141,6 +143,18 @@ impl Plugin for InteractionPlugin {
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
+            .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<LaneMarker>::default())
+            // TODO(luca) unify the two Lift plugins into a single one?
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabin<Entity>>::default())
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabinDoorMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<LocationTags>::default())
+            .add_plugin(CategoryVisibilityPlugin::<FiducialMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<ConstraintMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<ModelMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<WallMarker>::default())
             .add_plugin(CameraControlsPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
@@ -149,7 +163,6 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_cursor_transform)
                     .with_system(update_picking_cam)
                     .with_system(update_physical_light_visual_cues)
-                    .with_system(update_entity_category_visibilities)
                     .with_system(make_selectable_entities_pickable)
                     .with_system(handle_selection_picking)
                     .with_system(maintain_hovered_entities.after(handle_selection_picking))

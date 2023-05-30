@@ -20,13 +20,11 @@ use bevy::prelude::*;
 mod optimizer;
 use optimizer::*;
 
-use crate::interaction::{
-    CameraControls, HeadlightToggle, Selection, VisibilityCategoriesSettings,
-};
+use crate::interaction::{CameraControls, HeadlightToggle, Selection};
 use crate::site::{
     Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
 };
-use crate::AppState;
+use crate::{AppState, VisibilityEvents};
 
 use std::collections::HashSet;
 
@@ -44,17 +42,18 @@ fn hide_level_entities(
     mut camera_controls: ResMut<CameraControls>,
     mut cameras: Query<&mut Camera>,
     headlight_toggle: Res<HeadlightToggle>,
-    mut category_settings: ResMut<VisibilityCategoriesSettings>,
+    mut visibility_events: VisibilityEvents,
 ) {
     camera_controls.use_orthographic(true, &mut cameras, &mut visibilities, headlight_toggle.0);
-    category_settings.0.constraints = false;
-    category_settings.0.doors = false;
-    category_settings.0.lanes = false;
-    category_settings.0.lifts = false;
-    category_settings.0.locations = false;
-    category_settings.0.floors = false;
-    category_settings.0.models = false;
-    category_settings.0.walls = false;
+    visibility_events.constraints.send(false.into());
+    visibility_events.doors.send(false.into());
+    visibility_events.lanes.send(false.into());
+    visibility_events.lift_cabins.send(false.into());
+    visibility_events.lift_cabin_doors.send(false.into());
+    visibility_events.locations.send(false.into());
+    visibility_events.floors.send(false.into());
+    visibility_events.models.send(false.into());
+    visibility_events.walls.send(false.into());
 }
 
 fn hide_non_drawing_entities(
@@ -101,10 +100,18 @@ fn restore_level_entities(
     mut camera_controls: ResMut<CameraControls>,
     mut cameras: Query<&mut Camera>,
     headlight_toggle: Res<HeadlightToggle>,
-    mut category_settings: ResMut<VisibilityCategoriesSettings>,
+    mut visibility_events: VisibilityEvents,
 ) {
     camera_controls.use_perspective(true, &mut cameras, &mut visibilities, headlight_toggle.0);
-    *category_settings = VisibilityCategoriesSettings::default();
+    visibility_events.constraints.send(true.into());
+    visibility_events.doors.send(true.into());
+    visibility_events.lanes.send(true.into());
+    visibility_events.lift_cabins.send(true.into());
+    visibility_events.lift_cabin_doors.send(true.into());
+    visibility_events.locations.send(true.into());
+    visibility_events.floors.send(true.into());
+    visibility_events.models.send(true.into());
+    visibility_events.walls.send(true.into());
 }
 
 fn assign_drawing_parent_to_new_measurements_and_fiducials(
