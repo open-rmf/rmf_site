@@ -18,7 +18,7 @@
 use crate::{
     interaction::Hover,
     recency::ChangeRank,
-    site::{Change, Cycle, FloorVisibility, SiteID},
+    site::{Change, Cycle, LayerVisibility, SiteID},
     widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
 };
 use bevy::prelude::*;
@@ -27,9 +27,10 @@ use bevy_egui::egui::{ImageButton, Ui};
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
     pub icons: &'a Icons,
-    /// Outer Option: Is this a floor?
-    /// Inner Option: Does the floor have a custom visibility setting?
-    pub floor_vis: Option<Option<FloorVisibility>>,
+    /// Does the floor have a custom visibility setting?
+    pub layer_vis: Option<LayerVisibility>,
+    // TODO(luca) make this an enum
+    pub is_floor: bool,
     /// Outer Option: Can this be selected?
     /// Inner Option: Does this have a SiteID?
     pub site_id: Option<Option<SiteID>>,
@@ -37,54 +38,53 @@ pub struct InspectLayer<'a, 'w, 's> {
 }
 
 impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
-    pub fn new(entity: Entity, icons: &'a Icons, events: &'a mut AppEvents<'w, 's>) -> Self {
+    pub fn new(
+        entity: Entity,
+        icons: &'a Icons,
+        events: &'a mut AppEvents<'w, 's>,
+        layer_vis: Option<LayerVisibility>,
+        is_floor: bool,
+    ) -> Self {
         Self {
             entity,
             icons,
             events,
-            floor_vis: None,
+            layer_vis,
+            is_floor,
             site_id: None,
         }
     }
-
     pub fn with_selecting(mut self, site_id: Option<SiteID>) -> Self {
         self.site_id = Some(site_id);
         self
     }
 
-    pub fn as_floor(mut self, floor_vis: Option<FloorVisibility>) -> Self {
-        self.floor_vis = Some(floor_vis);
-        self
-    }
-
     pub fn show(self, ui: &mut Ui) {
-        if let Some(vis) = self.floor_vis {
-            let icon = self.icons.floor_visibility_of(vis);
-            let resp = ui
-                .add(ImageButton::new(icon, [18., 18.]))
-                .on_hover_text(format!("Change to {}", vis.next().label()));
-            if resp.hovered() {
-                self.events.request.hover.send(Hover(Some(self.entity)));
-            }
-            if resp.clicked() {
-                match vis.next() {
-                    Some(v) => {
-                        self.events
-                            .layers
-                            .change_floor_vis
-                            .send(Change::new(v, self.entity).or_insert());
-                    }
-                    None => {
-                        self.events
-                            .commands
-                            .entity(self.entity)
-                            .remove::<FloorVisibility>();
-                    }
+        let icon = self.icons.layer_visibility_of(self.layer_vis);
+        let resp = ui
+            .add(ImageButton::new(icon, [18., 18.]))
+            .on_hover_text(format!("Change to {}", self.layer_vis.next().label()));
+        if resp.hovered() {
+            self.events.request.hover.send(Hover(Some(self.entity)));
+        }
+        if resp.clicked() {
+            match self.layer_vis.next() {
+                Some(v) => {
+                    self.events
+                        .layers
+                        .change_layer_vis
+                        .send(Change::new(v, self.entity).or_insert());
+                }
+                None => {
+                    self.events
+                        .commands
+                        .entity(self.entity)
+                        .remove::<LayerVisibility>();
                 }
             }
         }
 
-        if self.floor_vis.is_some() {
+        if self.is_floor {
             Self::move_layers(
                 self.entity,
                 &self.icons,

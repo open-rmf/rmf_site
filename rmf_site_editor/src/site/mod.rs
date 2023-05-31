@@ -51,6 +51,9 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
+pub mod layer;
+pub use layer::*;
+
 pub mod level;
 pub use level::*;
 
@@ -145,7 +148,8 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-            .insert_resource(FloorVisibility::default())
+            .insert_resource(GlobalFloorVisibility::default())
+            .insert_resource(GlobalDrawingVisibility::default())
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
@@ -190,7 +194,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<LocationTags>::default())
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
-            .add_plugin(ChangePlugin::<FloorVisibility>::default())
+            .add_plugin(ChangePlugin::<LayerVisibility>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
@@ -249,6 +253,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_moved_anchors)
                     .with_system(update_floor_visibility)
+                    .with_system(update_drawing_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
                     .with_system(add_fiducial_visuals)

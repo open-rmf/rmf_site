@@ -28,7 +28,7 @@ use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 pub struct LayersParams<'w, 's> {
     pub floors: Query<'w, 's, &'static RecencyRanking<FloorMarker>>,
     pub drawings: Query<'w, 's, &'static RecencyRanking<DrawingMarker>>,
-    pub floor_visibility: Query<'w, 's, &'static FloorVisibility>,
+    pub layer_visibility: Query<'w, 's, &'static LayerVisibility>,
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
@@ -55,13 +55,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                 .default_open(true)
                 .show(ui, |ui| {
                     ui.horizontal(|ui| {
-                        let vis = *self.events.layers.global_floor_vis;
-                        let icon = self.params.icons.floor_visibility_of(Some(vis));
+                        // TODO(luca) Remove duplication with snippet below
+                        let vis = **self.events.layers.global_floor_vis;
+                        let icon = self.params.icons.layer_visibility_of(Some(vis));
                         let resp = ui
                             .add(Button::image_and_text(icon, [18., 18.], "Global"))
                             .on_hover_text(format!("Change to {}", vis.next().label()));
                         if resp.clicked() {
-                            *self.events.layers.global_floor_vis = vis.next();
+                            **self.events.layers.global_floor_vis = vis.next();
                         }
                     });
                     self.show_rankings(ranking.entities(), true, ui);
@@ -72,7 +73,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
             CollapsingHeader::new("Drawings")
                 .default_open(true)
                 .show(ui, |ui| {
-                    self.show_rankings(ranking, false, ui);
+                    ui.horizontal(|ui| {
+                        let vis = **self.events.layers.global_drawing_vis;
+                        let icon = self.params.icons.layer_visibility_of(Some(vis));
+                        let resp = ui
+                            .add(Button::image_and_text(icon, [18., 18.], "Global"))
+                            .on_hover_text(format!("Change to {}", vis.next().label()));
+                        if resp.clicked() {
+                            **self.events.layers.global_drawing_vis = vis.next();
+                        }
+                    });
+                    self.show_rankings(ranking.entities(), false, ui);
                 });
         }
     }
@@ -81,12 +92,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         ui.vertical(|ui| {
             for e in ranking.iter().rev() {
                 ui.horizontal(|ui| {
-                    let mut layer = InspectLayer::new(*e, &self.params.icons, &mut self.events)
-                        .with_selecting(self.params.site_id.get(*e).ok().flatten().copied());
-
-                    if is_floor {
-                        layer = layer.as_floor(self.params.floor_visibility.get(*e).ok().copied());
-                    }
+                    let mut layer = InspectLayer::new(
+                        *e,
+                        &self.params.icons,
+                        &mut self.events,
+                        self.params.layer_visibility.get(*e).ok().copied(),
+                        is_floor,
+                    )
+                    .with_selecting(self.params.site_id.get(*e).ok().flatten().copied());
 
                     layer.show(ui);
 

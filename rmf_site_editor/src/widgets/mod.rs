@@ -24,8 +24,8 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
-        SiteState, ToggleLiftDoorAvailability,
+        Delete, ExportLights, GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility,
+        PhysicalLightToggle, SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -172,8 +172,9 @@ pub struct LayerEvents<'w, 's> {
     pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
     pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub change_floor_vis: EventWriter<'w, 's, Change<FloorVisibility>>,
-    pub global_floor_vis: ResMut<'w, FloorVisibility>,
+    pub change_layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
+    pub global_floor_vis: ResMut<'w, GlobalFloorVisibility>,
+    pub global_drawing_vis: ResMut<'w, GlobalDrawingVisibility>,
 }
 
 #[derive(SystemParam)]

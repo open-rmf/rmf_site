@@ -89,7 +89,7 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, FloorVisibility, Original, ScaleDrawing, SiteID},
+    site::{Category, Change, EdgeLabels, LayerVisibility, Original, ScaleDrawing, SiteID},
     widgets::AppEvents,
     AppState,
 };
@@ -155,8 +155,8 @@ pub struct InspectDrawingParams<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectorLayerParams<'w, 's> {
-    pub floors: Query<'w, 's, Option<&'static FloorVisibility>, With<FloorMarker>>,
-    pub drawings: Query<'w, 's, (), With<DrawingMarker>>,
+    pub floors: Query<'w, 's, Option<&'static LayerVisibility>, With<FloorMarker>>,
+    pub drawings: Query<'w, 's, Option<&'static LayerVisibility>, With<DrawingMarker>>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -226,16 +226,27 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok(floor_vis) = self.params.layer.floors.get(selection) {
                 ui.horizontal(|ui| {
-                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
-                        .as_floor(floor_vis.copied())
-                        .show(ui);
+                    InspectLayer::new(
+                        selection,
+                        &self.params.anchor_params.icons,
+                        self.events,
+                        floor_vis.copied(),
+                        true,
+                    )
+                    .show(ui);
                 });
             }
 
-            if self.params.layer.drawings.contains(selection) {
+            if let Ok(drawing_vis) = self.params.layer.drawings.get(selection) {
                 ui.horizontal(|ui| {
-                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
-                        .show(ui);
+                    InspectLayer::new(
+                        selection,
+                        &self.params.anchor_params.icons,
+                        self.events,
+                        drawing_vis.copied(),
+                        false,
+                    )
+                    .show(ui);
                 });
             }
 

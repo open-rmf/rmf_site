@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{recency::RankAdjustment, site::FloorVisibility};
+use crate::{recency::RankAdjustment, site::LayerVisibility};
 use bevy::prelude::*;
 use bevy_egui::{egui::TextureId, EguiContext};
 use rmf_site_format::AssetSource;
@@ -99,12 +99,12 @@ impl FromWorld for Icons {
 }
 
 impl Icons {
-    pub fn floor_visibility_of(&self, vis: Option<FloorVisibility>) -> TextureId {
+    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> TextureId {
         match vis {
             Some(v) => match v {
-                FloorVisibility::Opaque => self.opaque.egui(),
-                FloorVisibility::Alpha(_) => self.alpha.egui(),
-                FloorVisibility::Hidden => self.hidden.egui(),
+                LayerVisibility::Opaque => self.opaque.egui(),
+                LayerVisibility::Alpha(_) => self.alpha.egui(),
+                LayerVisibility::Hidden => self.hidden.egui(),
             },
             None => self.global.egui(),
         }

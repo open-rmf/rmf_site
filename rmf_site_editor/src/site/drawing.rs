@@ -19,14 +19,17 @@ use crate::{
     interaction::Selectable,
     shapes::make_flat_rect_mesh,
     site::{
-        get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, FloorVisibility,
-        MeasurementMarker, MeasurementSegment, RecencyRank, DEFAULT_MEASUREMENT_OFFSET,
-        FLOOR_LAYER_START,
+        get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalFloorVisibility,
+        LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
+        DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
 use bevy::{asset::LoadState, math::Affine3A, prelude::*};
 use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
+
+#[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
+pub struct GlobalDrawingVisibility(pub LayerVisibility);
 
 pub const DRAWING_LAYER_START: f32 = 0.0;
 
@@ -51,7 +54,7 @@ pub fn add_drawing_visuals(
     asset_server: Res<AssetServer>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
-    mut default_floor_vis: ResMut<FloorVisibility>,
+    mut default_floor_vis: ResMut<GlobalFloorVisibility>,
 ) {
     // TODO(luca) depending on when this system is executed, this function might be called between
     // the creation of the drawing and the change of the workspace, making this silently fail
@@ -74,7 +77,7 @@ pub fn add_drawing_visuals(
     }
 
     if !new_drawings.is_empty() {
-        *default_floor_vis = FloorVisibility::new_semi_transparent();
+        **default_floor_vis = LayerVisibility::new_semi_transparent();
     }
 }
 
@@ -207,4 +210,64 @@ pub fn update_drawing_children_to_pixel_coordinates(
             }
         }
     }
+}
+
+fn drawing_alpha(specific: Option<&LayerVisibility>, general: &LayerVisibility) -> f32 {
+    let alpha = specific.map(|s| s.alpha()).unwrap_or(general.alpha());
+    alpha
+}
+
+fn iter_update_drawing_visibility<'a>(
+    iter: impl Iterator<Item = (Option<&'a LayerVisibility>, &'a DrawingSegments)>,
+    material_handles: &Query<&Handle<StandardMaterial>>,
+    material_assets: &mut ResMut<Assets<StandardMaterial>>,
+    default_floor_vis: &LayerVisibility,
+) {
+    for (vis, segments) in iter {
+        if let Ok(handle) = material_handles.get(segments.leaf) {
+            if let Some(mat) = material_assets.get_mut(handle) {
+                let alpha = drawing_alpha(vis, &default_floor_vis);
+                mat.base_color = *mat.base_color.set_a(alpha);
+                if alpha < 1.0 {
+                    mat.alpha_mode = AlphaMode::Blend;
+                } else {
+                    mat.alpha_mode = AlphaMode::Opaque;
+                }
+            }
+        }
+    }
+}
+
+// TODO(luca) RemovedComponents is brittle, maybe wrap component in an option?
+// TODO(luca) This is copy-pasted from floor.rs, consider having a generic plugin
+pub fn update_drawing_visibility(
+    changed_floors: Query<(Option<&LayerVisibility>, &DrawingSegments), Changed<LayerVisibility>>,
+    removed_vis: RemovedComponents<LayerVisibility>,
+    all_floors: Query<(Option<&LayerVisibility>, &DrawingSegments)>,
+    material_handles: Query<&Handle<StandardMaterial>>,
+    mut material_assets: ResMut<Assets<StandardMaterial>>,
+    default_floor_vis: Res<GlobalDrawingVisibility>,
+) {
+    if default_floor_vis.is_changed() {
+        iter_update_drawing_visibility(
+            all_floors.iter(),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+    } else {
+        iter_update_drawing_visibility(
+            changed_floors.iter(),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+
+        iter_update_drawing_visibility(
+            removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
+            &material_handles,
+            &mut material_assets,
+            &default_floor_vis,
+        );
+    };
 }
