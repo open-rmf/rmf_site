@@ -18,7 +18,7 @@
 use crate::{
     interaction::Hover,
     recency::ChangeRank,
-    site::{Change, Cycle, LayerVisibility, SiteID},
+    site::{Change, LayerVisibility, SiteID, VisibilityCycle},
     widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
 };
 use bevy::prelude::*;
@@ -29,6 +29,8 @@ pub struct InspectLayer<'a, 'w, 's> {
     pub icons: &'a Icons,
     /// Does the floor have a custom visibility setting?
     pub layer_vis: Option<LayerVisibility>,
+    /// Alpha to be applied for semi-transparent variant
+    pub default_alpha: f32,
     // TODO(luca) make this an enum
     pub is_floor: bool,
     /// Outer Option: Can this be selected?
@@ -43,6 +45,7 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         icons: &'a Icons,
         events: &'a mut AppEvents<'w, 's>,
         layer_vis: Option<LayerVisibility>,
+        default_alpha: f32,
         is_floor: bool,
     ) -> Self {
         Self {
@@ -50,6 +53,7 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
             icons,
             events,
             layer_vis,
+            default_alpha,
             is_floor,
             site_id: None,
         }
@@ -63,12 +67,15 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         let icon = self.icons.layer_visibility_of(self.layer_vis);
         let resp = ui
             .add(ImageButton::new(icon, [18., 18.]))
-            .on_hover_text(format!("Change to {}", self.layer_vis.next().label()));
+            .on_hover_text(format!(
+                "Change to {}",
+                self.layer_vis.next(self.default_alpha).label()
+            ));
         if resp.hovered() {
             self.events.request.hover.send(Hover(Some(self.entity)));
         }
         if resp.clicked() {
-            match self.layer_vis.next() {
+            match self.layer_vis.next(self.default_alpha) {
                 Some(v) => {
                     self.events
                         .layers

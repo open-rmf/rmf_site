@@ -89,7 +89,10 @@ pub use selection_widget::*;
 
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, LayerVisibility, Original, ScaleDrawing, SiteID},
+    site::{
+        Category, Change, DrawingSemiTransparency, EdgeLabels, FloorSemiTransparency,
+        LayerVisibility, Original, ScaleDrawing, SiteID,
+    },
     widgets::AppEvents,
     AppState,
 };
@@ -157,6 +160,8 @@ pub struct InspectDrawingParams<'w, 's> {
 pub struct InspectorLayerParams<'w, 's> {
     pub floors: Query<'w, 's, Option<&'static LayerVisibility>, With<FloorMarker>>,
     pub drawings: Query<'w, 's, Option<&'static LayerVisibility>, With<DrawingMarker>>,
+    pub floor_semi_transparency: Res<'w, FloorSemiTransparency>,
+    pub drawing_semi_transparency: Res<'w, DrawingSemiTransparency>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -231,6 +236,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         &self.params.anchor_params.icons,
                         self.events,
                         floor_vis.copied(),
+                        **self.params.layer.floor_semi_transparency,
                         true,
                     )
                     .show(ui);
@@ -244,6 +250,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         &self.params.anchor_params.icons,
                         self.events,
                         drawing_vis.copied(),
+                        **self.params.layer.drawing_semi_transparency,
                         false,
                     )
                     .show(ui);

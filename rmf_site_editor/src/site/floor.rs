@@ -31,6 +31,19 @@ use rmf_site_format::{FloorMarker, Path};
 #[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
 pub struct GlobalFloorVisibility(pub LayerVisibility);
 
+// Semi transparency for floors, more transparent than drawings to make them hidden
+const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.2;
+
+/// Resource used to set what the alpha value for partially transparent floors should be
+#[derive(Clone, Resource, Deref, DerefMut)]
+pub struct FloorSemiTransparency(f32);
+
+impl Default for FloorSemiTransparency {
+    fn default() -> Self {
+        FloorSemiTransparency(DEFAULT_FLOOR_SEMI_TRANSPARENCY)
+    }
+}
+
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
 

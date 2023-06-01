@@ -34,7 +34,17 @@ pub struct GlobalDrawingVisibility(pub LayerVisibility);
 pub const DRAWING_LAYER_START: f32 = 0.0;
 
 // Semi transparency for drawings, more opaque than floors to make them visible
-const DRAWING_SEMI_TRANSPARENCY: f32 = 0.5;
+const DEFAULT_DRAWING_SEMI_TRANSPARENCY: f32 = 0.5;
+
+/// Resource used to set what the alpha value for partially transparent drawings should be
+#[derive(Clone, Resource, Deref, DerefMut)]
+pub struct DrawingSemiTransparency(f32);
+
+impl Default for DrawingSemiTransparency {
+    fn default() -> Self {
+        DrawingSemiTransparency(DEFAULT_DRAWING_SEMI_TRANSPARENCY)
+    }
+}
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DrawingSegments {
@@ -61,6 +71,7 @@ pub fn add_drawing_visuals(
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
     mut default_floor_vis: ResMut<GlobalFloorVisibility>,
+    drawing_transparency: Res<DrawingSemiTransparency>,
 ) {
     // TODO(luca) depending on when this system is executed, this function might be called between
     // the creation of the drawing and the change of the workspace, making this silently fail
@@ -82,7 +93,7 @@ pub fn add_drawing_visuals(
         let visibility = if is_primary.0 == true {
             LayerVisibility::Opaque
         } else {
-            LayerVisibility::Alpha(DRAWING_SEMI_TRANSPARENCY)
+            LayerVisibility::Alpha(**drawing_transparency)
         };
         commands
             .entity(e)

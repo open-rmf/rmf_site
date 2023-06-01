@@ -153,6 +153,8 @@ impl Plugin for SitePlugin {
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
+            .init_resource::<DrawingSemiTransparency>()
+            .init_resource::<FloorSemiTransparency>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()

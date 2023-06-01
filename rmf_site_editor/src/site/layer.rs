@@ -33,9 +33,9 @@ pub enum LayerVisibility {
 }
 
 // TODO(MXG): Should this trait be more general?
-pub trait Cycle {
+pub trait VisibilityCycle {
     type Value;
-    fn next(&self) -> Self::Value;
+    fn next(&self, transparency: f32) -> Self::Value;
     fn label(&self) -> &'static str;
 }
 
@@ -53,13 +53,13 @@ impl LayerVisibility {
     }
 }
 
-impl Cycle for LayerVisibility {
+impl VisibilityCycle for LayerVisibility {
     type Value = Self;
 
     /// Cycle to the next visibility option
-    fn next(&self) -> LayerVisibility {
+    fn next(&self, transparency: f32) -> LayerVisibility {
         match self {
-            LayerVisibility::Opaque => LayerVisibility::new_semi_transparent(),
+            LayerVisibility::Opaque => LayerVisibility::Alpha(transparency),
             LayerVisibility::Alpha(_) => LayerVisibility::Hidden,
             LayerVisibility::Hidden => LayerVisibility::Opaque,
         }
@@ -74,13 +74,13 @@ impl Cycle for LayerVisibility {
     }
 }
 
-impl Cycle for Option<LayerVisibility> {
+impl VisibilityCycle for Option<LayerVisibility> {
     type Value = Self;
-    fn next(&self) -> Self {
+    fn next(&self, transparency: f32) -> Self {
         match self {
             Some(v) => match v {
                 LayerVisibility::Hidden => None,
-                _ => Some(v.next()),
+                _ => Some(v.next(transparency)),
             },
             None => Some(LayerVisibility::Opaque),
         }
