@@ -23,9 +23,10 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility,
-        PhysicalLightToggle, SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
+        AlignLevelDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag,
+        CurrentLevel, Delete, ExportLights, GlobalDrawingVisibility, GlobalFloorVisibility,
+        LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing, SiteState,
+        ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -241,6 +242,7 @@ pub struct AppEvents<'w, 's> {
     pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
+    pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
 }
 
 fn site_ui_layout(

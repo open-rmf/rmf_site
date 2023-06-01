@@ -17,8 +17,8 @@
 
 use bevy::prelude::*;
 
-mod optimizer;
-use optimizer::*;
+pub mod optimizer;
+pub use optimizer::*;
 
 use crate::interaction::{CameraControls, HeadlightToggle, Selection};
 use crate::site::{
@@ -34,8 +34,12 @@ pub struct DrawingEditorPlugin;
 #[derive(Resource, Default, Deref, DerefMut)]
 pub struct DrawingEditorHiddenEntities(HashSet<Entity>);
 
+// TODO(luca) should these events be defined somewhere else?
 #[derive(Deref, DerefMut)]
 pub struct ScaleDrawing(pub Entity);
+
+#[derive(Deref, DerefMut)]
+pub struct AlignLevelDrawings(pub Entity);
 
 fn hide_level_entities(
     mut visibilities: Query<&mut Visibility>,

@@ -20,7 +20,7 @@ use crate::{
         camera_controls::{CameraControls, HeadlightToggle},
         ChangeMode, InteractionMode, Selection,
     },
-    site::Delete,
+    site::{AlignLevelDrawings, CurrentLevel, Delete},
     CreateNewWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::prelude::*;
@@ -57,6 +57,8 @@ fn handle_keyboard_input(
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
+    mut align_drawings: EventWriter<AlignLevelDrawings>,
+    current_level: Res<CurrentLevel>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
 ) {
@@ -103,6 +105,11 @@ fn handle_keyboard_input(
                 save_workspace.send(SaveWorkspace::new().to_dialog());
             } else {
                 save_workspace.send(SaveWorkspace::new().to_default_file());
+            }
+        }
+        if keyboard_input.just_pressed(KeyCode::T) {
+            if let Some(level) = **current_level {
+                align_drawings.send(AlignLevelDrawings(level));
             }
         }
 
