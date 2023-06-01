@@ -145,31 +145,23 @@ pub fn align_level_drawings(
         }
         // TODO(luca) Should we use empty IsPrimary marker instead? Would make it possible to
         // filter drawings by having disjoint queries
-        let layers = level_children
+        let all_drawings = level_children
             .iter()
-            .filter_map(|child| {
-                drawings
-                    .get(*child)
-                    .ok()
-                    .filter(|(_, _, _, _, primary)| primary.0 == false)
-            })
+            .filter_map(|child| drawings.get(*child).ok());
+        let layers = all_drawings
+            .clone()
+            .filter(|(_, _, _, _, primary)| primary.0 == false)
             .collect::<Vec<_>>();
-        if constraints.is_empty() {
-            println!("No non-primary drawings found for level, skipping optimization");
+        if layers.is_empty() {
+            println!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
             continue;
         }
-        let references = level_children
-            .iter()
-            .filter_map(|child| {
-                drawings
-                    .get(*child)
-                    .ok()
-                    .filter(|(_, _, _, _, primary)| primary.0 == true)
-                    .and_then(|(e, _, _, _, _)| Some(e))
-            })
+        let references = all_drawings
+            .filter(|(_, _, _, _, primary)| primary.0 == true)
+            .filter_map(|(e, _, _, _, _)| Some(e))
             .collect::<HashSet<_>>();
-        if constraints.is_empty() {
-            println!("No primary drawings found for level, skipping optimization");
+        if references.is_empty() {
+            println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
         }
         for (layer_entity, _, layer_pose, layer_ppm, _) in layers {
