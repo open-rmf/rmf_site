@@ -32,8 +32,7 @@ pub struct ConstraintSegment(pub Entity);
 
 // Constraints have to be assigned to levels if both their anchors are on the same level, otherwise
 // to the site
-// TODO(luca) Implement logic above
-pub fn assign_orphan_constraints_to_site(
+pub fn assign_orphan_constraints_to_parent(
     mut commands: Commands,
     constraints: Query<(Entity, &Edge<Entity>), (Without<Parent>, With<ConstraintMarker>)>,
     current_workspace: Res<CurrentWorkspace>,
@@ -43,7 +42,17 @@ pub fn assign_orphan_constraints_to_site(
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for (e, edge) in &constraints {
-            commands.entity(current_site).add_child(e);
+            let start_parent = parents
+                .get(edge.start())
+                .expect("Failed fetching anchor parent");
+            let end_parent = parents
+                .get(edge.start())
+                .expect("Failed fetching end parent");
+            if **start_parent == **end_parent && levels.contains(**start_parent) {
+                commands.entity(**start_parent).add_child(e);
+            } else {
+                commands.entity(current_site).add_child(e);
+            }
         }
     }
 }
@@ -56,9 +65,6 @@ pub fn add_constraint_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
 ) {
     for (e, edge) in &constraints {
-        // TODO(luca) calculate this based on current level, site and anchor parent
-        let is_visible = true;
-
         let mut transform = line_stroke_transform(
             &anchors
                 .point_in_parent_frame_of(edge.start(), Category::Constraint, e)
@@ -85,7 +91,6 @@ pub fn add_constraint_visuals(
             .entity(e)
             .insert(SpatialBundle {
                 transform: Transform::from_translation([0., 0., CONSTRAINT_LAYER_START].into()),
-                visibility: Visibility { is_visible },
                 ..default()
             })
             .insert(Category::Constraint)

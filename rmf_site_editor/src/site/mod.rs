@@ -227,7 +227,7 @@ impl Plugin for SitePlugin {
                 SiteUpdateStage::AssignOrphans,
                 SystemSet::on_update(SiteState::Display)
                     .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphan_constraints_to_site)
+                    .with_system(assign_orphan_constraints_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
                     .with_system(assign_orphan_elements_to_level::<DoorMarker>)

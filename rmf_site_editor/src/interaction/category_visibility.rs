@@ -66,10 +66,12 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     mut visibilities: Query<&mut Visibility, With<T>>,
 ) {
     if let Some(visibility_event) = events.iter().last() {
-        for mut vis in &mut visibilities {
-            vis.is_visible = visibility_event.0;
+        if visibility_event.0 != category_visibility.0 {
+            for mut vis in &mut visibilities {
+                vis.is_visible = visibility_event.0;
+            }
+            category_visibility.0 = visibility_event.0;
         }
-        category_visibility.0 = visibility_event.0;
     }
 }
 

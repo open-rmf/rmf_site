@@ -20,7 +20,7 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalFloorVisibility,
-        LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
+        IsPrimary, LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
         DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
@@ -32,6 +32,9 @@ use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
 pub struct GlobalDrawingVisibility(pub LayerVisibility);
 
 pub const DRAWING_LAYER_START: f32 = 0.0;
+
+// Semi transparency for drawings, more opaque than floors to make them visible
+const DRAWING_SEMI_TRANSPARENCY: f32 = 0.5;
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DrawingSegments {
@@ -50,7 +53,10 @@ fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
 
 pub fn add_drawing_visuals(
     mut commands: Commands,
-    new_drawings: Query<(Entity, &AssetSource), (With<DrawingMarker>, Changed<AssetSource>)>,
+    changed_drawings: Query<
+        (Entity, &AssetSource, &IsPrimary),
+        (With<DrawingMarker>, Changed<AssetSource>),
+    >,
     asset_server: Res<AssetServer>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
@@ -63,7 +69,7 @@ pub fn add_drawing_visuals(
         Some(file_path) => file_path,
         None => return,
     };
-    for (e, source) in &new_drawings {
+    for (e, source, is_primary) in &changed_drawings {
         // Append file name to path if it's a local file
         // TODO(luca) cleanup
         let asset_source = match source {
@@ -73,10 +79,18 @@ pub fn add_drawing_visuals(
             _ => source.clone(),
         };
         let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
-        commands.entity(e).insert(LoadingDrawing(texture_handle));
+        let visibility = if is_primary.0 == true {
+            LayerVisibility::Opaque
+        } else {
+            LayerVisibility::Alpha(DRAWING_SEMI_TRANSPARENCY)
+        };
+        commands
+            .entity(e)
+            .insert(LoadingDrawing(texture_handle))
+            .insert(visibility);
     }
 
-    if !new_drawings.is_empty() {
+    if !changed_drawings.is_empty() {
         **default_floor_vis = LayerVisibility::new_semi_transparent();
     }
 }
@@ -91,14 +105,16 @@ pub fn handle_loaded_drawing(
         &Pose,
         &PixelsPerMeter,
         &LoadingDrawing,
+        Option<&LayerVisibility>,
     )>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     asset_server: Res<AssetServer>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     rank: Query<&RecencyRank<DrawingMarker>>,
     segments: Query<&DrawingSegments>,
+    default_drawing_vis: Res<GlobalDrawingVisibility>,
 ) {
-    for (entity, source, pose, pixels_per_meter, handle) in loading_drawings.iter() {
+    for (entity, source, pose, pixels_per_meter, handle, vis) in loading_drawings.iter() {
         match asset_server.get_load_state(&handle.0) {
             LoadState::Loaded => {
                 let img = assets.get(&handle.0).unwrap();
@@ -127,10 +143,13 @@ pub fn handle_loaded_drawing(
                     leaf
                 };
                 let z = drawing_layer_height(rank.get(entity).ok());
+                let (alpha, alpha_mode) = drawing_alpha(vis, &default_drawing_vis);
                 commands.entity(leaf).insert(PbrBundle {
                     mesh,
                     material: materials.add(StandardMaterial {
                         base_color_texture: Some(handle.0.clone()),
+                        base_color: *Color::default().set_a(alpha),
+                        alpha_mode,
                         ..default()
                     }),
                     transform: Transform::from_xyz(0.0, 0.0, z),
@@ -210,27 +229,31 @@ pub fn update_drawing_children_to_pixel_coordinates(
     }
 }
 
-fn drawing_alpha(specific: Option<&LayerVisibility>, general: &LayerVisibility) -> f32 {
+fn drawing_alpha(
+    specific: Option<&LayerVisibility>,
+    general: &LayerVisibility,
+) -> (f32, AlphaMode) {
     let alpha = specific.map(|s| s.alpha()).unwrap_or(general.alpha());
-    alpha
+    let alpha_mode = if alpha < 1.0 {
+        AlphaMode::Blend
+    } else {
+        AlphaMode::Opaque
+    };
+    (alpha, alpha_mode)
 }
 
 fn iter_update_drawing_visibility<'a>(
     iter: impl Iterator<Item = (Option<&'a LayerVisibility>, &'a DrawingSegments)>,
     material_handles: &Query<&Handle<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
-    default_floor_vis: &LayerVisibility,
+    default_drawing_vis: &LayerVisibility,
 ) {
     for (vis, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.leaf) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let alpha = drawing_alpha(vis, &default_floor_vis);
+                let (alpha, alpha_mode) = drawing_alpha(vis, &default_drawing_vis);
                 mat.base_color = *mat.base_color.set_a(alpha);
-                if alpha < 1.0 {
-                    mat.alpha_mode = AlphaMode::Blend;
-                } else {
-                    mat.alpha_mode = AlphaMode::Opaque;
-                }
+                mat.alpha_mode = alpha_mode;
             }
         }
     }
@@ -244,28 +267,28 @@ pub fn update_drawing_visibility(
     all_floors: Query<(Option<&LayerVisibility>, &DrawingSegments)>,
     material_handles: Query<&Handle<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
-    default_floor_vis: Res<GlobalDrawingVisibility>,
+    default_drawing_vis: Res<GlobalDrawingVisibility>,
 ) {
-    if default_floor_vis.is_changed() {
+    if default_drawing_vis.is_changed() {
         iter_update_drawing_visibility(
             all_floors.iter(),
             &material_handles,
             &mut material_assets,
-            &default_floor_vis,
+            &default_drawing_vis,
         );
     } else {
         iter_update_drawing_visibility(
             changed_floors.iter(),
             &material_handles,
             &mut material_assets,
-            &default_floor_vis,
+            &default_drawing_vis,
         );
 
         iter_update_drawing_visibility(
             removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
             &material_handles,
             &mut material_assets,
-            &default_floor_vis,
+            &default_drawing_vis,
         );
     };
 }

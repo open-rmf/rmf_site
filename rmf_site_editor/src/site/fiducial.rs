@@ -19,6 +19,8 @@ use crate::interaction::VisualCue;
 use crate::site::*;
 use bevy::prelude::*;
 
+// TODO(luca) figure whether we really need fiducial structures since we use anchors to connect
+// constraints now
 pub fn add_fiducial_visuals(
     mut commands: Commands,
     fiducials: Query<(Entity, &Point<Entity>), Added<FiducialMarker>>,
