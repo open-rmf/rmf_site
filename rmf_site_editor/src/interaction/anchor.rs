@@ -38,7 +38,6 @@ pub fn add_anchor_visual_cues(
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
-    interaction_assets: Res<InteractionAssets>,
 ) {
     for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {

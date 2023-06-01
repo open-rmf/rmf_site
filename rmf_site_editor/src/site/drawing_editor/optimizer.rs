@@ -19,8 +19,7 @@ use bevy::prelude::*;
 
 use crate::site::{
     AlignLevelDrawings, Anchor, Angle, Category, ConstraintMarker, Distance, DrawingMarker, Edge,
-    FiducialMarker, IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter, Point, Pose,
-    Rotation, ScaleDrawing,
+    IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter, Pose, Rotation, ScaleDrawing,
 };
 use optimization_engine::{panoc::*, *};
 use std::collections::{HashMap, HashSet};
@@ -64,7 +63,8 @@ pub fn scale_drawings(
 }
 
 // The cost will be the sum of the square distances between pairs of points in constraints.
-// Cost function is, for each x,y of each edge:
+// Reference point pose is just world pose in meters, while the pose of the point to be optimized
+// is expressed as a function of drawing translation, rotation and scale
 // In matching points, first is reference second is to be optimized
 // Order in u is x, y, theta, scale
 fn align_level_cost(
@@ -202,9 +202,6 @@ pub fn align_level_drawings(
                 } else if references.contains(&*end_parent) & (layer_entity == **start_parent) {
                     matching_points.push(make_point_pair(edge.end(), edge.start()));
                 } else {
-                    println!(
-                        "DEV ERROR: Wrong anchors for constraint, must be between primary and non primary drawing"
-                    );
                     continue;
                 }
             }

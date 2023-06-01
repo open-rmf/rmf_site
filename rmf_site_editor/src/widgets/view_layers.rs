@@ -101,7 +101,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         ui.vertical(|ui| {
             for e in ranking.iter().rev() {
                 ui.horizontal(|ui| {
-                    let mut layer = InspectLayer::new(
+                    let layer = InspectLayer::new(
                         *e,
                         &self.params.icons,
                         &mut self.events,

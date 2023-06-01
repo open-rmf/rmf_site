@@ -32,7 +32,7 @@ pub struct ConstraintSegment(pub Entity);
 
 // Constraints have to be assigned to levels if both their anchors are on the same level, otherwise
 // to the site
-// TODO*luca) Implement logic above
+// TODO(luca) Implement logic above
 pub fn assign_orphan_constraints_to_site(
     mut commands: Commands,
     constraints: Query<(Entity, &Edge<Entity>), (Without<Parent>, With<ConstraintMarker>)>,

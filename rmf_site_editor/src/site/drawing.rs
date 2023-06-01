@@ -150,7 +150,6 @@ pub fn handle_loaded_drawing(
 pub fn update_drawing_rank(
     changed_rank: Query<
         (
-            Entity,
             &DrawingSegments,
             &RecencyRank<DrawingMarker>,
             Option<&Children>,
@@ -158,10 +157,9 @@ pub fn update_drawing_rank(
         Or<(Changed<RecencyRank<DrawingMarker>>, Changed<Children>)>,
     >,
     measurements: Query<&MeasurementSegment>,
-    children: Query<&Children>,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, segments, rank, children) in &changed_rank {
+    for (segments, rank, children) in &changed_rank {
         let z = drawing_layer_height(Some(rank));
         if let Ok(mut tf) = transforms.get_mut(segments.leaf) {
             tf.translation.z = z;

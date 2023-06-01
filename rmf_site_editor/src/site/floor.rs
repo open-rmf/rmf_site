@@ -28,8 +28,6 @@ use lyon::{
 };
 use rmf_site_format::{FloorMarker, Path};
 
-const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.2;
-
 #[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
 pub struct GlobalFloorVisibility(pub LayerVisibility);
 

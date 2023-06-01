@@ -98,13 +98,13 @@ fn update_measurement_visual(
 
 pub fn update_changed_measurement(
     measurements: Query<
-        (Entity, &Edge<Entity>, &MeasurementSegment),
+        (&Edge<Entity>, &MeasurementSegment),
         (Changed<Edge<Entity>>, With<MeasurementMarker>),
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
 ) {
-    for (e, edge, segment) in &measurements {
+    for (edge, segment) in &measurements {
         if let Ok(mut tf) = transforms.get_mut(**segment) {
             update_measurement_visual(**segment, edge, &anchors, tf.as_mut());
         }
@@ -112,7 +112,7 @@ pub fn update_changed_measurement(
 }
 
 pub fn update_measurement_for_moved_anchors(
-    measurements: Query<(Entity, &Edge<Entity>, &MeasurementSegment), With<MeasurementMarker>>,
+    measurements: Query<(&Edge<Entity>, &MeasurementSegment), With<MeasurementMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -125,7 +125,7 @@ pub fn update_measurement_for_moved_anchors(
 ) {
     for changed_anchor in &changed_anchors {
         for dependent in changed_anchor.iter() {
-            if let Some((e, measurement, segment)) = measurements.get(*dependent).ok() {
+            if let Some((measurement, segment)) = measurements.get(*dependent).ok() {
                 if let Ok(mut tf) = transforms.get_mut(**segment) {
                     update_measurement_visual(**segment, measurement, &anchors, tf.as_mut());
                 }

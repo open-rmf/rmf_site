@@ -337,7 +337,6 @@ fn site_drawing_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    layers: LayersParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
