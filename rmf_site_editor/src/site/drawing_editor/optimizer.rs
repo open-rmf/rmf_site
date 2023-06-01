@@ -164,12 +164,24 @@ pub fn align_level_drawings(
             println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
         }
+        let make_point_pair = |reference: Entity, target: Entity| {
+            let reference_point = global_tfs
+                .get(reference)
+                .expect("Transform for anchor not found")
+                .translation()
+                .truncate()
+                .to_array()
+                .map(|t| t as f64);
+            let target_point = anchors
+                .get(target)
+                .expect("Broken constraint anchor reference")
+                .translation_for_category(Category::Drawing)
+                .map(|t| t as f64);
+            (reference_point, target_point)
+        };
         for (layer_entity, _, layer_pose, layer_ppm, _) in layers {
             // Optimize this layer
             let mut matching_points = Vec::new();
-            let mut min_vals = Vec::new();
-            let mut max_vals = Vec::new();
-            let mut u = Vec::new();
             let x = layer_pose.trans[0];
             let y = layer_pose.trans[1];
             let theta = match layer_pose.rot.as_yaw() {
@@ -177,10 +189,7 @@ pub fn align_level_drawings(
                 _ => unreachable!(),
             };
             let s = layer_ppm.0;
-            u.push(x as f64);
-            u.push(y as f64);
-            u.push(theta as f64);
-            u.push(s as f64);
+            let mut u = vec![x as f64, y as f64, theta as f64, s as f64];
             for edge in constraints.iter() {
                 let start_parent = parents
                     .get(edge.start())
@@ -189,37 +198,14 @@ pub fn align_level_drawings(
                     .get(edge.end())
                     .expect("Anchor in constraint without drawing parent");
                 if references.contains(&*start_parent) & (layer_entity == **end_parent) {
-                    let reference_tf = global_tfs
-                        .get(edge.start())
-                        .expect("Transform for anchor not found");
-                    let reference_point = [
-                        reference_tf.translation().x as f64,
-                        reference_tf.translation().y as f64,
-                    ];
-                    let anchor = anchors
-                        .get(edge.end())
-                        .expect("Broken constraint anchor reference");
-                    let anchor_trans = anchor.translation_for_category(Category::Drawing);
-                    let layer_point = [anchor_trans[0] as f64, anchor_trans[1] as f64];
-                    matching_points.push((reference_point, layer_point));
+                    matching_points.push(make_point_pair(edge.start(), edge.end()));
                 } else if references.contains(&*end_parent) & (layer_entity == **start_parent) {
-                    let reference_tf = global_tfs
-                        .get(edge.end())
-                        .expect("Transform for anchor not found");
-                    let reference_point = [
-                        reference_tf.translation().x as f64,
-                        reference_tf.translation().y as f64,
-                    ];
-                    let anchor = anchors
-                        .get(edge.start())
-                        .expect("Broken constraint anchor reference");
-                    let anchor_trans = anchor.translation_for_category(Category::Drawing);
-                    let layer_point = [anchor_trans[0] as f64, anchor_trans[1] as f64];
-                    matching_points.push((reference_point, layer_point));
+                    matching_points.push(make_point_pair(edge.end(), edge.start()));
                 } else {
-                    panic!(
-                        "Wrong anchors for constraint, must be from primary to non primary drawing"
+                    println!(
+                        "DEV ERROR: Wrong anchors for constraint, must be between primary and non primary drawing"
                     );
+                    continue;
                 }
             }
             if matching_points.is_empty() {
@@ -229,8 +215,18 @@ pub fn align_level_drawings(
                 );
                 continue;
             }
-            min_vals.extend([-10000.0f64, -10000.0f64]);
-            max_vals.extend([10000.0f64, 10000.0f64]);
+            let min_vals = vec![
+                -std::f64::INFINITY,
+                -std::f64::INFINITY,
+                -180_f64.to_radians(),
+                1e-3,
+            ];
+            let max_vals = vec![
+                std::f64::INFINITY,
+                std::f64::INFINITY,
+                180_f64.to_radians(),
+                1e6,
+            ];
             // Now optimize it
             let opt_constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
             let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
