@@ -21,6 +21,7 @@ use crate::site::{
     AlignLevelDrawings, Anchor, Angle, Category, ConstraintMarker, Distance, DrawingMarker, Edge,
     IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter, Pose, Rotation, ScaleDrawing,
 };
+use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
 use std::collections::{HashMap, HashSet};
 
@@ -81,6 +82,7 @@ fn align_level_cost(
     Ok(())
 }
 
+// Calculates the partial derivatives for the cost function for each variable
 fn align_level_gradient(
     matching_points: &Vec<([f64; 2], [f64; 2])>,
     u: &[f64],
@@ -143,23 +145,20 @@ pub fn align_level_drawings(
             println!("No constraints found for level, skipping optimization");
             continue;
         }
-        // TODO(luca) Should we use empty IsPrimary marker instead? Would make it possible to
-        // filter drawings by having disjoint queries
-        let all_drawings = level_children
+        let (references, layers): (HashSet<_>, Vec<_>) = level_children
             .iter()
-            .filter_map(|child| drawings.get(*child).ok());
-        let layers = all_drawings
-            .clone()
-            .filter(|(_, _, _, _, primary)| primary.0 == false)
-            .collect::<Vec<_>>();
+            .filter_map(|child| drawings.get(*child).ok())
+            .partition_map(|(e, _, pose, ppm, primary)| {
+                if primary.0 == true {
+                    Either::Left(e)
+                } else {
+                    Either::Right((e, pose, ppm))
+                }
+            });
         if layers.is_empty() {
             println!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
             continue;
         }
-        let references = all_drawings
-            .filter(|(_, _, _, _, primary)| primary.0 == true)
-            .filter_map(|(e, _, _, _, _)| Some(e))
-            .collect::<HashSet<_>>();
         if references.is_empty() {
             println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
@@ -179,7 +178,7 @@ pub fn align_level_drawings(
                 .map(|t| t as f64);
             (reference_point, target_point)
         };
-        for (layer_entity, _, layer_pose, layer_ppm, _) in layers {
+        for (layer_entity, layer_pose, layer_ppm) in layers {
             // Optimize this layer
             let mut matching_points = Vec::new();
             let x = layer_pose.trans[0];
