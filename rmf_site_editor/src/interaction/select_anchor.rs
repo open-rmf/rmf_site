@@ -585,6 +585,10 @@ impl Placement for EdgePlacement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
+        // Restore visibility to anchors that were hidden in this mode
+        for e in params.hidden_entities.drawing_anchors.drain() {
+            set_visibility(e, &mut params.visibility, true);
+        }
         if continuity.replacing().is_some() {
             // Restore the target to its original and then quit
             if let Ok((mut edge, original)) = params.edges.get_mut(target) {
@@ -1045,9 +1049,11 @@ impl Placement for PathPlacement {
     }
 }
 
-// TODO(luca) make this a component to override visibility?
-#[derive(Resource, Deref, DerefMut, Default)]
-pub struct HiddenLevelAnchors(HashSet<Entity>);
+#[derive(Resource, Default)]
+pub struct HiddenSelectAnchorEntities {
+    pub level_anchors: HashSet<Entity>,
+    pub drawing_anchors: HashSet<Entity>,
+}
 
 #[derive(SystemParam)]
 pub struct SelectAnchorPlacementParams<'w, 's> {
@@ -1071,7 +1077,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
     drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
-    hidden_level_anchors: ResMut<'w, HiddenLevelAnchors>,
+    hidden_entities: ResMut<'w, HiddenSelectAnchorEntities>,
     fiducials: Query<'w, 's, (), With<FiducialMarker>>,
 }
 
@@ -1152,7 +1158,10 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         );
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
         self.cursor.set_model_preview(&mut self.commands, None);
-        for e in self.hidden_level_anchors.drain() {
+        for e in self.hidden_entities.level_anchors.drain() {
+            set_visibility(e, &mut self.visibility, true);
+        }
+        for e in self.hidden_entities.drawing_anchors.drain() {
             set_visibility(e, &mut self.visibility, true);
         }
     }
@@ -1942,7 +1951,7 @@ pub fn handle_select_anchor_mode(
                 {
                     if let Ok(mut visibility) = params.visibility.get_mut(e) {
                         visibility.is_visible = false;
-                        params.hidden_level_anchors.insert(e);
+                        params.hidden_entities.level_anchors.insert(e);
                     }
                 }
             }
@@ -2123,7 +2132,7 @@ pub fn handle_select_anchor_mode(
                                 for c in children.iter().filter(|c| params.anchors.get(**c).is_ok())
                                 {
                                     set_visibility(*c, &mut params.visibility, false);
-                                    params.hidden_level_anchors.insert(*c);
+                                    params.hidden_entities.drawing_anchors.insert(*c);
                                 }
                             })
                             .ok();
