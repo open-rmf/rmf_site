@@ -15,7 +15,7 @@
  *
 */
 
-use std::{f32::consts::PI, io::Write};
+use std::{f32::consts::PI, io::Write, path::PathBuf};
 
 use bevy::prelude::Vec2;
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
@@ -176,18 +176,19 @@ impl OSMTile {
     }
 
     pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
-        
-        #[cfg_attr(not(target_arch = "wasm32"))]
+        let mut cache_full_path = PathBuf::new();
+        #[cfg(not(target_arch = "wasm32"))]
         {
-        let cache_file_name = format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
-        let mut cache_path = cache_path();
-        cache_path.push("slippy_maps");
-        std::fs::create_dir_all(cache_path.clone());
-        cache_path.push(cache_file_name);
-        if std::path::Path::new(&cache_path).exists() {
-            println!("Cache Exists");
-            return Ok(std::fs::read(&cache_path)?);
-        }
+            let cache_file_name =
+                format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
+            cache_full_path = cache_path().clone();
+            cache_full_path.push("slippy_maps");
+            std::fs::create_dir_all(cache_full_path.clone());
+            cache_full_path.push(cache_file_name);
+            if std::path::Path::new(&cache_full_path).exists() {
+                println!("Cache Exists");
+                return Ok(std::fs::read(&cache_full_path)?);
+            }
         }
 
         let uri = format!(
@@ -198,11 +199,11 @@ impl OSMTile {
         let mut result = surf::get(uri).await?;
 
         let bytes = result.body_bytes().await?;
-        
-        #[cfg_attr(not(target_arch = "wasm32"))]
+
+        #[cfg(not(target_arch = "wasm32"))]
         {
-        let mut file = std::fs::File::create(cache_path)?;
-        file.write_all(&bytes)?;
+            let mut file = std::fs::File::create(cache_full_path)?;
+            file.write_all(&bytes)?;
         }
 
         Ok(bytes)

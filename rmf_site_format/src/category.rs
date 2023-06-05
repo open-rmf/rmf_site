@@ -43,7 +43,7 @@ pub enum Category {
     Camera,
     Drawing,
     Workcell,
-    GeoReference
+    GeoReference,
 }
 
 impl Category {
@@ -65,7 +65,7 @@ impl Category {
             Self::Camera => "Camera",
             Self::Drawing => "Drawing",
             Self::Workcell => "Workcell",
-            Self::GeoReference => "Georeference"
+            Self::GeoReference => "Georeference",
         }
     }
 

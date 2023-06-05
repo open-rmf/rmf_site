@@ -380,6 +380,7 @@ impl BuildingMap {
             anchors: site_anchors,
             properties: SiteProperties {
                 name: self.name.clone(),
+                ..Default::default()
             },
             levels,
             lifts,

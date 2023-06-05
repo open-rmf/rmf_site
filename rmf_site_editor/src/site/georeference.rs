@@ -5,13 +5,13 @@ use bevy_egui::{
 };
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{Anchor, AssetSource};
+use rmf_site_format::{Anchor, AssetSource, GeographicOffset, SiteProperties};
 use std::{collections::HashSet, ops::RangeInclusive};
 use utm::*;
 
 use crate::{
     generate_map_tiles,
-    interaction::{camera_controls, Selected, MoveTo},
+    interaction::{camera_controls, MoveTo, Selected},
     OSMTile,
 };
 pub struct GeoReferenceEvent {}
@@ -51,7 +51,7 @@ pub struct GeoReferencePanelState {
 
 #[derive(Clone, Resource)]
 pub struct GeoReferencePreviewState {
-    anchor: (f32, f32),
+    //anchor: (f32, f32),
     zoom: i32,
     enabled: bool,
 }
@@ -59,7 +59,6 @@ pub struct GeoReferencePreviewState {
 impl Default for GeoReferencePreviewState {
     fn default() -> Self {
         Self {
-            anchor: Default::default(),
             zoom: 15,
             enabled: Default::default(),
         }
@@ -70,14 +69,22 @@ pub fn add_georeference(
     selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
     mut preview_state: ResMut<GeoReferencePreviewState>,
-    asset_server: Res<AssetServer>,
     mut geo_events: EventReader<GeoReferenceEvent>,
     mut move_commands: EventWriter<MoveTo>,
-    mut commands: Commands,
+    mut site_properties: Query<&mut SiteProperties>,
 ) {
+    let site_properties = site_properties.get_single_mut();
+
+    let (offset, geography_defined) = if let Ok(ref properties) = site_properties {
+        (
+            properties.geographic_offset.unwrap_or_default().anchor,
+            true,
+        )
+    } else {
+        ((0.0, 0.0), false)
+    };
+
     for _event in geo_events.iter() {
         panel_state.enabled = true;
     }
@@ -101,8 +108,7 @@ pub fn add_georeference(
                     } else {
                         panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                         let translation = selected[0].2.translation();
-                        let (lat, lon) =
-                            world_to_latlon(translation, preview_state.anchor).unwrap();
+                        let (lat, lon) = world_to_latlon(translation, offset).unwrap();
                         println!("Anchor at {:?}", (lat, lon));
                         panel_state.latitude = lat as f32;
                         panel_state.longitude = lon as f32;
@@ -137,17 +143,27 @@ pub fn add_georeference(
                             lat_to_zone_letter(panel_state.latitude.into()).unwrap(),
                         )
                         .unwrap();
-                        preview_state.anchor = (lat as f32, lon as f32);
+
+                        if let Ok(mut properties) = site_properties {
+                            properties.geographic_offset =
+                                Some(GeographicOffset::from_latlon((lat as f32, lon as f32)));
+                        }
                     }
                 }
                 if ui.button("Move to lat/lon").clicked() {
                     panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
 
-                    let move_cmd = MoveTo {
-                        entity: selected[0].3,
-                        transform: Transform::from_translation(latlon_to_world(panel_state.latitude, panel_state.longitude, preview_state.anchor)),
-                    };
-                    move_commands.send(move_cmd);
+                    if geography_defined {
+                        let move_cmd = MoveTo {
+                            entity: selected[0].3,
+                            transform: Transform::from_translation(latlon_to_world(
+                                panel_state.latitude,
+                                panel_state.longitude,
+                                offset,
+                            )),
+                        };
+                        move_commands.send(move_cmd);
+                    }
                 }
             });
 
@@ -156,7 +172,7 @@ pub fn add_georeference(
             {
                 panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                 let translation = selected[0].2.translation();
-                let (lat, lon) = world_to_latlon(translation, preview_state.anchor).unwrap();
+                let (lat, lon) = world_to_latlon(translation, offset).unwrap();
                 println!("Anchor at {:?}", (lat, lon));
                 panel_state.latitude = lat as f32;
                 panel_state.longitude = lon as f32;
@@ -268,7 +284,19 @@ pub fn render_map_tiles(
     asset_server: Res<AssetServer>,
     preview_state: Res<GeoReferencePreviewState>,
     mut commands: Commands,
+    site_properties: Query<&SiteProperties>,
 ) {
+    let site_properties = site_properties.get_single();
+    if site_properties.is_err() {
+        return;
+    }
+
+    let offset = site_properties
+        .unwrap()
+        .geographic_offset
+        .unwrap_or_default()
+        .anchor;
+
     if !preview_state.enabled {
         for (entity, _tile) in &map_tiles {
             commands.entity(entity).despawn();
@@ -327,10 +355,8 @@ pub fn render_map_tiles(
                 .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
 
             // TODO(arjo): Gracefully handle unwrap
-            let latlon_start =
-                world_to_latlon(Vec3::new(min_x, min_y, 0.0), preview_state.anchor).unwrap();
-            let latlon_end =
-                world_to_latlon(Vec3::new(max_x, max_y, 0.0), preview_state.anchor).unwrap();
+            let latlon_start = world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset).unwrap();
+            let latlon_end = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset).unwrap();
 
             for tile in generate_map_tiles(
                 latlon_start.0 as f32,
@@ -349,7 +375,7 @@ pub fn render_map_tiles(
                     &asset_server,
                     &mut commands,
                     tile.get_center(),
-                    preview_state.anchor,
+                    offset,
                     preview_state.zoom,
                 );
             }
