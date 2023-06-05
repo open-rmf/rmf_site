@@ -134,6 +134,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
+            .init_resource::<HiddenLevelAnchors>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()

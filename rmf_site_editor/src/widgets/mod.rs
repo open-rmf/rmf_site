@@ -258,6 +258,7 @@ fn site_ui_layout(
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
+        .default_width(300.0)
         .show(egui_context.ctx_mut(), |ui| {
             egui::ScrollArea::both()
                 .auto_shrink([false, false])

@@ -23,22 +23,23 @@ use bevy::prelude::*;
 // constraints now
 pub fn add_fiducial_visuals(
     mut commands: Commands,
-    fiducials: Query<(Entity, &Point<Entity>), Added<FiducialMarker>>,
+    fiducials: Query<(Entity, &Point<Entity>, Option<&Transform>), Added<FiducialMarker>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
-    for (e, point) in fiducials.iter() {
+    for (e, point, tf) in fiducials.iter() {
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }
 
+        if tf.is_none() {
+            commands.entity(e).insert(SpatialBundle::VISIBLE_IDENTITY);
+        }
+
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: assets.fiducial_mesh.clone(),
-                material: assets.fiducial_material.clone(),
-                ..default()
-            })
+            .insert(assets.fiducial_mesh.clone())
+            .insert(assets.fiducial_material.clone())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
     }

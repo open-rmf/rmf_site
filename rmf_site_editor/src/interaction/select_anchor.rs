@@ -27,6 +27,7 @@ use rmf_site_format::{
     NameInWorkcell, Path, PixelsPerMeter, Point, Pose, Side, SiteProperties, Wall,
     WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
 };
+use std::collections::HashSet;
 use std::sync::Arc;
 
 const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
@@ -1044,6 +1045,10 @@ impl Placement for PathPlacement {
     }
 }
 
+// TODO(luca) make this a component to override visibility?
+#[derive(Resource, Deref, DerefMut, Default)]
+pub struct HiddenLevelAnchors(HashSet<Entity>);
+
 #[derive(SystemParam)]
 pub struct SelectAnchorPlacementParams<'w, 's> {
     edges: Query<
@@ -1065,6 +1070,8 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
     drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
+    hidden_level_anchors: ResMut<'w, HiddenLevelAnchors>,
+    fiducials: Query<'w, 's, (), With<FiducialMarker>>,
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
@@ -1144,6 +1151,9 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         );
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
         self.cursor.set_model_preview(&mut self.commands, None);
+        for e in self.hidden_level_anchors.drain() {
+            set_visibility(e, &mut self.visibility, true);
+        }
     }
 }
 
@@ -1177,7 +1187,7 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Constraint<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: Scope::MultipleDrawings,
         }
     }
 
@@ -1303,6 +1313,7 @@ type PlacementArc = Arc<dyn Placement + Send + Sync>;
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Scope {
     Drawing,
+    MultipleDrawings,
     General,
     Site,
 }
@@ -1914,6 +1925,28 @@ pub fn handle_select_anchor_mode(
             );
         }
 
+        // If we are working with requests that span multiple drawings, (constraints) hide all non fiducials
+        if matches!(request.scope, Scope::MultipleDrawings) {
+            for (e, _) in &params.anchors {
+                if params
+                    .dependents
+                    .get(e)
+                    .ok()
+                    .and_then(|deps| {
+                        deps.0
+                            .iter()
+                            .find(|dep| params.fiducials.get(**dep).is_ok())
+                    })
+                    .is_none()
+                {
+                    if let Ok(mut visibility) = params.visibility.get_mut(e) {
+                        visibility.is_visible = false;
+                        params.hidden_level_anchors.insert(e);
+                    }
+                }
+            }
+        }
+
         // If we are creating a new object, then we should deselect anything
         // that might be currently selected.
         if request.begin_creating() {
@@ -2021,6 +2054,10 @@ pub fn handle_select_anchor_mode(
                         .id();
                     params.commands.entity(parent).add_child(new_anchor);
                     new_anchor
+                }
+                Scope::MultipleDrawings => {
+                    println!("Ignoring click, only pre-added fiducials can be connected");
+                    return;
                 }
                 Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
             };
