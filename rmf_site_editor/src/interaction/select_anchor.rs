@@ -1063,6 +1063,7 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
     models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
+    children: Query<'w, 's, &'static mut Children>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
@@ -2110,7 +2111,25 @@ pub fn handle_select_anchor_mode(
             .filter(|s| anchors.contains(*s))
         {
             request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
-                Some(next_mode) => next_mode,
+                Some(next_mode) => {
+                    // We need to hide anchors connected to this drawing to force the user to
+                    // connect different drawing
+                    if matches!(request.scope, Scope::MultipleDrawings) {
+                        params
+                            .parents
+                            .get(new_selection)
+                            .and_then(|p| params.children.get(**p))
+                            .map(|children| {
+                                for c in children.iter().filter(|c| params.anchors.get(**c).is_ok())
+                                {
+                                    set_visibility(*c, &mut params.visibility, false);
+                                    params.hidden_level_anchors.insert(*c);
+                                }
+                            })
+                            .ok();
+                    }
+                    next_mode
+                }
                 None => {
                     params.cleanup();
                     *mode = InteractionMode::Inspect;

@@ -41,7 +41,6 @@ pub struct SiteAssets {
     pub hover_select_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
     pub fiducial_material: Handle<StandardMaterial>,
-    pub drawing_anchor_mesh: Handle<Mesh>,
     pub level_anchor_mesh: Handle<Mesh>,
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
@@ -149,11 +148,6 @@ impl FromWorld for SiteAssets {
         let default_mesh_grey_material = materials.add(Color::rgb(0.7, 0.7, 0.7).into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let drawing_anchor_mesh = meshes.add(
-            Mesh::from(make_cylinder(0.005, 0.05))
-                .with_generated_outline_normals()
-                .unwrap(),
-        );
         let level_anchor_mesh = meshes.add(
             Mesh::from(shape::UVSphere {
                 radius: 0.05, // TODO(MXG): Make the vertex radius configurable
@@ -220,7 +214,6 @@ impl FromWorld for SiteAssets {
         );
 
         Self {
-            drawing_anchor_mesh,
             level_anchor_mesh,
             lift_anchor_mesh,
             site_anchor_mesh,
