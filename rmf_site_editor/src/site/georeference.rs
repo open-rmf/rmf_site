@@ -5,13 +5,13 @@ use bevy_egui::{
 };
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{geo_reference::GeoReference, Anchor, AssetSource};
-use std::{collections::HashSet, f32::consts::PI, ops::RangeInclusive};
+use rmf_site_format::{Anchor, AssetSource};
+use std::{collections::HashSet, ops::RangeInclusive};
 use utm::*;
 
 use crate::{
     generate_map_tiles,
-    interaction::{camera_controls, PickingBlockers, Selected},
+    interaction::{camera_controls, Selected, MoveTo},
     OSMTile,
 };
 pub struct GeoReferenceEvent {}
@@ -67,7 +67,6 @@ impl Default for GeoReferencePreviewState {
 }
 
 pub fn add_georeference(
-    mut georef_anchors: Query<(&Anchor, &GeoReference<Entity>, Entity)>,
     selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
@@ -76,6 +75,7 @@ pub fn add_georeference(
     mut preview_state: ResMut<GeoReferencePreviewState>,
     asset_server: Res<AssetServer>,
     mut geo_events: EventReader<GeoReferenceEvent>,
+    mut move_commands: EventWriter<MoveTo>,
     mut commands: Commands,
 ) {
     for _event in geo_events.iter() {
@@ -142,7 +142,12 @@ pub fn add_georeference(
                 }
                 if ui.button("Move to lat/lon").clicked() {
                     panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
-                    let translation = selected[0].2.translation();
+
+                    let move_cmd = MoveTo {
+                        entity: selected[0].3,
+                        transform: Transform::from_translation(latlon_to_world(panel_state.latitude, panel_state.longitude, preview_state.anchor)),
+                    };
+                    move_commands.send(move_cmd);
                 }
             });
 

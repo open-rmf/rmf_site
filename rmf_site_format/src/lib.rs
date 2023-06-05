@@ -45,9 +45,6 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
-pub mod geo_reference;
-pub use geo_reference::*;
-
 pub mod lane;
 pub use lane::*;
 
@@ -104,6 +101,9 @@ pub use wall::*;
 
 pub mod workcell;
 pub use workcell::*;
+
+pub mod georeference;
+pub use georeference::*;
 
 mod is_default;
 pub(crate) use is_default::*;

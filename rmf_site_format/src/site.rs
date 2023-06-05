@@ -27,6 +27,9 @@ pub use ron::ser::PrettyConfig as Style;
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct SiteProperties {
     pub name: String,
+    
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub geographic_offset: Option<GeographicOffset>,
 }
 
 impl Default for SiteProperties {
