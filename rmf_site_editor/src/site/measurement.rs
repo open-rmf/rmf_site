@@ -32,12 +32,12 @@ pub struct MeasurementSegment(pub Entity);
 
 pub fn add_measurement_visuals(
     mut commands: Commands,
-    measurements: Query<(Entity, &Edge<Entity>, Option<&Transform>), Added<MeasurementMarker>>,
+    measurements: Query<(Entity, &Edge<Entity>), Added<MeasurementMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
-    for (e, edge, tf) in &measurements {
+    for (e, edge) in &measurements {
         let mut transform = line_stroke_transform(
             &anchors
                 .point_in_parent_frame_of(edge.start(), Category::Measurement, e)
@@ -59,10 +59,6 @@ pub fn add_measurement_visuals(
             })
             .insert(Selectable::new(e))
             .id();
-
-        if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::VISIBLE_IDENTITY);
-        }
 
         commands
             .entity(e)

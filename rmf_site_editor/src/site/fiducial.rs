@@ -32,13 +32,11 @@ pub fn add_fiducial_visuals(
             deps.insert(e);
         }
 
+        // Avoid PbrBundle since it will overwrite transform components
         commands
             .entity(e)
-            .insert(PbrBundle {
-                mesh: assets.fiducial_mesh.clone(),
-                material: assets.fiducial_material.clone(),
-                ..default()
-            })
+            .insert(assets.fiducial_mesh.clone())
+            .insert(assets.fiducial_material.clone())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
     }
