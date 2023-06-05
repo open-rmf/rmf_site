@@ -176,6 +176,9 @@ impl OSMTile {
     }
 
     pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
+        
+        #[cfg_attr(not(target_arch = "wasm32"))]
+        {
         let cache_file_name = format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
         let mut cache_path = cache_path();
         cache_path.push("slippy_maps");
@@ -184,6 +187,7 @@ impl OSMTile {
         if std::path::Path::new(&cache_path).exists() {
             println!("Cache Exists");
             return Ok(std::fs::read(&cache_path)?);
+        }
         }
 
         let uri = format!(
@@ -194,9 +198,12 @@ impl OSMTile {
         let mut result = surf::get(uri).await?;
 
         let bytes = result.body_bytes().await?;
-
+        
+        #[cfg_attr(not(target_arch = "wasm32"))]
+        {
         let mut file = std::fs::File::create(cache_path)?;
         file.write_all(&bytes)?;
+        }
 
         Ok(bytes)
     }
