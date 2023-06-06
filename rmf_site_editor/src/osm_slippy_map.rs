@@ -176,6 +176,7 @@ impl OSMTile {
     }
 
     pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
+        let mut cache_ok = false;
         let mut cache_full_path = PathBuf::new();
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -183,10 +184,10 @@ impl OSMTile {
                 format!("tile_cache_{}_{}_{}.png", self.zoom, self.xtile, self.ytile);
             cache_full_path = cache_path().clone();
             cache_full_path.push("slippy_maps");
-            std::fs::create_dir_all(cache_full_path.clone());
+            let err = std::fs::create_dir_all(cache_full_path.clone());
+            cache_ok = err.is_ok();
             cache_full_path.push(cache_file_name);
-            if std::path::Path::new(&cache_full_path).exists() {
-                println!("Cache Exists");
+            if std::path::Path::new(&cache_full_path).exists() && cache_ok {
                 return Ok(std::fs::read(&cache_full_path)?);
             }
         }
@@ -202,8 +203,14 @@ impl OSMTile {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            let mut file = std::fs::File::create(cache_full_path)?;
-            file.write_all(&bytes)?;
+            if cache_ok {
+                let file = std::fs::File::create(cache_full_path);
+                if let Ok(mut file) = file {
+                    if file.write_all(&bytes).is_err() {
+                        println!("Could not save cache");
+                    }
+                }
+            }
         }
 
         Ok(bytes)
