@@ -24,9 +24,9 @@ use crate::{
     recency::ChangeRank,
     site::{
         AlignLevelDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag,
-        CurrentLevel, Delete, ExportLights, GlobalDrawingVisibility, GlobalFloorVisibility,
-        LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing, SiteState,
-        ToggleLiftDoorAvailability,
+        CurrentLevel, Delete, DrawingMarker, ExportLights, GlobalDrawingVisibility,
+        GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
+        SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };

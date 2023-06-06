@@ -90,8 +90,8 @@ pub use selection_widget::*;
 use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
-        Category, Change, DrawingSemiTransparency, EdgeLabels, FloorSemiTransparency,
-        LayerVisibility, Original, ScaleDrawing, SiteID,
+        Category, Change, DrawingMarker, DrawingSemiTransparency, EdgeLabels,
+        FloorSemiTransparency, LayerVisibility, Original, ScaleDrawing, SiteID,
     },
     widgets::AppEvents,
     AppState,

@@ -219,6 +219,7 @@ fn generate_levels(
                 &PixelsPerMeter,
                 &SiteID,
                 &Parent,
+                &Children,
             ),
             (With<DrawingMarker>, Without<Pending>),
         >,
@@ -230,6 +231,15 @@ fn generate_levels(
                 &SiteID,
             ),
             (With<FiducialMarker>, Without<Pending>),
+        >,
+        Query<
+            (
+                &Edge<Entity>,
+                Option<&Original<Edge<Entity>>>,
+                &SiteID,
+                &Parent,
+            ),
+            (With<ConstraintMarker>, Without<Pending>),
         >,
         Query<
             (
@@ -296,7 +306,6 @@ fn generate_levels(
             Without<Pending>,
         >,
         Query<&SiteID>,
-        Query<&Children>,
     )> = SystemState::new(world);
 
     let (
@@ -304,6 +313,7 @@ fn generate_levels(
         q_doors,
         q_drawings,
         q_fiducials,
+        q_constraints,
         q_floors,
         q_lights,
         q_measurements,
@@ -312,7 +322,6 @@ fn generate_levels(
         q_walls,
         q_levels,
         q_site_ids,
-        q_children,
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
@@ -384,17 +393,19 @@ fn generate_levels(
         }
     }
 
-    for (entity, name, source, pose, is_primary, pixels_per_meter, id, parent) in &q_drawings {
+    for (entity, name, source, pose, is_primary, pixels_per_meter, id, parent, children) in
+        &q_drawings
+    {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
                 let mut fiducials = BTreeMap::new();
                 let mut anchors = BTreeMap::new();
-                for e in DescendantIter::new(&q_children, entity) {
-                    if let Ok((anchor, anchor_id, _)) = q_anchors.get(e) {
+                for e in children.iter() {
+                    if let Ok((anchor, anchor_id, _)) = q_anchors.get(*e) {
                         anchors.insert(anchor_id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(e) {
+                    if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(*e) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
                         measurements.insert(
@@ -407,7 +418,7 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((point, o_point, label, id)) = q_fiducials.get(e) {
+                    if let Ok((point, o_point, label, id)) = q_fiducials.get(*e) {
                         let point = o_point.map(|x| &x.0).unwrap_or(point);
                         let anchor = Point(get_anchor_id(point.0)?);
                         fiducials.insert(
@@ -431,6 +442,23 @@ fn generate_levels(
                         pose: pose.clone(),
                         is_primary: is_primary.clone(),
                         pixels_per_meter: pixels_per_meter.clone(),
+                    },
+                );
+            }
+        }
+    }
+
+    for (edge, o_edge, constraint_id, parent) in &q_constraints {
+        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+            if let Some(level) = levels.get_mut(&level_id.0) {
+                let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+                let edge = get_anchor_id_edge(edge)?;
+
+                level.constraints.insert(
+                    constraint_id.0,
+                    Constraint {
+                        edge: edge.clone(),
+                        marker: ConstraintMarker,
                     },
                 );
             }

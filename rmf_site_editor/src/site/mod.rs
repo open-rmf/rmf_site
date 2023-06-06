@@ -212,11 +212,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
-                    // TODO(luca) getting query not match panics when this is moved back with the
-                    // others, refactor stages
-                    .with_system(add_measurement_visuals)
-                    .with_system(update_changed_measurement)
-                    .with_system(update_measurement_for_moved_anchors)
+                    .with_system(update_drawing_pixels_per_meter)
+                    .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -282,6 +279,9 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_door_availability)
                     .with_system(update_physical_lights)
                     .with_system(toggle_physical_lights)
+                    .with_system(add_measurement_visuals)
+                    .with_system(update_changed_measurement)
+                    .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_constraint_for_moved_anchors)
                     .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
@@ -292,8 +292,6 @@ impl Plugin for SitePlugin {
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
-                    .with_system(update_drawing_pixels_per_meter)
-                    .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)

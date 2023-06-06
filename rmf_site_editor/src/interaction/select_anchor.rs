@@ -17,15 +17,17 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, Category, Dependents, Original, PathBehavior, Pending},
+    site::{
+        Anchor, AnchorBundle, Category, Dependents, DrawingMarker, Original, PathBehavior, Pending,
+    },
     CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, DrawingMarker, Edge, Fiducial, Floor, Lane,
-    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
-    NameInWorkcell, Path, PixelsPerMeter, Point, Pose, Side, SiteProperties, Wall,
-    WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
+    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path,
+    PixelsPerMeter, Point, Pose, Side, SiteProperties, Wall, WorkcellCollisionMarker,
+    WorkcellModel, WorkcellVisualMarker,
 };
 use std::collections::HashSet;
 use std::sync::Arc;

@@ -18,15 +18,15 @@
 use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::Change,
+    site::{Change, DrawingBundle, DrawingMarker},
     AppEvents, AppState, SuppressRecencyRank,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, DrawingBundle, DrawingMarker, Geometry, Model, ModelMarker, Pending,
-    RecallAssetSource, Scale, WorkcellModel,
+    AssetSource, Drawing, Geometry, Model, ModelMarker, Pending, RecallAssetSource, Scale,
+    WorkcellModel,
 };
 
 pub struct CreateWidget<'a, 'w, 's> {
@@ -200,15 +200,11 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         match self.events.app_state.current() {
                             AppState::SiteEditor => {
                                 if ui.button("Add Drawing").clicked() {
-                                    let drawing = DrawingBundle {
-                                        name: Default::default(),
+                                    let drawing = Drawing {
                                         source: source.clone(),
-                                        pose: Default::default(),
-                                        is_primary: Default::default(),
-                                        pixels_per_meter: Default::default(),
-                                        marker: DrawingMarker,
+                                        ..default()
                                     };
-                                    self.events.commands.spawn(drawing);
+                                    self.events.commands.spawn(DrawingBundle::new(&drawing));
                                 }
                                 ui.add_space(10.0);
                             }

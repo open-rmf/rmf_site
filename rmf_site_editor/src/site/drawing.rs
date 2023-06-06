@@ -20,13 +20,51 @@ use crate::{
     shapes::make_flat_rect_mesh,
     site::{
         get_current_workspace_path, Anchor, DefaultFile, FiducialMarker, GlobalFloorVisibility,
-        IsPrimary, LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
+        LayerVisibility, MeasurementMarker, MeasurementSegment, RecencyRank,
         DEFAULT_MEASUREMENT_OFFSET, FLOOR_LAYER_START,
     },
     CurrentWorkspace,
 };
 use bevy::{asset::LoadState, math::Affine3A, prelude::*};
-use rmf_site_format::{AssetSource, DrawingMarker, PixelsPerMeter, Pose};
+use rmf_site_format::{
+    AssetSource, Category, Drawing, IsPrimary, NameInSite, PixelsPerMeter, Pose,
+};
+
+#[derive(Bundle, Debug, Clone)]
+pub struct DrawingBundle {
+    pub category: Category,
+    pub name: NameInSite,
+    pub source: AssetSource,
+    pub pose: Pose,
+    pub pixels_per_meter: PixelsPerMeter,
+    pub is_primary: IsPrimary,
+    pub transform: Transform,
+    pub global_transform: GlobalTransform,
+    pub visibility: Visibility,
+    pub computed: ComputedVisibility,
+    pub marker: DrawingMarker,
+}
+
+impl DrawingBundle {
+    pub fn new(drawing: &Drawing) -> Self {
+        DrawingBundle {
+            category: Category::Drawing,
+            name: drawing.name.clone(),
+            source: drawing.source.clone(),
+            pose: drawing.pose.clone(),
+            pixels_per_meter: drawing.pixels_per_meter.clone(),
+            is_primary: drawing.is_primary.clone(),
+            transform: Transform::IDENTITY,
+            global_transform: GlobalTransform::IDENTITY,
+            visibility: Visibility::VISIBLE,
+            computed: ComputedVisibility::default(),
+            marker: DrawingMarker::default(),
+        }
+    }
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct DrawingMarker;
 
 #[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
 pub struct GlobalDrawingVisibility(pub LayerVisibility);

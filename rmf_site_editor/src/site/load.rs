@@ -90,16 +90,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
                         for (drawing_id, drawing) in &level_data.drawings {
                             level
-                                .spawn(DrawingBundle {
-                                    name: drawing.name.clone(),
-                                    source: drawing.source.clone(),
-                                    pose: drawing.pose.clone(),
-                                    is_primary: drawing.is_primary.clone(),
-                                    pixels_per_meter: drawing.pixels_per_meter.clone(),
-                                    marker: DrawingMarker,
-                                })
+                                .spawn(DrawingBundle::new(drawing))
                                 .insert(SiteID(*drawing_id))
-                                .insert(Category::Drawing)
                                 .with_children(|drawing_parent| {
                                     for (anchor_id, anchor) in &drawing.anchors {
                                         let anchor_entity = drawing_parent
@@ -113,7 +105,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                         drawing_parent
                                             .spawn(fiducial.to_ecs(&id_to_entity))
                                             .insert(SiteID(*fiducial_id));
-                                        //id_to_entity.insert(**fiducial_id, anchor_entity);
                                         consider_id(*fiducial_id);
                                     }
                                     for (measurement_id, measurement) in &drawing.measurements {
