@@ -454,13 +454,9 @@ fn generate_levels(
                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                 let edge = get_anchor_id_edge(edge)?;
 
-                level.constraints.insert(
-                    constraint_id.0,
-                    Constraint {
-                        edge: edge.clone(),
-                        marker: ConstraintMarker,
-                    },
-                );
+                level
+                    .constraints
+                    .insert(constraint_id.0, Constraint::from(edge));
             }
         }
     }

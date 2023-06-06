@@ -144,6 +144,8 @@ impl BuildingMap {
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
+        // TODO(luca) populate this with constraints created between fiducials that match among
+        // different floors
         let mut site_constraints = BTreeMap::new();
         let mut locations = BTreeMap::new();
 
@@ -272,7 +274,6 @@ impl BuildingMap {
                     let anchor_id = site_id.next().unwrap();
                     drawing_anchors.insert(anchor_id, end_anchor.clone());
                     *edge.right_mut() = anchor_id;
-                    //println!("Measurement edge is {:?}", edge);
                     measurements.insert(site_id.next().unwrap(), site_measurement);
                     // TODO(luca) remove original anchors if they have no other dependents
                     // TODO(MXG): Have rankings for measurements

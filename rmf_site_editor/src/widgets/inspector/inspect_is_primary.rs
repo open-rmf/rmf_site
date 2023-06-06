@@ -23,14 +23,12 @@ pub struct InspectIsPrimary {
 }
 
 impl InspectIsPrimary {
-    #[allow(dead_code)]
     pub fn new(is_primary: &IsPrimary) -> Self {
         Self {
             is_primary: *is_primary,
         }
     }
 
-    #[allow(dead_code)]
     pub fn show(self, ui: &mut Ui) -> Option<IsPrimary> {
         let mut new_is_primary = self.is_primary;
         ui.checkbox(&mut new_is_primary.0, "Primary")
