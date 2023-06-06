@@ -14,7 +14,17 @@ use crate::{
     interaction::{camera_controls, MoveTo, Selected},
     OSMTile,
 };
-pub struct GeoReferenceEvent {}
+pub struct GeoReferenceSelectAnchorEvent {}
+
+pub struct GeoReferenceSetReference;
+
+pub struct GeoReferenceViewReference;
+
+pub struct GeoreferenceEventWriter<'w, 's> {
+    pub select_anchor: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
+    pub set_reference: EventWriter<'w, 's, GeoReferenceSetReference>,
+    pub view_reference: EventWriter<'w, 's, GeoReferenceViewReference>
+}
 
 enum SelectionMode {
     AnchorSelected(Entity),
@@ -52,8 +62,8 @@ pub struct GeoReferencePanelState {
 #[derive(Clone, Resource)]
 pub struct GeoReferencePreviewState {
     //anchor: (f32, f32),
-    zoom: i32,
-    enabled: bool,
+    pub zoom: i32,
+    pub enabled: bool,
 }
 
 impl Default for GeoReferencePreviewState {
@@ -70,7 +80,7 @@ pub fn add_georeference(
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
     mut preview_state: ResMut<GeoReferencePreviewState>,
-    mut geo_events: EventReader<GeoReferenceEvent>,
+    mut geo_events: EventReader<GeoReferenceSelectAnchorEvent>,
     mut move_commands: EventWriter<MoveTo>,
     mut site_properties: Query<&mut SiteProperties>,
 ) {

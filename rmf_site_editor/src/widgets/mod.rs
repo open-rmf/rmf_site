@@ -23,14 +23,14 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, GeoReferenceEvent, PhysicalLightToggle,
-        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
+        Delete, ExportLights, FloorVisibility, GeoReferenceSelectAnchorEvent, PhysicalLightToggle,
+        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability, GeoReferencePreviewState,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader, Sense},
+    egui::{self, Button, CollapsingHeader, Sense, Checkbox},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -132,7 +132,7 @@ pub struct FileEvents<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct ToolEvents<'w, 's> {
-    pub georeference: EventWriter<'w, 's, GeoReferenceEvent>,
+    pub georeference: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
 }
 
 #[derive(SystemParam)]
@@ -196,6 +196,8 @@ fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<SiteProperties>>,
+    site_properties: Query<&SiteProperties>,
+    mut georeference_preview: ResMut<GeoReferencePreviewState>,
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
@@ -295,9 +297,29 @@ fn site_ui_layout(
             });
 
             ui.menu_button("Tools", |ui| {
-                if ui.add(Button::new("Georeference...")).clicked() {
-                    events.tool_events.georeference.send(GeoReferenceEvent {})
-                }
+                ui.menu_button("Georeference", |ui| {
+                    if ui.add(Button::new("Set Reference Via Anchor...")).clicked() {
+                        events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                    }
+                    if ui.add(Button::new("Set Reference...")).clicked() {
+                        events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                    }
+
+                    let site_properties = site_properties.get_single();
+                    
+                    if let Ok(site_properties) = site_properties {
+
+                        if ui.add_enabled(site_properties.geographic_offset.is_some(), Button::new("Move To Lat/Lon")).clicked() {
+                            events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                        }
+                        if ui.add_enabled(site_properties.geographic_offset.is_some(), Button::new("View Reference Parameters")).clicked() {
+                            events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                        }
+                        ui.add_enabled(site_properties.geographic_offset.is_some(), Checkbox::new(&mut georeference_preview.enabled, "View Map"));
+                
+                    }
+                });
+                
             });
         });
     });

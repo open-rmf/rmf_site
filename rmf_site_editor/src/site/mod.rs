@@ -161,7 +161,7 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
-            .add_event::<GeoReferenceEvent>()
+            .add_event::<GeoReferenceSelectAnchorEvent>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
