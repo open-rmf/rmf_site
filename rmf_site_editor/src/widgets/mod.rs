@@ -26,7 +26,7 @@ use crate::{
         AlignLevelDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag,
         CurrentLevel, Delete, DrawingMarker, ExportLights, GlobalDrawingVisibility,
         GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
-        SiteState, ToggleLiftDoorAvailability,
+        SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -243,6 +243,7 @@ pub struct AppEvents<'w, 's> {
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
     pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
+    pub texture: EventWriter<'w, 's, Change<Texture>>,
 }
 
 fn site_ui_layout(

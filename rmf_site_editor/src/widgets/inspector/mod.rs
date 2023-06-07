@@ -81,6 +81,9 @@ pub use inspect_scale::*;
 pub mod inspect_side;
 pub use inspect_side::*;
 
+pub mod inspect_texture;
+pub use inspect_texture::*;
+
 pub mod inspect_value;
 pub use inspect_value::*;
 
@@ -115,6 +118,7 @@ pub struct InspectorParams<'w, 's> {
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
+    pub textures: Query<'w, 's, &'static Texture>,
     pub layer: InspectorLayerParams<'w, 's>,
 }
 
@@ -295,6 +299,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .location_tags
                         .send(Change::new(new_tags, selection));
                 }
+            }
+
+            if let Ok(texture) = self.params.textures.get(selection) {
+                if let Some(new_texture) = InspectTexture::new(texture).show(ui) {
+                    self.events
+                        .texture
+                        .send(Change::new(new_texture, selection));
+                }
+                ui.add_space(10.0);
             }
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {

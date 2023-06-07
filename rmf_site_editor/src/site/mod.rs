@@ -178,6 +178,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Distance>::default())
+            .add_plugin(ChangePlugin::<Texture>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
