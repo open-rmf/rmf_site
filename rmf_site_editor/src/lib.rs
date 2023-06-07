@@ -58,6 +58,8 @@ use interaction::InteractionPlugin;
 use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
 
+use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 struct CommandLineArgs {
     /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
@@ -135,6 +137,14 @@ pub fn run(command_line_args: Vec<String>) {
                     },
                     ..default()
                 })
+                .set(ImagePlugin {
+                    default_sampler: SamplerDescriptor {
+                        address_mode_u: AddressMode::Repeat,
+                        address_mode_v: AddressMode::Repeat,
+                        address_mode_w: AddressMode::Repeat,
+                        ..Default::default()
+                    },
+                })
                 .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
         )
         .add_system_set(
@@ -156,6 +166,14 @@ pub fn run(command_line_args: Vec<String>) {
                         ..default()
                     },
                     ..default()
+                })
+                .set(ImagePlugin {
+                    default_sampler: SamplerDescriptor {
+                        address_mode_u: AddressMode::Repeat,
+                        address_mode_v: AddressMode::Repeat,
+                        address_mode_w: AddressMode::Repeat,
+                        ..Default::default()
+                    },
                 })
                 .set(LogPlugin {
                     filter: "bevy_asset=error,wgpu=error".to_string(),

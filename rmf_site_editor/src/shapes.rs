@@ -539,30 +539,30 @@ pub(crate) fn make_wall_mesh(
         [0., 0.], // 2
         [0., 0.], // 3
         // Bottom
-        [0., 1.], // 4
-        [0., 1.], // 5
-        [0., 1.], // 6
-        [0., 1.], // 7
+        [0., height / texture_height], // 4
+        [0., height / texture_height], // 5
+        [0., height / texture_height], // 6
+        [0., height / texture_height], // 7
         // Right
-        [texture_width, 1.], // 8
-        [0., 1.],            // 9
-        [0., 0.],            // 10
-        [texture_width, 0.], // 11
+        [length / texture_width, height / texture_height], // 8
+        [0., height / texture_height],                     // 9
+        [0., 0.],                                          // 10
+        [length / texture_width, 0.],                      // 11
         // Left
-        [0., 0.],            // 12
-        [texture_width, 0.], // 13
-        [texture_width, 1.], // 14
-        [0., 1.],            // 15
+        [0., 0.],                                          // 12
+        [length / texture_width, 0.],                      // 13
+        [length / texture_width, height / texture_height], // 14
+        [0., height / texture_height],                     // 15
         // Front
-        [0., 1.],            // 16
-        [texture_width, 1.], // 17
-        [texture_width, 0.], // 18
-        [0., 0.],            // 19
+        [0., height / texture_height],                     // 16
+        [length / texture_width, height / texture_height], // 17
+        [length / texture_width, 0.],                      // 18
+        [0., 0.],                                          // 19
         // Back
-        [texture_width, 0.], // 20
-        [0., 0.],            // 21
-        [0., 1.],            // 22
-        [texture_width, 1.], // 23
+        [length / texture_width, 0.],                      // 20
+        [0., 0.],                                          // 21
+        [0., height / texture_height],                     // 22
+        [length / texture_width, height / texture_height], // 23
     ];
     make_box(length, thickness, height)
         .with_uv(uv)
