@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{CustomTexture, Texture, TextureSource, Wall as SiteWall};
+use crate::{AssetSource, Texture, Wall as SiteWall};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -39,15 +39,21 @@ impl Wall {
         Ok(SiteWall {
             anchors: [*left_anchor, *right_anchor].into(),
             texture: if self.2.texture_name.is_empty() {
-                Texture::Default
+                Texture {
+                    source: AssetSource::Remote(
+                        "Luca/RMF_Materials/textures/default.png".to_owned(),
+                    ),
+                    ..Default::default()
+                }
             } else {
-                Texture::Custom(CustomTexture {
-                    source: TextureSource::Filename(self.2.texture_name.1.clone()),
+                Texture {
+                    source: AssetSource::Remote(
+                        "Luca/RMF_Materials/textures/".to_owned() + &self.2.texture_name.1 + ".png",
+                    ),
                     alpha: Some(self.2.alpha.1 as f32),
-                    rotation: None,
-                    scale: None,
                     offset: Some((0., self.2.texture_height.1 as f32)),
-                })
+                    ..Default::default()
+                }
             },
             marker: Default::default(),
         })

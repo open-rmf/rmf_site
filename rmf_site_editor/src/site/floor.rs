@@ -26,7 +26,7 @@ use lyon::{
     path::Path as LyonPath,
     tessellation::{geometry_builder::simple_builder, *},
 };
-use rmf_site_format::{FloorMarker, Path};
+use rmf_site_format::{FloorMarker, Path, Texture};
 
 #[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
 pub struct GlobalFloorVisibility(pub LayerVisibility);
@@ -181,12 +181,17 @@ fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
         .unwrap_or(FLOOR_LAYER_START)
 }
 
-fn floor_material(
+fn floor_transparency(
     specific: Option<&LayerVisibility>,
     general: &LayerVisibility,
-) -> StandardMaterial {
+) -> (Color, AlphaMode) {
     let alpha = specific.map(|s| s.alpha()).unwrap_or(general.alpha());
-    Color::rgba(0.3, 0.3, 0.3, alpha).into()
+    let alpha_mode = if alpha < 1.0 {
+        AlphaMode::Blend
+    } else {
+        AlphaMode::Opaque
+    };
+    (*Color::default().set_a(alpha), alpha_mode)
 }
 
 pub fn add_floor_visuals(
@@ -195,6 +200,7 @@ pub fn add_floor_visuals(
         (
             Entity,
             &Path<Entity>,
+            &Texture,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
         ),
@@ -205,12 +211,13 @@ pub fn add_floor_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_visibility: Res<GlobalFloorVisibility>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (e, new_floor, rank, vis) in &floors {
+    for (e, new_floor, texture, rank, vis) in &floors {
         let mesh = make_floor_mesh(e, new_floor, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
-        let material = materials.add(floor_material(vis, default_floor_visibility.as_ref()));
+        let (base_color, alpha_mode) = floor_transparency(vis, default_floor_visibility.as_ref());
 
         let mesh_entity_id = cmd
             .insert(SpatialBundle {
@@ -221,7 +228,12 @@ pub fn add_floor_visuals(
                 p.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
                     // TODO(MXG): load the user-specified texture when one is given
-                    material,
+                    material: materials.add(StandardMaterial {
+                        base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
+                        base_color,
+                        alpha_mode,
+                        ..default()
+                    }),
                     ..default()
                 })
                 .insert(Selectable::new(e))
@@ -299,7 +311,9 @@ fn iter_update_floor_visibility<'a>(
     for (vis, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                *mat = floor_material(vis, &default_floor_vis);
+                let (base_color, alpha_mode) = floor_transparency(vis, &default_floor_vis);
+                mat.base_color = base_color;
+                mat.alpha_mode = alpha_mode;
             }
         }
     }

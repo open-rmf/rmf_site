@@ -51,28 +51,37 @@ fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Opt
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
+    walls: Query<(Entity, &Edge<Entity>, &Texture), Added<WallMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    asset_server: Res<AssetServer>,
 ) {
-    for (e, edge) in &walls {
-        if let Some(mesh) = make_wall(e, edge, &anchors) {
-            commands
-                .entity(e)
-                .insert(PbrBundle {
-                    mesh: meshes.add(mesh),
-                    // TODO(MXG): load the user-specified texture when one is given
-                    material: assets.wall_material.clone(),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .insert(Category::Wall)
-                .insert(EdgeLabels::StartEnd);
+    for (e, edge, texture) in &walls {
+        // TODO(luca) map texture parameters such as scale, offset, rotation, to UV coordinates
+        let mesh = make_wall(e, edge, &anchors).expect("Anchor was not initialized correctly");
+        let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
+            (*Color::default().set_a(alpha), AlphaMode::Blend)
         } else {
-            panic!("Anchor was not initialized correctly");
-        }
+            (Color::default(), AlphaMode::Opaque)
+        };
+        commands
+            .entity(e)
+            .insert(PbrBundle {
+                mesh: meshes.add(mesh),
+                material: materials.add(StandardMaterial {
+                    base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
+                    base_color,
+                    alpha_mode,
+                    ..default()
+                }),
+                ..default()
+            })
+            .insert(Selectable::new(e))
+            .insert(Category::Wall)
+            .insert(EdgeLabels::StartEnd);
 
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
