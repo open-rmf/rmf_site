@@ -520,11 +520,15 @@ pub(crate) fn make_wall_mesh(
     p_end: Vec3,
     thickness: f32,
     height: f32,
+    texture_height: Option<f32>,
+    texture_width: Option<f32>,
 ) -> MeshBuffer {
     let dp = p_end - p_start;
     let length = dp.length();
     let yaw = dp.y.atan2(dp.x);
     let center = (p_start + p_end) / 2.0;
+    let texture_height = texture_height.unwrap_or(height);
+    let texture_width = texture_width.unwrap_or(1.0);
 
     // The default UV coordinates made by bevy do not work well for walls,
     // so we customize them here
@@ -540,25 +544,25 @@ pub(crate) fn make_wall_mesh(
         [0., 1.], // 6
         [0., 1.], // 7
         // Right
-        [length, 1.], // 8
-        [0., 1.],     // 9
-        [0., 0.],     // 10
-        [length, 0.], // 11
+        [texture_width, 1.], // 8
+        [0., 1.],            // 9
+        [0., 0.],            // 10
+        [texture_width, 0.], // 11
         // Left
-        [0., 0.],     // 12
-        [length, 0.], // 13
-        [length, 1.], // 14
-        [0., 1.],     // 15
+        [0., 0.],            // 12
+        [texture_width, 0.], // 13
+        [texture_width, 1.], // 14
+        [0., 1.],            // 15
         // Front
-        [0., 1.],     // 16
-        [length, 1.], // 17
-        [length, 0.], // 18
-        [0., 0.],     // 19
+        [0., 1.],            // 16
+        [texture_width, 1.], // 17
+        [texture_width, 0.], // 18
+        [0., 0.],            // 19
         // Back
-        [length, 0.], // 20
-        [0., 0.],     // 21
-        [0., 1.],     // 22
-        [length, 1.], // 23
+        [texture_width, 0.], // 20
+        [0., 0.],            // 21
+        [0., 1.],            // 22
+        [texture_width, 1.], // 23
     ];
     make_box(length, thickness, height)
         .with_uv(uv)

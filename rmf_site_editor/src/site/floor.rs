@@ -227,7 +227,6 @@ pub fn add_floor_visuals(
             .add_children(|p| {
                 p.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
-                    // TODO(MXG): load the user-specified texture when one is given
                     material: materials.add(StandardMaterial {
                         base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
                         base_color,

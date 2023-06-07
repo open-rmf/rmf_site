@@ -44,7 +44,8 @@ impl Floor {
                             + ".png",
                     ),
                     rotation: Some(Angle::Deg(self.parameters.texture_rotation.1 as f32)),
-                    scale: Some(self.parameters.texture_scale.1 as f32),
+                    width: Some(self.parameters.texture_scale.1 as f32),
+                    height: Some(self.parameters.texture_scale.1 as f32),
                     ..Default::default()
                 }
             },

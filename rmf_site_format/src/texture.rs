@@ -29,7 +29,7 @@ pub struct Texture {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Angle>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub scale: Option<f32>,
+    pub width: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub offset: Option<(f32, f32)>,
+    pub height: Option<f32>,
 }
