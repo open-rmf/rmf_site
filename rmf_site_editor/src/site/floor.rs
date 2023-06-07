@@ -81,7 +81,12 @@ fn make_fallback_floor_mesh_near_path(
     return make_fallback_floor_mesh_at_avg(positions);
 }
 
-fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorParams) -> Mesh {
+fn make_floor_mesh(
+    entity: Entity,
+    anchor_path: &Path<Entity>,
+    texture: &Texture,
+    anchors: &AnchorParams,
+) -> Mesh {
     if anchor_path.len() == 0 {
         return Mesh::new(PrimitiveTopology::TriangleList);
     } else if anchor_path.len() == 1 {
@@ -160,9 +165,15 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
         }
     }
 
+    let texture_width = texture.width.unwrap_or(1.0);
+    let texture_height = texture.height.unwrap_or(1.0);
     let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(|v| [v.x, v.y, 0.]).collect();
     let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(|_| [0., 0., 1.]).collect();
-    let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(|v| [v.x, v.y]).collect();
+    let uv: Vec<[f32; 2]> = buffers
+        .vertices
+        .iter()
+        .map(|v| [v.x / texture_width, v.y / texture_height])
+        .collect();
     for i in 0..buffers.indices.len() / 3 {
         let i1 = 3 * i + 1;
         let i2 = 3 * i + 2;
@@ -214,7 +225,7 @@ pub fn add_floor_visuals(
     asset_server: Res<AssetServer>,
 ) {
     for (e, new_floor, texture, rank, vis) in &floors {
-        let mesh = make_floor_mesh(e, new_floor, &anchors);
+        let mesh = make_floor_mesh(e, new_floor, texture, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
         let (base_color, alpha_mode) = floor_transparency(vis, default_floor_visibility.as_ref());
@@ -254,7 +265,7 @@ pub fn add_floor_visuals(
 
 pub fn update_changed_floor(
     changed_path: Query<
-        (Entity, &FloorSegments, &Path<Entity>),
+        (Entity, &FloorSegments, &Path<Entity>, &Texture),
         (Changed<Path<Entity>>, With<FloorMarker>),
     >,
     changed_rank: Query<(Entity, &RecencyRank<FloorMarker>), Changed<RecencyRank<FloorMarker>>>,
@@ -263,9 +274,9 @@ pub fn update_changed_floor(
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
-    for (e, segments, path) in &changed_path {
+    for (e, segments, path, texture) in &changed_path {
         if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
+            *mesh = mesh_assets.add(make_floor_mesh(e, path, texture, &anchors));
         }
         // TODO(MXG): Update texture once we support textures
     }
@@ -278,7 +289,7 @@ pub fn update_changed_floor(
 }
 
 pub fn update_floor_for_moved_anchors(
-    floors: Query<(Entity, &FloorSegments, &Path<Entity>), With<FloorMarker>>,
+    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Texture), With<FloorMarker>>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -292,9 +303,9 @@ pub fn update_floor_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, segments, path)) = floors.get(*dependent).ok() {
+            if let Some((e, segments, path, texture)) = floors.get(*dependent).ok() {
                 if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
+                    *mesh = mesh_assets.add(make_floor_mesh(e, path, texture, &anchors));
                 }
             }
         }
