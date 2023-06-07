@@ -1,10 +1,10 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{AssetSource, Texture, Wall as SiteWall};
+use crate::{AssetSource, Texture, Wall as SiteWall, DEFAULT_LEVEL_HEIGHT};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 fn default_height() -> RbmfFloat {
-    RbmfFloat::from(2.5)
+    RbmfFloat::from(DEFAULT_LEVEL_HEIGHT as f64)
 }
 
 fn default_width() -> RbmfFloat {
