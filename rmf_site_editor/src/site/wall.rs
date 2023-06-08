@@ -60,7 +60,6 @@ pub fn add_wall_visual(
     walls: Query<(Entity, &Edge<Entity>, &Texture), Added<WallMarker>>,
     anchors: AnchorParams,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
-    assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,

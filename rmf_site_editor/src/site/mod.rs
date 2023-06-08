@@ -253,6 +253,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_floor_visuals)
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_moved_anchors)
+                    .with_system(update_floor_for_changed_texture)
                     .with_system(update_floor_visibility)
                     .with_system(update_drawing_visibility)
                     .with_system(add_lane_visuals)

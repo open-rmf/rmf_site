@@ -312,6 +312,31 @@ pub fn update_floor_for_moved_anchors(
     }
 }
 
+pub fn update_floor_for_changed_texture(
+    changed_floors: Query<
+        (Entity, &FloorSegments, &Path<Entity>, &Texture),
+        (Changed<Texture>, With<FloorMarker>),
+    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    material_handles: Query<&Handle<StandardMaterial>>,
+    anchors: AnchorParams,
+    asset_server: Res<AssetServer>,
+) {
+    for (e, segment, path, texture) in &changed_floors {
+        if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
+            if let Ok(material) = material_handles.get(segment.mesh) {
+                *mesh = meshes.add(make_floor_mesh(e, path, texture, &anchors));
+                if let Some(mut material) = materials.get_mut(material) {
+                    material.base_color_texture =
+                        Some(asset_server.load(&String::from(&texture.source)));
+                }
+            }
+        }
+    }
+}
+
 fn iter_update_floor_visibility<'a>(
     iter: impl Iterator<Item = (Option<&'a LayerVisibility>, &'a FloorSegments)>,
     material_handles: &Query<&Handle<StandardMaterial>>,
