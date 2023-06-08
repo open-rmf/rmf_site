@@ -297,6 +297,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)
                     .with_system(update_wall_for_moved_anchors)
+                    .with_system(update_wall_for_changed_texture)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(align_level_drawings)
                     .with_system(export_lights),
