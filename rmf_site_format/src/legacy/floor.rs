@@ -32,14 +32,14 @@ impl Floor {
             texture: if self.parameters.texture_name.1.is_empty() {
                 Texture {
                     source: AssetSource::Remote(
-                        "Luca/RMF_Materials/textures/blue_linoleum.png".to_owned(),
+                        "OpenRobotics/RMF_Materials/textures/blue_linoleum.png".to_owned(),
                     ),
                     ..Default::default()
                 }
             } else {
                 Texture {
                     source: AssetSource::Remote(
-                        "Luca/RMF_Materials/textures/".to_owned()
+                        "OpenRobotics/RMF_Materials/textures/".to_owned()
                             + &self.parameters.texture_name.1
                             + ".png",
                     ),

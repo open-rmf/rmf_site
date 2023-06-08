@@ -55,14 +55,16 @@ impl Wall {
             texture: if self.2.texture_name.is_empty() {
                 Texture {
                     source: AssetSource::Remote(
-                        "Luca/RMF_Materials/textures/default.png".to_owned(),
+                        "OpenRobotics/RMF_Materials/textures/default.png".to_owned(),
                     ),
                     ..Default::default()
                 }
             } else {
                 Texture {
                     source: AssetSource::Remote(
-                        "Luca/RMF_Materials/textures/".to_owned() + &self.2.texture_name.1 + ".png",
+                        "OpenRobotics/RMF_Materials/textures/".to_owned()
+                            + &self.2.texture_name.1
+                            + ".png",
                     ),
                     alpha: Some(self.2.alpha.1 as f32),
                     width: Some((self.2.texture_width.1 / self.2.texture_scale.1) as f32),
