@@ -8,6 +8,7 @@ use crate::{
     RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
+use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
@@ -144,9 +145,8 @@ impl BuildingMap {
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
-        // TODO(luca) populate this with constraints created between fiducials that match among
-        // different floors
-        let mut site_constraints = BTreeMap::new();
+        // Will map a fiducial name to a vector of matching site ids
+        let mut multilevel_fiducials = BTreeMap::<String, Vec<u32>>::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
@@ -222,8 +222,13 @@ impl BuildingMap {
                     let label = if fiducial.2.is_empty() {
                         Label(None)
                     } else {
-                        feature_id_to_anchor_id.insert(fiducial.2.clone(), anchor_id);
-                        Label(Some(fiducial.2.clone()))
+                        let name = &fiducial.2;
+                        feature_id_to_anchor_id.insert(name.clone(), anchor_id);
+                        multilevel_fiducials
+                            .entry(name.clone())
+                            .or_insert(Vec::<_>::new())
+                            .push(anchor_id);
+                        Label(Some(name.clone()))
                     };
                     // Do not add this anchor to the vertex_to_anchor_id map because
                     // this fiducial is not really recognized as a vertex to the
@@ -303,7 +308,7 @@ impl BuildingMap {
                 rankings.drawings.insert(0, id);
             }
 
-            let mut level_constraints = BTreeMap::new();
+            let mut constraints = BTreeMap::new();
             for (name, layer) in &level.layers {
                 // TODO(luca) coordinates in site and traffic editor might be different, use
                 // optimization engine instead of parsing
@@ -355,13 +360,11 @@ impl BuildingMap {
             }
 
             // Now set the constraints
-            // TODO(luca) multilevel constraints with equally named fiducials
-            // Require generating unique key for each fiducial based on level and name
             for constraint in &level.constraints {
                 if let Some(id_0) = feature_id_to_anchor_id.get(&constraint.ids[0]) {
                     if let Some(id_1) = feature_id_to_anchor_id.get(&constraint.ids[1]) {
                         let id = site_id.next().unwrap();
-                        level_constraints.insert(
+                        constraints.insert(
                             id,
                             SiteConstraint {
                                 edge: [*id_0, *id_1].into(),
@@ -413,7 +416,7 @@ impl BuildingMap {
                         elevation,
                     },
                     anchors,
-                    constraints: level_constraints,
+                    constraints,
                     doors,
                     drawings,
                     floors,
@@ -515,10 +518,27 @@ impl BuildingMap {
             );
         }
 
+        let mut constraints = BTreeMap::new();
+        for anchor_pairs in multilevel_fiducials
+            .into_values()
+            .map(|v| v.into_iter().combinations(2))
+        {
+            for anchor_pair in anchor_pairs {
+                let id = site_id.next().unwrap();
+                constraints.insert(
+                    id,
+                    SiteConstraint {
+                        edge: [anchor_pair[0], anchor_pair[1]].into(),
+                        marker: ConstraintMarker,
+                    },
+                );
+            }
+        }
+
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
-            constraints: site_constraints,
+            constraints,
             properties: SiteProperties {
                 name: self.name.clone(),
             },
