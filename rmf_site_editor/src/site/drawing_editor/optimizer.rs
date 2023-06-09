@@ -115,13 +115,10 @@ fn align_level_gradient(
     Ok(())
 }
 
-// Result is x, y, theta, s
 fn align_drawing_pair(
     references: &HashSet<Entity>,
-    secondary_drawing: Entity,
+    target_drawing: Entity,
     constraints: &Vec<&Edge<Entity>>,
-    secondary_drawing_pose: &Pose,
-    secondary_drawing_ppm: &PixelsPerMeter,
     params: &OptimizationParams,
     change: &mut OptimizationChangeParams,
 ) -> Option<(f64, f64, f64, f64)> {
@@ -144,6 +141,8 @@ fn align_drawing_pair(
             .map(|t| t as f64);
         (reference_point, target_point)
     };
+    // Guaranteed safe since caller passes a drawing entity
+    let (_, _, target_pose, target_ppm, _) = params.drawings.get(target_drawing).unwrap();
     let mut matching_points = Vec::new();
     for edge in constraints.iter() {
         let start_parent = params
@@ -154,9 +153,9 @@ fn align_drawing_pair(
             .parents
             .get(edge.end())
             .expect("Anchor in constraint without drawing parent");
-        if (references.contains(&*start_parent)) & (secondary_drawing == **end_parent) {
+        if (references.contains(&*start_parent)) & (target_drawing == **end_parent) {
             matching_points.push(make_point_pair(edge.start(), edge.end()));
-        } else if (references.contains(&*end_parent)) & (secondary_drawing == **start_parent) {
+        } else if (references.contains(&*end_parent)) & (target_drawing == **start_parent) {
             matching_points.push(make_point_pair(edge.end(), edge.start()));
         } else {
             continue;
@@ -165,7 +164,7 @@ fn align_drawing_pair(
     if matching_points.is_empty() {
         println!(
             "No constraints found for drawing {:?}, skipping optimization",
-            secondary_drawing
+            target_drawing
         );
         return None;
     }
@@ -182,13 +181,13 @@ fn align_drawing_pair(
         180_f64.to_radians(),
         1e6,
     ];
-    let x = secondary_drawing_pose.trans[0];
-    let y = secondary_drawing_pose.trans[1];
-    let theta = match secondary_drawing_pose.rot.as_yaw() {
+    let x = target_pose.trans[0];
+    let y = target_pose.trans[1];
+    let theta = match target_pose.rot.as_yaw() {
         Rotation::Yaw(yaw) => yaw.radians(),
         _ => unreachable!(),
     };
-    let s = secondary_drawing_ppm.0;
+    let s = target_ppm.0;
     let mut u = vec![x as f64, y as f64, theta as f64, s as f64];
     // Now optimize it
     let opt_constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
@@ -205,14 +204,14 @@ fn align_drawing_pair(
     panoc.solve(&mut u).ok();
 
     // Update transform parameters with results of the optimization
-    let mut new_pose = secondary_drawing_pose.clone();
+    let mut new_pose = target_pose.clone();
     new_pose.trans[0] = u[0] as f32;
     new_pose.trans[1] = u[1] as f32;
     new_pose.rot = Rotation::Yaw(Angle::Rad(u[2] as f32));
-    change.pose.send(Change::new(new_pose, secondary_drawing));
+    change.pose.send(Change::new(new_pose, target_drawing));
     change
         .ppm
-        .send(Change::new(PixelsPerMeter(u[3] as f32), secondary_drawing));
+        .send(Change::new(PixelsPerMeter(u[3] as f32), target_drawing));
     Some((u[0], u[1], u[2], u[3]))
 }
 
@@ -284,8 +283,6 @@ pub fn align_level_drawings(
                 &references,
                 layer_entity,
                 &constraints,
-                &layer_pose,
-                &layer_ppm,
                 &params,
                 &mut change,
             );
@@ -308,9 +305,7 @@ pub fn align_site_drawings(
             .collect::<Vec<_>>();
         let reference_level = levels
             .iter()
-            .min_by(|(_, _, _, p_a), (_, _, _, p_b)| {
-                p_a.elevation.partial_cmp(&p_b.elevation).unwrap()
-            })
+            .min_by(|l_a, l_b| l_a.3.elevation.partial_cmp(&l_b.3.elevation).unwrap())
             .expect("Site has no levels");
         // Reference level will be the one with minimum elevation
         let references = reference_level
@@ -328,12 +323,10 @@ pub fn align_site_drawings(
         // Layers to be optimized are primary drawings in the non reference level
         let layers = levels
             .iter()
-            .filter(|(e, _, _, _)| *e != reference_level.0)
-            .map(|(_, c, _, _)| c.iter())
+            .filter_map(|(e, c, _, _)| (*e != reference_level.0).then(|| c.iter()))
             .flatten()
             .filter_map(|child| params.drawings.get(*child).ok())
-            .filter(|(_, _, _, _, primary)| primary.0 == true)
-            .map(|(e, _, pose, ppm, _)| (e, pose, ppm))
+            .filter_map(|(e, _, pose, ppm, primary)| (primary.0 == true).then(|| (e, pose, ppm)))
             .collect::<Vec<_>>();
         // Inter level constraints are children of the site
         let constraints = sites
@@ -359,8 +352,6 @@ pub fn align_site_drawings(
                 &references,
                 layer_entity,
                 &constraints,
-                &layer_pose,
-                &layer_ppm,
                 &params,
                 &mut change,
             );
