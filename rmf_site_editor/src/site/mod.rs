@@ -122,8 +122,6 @@ pub enum SiteUpdateStage {
     /// Use a custom stage for deletions to make sure that all commands are
     /// flushed before and after deleting things.
     Deletion,
-    /// Window UI
-    WindowUI,
 }
 
 pub struct SitePlugin;
@@ -136,11 +134,6 @@ impl Plugin for SitePlugin {
                 SiteUpdateStage::AssignOrphans,
                 SystemStage::parallel(),
             )
-            .add_stage_after(
-                CoreStage::PreUpdate,
-                SiteUpdateStage::WindowUI,
-                SystemStage::parallel(),
-            )
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
@@ -151,7 +144,6 @@ impl Plugin for SitePlugin {
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
-            .init_resource::<GeoReferencePreviewState>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -197,6 +189,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
+            .add_plugin(OSMViewPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -284,12 +277,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(export_lights),
-            )
-            .add_system_set_to_stage(
-                SiteUpdateStage::WindowUI,
-                SystemSet::new()
-                    .with_system(add_georeference)
-                    .with_system(render_map_tiles),
             );
     }
 }

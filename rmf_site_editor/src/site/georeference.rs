@@ -1,4 +1,4 @@
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Slider},
     EguiContext,
@@ -12,18 +12,24 @@ use utm::*;
 use crate::{
     generate_map_tiles,
     interaction::{camera_controls, MoveTo, Selected},
+    workspace::CurrentWorkspace,
     OSMTile,
 };
+
+#[derive(Debug, Clone)]
 pub struct GeoReferenceSelectAnchorEvent {}
 
-pub struct GeoReferenceSetReference;
+#[derive(Debug, Clone)]
+pub struct GeoReferenceSetReferenceEvent;
 
-pub struct GeoReferenceViewReference;
+#[derive(Debug, Clone)]
+pub struct GeoReferenceViewReferenceEvent;
 
+#[derive(SystemParam)]
 pub struct GeoreferenceEventWriter<'w, 's> {
     pub select_anchor: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
-    pub set_reference: EventWriter<'w, 's, GeoReferenceSetReference>,
-    pub view_reference: EventWriter<'w, 's, GeoReferenceViewReference>
+    pub set_reference: EventWriter<'w, 's, GeoReferenceSetReferenceEvent>,
+    pub view_reference: EventWriter<'w, 's, GeoReferenceViewReferenceEvent>,
 }
 
 enum SelectionMode {
@@ -71,6 +77,101 @@ impl Default for GeoReferencePreviewState {
         Self {
             zoom: 15,
             enabled: Default::default(),
+        }
+    }
+}
+
+#[derive(Default)]
+struct ReferenceWindow {
+    lat: f32,
+    lon: f32,
+    visible: bool,
+}
+
+fn set_reference(
+    geo_events: EventReader<GeoReferenceSetReferenceEvent>,
+    current_ws: Res<CurrentWorkspace>,
+    mut egui_context: ResMut<EguiContext>,
+    mut preview_state: ResMut<GeoReferencePreviewState>,
+    mut site_properties: Query<(Entity, &mut SiteProperties)>,
+    mut window: Local<ReferenceWindow>,
+) {
+    if geo_events.is_empty() && !window.visible {
+        return;
+    }
+
+    if !window.visible {
+        window.visible = true;
+    }
+
+    if let Some((_, mut properties)) = site_properties
+        .iter_mut()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if !window.visible {
+            window.visible = true;
+        }
+
+        egui::Window::new("Set Geographic Reference").show(egui_context.ctx_mut(), |ui| {
+            ui.horizontal(|ui| {
+                ui.label("Latitude: ");
+                ui.add(egui::DragValue::new(&mut window.lat).speed(1e-16));
+            });
+            ui.horizontal(|ui| {
+                ui.label("Latitude: ");
+                ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
+            });
+            if ui.button("Set reference").clicked() {
+                properties.geographic_offset = Some(GeographicOffset {
+                    anchor: (window.lat, window.lon),
+                });
+                preview_state.enabled = true;
+            }
+        });
+    }
+}
+
+#[derive(Default)]
+pub struct UTMReferenceWindow {
+    visible: bool,
+}
+
+pub fn view_reference(
+    geo_events: EventReader<GeoReferenceViewReferenceEvent>,
+    mut egui_context: ResMut<EguiContext>,
+    current_ws: Res<CurrentWorkspace>,
+    site_properties: Query<(Entity, &SiteProperties)>,
+    mut window: Local<UTMReferenceWindow>,
+) {
+    if geo_events.is_empty() && !window.visible {
+        return;
+    }
+
+    window.visible = true;
+
+    if let Some((_, properties)) = site_properties
+        .iter()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if let Some(offset) = properties.geographic_offset {
+            egui::Window::new("View Geographic Reference").show(egui_context.ctx_mut(), |ui| {
+                ui.label(format!(
+                    "Offset is at {}°, {}°",
+                    offset.anchor.0, offset.anchor.1
+                ));
+                let zone = lat_lon_to_zone_number(offset.anchor.0.into(), offset.anchor.1.into());
+                let zone_letter = lat_to_zone_letter(offset.anchor.0.into());
+                let utm_offset = to_utm_wgs84(offset.anchor.0.into(), offset.anchor.1.into(), zone);
+                ui.label(format!(
+                    "Equivalent UTM offset is Zone {}{} with eastings and northings {}, {}",
+                    zone,
+                    zone_letter.unwrap(),
+                    utm_offset.1,
+                    utm_offset.0
+                ));
+            });
         }
     }
 }
@@ -285,6 +386,11 @@ pub fn latlon_to_world(lat: f32, lon: f32, anchor: (f32, f32)) -> Vec3 {
     )
 }
 
+#[derive(Default)]
+pub struct RenderSettings {
+    prev_anchor: (f32, f32)
+}
+
 pub fn render_map_tiles(
     mut map_tiles: Query<(Entity, &MapTile)>,
     mut cameras: Query<(&Camera, &GlobalTransform)>,
@@ -292,108 +398,121 @@ pub fn render_map_tiles(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
+    current_ws: Res<CurrentWorkspace>,
     preview_state: Res<GeoReferencePreviewState>,
     mut commands: Commands,
-    site_properties: Query<&SiteProperties>,
+    site_properties: Query<(Entity, &SiteProperties)>,
+    mut render_settings: Local<RenderSettings>
 ) {
-    let site_properties = site_properties.get_single();
-    if site_properties.is_err() {
-        return;
-    }
+    if let Some((_, site_properties)) = site_properties
+        .iter()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if let Some(offset) = site_properties.geographic_offset {
+            let offset = offset.anchor;
 
-    let offset = site_properties
-        .unwrap()
-        .geographic_offset
-        .unwrap_or_default()
-        .anchor;
+            // if theres a change in offset rerender all tiles
+            if offset != render_settings.prev_anchor {
+                render_settings.prev_anchor = offset;
+                // Clear all exisitng tiles
+                for (entity, _tile) in &map_tiles {
+                    commands.entity(entity).despawn();
+                } 
+            }
 
-    if !preview_state.enabled {
-        for (entity, _tile) in &map_tiles {
-            commands.entity(entity).despawn();
-        }
-        return;
-    }
+            if !preview_state.enabled {
+                for (entity, _tile) in &map_tiles {
+                    commands.entity(entity).despawn();
+                }
+                return;
+            }
 
-    let cam_entity = match camera_controls.mode() {
-        ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
-        ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
-    };
+            let cam_entity = match camera_controls.mode() {
+                ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+                ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
+            };
 
-    let mut zoom_changed = false;
-    let mut existing_tiles = HashSet::new();
-    for (_entity, tile) in &map_tiles {
-        if tile.0.zoom() != preview_state.zoom {
-            zoom_changed = true;
-        }
-        existing_tiles.insert(tile.0.clone());
-    }
+            let mut zoom_changed = false;
+            let mut existing_tiles = HashSet::new();
+            for (_entity, tile) in &map_tiles {
+                if tile.0.zoom() != preview_state.zoom {
+                    zoom_changed = true;
+                }
+                existing_tiles.insert(tile.0.clone());
+            }
 
-    if let Ok((camera, transform)) = cameras.get(cam_entity) {
-        if let Some((viewport_min, viewport_max)) = camera.logical_viewport_rect() {
-            let viewport_size = viewport_max - viewport_min;
+            if let Ok((camera, transform)) = cameras.get(cam_entity) {
+                if let Some((viewport_min, viewport_max)) = camera.logical_viewport_rect() {
+                    let viewport_size = viewport_max - viewport_min;
 
-            let top_left_ray = Ray3d::from_screenspace(Vec2::new(0.0, 0.0), camera, transform);
-            let top_right_ray =
-                Ray3d::from_screenspace(Vec2::new(viewport_size.x, 0.0), camera, transform);
-            let bottom_left_ray =
-                Ray3d::from_screenspace(Vec2::new(0.0, viewport_size.y), camera, transform);
-            let bottom_right_ray = Ray3d::from_screenspace(viewport_size, camera, transform);
+                    let top_left_ray =
+                        Ray3d::from_screenspace(Vec2::new(0.0, 0.0), camera, transform);
+                    let top_right_ray =
+                        Ray3d::from_screenspace(Vec2::new(viewport_size.x, 0.0), camera, transform);
+                    let bottom_left_ray =
+                        Ray3d::from_screenspace(Vec2::new(0.0, viewport_size.y), camera, transform);
+                    let bottom_right_ray =
+                        Ray3d::from_screenspace(viewport_size, camera, transform);
 
-            let top_left = ray_groundplane_intersection(&top_left_ray);
-            let top_right = ray_groundplane_intersection(&top_right_ray);
-            let bottom_left = ray_groundplane_intersection(&bottom_left_ray);
-            let bottom_right = ray_groundplane_intersection(&bottom_right_ray);
+                    let top_left = ray_groundplane_intersection(&top_left_ray);
+                    let top_right = ray_groundplane_intersection(&top_right_ray);
+                    let bottom_left = ray_groundplane_intersection(&bottom_left_ray);
+                    let bottom_right = ray_groundplane_intersection(&bottom_right_ray);
 
-            let viewport_corners = [top_left, top_right, bottom_left, bottom_right];
-            // Calculate AABB
-            let min_x = viewport_corners
-                .iter()
-                .map(|x| x.x)
-                .fold(f32::INFINITY, |x, val| if x < val { x } else { val });
-            let max_x = viewport_corners
-                .iter()
-                .map(|x| x.x)
-                .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
+                    let viewport_corners = [top_left, top_right, bottom_left, bottom_right];
+                    // Calculate AABB
+                    let min_x = viewport_corners
+                        .iter()
+                        .map(|x| x.x)
+                        .fold(f32::INFINITY, |x, val| if x < val { x } else { val });
+                    let max_x = viewport_corners
+                        .iter()
+                        .map(|x| x.x)
+                        .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
 
-            let min_y = viewport_corners
-                .iter()
-                .map(|x| x.y)
-                .fold(f32::INFINITY, |x, val| if x < val { x } else { val });
-            let max_y = viewport_corners
-                .iter()
-                .map(|x| x.y)
-                .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
+                    let min_y = viewport_corners
+                        .iter()
+                        .map(|x| x.y)
+                        .fold(f32::INFINITY, |x, val| if x < val { x } else { val });
+                    let max_y = viewport_corners
+                        .iter()
+                        .map(|x| x.y)
+                        .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
 
-            // TODO(arjo): Gracefully handle unwrap
-            let latlon_start = world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset).unwrap();
-            let latlon_end = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset).unwrap();
+                    // TODO(arjo): Gracefully handle unwrap
+                    let latlon_start =
+                        world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset).unwrap();
+                    let latlon_end = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset).unwrap();
 
-            for tile in generate_map_tiles(
-                latlon_start.0 as f32,
-                latlon_start.1 as f32,
-                latlon_end.0 as f32,
-                latlon_end.1 as f32,
-                preview_state.zoom,
-            ) {
-                if existing_tiles.contains(&tile) && !zoom_changed {
-                    continue;
+                    for tile in generate_map_tiles(
+                        latlon_start.0 as f32,
+                        latlon_start.1 as f32,
+                        latlon_end.0 as f32,
+                        latlon_end.1 as f32,
+                        preview_state.zoom,
+                    ) {
+                        if existing_tiles.contains(&tile) && !zoom_changed {
+                            continue;
+                        }
+
+                        spawn_tile(
+                            &mut meshes,
+                            &mut materials,
+                            &asset_server,
+                            &mut commands,
+                            tile.get_center(),
+                            offset,
+                            preview_state.zoom,
+                        );
+                    }
                 }
 
-                spawn_tile(
-                    &mut meshes,
-                    &mut materials,
-                    &asset_server,
-                    &mut commands,
-                    tile.get_center(),
-                    offset,
-                    preview_state.zoom,
-                );
-            }
-        }
-
-        if zoom_changed {
-            for (entity, _tile) in &map_tiles {
-                commands.entity(entity).despawn();
+                if zoom_changed {
+                    for (entity, _tile) in &map_tiles {
+                        commands.entity(entity).despawn();
+                    }
+                }
             }
         }
     }
@@ -417,4 +536,20 @@ fn test_groundplane() {
     let ray = Ray3d::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 1.0, 1.0));
 
     assert!(ray_groundplane_intersection(&Some(ray)).length() < 1e-5);
+}
+
+pub struct OSMViewPlugin;
+
+impl Plugin for OSMViewPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_event::<GeoReferenceViewReferenceEvent>()
+            .add_event::<GeoReferenceSelectAnchorEvent>()
+            .add_event::<GeoReferenceSetReferenceEvent>()
+            .init_resource::<GeoReferencePreviewState>()
+            .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
+            .add_system_to_stage("WindowUI", add_georeference)
+            .add_system_to_stage("WindowUI", set_reference)
+            .add_system_to_stage("WindowUI", view_reference)
+            .add_system(render_map_tiles);
+    }
 }

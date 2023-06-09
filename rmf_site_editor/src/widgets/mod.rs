@@ -23,14 +23,15 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, GeoReferenceSelectAnchorEvent, PhysicalLightToggle,
-        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability, GeoReferencePreviewState,
+        Delete, ExportLights, FloorVisibility, GeoReferencePreviewState,
+        GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent, GeoreferenceEventWriter,
+        PhysicalLightToggle, SaveNavGraphs, SiteState, ToggleLiftDoorAvailability, GeoReferenceViewReferenceEvent,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader, Sense, Checkbox},
+    egui::{self, Button, Checkbox, CollapsingHeader, Sense},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -132,7 +133,7 @@ pub struct FileEvents<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct ToolEvents<'w, 's> {
-    pub georeference: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
+    pub georeference: GeoreferenceEventWriter<'w, 's>,
 }
 
 #[derive(SystemParam)]
@@ -196,7 +197,7 @@ fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<SiteProperties>>,
-    site_properties: Query<&SiteProperties>,
+    site_properties: Query<(Entity, &SiteProperties)>,
     mut georeference_preview: ResMut<GeoReferencePreviewState>,
     inspector_params: InspectorParams,
     levels: LevelParams,
@@ -299,27 +300,48 @@ fn site_ui_layout(
             ui.menu_button("Tools", |ui| {
                 ui.menu_button("Georeference", |ui| {
                     if ui.add(Button::new("Set Reference Via Anchor...")).clicked() {
-                        events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                        events
+                            .tool_events
+                            .georeference
+                            .select_anchor
+                            .send(GeoReferenceSelectAnchorEvent {})
                     }
                     if ui.add(Button::new("Set Reference...")).clicked() {
-                        events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                        events
+                            .tool_events
+                            .georeference
+                            .set_reference
+                            .send(GeoReferenceSetReferenceEvent {})
                     }
 
-                    let site_properties = site_properties.get_single();
-                    
-                    if let Ok(site_properties) = site_properties {
-
-                        if ui.add_enabled(site_properties.geographic_offset.is_some(), Button::new("Move To Lat/Lon")).clicked() {
-                            events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                    if let Some((_, site_properties)) = site_properties
+                    .iter()
+                    .filter(|(entity, _)| *entity == events.request.current_workspace.root.unwrap())
+                    .nth(0) {
+                        if ui
+                            .add_enabled(
+                                site_properties.geographic_offset.is_some(),
+                                Button::new("Move To Lat/Lon"),
+                            )
+                            .clicked()
+                        {
+                            //events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
                         }
-                        if ui.add_enabled(site_properties.geographic_offset.is_some(), Button::new("View Reference Parameters")).clicked() {
-                            events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                        if ui
+                            .add_enabled(
+                                site_properties.geographic_offset.is_some(),
+                                Button::new("View Reference As UTM"),
+                            )
+                            .clicked()
+                        {
+                            events.tool_events.georeference.view_reference.send(GeoReferenceViewReferenceEvent);
                         }
-                        ui.add_enabled(site_properties.geographic_offset.is_some(), Checkbox::new(&mut georeference_preview.enabled, "View Map"));
-                
+                        ui.add_enabled(
+                            site_properties.geographic_offset.is_some(),
+                            Checkbox::new(&mut georeference_preview.enabled, "View Map"),
+                        );
                     }
                 });
-                
             });
         });
     });
