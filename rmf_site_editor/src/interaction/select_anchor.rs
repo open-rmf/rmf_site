@@ -588,6 +588,9 @@ impl Placement for EdgePlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
         // Restore visibility to anchors that were hidden in this mode
+        for e in params.hidden_entities.selected_drawing_anchors.drain() {
+            set_visibility(e, &mut params.visibility, true);
+        }
         for e in params.hidden_entities.drawing_anchors.drain() {
             set_visibility(e, &mut params.visibility, true);
         }
@@ -1053,7 +1056,13 @@ impl Placement for PathPlacement {
 
 #[derive(Resource, Default)]
 pub struct HiddenSelectAnchorEntities {
+    /// Level anchors but not assigned to a drawing, hidden when entering constraint creation mode
     pub level_anchors: HashSet<Entity>,
+    /// Anchors assigned to the the selected drawing, hidden when the user chose the first anchor
+    /// of a constraint to make sure it is drawn between two different drawings
+    pub selected_drawing_anchors: HashSet<Entity>,
+    /// All drawing anchors, hidden when users draw level entities such as walls, lanes, floors to
+    /// make sure they don't connect to drawing anchors
     pub drawing_anchors: HashSet<Entity>,
 }
 
@@ -1161,6 +1170,9 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
         self.cursor.set_model_preview(&mut self.commands, None);
         for e in self.hidden_entities.level_anchors.drain() {
+            set_visibility(e, &mut self.visibility, true);
+        }
+        for e in self.hidden_entities.selected_drawing_anchors.drain() {
             set_visibility(e, &mut self.visibility, true);
         }
         for e in self.hidden_entities.drawing_anchors.drain() {
@@ -1937,26 +1949,45 @@ pub fn handle_select_anchor_mode(
             );
         }
 
-        // If we are working with requests that span multiple drawings, (constraints) hide all non fiducials
-        if matches!(request.scope, Scope::MultipleDrawings) {
-            for (e, _) in &params.anchors {
-                if params
-                    .dependents
-                    .get(e)
-                    .ok()
-                    .and_then(|deps| {
-                        deps.0
-                            .iter()
-                            .find(|dep| params.fiducials.get(**dep).is_ok())
-                    })
-                    .is_none()
-                {
-                    if let Ok(mut visibility) = params.visibility.get_mut(e) {
-                        visibility.is_visible = false;
-                        params.hidden_entities.level_anchors.insert(e);
+        match request.scope {
+            Scope::MultipleDrawings => {
+                // If we are working with requests that span multiple drawings,
+                // (constraints) hide all non fiducials
+                for (e, _) in &params.anchors {
+                    if params
+                        .dependents
+                        .get(e)
+                        .ok()
+                        .and_then(|deps| {
+                            deps.0
+                                .iter()
+                                .find(|dep| params.fiducials.get(**dep).is_ok())
+                        })
+                        .is_none()
+                    {
+                        if let Ok(mut visibility) = params.visibility.get_mut(e) {
+                            visibility.is_visible = false;
+                            params.hidden_entities.level_anchors.insert(e);
+                        }
                     }
                 }
             }
+            Scope::General | Scope::Site => {
+                // If we are working with normal level or site requests, hide all drawing anchors
+                for anchor in params.anchors.iter().filter(|(e, _)| {
+                    params
+                        .parents
+                        .get(*e)
+                        .ok()
+                        .and_then(|p| params.drawings.get(**p).ok())
+                        .is_some()
+                }) {
+                    set_visibility(anchor.0, &mut params.visibility, false);
+                    params.hidden_entities.drawing_anchors.insert(anchor.0);
+                }
+            }
+            // Nothing to hide, it's done by the drawing editor plugin
+            Scope::Drawing => {}
         }
 
         // If we are creating a new object, then we should deselect anything
@@ -2068,7 +2099,7 @@ pub fn handle_select_anchor_mode(
                     new_anchor
                 }
                 Scope::MultipleDrawings => {
-                    println!("Ignoring click, only pre-added fiducials can be connected");
+                    println!("Only existing fiducials can be connected through constraints");
                     return;
                 }
                 Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
@@ -2134,7 +2165,7 @@ pub fn handle_select_anchor_mode(
                                 for c in children.iter().filter(|c| params.anchors.get(**c).is_ok())
                                 {
                                     set_visibility(*c, &mut params.visibility, false);
-                                    params.hidden_entities.drawing_anchors.insert(*c);
+                                    params.hidden_entities.selected_drawing_anchors.insert(*c);
                                 }
                             })
                             .ok();
