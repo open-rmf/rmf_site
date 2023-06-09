@@ -388,7 +388,7 @@ pub fn latlon_to_world(lat: f32, lon: f32, anchor: (f32, f32)) -> Vec3 {
 
 #[derive(Default)]
 pub struct RenderSettings {
-    prev_anchor: (f32, f32)
+    prev_anchor: (f32, f32),
 }
 
 pub fn render_map_tiles(
@@ -402,7 +402,7 @@ pub fn render_map_tiles(
     preview_state: Res<GeoReferencePreviewState>,
     mut commands: Commands,
     site_properties: Query<(Entity, &SiteProperties)>,
-    mut render_settings: Local<RenderSettings>
+    mut render_settings: Local<RenderSettings>,
 ) {
     if let Some((_, site_properties)) = site_properties
         .iter()
@@ -418,7 +418,7 @@ pub fn render_map_tiles(
                 // Clear all exisitng tiles
                 for (entity, _tile) in &map_tiles {
                     commands.entity(entity).despawn();
-                } 
+                }
             }
 
             if !preview_state.enabled {

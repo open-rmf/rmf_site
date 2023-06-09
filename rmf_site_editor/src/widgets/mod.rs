@@ -24,8 +24,9 @@ use crate::{
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
         Delete, ExportLights, FloorVisibility, GeoReferencePreviewState,
-        GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent, GeoreferenceEventWriter,
-        PhysicalLightToggle, SaveNavGraphs, SiteState, ToggleLiftDoorAvailability, GeoReferenceViewReferenceEvent,
+        GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent,
+        GeoReferenceViewReferenceEvent, GeoreferenceEventWriter, PhysicalLightToggle,
+        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -315,9 +316,12 @@ fn site_ui_layout(
                     }
 
                     if let Some((_, site_properties)) = site_properties
-                    .iter()
-                    .filter(|(entity, _)| *entity == events.request.current_workspace.root.unwrap())
-                    .nth(0) {
+                        .iter()
+                        .filter(|(entity, _)| {
+                            *entity == events.request.current_workspace.root.unwrap()
+                        })
+                        .nth(0)
+                    {
                         if ui
                             .add_enabled(
                                 site_properties.geographic_offset.is_some(),
@@ -334,7 +338,11 @@ fn site_ui_layout(
                             )
                             .clicked()
                         {
-                            events.tool_events.georeference.view_reference.send(GeoReferenceViewReferenceEvent);
+                            events
+                                .tool_events
+                                .georeference
+                                .view_reference
+                                .send(GeoReferenceViewReferenceEvent);
                         }
                         ui.add_enabled(
                             site_properties.geographic_offset.is_some(),
