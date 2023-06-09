@@ -1,14 +1,13 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
-    Constraint as SiteConstraint, ConstraintMarker, DisplayColor, Dock as SiteDock,
-    Drawing as SiteDrawing, Fiducial as SiteFiducial, FiducialMarker, Guided, IsPrimary, Label,
-    Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelProperties as SiteLevelProperties,
-    Motion, NameInSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
-    RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Edge, Fiducial as SiteFiducial,
+    FiducialMarker, Guided, IsPrimary, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph, Navigation,
+    OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane, Rotation, Site,
+    SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
-use itertools::Itertools;
 use serde::{Deserialize, Serialize};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
@@ -364,13 +363,7 @@ impl BuildingMap {
                 if let Some(id_0) = feature_id_to_anchor_id.get(&constraint.ids[0]) {
                     if let Some(id_1) = feature_id_to_anchor_id.get(&constraint.ids[1]) {
                         let id = site_id.next().unwrap();
-                        constraints.insert(
-                            id,
-                            SiteConstraint {
-                                edge: [*id_0, *id_1].into(),
-                                marker: ConstraintMarker,
-                            },
-                        );
+                        constraints.insert(id, Edge::<u32>::from([*id_0, *id_1]).into());
                     }
                 }
             }
@@ -519,19 +512,12 @@ impl BuildingMap {
         }
 
         let mut constraints = BTreeMap::new();
-        for anchor_pairs in multilevel_fiducials
-            .into_values()
-            .map(|v| v.into_iter().combinations(2))
-        {
-            for anchor_pair in anchor_pairs {
+        for mut anchors in multilevel_fiducials.into_values().map(|v| v.into_iter()) {
+            // Guaranteed to have least have one anchor
+            let reference_anchor = anchors.next().unwrap();
+            for anchor in anchors {
                 let id = site_id.next().unwrap();
-                constraints.insert(
-                    id,
-                    SiteConstraint {
-                        edge: [anchor_pair[0], anchor_pair[1]].into(),
-                        marker: ConstraintMarker,
-                    },
-                );
+                constraints.insert(id, Edge::<u32>::from([reference_anchor, anchor]).into());
             }
         }
 

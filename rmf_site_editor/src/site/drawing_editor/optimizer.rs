@@ -22,10 +22,9 @@ use crate::site::{
     Distance, DrawingMarker, Edge, IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter,
     Pose, Rotation, ScaleDrawing, SiteProperties,
 };
-use crate::CurrentWorkspace;
 use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub fn scale_drawings(
     mut drawings: Query<(&Children, &mut PixelsPerMeter), With<DrawingMarker>>,
@@ -326,11 +325,11 @@ pub fn align_site_drawings(
             continue;
         }
         if layers.is_empty() {
-            println!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
+            println!("No other levels drawings found for site, at least one other level must have a primary drawing to be optimized against reference level. Skipping optimization");
             continue;
         }
         if references.is_empty() {
-            println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
+            println!("No reference level drawing found for site. At least one primary drawing must be present in the lowest level to use as a reference for other levels. Skipping optimization");
             continue;
         }
         for (layer_entity, layer_pose, layer_ppm) in layers {
