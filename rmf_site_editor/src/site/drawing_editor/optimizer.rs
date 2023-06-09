@@ -15,6 +15,7 @@
  *
 */
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::site::{
@@ -121,21 +122,22 @@ fn align_drawing_pair(
     constraints: &Vec<&Edge<Entity>>,
     secondary_drawing_pose: &Pose,
     secondary_drawing_ppm: &PixelsPerMeter,
-    anchors: &Query<&Anchor>,
-    parents: &Query<&Parent>,
-    global_tfs: &Query<&GlobalTransform>,
+    params: &OptimizationParams,
+    change: &mut OptimizationChangeParams,
 ) -> Option<(f64, f64, f64, f64)> {
     // Function that creates a pair of reference point and target point poses, their distance to be
     // minimized as part of the optimization
     let make_point_pair = |reference: Entity, target: Entity| {
-        let reference_point = global_tfs
+        let reference_point = params
+            .global_tfs
             .get(reference)
             .expect("Transform for anchor not found")
             .translation()
             .truncate()
             .to_array()
             .map(|t| t as f64);
-        let target_point = anchors
+        let target_point = params
+            .anchors
             .get(target)
             .expect("Broken constraint anchor reference")
             .translation_for_category(Category::Drawing)
@@ -144,10 +146,12 @@ fn align_drawing_pair(
     };
     let mut matching_points = Vec::new();
     for edge in constraints.iter() {
-        let start_parent = parents
+        let start_parent = params
+            .parents
             .get(edge.start())
             .expect("Anchor in constraint without drawing parent");
-        let end_parent = parents
+        let end_parent = params
+            .parents
             .get(edge.end())
             .expect("Anchor in constraint without drawing parent");
         if (references.contains(&*start_parent)) & (secondary_drawing == **end_parent) {
@@ -199,19 +203,50 @@ fn align_drawing_pair(
     let problem = Problem::new(&opt_constraints, df, f);
     let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
     panoc.solve(&mut u).ok();
+
+    // Update transform parameters with results of the optimization
+    let mut new_pose = secondary_drawing_pose.clone();
+    new_pose.trans[0] = u[0] as f32;
+    new_pose.trans[1] = u[1] as f32;
+    new_pose.rot = Rotation::Yaw(Angle::Rad(u[2] as f32));
+    change.pose.send(Change::new(new_pose, secondary_drawing));
+    change
+        .ppm
+        .send(Change::new(PixelsPerMeter(u[3] as f32), secondary_drawing));
     Some((u[0], u[1], u[2], u[3]))
 }
 
+#[derive(SystemParam)]
+pub struct OptimizationChangeParams<'w, 's> {
+    pose: EventWriter<'w, 's, Change<Pose>>,
+    ppm: EventWriter<'w, 's, Change<PixelsPerMeter>>,
+}
+
+#[derive(SystemParam)]
+pub struct OptimizationParams<'w, 's> {
+    drawings: Query<
+        'w,
+        's,
+        (
+            Entity,
+            &'static Children,
+            &'static Pose,
+            &'static PixelsPerMeter,
+            &'static IsPrimary,
+        ),
+        With<DrawingMarker>,
+    >,
+    global_tfs: Query<'w, 's, &'static GlobalTransform>,
+    parents: Query<'w, 's, &'static Parent>,
+    anchors: Query<'w, 's, &'static Anchor>,
+    constraints: Query<'w, 's, &'static Edge<Entity>, With<ConstraintMarker>>,
+}
+
 pub fn align_level_drawings(
-    drawings: Query<(Entity, &Children, &Pose, &PixelsPerMeter, &IsPrimary), With<DrawingMarker>>,
     levels: Query<&Children, With<LevelProperties>>,
-    global_tfs: Query<&GlobalTransform>,
-    parents: Query<&Parent>,
-    anchors: Query<&Anchor>,
-    mut change_pose: EventWriter<Change<Pose>>,
-    mut change_ppm: EventWriter<Change<PixelsPerMeter>>,
-    constraints: Query<&Edge<Entity>, With<ConstraintMarker>>,
     mut events: EventReader<AlignLevelDrawings>,
+    params: OptimizationParams,
+    mut change: OptimizationChangeParams,
 ) {
     for e in events.iter() {
         // Get the matching points for this entity
@@ -220,7 +255,7 @@ pub fn align_level_drawings(
             .expect("Align level event sent to non level entity");
         let constraints = level_children
             .iter()
-            .filter_map(|child| constraints.get(*child).ok())
+            .filter_map(|child| params.constraints.get(*child).ok())
             .collect::<Vec<_>>();
         if constraints.is_empty() {
             println!("No constraints found for level, skipping optimization");
@@ -228,7 +263,7 @@ pub fn align_level_drawings(
         }
         let (references, layers): (HashSet<_>, Vec<_>) = level_children
             .iter()
-            .filter_map(|child| drawings.get(*child).ok())
+            .filter_map(|child| params.drawings.get(*child).ok())
             .partition_map(|(e, _, pose, ppm, primary)| {
                 if primary.0 == true {
                     Either::Left(e)
@@ -245,39 +280,25 @@ pub fn align_level_drawings(
             continue;
         }
         for (layer_entity, layer_pose, layer_ppm) in layers {
-            if let Some(res) = align_drawing_pair(
+            align_drawing_pair(
                 &references,
                 layer_entity,
                 &constraints,
                 &layer_pose,
                 &layer_ppm,
-                &anchors,
-                &parents,
-                &global_tfs,
-            ) {
-                // Update transform parameters with results of the optimization
-                let mut new_pose = layer_pose.clone();
-                new_pose.trans[0] = res.0 as f32;
-                new_pose.trans[1] = res.1 as f32;
-                new_pose.rot = Rotation::Yaw(Angle::Rad(res.2 as f32));
-                change_pose.send(Change::new(new_pose, layer_entity));
-                change_ppm.send(Change::new(PixelsPerMeter(res.3 as f32), layer_entity));
-            }
+                &params,
+                &mut change,
+            );
         }
     }
 }
 
 pub fn align_site_drawings(
-    drawings: Query<(Entity, &Children, &Pose, &PixelsPerMeter, &IsPrimary), With<DrawingMarker>>,
     levels: Query<(Entity, &Children, &Parent, &LevelProperties)>,
     sites: Query<&Children, With<SiteProperties>>,
-    global_tfs: Query<&GlobalTransform>,
-    parents: Query<&Parent>,
-    anchors: Query<&Anchor>,
-    mut change_pose: EventWriter<Change<Pose>>,
-    mut change_ppm: EventWriter<Change<PixelsPerMeter>>,
-    constraints: Query<&Edge<Entity>, With<ConstraintMarker>>,
     mut events: EventReader<AlignSiteDrawings>,
+    params: OptimizationParams,
+    mut change: OptimizationChangeParams,
 ) {
     for e in events.iter() {
         // Get the levels that are children of the requested site
@@ -296,7 +317,8 @@ pub fn align_site_drawings(
             .1
             .iter()
             .filter_map(|c| {
-                drawings
+                params
+                    .drawings
                     .get(*c)
                     .ok()
                     .filter(|(_, _, _, _, primary)| primary.0 == true)
@@ -309,7 +331,7 @@ pub fn align_site_drawings(
             .filter(|(e, _, _, _)| *e != reference_level.0)
             .map(|(_, c, _, _)| c.iter())
             .flatten()
-            .filter_map(|child| drawings.get(*child).ok())
+            .filter_map(|child| params.drawings.get(*child).ok())
             .filter(|(_, _, _, _, primary)| primary.0 == true)
             .map(|(e, _, pose, ppm, _)| (e, pose, ppm))
             .collect::<Vec<_>>();
@@ -318,7 +340,7 @@ pub fn align_site_drawings(
             .get(**e)
             .expect("Align site sent to non site entity")
             .iter()
-            .filter_map(|child| constraints.get(*child).ok())
+            .filter_map(|child| params.constraints.get(*child).ok())
             .collect::<Vec<_>>();
         if constraints.is_empty() {
             println!("No constraints found for site, skipping optimization");
@@ -333,24 +355,15 @@ pub fn align_site_drawings(
             continue;
         }
         for (layer_entity, layer_pose, layer_ppm) in layers {
-            if let Some(res) = align_drawing_pair(
+            align_drawing_pair(
                 &references,
                 layer_entity,
                 &constraints,
                 &layer_pose,
                 &layer_ppm,
-                &anchors,
-                &parents,
-                &global_tfs,
-            ) {
-                // Update transform parameters with results of the optimization
-                let mut new_pose = layer_pose.clone();
-                new_pose.trans[0] = res.0 as f32;
-                new_pose.trans[1] = res.1 as f32;
-                new_pose.rot = Rotation::Yaw(Angle::Rad(res.2 as f32));
-                change_pose.send(Change::new(new_pose, layer_entity));
-                change_ppm.send(Change::new(PixelsPerMeter(res.3 as f32), layer_entity));
-            }
+                &params,
+                &mut change,
+            );
         }
     }
 }
