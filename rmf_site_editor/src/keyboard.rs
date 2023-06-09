@@ -20,10 +20,10 @@ use crate::{
         camera_controls::{CameraControls, HeadlightToggle},
         ChangeMode, InteractionMode, Selection,
     },
-    site::{AlignLevelDrawings, CurrentLevel, Delete},
-    CreateNewWorkspace, LoadWorkspace, SaveWorkspace,
+    site::{AlignLevelDrawings, AlignSiteDrawings, CurrentLevel, Delete},
+    CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::EguiContext;
 
 #[derive(Debug, Clone, Copy, Resource)]
@@ -44,6 +44,13 @@ impl Plugin for KeyboardInputPlugin {
     }
 }
 
+#[derive(SystemParam)]
+struct KeyboardParams<'w, 's> {
+    align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
+    align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+}
+
 fn handle_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     selection: Res<Selection>,
@@ -57,10 +64,10 @@ fn handle_keyboard_input(
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
-    mut align_drawings: EventWriter<AlignLevelDrawings>,
     current_level: Res<CurrentLevel>,
     headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
+    mut params: KeyboardParams,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -107,9 +114,16 @@ fn handle_keyboard_input(
                 save_workspace.send(SaveWorkspace::new().to_default_file());
             }
         }
+
         if keyboard_input.just_pressed(KeyCode::T) {
-            if let Some(level) = **current_level {
-                align_drawings.send(AlignLevelDrawings(level));
+            if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
+                if let Some(site) = params.current_workspace.root {
+                    params.align_site.send(AlignSiteDrawings(site));
+                }
+            } else {
+                if let Some(level) = **current_level {
+                    params.align_drawings.send(AlignLevelDrawings(level));
+                }
             }
         }
 
