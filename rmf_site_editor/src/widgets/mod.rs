@@ -23,10 +23,10 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignLevelDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag,
-        CurrentLevel, Delete, DrawingMarker, ExportLights, GlobalDrawingVisibility,
-        GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
-        SiteState, ToggleLiftDoorAvailability,
+        AlignLevelDrawings, AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
+        SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -247,6 +247,7 @@ pub struct AppEvents<'w, 's> {
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
     pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
+    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
 }
 
 fn site_ui_layout(
@@ -420,6 +421,11 @@ fn site_visualizer_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
+                        if ui.add(Button::new("Align levels")).clicked() {
+                            events.align_site.send(AlignSiteDrawings(
+                                events.request.current_workspace.root.unwrap(),
+                            ));
+                        }
                         if ui.add(Button::new("Return to site editor")).clicked() {
                             events.app_state.set(AppState::SiteEditor).ok();
                         }
