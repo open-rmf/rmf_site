@@ -65,7 +65,7 @@ pub fn add_constraint_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
 ) {
     for (e, edge) in &constraints {
-        let mut transform = line_stroke_transform(
+        let transform = line_stroke_transform(
             &anchors
                 .point_in_parent_frame_of(edge.start(), Category::Constraint, e)
                 .unwrap(),
@@ -74,8 +74,6 @@ pub fn add_constraint_visuals(
                 .unwrap(),
             CONSTRAINT_WIDTH,
         );
-        // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = CONSTRAINT_LAYER_START;
 
         let child_id = commands
             .spawn(PbrBundle {
@@ -119,7 +117,6 @@ fn update_constraint_visual(
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
     *transform = line_stroke_transform(&start_anchor, &end_anchor, CONSTRAINT_WIDTH);
-    transform.translation.z = CONSTRAINT_LAYER_START;
 }
 
 pub fn update_changed_constraint(
