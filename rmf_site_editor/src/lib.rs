@@ -72,6 +72,7 @@ struct CommandLineArgs {
 pub enum AppState {
     MainMenu,
     SiteEditor,
+    SiteVisualizer,
     //WarehouseGenerator,
     WorkcellEditor,
     SiteDrawingEditor,

@@ -54,11 +54,21 @@ pub struct LevelParams<'w, 's> {
 pub struct ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
     params: &'a LevelParams<'w1, 's1>,
     events: &'a mut AppEvents<'w2, 's2>,
+    edit_visibility: bool,
 }
 
 impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
     pub fn new(params: &'a LevelParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
-        Self { params, events }
+        Self {
+            params,
+            events,
+            edit_visibility: false,
+        }
+    }
+
+    pub fn for_editing_visibility(mut self) -> Self {
+        self.edit_visibility = true;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -151,7 +161,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                                 .send(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
-                    } else {
+                    } else if self.edit_visibility == true {
                         if ui
                             .radio(Some(e) == **self.events.request.current_level, "")
                             .clicked()

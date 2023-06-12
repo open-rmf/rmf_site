@@ -95,6 +95,10 @@ impl Plugin for StandardUiLayout {
                 SystemSet::on_update(AppState::SiteDrawingEditor)
                     .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteVisualizer)
+                    .with_system(site_visualizer_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
                 SystemSet::on_update(SiteState::Display)
@@ -267,7 +271,9 @@ fn site_ui_layout(
                         CollapsingHeader::new("Levels")
                             .default_open(true)
                             .show(ui, |ui| {
-                                ViewLevels::new(&levels, &mut events).show(ui);
+                                ViewLevels::new(&levels, &mut events)
+                                    .for_editing_visibility()
+                                    .show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Navigation Graphs")
@@ -306,6 +312,9 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
+                        if ui.add(Button::new("Building preview")).clicked() {
+                            events.app_state.set(AppState::SiteVisualizer).ok();
+                        }
                     });
                 });
         });
@@ -357,6 +366,58 @@ fn site_drawing_ui_layout(
                             .default_open(true)
                             .show(ui, |ui| {
                                 CreateWidget::new(&mut events).show(ui);
+                            });
+                        ui.separator();
+                        if ui.add(Button::new("Return to site editor")).clicked() {
+                            events.app_state.set(AppState::SiteEditor).ok();
+                        }
+                    });
+                });
+        });
+
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+    );
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn site_visualizer_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    inspector_params: InspectorParams,
+    mut events: AppEvents,
+    levels: LevelParams,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .default_width(300.0)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
                         if ui.add(Button::new("Return to site editor")).clicked() {

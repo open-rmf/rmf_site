@@ -136,7 +136,7 @@ pub fn dispatch_new_workspace_events(
             AppState::MainMenu => {
                 println!("DEV ERROR: Sent generic change workspace while in main menu");
             }
-            AppState::SiteEditor | AppState::SiteDrawingEditor => {
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                 load_site.send(LoadSite {
                     site: Site::default(),
                     focus: true,

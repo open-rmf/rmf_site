@@ -41,7 +41,7 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
             match self.events.app_state.current() {
-                AppState::MainMenu => {
+                AppState::MainMenu | AppState::SiteVisualizer => {
                     return;
                 }
                 AppState::SiteEditor => {
@@ -128,7 +128,9 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         }
                         ui.add_space(5.0);
                         match self.events.app_state.current() {
-                            AppState::MainMenu | AppState::SiteDrawingEditor => {}
+                            AppState::MainMenu
+                            | AppState::SiteDrawingEditor
+                            | AppState::SiteVisualizer => {}
                             AppState::SiteEditor => {
                                 if ui.button("Spawn model").clicked() {
                                     let model = Model {

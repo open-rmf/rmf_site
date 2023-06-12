@@ -99,6 +99,9 @@ pub use save::*;
 pub mod site;
 pub use site::*;
 
+pub mod site_visualizer;
+pub use site_visualizer::*;
+
 pub mod util;
 pub use util::*;
 
@@ -204,6 +207,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
+            .add_plugin(SiteVisualizerPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
