@@ -15,10 +15,13 @@
  *
 */
 
+use crate::interaction::Selectable;
 use crate::site::*;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
+
+use bevy_polyline::prelude::*;
 
 pub const SELECTED_LANE_OFFSET: f32 = 0.001;
 pub const HOVERED_LANE_OFFSET: f32 = 0.002;
@@ -35,6 +38,7 @@ pub struct LaneSegments {
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
+    pub polyline: Entity,
     pub outlines: [Entity; 3],
 }
 
@@ -93,6 +97,8 @@ pub fn add_lane_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut polylines: ResMut<Assets<Polyline>>,
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
@@ -118,7 +124,7 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
         let mut commands = commands.entity(e);
-        let (layer, start, mid, end, outlines) = commands.add_children(|parent| {
+        let (layer, start, mid, end, polyline, outlines) = commands.add_children(|parent| {
             // Create a "layer" entity that manages the height of the lane,
             // determined by the DisplayHeight of the graph.
             let mut layer_cmd = parent.spawn(SpatialBundle {
@@ -126,7 +132,7 @@ pub fn add_lane_visuals(
                 ..default()
             });
 
-            let (start, mid, end, outlines) = layer_cmd.add_children(|parent| {
+            let (start, mid, end, polyline, outlines) = layer_cmd.add_children(|parent| {
                 let mut start = parent.spawn(PbrBundle {
                     mesh: assets.lane_end_mesh.clone(),
                     material: lane_material.clone(),
@@ -168,6 +174,7 @@ pub fn add_lane_visuals(
                     transform: Transform::from_translation(end_anchor),
                     ..default()
                 });
+
                 let end_outline = end.add_children(|end| {
                     end.spawn(PbrBundle {
                         mesh: assets.lane_end_outline.clone(),
@@ -179,10 +186,32 @@ pub fn add_lane_visuals(
                 });
                 let end = end.id();
 
-                (start, mid, end, [start_outline, mid_outline, end_outline])
+                let polyline = parent
+                    .spawn(PolylineBundle {
+                        polyline: polylines.add(Polyline {
+                            vertices: vec![start_anchor, end_anchor],
+                        }),
+                        material: polyline_materials.add(PolylineMaterial {
+                            width: 10.0,
+                            color: Color::RED,
+                            perspective: false,
+                            ..default()
+                        }),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .id();
+
+                (
+                    start,
+                    mid,
+                    end,
+                    polyline,
+                    [start_outline, mid_outline, end_outline],
+                )
             });
 
-            (layer_cmd.id(), start, mid, end, outlines)
+            (layer_cmd.id(), start, mid, end, polyline, outlines)
         });
 
         commands
@@ -191,6 +220,7 @@ pub fn add_lane_visuals(
                 start,
                 mid,
                 end,
+                polyline,
                 outlines,
             })
             .insert(SpatialBundle {
@@ -209,6 +239,8 @@ fn update_lane_visuals(
     segments: &LaneSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
+    polylines: &Query<&Handle<Polyline>>,
+    polyline_assets: &mut Assets<Polyline>,
 ) {
     let start_anchor = anchors
         .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
@@ -225,6 +257,11 @@ fn update_lane_visuals(
     }
     if let Some(mut tf) = transforms.get_mut(segments.end).ok() {
         *tf = Transform::from_translation(end_anchor);
+    }
+    if let Ok(polyline) = polylines.get(segments.polyline) {
+        if let Some(mut polyline) = polyline_assets.get_mut(polyline) {
+            polyline.vertices = vec![start_anchor, end_anchor];
+        }
     }
 }
 
@@ -244,10 +281,20 @@ pub fn update_changed_lane(
     levels: Query<(), With<LevelProperties>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
+    polylines: Query<&Handle<Polyline>>,
+    mut polyline_assets: ResMut<Assets<Polyline>>,
     current_level: Res<CurrentLevel>,
 ) {
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
-        update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+        update_lane_visuals(
+            e,
+            edge,
+            segments,
+            &anchors,
+            &mut transforms,
+            &polylines,
+            &mut polyline_assets,
+        );
 
         let is_visible =
             should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
@@ -268,11 +315,21 @@ pub fn update_lane_for_moved_anchor(
         ),
     >,
     mut transforms: Query<&mut Transform>,
+    polylines: Query<&Handle<Polyline>>,
+    mut polyline_assets: ResMut<Assets<Polyline>>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, edge, segments)) = lanes.get(*dependent) {
-                update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+                update_lane_visuals(
+                    e,
+                    edge,
+                    segments,
+                    &anchors,
+                    &mut transforms,
+                    &polylines,
+                    &mut polyline_assets,
+                );
             }
         }
     }
