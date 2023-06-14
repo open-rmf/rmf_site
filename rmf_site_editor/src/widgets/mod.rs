@@ -23,7 +23,7 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, GeoReferencePreviewState,
+        Delete, ExportLights, FloorVisibility, GeoReferenceMoveEvent, GeoReferencePreviewState,
         GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent,
         GeoReferenceViewReferenceEvent, GeoreferenceEventWriter, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
@@ -329,7 +329,11 @@ fn site_ui_layout(
                             )
                             .clicked()
                         {
-                            //events.tool_events.georeference.send(GeoReferenceSelectAnchorEvent {})
+                            events
+                                .tool_events
+                                .georeference
+                                .move_anchor
+                                .send(GeoReferenceMoveEvent);
                         }
                         if ui
                             .add_enabled(

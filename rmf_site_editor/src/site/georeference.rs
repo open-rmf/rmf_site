@@ -25,11 +25,15 @@ pub struct GeoReferenceSetReferenceEvent;
 #[derive(Debug, Clone)]
 pub struct GeoReferenceViewReferenceEvent;
 
+#[derive(Debug, Clone)]
+pub struct GeoReferenceMoveEvent;
+
 #[derive(SystemParam)]
 pub struct GeoreferenceEventWriter<'w, 's> {
     pub select_anchor: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
     pub set_reference: EventWriter<'w, 's, GeoReferenceSetReferenceEvent>,
     pub view_reference: EventWriter<'w, 's, GeoReferenceViewReferenceEvent>,
+    pub move_anchor: EventWriter<'w, 's, GeoReferenceMoveEvent>,
 }
 
 enum SelectionMode {
@@ -82,6 +86,80 @@ impl Default for GeoReferencePreviewState {
 }
 
 #[derive(Default)]
+struct MoveReference {
+    anchor: SelectionMode,
+    lat: f32,
+    lon: f32,
+    visible: bool,
+}
+
+fn move_reference(
+    selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
+    geo_events: EventReader<GeoReferenceMoveEvent>,
+    current_ws: Res<CurrentWorkspace>,
+    site_properties: Query<(Entity, &SiteProperties)>,
+    mut window: Local<MoveReference>,
+    mut egui_context: ResMut<EguiContext>,
+    mut move_commands: EventWriter<MoveTo>,
+) {
+    if geo_events.is_empty() && !window.visible {
+        return;
+    }
+
+    if !window.visible {
+        window.visible = true;
+    }
+
+    if let Some((_, properties)) = site_properties
+        .iter()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if let Some(offset) = properties.geographic_offset {
+            let offset = offset.anchor;
+            let selected: Vec<_> = selected_anchors
+                .iter()
+                .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
+                .collect();
+
+            egui::Window::new("Set Geographic Reference").show(egui_context.ctx_mut(), |ui| {
+                if ui.button(selection_mode_labels(&window.anchor)).clicked() {
+                    if selected.len() == 0 {
+                        window.anchor = SelectionMode::AnchorSelect;
+                    } else {
+                        window.anchor = SelectionMode::AnchorSelected(selected[0].3);
+                        let translation = selected[0].2.translation();
+                        let (lat, lon) = world_to_latlon(translation, offset).unwrap();
+                        window.lat = lat as f32;
+                        window.lon = lon as f32;
+                    }
+                }
+                ui.horizontal(|ui| {
+                    ui.label("Latitude: ");
+                    ui.add(egui::DragValue::new(&mut window.lat).speed(1e-16));
+                });
+                ui.horizontal(|ui| {
+                    ui.label("Latitude: ");
+                    ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
+                });
+                if ui.button("Move").clicked() {
+                    let move_cmd = MoveTo {
+                        entity: selected[0].3,
+                        transform: Transform::from_translation(latlon_to_world(
+                            window.lat, window.lon, offset,
+                        )),
+                    };
+                    move_commands.send(move_cmd);
+                }
+                if ui.button("Close").clicked() {
+                    window.visible = false;
+                }
+            });
+        }
+    }
+}
+
+#[derive(Default)]
 struct ReferenceWindow {
     lat: f32,
     lon: f32,
@@ -119,7 +197,7 @@ fn set_reference(
                 ui.add(egui::DragValue::new(&mut window.lat).speed(1e-16));
             });
             ui.horizontal(|ui| {
-                ui.label("Latitude: ");
+                ui.label("Longitude: ");
                 ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
             });
             if ui.button("Set reference").clicked() {
@@ -127,6 +205,9 @@ fn set_reference(
                     anchor: (window.lat, window.lon),
                 });
                 preview_state.enabled = true;
+            }
+            if ui.button("Close").clicked() {
+                window.visible = false;
             }
         });
     }
@@ -182,7 +263,6 @@ pub fn add_georeference(
     mut egui_context: ResMut<EguiContext>,
     mut preview_state: ResMut<GeoReferencePreviewState>,
     mut geo_events: EventReader<GeoReferenceSelectAnchorEvent>,
-    mut move_commands: EventWriter<MoveTo>,
     mut site_properties: Query<&mut SiteProperties>,
 ) {
     let site_properties = site_properties.get_single_mut();
@@ -261,21 +341,6 @@ pub fn add_georeference(
                         }
                     }
                 }
-                if ui.button("Move to lat/lon").clicked() {
-                    panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
-
-                    if geography_defined {
-                        let move_cmd = MoveTo {
-                            entity: selected[0].3,
-                            transform: Transform::from_translation(latlon_to_world(
-                                panel_state.latitude,
-                                panel_state.longitude,
-                                offset,
-                            )),
-                        };
-                        move_commands.send(move_cmd);
-                    }
-                }
             });
 
             if selected.len() != 0
@@ -284,21 +349,9 @@ pub fn add_georeference(
                 panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                 let translation = selected[0].2.translation();
                 let (lat, lon) = world_to_latlon(translation, offset).unwrap();
-                println!("Anchor at {:?}", (lat, lon));
                 panel_state.latitude = lat as f32;
                 panel_state.longitude = lon as f32;
             }
-
-            ui.horizontal(|ui| {
-                ui.label("Map Resolution: ");
-                ui.add(Slider::new(
-                    &mut preview_state.zoom,
-                    RangeInclusive::new(13, 19),
-                ));
-                if ui.button("Preview Map").clicked() {
-                    preview_state.enabled = true;
-                }
-            });
         });
     }
 }
@@ -545,11 +598,13 @@ impl Plugin for OSMViewPlugin {
         app.add_event::<GeoReferenceViewReferenceEvent>()
             .add_event::<GeoReferenceSelectAnchorEvent>()
             .add_event::<GeoReferenceSetReferenceEvent>()
+            .add_event::<GeoReferenceMoveEvent>()
             .init_resource::<GeoReferencePreviewState>()
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
             .add_system_to_stage("WindowUI", add_georeference)
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
+            .add_system_to_stage("WindowUI", move_reference)
             .add_system(render_map_tiles);
     }
 }

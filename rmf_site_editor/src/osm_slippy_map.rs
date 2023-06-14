@@ -217,6 +217,20 @@ impl OSMTile {
     }
 }
 
+pub fn zigzag_iter(start: i32, end: i32) -> impl Iterator<Item = i32> {
+    let diff = end - start;
+    let center = start + diff / 2;
+    (1..diff + 2).map(move |d| center + d / 2 * (-1i32).pow(d as u32))
+}
+
+#[test]
+fn test_zigzag_iter() {
+    let v: Vec<_> = zigzag_iter(1, 5).collect();
+    assert_eq!(v, vec![3, 4, 2, 5, 1]);
+    let v: Vec<_> = zigzag_iter(1, 4).collect();
+    assert_eq!(v, vec![2, 3, 1, 4]);
+}
+
 pub fn generate_map_tiles(
     lat1: f32,
     lon1: f32,
@@ -228,8 +242,8 @@ pub fn generate_map_tiles(
     let end_tile = OSMTile::from_latlon(zoom, lat2, lon2);
 
     //TODO(arjo): Support world's end
-    (end_tile.ytile..start_tile.ytile + 1).flat_map(move |y| {
-        (start_tile.xtile..end_tile.xtile + 1).map(move |x| OSMTile {
+    zigzag_iter(end_tile.ytile, start_tile.ytile + 1).flat_map(move |y| {
+        zigzag_iter(start_tile.xtile, end_tile.xtile + 1).map(move |x| OSMTile {
             xtile: x,
             ytile: y,
             zoom,
