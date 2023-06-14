@@ -240,15 +240,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 id_to_entity.insert(*location_id, location);
                 consider_id(*location_id);
             }
-
-            for (constraint_id, constraint_data) in &site_data.constraints {
-                let constraint = site
-                    .spawn(constraint_data.to_ecs(&id_to_entity))
-                    .insert(SiteID(*constraint_id))
-                    .id();
-                id_to_entity.insert(*constraint_id, constraint);
-                consider_id(*constraint_id);
-            }
         });
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

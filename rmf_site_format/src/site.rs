@@ -46,9 +46,6 @@ pub struct Site {
     // from level anchors, or does the grouping make the intent obvious enough?
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
-    /// Constraints to be used for floor alignment
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub constraints: BTreeMap<u32, Constraint<u32>>,
     /// Properties that are tied to the whole site
     pub properties: SiteProperties,
     /// Properties of each level

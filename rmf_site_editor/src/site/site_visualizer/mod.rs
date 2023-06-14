@@ -21,8 +21,6 @@ use crate::interaction::{InteractionState, SetCategoryVisibility};
 use crate::site::{CurrentLevel, LaneMarker, LevelProperties, SiteProperties};
 use crate::{AppState, CurrentWorkspace};
 
-use std::collections::HashSet;
-
 #[derive(Default)]
 pub struct SiteVisualizerPlugin;
 

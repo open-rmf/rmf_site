@@ -263,11 +263,11 @@ pub fn align_level_drawings(
         let (references, layers): (HashSet<_>, Vec<_>) = level_children
             .iter()
             .filter_map(|child| params.drawings.get(*child).ok())
-            .partition_map(|(e, _, pose, ppm, primary)| {
+            .partition_map(|(e, _, _, _, primary)| {
                 if primary.0 == true {
                     Either::Left(e)
                 } else {
-                    Either::Right((e, pose, ppm))
+                    Either::Right(e)
                 }
             });
         if layers.is_empty() {
@@ -278,7 +278,7 @@ pub fn align_level_drawings(
             println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
         }
-        for (layer_entity, layer_pose, layer_ppm) in layers {
+        for layer_entity in layers {
             align_drawing_pair(
                 &references,
                 layer_entity,
@@ -326,7 +326,7 @@ pub fn align_site_drawings(
             .filter_map(|(e, c, _, _)| (*e != reference_level.0).then(|| c.iter()))
             .flatten()
             .filter_map(|child| params.drawings.get(*child).ok())
-            .filter_map(|(e, _, pose, ppm, primary)| (primary.0 == true).then(|| (e, pose, ppm)))
+            .filter_map(|(e, _, _, _, primary)| (primary.0 == true).then(|| e))
             .collect::<Vec<_>>();
         // Inter level constraints are children of the site
         let constraints = sites
@@ -347,7 +347,7 @@ pub fn align_site_drawings(
             println!("No reference level drawing found for site. At least one primary drawing must be present in the lowest level to use as a reference for other levels. Skipping optimization");
             continue;
         }
-        for (layer_entity, layer_pose, layer_ppm) in layers {
+        for layer_entity in layers {
             align_drawing_pair(
                 &references,
                 layer_entity,

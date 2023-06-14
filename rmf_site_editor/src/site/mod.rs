@@ -288,6 +288,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_constraint_for_moved_anchors)
+                    .with_system(update_constraint_for_changed_labels)
                     .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
                     .with_system(handle_new_sdf_roots)

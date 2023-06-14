@@ -144,8 +144,6 @@ impl BuildingMap {
         let mut levels = BTreeMap::new();
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
-        // Will map a fiducial name to a vector of matching site ids
-        let mut multilevel_fiducials = BTreeMap::<String, Vec<u32>>::new();
         let mut locations = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
@@ -223,10 +221,6 @@ impl BuildingMap {
                     } else {
                         let name = &fiducial.2;
                         feature_id_to_anchor_id.insert(name.clone(), anchor_id);
-                        multilevel_fiducials
-                            .entry(name.clone())
-                            .or_insert(Vec::<_>::new())
-                            .push(anchor_id);
                         Label(Some(name.clone()))
                     };
                     // Do not add this anchor to the vertex_to_anchor_id map because
@@ -511,20 +505,9 @@ impl BuildingMap {
             );
         }
 
-        let mut constraints = BTreeMap::new();
-        for mut anchors in multilevel_fiducials.into_values().map(|v| v.into_iter()) {
-            // Guaranteed to have least have one anchor
-            let reference_anchor = anchors.next().unwrap();
-            for anchor in anchors {
-                let id = site_id.next().unwrap();
-                constraints.insert(id, Edge::<u32>::from([reference_anchor, anchor]).into());
-            }
-        }
-
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
-            constraints,
             properties: SiteProperties {
                 name: self.name.clone(),
             },
