@@ -18,6 +18,7 @@ use crate::{
 
 const MAX_ZOOM: i32 = 19;
 const MIN_ZOOM: i32 = 12;
+const MAX_TILES: usize = 50;
 
 #[derive(Debug, Clone)]
 pub struct GeoReferenceSelectAnchorEvent {}
@@ -556,6 +557,7 @@ pub fn render_map_tiles(
                         world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset).unwrap();
                     let latlon_end = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset).unwrap();
 
+                    let mut num_tiles = existing_tiles.len();
                     for tile in generate_map_tiles(
                         latlon_start.0 as f32,
                         latlon_start.1 as f32,
@@ -566,6 +568,12 @@ pub fn render_map_tiles(
                         if existing_tiles.contains(&tile) && !zoom_changed {
                             continue;
                         }
+
+                        // Limit number of tiles fetched.
+                        if num_tiles > MAX_TILES {
+                            break;
+                        }
+                        num_tiles += 1;
 
                         spawn_tile(
                             &mut meshes,
