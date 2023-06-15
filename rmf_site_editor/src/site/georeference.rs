@@ -69,36 +69,20 @@ pub struct GeoReferencePanelState {
     selection_mode: SelectionMode,
 }
 
-#[derive(Clone, Resource)]
-pub struct GeoReferencePreviewState {
-    //anchor: (f32, f32),
-    pub zoom: i32,
-    pub enabled: bool,
-}
-
-impl Default for GeoReferencePreviewState {
-    fn default() -> Self {
-        Self {
-            zoom: 15,
-            enabled: Default::default(),
-        }
-    }
-}
-
 #[derive(Default)]
-struct MoveReference {
+struct MoveAnchor {
     anchor: SelectionMode,
     lat: f32,
     lon: f32,
     visible: bool,
 }
 
-fn move_reference(
+fn move_anchor(
     selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
     geo_events: EventReader<GeoReferenceMoveEvent>,
     current_ws: Res<CurrentWorkspace>,
     site_properties: Query<(Entity, &SiteProperties)>,
-    mut window: Local<MoveReference>,
+    mut window: Local<MoveAnchor>,
     mut egui_context: ResMut<EguiContext>,
     mut move_commands: EventWriter<MoveTo>,
 ) {
@@ -155,6 +139,14 @@ fn move_reference(
                     window.visible = false;
                 }
             });
+
+            if selected.len() != 0 && matches!(window.anchor, SelectionMode::AnchorSelect) {
+                window.anchor = SelectionMode::AnchorSelected(selected[0].3);
+                let translation = selected[0].2.translation();
+                let (lat, lon) = world_to_latlon(translation, offset).unwrap();
+                window.lat = lat as f32;
+                window.lon = lon as f32;
+            }
         }
     }
 }
@@ -170,7 +162,6 @@ fn set_reference(
     geo_events: EventReader<GeoReferenceSetReferenceEvent>,
     current_ws: Res<CurrentWorkspace>,
     mut egui_context: ResMut<EguiContext>,
-    mut preview_state: ResMut<GeoReferencePreviewState>,
     mut site_properties: Query<(Entity, &mut SiteProperties)>,
     mut window: Local<ReferenceWindow>,
 ) {
@@ -203,8 +194,9 @@ fn set_reference(
             if ui.button("Set reference").clicked() {
                 properties.geographic_offset = Some(GeographicOffset {
                     anchor: (window.lat, window.lon),
+                    zoom: 15,
+                    visible: true,
                 });
-                preview_state.enabled = true;
             }
             if ui.button("Close").clicked() {
                 window.visible = false;
@@ -261,98 +253,94 @@ pub fn add_georeference(
     selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
     mut panel_state: Local<GeoReferencePanelState>,
     mut egui_context: ResMut<EguiContext>,
-    mut preview_state: ResMut<GeoReferencePreviewState>,
     mut geo_events: EventReader<GeoReferenceSelectAnchorEvent>,
-    mut site_properties: Query<&mut SiteProperties>,
+    current_ws: Res<CurrentWorkspace>,
+    mut site_properties: Query<(Entity, &mut SiteProperties)>,
 ) {
-    let site_properties = site_properties.get_single_mut();
+    if let Some((_, mut properties)) = site_properties
+        .iter_mut()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if let Some(offset) = properties.geographic_offset {
+            for _event in geo_events.iter() {
+                panel_state.enabled = true;
+            }
 
-    let (offset, geography_defined) = if let Ok(ref properties) = site_properties {
-        (
-            properties.geographic_offset.unwrap_or_default().anchor,
-            true,
-        )
-    } else {
-        ((0.0, 0.0), false)
-    };
+            let selected: Vec<_> = selected_anchors
+                .iter()
+                .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
+                .collect();
 
-    for _event in geo_events.iter() {
-        panel_state.enabled = true;
-    }
+            if panel_state.enabled {
+                // Draw UI
+                egui::Window::new("Geographic Reference").show(egui_context.ctx_mut(), |ui| {
+                    ui.horizontal(|ui| {
+                        ui.label("Reference Anchor: ");
+                        if ui
+                            .button(selection_mode_labels(&panel_state.selection_mode))
+                            .clicked()
+                        {
+                            if selected.len() == 0 {
+                                panel_state.selection_mode = SelectionMode::AnchorSelect;
+                            } else {
+                                panel_state.selection_mode =
+                                    SelectionMode::AnchorSelected(selected[0].3);
+                                let translation = selected[0].2.translation();
+                                let (lat, lon) = world_to_latlon(translation, offset.anchor).unwrap();
+                                println!("Anchor at {:?}", (lat, lon));
+                                panel_state.latitude = lat as f32;
+                                panel_state.longitude = lon as f32;
+                            }
+                        }
+                        ui.label("Latitude: ");
+                        ui.add(egui::DragValue::new(&mut panel_state.latitude).speed(1e-16));
+                        ui.label("Longitude: ");
+                        ui.add(egui::DragValue::new(&mut panel_state.longitude).speed(1e-16));
+                        if ui.button("Make Reference").clicked() {
+                            // Recalculate reference point
+                            if selected.len() == 1 {
+                                let global_transform = selected[0].2;
+                                let translation = global_transform.translation();
+                                let zone = lat_lon_to_zone_number(
+                                    panel_state.latitude as f64,
+                                    panel_state.longitude as f64,
+                                );
+                                let (northing, easting, _) = to_utm_wgs84(
+                                    panel_state.latitude as f64,
+                                    panel_state.longitude as f64,
+                                    zone,
+                                );
+                                let utm_origin = (
+                                    easting - translation.x as f64,
+                                    northing - translation.x as f64,
+                                );
+                                let (lat, lon) = wsg84_utm_to_lat_lon(
+                                    utm_origin.0,
+                                    utm_origin.1,
+                                    zone,
+                                    lat_to_zone_letter(panel_state.latitude.into()).unwrap(),
+                                )
+                                .unwrap();
 
-    let selected: Vec<_> = selected_anchors
-        .iter()
-        .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
-        .collect();
+                                properties.geographic_offset =
+                                    Some(GeographicOffset::from_latlon((lat as f32, lon as f32)));
+                            }
+                        }
+                    });
 
-    if panel_state.enabled {
-        // Draw UI
-        egui::Window::new("Geographic Reference").show(egui_context.ctx_mut(), |ui| {
-            ui.horizontal(|ui| {
-                ui.label("Reference Anchor: ");
-                if ui
-                    .button(selection_mode_labels(&panel_state.selection_mode))
-                    .clicked()
-                {
-                    if selected.len() == 0 {
-                        panel_state.selection_mode = SelectionMode::AnchorSelect;
-                    } else {
+                    if selected.len() != 0
+                        && matches!(panel_state.selection_mode, SelectionMode::AnchorSelect)
+                    {
                         panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
                         let translation = selected[0].2.translation();
-                        let (lat, lon) = world_to_latlon(translation, offset).unwrap();
-                        println!("Anchor at {:?}", (lat, lon));
+                        let (lat, lon) = world_to_latlon(translation, offset.anchor).unwrap();
                         panel_state.latitude = lat as f32;
                         panel_state.longitude = lon as f32;
                     }
-                }
-                ui.label("Latitude: ");
-                ui.add(egui::DragValue::new(&mut panel_state.latitude).speed(1e-16));
-                ui.label("Longitude: ");
-                ui.add(egui::DragValue::new(&mut panel_state.longitude).speed(1e-16));
-                if ui.button("Make Reference").clicked() {
-                    // Recalculate reference point
-                    if selected.len() == 1 {
-                        let global_transform = selected[0].2;
-                        let translation = global_transform.translation();
-                        let zone = lat_lon_to_zone_number(
-                            panel_state.latitude as f64,
-                            panel_state.longitude as f64,
-                        );
-                        let (northing, easting, _) = to_utm_wgs84(
-                            panel_state.latitude as f64,
-                            panel_state.longitude as f64,
-                            zone,
-                        );
-                        let utm_origin = (
-                            easting - translation.x as f64,
-                            northing - translation.x as f64,
-                        );
-                        let (lat, lon) = wsg84_utm_to_lat_lon(
-                            utm_origin.0,
-                            utm_origin.1,
-                            zone,
-                            lat_to_zone_letter(panel_state.latitude.into()).unwrap(),
-                        )
-                        .unwrap();
-
-                        if let Ok(mut properties) = site_properties {
-                            properties.geographic_offset =
-                                Some(GeographicOffset::from_latlon((lat as f32, lon as f32)));
-                        }
-                    }
-                }
-            });
-
-            if selected.len() != 0
-                && matches!(panel_state.selection_mode, SelectionMode::AnchorSelect)
-            {
-                panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
-                let translation = selected[0].2.translation();
-                let (lat, lon) = world_to_latlon(translation, offset).unwrap();
-                panel_state.latitude = lat as f32;
-                panel_state.longitude = lon as f32;
+                });
             }
-        });
+        }
     }
 }
 
@@ -388,7 +376,7 @@ fn spawn_tile(
         .spawn(PbrBundle {
             mesh: quad_handle,
             material: material_handle,
-            transform: Transform::from_xyz(tile_offset.x, tile_offset.y, 0.0),
+            transform: Transform::from_xyz(tile_offset.x, tile_offset.y, -0.005),
             ..default()
         })
         .insert(MapTile(tile));
@@ -452,7 +440,6 @@ pub fn render_map_tiles(
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     current_ws: Res<CurrentWorkspace>,
-    preview_state: Res<GeoReferencePreviewState>,
     mut commands: Commands,
     site_properties: Query<(Entity, &SiteProperties)>,
     mut render_settings: Local<RenderSettings>,
@@ -462,8 +449,8 @@ pub fn render_map_tiles(
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
         .nth(0)
     {
-        if let Some(offset) = site_properties.geographic_offset {
-            let offset = offset.anchor;
+        if let Some(geo_offset) = site_properties.geographic_offset {
+            let offset = geo_offset.anchor;
 
             // if theres a change in offset rerender all tiles
             if offset != render_settings.prev_anchor {
@@ -474,7 +461,7 @@ pub fn render_map_tiles(
                 }
             }
 
-            if !preview_state.enabled {
+            if !geo_offset.visible {
                 for (entity, _tile) in &map_tiles {
                     commands.entity(entity).despawn();
                 }
@@ -489,7 +476,7 @@ pub fn render_map_tiles(
             let mut zoom_changed = false;
             let mut existing_tiles = HashSet::new();
             for (_entity, tile) in &map_tiles {
-                if tile.0.zoom() != preview_state.zoom {
+                if tile.0.zoom() != geo_offset.zoom {
                     zoom_changed = true;
                 }
                 existing_tiles.insert(tile.0.clone());
@@ -543,7 +530,7 @@ pub fn render_map_tiles(
                         latlon_start.1 as f32,
                         latlon_end.0 as f32,
                         latlon_end.1 as f32,
-                        preview_state.zoom,
+                        geo_offset.zoom,
                     ) {
                         if existing_tiles.contains(&tile) && !zoom_changed {
                             continue;
@@ -556,7 +543,7 @@ pub fn render_map_tiles(
                             &mut commands,
                             tile.get_center(),
                             offset,
-                            preview_state.zoom,
+                            geo_offset.zoom,
                         );
                     }
                 }
@@ -588,6 +575,7 @@ fn ray_groundplane_intersection(ray: &Option<Ray3d>) -> Vec3 {
 fn test_groundplane() {
     let ray = Ray3d::new(Vec3::new(1.0, 1.0, 1.0), Vec3::new(1.0, 1.0, 1.0));
 
+    // Ground plane should be at (0,0,0)
     assert!(ray_groundplane_intersection(&Some(ray)).length() < 1e-5);
 }
 
@@ -599,12 +587,11 @@ impl Plugin for OSMViewPlugin {
             .add_event::<GeoReferenceSelectAnchorEvent>()
             .add_event::<GeoReferenceSetReferenceEvent>()
             .add_event::<GeoReferenceMoveEvent>()
-            .init_resource::<GeoReferencePreviewState>()
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
             .add_system_to_stage("WindowUI", add_georeference)
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
-            .add_system_to_stage("WindowUI", move_reference)
+            .add_system_to_stage("WindowUI", move_anchor)
             .add_system(render_map_tiles);
     }
 }

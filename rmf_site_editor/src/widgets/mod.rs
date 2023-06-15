@@ -23,7 +23,7 @@ use crate::{
     recency::ChangeRank,
     site::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, GeoReferenceMoveEvent, GeoReferencePreviewState,
+        Delete, ExportLights, FloorVisibility, GeoReferenceMoveEvent,
         GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent,
         GeoReferenceViewReferenceEvent, GeoreferenceEventWriter, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
@@ -198,8 +198,7 @@ fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<SiteProperties>>,
-    site_properties: Query<(Entity, &SiteProperties)>,
-    mut georeference_preview: ResMut<GeoReferencePreviewState>,
+    mut site_properties: Query<(Entity, &mut SiteProperties)>,
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
@@ -315,16 +314,17 @@ fn site_ui_layout(
                             .send(GeoReferenceSetReferenceEvent {})
                     }
 
-                    if let Some((_, site_properties)) = site_properties
-                        .iter()
+                    if let Some((_, mut site_properties)) = site_properties
+                        .iter_mut()
                         .filter(|(entity, _)| {
                             *entity == events.request.current_workspace.root.unwrap()
                         })
                         .nth(0)
                     {
+                        let enabled = site_properties.geographic_offset.is_some(); 
                         if ui
                             .add_enabled(
-                                site_properties.geographic_offset.is_some(),
+                                enabled,
                                 Button::new("Move To Lat/Lon"),
                             )
                             .clicked()
@@ -337,7 +337,7 @@ fn site_ui_layout(
                         }
                         if ui
                             .add_enabled(
-                                site_properties.geographic_offset.is_some(),
+                                enabled,
                                 Button::new("View Reference As UTM"),
                             )
                             .clicked()
@@ -348,10 +348,12 @@ fn site_ui_layout(
                                 .view_reference
                                 .send(GeoReferenceViewReferenceEvent);
                         }
-                        ui.add_enabled(
-                            site_properties.geographic_offset.is_some(),
-                            Checkbox::new(&mut georeference_preview.enabled, "View Map"),
-                        );
+                        if let Some(mut offset) = site_properties.geographic_offset.as_mut() {
+                            ui.add_enabled(
+                                enabled,
+                                Checkbox::new(&mut offset.visible, "View Map"),
+                            );
+                        }
                     }
                 });
             });
