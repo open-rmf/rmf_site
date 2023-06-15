@@ -353,18 +353,17 @@ pub fn set_resolution(
     current_ws: Res<CurrentWorkspace>,
     mut site_properties: Query<(Entity, &mut SiteProperties)>,
     mut egui_context: ResMut<EguiContext>,
-)
-{
+) {
     if let Some((_, mut properties)) = site_properties
         .iter_mut()
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
         .nth(0)
     {
         if let Some(mut offset) = properties.geographic_offset.as_mut() {
-            if !offset.visible  {
+            if !offset.visible {
                 return;
             }
-            
+
             egui::Window::new("Tile Resolution")
                 .resizable(false)
                 .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(30.0, -30.0))
@@ -457,7 +456,6 @@ pub fn latlon_to_world(lat: f32, lon: f32, anchor: (f32, f32)) -> Vec3 {
         0.0,
     )
 }
-
 
 #[derive(Default)]
 pub struct RenderSettings {
