@@ -16,6 +16,9 @@ use crate::{
     OSMTile,
 };
 
+const MAX_ZOOM: i32 = 19;
+const MIN_ZOOM: i32 = 12;
+
 #[derive(Debug, Clone)]
 pub struct GeoReferenceSelectAnchorEvent {}
 
@@ -345,6 +348,32 @@ pub fn add_georeference(
     }
 }
 
+pub fn set_resolution(
+    current_ws: Res<CurrentWorkspace>,
+    mut site_properties: Query<(Entity, &mut SiteProperties)>,
+    mut egui_context: ResMut<EguiContext>,
+)
+{
+    if let Some((_, mut properties)) = site_properties
+        .iter_mut()
+        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .nth(0)
+    {
+        if let Some(mut offset) = properties.geographic_offset.as_mut() {
+            if !offset.visible  {
+                return;
+            }
+            
+            egui::Window::new("Tile Resolution")
+                .resizable(false)
+                .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(30.0, -30.0))
+                .show(egui_context.ctx_mut(), |ui| {
+                    ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
+                });
+        }
+    }
+}
+
 fn spawn_tile(
     mut meshes: &mut ResMut<Assets<Mesh>>,
     mut materials: &mut ResMut<Assets<StandardMaterial>>,
@@ -427,6 +456,7 @@ pub fn latlon_to_world(lat: f32, lon: f32, anchor: (f32, f32)) -> Vec3 {
         0.0,
     )
 }
+
 
 #[derive(Default)]
 pub struct RenderSettings {
@@ -593,6 +623,7 @@ impl Plugin for OSMViewPlugin {
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
             .add_system_to_stage("WindowUI", move_anchor)
+            .add_system_to_stage("WindowUI", set_resolution)
             .add_system(render_map_tiles);
     }
 }
