@@ -287,7 +287,8 @@ pub fn add_georeference(
                                 panel_state.selection_mode =
                                     SelectionMode::AnchorSelected(selected[0].3);
                                 let translation = selected[0].2.translation();
-                                let (lat, lon) = world_to_latlon(translation, offset.anchor).unwrap();
+                                let (lat, lon) =
+                                    world_to_latlon(translation, offset.anchor).unwrap();
                                 println!("Anchor at {:?}", (lat, lon));
                                 panel_state.latitude = lat as f32;
                                 panel_state.longitude = lon as f32;

@@ -321,12 +321,9 @@ fn site_ui_layout(
                         })
                         .nth(0)
                     {
-                        let enabled = site_properties.geographic_offset.is_some(); 
+                        let enabled = site_properties.geographic_offset.is_some();
                         if ui
-                            .add_enabled(
-                                enabled,
-                                Button::new("Move To Lat/Lon"),
-                            )
+                            .add_enabled(enabled, Button::new("Move To Lat/Lon"))
                             .clicked()
                         {
                             events
@@ -336,10 +333,7 @@ fn site_ui_layout(
                                 .send(GeoReferenceMoveEvent);
                         }
                         if ui
-                            .add_enabled(
-                                enabled,
-                                Button::new("View Reference As UTM"),
-                            )
+                            .add_enabled(enabled, Button::new("View Reference As UTM"))
                             .clicked()
                         {
                             events
@@ -349,10 +343,7 @@ fn site_ui_layout(
                                 .send(GeoReferenceViewReferenceEvent);
                         }
                         if let Some(mut offset) = site_properties.geographic_offset.as_mut() {
-                            ui.add_enabled(
-                                enabled,
-                                Checkbox::new(&mut offset.visible, "View Map"),
-                            );
+                            ui.add_enabled(enabled, Checkbox::new(&mut offset.visible, "View Map"));
                         }
                     }
                 });
