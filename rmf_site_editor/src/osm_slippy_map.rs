@@ -48,13 +48,13 @@ fn test_haversine() {
     let d = haversine_distance(1.3521, 103.8198, 22.5726, 88.3639);
     assert!((d - 2891.0).abs() < 1.0);
 
-    // Distance from hyundai_factory to whale_museum (about 3.48KM)
-    let hyundai_factory = (35.503201188171076, 129.3809451273798);
+    // Distance from car_factory to whale_museum (about 3.48KM)
+    let car_factory = (35.503201188171076, 129.3809451273798);
     let whale_museum = (35.53330554519475, 129.38965867799482);
 
     let d = haversine_distance(
-        hyundai_factory.0,
-        hyundai_factory.1,
+        car_factory.0,
+        car_factory.1,
         whale_museum.0,
         whale_museum.1,
     );
