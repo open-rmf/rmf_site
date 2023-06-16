@@ -110,7 +110,7 @@ fn move_anchor(
                 .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
                 .collect();
 
-            egui::Window::new("Set Geographic Reference").show(egui_context.ctx_mut(), |ui| {
+            egui::Window::new("Move anchor").show(egui_context.ctx_mut(), |ui| {
                 if ui.button(selection_mode_labels(&window.anchor)).clicked() {
                     if selected.len() == 0 {
                         window.anchor = SelectionMode::AnchorSelect;
@@ -130,7 +130,7 @@ fn move_anchor(
                     ui.label("Latitude: ");
                     ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
                 });
-                if ui.button("Move").clicked() {
+                if ui.add_enabled(selected.len() > 0, egui::Button::new("Move")).clicked() {
                     let move_cmd = MoveTo {
                         entity: selected[0].3,
                         transform: Transform::from_translation(latlon_to_world(
