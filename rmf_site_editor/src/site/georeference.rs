@@ -6,7 +6,7 @@ use bevy_egui::{
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
 use rmf_site_format::{Anchor, AssetSource, GeographicOffset, SiteProperties};
-use std::{collections::HashSet};
+use std::collections::HashSet;
 use utm::*;
 
 use crate::{
