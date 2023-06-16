@@ -52,12 +52,7 @@ fn test_haversine() {
     let car_factory = (35.503201188171076, 129.3809451273798);
     let whale_museum = (35.53330554519475, 129.38965867799482);
 
-    let d = haversine_distance(
-        car_factory.0,
-        car_factory.1,
-        whale_museum.0,
-        whale_museum.1,
-    );
+    let d = haversine_distance(car_factory.0, car_factory.1, whale_museum.0, whale_museum.1);
     assert!((d - 3.48).abs() < 0.1);
 
     // Distance from one-north mrt in Singapore to SUTD (about 20.2KM)
