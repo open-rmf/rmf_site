@@ -130,7 +130,10 @@ fn move_anchor(
                     ui.label("Latitude: ");
                     ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
                 });
-                if ui.add_enabled(selected.len() > 0, egui::Button::new("Move")).clicked() {
+                if ui
+                    .add_enabled(selected.len() > 0, egui::Button::new("Move"))
+                    .clicked()
+                {
                     let move_cmd = MoveTo {
                         entity: selected[0].3,
                         transform: Transform::from_translation(latlon_to_world(
