@@ -2,6 +2,7 @@ use bevy::{
     log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
 };
 use bevy_egui::EguiPlugin;
+use bevy_rapier3d::prelude::*;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
@@ -166,6 +167,8 @@ pub fn run(command_line_args: Vec<String>) {
     app.init_resource::<Settings>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+        .add_plugin(RapierDebugRenderPlugin::default())
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)

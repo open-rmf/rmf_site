@@ -15,23 +15,60 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
+use bevy_rapier3d::prelude::*;
+use itertools::Itertools;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
 pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
 pub const DOOR_SWEEP_THICKNESS: f32 = 0.05;
+pub const DOUBLE_DOOR_GAP: f32 = 0.05;
+
+#[derive(Debug, Clone, Copy)]
+pub enum DoorBodyType {
+    SingleSwing { body: Entity },
+    DoubleSwing { left: Entity, right: Entity },
+    SingleSliding { body: Entity },
+    DoubleSliding { left: Entity, right: Entity },
+}
+
+impl DoorBodyType {
+    pub fn from_door_type(door_type: &DoorType, entities: &Vec<Entity>) -> Self {
+        match door_type {
+            DoorType::SingleSwing(_) => DoorBodyType::SingleSwing { body: entities[0] },
+            DoorType::DoubleSwing(_) => DoorBodyType::DoubleSwing {
+                left: entities[0],
+                right: entities[1],
+            },
+            DoorType::SingleSliding(_) => DoorBodyType::SingleSliding { body: entities[0] },
+            DoorType::DoubleSliding(_) => DoorBodyType::DoubleSliding {
+                left: entities[0],
+                right: entities[1],
+            },
+            DoorType::Model(_) => todo!("Model doors not implemented yet"),
+        }
+    }
+
+    pub fn entities(&self) -> Vec<Entity> {
+        match self {
+            DoorBodyType::SingleSwing { body } | DoorBodyType::SingleSliding { body } => {
+                vec![*body]
+            }
+            DoorBodyType::DoubleSwing { left, right }
+            | DoorBodyType::DoubleSliding { left, right } => vec![*left, *right],
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DoorSegments {
-    // TODO(MXG): When it's time to animate the doors we should replace this
-    // with an enum for the different possible door types: Single/Double Swing/Sliding
-    pub body: Entity,
+    pub body: DoorBodyType,
     pub cue_inner: Entity,
     pub cue_outline: Entity,
 }
@@ -41,7 +78,7 @@ fn make_door_visuals(
     edge: &Edge<Entity>,
     anchors: &AnchorParams,
     kind: &DoorType,
-) -> (Transform, Transform, Mesh, Mesh) {
+) -> (Transform, Vec<Transform>, Mesh, Mesh) {
     let p_start = anchors
         .point_in_parent_frame_of(edge.left(), Category::Door, entity)
         .unwrap();
@@ -55,17 +92,46 @@ fn make_door_visuals(
     let center = (p_start + p_end) / 2.0;
 
     let (inner, outline) = make_door_cues(length, kind);
+    // First is pose, second is shape
+    let door_tfs = match kind {
+        DoorType::SingleSwing(_) | DoorType::SingleSliding(_) => vec![Transform {
+            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
+            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
+            ..default()
+        }],
+        DoorType::DoubleSwing(_) | DoorType::DoubleSliding(_) => {
+            // TODO(luca) implement left_to_right ratio for double doors
+            let door_length = (length - DOUBLE_DOOR_GAP) / 2.0;
+            vec![
+                Transform {
+                    translation: Vec3::new(
+                        0.,
+                        (length + DOUBLE_DOOR_GAP) / 4.0,
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
+                    ..default()
+                },
+                Transform {
+                    translation: Vec3::new(
+                        0.,
+                        -(length + DOUBLE_DOOR_GAP) / 4.0,
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
+                    ..default()
+                },
+            ]
+        }
+        DoorType::Model(_) => todo!("Model doors not implemented yet"),
+    };
     (
         Transform {
             translation: Vec3::new(center.x, center.y, 0.),
             rotation: Quat::from_rotation_z(yaw),
             ..default()
         },
-        Transform {
-            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
-            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
-            ..default()
-        },
+        door_tfs,
         inner,
         outline,
     )
@@ -164,10 +230,111 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
     }
 }
 
+// TODO(luca) handle door type
+pub fn add_joints_to_new_doors(
+    mut commands: Commands,
+    new_doors: Query<
+        (Entity, &Edge<Entity>, &DoorSegments, &DoorType, &Parent),
+        Or<(Changed<DoorType>, Added<DoorSegments>)>,
+    >,
+    transforms: Query<&Transform>,
+    anchors: AnchorParams,
+) {
+    return;
+    for (e, edge, segment, door_type, parent) in &new_doors {
+        commands
+            .entity(**parent)
+            .insert(RigidBody::Fixed)
+            .insert(Collider::halfspace(Vec3::Z).unwrap());
+        // TODO(luca) we could use motor_position and let the physics engine do PID control but
+        // position setpoints for angles outside of +-90 degrees are broken,
+        // tracking issue https://github.com/dimforge/rapier/issues/378
+        let joints = match door_type {
+            DoorType::SingleSwing(door) => {
+                // TODO(luca) joint limit on swing angle
+                let swing = door.swing;
+                let door_entity = segment.body.entities()[0];
+                let door_tf = transforms
+                    .get(door_entity)
+                    .expect("Door segment transform not found");
+                let pivot_point = edge.side(door.pivot_on);
+                let p_start = anchors
+                    .point_in_parent_frame_of(pivot_point, Category::Door, e)
+                    .unwrap();
+                let half_y = match door.pivot_on {
+                    Side::Left => door_tf.scale.y / 2.0,
+                    Side::Right => -door_tf.scale.y / 2.0,
+                };
+                let half_z = door_tf.scale.z / 2.0;
+                vec![(
+                    door_entity,
+                    RevoluteJointBuilder::new(Vec3::Z)
+                        .local_anchor1(Vec3::new(p_start.x, p_start.y, p_start.z))
+                        .local_anchor2(Vec3::new(0.0, half_y, -half_z))
+                        .motor_velocity(0.0, Real::MAX),
+                )]
+            }
+            DoorType::DoubleSwing(door) => {
+                let swing = door.swing;
+                let entities = segment.body.entities();
+                let (left_entity, right_entity) = entities.iter().next_tuple().unwrap();
+                let left_tf = transforms
+                    .get(*left_entity)
+                    .expect("Door segment transform not found");
+                let right_tf = transforms
+                    .get(*right_entity)
+                    .expect("Door segment transform not found");
+                let p_left = anchors
+                    .point_in_parent_frame_of(edge.left(), Category::Door, e)
+                    .unwrap();
+                let p_right = anchors
+                    .point_in_parent_frame_of(edge.right(), Category::Door, e)
+                    .unwrap();
+                let offset_left = left_tf.scale.y / 2.0;
+                let offset_right = -right_tf.scale.y / 2.0;
+                let half_z = left_tf.scale.z / 2.0;
+                vec![
+                    (
+                        *left_entity,
+                        RevoluteJointBuilder::new(Vec3::Z)
+                            .local_anchor1(Vec3::new(p_left.x, p_left.y, p_left.z))
+                            .local_anchor2(Vec3::new(0.0, offset_left, -half_z))
+                            .motor_velocity(0.0, Real::MAX),
+                    ),
+                    (
+                        *right_entity,
+                        RevoluteJointBuilder::new(Vec3::Z)
+                            .local_anchor1(Vec3::new(p_right.x, p_right.y, p_right.z))
+                            .local_anchor2(Vec3::new(0.0, offset_right, -half_z))
+                            .motor_velocity(0.0, Real::MAX),
+                    ),
+                ]
+            }
+            _ => continue,
+        };
+        for (entity, joint) in joints.iter() {
+            commands
+                .entity(*entity)
+                // TODO(luca) It seems KinematicVelocityBased doesn't support joint movement,
+                // change if it ever gets implemented upstream since we only need kinematics
+                .insert(RigidBody::Dynamic)
+                // Scale is inherited from mesh, so collider is unit cuboid (uses half extents)
+                .insert(Collider::cuboid(0.5, 0.5, 0.5))
+                .insert(ImpulseJoint::new(**parent, *joint));
+        }
+    }
+}
+
 pub fn add_door_visuals(
     mut commands: Commands,
     new_doors: Query<
-        (Entity, &Edge<Entity>, &DoorType, Option<&Visibility>),
+        (
+            Entity,
+            &Edge<Entity>,
+            &DoorType,
+            Option<&Visibility>,
+            &Parent,
+        ),
         (
             Or<(Added<DoorType>, Added<Edge<Entity>>)>,
             Without<DoorSegments>,
@@ -178,21 +345,27 @@ pub fn add_door_visuals(
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, kind, visibility) in &new_doors {
-        let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
+    for (e, edge, kind, visibility, p) in &new_doors {
+        let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
             make_door_visuals(e, edge, &anchors, kind);
 
         let mut commands = commands.entity(e);
         let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
-            let body = parent
-                .spawn(PbrBundle {
-                    mesh: assets.box_mesh.clone(),
-                    material: assets.door_body_material.clone(),
-                    transform: shape_tf,
-                    ..default()
+            let bodies = door_tfs
+                .iter()
+                .map(|tf| {
+                    parent
+                        .spawn(PbrBundle {
+                            mesh: assets.box_mesh.clone(),
+                            material: assets.door_body_material.clone(),
+                            transform: *tf,
+                            ..default()
+                        })
+                        .insert(Selectable::new(e))
+                        .id()
                 })
-                .insert(Selectable::new(e))
-                .id();
+                .collect::<Vec<_>>();
+            let body = DoorBodyType::from_door_type(kind, &bodies);
 
             let cue_inner = parent
                 .spawn(PbrBundle {
@@ -254,12 +427,15 @@ fn update_door_visuals(
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
 ) {
-    let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
+    let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
         make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
-    let mut shape_transform = transforms.get_mut(segments.body).unwrap();
-    *shape_transform = shape_tf;
+    let entities = segments.body.entities();
+    for (door_tf, e) in door_tfs.iter().zip(entities.iter()) {
+        let mut door_transform = transforms.get_mut(*e).unwrap();
+        *door_transform = *door_tf;
+    }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = mesh_assets.add(cue_inner_mesh);
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
