@@ -50,6 +50,8 @@ use crate::{
 
 use rmf_site_format::ModelMarker;
 
+use bevy_rapier3d::prelude::*;
+
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
 
@@ -87,6 +89,8 @@ impl Plugin for WorkcellEditorPlugin {
                 ..default()
             })
             .add_plugin(WireframePlugin)
+            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
+            .add_plugin(RapierDebugRenderPlugin::default())
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
