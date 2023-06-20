@@ -185,12 +185,26 @@ impl From<SingleSwingDoor> for DoorType {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DoubleSwingDoor {
     pub swing: Swing,
+    /// Length of the left door divided by the length of the right door
+    pub left_right_ratio: f32,
+}
+
+impl DoubleSwingDoor {
+    /// Get the offset from the door center of the point where the doors
+    /// separate. A value of 0.0 means the doors are even. A negative value
+    /// means the left door is smaller while a positive value means the right
+    /// door is smaller.
+    pub fn compute_offset(&self, door_width: f32) -> f32 {
+        let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
+        return door_width / 2.0 - l;
+    }
 }
 
 impl Default for DoubleSwingDoor {
     fn default() -> Self {
         Self {
             swing: Swing::Forward(Angle::Deg(90.0)),
+            left_right_ratio: 1.0,
         }
     }
 }

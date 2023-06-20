@@ -93,6 +93,40 @@ fn make_door_visuals(
     let center = (p_start + p_end) / 2.0;
 
     let (inner, outline) = make_door_cues(length, kind);
+
+    let get_double_door_tfs = |mid_offset: f32| -> Vec<Transform> {
+        let left_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
+        let right_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
+        vec![
+            Transform {
+                translation: Vec3::new(
+                    0.,
+                    (length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                scale: Vec3::new(
+                    DEFAULT_DOOR_THICKNESS,
+                    left_door_length,
+                    DEFAULT_LEVEL_HEIGHT,
+                ),
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(
+                    0.,
+                    -(length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                scale: Vec3::new(
+                    DEFAULT_DOOR_THICKNESS,
+                    right_door_length,
+                    DEFAULT_LEVEL_HEIGHT,
+                ),
+                ..default()
+            },
+        ]
+    };
+
     let door_tfs = match kind {
         // TODO(luca) implement model variant
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
@@ -102,30 +136,8 @@ fn make_door_visuals(
                 ..default()
             }]
         }
-        DoorType::DoubleSwing(_) | DoorType::DoubleSliding(_) => {
-            // TODO(luca) implement left_to_right ratio for double doors
-            let door_length = (length - DOUBLE_DOOR_GAP) / 2.0;
-            vec![
-                Transform {
-                    translation: Vec3::new(
-                        0.,
-                        (length + DOUBLE_DOOR_GAP) / 4.0,
-                        DEFAULT_LEVEL_HEIGHT / 2.0,
-                    ),
-                    scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
-                    ..default()
-                },
-                Transform {
-                    translation: Vec3::new(
-                        0.,
-                        -(length + DOUBLE_DOOR_GAP) / 4.0,
-                        DEFAULT_LEVEL_HEIGHT / 2.0,
-                    ),
-                    scale: Vec3::new(DEFAULT_DOOR_THICKNESS, door_length, DEFAULT_LEVEL_HEIGHT),
-                    ..default()
-                },
-            ]
-        }
+        DoorType::DoubleSwing(door) => get_double_door_tfs(door.compute_offset(length)),
+        DoorType::DoubleSliding(door) => get_double_door_tfs(door.compute_offset(length)),
     };
     (
         Transform {
@@ -165,10 +177,16 @@ fn door_slide_arrows(start: f32, stop: f32) -> MeshBuffer {
     door_slide_arrow(start, stop, -1.0).merge_with(door_slide_arrow(start, stop, 1.0))
 }
 
-fn door_swing_arc(door_width: f32, door_count: u32, pivot_on: Side, swing: Swing) -> MeshBuffer {
+fn door_swing_arc(
+    door_width: f32,
+    door_count: u32,
+    offset: f32,
+    pivot_on: Side,
+    swing: Swing,
+) -> MeshBuffer {
     let pivot = pivot_on.sign() * door_width / 2.0;
     let pivot = Vec3::new(0.0, pivot, DOOR_CUE_HEIGHT);
-    let door_width = door_width / door_count as f32;
+    let door_width = door_width / door_count as f32 + offset;
     let (initial_angle, sweep) = swing.swing_on_pivot(pivot_on);
     flat_arc(
         pivot,
@@ -217,11 +235,14 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .into_mesh_and_outline()
         }
         DoorType::SingleSwing(door) => {
-            door_swing_arc(door_width, 1, door.pivot_on, door.swing).into_mesh_and_outline()
+            door_swing_arc(door_width, 1, 0.0, door.pivot_on, door.swing).into_mesh_and_outline()
         }
-        DoorType::DoubleSwing(door) => door_swing_arc(door_width, 2, Side::Left, door.swing)
-            .merge_with(door_swing_arc(door_width, 2, Side::Right, door.swing))
-            .into_mesh_and_outline(),
+        DoorType::DoubleSwing(door) => {
+            let mid = door.compute_offset(door_width);
+            door_swing_arc(door_width, 2, -mid, Side::Left, door.swing)
+                .merge_with(door_swing_arc(door_width, 2, mid, Side::Right, door.swing))
+                .into_mesh_and_outline()
+        }
         _ => {
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
@@ -345,7 +366,7 @@ fn update_door_visuals(
             .spawn(PbrBundle {
                 mesh: assets.box_mesh.clone(),
                 material: assets.door_body_material.clone(),
-                transform: *door_tfs.last().unwrap(),
+                transform: *door_tf,
                 ..default()
             })
             .insert(Selectable::new(entity))
