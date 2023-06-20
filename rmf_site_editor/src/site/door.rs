@@ -15,13 +15,11 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
+use crate::{interaction::Selectable, shapes::*, site::*};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use bevy_rapier3d::prelude::*;
-use itertools::Itertools;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
@@ -92,7 +90,6 @@ fn make_door_visuals(
     let center = (p_start + p_end) / 2.0;
 
     let (inner, outline) = make_door_cues(length, kind);
-    // First is pose, second is shape
     let door_tfs = match kind {
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) => vec![Transform {
             translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
@@ -233,13 +230,7 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
 pub fn add_door_visuals(
     mut commands: Commands,
     new_doors: Query<
-        (
-            Entity,
-            &Edge<Entity>,
-            &DoorType,
-            Option<&Visibility>,
-            &Parent,
-        ),
+        (Entity, &Edge<Entity>, &DoorType, Option<&Visibility>),
         (
             Or<(Added<DoorType>, Added<Edge<Entity>>)>,
             Without<DoorSegments>,
@@ -250,7 +241,7 @@ pub fn add_door_visuals(
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
-    for (e, edge, kind, visibility, p) in &new_doors {
+    for (e, edge, kind, visibility) in &new_doors {
         let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
             make_door_visuals(e, edge, &anchors, kind);
 
@@ -344,7 +335,7 @@ fn update_door_visuals(
         *door_transform = *door_tf;
     }
     for door_tf in door_tfs.iter().skip(entities.len()) {
-        // We need to spawn an extra door
+        // New doors were added, we need to spawn them
         let id = commands
             .spawn(PbrBundle {
                 mesh: assets.box_mesh.clone(),
@@ -358,11 +349,10 @@ fn update_door_visuals(
         commands.entity(entity).add_child(id);
     }
     for e in entities.iter().skip(door_tfs.len()) {
-        // We need to despawn the extra door
+        // Doors were removed, we need to despawn them
         commands.entity(*e).despawn_recursive();
     }
     segments.body = DoorBodyType::from_door_type(kind, &entities);
-    // If we moved from a single to double door
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = mesh_assets.add(cue_inner_mesh);
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
