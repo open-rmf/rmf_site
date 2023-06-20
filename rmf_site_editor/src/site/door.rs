@@ -34,6 +34,7 @@ pub enum DoorBodyType {
     DoubleSwing { left: Entity, right: Entity },
     SingleSliding { body: Entity },
     DoubleSliding { left: Entity, right: Entity },
+    Model { body: Entity },
 }
 
 impl DoorBodyType {
@@ -49,13 +50,15 @@ impl DoorBodyType {
                 left: entities[0],
                 right: entities[1],
             },
-            DoorType::Model(_) => todo!("Model doors not implemented yet"),
+            DoorType::Model(_) => DoorBodyType::Model { body: entities[0] },
         }
     }
 
     pub fn entities(&self) -> Vec<Entity> {
         match self {
-            DoorBodyType::SingleSwing { body } | DoorBodyType::SingleSliding { body } => {
+            DoorBodyType::SingleSwing { body }
+            | DoorBodyType::SingleSliding { body }
+            | DoorBodyType::Model { body } => {
                 vec![*body]
             }
             DoorBodyType::DoubleSwing { left, right }
@@ -91,11 +94,14 @@ fn make_door_visuals(
 
     let (inner, outline) = make_door_cues(length, kind);
     let door_tfs = match kind {
-        DoorType::SingleSwing(_) | DoorType::SingleSliding(_) => vec![Transform {
-            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
-            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
-            ..default()
-        }],
+        // TODO(luca) implement model variant
+        DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
+            vec![Transform {
+                translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
+                scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
+                ..default()
+            }]
+        }
         DoorType::DoubleSwing(_) | DoorType::DoubleSliding(_) => {
             // TODO(luca) implement left_to_right ratio for double doors
             let door_length = (length - DOUBLE_DOOR_GAP) / 2.0;
@@ -120,7 +126,6 @@ fn make_door_visuals(
                 },
             ]
         }
-        DoorType::Model(_) => todo!("Model doors not implemented yet"),
     };
     (
         Transform {
