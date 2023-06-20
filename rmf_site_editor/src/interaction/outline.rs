@@ -134,7 +134,7 @@ pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
         (Entity, &Hovered, &Selected, &OutlineVisualization),
-        Or<(Changed<Hovered>, Changed<Selected>)>,
+        Or<(Changed<Hovered>, Changed<Selected>, Changed<Children>)>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {

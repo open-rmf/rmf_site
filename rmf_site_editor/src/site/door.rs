@@ -230,101 +230,6 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
     }
 }
 
-// TODO(luca) handle door type
-pub fn add_joints_to_new_doors(
-    mut commands: Commands,
-    new_doors: Query<
-        (Entity, &Edge<Entity>, &DoorSegments, &DoorType, &Parent),
-        Or<(Changed<DoorType>, Added<DoorSegments>)>,
-    >,
-    transforms: Query<&Transform>,
-    anchors: AnchorParams,
-) {
-    return;
-    for (e, edge, segment, door_type, parent) in &new_doors {
-        commands
-            .entity(**parent)
-            .insert(RigidBody::Fixed)
-            .insert(Collider::halfspace(Vec3::Z).unwrap());
-        // TODO(luca) we could use motor_position and let the physics engine do PID control but
-        // position setpoints for angles outside of +-90 degrees are broken,
-        // tracking issue https://github.com/dimforge/rapier/issues/378
-        let joints = match door_type {
-            DoorType::SingleSwing(door) => {
-                // TODO(luca) joint limit on swing angle
-                let swing = door.swing;
-                let door_entity = segment.body.entities()[0];
-                let door_tf = transforms
-                    .get(door_entity)
-                    .expect("Door segment transform not found");
-                let pivot_point = edge.side(door.pivot_on);
-                let p_start = anchors
-                    .point_in_parent_frame_of(pivot_point, Category::Door, e)
-                    .unwrap();
-                let half_y = match door.pivot_on {
-                    Side::Left => door_tf.scale.y / 2.0,
-                    Side::Right => -door_tf.scale.y / 2.0,
-                };
-                let half_z = door_tf.scale.z / 2.0;
-                vec![(
-                    door_entity,
-                    RevoluteJointBuilder::new(Vec3::Z)
-                        .local_anchor1(Vec3::new(p_start.x, p_start.y, p_start.z))
-                        .local_anchor2(Vec3::new(0.0, half_y, -half_z))
-                        .motor_velocity(0.0, Real::MAX),
-                )]
-            }
-            DoorType::DoubleSwing(door) => {
-                let swing = door.swing;
-                let entities = segment.body.entities();
-                let (left_entity, right_entity) = entities.iter().next_tuple().unwrap();
-                let left_tf = transforms
-                    .get(*left_entity)
-                    .expect("Door segment transform not found");
-                let right_tf = transforms
-                    .get(*right_entity)
-                    .expect("Door segment transform not found");
-                let p_left = anchors
-                    .point_in_parent_frame_of(edge.left(), Category::Door, e)
-                    .unwrap();
-                let p_right = anchors
-                    .point_in_parent_frame_of(edge.right(), Category::Door, e)
-                    .unwrap();
-                let offset_left = left_tf.scale.y / 2.0;
-                let offset_right = -right_tf.scale.y / 2.0;
-                let half_z = left_tf.scale.z / 2.0;
-                vec![
-                    (
-                        *left_entity,
-                        RevoluteJointBuilder::new(Vec3::Z)
-                            .local_anchor1(Vec3::new(p_left.x, p_left.y, p_left.z))
-                            .local_anchor2(Vec3::new(0.0, offset_left, -half_z))
-                            .motor_velocity(0.0, Real::MAX),
-                    ),
-                    (
-                        *right_entity,
-                        RevoluteJointBuilder::new(Vec3::Z)
-                            .local_anchor1(Vec3::new(p_right.x, p_right.y, p_right.z))
-                            .local_anchor2(Vec3::new(0.0, offset_right, -half_z))
-                            .motor_velocity(0.0, Real::MAX),
-                    ),
-                ]
-            }
-            _ => continue,
-        };
-        for (entity, joint) in joints.iter() {
-            commands
-                .entity(*entity)
-                // TODO(luca) It seems KinematicVelocityBased doesn't support joint movement,
-                // change if it ever gets implemented upstream since we only need kinematics
-                .insert(RigidBody::Dynamic)
-                // Scale is inherited from mesh, so collider is unit cuboid (uses half extents)
-                .insert(Collider::cuboid(0.5, 0.5, 0.5))
-                .insert(ImpulseJoint::new(**parent, *joint));
-        }
-    }
-}
-
 pub fn add_door_visuals(
     mut commands: Commands,
     new_doors: Query<
@@ -418,24 +323,46 @@ pub fn add_door_visuals(
 }
 
 fn update_door_visuals(
+    commands: &mut Commands,
     entity: Entity,
     edge: &Edge<Entity>,
     kind: &DoorType,
-    segments: &DoorSegments,
+    segments: &mut DoorSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
+    assets: &Res<SiteAssets>,
 ) {
     let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
         make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
-    let entities = segments.body.entities();
+    let mut entities = segments.body.entities();
     for (door_tf, e) in door_tfs.iter().zip(entities.iter()) {
         let mut door_transform = transforms.get_mut(*e).unwrap();
         *door_transform = *door_tf;
     }
+    for door_tf in door_tfs.iter().skip(entities.len()) {
+        // We need to spawn an extra door
+        let id = commands
+            .spawn(PbrBundle {
+                mesh: assets.box_mesh.clone(),
+                material: assets.door_body_material.clone(),
+                transform: *door_tfs.last().unwrap(),
+                ..default()
+            })
+            .insert(Selectable::new(entity))
+            .id();
+        entities.push(id);
+        commands.entity(entity).add_child(id);
+    }
+    for e in entities.iter().skip(door_tfs.len()) {
+        // We need to despawn the extra door
+        commands.entity(*e).despawn_recursive();
+    }
+    segments.body = DoorBodyType::from_door_type(kind, &entities);
+    // If we moved from a single to double door
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = mesh_assets.add(cue_inner_mesh);
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
@@ -443,31 +370,36 @@ fn update_door_visuals(
 }
 
 pub fn update_changed_door(
-    doors: Query<
-        (Entity, &Edge<Entity>, &DoorType, &DoorSegments),
+    mut commands: Commands,
+    mut doors: Query<
+        (Entity, &Edge<Entity>, &DoorType, &mut DoorSegments),
         Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    assets: Res<SiteAssets>,
 ) {
-    for (entity, edge, kind, segments) in &doors {
+    for (entity, edge, kind, mut segments) in &mut doors {
         update_door_visuals(
+            &mut commands,
             entity,
             edge,
             kind,
-            segments,
+            &mut segments,
             &anchors,
             &mut transforms,
             &mut mesh_handles,
             &mut mesh_assets,
+            &assets,
         );
     }
 }
 
 pub fn update_door_for_moved_anchors(
-    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
+    mut commands: Commands,
+    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &mut DoorSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -479,19 +411,22 @@ pub fn update_door_for_moved_anchors(
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    assets: Res<SiteAssets>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
+            if let Some((entity, edge, kind, mut segments)) = doors.get_mut(*dependent).ok() {
                 update_door_visuals(
+                    &mut commands,
                     entity,
                     edge,
                     kind,
-                    segments,
+                    &mut segments,
                     &anchors,
                     &mut transforms,
                     &mut mesh_handles,
                     &mut mesh_assets,
+                    &assets,
                 );
             }
         }

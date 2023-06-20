@@ -226,7 +226,6 @@ impl Plugin for SitePlugin {
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
                     .with_system(add_door_visuals)
-                    .with_system(add_joints_to_new_doors)
                     .with_system(update_changed_door)
                     .with_system(update_door_for_moved_anchors)
                     .with_system(add_floor_visuals)
