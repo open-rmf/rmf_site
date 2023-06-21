@@ -1,6 +1,6 @@
 use crate::{
     Angle, NameInSite, PhysicalCamera as SitePhysicalCamera, PhysicalCameraProperties, Pose,
-    PreviewableMarker, Rotation,
+    Rotation,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -43,7 +43,6 @@ impl PhysicalCamera {
                 horizontal_fov: Angle::Rad(self.image_fov as f32),
                 frame_rate: self.update_rate as f32,
             },
-            previewable: PreviewableMarker,
         }
     }
 }

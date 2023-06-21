@@ -172,7 +172,8 @@ impl Plugin for InteractionPlugin {
                             .after(update_gizmo_release),
                     )
                     .with_system(handle_lift_doormat_clicks.after(update_gizmo_click_start))
-                    .with_system(manage_previews)
+                    .with_system(make_new_entities_previewable)
+                    .with_system(manage_camera_previews)
                     .with_system(update_physical_camera_preview)
                     .with_system(dirty_changed_lifts)
                     .with_system(handle_preview_window_close),

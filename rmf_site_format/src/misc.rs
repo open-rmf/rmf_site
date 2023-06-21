@@ -416,11 +416,6 @@ impl Default for IsStatic {
     }
 }
 
-/// Marker component for previewable entities
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct PreviewableMarker;
-
 /// This component is applied to each site element that gets loaded in order to
 /// remember what its original ID within the Site file was.
 #[derive(Clone, Copy, Debug)]

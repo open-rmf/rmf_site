@@ -85,7 +85,7 @@ pub mod selection_widget;
 pub use selection_widget::*;
 
 use crate::{
-    interaction::{Selection, SpawnPreview},
+    interaction::{PreviewableMarker, Selection, SpawnPreview},
     site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
     widgets::AppEvents,
 };

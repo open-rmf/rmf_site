@@ -26,8 +26,6 @@ pub struct PhysicalCamera {
     pub name: NameInSite,
     pub pose: Pose,
     pub properties: PhysicalCameraProperties,
-    #[serde(skip)]
-    pub previewable: PreviewableMarker,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

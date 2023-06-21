@@ -478,7 +478,6 @@ fn generate_levels(
                         name: name.clone(),
                         pose: pose.clone(),
                         properties: properties.clone(),
-                        previewable: PreviewableMarker,
                     },
                 );
             }

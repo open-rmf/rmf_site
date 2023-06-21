@@ -24,10 +24,14 @@ use bevy::{
     window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows},
 };
 
-use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
+use rmf_site_format::{NameInSite, PhysicalCameraProperties};
+
+/// Marker component for previewable entities
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct PreviewableMarker;
 
 /// Instruction to spawn a preview for the given entity
-/// TODO None to encode "Clear all"
+/// None encodes "Clear all"
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
 pub struct SpawnPreview {
     pub entity: Option<Entity>,
@@ -73,13 +77,11 @@ fn create_camera_window(
     window_id
 }
 
-// TODO consider renaming this manage_camera_previews and
-// use other systems for other previews
-pub fn manage_previews(
+pub fn manage_camera_previews(
     mut commands: Commands,
     mut preview_events: EventReader<SpawnPreview>,
-    previewable: Query<
-        (&Children, &NameInSite, Option<&PhysicalCameraProperties>),
+    previewable_cameras: Query<
+        (&Children, &NameInSite, &PhysicalCameraProperties),
         With<PreviewableMarker>,
     >,
     preview_windows: Query<&CameraPreviewWindow>,
@@ -88,38 +90,35 @@ pub fn manage_previews(
 ) {
     for event in preview_events.iter() {
         match event.entity {
-            None => { // TODO clear all previews
+            None => {
+                // TODO(luca) close the camera preview window
             }
             Some(e) => {
-                if let Ok((children, camera_name, camera_option)) = previewable.get(e) {
-                    if let Some(camera_properties) = camera_option {
-                        if preview_windows.get(e).is_ok() {
-                            // Preview window already exists, skip creating it
-                            continue;
-                        }
-                        // Get the child of the root entity
-                        // Assumes each physical camera has one and only one child for the sensor
-                        if let Ok((child_entity, mut projection)) =
-                            camera_children.get_mut(children[0])
+                if let Ok((children, camera_name, camera_properties)) = previewable_cameras.get(e) {
+                    if preview_windows.get(e).is_ok() {
+                        // Preview window already exists, skip creating it
+                        continue;
+                    }
+                    // Get the child of the root entity
+                    // Assumes each physical camera has one and only one child for the sensor
+                    if let Ok((child_entity, mut projection)) = camera_children.get_mut(children[0])
+                    {
+                        // Update the camera to the right fov first
+                        if let Projection::Perspective(perspective_projection) = &mut (*projection)
                         {
-                            // Update the camera to the right fov first
-                            if let Projection::Perspective(perspective_projection) =
-                                &mut (*projection)
-                            {
-                                let aspect_ratio = (camera_properties.width as f32)
-                                    / (camera_properties.height as f32);
-                                perspective_projection.fov =
-                                    camera_properties.horizontal_fov.radians() / aspect_ratio;
-                            }
-                            let window_id = create_camera_window(
-                                &mut commands,
-                                child_entity,
-                                &camera_name,
-                                &camera_properties,
-                                &mut create_window_events,
-                            );
-                            commands.entity(e).insert(CameraPreviewWindow(window_id));
+                            let aspect_ratio = (camera_properties.width as f32)
+                                / (camera_properties.height as f32);
+                            perspective_projection.fov =
+                                camera_properties.horizontal_fov.radians() / aspect_ratio;
                         }
+                        let window_id = create_camera_window(
+                            &mut commands,
+                            child_entity,
+                            &camera_name,
+                            &camera_properties,
+                            &mut create_window_events,
+                        );
+                        commands.entity(e).insert(CameraPreviewWindow(window_id));
                     }
                 }
             }
@@ -165,5 +164,14 @@ pub fn handle_preview_window_close(
                 commands.entity(e).remove::<CameraPreviewWindow>();
             }
         }
+    }
+}
+
+pub fn make_new_entities_previewable(
+    mut commands: Commands,
+    new_cameras: Query<Entity, Added<PhysicalCameraProperties>>,
+) {
+    for e in &new_cameras {
+        commands.entity(e).insert(PreviewableMarker);
     }
 }
