@@ -102,6 +102,23 @@ pub fn move_anchor(
     }
 }
 
+/*pub fn scale_anchor_by_dist(
+    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
+    mut cameras: Query<(&Camera, &GlobalTransform)>,
+    camera_controls: Res<CameraControls>,)
+{
+    let cam_entity = match camera_controls.mode() {
+        ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+        ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
+    };
+
+    if let Ok((camera, transform)) = cameras.get(cam_entity) {
+        // Ideally this should be a shader... not a cpu process...
+        // However, for now we
+        camera.
+    }
+}*/
+
 pub fn update_anchor_proximity_xray(
     mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
     intersect_ground_params: IntersectGroundPlaneParams,

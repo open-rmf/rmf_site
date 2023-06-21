@@ -93,6 +93,12 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+pub mod offscreen_render_tests;
+pub use offscreen_render_tests::*;
+
+pub mod camera_capture;
+pub use camera_capture::*;
+
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 pub use rmf_site_format::*;
 
@@ -185,8 +191,11 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
+            .add_plugin(ImageCopyPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
+            .add_system(resize_notificator)
+            .add_system(image_saver)
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)
