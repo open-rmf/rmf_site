@@ -48,6 +48,18 @@ impl<'a> InspectDoorType<'a> {
                 });
         });
 
+        fn left_right_ratio_ui(ui: &mut Ui, mut ratio: &mut f32) {
+            ui.horizontal(|ui| {
+                ui.label("Left : Right");
+                ui.add(
+                    DragValue::new(ratio)
+                        .speed(0.01)
+                        .clamp_range(0.01..=std::f32::INFINITY),
+                )
+                .on_hover_text("(Left Door Length)/(Right Door Length)");
+            });
+        };
+
         match &mut new_kind {
             DoorType::SingleSliding(door) => {
                 ui.horizontal(|ui| {
@@ -57,15 +69,7 @@ impl<'a> InspectDoorType<'a> {
                 });
             }
             DoorType::DoubleSliding(door) => {
-                ui.horizontal(|ui| {
-                    ui.label("Left : Right");
-                    ui.add(
-                        DragValue::new(&mut door.left_right_ratio)
-                            .speed(0.01)
-                            .clamp_range(0.0..=std::f32::INFINITY),
-                    )
-                    .on_hover_text("(Left Door Length)/(Right Door Length)");
-                });
+                left_right_ratio_ui(ui, &mut door.left_right_ratio);
             }
             DoorType::SingleSwing(door) => {
                 ui.horizontal(|ui| {
@@ -77,15 +81,7 @@ impl<'a> InspectDoorType<'a> {
             }
             DoorType::DoubleSwing(door) => {
                 InspectSwing::new(&mut door.swing).show(ui);
-                ui.horizontal(|ui| {
-                    ui.label("Left : Right");
-                    ui.add(
-                        DragValue::new(&mut door.left_right_ratio)
-                            .speed(0.01)
-                            .clamp_range(0.0..=std::f32::INFINITY),
-                    )
-                    .on_hover_text("(Left Door Length)/(Right Door Length)");
-                });
+                left_right_ratio_ui(ui, &mut door.left_right_ratio);
             }
             DoorType::Model(_) => {
                 ui.label("Not yet supported");

@@ -28,7 +28,7 @@ pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
 pub const DOOR_SWEEP_THICKNESS: f32 = 0.05;
 pub const DOUBLE_DOOR_GAP: f32 = 0.05;
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 pub enum DoorBodyType {
     SingleSwing { body: Entity },
     DoubleSwing { left: Entity, right: Entity },
@@ -344,13 +344,13 @@ fn update_door_visuals(
     entity: Entity,
     edge: &Edge<Entity>,
     kind: &DoorType,
-    segments: &mut DoorSegments,
+    segments: &DoorSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
     assets: &Res<SiteAssets>,
-) {
+) -> Option<DoorBodyType> {
     let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
         make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
@@ -378,11 +378,16 @@ fn update_door_visuals(
         // Doors were removed, we need to despawn them
         commands.entity(*e).despawn_recursive();
     }
-    segments.body = DoorBodyType::from_door_type(kind, &entities);
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = mesh_assets.add(cue_inner_mesh);
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
     *cue_outline = mesh_assets.add(cue_outline_mesh);
+    let new_segments = DoorBodyType::from_door_type(kind, &entities);
+    if new_segments != segments.body {
+        Some(new_segments)
+    } else {
+        None
+    }
 }
 
 pub fn update_changed_door(
@@ -398,24 +403,26 @@ pub fn update_changed_door(
     assets: Res<SiteAssets>,
 ) {
     for (entity, edge, kind, mut segments) in &mut doors {
-        update_door_visuals(
+        if let Some(new_body) = update_door_visuals(
             &mut commands,
             entity,
             edge,
             kind,
-            &mut segments,
+            &segments,
             &anchors,
             &mut transforms,
             &mut mesh_handles,
             &mut mesh_assets,
             &assets,
-        );
+        ) {
+            segments.body = new_body;
+        }
     }
 }
 
 pub fn update_door_for_moved_anchors(
     mut commands: Commands,
-    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &mut DoorSegments)>,
+    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -437,7 +444,7 @@ pub fn update_door_for_moved_anchors(
                     entity,
                     edge,
                     kind,
-                    &mut segments,
+                    &segments,
                     &anchors,
                     &mut transforms,
                     &mut mesh_handles,
