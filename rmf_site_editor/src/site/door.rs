@@ -15,11 +15,16 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{
+    interaction::{PreviewableMarker, Selectable, SpawnPreview},
+    shapes::*,
+    site::*,
+};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
+use itertools::Itertools;
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
@@ -63,6 +68,28 @@ impl DoorBodyType {
             }
             DoorBodyType::DoubleSwing { left, right }
             | DoorBodyType::DoubleSliding { left, right } => vec![*left, *right],
+        }
+    }
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub enum DoorState {
+    Open,
+    Closed,
+    Moving,
+}
+
+#[derive(Component, Debug, Clone, Copy, PartialEq)]
+pub enum DoorCommand {
+    Open,
+    Close,
+}
+
+impl DoorCommand {
+    pub fn to_state(&self) -> DoorState {
+        match self {
+            DoorCommand::Open => DoorState::Open,
+            DoorCommand::Close => DoorState::Closed,
         }
     }
 }
@@ -329,6 +356,8 @@ pub fn add_door_visuals(
                 cue_outline,
             })
             .insert(Category::Door)
+            .insert(DoorState::Closed)
+            .insert(DoorCommand::Close)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
@@ -452,6 +481,357 @@ pub fn update_door_for_moved_anchors(
                     &assets,
                 );
             }
+        }
+    }
+}
+
+pub fn manage_door_previews(
+    mut commands: Commands,
+    mut preview_events: EventReader<SpawnPreview>,
+    mut previewable_doors: Query<
+        (&DoorSegments, &DoorState, Option<&DoorCommand>),
+        With<PreviewableMarker>,
+    >,
+) {
+    for event in preview_events.iter() {
+        match event.entity {
+            None => {
+                // TODO(luca) stop the door preview
+            }
+            Some(e) => {
+                if let Ok((segments, state, door_command)) = previewable_doors.get(e) {
+                    println!("Previewing door");
+                    let desired_state = match state {
+                        DoorState::Closed => DoorCommand::Open,
+                        DoorState::Open => DoorCommand::Close,
+                        DoorState::Moving => {
+                            *door_command.expect("Door is moving but no command was issued")
+                        }
+                    };
+                    // TODO(luca) Check if insertion has performance implications and we should
+                    // edit in place
+                    commands.entity(e).insert(desired_state);
+                }
+            }
+        }
+    }
+}
+
+fn door_closed_position(
+    entity: Entity,
+    edge: &Edge<Entity>,
+    kind: &DoorType,
+    body: &DoorBodyType,
+    transforms: &Query<&mut Transform>,
+    anchors: &AnchorParams,
+) -> Vec<Transform> {
+    let transforms = body
+        .entities()
+        .iter()
+        .map(|e| {
+            *transforms
+                .get(*e)
+                .expect("Transform for door body not found")
+        })
+        .collect::<Vec<_>>();
+    match body {
+        DoorBodyType::SingleSwing { .. }
+        | DoorBodyType::SingleSliding { .. }
+        | DoorBodyType::Model { .. } => {
+            vec![Transform {
+                translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
+                ..default()
+            }]
+        }
+        DoorBodyType::DoubleSwing { .. } | DoorBodyType::DoubleSliding { .. } => {
+            let p_start = anchors
+                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+                .unwrap();
+            let p_end = anchors
+                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+                .unwrap();
+            let dp = p_start - p_end;
+            let length = dp.length();
+            let mid_offset = kind
+                .double_swing()
+                .and_then(|k| Some(k.compute_offset(length)))
+                .or_else(|| {
+                    kind.double_sliding()
+                        .and_then(|k| Some(k.compute_offset(length)))
+                })
+                .expect("Mismatch");
+            let tfs = get_double_door_tfs(length, mid_offset);
+            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
+            vec![*left_tf, *right_tf]
+        }
+    }
+}
+
+fn get_double_door_tfs(double_door_width: f32, mid_offset: f32) -> Vec<Transform> {
+    let left_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
+    let right_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
+    vec![
+        Transform {
+            translation: Vec3::new(
+                0.,
+                (double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
+            ),
+            scale: Vec3::new(
+                DEFAULT_DOOR_THICKNESS,
+                left_door_length,
+                DEFAULT_LEVEL_HEIGHT,
+            ),
+            ..default()
+        },
+        Transform {
+            translation: Vec3::new(
+                0.,
+                -(double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
+            ),
+            scale: Vec3::new(
+                DEFAULT_DOOR_THICKNESS,
+                right_door_length,
+                DEFAULT_LEVEL_HEIGHT,
+            ),
+            ..default()
+        },
+    ]
+}
+
+fn door_open_position(
+    entity: Entity,
+    edge: &Edge<Entity>,
+    kind: &DoorType,
+    body: &DoorBodyType,
+    transforms: &Query<&mut Transform>,
+    anchors: &AnchorParams,
+) -> Option<Vec<Transform>> {
+    let transforms = body
+        .entities()
+        .iter()
+        .map(|e| {
+            *transforms
+                .get(*e)
+                .expect("Transform for door body not found")
+        })
+        .collect::<Vec<_>>();
+
+    match body {
+        DoorBodyType::SingleSwing { .. } => {
+            let tf = transforms.get(0)?;
+            let kind = kind.single_swing()?;
+            let open_position = match kind.swing {
+                Swing::Forward(angle) => angle.radians(),
+                Swing::Backward(angle) => -angle.radians(),
+                Swing::Both { forward, .. } => forward.radians(),
+            };
+            Some(vec![Transform {
+                translation: Vec3::new(
+                    (tf.scale.y / 2.0) * open_position.sin(),
+                    (tf.scale.y / 2.0) * (1.0 - open_position.cos()),
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                rotation: Quat::from_rotation_z(open_position),
+                ..default()
+            }])
+        }
+        DoorBodyType::DoubleSwing { .. } => {
+            let kind = kind.double_swing()?;
+            let p_start = anchors
+                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+                .unwrap();
+            let p_end = anchors
+                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+                .unwrap();
+            let dp = p_start - p_end;
+            let length = dp.length();
+            let mid_offset = kind.compute_offset(length);
+            let tfs = get_double_door_tfs(length, mid_offset);
+            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
+            let open_position = match kind.swing {
+                Swing::Forward(angle) => angle.radians(),
+                Swing::Backward(angle) => -angle.radians(),
+                Swing::Both { forward, .. } => forward.radians(),
+            };
+            Some(vec![
+                Transform {
+                    translation: Vec3::new(
+                        (left_tf.scale.y / 2.0) * open_position.sin(),
+                        left_tf.translation.y
+                            + (left_tf.scale.y / 2.0) * (1.0 - open_position.cos()),
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    rotation: Quat::from_rotation_z(open_position),
+                    ..default()
+                },
+                Transform {
+                    translation: Vec3::new(
+                        (right_tf.scale.y / 2.0) * open_position.sin(),
+                        right_tf.translation.y
+                            - (right_tf.scale.y / 2.0) * (1.0 - open_position.cos()),
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    rotation: Quat::from_rotation_z(-open_position),
+                    ..default()
+                },
+            ])
+        }
+        DoorBodyType::SingleSliding { .. } => {
+            let tf = transforms.get(0)?;
+            let kind = kind.single_sliding()?;
+            Some(vec![Transform {
+                translation: Vec3::new(
+                    0.,
+                    tf.scale.y * kind.towards.sign(),
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                ..default()
+            }])
+        }
+        DoorBodyType::DoubleSliding { .. } => {
+            let kind = kind.double_sliding()?;
+            let p_start = anchors
+                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+                .unwrap();
+            let p_end = anchors
+                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+                .unwrap();
+            let dp = p_start - p_end;
+            let length = dp.length();
+            let mid_offset = kind.compute_offset(length);
+            let tfs = get_double_door_tfs(length, mid_offset);
+            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
+            Some(vec![
+                Transform {
+                    translation: Vec3::new(
+                        0.,
+                        left_tf.translation.y + left_tf.scale.y,
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    ..default()
+                },
+                Transform {
+                    translation: Vec3::new(
+                        0.,
+                        right_tf.translation.y - right_tf.scale.y,
+                        DEFAULT_LEVEL_HEIGHT / 2.0,
+                    ),
+                    ..default()
+                },
+            ])
+        }
+        DoorBodyType::Model { body } => {
+            println!("Model open position not implemented");
+            None
+        }
+    }
+}
+
+pub fn control_doors(
+    door_commands: Query<(
+        Entity,
+        &DoorCommand,
+        &DoorType,
+        &DoorState,
+        &DoorSegments,
+        &Edge<Entity>,
+    )>,
+    mut transforms: Query<&mut Transform>,
+    anchors: AnchorParams,
+    time: Res<Time>,
+) {
+    for (entity, cmd, kind, state, segments, edge) in &door_commands {
+        if cmd.to_state() == *state {
+            // Noop
+        } else {
+            println!(
+                "Trying to reach target state {:?}, current is {:?}",
+                cmd, state
+            );
+            let target_positions = match cmd {
+                DoorCommand::Open => {
+                    let Some(val) = door_open_position(
+                        entity,
+                        &edge,
+                        kind,
+                        &segments.body,
+                        &transforms,
+                        &anchors) else {
+                        continue;
+                    };
+                    val
+                }
+                DoorCommand::Close => {
+                    door_closed_position(entity, &edge, kind, &segments.body, &transforms, &anchors)
+                }
+            };
+            for (e, target_tf) in segments.body.entities().iter().zip(target_positions.iter()) {
+                let mut tf = transforms.get_mut(*e).unwrap();
+                tf.translation = target_tf.translation;
+                tf.rotation = target_tf.rotation;
+            }
+        }
+    }
+}
+
+pub fn update_door_state(
+    mut doors: Query<(
+        Entity,
+        &DoorType,
+        &mut DoorState,
+        &DoorSegments,
+        &Edge<Entity>,
+        &DoorCommand,
+    )>,
+    // TODO(luca) make this not mutable
+    transforms: Query<&mut Transform>,
+    anchors: AnchorParams,
+) {
+    fn transforms_approx_equal(tf1: &Transform, tf2: &Transform) -> bool {
+        if tf1.rotation.angle_between(tf2.rotation).abs() > 1e-3 {
+            return false;
+        }
+        if tf1.translation.distance(tf2.translation) > 1e-3 {
+            return false;
+        }
+        true
+    }
+    for (e, kind, mut state, segments, edge, cmd) in &mut doors {
+        let open_tfs = door_open_position(e, &edge, kind, &segments.body, &transforms, &anchors);
+        let Some(open_tfs) = open_tfs else {
+            continue;
+        };
+        let closed_tfs =
+            door_closed_position(e, &edge, kind, &segments.body, &transforms, &anchors);
+        let segment_tfs = segments
+            .body
+            .entities()
+            .iter()
+            .map(|e| {
+                transforms
+                    .get(*e)
+                    .expect("Transform for door body not found")
+            })
+            .collect::<Vec<_>>();
+        let mut all_open = true;
+        let mut all_closed = true;
+        for (segment_tf, open_tf, closed_tf) in
+            itertools::izip!(segment_tfs.iter(), open_tfs.iter(), closed_tfs.iter())
+        {
+            if !transforms_approx_equal(segment_tf, open_tf) {
+                all_open = false;
+            } else if !transforms_approx_equal(segment_tf, closed_tf) {
+                all_closed = false;
+            }
+        }
+        if all_open {
+            *state = DoorState::Open;
+        } else if all_closed {
+            *state = DoorState::Closed;
+        } else {
+            *state = DoorState::Moving;
         }
     }
 }

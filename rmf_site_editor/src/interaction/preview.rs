@@ -24,8 +24,9 @@ use bevy::{
     window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows},
 };
 
-use rmf_site_format::{NameInSite, PhysicalCameraProperties};
+use rmf_site_format::{DoorMarker, NameInSite, PhysicalCameraProperties};
 
+// TODO(luca) consider moving this module in site instead of interaction
 /// Marker component for previewable entities
 #[derive(Component, Clone, Copy, Debug, Default)]
 pub struct PreviewableMarker;
@@ -169,9 +170,9 @@ pub fn handle_preview_window_close(
 
 pub fn make_new_entities_previewable(
     mut commands: Commands,
-    new_cameras: Query<Entity, Added<PhysicalCameraProperties>>,
+    new_entities: Query<Entity, Or<(Added<PhysicalCameraProperties>, Added<DoorMarker>)>>,
 ) {
-    for e in &new_cameras {
+    for e in &new_entities {
         commands.entity(e).insert(PreviewableMarker);
     }
 }
