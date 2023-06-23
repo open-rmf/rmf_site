@@ -12,8 +12,8 @@ use crate::keyboard::DebugMode;
 use super::ImageCopier;
 
 #[derive(Component, Clone, Debug, Default)]
-pub struct CameraEntity {
-    entity: Option<Entity>,
+pub struct RenderingBufferDetails {
+    selection_cam_entity: Option<Entity>,
     image: Handle<Image>,
     copier_entity: Option<Entity>
 }
@@ -23,26 +23,26 @@ pub struct ImageToSave(Handle<Image>, u32, u32);
 
 pub fn resize_notificator(
     mut resize_event: EventReader<WindowResized>,
-    mut camera_entity: Local<CameraEntity>,
+    mut render_buffer_details: Local<RenderingBufferDetails>,
     mut commands: Commands,
     mut images: ResMut<Assets<Image>>,
     camera_controls: Res<CameraControls>,
-    mut cameras: Query<(&Camera, &GlobalTransform)>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
     handles: Query<(&ImageToSave, Entity)>) {
 
-    let cam_entity = match camera_controls.mode() {
+    let view_cam_entity = match camera_controls.mode() {
         ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
         ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
     };
 
-    if let Ok((camera, camera_transform)) = cameras.get(cam_entity) {
-        for e in resize_event.iter() {
+    if let Ok((camera, camera_transform)) = cameras.get(view_cam_entity) {
+        for _e in resize_event.iter() {
             
             //Despawn old allocations
-            if let Some(camera) = camera_entity.entity {
+            if let Some(camera) = render_buffer_details.selection_cam_entity {
                 commands.entity(camera).despawn();
-                images.remove(&camera_entity.image);
+                images.remove(&render_buffer_details.image);
 
                 for (_handle, entity)in handles.iter() {
                     //if handle.0 == camera_entity.image {
@@ -50,7 +50,7 @@ pub fn resize_notificator(
                     //}
                 }
 
-                if let Some(copier) = camera_entity.copier_entity {
+                if let Some(copier) = render_buffer_details.copier_entity {
                     commands.entity(copier).despawn();
                 }
             }
@@ -101,10 +101,10 @@ pub fn resize_notificator(
             };
             cpu_image.resize(size);
             let cpu_image_handle = images.add(cpu_image);
-            camera_entity.image = render_target_image_handle.clone();
+            render_buffer_details.image = render_target_image_handle.clone();
             
             commands.spawn(ImageToSave(cpu_image_handle.clone(), size.width, size.height));
-            commands.spawn((
+            let camera_entity = commands.spawn((
                 Camera3dBundle {
                     camera_3d: Camera3d {
                         clear_color: ClearColorConfig::Custom(Color::WHITE),
@@ -116,11 +116,14 @@ pub fn resize_notificator(
                         target: RenderTarget::Image(render_target_image_handle.clone()),
                         ..default()
                     },
-                    transform: camera_transform.compute_transform(),
+                    //transform: camera_transform.compute_transform(),
                     ..default()
                 },
                 RenderLayers::layer(PICKING_LAYER)
-            ));
+            )).id();
+            // By making it a child of the camera, the transforms should be inherited.
+            commands.entity(view_cam_entity).push_children(&[camera_entity]);
+            render_buffer_details.selection_cam_entity = Some(camera_entity);
 
             let copier_entity = commands.spawn(ImageCopier::new(
                 render_target_image_handle,
@@ -128,10 +131,19 @@ pub fn resize_notificator(
                 size,
                 &render_device,
             )).id();
-            camera_entity.copier_entity = Some(copier_entity);
+            render_buffer_details.copier_entity = Some(copier_entity);
 
             println!("Resize render pipeline {} {}", viewport_size.x, viewport_size.y);
         }
+
+        // Get camera to follow
+        /*if let Some(selection_buffer) = render_buffer_details.selection_cam_entity {
+            if resize_event.len() == 0 {
+                if let Ok(mut transforms) = cameras.get_many_mut([view_cam_entity, selection_buffer]) {
+                    *transforms[1].1 = transforms[0].1.clone();
+                }
+            }
+        }*/
     }
 }
 
