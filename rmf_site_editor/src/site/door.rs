@@ -500,7 +500,6 @@ pub fn manage_door_previews(
             }
             Some(e) => {
                 if let Ok((segments, state, door_command)) = previewable_doors.get(e) {
-                    println!("Previewing door");
                     let desired_state = match state {
                         DoorState::Closed => DoorCommand::Open,
                         DoorState::Open => DoorCommand::Close,
@@ -522,18 +521,9 @@ fn door_closed_position(
     edge: &Edge<Entity>,
     kind: &DoorType,
     body: &DoorBodyType,
-    transforms: &Query<&mut Transform>,
+    transforms: &Vec<&Transform>,
     anchors: &AnchorParams,
 ) -> Vec<Transform> {
-    let transforms = body
-        .entities()
-        .iter()
-        .map(|e| {
-            *transforms
-                .get(*e)
-                .expect("Transform for door body not found")
-        })
-        .collect::<Vec<_>>();
     match body {
         DoorBodyType::SingleSwing { .. }
         | DoorBodyType::SingleSliding { .. }
@@ -605,19 +595,9 @@ fn door_open_position(
     edge: &Edge<Entity>,
     kind: &DoorType,
     body: &DoorBodyType,
-    transforms: &Query<&mut Transform>,
+    transforms: &Vec<&Transform>,
     anchors: &AnchorParams,
 ) -> Option<Vec<Transform>> {
-    let transforms = body
-        .entities()
-        .iter()
-        .map(|e| {
-            *transforms
-                .get(*e)
-                .expect("Transform for door body not found")
-        })
-        .collect::<Vec<_>>();
-
     match body {
         DoorBodyType::SingleSwing { .. } => {
             let tf = transforms.get(0)?;
@@ -630,10 +610,10 @@ fn door_open_position(
             Some(vec![Transform {
                 translation: Vec3::new(
                     (tf.scale.y / 2.0) * open_position.sin(),
-                    (tf.scale.y / 2.0) * (1.0 - open_position.cos()),
+                    (tf.scale.y / 2.0) * (1.0 - open_position.cos()) * kind.pivot_on.sign(),
                     DEFAULT_LEVEL_HEIGHT / 2.0,
                 ),
-                rotation: Quat::from_rotation_z(open_position),
+                rotation: Quat::from_rotation_z(open_position * kind.pivot_on.sign()),
                 ..default()
             }])
         }
@@ -740,7 +720,6 @@ pub fn control_doors(
     )>,
     mut transforms: Query<&mut Transform>,
     anchors: AnchorParams,
-    time: Res<Time>,
 ) {
     for (entity, cmd, kind, state, segments, edge) in &door_commands {
         if cmd.to_state() == *state {
@@ -750,6 +729,16 @@ pub fn control_doors(
                 "Trying to reach target state {:?}, current is {:?}",
                 cmd, state
             );
+            let segment_tfs = segments
+                .body
+                .entities()
+                .iter()
+                .map(|e| {
+                    transforms
+                        .get(*e)
+                        .expect("Transform for door body not found")
+                })
+                .collect::<Vec<_>>();
             let target_positions = match cmd {
                 DoorCommand::Open => {
                     let Some(val) = door_open_position(
@@ -757,15 +746,20 @@ pub fn control_doors(
                         &edge,
                         kind,
                         &segments.body,
-                        &transforms,
+                        &segment_tfs,
                         &anchors) else {
                         continue;
                     };
                     val
                 }
-                DoorCommand::Close => {
-                    door_closed_position(entity, &edge, kind, &segments.body, &transforms, &anchors)
-                }
+                DoorCommand::Close => door_closed_position(
+                    entity,
+                    &edge,
+                    kind,
+                    &segments.body,
+                    &segment_tfs,
+                    &anchors,
+                ),
             };
             for (e, target_tf) in segments.body.entities().iter().zip(target_positions.iter()) {
                 let mut tf = transforms.get_mut(*e).unwrap();
@@ -785,26 +779,14 @@ pub fn update_door_state(
         &Edge<Entity>,
         &DoorCommand,
     )>,
-    // TODO(luca) make this not mutable
-    transforms: Query<&mut Transform>,
+    transforms: Query<&Transform>,
     anchors: AnchorParams,
 ) {
     fn transforms_approx_equal(tf1: &Transform, tf2: &Transform) -> bool {
-        if tf1.rotation.angle_between(tf2.rotation).abs() > 1e-3 {
-            return false;
-        }
-        if tf1.translation.distance(tf2.translation) > 1e-3 {
-            return false;
-        }
-        true
+        tf1.rotation.angle_between(tf2.rotation).abs() < 1e-3
+            && tf1.translation.distance(tf2.translation) < 1e-3
     }
     for (e, kind, mut state, segments, edge, cmd) in &mut doors {
-        let open_tfs = door_open_position(e, &edge, kind, &segments.body, &transforms, &anchors);
-        let Some(open_tfs) = open_tfs else {
-            continue;
-        };
-        let closed_tfs =
-            door_closed_position(e, &edge, kind, &segments.body, &transforms, &anchors);
         let segment_tfs = segments
             .body
             .entities()
@@ -815,6 +797,12 @@ pub fn update_door_state(
                     .expect("Transform for door body not found")
             })
             .collect::<Vec<_>>();
+        let open_tfs = door_open_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors);
+        let Some(open_tfs) = open_tfs else {
+            continue;
+        };
+        let closed_tfs =
+            door_closed_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors);
         let mut all_open = true;
         let mut all_closed = true;
         for (segment_tf, open_tf, closed_tf) in
