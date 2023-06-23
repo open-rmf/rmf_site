@@ -356,7 +356,8 @@ pub fn add_door_visuals(
                 cue_outline,
             })
             .insert(Category::Door)
-            .insert(DoorState::Closed)
+            .insert(DoorState::Open)
+            .insert(DoorCommand::Open)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
