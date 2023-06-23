@@ -198,7 +198,7 @@ impl Plugin for SitePlugin {
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system(resize_notificator)
-            .add_system(image_saver)
+            .add_system_to_stage(CoreStage::PostUpdate,image_saver)
             .init_resource::<ColorEntityMap>()
             .add_system(screenspace_selection_system)
             .add_system_set_to_stage(

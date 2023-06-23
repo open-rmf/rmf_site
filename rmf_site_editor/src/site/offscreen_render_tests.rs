@@ -8,18 +8,19 @@ use bevy::render::renderer::RenderDevice;
 
 use crate::interaction::{PICKING_LAYER, ProjectionMode, CameraControls};
 use crate::keyboard::DebugMode;
-
-use super::ImageCopier;
+use crate::interaction::camera_controls::MouseLocation;
+use super::{ImageCopier, ColorEntityMap};
 
 #[derive(Component, Clone, Debug, Default)]
 pub struct RenderingBufferDetails {
     selection_cam_entity: Option<Entity>,
     image: Handle<Image>,
-    copier_entity: Option<Entity>
+    copier_entity: Option<Entity>,
+    image_parameters: Option<Entity>,
 }
 
 #[derive(Component)]
-pub struct ImageToSave(Handle<Image>, u32, u32);
+pub struct ImageToSave(Handle<Image>, u32, u32, pub f32);
 
 pub fn resize_notificator(
     mut resize_event: EventReader<WindowResized>,
@@ -53,18 +54,21 @@ pub fn resize_notificator(
                 if let Some(copier) = render_buffer_details.copier_entity {
                     commands.entity(copier).despawn();
                 }
+
+                if let Some(image_buffer) = render_buffer_details.image_parameters {
+                    commands.entity(image_buffer).despawn();
+                }
             }
 
             let viewport_size = camera.logical_viewport_size().unwrap();
             
-            let ratio = 512.0/viewport_size.x;
-            let height = (viewport_size.y * ratio) as u32;
+            let scale_ratio = 512.0/viewport_size.x;
+            let height = (viewport_size.y * scale_ratio) as u32;
             let size = Extent3d {
                 width: 512,//e.width as u32,
                 height: height,//e.height as u32,
                 ..default()
             };
-        
             // This is the texture that will be rendered to.
             let mut image = Image {
                 texture_descriptor: TextureDescriptor {
@@ -103,7 +107,9 @@ pub fn resize_notificator(
             let cpu_image_handle = images.add(cpu_image);
             render_buffer_details.image = render_target_image_handle.clone();
             
-            commands.spawn(ImageToSave(cpu_image_handle.clone(), size.width, size.height));
+            let image = commands.spawn(ImageToSave(cpu_image_handle.clone(), size.width, size.height, scale_ratio)).id();
+            render_buffer_details.image_parameters = Some(image);
+            
             let camera_entity = commands.spawn((
                 Camera3dBundle {
                     camera_3d: Camera3d {
@@ -135,40 +141,60 @@ pub fn resize_notificator(
 
             println!("Resize render pipeline {} {}", viewport_size.x, viewport_size.y);
         }
-
-        // Get camera to follow
-        /*if let Some(selection_buffer) = render_buffer_details.selection_cam_entity {
-            if resize_event.len() == 0 {
-                if let Ok(mut transforms) = cameras.get_many_mut([view_cam_entity, selection_buffer]) {
-                    *transforms[1].1 = transforms[0].1.clone();
-                }
-            }
-        }*/
     }
 }
 
 pub fn image_saver(
     images_to_save: Query<&ImageToSave>,
+    camera_controls: Res<CameraControls>,
+    cameras: Query<&Camera>,
     mut images: ResMut<Assets<Image>>,
-    mut key_evr: EventReader<KeyboardInput>,
-    debug: ResMut<DebugMode>
+    mut color_map: ResMut<ColorEntityMap>,
+    debug: ResMut<DebugMode>,
+    mouse_location: Res<MouseLocation>
 ) {
+    let view_cam_entity = match camera_controls.mode() {
+        ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+        ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
+    };
+
+
+    let offset = if let Ok(camera) = cameras.get(view_cam_entity) {
+        let (viewport_min, viewport_max) = camera.logical_viewport_rect().unwrap();
+        let screen_size = camera.logical_target_size().unwrap();
+        let viewport_size = viewport_max - viewport_min;
+        Vec2::new(viewport_min.x, screen_size.y - viewport_max.y)
+    }
+    else {
+        Vec2::ZERO
+    };
+    let mouse_position = mouse_location.previous -offset;
+
     for image in images_to_save.iter() {
-        //println!("Got image");
         let data = &images.get_mut(&image.0).unwrap().data;
-        //println!("Image size {}", data.len());
+
+        let img = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(image.1, image.2, data.as_slice()).unwrap();
+        
+        let mx = (mouse_position.x * image.3) as u32;
+        let my = (mouse_position.y * image.3) as u32;
+
         if debug.0 {
-            let result = image::save_buffer(
-                "debug_polyline_picking.png",
-                data,
-                image.1,
-                image.2,
-                image::ColorType::Rgba8,
-            );
+            println!("x : {}, y: {}", mx, my);
+            let result = img.save("test_r.png");
             if let Err(something) = result {
                 println!("{:?}", something);
             }
         }
-                    
+
+        let pixel = img.get_pixel(mx, my);
+
+        if pixel.0[0] != u8::MAX || pixel.0[1] != u8::MAX || pixel.0[2] != u8::MAX {
+            if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
+                println!("Selected {:?}", entity);
+            }
+            else {
+                println!("Uh-oh can't find color {:?}", pixel);
+            }
+        }
     }
 }

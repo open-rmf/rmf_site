@@ -54,8 +54,8 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 pub const PICKING_LAYER: u8 = 6;
 
 #[derive(Resource)]
-struct MouseLocation {
-    previous: Vec2,
+pub struct MouseLocation {
+    pub previous: Vec2,
 }
 
 impl Default for MouseLocation {

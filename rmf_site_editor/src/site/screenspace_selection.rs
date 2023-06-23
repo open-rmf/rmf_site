@@ -5,8 +5,7 @@ use std::collections::BTreeMap;
 
 use crate::interaction::PICKING_LAYER;
 
-use rand::prelude::*;
-
+use super::ImageToSave;
 
 #[derive(Debug, Clone)]
 pub struct ScreenspacePolyline {
@@ -88,6 +87,10 @@ impl ColorEntityMap {
             self.allocate_new_color(entity, polyline_materials, thickness)
         }
     }
+
+    pub fn get_entity(&self, key: &(u8,u8,u8)) -> Option<&Entity> {
+        self.color_to_entity_map.get(key)
+    }
 }
 
 /// Label items which need to be selected.
@@ -101,21 +104,38 @@ pub fn screenspace_selection_system(
     mut polylines: ResMut<Assets<Polyline>>,
     mut color_map: ResMut<ColorEntityMap>,
     screen_space_entities: Query<(&ScreenSpaceEntity, Entity)>,
+    images_to_save: Query<&ImageToSave>,
 ) {
     for (_, entity) in &screen_space_entities {
         commands.entity(entity).despawn();
     }
+
+    let scale = if let Ok(image_parameters) = images_to_save.get_single() {
+        image_parameters.3
+    }
+    else {
+        1.0
+    };
+
     // Inefficient (For now despawn all screenspace entities)
     for (screenspace_shape, entity) in &screen_space_lines
     {
         match screenspace_shape {
             ScreenSpaceSelection::Polyline(shape) => {
+                let thickness = shape.thickness * scale;
+                let thickness = if thickness < 1.0 {
+                    1.0
+                }
+                else 
+                {
+                    thickness
+                };
                 commands
                 .spawn((PolylineBundle {
                     polyline: polylines.add(Polyline {
                         vertices: vec![shape.start, shape.end],
                     }),
-                    material: color_map.get_material(&entity, &mut polyline_materials, shape.thickness),
+                    material: color_map.get_material(&entity, &mut polyline_materials, thickness),
                     ..default()
                 },
                 RenderLayers::layer(PICKING_LAYER),
