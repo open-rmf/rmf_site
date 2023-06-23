@@ -95,6 +95,26 @@ impl DoorType {
             Self::Model(_) => "Model",
         }
     }
+
+    /// Get the offset from the door center of the point where the doors
+    /// separate. A value of 0.0 means the doors are even. A negative value
+    /// means the left door is smaller while a positive value means the right
+    /// door is smaller.
+    /// Note that this only applies to double door, function returns None
+    /// for single / model doors
+    pub fn compute_offset(&self, door_width: f32) -> Option<f32> {
+        match self {
+            Self::DoubleSliding(door) => {
+                let l = door.left_right_ratio * door_width / (door.left_right_ratio + 1.0);
+                Some(door_width / 2.0 - l)
+            }
+            Self::DoubleSwing(door) => {
+                let l = door.left_right_ratio * door_width / (door.left_right_ratio + 1.0);
+                Some(door_width / 2.0 - l)
+            }
+            Self::SingleSliding(_) | Self::SingleSwing(_) | Self::Model(_) => None,
+        }
+    }
 }
 
 impl Default for DoorType {
@@ -129,17 +149,6 @@ impl From<SingleSlidingDoor> for DoorType {
 pub struct DoubleSlidingDoor {
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
-}
-
-impl DoubleSlidingDoor {
-    /// Get the offset from the door center of the point where the doors
-    /// separate. A value of 0.0 means the doors are even. A negative value
-    /// means the left door is smaller while a positive value means the right
-    /// door is smaller.
-    pub fn compute_offset(&self, door_width: f32) -> f32 {
-        let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
-        return door_width / 2.0 - l;
-    }
 }
 
 impl Default for DoubleSlidingDoor {
@@ -187,17 +196,6 @@ pub struct DoubleSwingDoor {
     pub swing: Swing,
     /// Length of the left door divided by the length of the right door
     pub left_right_ratio: f32,
-}
-
-impl DoubleSwingDoor {
-    /// Get the offset from the door center of the point where the doors
-    /// separate. A value of 0.0 means the doors are even. A negative value
-    /// means the left door is smaller while a positive value means the right
-    /// door is smaller.
-    pub fn compute_offset(&self, door_width: f32) -> f32 {
-        let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
-        return door_width / 2.0 - l;
-    }
 }
 
 impl Default for DoubleSwingDoor {

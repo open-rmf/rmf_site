@@ -191,7 +191,10 @@ impl Plugin for SitePlugin {
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::ProcessChanges)
-                    .with_system(update_door_state)
+                    // TODO(luca) These are here so they don't conflict with animation systems,
+                    // refactor animation systems into a separate stage when migrating to bevy 0.11
+                    .with_system(update_changed_door)
+                    .with_system(update_door_for_moved_anchors)
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
@@ -227,10 +230,9 @@ impl Plugin for SitePlugin {
                     .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
                     .with_system(add_door_visuals)
-                    .with_system(update_changed_door)
-                    .with_system(update_door_for_moved_anchors)
                     .with_system(manage_door_previews)
                     .with_system(control_doors)
+                    .with_system(update_door_state)
                     .with_system(add_floor_visuals)
                     .with_system(update_changed_floor)
                     .with_system(update_floor_for_moved_anchors)

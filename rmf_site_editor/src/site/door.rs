@@ -43,7 +43,7 @@ pub enum DoorBodyType {
 }
 
 impl DoorBodyType {
-    pub fn from_door_type(door_type: &DoorType, entities: &Vec<Entity>) -> Self {
+    pub fn from_door_type(door_type: &DoorType, entities: &[Entity]) -> Self {
         match door_type {
             DoorType::SingleSwing(_) => DoorBodyType::SingleSwing { body: entities[0] },
             DoorType::DoubleSwing(_) => DoorBodyType::DoubleSwing {
@@ -155,7 +155,6 @@ fn make_door_visuals(
     };
 
     let door_tfs = match kind {
-        // TODO(luca) implement model variant
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
             vec![Transform {
                 translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
@@ -163,8 +162,9 @@ fn make_door_visuals(
                 ..default()
             }]
         }
-        DoorType::DoubleSwing(door) => get_double_door_tfs(door.compute_offset(length)),
-        DoorType::DoubleSliding(door) => get_double_door_tfs(door.compute_offset(length)),
+        DoorType::DoubleSwing(_) | DoorType::DoubleSliding(_) => {
+            get_double_door_tfs(kind.compute_offset(length).unwrap())
+        }
     };
     (
         Transform {
@@ -248,9 +248,9 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .merge_with(door_slide_arrows(start, stop))
                 .into_mesh_and_outline()
         }
-        DoorType::DoubleSliding(door) => {
+        DoorType::DoubleSliding(_) => {
             let left = (door_width - DOOR_STOP_LINE_THICKNESS) / 2.0;
-            let mid = door.compute_offset(door_width);
+            let mid = kind.compute_offset(door_width).unwrap();
             let right = -(door_width - DOOR_STOP_LINE_THICKNESS) / 2.0;
             let tweak = DOOR_STOP_LINE_THICKNESS / 2.0;
 
@@ -265,7 +265,7 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
             door_swing_arc(door_width, 1, 0.0, door.pivot_on, door.swing).into_mesh_and_outline()
         }
         DoorType::DoubleSwing(door) => {
-            let mid = door.compute_offset(door_width);
+            let mid = kind.compute_offset(door_width).unwrap();
             door_swing_arc(door_width, 2, -mid, Side::Left, door.swing)
                 .merge_with(door_swing_arc(door_width, 2, mid, Side::Right, door.swing))
                 .into_mesh_and_outline()
@@ -357,7 +357,6 @@ pub fn add_door_visuals(
             })
             .insert(Category::Door)
             .insert(DoorState::Closed)
-            .insert(DoorCommand::Close)
             .insert(EdgeLabels::LeftRight);
 
         for anchor in edge.array() {
@@ -467,7 +466,7 @@ pub fn update_door_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, mut segments)) = doors.get_mut(*dependent).ok() {
+            if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
                 update_door_visuals(
                     &mut commands,
                     entity,
@@ -488,10 +487,7 @@ pub fn update_door_for_moved_anchors(
 pub fn manage_door_previews(
     mut commands: Commands,
     mut preview_events: EventReader<SpawnPreview>,
-    mut previewable_doors: Query<
-        (&DoorSegments, &DoorState, Option<&DoorCommand>),
-        With<PreviewableMarker>,
-    >,
+    previewable_doors: Query<(&DoorState, Option<&DoorCommand>), With<PreviewableMarker>>,
 ) {
     for event in preview_events.iter() {
         match event.entity {
@@ -499,7 +495,7 @@ pub fn manage_door_previews(
                 // TODO(luca) stop the door preview
             }
             Some(e) => {
-                if let Ok((segments, state, door_command)) = previewable_doors.get(e) {
+                if let Ok((state, door_command)) = previewable_doors.get(e) {
                     let desired_state = match state {
                         DoorState::Closed => DoorCommand::Open,
                         DoorState::Open => DoorCommand::Close,
@@ -516,12 +512,23 @@ pub fn manage_door_previews(
     }
 }
 
+fn door_edge_length(entity: Entity, edge: &Edge<Entity>, anchors: &AnchorParams) -> f32 {
+    let p_start = anchors
+        .point_in_parent_frame_of(edge.left(), Category::Door, entity)
+        .unwrap();
+    let p_end = anchors
+        .point_in_parent_frame_of(edge.right(), Category::Door, entity)
+        .unwrap();
+
+    let dp = p_start - p_end;
+    dp.length()
+}
+
 fn door_closed_position(
     entity: Entity,
     edge: &Edge<Entity>,
     kind: &DoorType,
     body: &DoorBodyType,
-    transforms: &Vec<&Transform>,
     anchors: &AnchorParams,
 ) -> Vec<Transform> {
     match body {
@@ -534,22 +541,8 @@ fn door_closed_position(
             }]
         }
         DoorBodyType::DoubleSwing { .. } | DoorBodyType::DoubleSliding { .. } => {
-            let p_start = anchors
-                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
-                .unwrap();
-            let p_end = anchors
-                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
-                .unwrap();
-            let dp = p_start - p_end;
-            let length = dp.length();
-            let mid_offset = kind
-                .double_swing()
-                .and_then(|k| Some(k.compute_offset(length)))
-                .or_else(|| {
-                    kind.double_sliding()
-                        .and_then(|k| Some(k.compute_offset(length)))
-                })
-                .expect("Mismatch");
+            let length = door_edge_length(entity, edge, anchors);
+            let mid_offset = kind.compute_offset(length).expect("Mismatch");
             let tfs = get_double_door_tfs(length, mid_offset);
             let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
             vec![*left_tf, *right_tf]
@@ -590,12 +583,15 @@ fn get_double_door_tfs(double_door_width: f32, mid_offset: f32) -> Vec<Transform
     ]
 }
 
+// TODO(luca) If we were careful about system ordering this system could be made to return a vec
+// and panic on failure instead. It will currently only fail for off-by-one-frame system ordering
+// issues that cause mismatches between DoorType and DoorBodyType
 fn door_open_position(
     entity: Entity,
     edge: &Edge<Entity>,
     kind: &DoorType,
     body: &DoorBodyType,
-    transforms: &Vec<&Transform>,
+    transforms: &[&Transform],
     anchors: &AnchorParams,
 ) -> Option<Vec<Transform>> {
     match body {
@@ -618,19 +614,12 @@ fn door_open_position(
             }])
         }
         DoorBodyType::DoubleSwing { .. } => {
-            let kind = kind.double_swing()?;
-            let p_start = anchors
-                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
-                .unwrap();
-            let p_end = anchors
-                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
-                .unwrap();
-            let dp = p_start - p_end;
-            let length = dp.length();
-            let mid_offset = kind.compute_offset(length);
+            let double_swing = kind.double_swing()?;
+            let length = door_edge_length(entity, edge, anchors);
+            let mid_offset = kind.compute_offset(length)?;
             let tfs = get_double_door_tfs(length, mid_offset);
             let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
-            let open_position = match kind.swing {
+            let open_position = match double_swing.swing {
                 Swing::Forward(angle) => angle.radians(),
                 Swing::Backward(angle) => -angle.radians(),
                 Swing::Both { forward, .. } => forward.radians(),
@@ -671,16 +660,8 @@ fn door_open_position(
             }])
         }
         DoorBodyType::DoubleSliding { .. } => {
-            let kind = kind.double_sliding()?;
-            let p_start = anchors
-                .point_in_parent_frame_of(edge.left(), Category::Door, entity)
-                .unwrap();
-            let p_end = anchors
-                .point_in_parent_frame_of(edge.right(), Category::Door, entity)
-                .unwrap();
-            let dp = p_start - p_end;
-            let length = dp.length();
-            let mid_offset = kind.compute_offset(length);
+            let length = door_edge_length(entity, edge, anchors);
+            let mid_offset = kind.compute_offset(length)?;
             let tfs = get_double_door_tfs(length, mid_offset);
             let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
             Some(vec![
@@ -702,7 +683,7 @@ fn door_open_position(
                 },
             ])
         }
-        DoorBodyType::Model { body } => {
+        DoorBodyType::Model { .. } => {
             println!("Model open position not implemented");
             None
         }
@@ -722,13 +703,7 @@ pub fn control_doors(
     anchors: AnchorParams,
 ) {
     for (entity, cmd, kind, state, segments, edge) in &door_commands {
-        if cmd.to_state() == *state {
-            // Noop
-        } else {
-            println!(
-                "Trying to reach target state {:?}, current is {:?}",
-                cmd, state
-            );
+        if cmd.to_state() != *state {
             let segment_tfs = segments
                 .body
                 .entities()
@@ -752,14 +727,9 @@ pub fn control_doors(
                     };
                     val
                 }
-                DoorCommand::Close => door_closed_position(
-                    entity,
-                    &edge,
-                    kind,
-                    &segments.body,
-                    &segment_tfs,
-                    &anchors,
-                ),
+                DoorCommand::Close => {
+                    door_closed_position(entity, &edge, kind, &segments.body, &anchors)
+                }
             };
             for (e, target_tf) in segments.body.entities().iter().zip(target_positions.iter()) {
                 let mut tf = transforms.get_mut(*e).unwrap();
@@ -777,7 +747,6 @@ pub fn update_door_state(
         &mut DoorState,
         &DoorSegments,
         &Edge<Entity>,
-        &DoorCommand,
     )>,
     transforms: Query<&Transform>,
     anchors: AnchorParams,
@@ -786,7 +755,7 @@ pub fn update_door_state(
         tf1.rotation.angle_between(tf2.rotation).abs() < 1e-3
             && tf1.translation.distance(tf2.translation) < 1e-3
     }
-    for (e, kind, mut state, segments, edge, cmd) in &mut doors {
+    for (e, kind, mut state, segments, edge) in &mut doors {
         let segment_tfs = segments
             .body
             .entities()
@@ -797,16 +766,14 @@ pub fn update_door_state(
                     .expect("Transform for door body not found")
             })
             .collect::<Vec<_>>();
-        let open_tfs = door_open_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors);
-        let Some(open_tfs) = open_tfs else {
+        let Some(open_tfs) = door_open_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors) else {
             continue;
         };
-        let closed_tfs =
-            door_closed_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors);
+        let closed_tfs = door_closed_position(e, &edge, kind, &segments.body, &anchors);
         let mut all_open = true;
         let mut all_closed = true;
         for (segment_tf, open_tf, closed_tf) in
-            itertools::izip!(segment_tfs.iter(), open_tfs.iter(), closed_tfs.iter())
+            itertools::izip!(&segment_tfs, &open_tfs, &closed_tfs)
         {
             if !transforms_approx_equal(segment_tf, open_tf) {
                 all_open = false;
