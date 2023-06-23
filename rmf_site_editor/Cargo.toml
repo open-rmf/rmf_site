@@ -46,6 +46,7 @@ pollster = "0.3.0"
 futures-intrusive = "0.5.0"
 wgpu="0.14.2"
 image = "0.24.6"
+rand = "0.8.5"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]

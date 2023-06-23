@@ -87,6 +87,9 @@ pub use save::*;
 pub mod site;
 pub use site::*;
 
+pub mod screenspace_selection;
+pub use screenspace_selection::*;
+
 pub mod util;
 pub use util::*;
 
@@ -196,6 +199,8 @@ impl Plugin for SitePlugin {
             .add_system(import_nav_graph)
             .add_system(resize_notificator)
             .add_system(image_saver)
+            .init_resource::<ColorEntityMap>()
+            .add_system(screenspace_selection_system)
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)

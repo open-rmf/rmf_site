@@ -49,6 +49,9 @@ pub const HOVERED_OUTLINE_LAYER: u8 = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
 pub const XRAY_RENDER_LAYER: u8 = 5;
+/// The Picking layer contains an entity based color map for picking entities
+/// which are drawn in screen space.
+pub const PICKING_LAYER: u8 = 6;
 
 #[derive(Resource)]
 struct MouseLocation {
