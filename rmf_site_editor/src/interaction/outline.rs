@@ -134,7 +134,7 @@ pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
         (Entity, &Hovered, &Selected, &OutlineVisualization),
-        Or<(Changed<Hovered>, Changed<Selected>, Changed<Children>)>,
+        Or<(Changed<Hovered>, Changed<Selected>)>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
@@ -181,6 +181,28 @@ pub fn update_outline_visualization(
                         queue.push(*child);
                     }
                 }
+            }
+        }
+    }
+}
+
+pub fn update_outline_for_new_meshes(
+    mut commands: Commands,
+    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    outlines: Query<(&OutlineVolume, &SetOutlineDepth)>,
+    parents: Query<&Parent>,
+) {
+    for e in &new_meshes {
+        for p in AncestorIter::new(&parents, e) {
+            if let Ok((outline, depth)) = outlines.get(p) {
+                commands
+                    .entity(e)
+                    .insert(OutlineBundle {
+                        outline: outline.clone(),
+                        ..default()
+                    })
+                    .insert(depth.clone());
+                break;
             }
         }
     }
