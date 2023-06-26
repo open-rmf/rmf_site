@@ -1,4 +1,8 @@
-use bevy::{prelude::*, render::view::RenderLayers, utils::{hashbrown::HashMap, HashSet}};
+use bevy::{
+    prelude::*,
+    render::view::RenderLayers,
+    utils::{hashbrown::HashMap, HashSet},
+};
 use bevy_polyline::prelude::*;
 
 use std::collections::BTreeMap;
@@ -11,24 +15,23 @@ use super::ImageToSave;
 pub struct ScreenspacePolyline {
     pub start: Vec3,
     pub end: Vec3,
-    thickness: f32
+    thickness: f32,
 }
 
 /// Label items which need to be selected.
 #[derive(Component, Debug, Clone)]
 pub enum ScreenSpaceSelection {
-    Polyline(ScreenspacePolyline)
+    Polyline(ScreenspacePolyline),
 }
 
 impl ScreenSpaceSelection {
-    pub fn polyline(start_anchor: Vec3, end_anchor:Vec3, thickness: f32)->Self
-    {
-        Self::Polyline(ScreenspacePolyline { start: start_anchor, end: end_anchor, thickness: thickness })
+    pub fn polyline(start_anchor: Vec3, end_anchor: Vec3, thickness: f32) -> Self {
+        Self::Polyline(ScreenspacePolyline {
+            start: start_anchor,
+            end: end_anchor,
+            thickness: thickness,
+        })
     }
-}
-
-fn u8_intensity_to_float(intensity: u8) -> f32 {
-    (intensity as f32) / (u8::MAX as f32)
 }
 
 /// Label items which need to be selected.
@@ -39,32 +42,28 @@ pub struct ColorEntityMap {
 }
 
 impl ColorEntityMap {
-    fn allocate_new_color(&mut self,
-        entity: &Entity, 
+    fn allocate_new_color(
+        &mut self,
+        entity: &Entity,
         polyline_materials: &mut ResMut<Assets<PolylineMaterial>>,
-        thickness: f32) -> Handle<PolylineMaterial> {
-
-        println!("Handling new color");
-
+        thickness: f32,
+    ) -> Handle<PolylineMaterial> {
         // TODO(arjo): This takes indeterminate amount of time. Just use a counter
         let mut r = rand::random::<u8>();
         let mut g = rand::random::<u8>();
         let mut b = rand::random::<u8>();
 
-        while self.color_to_entity_map.get(&(r, g, b)).is_some() ||
-            (r == u8::MAX && g == u8::MAX && b == u8::MAX) {
+        while self.color_to_entity_map.get(&(r, g, b)).is_some()
+            || (r == u8::MAX && g == u8::MAX && b == u8::MAX)
+        {
             r = rand::random::<u8>();
             g = rand::random::<u8>();
             b = rand::random::<u8>();
         }
+        println!("Handling new color {} {} {}", r, g, b);
+        self.color_to_entity_map.insert((r, g, b), *entity);
 
-        self.color_to_entity_map.insert((r,g,b), *entity);
-
-        let r = u8_intensity_to_float(r);
-        let g = u8_intensity_to_float(g);
-        let b = u8_intensity_to_float(b);
-
-        let color = Color::rgb_linear(r,g,b); 
+        let color = Color::rgb_u8(r, g, b);
 
         let material = polyline_materials.add(PolylineMaterial {
             width: thickness,
@@ -73,22 +72,26 @@ impl ColorEntityMap {
             ..default()
         });
 
-        self.entity_to_material_map.insert(*entity, material.clone());
+        self.entity_to_material_map
+            .insert(*entity, material.clone());
 
         material
     }
 
-    pub fn get_material(&mut self,
-        entity: &Entity, polyline_materials: &mut ResMut<Assets<PolylineMaterial>>, thickness: f32) -> Handle<PolylineMaterial> {
+    pub fn get_material(
+        &mut self,
+        entity: &Entity,
+        polyline_materials: &mut ResMut<Assets<PolylineMaterial>>,
+        thickness: f32,
+    ) -> Handle<PolylineMaterial> {
         if let Some(color) = self.entity_to_material_map.get(entity) {
             color.clone()
-        }
-        else {
+        } else {
             self.allocate_new_color(entity, polyline_materials, thickness)
         }
     }
 
-    pub fn get_entity(&self, key: &(u8,u8,u8)) -> Option<&Entity> {
+    pub fn get_entity(&self, key: &(u8, u8, u8)) -> Option<&Entity> {
         self.color_to_entity_map.get(key)
     }
 }
@@ -112,37 +115,32 @@ pub fn screenspace_selection_system(
 
     let scale = if let Ok(image_parameters) = images_to_save.get_single() {
         image_parameters.3
-    }
-    else {
+    } else {
         1.0
     };
 
     // Inefficient (For now despawn all screenspace entities)
-    for (screenspace_shape, entity) in &screen_space_lines
-    {
+    for (screenspace_shape, entity) in &screen_space_lines {
         match screenspace_shape {
             ScreenSpaceSelection::Polyline(shape) => {
                 let thickness = shape.thickness * scale;
-                let thickness = if thickness < 1.0 {
-                    1.0
-                }
-                else 
-                {
-                    thickness
-                };
-                commands
-                .spawn((PolylineBundle {
-                    polyline: polylines.add(Polyline {
-                        vertices: vec![shape.start, shape.end],
-                    }),
-                    material: color_map.get_material(&entity, &mut polyline_materials, thickness),
-                    ..default()
-                },
-                RenderLayers::layer(PICKING_LAYER),
-                ScreenSpaceEntity
-            ));
+                let thickness = if thickness < 10.0 { 10.0 } else { thickness };
+                commands.spawn((
+                    PolylineBundle {
+                        polyline: polylines.add(Polyline {
+                            vertices: vec![shape.start, shape.end],
+                        }),
+                        material: color_map.get_material(
+                            &entity,
+                            &mut polyline_materials,
+                            thickness,
+                        ),
+                        ..default()
+                    },
+                    RenderLayers::layer(PICKING_LAYER),
+                    ScreenSpaceEntity,
+                ));
             }
         }
-       
     }
 }

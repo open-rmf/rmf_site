@@ -125,98 +125,109 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
         let mut commands = commands.entity(e);
-        let (layer, start, mid, end, polyline, picker, outlines) = commands.add_children(|parent| {
-            // Create a "layer" entity that manages the height of the lane,
-            // determined by the DisplayHeight of the graph.
-            let mut layer_cmd = parent.spawn(SpatialBundle {
-                transform: Transform::from_xyz(0.0, 0.0, height),
-                ..default()
-            });
-
-            let (start, mid, end, polyline, picker, outlines) = layer_cmd.add_children(|parent| {
-                let mut start = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(start_anchor),
+        let (layer, start, mid, end, polyline, picker, outlines) =
+            commands.add_children(|parent| {
+                // Create a "layer" entity that manages the height of the lane,
+                // determined by the DisplayHeight of the graph.
+                let mut layer_cmd = parent.spawn(SpatialBundle {
+                    transform: Transform::from_xyz(0.0, 0.0, height),
                     ..default()
                 });
-                let start_outline = start.add_children(|start| {
-                    start
-                        .spawn(PbrBundle {
-                            mesh: assets.lane_end_outline.clone(),
-                            transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                            visibility: Visibility { is_visible: false },
+
+                let (start, mid, end, polyline, picker, outlines) =
+                    layer_cmd.add_children(|parent| {
+                        let mut start = parent.spawn(PbrBundle {
+                            mesh: assets.lane_end_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: Transform::from_translation(start_anchor),
                             ..default()
-                        })
-                        .id()
-                });
-                let start = start.id();
+                        });
+                        let start_outline = start.add_children(|start| {
+                            start
+                                .spawn(PbrBundle {
+                                    mesh: assets.lane_end_outline.clone(),
+                                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                    visibility: Visibility { is_visible: false },
+                                    ..default()
+                                })
+                                .id()
+                        });
+                        let start = start.id();
 
-                let mut mid = parent.spawn(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
-                    ..default()
-                });
-                let mid_outline = mid.add_children(|mid| {
-                    mid.spawn(PbrBundle {
-                        mesh: assets.lane_mid_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let mid = mid.id();
-
-                let mut end = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(end_anchor),
-                    ..default()
-                });
-
-                let end_outline = end.add_children(|end| {
-                    end.spawn(PbrBundle {
-                        mesh: assets.lane_end_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let end = end.id();
-
-                let polyline = parent
-                    .spawn(PolylineBundle {
-                        polyline: polylines.add(Polyline {
-                            vertices: vec![start_anchor, end_anchor],
-                        }),
-                        material: polyline_materials.add(PolylineMaterial {
-                            width: 10.0,
-                            color: Color::RED,
-                            perspective: false,
+                        let mut mid = parent.spawn(PbrBundle {
+                            mesh: assets.lane_mid_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: line_stroke_transform(
+                                &start_anchor,
+                                &end_anchor,
+                                LANE_WIDTH,
+                            ),
                             ..default()
-                        }),
-                        ..default()
-                    })
-                    .insert(Selectable::new(e))
-                    .id();
-                let picker = parent.spawn(
-                        ScreenSpaceSelection::polyline(start_anchor, end_anchor, 10.0)).id();
+                        });
+                        let mid_outline = mid.add_children(|mid| {
+                            mid.spawn(PbrBundle {
+                                mesh: assets.lane_mid_outline.clone(),
+                                transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                visibility: Visibility { is_visible: false },
+                                ..default()
+                            })
+                            .id()
+                        });
+                        let mid = mid.id();
 
-                (
-                    start,
-                    mid,
-                    end,
-                    polyline,
-                    picker,
-                    [start_outline, mid_outline, end_outline],
-                )
+                        let mut end = parent.spawn(PbrBundle {
+                            mesh: assets.lane_end_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: Transform::from_translation(end_anchor),
+                            ..default()
+                        });
+
+                        let end_outline = end.add_children(|end| {
+                            end.spawn(PbrBundle {
+                                mesh: assets.lane_end_outline.clone(),
+                                transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                visibility: Visibility { is_visible: false },
+                                ..default()
+                            })
+                            .id()
+                        });
+                        let end = end.id();
+
+                        let polyline = parent
+                            .spawn(PolylineBundle {
+                                polyline: polylines.add(Polyline {
+                                    vertices: vec![start_anchor, end_anchor],
+                                }),
+                                material: polyline_materials.add(PolylineMaterial {
+                                    width: 10.0,
+                                    color: Color::RED,
+                                    perspective: false,
+                                    ..default()
+                                }),
+                                ..default()
+                            })
+                            .insert(Selectable::new(e))
+                            .id();
+                        let picker = parent
+                            .spawn(ScreenSpaceSelection::polyline(
+                                start_anchor,
+                                end_anchor,
+                                10.0,
+                            ))
+                            .id();
+
+                        (
+                            start,
+                            mid,
+                            end,
+                            polyline,
+                            picker,
+                            [start_outline, mid_outline, end_outline],
+                        )
+                    });
+
+                (layer_cmd.id(), start, mid, end, polyline, picker, outlines)
             });
-
-            (layer_cmd.id(), start, mid, end, polyline, picker, outlines)
-        });
 
         commands
             .insert(LaneSegments {
@@ -314,7 +325,7 @@ pub fn update_changed_lane(
             &mut transforms,
             &polylines,
             &mut polyline_assets,
-            &mut picker
+            &mut picker,
         );
 
         let is_visible =
@@ -351,7 +362,7 @@ pub fn update_lane_for_moved_anchor(
                     &mut transforms,
                     &polylines,
                     &mut polyline_assets,
-                    &mut picker
+                    &mut picker,
                 );
             }
         }
