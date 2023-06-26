@@ -86,7 +86,7 @@ pub enum DoorCommand {
 }
 
 impl DoorCommand {
-    pub fn to_state(&self) -> DoorState {
+    pub fn to_state(self) -> DoorState {
         match self {
             DoorCommand::Open => DoorState::Open,
             DoorCommand::Close => DoorState::Closed,
@@ -99,6 +99,39 @@ pub struct DoorSegments {
     pub body: DoorBodyType,
     pub cue_inner: Entity,
     pub cue_outline: Entity,
+}
+
+fn get_double_door_tfs(double_door_width: f32, mid_offset: f32) -> Vec<Transform> {
+    let left_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
+    let right_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
+    vec![
+        Transform {
+            translation: Vec3::new(
+                0.,
+                (double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
+            ),
+            scale: Vec3::new(
+                DEFAULT_DOOR_THICKNESS,
+                left_door_length,
+                DEFAULT_LEVEL_HEIGHT,
+            ),
+            ..default()
+        },
+        Transform {
+            translation: Vec3::new(
+                0.,
+                -(double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                DEFAULT_LEVEL_HEIGHT / 2.0,
+            ),
+            scale: Vec3::new(
+                DEFAULT_DOOR_THICKNESS,
+                right_door_length,
+                DEFAULT_LEVEL_HEIGHT,
+            ),
+            ..default()
+        },
+    ]
 }
 
 fn make_door_visuals(
@@ -121,39 +154,6 @@ fn make_door_visuals(
 
     let (inner, outline) = make_door_cues(length, kind);
 
-    let get_double_door_tfs = |mid_offset: f32| -> Vec<Transform> {
-        let left_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
-        let right_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
-        vec![
-            Transform {
-                translation: Vec3::new(
-                    0.,
-                    (length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
-                    DEFAULT_LEVEL_HEIGHT / 2.0,
-                ),
-                scale: Vec3::new(
-                    DEFAULT_DOOR_THICKNESS,
-                    left_door_length,
-                    DEFAULT_LEVEL_HEIGHT,
-                ),
-                ..default()
-            },
-            Transform {
-                translation: Vec3::new(
-                    0.,
-                    -(length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
-                    DEFAULT_LEVEL_HEIGHT / 2.0,
-                ),
-                scale: Vec3::new(
-                    DEFAULT_DOOR_THICKNESS,
-                    right_door_length,
-                    DEFAULT_LEVEL_HEIGHT,
-                ),
-                ..default()
-            },
-        ]
-    };
-
     let door_tfs = match kind {
         DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
             vec![Transform {
@@ -163,7 +163,7 @@ fn make_door_visuals(
             }]
         }
         DoorType::DoubleSwing(_) | DoorType::DoubleSliding(_) => {
-            get_double_door_tfs(kind.compute_offset(length).unwrap())
+            get_double_door_tfs(length, kind.compute_offset(length).unwrap())
         }
     };
     (
@@ -451,7 +451,7 @@ pub fn update_changed_door(
 
 pub fn update_door_for_moved_anchors(
     mut commands: Commands,
-    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
+    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -467,13 +467,13 @@ pub fn update_door_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
+            if let Ok((entity, edge, kind, segments)) = doors.get(*dependent) {
                 update_door_visuals(
                     &mut commands,
                     entity,
                     edge,
                     kind,
-                    &segments,
+                    segments,
                     &anchors,
                     &mut transforms,
                     &mut mesh_handles,
@@ -544,44 +544,9 @@ fn door_closed_position(
         DoorBodyType::DoubleSwing { .. } | DoorBodyType::DoubleSliding { .. } => {
             let length = door_edge_length(entity, edge, anchors);
             let mid_offset = kind.compute_offset(length).expect("Mismatch");
-            let tfs = get_double_door_tfs(length, mid_offset);
-            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
-            vec![*left_tf, *right_tf]
+            get_double_door_tfs(length, mid_offset)
         }
     }
-}
-
-fn get_double_door_tfs(double_door_width: f32, mid_offset: f32) -> Vec<Transform> {
-    let left_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
-    let right_door_length = (double_door_width - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
-    vec![
-        Transform {
-            translation: Vec3::new(
-                0.,
-                (double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
-                DEFAULT_LEVEL_HEIGHT / 2.0,
-            ),
-            scale: Vec3::new(
-                DEFAULT_DOOR_THICKNESS,
-                left_door_length,
-                DEFAULT_LEVEL_HEIGHT,
-            ),
-            ..default()
-        },
-        Transform {
-            translation: Vec3::new(
-                0.,
-                -(double_door_width + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
-                DEFAULT_LEVEL_HEIGHT / 2.0,
-            ),
-            scale: Vec3::new(
-                DEFAULT_DOOR_THICKNESS,
-                right_door_length,
-                DEFAULT_LEVEL_HEIGHT,
-            ),
-            ..default()
-        },
-    ]
 }
 
 // TODO(luca) If we were careful about system ordering this system could be made to return a vec
@@ -595,15 +560,18 @@ fn door_open_position(
     transforms: &[&Transform],
     anchors: &AnchorParams,
 ) -> Option<Vec<Transform>> {
+    fn swing_angle(swing: &Swing) -> f32 {
+        match swing {
+            Swing::Forward(angle) => angle.radians(),
+            Swing::Backward(angle) => -angle.radians(),
+            Swing::Both { forward, .. } => forward.radians(),
+        }
+    }
     match body {
         DoorBodyType::SingleSwing { .. } => {
             let tf = transforms.get(0)?;
             let kind = kind.single_swing()?;
-            let open_position = match kind.swing {
-                Swing::Forward(angle) => angle.radians(),
-                Swing::Backward(angle) => -angle.radians(),
-                Swing::Both { forward, .. } => forward.radians(),
-            };
+            let open_position = swing_angle(&kind.swing);
             Some(vec![Transform {
                 translation: Vec3::new(
                     (tf.scale.y / 2.0) * open_position.sin(),
@@ -616,15 +584,11 @@ fn door_open_position(
         }
         DoorBodyType::DoubleSwing { .. } => {
             let double_swing = kind.double_swing()?;
+            let open_position = swing_angle(&double_swing.swing);
             let length = door_edge_length(entity, edge, anchors);
             let mid_offset = kind.compute_offset(length)?;
             let tfs = get_double_door_tfs(length, mid_offset);
-            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
-            let open_position = match double_swing.swing {
-                Swing::Forward(angle) => angle.radians(),
-                Swing::Backward(angle) => -angle.radians(),
-                Swing::Both { forward, .. } => forward.radians(),
-            };
+            let (left_tf, right_tf) = tfs.iter().collect_tuple()?;
             Some(vec![
                 Transform {
                     translation: Vec3::new(
@@ -664,7 +628,7 @@ fn door_open_position(
             let length = door_edge_length(entity, edge, anchors);
             let mid_offset = kind.compute_offset(length)?;
             let tfs = get_double_door_tfs(length, mid_offset);
-            let (left_tf, right_tf) = tfs.iter().collect_tuple().unwrap();
+            let (left_tf, right_tf) = tfs.iter().collect_tuple()?;
             Some(vec![
                 Transform {
                     translation: Vec3::new(
@@ -719,7 +683,7 @@ pub fn control_doors(
                 DoorCommand::Open => {
                     let Some(val) = door_open_position(
                         entity,
-                        &edge,
+                        edge,
                         kind,
                         &segments.body,
                         &segment_tfs,
@@ -729,7 +693,7 @@ pub fn control_doors(
                     val
                 }
                 DoorCommand::Close => {
-                    door_closed_position(entity, &edge, kind, &segments.body, &anchors)
+                    door_closed_position(entity, edge, kind, &segments.body, &anchors)
                 }
             };
             for (e, target_tf) in segments.body.entities().iter().zip(target_positions.iter()) {
@@ -767,10 +731,10 @@ pub fn update_door_state(
                     .expect("Transform for door body not found")
             })
             .collect::<Vec<_>>();
-        let Some(open_tfs) = door_open_position(e, &edge, kind, &segments.body, &segment_tfs, &anchors) else {
+        let Some(open_tfs) = door_open_position(e, edge, kind, &segments.body, &segment_tfs, &anchors) else {
             continue;
         };
-        let closed_tfs = door_closed_position(e, &edge, kind, &segments.body, &anchors);
+        let closed_tfs = door_closed_position(e, edge, kind, &segments.body, &anchors);
         let mut all_open = true;
         let mut all_closed = true;
         for (segment_tf, open_tf, closed_tf) in

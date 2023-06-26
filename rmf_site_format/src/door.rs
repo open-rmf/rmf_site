@@ -315,7 +315,7 @@ impl RecallDoorType {
             .unwrap_or(
                 self.single_sliding
                     .as_ref()
-                    .map(|x| x.clone())
+                    .cloned()
                     .unwrap_or(SingleSlidingDoor::default().into()),
             )
     }
@@ -327,7 +327,7 @@ impl RecallDoorType {
             .unwrap_or(
                 self.double_sliding
                     .as_ref()
-                    .map(|x| x.clone())
+                    .cloned()
                     .unwrap_or(DoubleSlidingDoor::default().into()),
             )
     }
@@ -336,7 +336,7 @@ impl RecallDoorType {
         current.single_swing().map(|x| x.clone().into()).unwrap_or(
             self.single_swing
                 .as_ref()
-                .map(|x| x.clone())
+                .cloned()
                 .unwrap_or(SingleSwingDoor::default().into()),
         )
     }
@@ -345,7 +345,7 @@ impl RecallDoorType {
         current.double_swing().map(|x| x.clone().into()).unwrap_or(
             self.double_swing
                 .as_ref()
-                .map(|x| x.clone())
+                .cloned()
                 .unwrap_or(DoubleSwingDoor::default().into()),
         )
     }
@@ -354,7 +354,7 @@ impl RecallDoorType {
         current.model().map(|x| x.clone().into()).unwrap_or(
             self.model
                 .as_ref()
-                .map(|x| x.clone())
+                .cloned()
                 .unwrap_or(DoorType::Model(Model::default())),
         )
     }
