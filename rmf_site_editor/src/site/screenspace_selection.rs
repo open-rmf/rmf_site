@@ -109,6 +109,8 @@ pub fn screenspace_selection_system(
     screen_space_entities: Query<(&ScreenSpaceEntity, Entity)>,
     images_to_save: Query<&ImageToSave>,
 ) {
+    // TODO(arjo) Perhaps perform some form of diff calculation to
+    // Reduce ECS-churn.
     for (_, entity) in &screen_space_entities {
         commands.entity(entity).despawn();
     }
@@ -119,7 +121,7 @@ pub fn screenspace_selection_system(
         1.0
     };
 
-    // Inefficient (For now despawn all screenspace entities)
+    // Redraw parameters.
     for (screenspace_shape, entity) in &screen_space_lines {
         match screenspace_shape {
             ScreenSpaceSelection::Polyline(shape) => {
