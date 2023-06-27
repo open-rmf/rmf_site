@@ -1057,6 +1057,26 @@ pub(crate) fn make_ring(inner_radius: f32, outer_radius: f32, resolution: usize)
     MeshBuffer::new(positions, normals, indices)
 }
 
+pub(crate) fn make_location_icon(
+    radius: f32,
+    height: f32,
+    segments: usize,
+    position: usize,
+) -> MeshBuffer {
+    let height = 2.0 * height;
+    let angle = (360.0 / (2.0 * segments as f32)).to_radians();
+    let p0 = radius * Vec3::X;
+    let p1 = Affine3A::from_rotation_z(angle).transform_vector3(p0);
+    let width = (p1 - p0).length();
+    make_flat_square_mesh(width)
+        .transform_by(Affine3A::from_translation(Vec3::new(
+            radius + width / 2.0,
+            0.0,
+            height / 2.0,
+        )))
+        .transform_by(Affine3A::from_rotation_z(position as f32 * 2.0 * angle))
+}
+
 pub(crate) fn make_icon_halo(radius: f32, height: f32, segments: usize) -> MeshBuffer {
     let angle = (360.0 / (2.0 * segments as f32)).to_radians();
     let p0 = radius * Vec3::X;

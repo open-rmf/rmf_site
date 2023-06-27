@@ -203,6 +203,26 @@ impl SiteAssetIo {
             "textures/global.png".to_owned(),
             include_bytes!("../../assets/textures/global.png").to_vec(),
         );
+        self.bundled_assets.insert(
+            "textures/battery.png".to_owned(),
+            include_bytes!("../../assets/textures/battery.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/parking.png".to_owned(),
+            include_bytes!("../../assets/textures/parking.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/stopwatch.png".to_owned(),
+            include_bytes!("../../assets/textures/stopwatch.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/robot.png".to_owned(),
+            include_bytes!("../../assets/textures/robot.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/workcell.png".to_owned(),
+            include_bytes!("../../assets/textures/workcell.png").to_vec(),
+        );
     }
 }
 

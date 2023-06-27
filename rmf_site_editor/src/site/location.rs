@@ -22,6 +22,15 @@ use bevy::prelude::*;
 // experience z-fighting.
 const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
 
+#[derive(Component, Clone, Default)]
+pub struct LocationTagMeshes {
+    charger: Option<Entity>,
+    parking_spot: Option<Entity>,
+    holding_point: Option<Entity>,
+    spawn_robot: Option<Entity>,
+    workcell: Option<Entity>,
+}
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -42,7 +51,15 @@ fn should_display_point(
 
 pub fn add_location_visuals(
     mut commands: Commands,
-    locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
+    locations: Query<
+        (
+            Entity,
+            &Point<Entity>,
+            &AssociatedGraphs<Entity>,
+            &LocationTags,
+        ),
+        Added<LocationTags>,
+    >,
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
@@ -51,7 +68,7 @@ pub fn add_location_visuals(
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, point, associated_graphs) in &locations {
+    for (e, point, associated_graphs, tags) in &locations {
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }
@@ -70,6 +87,47 @@ pub fn add_location_visuals(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap()
             + LOCATION_LAYER_HEIGHT * Vec3::Z;
+
+        let mut tag_meshes = LocationTagMeshes::default();
+        for tag in tags.iter() {
+            let id = commands.spawn_empty().id();
+            let (mesh, material) = match tag {
+                LocationTag::Charger => {
+                    tag_meshes.charger = Some(id);
+                    (assets.charger_mesh.clone(), assets.charger_material.clone())
+                }
+                LocationTag::ParkingSpot => {
+                    tag_meshes.parking_spot = Some(id);
+                    (assets.parking_mesh.clone(), assets.parking_material.clone())
+                }
+                LocationTag::HoldingPoint => {
+                    tag_meshes.holding_point = Some(id);
+                    (
+                        assets.holding_point_mesh.clone(),
+                        assets.holding_point_material.clone(),
+                    )
+                }
+                LocationTag::SpawnRobot(_) => {
+                    tag_meshes.spawn_robot = Some(id);
+                    (assets.robot_mesh.clone(), assets.robot_material.clone())
+                }
+                LocationTag::Workcell(_) => {
+                    tag_meshes.workcell = Some(id);
+                    (
+                        assets.workcell_mesh.clone(),
+                        assets.workcell_material.clone(),
+                    )
+                }
+            };
+            commands.entity(id).insert(PbrBundle {
+                mesh,
+                material,
+                transform: Transform::from_xyz(0., 0., 0.01),
+                ..default()
+            });
+            commands.entity(e).add_child(id);
+        }
+
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
@@ -82,6 +140,7 @@ pub fn add_location_visuals(
             })
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
+            .insert(tag_meshes)
             .insert(VisualCue::outline());
     }
 }
@@ -144,6 +203,119 @@ pub fn update_location_for_moved_anchors(
                 tf.translation = position;
                 tf.translation.z = LOCATION_LAYER_HEIGHT;
             }
+        }
+    }
+}
+
+pub fn update_location_for_changed_location_tags(
+    mut commands: Commands,
+    mut locations: Query<(Entity, &LocationTags, &mut LocationTagMeshes), Changed<LocationTags>>,
+    assets: Res<SiteAssets>,
+) {
+    for (e, tags, mut tag_meshes) in &mut locations {
+        // Despawn the removed tags first
+        if let Some(id) = tag_meshes.charger {
+            if !tags.iter().any(|t| t.is_charger()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.charger = None;
+            }
+        }
+        if let Some(id) = tag_meshes.parking_spot {
+            if !tags.iter().any(|t| t.is_parking_spot()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.parking_spot = None;
+            }
+        }
+        if let Some(id) = tag_meshes.holding_point {
+            if !tags.iter().any(|t| t.is_holding_point()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.holding_point = None;
+            }
+        }
+        if let Some(id) = tag_meshes.spawn_robot {
+            if !tags.iter().any(|t| t.spawn_robot().is_some()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.spawn_robot = None;
+            }
+        }
+        if let Some(id) = tag_meshes.workcell {
+            if !tags.iter().any(|t| t.workcell().is_some()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.workcell = None;
+            }
+        }
+        // Spawn the new tags
+        for tag in tags.iter() {
+            let (id, mesh, material) = match tag {
+                LocationTag::Charger => {
+                    if tag_meshes.charger.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.charger = Some(id);
+                        (
+                            id,
+                            assets.charger_mesh.clone(),
+                            assets.charger_material.clone(),
+                        )
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::ParkingSpot => {
+                    if tag_meshes.parking_spot.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.parking_spot = Some(id);
+                        (
+                            id,
+                            assets.parking_mesh.clone(),
+                            assets.parking_material.clone(),
+                        )
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::HoldingPoint => {
+                    if tag_meshes.holding_point.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.holding_point = Some(id);
+                        (
+                            id,
+                            assets.holding_point_mesh.clone(),
+                            assets.holding_point_material.clone(),
+                        )
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::SpawnRobot(_) => {
+                    if tag_meshes.spawn_robot.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.spawn_robot = Some(id);
+                        (id, assets.robot_mesh.clone(), assets.robot_material.clone())
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::Workcell(_) => {
+                    if tag_meshes.workcell.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.workcell = Some(id);
+                        (
+                            id,
+                            assets.workcell_mesh.clone(),
+                            assets.workcell_material.clone(),
+                        )
+                    } else {
+                        continue;
+                    }
+                }
+            };
+            commands.entity(id).insert(PbrBundle {
+                mesh,
+                material,
+                transform: Transform::from_xyz(0., 0., 0.01),
+                ..default()
+            });
+            commands.entity(e).add_child(id);
         }
     }
 }

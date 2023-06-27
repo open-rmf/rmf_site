@@ -50,6 +50,16 @@ pub struct SiteAssets {
     pub physical_camera_material: Handle<StandardMaterial>,
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
+    pub charger_mesh: Handle<Mesh>,
+    pub holding_point_mesh: Handle<Mesh>,
+    pub parking_mesh: Handle<Mesh>,
+    pub robot_mesh: Handle<Mesh>,
+    pub workcell_mesh: Handle<Mesh>,
+    pub charger_material: Handle<StandardMaterial>,
+    pub holding_point_material: Handle<StandardMaterial>,
+    pub parking_material: Handle<StandardMaterial>,
+    pub robot_material: Handle<StandardMaterial>,
+    pub workcell_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -57,6 +67,21 @@ impl FromWorld for SiteAssets {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let wall_texture = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/default.png".to_string(),
+        )));
+        let charger_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/battery.png".to_string(),
+        )));
+        let holding_point_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/stopwatch.png".to_string(),
+        )));
+        let parking_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/parking.png".to_string(),
+        )));
+        let robot_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/robot.png".to_string(),
+        )));
+        let workcell_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/workcell.png".to_string(),
         )));
 
         let mut materials = world
@@ -144,6 +169,27 @@ impl FromWorld for SiteAssets {
         let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
         let default_mesh_grey_material = materials.add(Color::rgb(0.7, 0.7, 0.7).into());
 
+        let charger_material = materials.add(StandardMaterial {
+            base_color_texture: Some(charger_texture),
+            ..default()
+        });
+        let holding_point_material = materials.add(StandardMaterial {
+            base_color_texture: Some(holding_point_texture),
+            ..default()
+        });
+        let parking_material = materials.add(StandardMaterial {
+            base_color_texture: Some(parking_texture),
+            ..default()
+        });
+        let robot_material = materials.add(StandardMaterial {
+            base_color_texture: Some(robot_texture),
+            ..default()
+        });
+        let workcell_material = materials.add(StandardMaterial {
+            base_color_texture: Some(workcell_texture),
+            ..default()
+        });
+
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
             Mesh::from(shape::UVSphere {
@@ -196,6 +242,15 @@ impl FromWorld for SiteAssets {
             .with_generated_outline_normals()
             .unwrap(),
         );
+        let charger_mesh =
+            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6, 0).into());
+        let holding_point_mesh =
+            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6, 1).into());
+        let parking_mesh =
+            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6, 2).into());
+        let robot_mesh = meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6, 3).into());
+        let workcell_mesh =
+            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6, 4).into());
         let physical_camera_mesh = meshes.add(
             make_physical_camera_mesh()
                 .with_generated_outline_normals()
@@ -233,6 +288,16 @@ impl FromWorld for SiteAssets {
             physical_camera_material,
             occupied_material,
             default_mesh_grey_material,
+            charger_mesh,
+            holding_point_mesh,
+            parking_mesh,
+            robot_mesh,
+            workcell_mesh,
+            charger_material,
+            holding_point_material,
+            parking_material,
+            robot_material,
+            workcell_material,
         }
     }
 }
