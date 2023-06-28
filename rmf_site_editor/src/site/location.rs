@@ -31,6 +31,21 @@ pub struct LocationTagMeshes {
     workcell: Option<Entity>,
 }
 
+fn location_halo_tf(tag: &LocationTag) -> Transform {
+    let position = match tag {
+        LocationTag::Charger => 0,
+        LocationTag::ParkingSpot => 1,
+        LocationTag::HoldingPoint => 2,
+        LocationTag::SpawnRobot(_) => 3,
+        LocationTag::Workcell(_) => 4,
+    };
+    Transform {
+        translation: Vec3::new(0., 0., 0.01),
+        rotation: Quat::from_rotation_z((position as f32 / 6.0 * 360.0).to_radians()),
+        ..default()
+    }
+}
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -91,38 +106,32 @@ pub fn add_location_visuals(
         let mut tag_meshes = LocationTagMeshes::default();
         for tag in tags.iter() {
             let id = commands.spawn_empty().id();
-            let (mesh, material) = match tag {
+            let material = match tag {
                 LocationTag::Charger => {
                     tag_meshes.charger = Some(id);
-                    (assets.charger_mesh.clone(), assets.charger_material.clone())
+                    assets.charger_material.clone()
                 }
                 LocationTag::ParkingSpot => {
                     tag_meshes.parking_spot = Some(id);
-                    (assets.parking_mesh.clone(), assets.parking_material.clone())
+                    assets.parking_material.clone()
                 }
                 LocationTag::HoldingPoint => {
                     tag_meshes.holding_point = Some(id);
-                    (
-                        assets.holding_point_mesh.clone(),
-                        assets.holding_point_material.clone(),
-                    )
+                    assets.holding_point_material.clone()
                 }
                 LocationTag::SpawnRobot(_) => {
                     tag_meshes.spawn_robot = Some(id);
-                    (assets.robot_mesh.clone(), assets.robot_material.clone())
+                    assets.robot_material.clone()
                 }
                 LocationTag::Workcell(_) => {
                     tag_meshes.workcell = Some(id);
-                    (
-                        assets.workcell_mesh.clone(),
-                        assets.workcell_material.clone(),
-                    )
+                    assets.workcell_material.clone()
                 }
             };
             commands.entity(id).insert(PbrBundle {
-                mesh,
+                mesh: assets.location_tag_mesh.clone(),
                 material,
-                transform: Transform::from_xyz(0., 0., 0.01),
+                transform: location_halo_tf(tag),
                 ..default()
             });
             commands.entity(e).add_child(id);
@@ -246,16 +255,12 @@ pub fn update_location_for_changed_location_tags(
         }
         // Spawn the new tags
         for tag in tags.iter() {
-            let (id, mesh, material) = match tag {
+            let (id, material) = match tag {
                 LocationTag::Charger => {
                     if tag_meshes.charger.is_none() {
                         let id = commands.spawn_empty().id();
                         tag_meshes.charger = Some(id);
-                        (
-                            id,
-                            assets.charger_mesh.clone(),
-                            assets.charger_material.clone(),
-                        )
+                        (id, assets.charger_material.clone())
                     } else {
                         continue;
                     }
@@ -264,11 +269,7 @@ pub fn update_location_for_changed_location_tags(
                     if tag_meshes.parking_spot.is_none() {
                         let id = commands.spawn_empty().id();
                         tag_meshes.parking_spot = Some(id);
-                        (
-                            id,
-                            assets.parking_mesh.clone(),
-                            assets.parking_material.clone(),
-                        )
+                        (id, assets.parking_material.clone())
                     } else {
                         continue;
                     }
@@ -277,11 +278,7 @@ pub fn update_location_for_changed_location_tags(
                     if tag_meshes.holding_point.is_none() {
                         let id = commands.spawn_empty().id();
                         tag_meshes.holding_point = Some(id);
-                        (
-                            id,
-                            assets.holding_point_mesh.clone(),
-                            assets.holding_point_material.clone(),
-                        )
+                        (id, assets.holding_point_material.clone())
                     } else {
                         continue;
                     }
@@ -290,7 +287,7 @@ pub fn update_location_for_changed_location_tags(
                     if tag_meshes.spawn_robot.is_none() {
                         let id = commands.spawn_empty().id();
                         tag_meshes.spawn_robot = Some(id);
-                        (id, assets.robot_mesh.clone(), assets.robot_material.clone())
+                        (id, assets.robot_material.clone())
                     } else {
                         continue;
                     }
@@ -299,20 +296,16 @@ pub fn update_location_for_changed_location_tags(
                     if tag_meshes.workcell.is_none() {
                         let id = commands.spawn_empty().id();
                         tag_meshes.workcell = Some(id);
-                        (
-                            id,
-                            assets.workcell_mesh.clone(),
-                            assets.workcell_material.clone(),
-                        )
+                        (id, assets.workcell_material.clone())
                     } else {
                         continue;
                     }
                 }
             };
             commands.entity(id).insert(PbrBundle {
-                mesh,
+                mesh: assets.location_tag_mesh.clone(),
                 material,
-                transform: Transform::from_xyz(0., 0., 0.01),
+                transform: location_halo_tf(tag),
                 ..default()
             });
             commands.entity(e).add_child(id);
