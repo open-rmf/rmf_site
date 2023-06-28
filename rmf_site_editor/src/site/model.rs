@@ -260,7 +260,10 @@ pub fn update_model_scenes(
 
 pub fn update_model_tentative_formats(
     mut commands: Commands,
-    changed_models: Query<Entity, (Changed<AssetSource>, With<ModelMarker>)>,
+    changed_models: Query<
+        (Entity, &AssetSource, Option<&ModelScene>),
+        (Changed<AssetSource>, With<ModelMarker>),
+    >,
     mut loading_models: Query<
         (
             Entity,
@@ -272,9 +275,11 @@ pub fn update_model_tentative_formats(
     >,
     asset_server: Res<AssetServer>,
 ) {
-    for e in changed_models.iter() {
+    for (e, source, scene) in changed_models.iter() {
         // Reset to the first format
-        commands.entity(e).insert(TentativeModelFormat::default());
+        if !scene.is_some_and(|r| &r.source == source) {
+            commands.entity(e).insert(TentativeModelFormat::default());
+        }
     }
     // Check from the asset server if any format failed, if it did try the next
     for (e, mut tentative_format, h, source) in loading_models.iter_mut() {

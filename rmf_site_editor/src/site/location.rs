@@ -101,7 +101,7 @@ pub fn add_robot_to_spawn_location(
         Changed<LocationTags>,
     >,
     levels: Query<(), With<LevelProperties>>,
-    mut models: Query<&mut AssetSource, With<ModelMarker>>,
+    mut models: Query<(&mut NameInSite, &mut AssetSource), With<ModelMarker>>,
     anchors: AnchorParams,
     parents: Query<&Parent>,
 ) {
@@ -112,38 +112,37 @@ pub fn add_robot_to_spawn_location(
 
         let parent = AncestorIter::new(&parents, point.0).find(|p| levels.get(*p).is_ok());
 
-        let mut found_robot = false;
         if let Some(parent) = parent {
-            for location_tag in location_tags.iter() {
-                if let LocationTag::SpawnRobot(m) = location_tag {
-                    if let Some(location_model) = location_model {
-                        // Update existing model
-                        if let Ok(mut source) = models.get_mut(location_model.0) {
-                            *source = m.source.clone();
-                        }
-                    } else {
-                        // Spawn new model
-                        let mut model = m.clone();
-                        model.pose = Pose {
-                            trans: position.into(),
-                            ..default()
-                        };
-                        // TODO(luca) there should be a marker component to denote this is a robot
-                        // as well as set it non static
-                        // Robots should probably be made non deletable, since their spawning is
-                        // controlled by the location property
-                        let child = commands.spawn(model).id();
-                        commands.entity(parent).push_children(&[child]);
-                        commands.entity(e).insert(LocationRobotModel(child));
+            if let Some(m) = location_tags.iter().find_map(|l| match l {
+                LocationTag::SpawnRobot(m) => Some(m),
+                _ => None,
+            }) {
+                if let Some(location_model) = location_model {
+                    // Update existing model
+                    if let Ok((mut name, mut source)) = models.get_mut(location_model.0) {
+                        *name = m.name.clone();
+                        *source = m.source.clone();
                     }
-                    found_robot = true;
+                } else {
+                    // Spawn new model
+                    let mut model = m.clone();
+                    model.pose = Pose {
+                        trans: position.into(),
+                        ..default()
+                    };
+                    // TODO(luca) there should be a marker component to denote this is a robot
+                    // as well as set it non static
+                    // Robots should probably be made non deletable, since their spawning is
+                    // controlled by the location property
+                    let child = commands.spawn(model).id();
+                    commands.entity(parent).push_children(&[child]);
+                    commands.entity(e).insert(LocationRobotModel(child));
                 }
-            }
-        }
-        if !found_robot {
-            if let Some(location_model) = location_model {
-                commands.entity(location_model.0).despawn_recursive();
-                commands.entity(e).remove::<LocationRobotModel>();
+            } else {
+                if let Some(location_model) = location_model {
+                    commands.entity(location_model.0).despawn_recursive();
+                    commands.entity(e).remove::<LocationRobotModel>();
+                }
             }
         }
     }
