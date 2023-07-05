@@ -49,6 +49,9 @@ pub const HOVERED_OUTLINE_LAYER: u8 = 4;
 /// The X-Ray layer is used to show visual cues that need to be rendered
 /// above anything that would be obstructing them.
 pub const XRAY_RENDER_LAYER: u8 = 5;
+/// The Model Preview layer is used by model previews to spawn and render
+/// models in the engine without having them being visible to general cameras
+pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
 #[derive(Resource)]
 struct MouseLocation {

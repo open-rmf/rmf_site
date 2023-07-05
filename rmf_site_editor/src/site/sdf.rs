@@ -31,7 +31,9 @@ use rmf_site_format::{
 
 // TODO(luca) reduce chances for panic and do proper error handling here
 fn compute_model_source(path: &str, uri: &str) -> AssetSource {
-    let binding = path.strip_prefix("search://").unwrap();
+    let binding = path
+        .strip_prefix("search://")
+        .unwrap_or_else(|| path.strip_prefix("rmf-server://").unwrap());
     if let Some(stripped) = uri.strip_prefix("model://") {
         // Get the org name from context, model name from this and combine
         let org_name = binding.split("/").next().unwrap();

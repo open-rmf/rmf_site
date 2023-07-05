@@ -124,6 +124,9 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                 if let Ok((_e, source, _scale)) =
                                     self.events.pending_asset_sources.get_single()
                                 {
+                                    if ui.button("Browse fuel").clicked() {
+                                        self.events.new_model.asset_gallery_status.show = true;
+                                    }
                                     if ui.button("Spawn model").clicked() {
                                         let model = Model {
                                             source: source.clone(),
