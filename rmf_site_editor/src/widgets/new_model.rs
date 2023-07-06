@@ -21,8 +21,8 @@ use crate::AppEvents;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{
-    widgets::Image as EguiImage, Button, Color32, ComboBox, Context, Frame, Pos2, Rect, ScrollArea,
-    Ui, Window,
+    widgets::Image as EguiImage, Button, Color32, ComboBox, Context, Frame, Pos2, Rect, RichText,
+    ScrollArea, Ui, Window,
 };
 use bevy_egui::EguiContext;
 use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
@@ -33,6 +33,9 @@ pub struct FuelClient(GzFuelClient);
 /// Filters applied to models in the fuel list
 pub struct ShowAssetFilters {
     pub owner: Option<String>,
+    pub recall_owner: Option<String>,
+    pub tag: Option<String>,
+    pub recall_tag: Option<String>,
 }
 
 /// Used to signals whether to show or hide the left side panel with the asset gallery
@@ -40,6 +43,8 @@ pub struct ShowAssetFilters {
 pub struct AssetGalleryStatus {
     pub show: bool,
     pub selected: Option<FuelModel>,
+    pub cached_owners: Option<Vec<String>>,
+    pub cached_tags: Option<Vec<String>>,
     pub filters: ShowAssetFilters,
 }
 
@@ -47,6 +52,9 @@ impl Default for ShowAssetFilters {
     fn default() -> Self {
         Self {
             owner: Some("OpenRobotics".into()),
+            recall_owner: None,
+            tag: None,
+            recall_tag: None,
         }
     }
 }
@@ -56,6 +64,8 @@ impl Default for AssetGalleryStatus {
         Self {
             show: true,
             selected: None,
+            cached_owners: None,
+            cached_tags: None,
             filters: Default::default(),
         }
     }
@@ -82,85 +92,142 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
 
     pub fn show(mut self, ui: &mut Ui) {
         let fuel_client = &mut self.events.new_model.fuel_client;
-        let owners = fuel_client.get_owners_cached().unwrap();
+        let gallery_status = &mut self.events.new_model.asset_gallery_status;
+        ui.label(RichText::new("Asset Gallery").size(18.0));
+        ui.add_space(10.0);
         match &fuel_client.models {
             Some(models) => {
-                // TODO(luca) remove unwrap
-                let mut owner_filter = self
-                    .events
-                    .new_model
-                    .asset_gallery_status
-                    .filters
-                    .owner
-                    .clone();
+                // Note, unwraps here are safe because the client will return None only if models
+                // are not populated which will not happen in this match branch
+                let mut owner_filter = gallery_status.filters.owner.clone();
                 let mut owner_filter_enabled = owner_filter.is_some();
-                ui.checkbox(&mut owner_filter_enabled, "Owners");
-                match owner_filter_enabled {
-                    true => {
-                        let mut selected = match owner_filter {
-                            Some(s) => s,
-                            None => owners[0].clone(),
-                        };
-                        ComboBox::from_id_source("Asset Owner Filter")
-                            .selected_text(selected.clone())
-                            .show_ui(ui, |ui| {
-                                for owner in owners.into_iter() {
-                                    ui.selectable_value(&mut selected, owner.clone(), owner);
-                                }
-                                ui.end_row();
-                            });
-                        owner_filter = Some(selected);
-                    }
-                    false => {
-                        owner_filter = None;
-                    }
-                }
-                let models = match &owner_filter {
-                    Some(owner) => fuel_client.as_ref().models_by_owner(&owner).unwrap(),
+                ui.label(RichText::new("Filters").size(14.0));
+                ui.add_space(5.0);
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut owner_filter_enabled, "Owners");
+                    gallery_status.filters.owner = match owner_filter_enabled {
+                        true => {
+                            let owners = gallery_status
+                                .cached_owners
+                                .clone()
+                                .or_else(|| fuel_client.get_owners())
+                                .unwrap();
+                            let mut selected = match &owner_filter {
+                                Some(s) => s.clone(),
+                                None => gallery_status
+                                    .filters
+                                    .recall_owner
+                                    .clone()
+                                    .unwrap_or(owners[0].clone()),
+                            };
+                            ComboBox::from_id_source("Asset Owner Filter")
+                                .selected_text(selected.clone())
+                                .show_ui(ui, |ui| {
+                                    for owner in owners.into_iter() {
+                                        ui.selectable_value(&mut selected, owner.clone(), owner);
+                                    }
+                                    ui.end_row();
+                                });
+                            gallery_status.filters.recall_owner = Some(selected.clone());
+                            Some(selected)
+                        }
+                        false => None,
+                    };
+                });
+                ui.add_space(5.0);
+                // TODO(luca) should we cache the models by owner result to avoid calling at every
+                // frame?
+                let mut models = match &owner_filter {
+                    Some(owner) => fuel_client.as_ref().models_by_owner(None, &owner).unwrap(),
                     None => models.clone(),
                 };
+
+                let mut tag_filter = gallery_status.filters.tag.clone();
+                let mut tag_filter_enabled = tag_filter.is_some();
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut tag_filter_enabled, "Tags");
+                    gallery_status.filters.tag = match tag_filter_enabled {
+                        true => {
+                            let tags = gallery_status
+                                .cached_tags
+                                .clone()
+                                .or_else(|| fuel_client.get_tags())
+                                .unwrap();
+                            let mut selected = match &tag_filter {
+                                Some(s) => s.clone(),
+                                None => gallery_status
+                                    .filters
+                                    .recall_tag
+                                    .clone()
+                                    .unwrap_or(tags[0].clone()),
+                            };
+                            ComboBox::from_id_source("Asset Tag Filter")
+                                .selected_text(selected.clone())
+                                .show_ui(ui, |ui| {
+                                    for tag in tags.into_iter() {
+                                        ui.selectable_value(&mut selected, tag.clone(), tag);
+                                    }
+                                    ui.end_row();
+                                });
+                            gallery_status.filters.recall_tag = Some(selected.clone());
+                            Some(selected)
+                        }
+                        false => None,
+                    };
+                });
+
+                if let Some(tag) = &tag_filter {
+                    models = fuel_client
+                        .as_ref()
+                        .models_by_tag(Some(&models), &tag)
+                        .unwrap();
+                }
+                ui.add_space(10.0);
+
+                ui.label(RichText::new("Models").size(14.0));
+                ui.add_space(5.0);
                 // Show models
-                ScrollArea::vertical().max_height(500.0).show(ui, |ui| {
+                let mut new_selected = None;
+                ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
                     for model in models {
-                        let sel = self
-                            .events
-                            .new_model
-                            .asset_gallery_status
+                        let sel = gallery_status
                             .selected
                             .as_ref()
-                            .is_some_and(|s| s.name == model.name);
+                            .is_some_and(|s| *s == model);
                         if ui.selectable_label(sel, &model.name).clicked() {
-                            self.events.new_model.asset_gallery_status.selected = Some(model);
+                            new_selected = Some(model);
                         }
                     }
                 });
-                // Set the model source to what is selected
-                if let Some(selected) = &self.events.new_model.asset_gallery_status.selected {
-                    let model_entity = self.events.new_model.model_preview_camera.model_entity;
-                    let model = Model {
-                        source: AssetSource::Remote(
-                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                        ),
-                        ..default()
-                    };
-                    self.events.commands.entity(model_entity).insert(model);
-                }
+                ui.add_space(10.0);
 
                 ui.image(
                     self.events.new_model.model_preview_camera.egui_handle,
                     bevy_egui::egui::Vec2::new(320.0, 240.0),
                 );
+                ui.add_space(10.0);
 
-                if owner_filter != self.events.new_model.asset_gallery_status.filters.owner {
-                    self.events.new_model.asset_gallery_status.filters.owner = owner_filter;
-                }
-                if let Some(selected) = &self.events.new_model.asset_gallery_status.selected {
-                    if ui.button("Spawn model").clicked() {
-                        let source = AssetSource::Remote(
-                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
-                        );
+                if gallery_status.selected != new_selected {
+                    if let Some(selected) = new_selected {
+                        // Set the model preview source to what is selected
+                        let model_entity = self.events.new_model.model_preview_camera.model_entity;
                         let model = Model {
-                            source,
+                            source: AssetSource::Remote(
+                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                            ),
+                            ..default()
+                        };
+                        self.events.commands.entity(model_entity).insert(model);
+                        gallery_status.selected = Some(selected);
+                    }
+                }
+
+                if let Some(selected) = &gallery_status.selected {
+                    if ui.button("Spawn model").clicked() {
+                        let model = Model {
+                            source: AssetSource::Remote(
+                                selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                            ),
                             ..default()
                         };
                         self.events.request.change_mode.send(ChangeMode::To(
