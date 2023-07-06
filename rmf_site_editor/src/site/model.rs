@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, PickableBundle, Selectable, MODEL_PREVIEW_LAYER},
+    interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
     site::{Category, PreventDeletion, SiteAssets},
     SdfRoot,
 };

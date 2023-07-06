@@ -18,13 +18,8 @@
 use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
 use crate::site::{AssetSource, Model, UpdateFuelCache};
 use crate::AppEvents;
-use bevy::tasks::AsyncComputeTaskPool;
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{
-    widgets::Image as EguiImage, Button, Color32, ComboBox, Context, Frame, Pos2, Rect, RichText,
-    ScrollArea, Ui, Window,
-};
-use bevy_egui::EguiContext;
+use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui};
 use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
 
 #[derive(Resource, Clone, Default, Deref, DerefMut)]
@@ -92,7 +87,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
         Self { events }
     }
 
-    pub fn show(mut self, ui: &mut Ui) {
+    pub fn show(self, ui: &mut Ui) {
         let fuel_client = &mut self.events.new_model.fuel_client;
         let gallery_status = &mut self.events.new_model.asset_gallery_status;
         ui.label(RichText::new("Asset Gallery").size(18.0));
@@ -101,7 +96,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
             Some(models) => {
                 // Note, unwraps here are safe because the client will return None only if models
                 // are not populated which will not happen in this match branch
-                let mut owner_filter = gallery_status.filters.owner.clone();
+                let owner_filter = gallery_status.filters.owner.clone();
                 let mut owner_filter_enabled = owner_filter.is_some();
                 ui.label(RichText::new("Filters").size(14.0));
                 ui.add_space(5.0);
@@ -144,7 +139,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                     None => models.clone(),
                 };
 
-                let mut tag_filter = gallery_status.filters.tag.clone();
+                let tag_filter = gallery_status.filters.tag.clone();
                 let mut tag_filter_enabled = tag_filter.is_some();
                 ui.horizontal(|ui| {
                     ui.checkbox(&mut tag_filter_enabled, "Tags");

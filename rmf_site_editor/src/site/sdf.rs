@@ -52,9 +52,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Local(ref mut p)
-        | AssetSource::Bundled(ref mut p)
-        | AssetSource::Package(ref mut p) => {
+        AssetSource::Local(ref mut p) => {
             let binding = p.clone();
             *p = if let Some(stripped) = uri.strip_prefix("model://") {
                 // Search for a model with the requested name in the same folder as the sdf file

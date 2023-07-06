@@ -16,7 +16,7 @@
 */
 
 use bevy::prelude::*;
-use bevy::tasks::AsyncComputeTaskPool;
+use bevy::tasks::IoTaskPool;
 // TODO(luca) move FuelClient here
 use crate::widgets::{AssetGalleryStatus, FuelClient};
 use crossbeam_channel::{Receiver, Sender};
@@ -45,29 +45,31 @@ impl Default for UpdateFuelCacheChannels {
 pub fn handle_update_fuel_cache_requests(
     mut events: EventReader<UpdateFuelCache>,
     mut gallery_status: ResMut<AssetGalleryStatus>,
-    mut fuel_client: ResMut<FuelClient>,
-    mut channels: ResMut<UpdateFuelCacheChannels>,
+    fuel_client: Res<FuelClient>,
+    channels: Res<UpdateFuelCacheChannels>,
 ) {
-    if let Some(e) = events.iter().last() {
+    if events.iter().last().is_some() {
         println!("Updating fuel cache");
         gallery_status.fetching_cache = true;
         let mut fuel_client = fuel_client.clone();
         let sender = channels.sender.clone();
-        AsyncComputeTaskPool::get()
+        IoTaskPool::get()
             .spawn(async move {
                 // Send client if update was successful
                 let res = fuel_client
                     .update_cache()
                     .await
                     .and_then(|()| Some(fuel_client));
-                sender.send(FuelCacheUpdated(res));
+                sender
+                    .send(FuelCacheUpdated(res))
+                    .expect("Failed sending fuel cache update event");
             })
             .detach();
     }
 }
 
 pub fn read_update_fuel_cache_results(
-    mut channels: ResMut<UpdateFuelCacheChannels>,
+    channels: Res<UpdateFuelCacheChannels>,
     mut fuel_client: ResMut<FuelClient>,
     mut gallery_status: ResMut<AssetGalleryStatus>,
 ) {
