@@ -66,14 +66,18 @@ fn egui_ui(
             ui.add_space(10.);
 
             ui.horizontal(|ui| {
-                if ui.button("View demo map").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-                        demo_office(),
-                    )));
+                if ui.button("New site").clicked() {
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Site(empty_site())));
                 }
 
                 if ui.button("Open a file").clicked() {
                     _load_workspace.send(LoadWorkspace::Dialog);
+                }
+
+                if ui.button("View demo map").clicked() {
+                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+                        demo_office(),
+                    )));
                 }
 
                 // TODO(@mxgrey): Bring this back when we have finished developing

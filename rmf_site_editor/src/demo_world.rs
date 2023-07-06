@@ -9,3 +9,9 @@ pub fn demo_workcell() -> Vec<u8> {
         .as_bytes()
         .to_vec();
 }
+
+pub fn empty_site() -> Vec<u8> {
+    return include_str!("../../assets/empty.site.ron")
+        .as_bytes()
+        .to_vec();
+}
