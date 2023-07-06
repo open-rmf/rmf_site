@@ -908,6 +908,10 @@ pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
         let path = save_event.to_file;
+        let mut path = save_event.to_file;
+        if !path.ends_with("site.ron") {
+            path = path.with_extension("site.ron");
+        }
         info!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")
