@@ -39,6 +39,9 @@ pub use drawing::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod fuel_cache;
+pub use fuel_cache::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -141,6 +144,7 @@ impl Plugin for SitePlugin {
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
+            .init_resource::<UpdateFuelCacheChannels>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -150,6 +154,7 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
+            .add_event::<UpdateFuelCache>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -271,6 +276,8 @@ impl Plugin for SitePlugin {
                     .with_system(add_wall_visual)
                     .with_system(update_wall_edge)
                     .with_system(update_wall_for_moved_anchors)
+                    .with_system(handle_update_fuel_cache_requests)
+                    .with_system(read_update_fuel_cache_results)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(export_lights),
             );

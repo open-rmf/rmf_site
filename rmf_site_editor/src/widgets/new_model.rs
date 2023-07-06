@@ -16,7 +16,7 @@
 */
 
 use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
-use crate::site::{AssetSource, Model};
+use crate::site::{AssetSource, Model, UpdateFuelCache};
 use crate::AppEvents;
 use bevy::tasks::AsyncComputeTaskPool;
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -27,7 +27,7 @@ use bevy_egui::egui::{
 use bevy_egui::EguiContext;
 use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
 
-#[derive(Resource, Default, Deref, DerefMut)]
+#[derive(Resource, Clone, Default, Deref, DerefMut)]
 pub struct FuelClient(GzFuelClient);
 
 /// Filters applied to models in the fuel list
@@ -46,6 +46,7 @@ pub struct AssetGalleryStatus {
     pub cached_owners: Option<Vec<String>>,
     pub cached_tags: Option<Vec<String>>,
     pub filters: ShowAssetFilters,
+    pub fetching_cache: bool,
 }
 
 impl Default for ShowAssetFilters {
@@ -67,6 +68,7 @@ impl Default for AssetGalleryStatus {
             cached_owners: None,
             cached_tags: None,
             filters: Default::default(),
+            fetching_cache: false,
         }
     }
 }
@@ -78,7 +80,7 @@ pub struct NewModelParams<'w, 's> {
     pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     pub model_preview_camera: Res<'w, ModelPreviewCamera>,
     pub image_assets: Res<'w, Assets<Image>>,
-    _ignore: Query<'w, 's, ()>,
+    pub update_cache: EventWriter<'w, 's, UpdateFuelCache>,
 }
 
 pub struct NewModel<'a, 'w, 's> {
@@ -238,15 +240,14 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
             }
             None => {
                 ui.label("No models found");
-                if ui.add(Button::new("Fetch models")).clicked() {
-                    // TODO(luca) make this async to avoid blocking the whole application
-                    fuel_client.update_cache_blocking();
-                    /*
-                    AsyncComputeTaskPool::get().spawn(
-                    async move {fuel_client.update_cache()})
-                        .detach();
-                    */
-                }
+            }
+        }
+        ui.add_space(10.0);
+        if gallery_status.fetching_cache == true {
+            ui.label("Updating model cache...");
+        } else {
+            if ui.add(Button::new("Update model cache")).clicked() {
+                self.events.new_model.update_cache.send(UpdateFuelCache);
             }
         }
         if ui.add(Button::new("Close")).clicked() {
