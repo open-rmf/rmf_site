@@ -156,10 +156,11 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 }
                 if let Some(selected) = &self.events.new_model.asset_gallery_status.selected {
                     if ui.button("Spawn model").clicked() {
-                        let source =
-                            AssetSource::Search(selected.owner.clone() + "/" + &selected.name);
+                        let source = AssetSource::Remote(
+                            selected.owner.clone() + "/" + &selected.name + "/model.sdf",
+                        );
                         let model = Model {
-                            source: source.clone(),
+                            source,
                             ..default()
                         };
                         self.events.request.change_mode.send(ChangeMode::To(

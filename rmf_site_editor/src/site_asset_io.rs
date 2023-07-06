@@ -254,7 +254,6 @@ impl AssetIo for SiteAssetIo {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
-                // For SDF Only:
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
@@ -267,14 +266,6 @@ impl AssetIo for SiteAssetIo {
                     }
                 }
 
-                if !asset_name.ends_with(".sdf") {
-                    return Box::pin(async move {
-                        Err(AssetIoError::Io(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Asset {} not found", asset_name),
-                        )))
-                    });
-                }
                 // Try local cache
                 #[cfg(not(target_arch = "wasm32"))]
                 {

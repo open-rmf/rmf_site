@@ -37,6 +37,7 @@ pub struct ModelScene {
 #[derive(Component, Debug, Default, Clone, PartialEq)]
 pub enum TentativeModelFormat {
     #[default]
+    Plain,
     GlbFlat,
     Obj,
     Stl,
@@ -48,6 +49,7 @@ impl TentativeModelFormat {
     pub fn next(&self) -> Option<Self> {
         use TentativeModelFormat::*;
         match self {
+            Plain => Some(GlbFlat),
             GlbFlat => Some(Obj),
             Obj => Some(Stl),
             Stl => Some(GlbFolder),
@@ -61,6 +63,7 @@ impl TentativeModelFormat {
     pub fn to_string(&self, model_name: &str) -> String {
         use TentativeModelFormat::*;
         match self {
+            Plain => "".to_owned(),
             Obj => ("/".to_owned() + model_name + ".obj").into(),
             GlbFlat => ".glb".into(),
             Stl => ".stl".into(),

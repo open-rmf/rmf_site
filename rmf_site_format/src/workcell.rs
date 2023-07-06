@@ -250,7 +250,7 @@ impl WorkcellModel {
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
                 commands.insert((
                     NameInWorkcell(self.name.clone()),
-                    AssetSource::from(filename),
+                    AssetSource::from(filename.as_str()),
                     self.pose.clone(),
                     ConstraintDependents::default(),
                     scale,

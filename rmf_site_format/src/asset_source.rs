@@ -52,8 +52,8 @@ impl Default for AssetSource {
 // Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
 impl From<&Path> for AssetSource {
     fn from(path: &Path) -> Self {
-        if let Some(path) = path.to_str().and_then(|p| Some(String::from(p))) {
-            AssetSource::from(&path)
+        if let Some(path) = path.to_str() {
+            AssetSource::from(path)
         } else {
             AssetSource::default()
         }
@@ -61,8 +61,8 @@ impl From<&Path> for AssetSource {
 }
 
 // Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&String> for AssetSource {
-    fn from(path: &String) -> Self {
+impl From<&str> for AssetSource {
+    fn from(path: &str) -> Self {
         // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
         if let Some(path) = path.strip_prefix("rmf-server://").map(|p| p.to_string()) {
             return AssetSource::Remote(path);
