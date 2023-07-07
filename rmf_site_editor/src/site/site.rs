@@ -62,7 +62,7 @@ pub fn change_site(
 
     if let Some(cmd) = change_current_site.iter().last() {
         if open_sites.get(cmd.site).is_err() {
-            println!(
+            warn!(
                 "Requested workspace change to an entity that is not an open site: {:?}",
                 cmd.site
             );
@@ -76,7 +76,7 @@ pub fn change_site(
                 .filter(|parent| parent.get() == cmd.site)
                 .is_none()
             {
-                println!(
+                warn!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
                     chosen_level,
                     cmd.site,
