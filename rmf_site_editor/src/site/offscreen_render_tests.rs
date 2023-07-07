@@ -207,14 +207,17 @@ pub fn image_saver(
             }
         }
 
-        let pixel = img.get_pixel(mx, my);
 
-        if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
-            if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
-                println!("Selected {:?}", entity);
-            } else {
-                println!("Uh-oh can't find color {:?}", pixel);
-                //Color::as_linear_rgba_f32(self)
+
+        if let Some(pixel) = img.get_pixel_checked(mx, my) {
+
+            if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
+                if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
+                    println!("Selected {:?}", entity);
+                } else {
+                    println!("Uh-oh can't find color {:?}", pixel);
+                    //Color::as_linear_rgba_f32(self)
+                }
             }
         }
     }
