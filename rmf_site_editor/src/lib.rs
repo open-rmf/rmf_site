@@ -33,6 +33,8 @@ use occupancy::OccupancyPlugin;
 mod demo_world;
 mod recency;
 mod shapes;
+mod log;
+use log::LogHistoryPlugin;
 
 mod main_menu;
 use main_menu::Autoload;
@@ -166,6 +168,7 @@ pub fn run(command_line_args: Vec<String>) {
     app.init_resource::<Settings>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        .add_plugin(LogHistoryPlugin)
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)

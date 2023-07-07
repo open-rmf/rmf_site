@@ -26,6 +26,7 @@ use crate::{
         Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
+    log::LogHistory,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -77,7 +78,6 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
-            .init_resource::<LogHistory>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
