@@ -278,19 +278,17 @@ pub fn update_model_tentative_formats(
     for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
         match asset_server.get_load_state(&h.0) {
             LoadState::Failed => {
+                let mut cmd = commands.entity(e);
+                cmd.remove::<PreventDeletion>();
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
-                    commands
-                        .entity(e)
-                        .remove::<(PreventDeletion, PendingSpawning)>();
+                    cmd.remove::<PendingSpawning>();
                 } else {
                     println!(
                         "WARNING: Model with source {} not found",
                         String::from(source)
                     );
-                    commands
-                        .entity(e)
-                        .remove::<(PreventDeletion, TentativeModelFormat)>();
+                    cmd.remove::<TentativeModelFormat>();
                 }
             }
             _ => {}

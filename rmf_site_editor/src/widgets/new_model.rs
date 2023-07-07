@@ -181,17 +181,20 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 ui.add_space(5.0);
                 // Show models
                 let mut new_selected = None;
-                ScrollArea::vertical().max_height(400.0).show(ui, |ui| {
-                    for model in models {
-                        let sel = gallery_status
-                            .selected
-                            .as_ref()
-                            .is_some_and(|s| *s == model);
-                        if ui.selectable_label(sel, &model.name).clicked() {
-                            new_selected = Some(model);
+                ScrollArea::vertical()
+                    .max_height(350.0)
+                    .auto_shrink([false, false])
+                    .show(ui, |ui| {
+                        for model in models {
+                            let sel = gallery_status
+                                .selected
+                                .as_ref()
+                                .is_some_and(|s| *s == model);
+                            if ui.selectable_label(sel, &model.name).clicked() {
+                                new_selected = Some(model);
+                            }
                         }
-                    }
-                });
+                    });
                 ui.add_space(10.0);
 
                 ui.image(
