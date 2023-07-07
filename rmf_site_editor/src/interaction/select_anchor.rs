@@ -165,7 +165,7 @@ impl TargetTransition {
             Some(e) => {
                 if self.created.is_some() {
                     error!(
-                        "DEV ERROR: Created a superfluous target while in \
+                        "Created a superfluous target while in \
                         SelectAnchor mode"
                     );
                 }
@@ -175,7 +175,7 @@ impl TargetTransition {
                 Some(e) => Some(e),
                 None => {
                     error!(
-                        "DEV ERROR: Failed to create an entity while in \
+                        "Failed to create an entity while in \
                             SelectAnchor mode"
                     );
                     None
@@ -276,7 +276,7 @@ impl AnchorSelection {
                     Ok(dep) => dep,
                     Err(_) => {
                         // The entity was not a proper anchor
-                        error!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        error!("Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
@@ -301,7 +301,7 @@ impl AnchorSelection {
                 let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
-                        error!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        error!("Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
@@ -395,7 +395,7 @@ impl EdgePlacement {
                     }
                     Err(_) => {
                         error!(
-                            "DEV ERROR: No AnchorDependents component found for \
+                            "No AnchorDependents component found for \
                             {:?} while in SelectAnchor mode.",
                             old_anchor
                         );
@@ -436,7 +436,7 @@ impl Placement for EdgePlacement {
                     Ok((edge, original)) => (target, edge, original),
                     Err(_) => {
                         error!(
-                            "DEV ERROR: Entity {:?} is not the right kind of \
+                            "Entity {:?} is not the right kind of \
                             element",
                             target,
                         );
@@ -593,14 +593,14 @@ impl Placement for EdgePlacement {
                     return Ok((TargetTransition::finished(), self.to_start()).into());
                 } else {
                     error!(
-                        "DEV ERROR: Unable to find original for {target:?} \
+                        "Unable to find original for {target:?} \
                         while backing out of edge replacement"
                     );
                     return Err(());
                 }
             } else {
                 error!(
-                    "DEV ERROR: Unable to find edge for {target:?} while \
+                    "Unable to find edge for {target:?} while \
                     backing out of edge replacement"
                 );
                 return Err(());
@@ -679,7 +679,7 @@ impl Placement for PointPlacement {
                     Ok(l) => l,
                     Err(_) => {
                         error!(
-                            "DEV ERROR: Unable to get location {:?} while in \
+                            "Unable to get location {:?} while in \
                             SelectAnchor mode.",
                             target
                         );
@@ -765,7 +765,7 @@ impl Placement for PointPlacement {
             }
         } else {
             error!(
-                "DEV ERROR: Cannot find point for location {target:?} while \
+                "Cannot find point for location {target:?} while \
                 trying to back out of SelectAnchor mode"
             );
             return Err(());
@@ -863,7 +863,7 @@ impl Placement for PathPlacement {
             Ok(q) => q,
             Err(_) => {
                 error!(
-                    "DEV ERROR: Unable to find path info for {target:?} while \
+                    "Unable to find path info for {target:?} while \
                     in SelectAnchor mode."
                 );
                 return Err(());
@@ -933,7 +933,7 @@ impl Placement for PathPlacement {
             Ok(p) => p.0,
             Err(_) => {
                 error!(
-                    "DEV ERROR: Unable to find path for {:?} while in \
+                    "Unable to find path for {:?} while in \
                     SelectAnchor mode",
                     target,
                 );
@@ -953,7 +953,7 @@ impl Placement for PathPlacement {
             Ok(p) => p.0.clone(),
             Err(_) => {
                 error!(
-                    "DEV ERROR: Unable to find path for {:?} while in \
+                    "Unable to find path for {:?} while in \
                     SelectAnchor mode",
                     target,
                 );
@@ -989,7 +989,7 @@ impl Placement for PathPlacement {
                 }
 
                 error!(
-                    "DEV ERROR: Path of length {} is missing the index {} \
+                    "Path of length {} is missing the index {} \
                     that was supposed to be replaced.",
                     path.len(),
                     index
@@ -998,7 +998,7 @@ impl Placement for PathPlacement {
             }
 
             error!(
-                "DEV ERROR: Unable to find the placement of a path anchor \
+                "Unable to find the placement of a path anchor \
                 that is being replaced."
             );
             return Err(());
@@ -1082,7 +1082,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             Ok(dep) => dep,
             Err(_) => {
                 error!(
-                    "DEV ERROR: Trying to insert invalid anchor \
+                    "Trying to insert invalid anchor \
                     {to_anchor:?} into entity {dependent:?}"
                 );
                 return Err(());
@@ -1108,7 +1108,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
             Ok(dep) => dep,
             Err(_) => {
                 error!(
-                    "DEV ERROR: Removing invalid anchor {from_anchor:?} \
+                    "Removing invalid anchor {from_anchor:?} \
                     from entity {dependent:?}"
                 );
                 return Err(());
@@ -1433,7 +1433,7 @@ impl SelectAnchor {
                 self.placement.finalize(finished_target, params);
             } else {
                 error!(
-                    "DEV ERROR: An element was supposed to be finished by \
+                    "An element was supposed to be finished by \
                     SelectAnchor, but we could not find it"
                 );
             }
@@ -1666,7 +1666,7 @@ impl SelectAnchor3D {
                 Ok(l) => l,
                 Err(_) => {
                     error!(
-                        "DEV ERROR: Unable to get anchor {:?} while \
+                        "Unable to get anchor {:?} while \
                         replacing 3D Anchor.",
                         target
                     );
@@ -1722,7 +1722,7 @@ impl SelectAnchor3D {
                         return Ok(());
                     }
                     None => {
-                        error!("DEV ERROR: Reassigning parent for entity without a parent");
+                        error!("Reassigning parent for entity without a parent");
                         return Err(());
                     }
                 }
@@ -1791,7 +1791,7 @@ impl SelectAnchor3D {
                     }
                 } else {
                     error!(
-                        "DEV ERROR: Cannot find point for location {target:?} while \
+                        "Cannot find point for location {target:?} while \
                         trying to back out of SelectAnchor mode"
                     );
                     return Err(());
@@ -1903,7 +1903,7 @@ pub fn handle_select_anchor_mode(
                 Some(for_element) => for_element,
                 None => {
                     error!(
-                        "DEV ERROR: for_element must be Some for ReplaceAnchor. \
+                        "for_element must be Some for ReplaceAnchor. \
                         Reverting to Inspect Mode."
                     );
                     params.cleanup();
@@ -1916,7 +1916,7 @@ pub fn handle_select_anchor_mode(
                 Some(original) => original,
                 None => {
                     error!(
-                        "DEV ERROR: cannot locate an original anchor for \
+                        "cannot locate an original anchor for \
                         entity {:?}. Reverting to Inspect Mode.",
                         for_element,
                     );
@@ -1961,7 +1961,7 @@ pub fn handle_select_anchor_mode(
                 Ok(tf) => tf,
                 Err(_) => {
                     error!(
-                        "DEV ERROR: Could not get transform for cursor frame \
+                        "Could not get transform for cursor frame \
                         {:?} in SelectAnchor mode.",
                         params.cursor.frame,
                     );

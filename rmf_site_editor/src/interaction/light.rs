@@ -171,7 +171,7 @@ pub fn update_physical_light_visual_cues(
         if let Some(m) = material_assets.get_mut(material) {
             m.base_color = kind.color().into();
         } else {
-            error!("DEV ERROR: Unable to get material asset for light");
+            error!("Unable to get material asset for light");
         }
 
         if kind.is_directional() {

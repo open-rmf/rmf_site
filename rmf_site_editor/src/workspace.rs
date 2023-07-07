@@ -135,7 +135,7 @@ pub fn dispatch_new_workspace_events(
     if let Some(_cmd) = new_workspace.iter().last() {
         match state.current() {
             AppState::MainMenu => {
-                error!("DEV ERROR: Sent generic change workspace while in main menu");
+                error!("Sent generic change workspace while in main menu");
             }
             AppState::SiteEditor => {
                 let mut levels = BTreeMap::new();

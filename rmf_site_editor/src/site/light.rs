@@ -67,7 +67,7 @@ pub fn add_physical_lights(
             if let Some(current_level) = **current_level {
                 commands.entity(current_level).add_child(e);
             } else {
-                error!("DEV ERROR: No current level to assign light {e:?}");
+                error!("No current level to assign light {e:?}");
             }
         }
     }

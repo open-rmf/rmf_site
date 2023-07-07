@@ -142,7 +142,7 @@ pub fn generate_workcell(
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => parent.0,
             Err(_) => {
-                error!("DEV Error: Parent not found for visual {:?}", parent.get());
+                error!("Parent not found for visual {:?}", parent.get());
                 continue;
             }
         };
@@ -194,7 +194,7 @@ pub fn generate_workcell(
         let parent = match q_site_id.get(parent.get()) {
             Ok(parent) => parent.0,
             Err(_) => {
-                error!("DEV Error: Parent not found for anchor {:?}", parent.get());
+                error!("Parent not found for anchor {:?}", parent.get());
                 continue;
             }
         };

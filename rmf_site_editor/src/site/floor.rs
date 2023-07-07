@@ -165,7 +165,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
             if let Ok(p) = anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
                 positions.push(p);
             } else {
-                error!("DEV ERROR: Failed to find anchor {anchor:?} used by a path");
+                error!("Failed to find anchor {anchor:?} used by a path");
                 valid = false;
             }
         }
@@ -187,7 +187,7 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
         let p = match anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
             Ok(a) => a,
             Err(_) => {
-                error!("DEV ERROR: Failed to find anchor {anchor:?} used by a path");
+                error!("Failed to find anchor {anchor:?} used by a path");
                 valid = false;
                 continue;
             }

@@ -243,7 +243,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                         }
                     }
                     None => {
-                        error!("DEV ERROR: No current site??");
+                        error!("No current site??");
                     }
                 }
             }

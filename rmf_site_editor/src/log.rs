@@ -118,6 +118,7 @@ impl Default for LogHistory {
         filter_hashmap.insert(LogCategory::Warning, true);
         filter_hashmap.insert(LogCategory::Error, true);
         filter_hashmap.insert(LogCategory::Bevy, false);
+        filter_hashmap.insert(LogCategory::Hint, true);
 
         let (tx, rx) = unbounded();
         let tx_2 = tx.clone();

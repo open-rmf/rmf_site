@@ -364,7 +364,7 @@ pub fn update_lift_door_availability(
                 // If we're being asked to toggle availability on for something
                 // that isn't a level, then ignore this request.
                 error!(
-                    "DEV ERROR: Asking to turn on lift {:?} door {:?} availability \
+                    "Asking to turn on lift {:?} door {:?} availability \
                     for a level {:?} that does not exist.",
                     toggle.for_lift, toggle.cabin_door, toggle.on_level,
                 );
@@ -532,7 +532,7 @@ pub fn update_lift_door_availability(
                 Ok(e_lift) => e_lift,
                 Err(_) => {
                     error!(
-                        "DEV ERROR: Unable to find parent for lift door \
+                        "Unable to find parent for lift door \
                         {e_door:?} while handling a removed level"
                     );
                     continue;
@@ -541,7 +541,7 @@ pub fn update_lift_door_availability(
             let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
                 Ok(cabin) => cabin,
                 Err(_) => {
-                    error!("DEV ERROR: Unable to find cabin for lift {e_lift:?}");
+                    error!("Unable to find cabin for lift {e_lift:?}");
                     continue;
                 }
             };
