@@ -907,15 +907,22 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let path = save_event.to_file;
         let mut path = save_event.to_file;
-        if !path.ends_with("site.ron") {
+        let path_str = match path.to_str() {
+            Some(s) => s,
+            None => {
+                error!("Unable to save file: Invalid path");
+                continue;
+            }
+        };
+        if path_str.ends_with(".building.yaml") {
+            warn!("Detected old file format, converting to new format");
+            path = path_str.replace(".building.yaml", ".site.ron").into();
+        } else if !path_str.ends_with("site.ron") {
+            info!("Appending .site.ron to {}", path.display());
             path = path.with_extension("site.ron");
         }
-        info!(
-            "Saving to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
+        info!("Saving to {}", path.display());
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
