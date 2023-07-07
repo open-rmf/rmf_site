@@ -74,7 +74,6 @@ fn add_wireframe_to_meshes(
     for e in new_meshes.iter() {
         for ancestor in AncestorIter::new(&parents, e) {
             if let Ok(_) = models.get(ancestor) {
-                println!("Adding wireframe to mesh {:?}", e);
                 commands.entity(e).insert(Wireframe);
             }
         }

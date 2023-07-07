@@ -145,7 +145,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                     Some(id) => {
                         commands.entity(link_id).add_child(id);
                     }
-                    None => println!("Found unhandled geometry type {:?}", &visual.geometry),
+                    None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
             }
             // TODO(luca) parse and display collisions

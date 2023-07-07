@@ -214,7 +214,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     Some(into_site) => {
                         match &self.events.display.nav_graph.choosing_file_to_import {
                             Some(_) => {
-                                println!("A file is already being chosen!");
+                                warn!("A file is already being chosen!");
                             }
                             None => {
                                 let future = AsyncComputeTaskPool::get().spawn(async move {
@@ -232,7 +232,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                             },
                                         )),
                                         Err(err) => {
-                                            println!("Unable to parse file:\n{err}");
+                                            error!("Unable to parse file:\n{err}");
                                             None
                                         }
                                     }
@@ -243,7 +243,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                         }
                     }
                     None => {
-                        println!("DEV ERROR: No current site??");
+                        error!("No current site??");
                     }
                 }
             }
@@ -259,14 +259,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                 to_file: export_file.clone(),
                             })
                         } else {
-                            println!("No current site??");
+                            error!("No current site??");
                         }
                     }
                 }
                 if ui.button("Export Graphs As...").clicked() {
                     match &self.events.display.nav_graph.choosing_file_for_export {
                         Some(_) => {
-                            println!("A file is already being chosen!");
+                            warn!("A file is already being chosen!");
                         }
                         None => {
                             let future = AsyncComputeTaskPool::get().spawn(async move {
