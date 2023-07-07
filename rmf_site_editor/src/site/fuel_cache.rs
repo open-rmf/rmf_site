@@ -18,8 +18,12 @@
 use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
 // TODO(luca) move FuelClient here
-use crate::widgets::{AssetGalleryStatus, FuelClient};
+use crate::widgets::AssetGalleryStatus;
 use crossbeam_channel::{Receiver, Sender};
+use gz_fuel::FuelClient as GzFuelClient;
+
+#[derive(Resource, Clone, Default, Deref, DerefMut)]
+pub struct FuelClient(GzFuelClient);
 
 /// Event used to request an update to the fuel cache
 pub struct UpdateFuelCache;

@@ -80,13 +80,8 @@ pub struct PendingSpawning(HandleUntyped);
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ModelSceneRoot;
 
-pub fn update_model_scenes(
+pub fn handle_model_loaded_events(
     mut commands: Commands,
-    changed_models: Query<
-        (Entity, &AssetSource, &Pose, &TentativeModelFormat),
-        (Changed<TentativeModelFormat>, With<ModelMarker>),
-    >,
-    asset_server: Res<AssetServer>,
     loading_models: Query<
         (
             Entity,
@@ -97,15 +92,8 @@ pub fn update_model_scenes(
         ),
         With<ModelMarker>,
     >,
-    spawned_models: Query<
-        Entity,
-        (
-            Without<PendingSpawning>,
-            With<ModelMarker>,
-            With<PreventDeletion>,
-        ),
-    >,
     mut current_scenes: Query<&mut ModelScene>,
+    asset_server: Res<AssetServer>,
     site_assets: Res<SiteAssets>,
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
@@ -113,53 +101,6 @@ pub fn update_model_scenes(
     urdfs: Res<Assets<UrdfRoot>>,
     sdfs: Res<Assets<SdfRoot>>,
 ) {
-    fn spawn_model(
-        e: Entity,
-        source: &AssetSource,
-        pose: &Pose,
-        asset_server: &AssetServer,
-        tentative_format: &TentativeModelFormat,
-        commands: &mut Commands,
-    ) {
-        let mut commands = commands.entity(e);
-        commands
-            .insert(ModelScene {
-                source: source.clone(),
-                format: tentative_format.clone(),
-                entity: None,
-            })
-            .insert(SpatialBundle {
-                transform: pose.transform(),
-                ..default()
-            })
-            .insert(Category::Model);
-
-        // For search assets, look at subfolders and iterate through file formats
-        // TODO(luca) This will also iterate for non search assets, fix
-        let asset_source = match source {
-            AssetSource::Search(name) => {
-                let model_name = name.split('/').last().unwrap();
-                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
-            }
-            _ => source.clone(),
-        };
-        let handle = asset_server.load_untyped(&String::from(&asset_source));
-        commands
-            .insert(PreventDeletion::because(
-                "Waiting for model to spawn".to_string(),
-            ))
-            .insert(PendingSpawning(handle));
-    }
-
-    // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
-    // immediately after it is spawned.
-    // Work around it by checking the `spawned` container BEFORE updating it so that
-    // entities are only despawned at the next frame. This also ensures that entities are
-    // "fully spawned" before despawning.
-    for e in spawned_models.iter() {
-        commands.entity(e).remove::<PreventDeletion>();
-    }
-
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
@@ -223,14 +164,63 @@ pub fn update_model_scenes(
                 None
             };
             if let Some(id) = model_id {
-                commands.entity(e).insert(ModelSceneRoot);
+                let mut cmd = commands.entity(e);
+                cmd.insert(ModelSceneRoot)
+                    .remove::<(PreventDeletion, PendingSpawning)>();
                 if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
-                    commands.entity(e).insert(Selectable::new(e));
+                    cmd.insert(Selectable::new(e));
                 }
-                commands.entity(e).remove::<PendingSpawning>();
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
         }
+    }
+}
+
+pub fn update_model_scenes(
+    mut commands: Commands,
+    changed_models: Query<
+        (Entity, &AssetSource, &Pose, &TentativeModelFormat),
+        (Changed<TentativeModelFormat>, With<ModelMarker>),
+    >,
+    asset_server: Res<AssetServer>,
+    mut current_scenes: Query<&mut ModelScene>,
+) {
+    fn spawn_model(
+        e: Entity,
+        source: &AssetSource,
+        pose: &Pose,
+        asset_server: &AssetServer,
+        tentative_format: &TentativeModelFormat,
+        commands: &mut Commands,
+    ) {
+        let mut commands = commands.entity(e);
+        commands
+            .insert(ModelScene {
+                source: source.clone(),
+                format: tentative_format.clone(),
+                entity: None,
+            })
+            .insert(SpatialBundle {
+                transform: pose.transform(),
+                ..default()
+            })
+            .insert(Category::Model);
+
+        // For search assets, look at subfolders and iterate through file formats
+        // TODO(luca) This will also iterate for non search assets, fix
+        let asset_source = match source {
+            AssetSource::Search(name) => {
+                let model_name = name.split('/').last().unwrap();
+                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
+            }
+            _ => source.clone(),
+        };
+        let handle = asset_server.load_untyped(&String::from(&asset_source));
+        commands
+            .insert(PreventDeletion::because(
+                "Waiting for model to spawn".to_string(),
+            ))
+            .insert(PendingSpawning(handle));
     }
 
     // update changed models
@@ -240,7 +230,6 @@ pub fn update_model_scenes(
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
                     commands.entity(scene_entity).despawn_recursive();
-                    commands.entity(e).remove_children(&[scene_entity]);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
@@ -291,13 +280,17 @@ pub fn update_model_tentative_formats(
             LoadState::Failed => {
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
-                    commands.entity(e).remove::<PendingSpawning>();
+                    commands
+                        .entity(e)
+                        .remove::<(PreventDeletion, PendingSpawning)>();
                 } else {
                     println!(
                         "WARNING: Model with source {} not found",
                         String::from(source)
                     );
-                    commands.entity(e).remove::<TentativeModelFormat>();
+                    commands
+                        .entity(e)
+                        .remove::<(PreventDeletion, TentativeModelFormat)>();
                 }
             }
             _ => {}

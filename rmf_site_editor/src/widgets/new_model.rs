@@ -16,14 +16,11 @@
 */
 
 use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
-use crate::site::{AssetSource, Model, UpdateFuelCache};
+use crate::site::{AssetSource, FuelClient, Model, UpdateFuelCache};
 use crate::AppEvents;
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui};
 use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
-
-#[derive(Resource, Clone, Default, Deref, DerefMut)]
-pub struct FuelClient(GzFuelClient);
 
 /// Filters applied to models in the fuel list
 pub struct ShowAssetFilters {
@@ -74,7 +71,6 @@ pub struct NewModelParams<'w, 's> {
     // TODO(luca) refactor to see whether we need
     pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     pub model_preview_camera: Res<'w, ModelPreviewCamera>,
-    pub image_assets: Res<'w, Assets<Image>>,
     pub update_cache: EventWriter<'w, 's, UpdateFuelCache>,
 }
 

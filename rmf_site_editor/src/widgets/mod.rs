@@ -79,7 +79,6 @@ impl Plugin for StandardUiLayout {
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
-            .init_resource::<FuelClient>()
             .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
