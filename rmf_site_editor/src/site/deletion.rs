@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    log::Log,
     interaction::{Select, Selection},
+    log::Log,
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

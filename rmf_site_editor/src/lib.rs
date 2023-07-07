@@ -31,9 +31,9 @@ pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
 mod demo_world;
+mod log;
 mod recency;
 mod shapes;
-mod log;
 use log::LogHistoryPlugin;
 
 mod main_menu;

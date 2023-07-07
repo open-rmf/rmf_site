@@ -96,7 +96,11 @@ impl From<Log> for LogHistoryElement {
 impl fmt::Display for LogHistoryElement {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         if self.copies > 1 {
-            write!(f, "({}x) {}{}", self.copies, self.log.category, self.log.message)
+            write!(
+                f,
+                "({}x) {}{}",
+                self.copies, self.log.category, self.log.message
+            )
         } else {
             write!(f, "{}{}", self.log.category, self.log.message)
         }
@@ -170,12 +174,11 @@ impl LogHistory {
         &self.log_history
     }
 
-    pub fn iter(&self) -> impl Iterator<Item=&LogHistoryElement> {
-        self.log_history.iter()
+    pub fn iter(&self) -> impl Iterator<Item = &LogHistoryElement> {
+        self.log_history
+            .iter()
             .rev()
-            .filter(
-                |e| self.category_filter[&e.log.category]
-            )
+            .filter(|e| self.category_filter[&e.log.category])
             .take(self.display_limit)
     }
 
@@ -216,7 +219,7 @@ impl LogHistory {
     pub fn top(&self) -> Option<&LogHistoryElement> {
         for element in self.log_history.iter().rev() {
             if self.category_filter[&element.log.category] {
-                return Some(element)
+                return Some(element);
             }
         }
 
@@ -319,10 +322,7 @@ where
     }
 }
 
-fn receive_logs(
-    mut log_history: ResMut<LogHistory>,
-    mut log_events: EventReader<Log>,
-) {
+fn receive_logs(mut log_history: ResMut<LogHistory>, mut log_events: EventReader<Log>) {
     log_history.receive_logs();
     for log in log_events.iter() {
         log_history.push(log.clone());
@@ -333,8 +333,7 @@ pub struct LogHistoryPlugin;
 
 impl Plugin for LogHistoryPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<Log>()
+        app.add_event::<Log>()
             .init_resource::<LogHistory>()
             .add_system(receive_logs);
     }

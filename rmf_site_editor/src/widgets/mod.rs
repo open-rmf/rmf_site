@@ -19,6 +19,7 @@ use crate::{
     interaction::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
+    log::LogHistory,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -26,7 +27,6 @@ use crate::{
         Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
-    log::LogHistory,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
