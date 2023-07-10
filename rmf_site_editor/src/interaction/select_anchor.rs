@@ -168,8 +168,8 @@ impl TargetTransition {
         match e {
             Some(e) => {
                 if self.created.is_some() {
-                    println!(
-                        "DEV ERROR: Created a superfluous target while in \
+                    error!(
+                        "Created a superfluous target while in \
                         SelectAnchor mode"
                     );
                 }
@@ -178,8 +178,8 @@ impl TargetTransition {
             None => match self.created {
                 Some(e) => Some(e),
                 None => {
-                    println!(
-                        "DEV ERROR: Failed to create an entity while in \
+                    error!(
+                        "Failed to create an entity while in \
                             SelectAnchor mode"
                     );
                     None
@@ -280,7 +280,7 @@ impl AnchorSelection {
                     Ok(dep) => dep,
                     Err(_) => {
                         // The entity was not a proper anchor
-                        println!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        error!("Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
@@ -305,7 +305,7 @@ impl AnchorSelection {
                 let mut deps = match params.dependents.get_mut(*e).map_err(|_| ()) {
                     Ok(dep) => dep,
                     Err(_) => {
-                        println!("DEV ERROR: Invalid anchor selected {:?}", e);
+                        error!("Invalid anchor selected {:?}", e);
                         return Err(());
                     }
                 };
@@ -398,8 +398,8 @@ impl EdgePlacement {
                         // Do nothing
                     }
                     Err(_) => {
-                        println!(
-                            "DEV ERROR: No AnchorDependents component found for \
+                        error!(
+                            "No AnchorDependents component found for \
                             {:?} while in SelectAnchor mode.",
                             old_anchor
                         );
@@ -439,8 +439,8 @@ impl Placement for EdgePlacement {
                 match params.edges.get_mut(target) {
                     Ok((edge, original)) => (target, edge, original),
                     Err(_) => {
-                        println!(
-                            "DEV ERROR: Entity {:?} is not the right kind of \
+                        error!(
+                            "Entity {:?} is not the right kind of \
                             element",
                             target,
                         );
@@ -588,6 +588,9 @@ impl Placement for EdgePlacement {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
         // Restore visibility to anchors that were hidden in this mode
+        for e in params.hidden_entities.selected_drawing_anchors.drain() {
+            set_visibility(e, &mut params.visibility, true);
+        }
         for e in params.hidden_entities.drawing_anchors.drain() {
             set_visibility(e, &mut params.visibility, true);
         }
@@ -600,15 +603,15 @@ impl Placement for EdgePlacement {
                     Self::update_dependencies(None, target, old_edge, *edge, params)?;
                     return Ok((TargetTransition::finished(), self.to_start()).into());
                 } else {
-                    println!(
-                        "DEV ERROR: Unable to find original for {target:?} \
+                    error!(
+                        "Unable to find original for {target:?} \
                         while backing out of edge replacement"
                     );
                     return Err(());
                 }
             } else {
-                println!(
-                    "DEV ERROR: Unable to find edge for {target:?} while \
+                error!(
+                    "Unable to find edge for {target:?} while \
                     backing out of edge replacement"
                 );
                 return Err(());
@@ -686,8 +689,8 @@ impl Placement for PointPlacement {
                 let mut point = match params.points.get_mut(target) {
                     Ok(l) => l,
                     Err(_) => {
-                        println!(
-                            "DEV ERROR: Unable to get location {:?} while in \
+                        error!(
+                            "Unable to get location {:?} while in \
                             SelectAnchor mode.",
                             target
                         );
@@ -772,8 +775,8 @@ impl Placement for PointPlacement {
                 return Ok((TargetTransition::discontinued(), self.transition()).into());
             }
         } else {
-            println!(
-                "DEV ERROR: Cannot find point for location {target:?} while \
+            error!(
+                "Cannot find point for location {target:?} while \
                 trying to back out of SelectAnchor mode"
             );
             return Err(());
@@ -870,8 +873,8 @@ impl Placement for PathPlacement {
         let (mut path, behavior) = match params.paths.get_mut(target) {
             Ok(q) => q,
             Err(_) => {
-                println!(
-                    "DEV ERROR: Unable to find path info for {target:?} while \
+                error!(
+                    "Unable to find path info for {target:?} while \
                     in SelectAnchor mode."
                 );
                 return Err(());
@@ -940,8 +943,8 @@ impl Placement for PathPlacement {
         let path = match params.paths.get(target) {
             Ok(p) => p.0,
             Err(_) => {
-                println!(
-                    "DEV ERROR: Unable to find path for {:?} while in \
+                error!(
+                    "Unable to find path for {:?} while in \
                     SelectAnchor mode",
                     target,
                 );
@@ -960,8 +963,8 @@ impl Placement for PathPlacement {
         let path = match params.paths.get(target) {
             Ok(p) => p.0.clone(),
             Err(_) => {
-                println!(
-                    "DEV ERROR: Unable to find path for {:?} while in \
+                error!(
+                    "Unable to find path for {:?} while in \
                     SelectAnchor mode",
                     target,
                 );
@@ -996,8 +999,8 @@ impl Placement for PathPlacement {
                     return Ok((TargetTransition::finished(), self.restart()).into());
                 }
 
-                println!(
-                    "DEV ERROR: Path of length {} is missing the index {} \
+                error!(
+                    "Path of length {} is missing the index {} \
                     that was supposed to be replaced.",
                     path.len(),
                     index
@@ -1005,8 +1008,8 @@ impl Placement for PathPlacement {
                 return Err(());
             }
 
-            println!(
-                "DEV ERROR: Unable to find the placement of a path anchor \
+            error!(
+                "Unable to find the placement of a path anchor \
                 that is being replaced."
             );
             return Err(());
@@ -1053,7 +1056,13 @@ impl Placement for PathPlacement {
 
 #[derive(Resource, Default)]
 pub struct HiddenSelectAnchorEntities {
+    /// Level anchors but not assigned to a drawing, hidden when entering constraint creation mode
     pub level_anchors: HashSet<Entity>,
+    /// Anchors assigned to the the selected drawing, hidden when the user chose the first anchor
+    /// of a constraint to make sure it is drawn between two different drawings
+    pub selected_drawing_anchors: HashSet<Entity>,
+    /// All drawing anchors, hidden when users draw level entities such as walls, lanes, floors to
+    /// make sure they don't connect to drawing anchors
     pub drawing_anchors: HashSet<Entity>,
 }
 
@@ -1099,8 +1108,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         let mut deps = match self.dependents.get_mut(to_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
-                println!(
-                    "DEV ERROR: Trying to insert invalid anchor \
+                error!(
+                    "Trying to insert invalid anchor \
                     {to_anchor:?} into entity {dependent:?}"
                 );
                 return Err(());
@@ -1125,8 +1134,8 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         let mut deps = match self.dependents.get_mut(from_anchor).map_err(|_| ()) {
             Ok(dep) => dep,
             Err(_) => {
-                println!(
-                    "DEV ERROR: Removing invalid anchor {from_anchor:?} \
+                error!(
+                    "Removing invalid anchor {from_anchor:?} \
                     from entity {dependent:?}"
                 );
                 return Err(());
@@ -1161,6 +1170,9 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
         self.cursor.set_model_preview(&mut self.commands, None);
         for e in self.hidden_entities.level_anchors.drain() {
+            set_visibility(e, &mut self.visibility, true);
+        }
+        for e in self.hidden_entities.selected_drawing_anchors.drain() {
             set_visibility(e, &mut self.visibility, true);
         }
         for e in self.hidden_entities.drawing_anchors.drain() {
@@ -1484,8 +1496,8 @@ impl SelectAnchor {
                 params.commands.entity(finished_target).remove::<Pending>();
                 self.placement.finalize(finished_target, params);
             } else {
-                println!(
-                    "DEV ERROR: An element was supposed to be finished by \
+                error!(
+                    "An element was supposed to be finished by \
                     SelectAnchor, but we could not find it"
                 );
             }
@@ -1717,8 +1729,8 @@ impl SelectAnchor3D {
             let (e, anchor) = match params.anchors.get_mut(target) {
                 Ok(l) => l,
                 Err(_) => {
-                    println!(
-                        "DEV ERROR: Unable to get anchor {:?} while \
+                    error!(
+                        "Unable to get anchor {:?} while \
                         replacing 3D Anchor.",
                         target
                     );
@@ -1774,14 +1786,14 @@ impl SelectAnchor3D {
                         return Ok(());
                     }
                     None => {
-                        println!("DEV ERROR: Reassigning parent for entity without a parent");
+                        error!("Reassigning parent for entity without a parent");
                         return Err(());
                     }
                 }
             }
             return Err(());
         } else {
-            println!("DEV error replacing anchor without original");
+            error!("DEV error replacing anchor without original");
             return Err(());
         }
     }
@@ -1842,8 +1854,8 @@ impl SelectAnchor3D {
                         return Err(());
                     }
                 } else {
-                    println!(
-                        "DEV ERROR: Cannot find point for location {target:?} while \
+                    error!(
+                        "Cannot find point for location {target:?} while \
                         trying to back out of SelectAnchor mode"
                     );
                     return Err(());
@@ -1937,26 +1949,45 @@ pub fn handle_select_anchor_mode(
             );
         }
 
-        // If we are working with requests that span multiple drawings, (constraints) hide all non fiducials
-        if matches!(request.scope, Scope::MultipleDrawings) {
-            for (e, _) in &params.anchors {
-                if params
-                    .dependents
-                    .get(e)
-                    .ok()
-                    .and_then(|deps| {
-                        deps.0
-                            .iter()
-                            .find(|dep| params.fiducials.get(**dep).is_ok())
-                    })
-                    .is_none()
-                {
-                    if let Ok(mut visibility) = params.visibility.get_mut(e) {
-                        visibility.is_visible = false;
-                        params.hidden_entities.level_anchors.insert(e);
+        match request.scope {
+            Scope::MultipleDrawings => {
+                // If we are working with requests that span multiple drawings,
+                // (constraints) hide all non fiducials
+                for (e, _) in &params.anchors {
+                    if params
+                        .dependents
+                        .get(e)
+                        .ok()
+                        .and_then(|deps| {
+                            deps.0
+                                .iter()
+                                .find(|dep| params.fiducials.get(**dep).is_ok())
+                        })
+                        .is_none()
+                    {
+                        if let Ok(mut visibility) = params.visibility.get_mut(e) {
+                            visibility.is_visible = false;
+                            params.hidden_entities.level_anchors.insert(e);
+                        }
                     }
                 }
             }
+            Scope::General | Scope::Site => {
+                // If we are working with normal level or site requests, hide all drawing anchors
+                for anchor in params.anchors.iter().filter(|(e, _)| {
+                    params
+                        .parents
+                        .get(*e)
+                        .ok()
+                        .and_then(|p| params.drawings.get(**p).ok())
+                        .is_some()
+                }) {
+                    set_visibility(anchor.0, &mut params.visibility, false);
+                    params.hidden_entities.drawing_anchors.insert(anchor.0);
+                }
+            }
+            // Nothing to hide, it's done by the drawing editor plugin
+            Scope::Drawing => {}
         }
 
         // If we are creating a new object, then we should deselect anything
@@ -1976,8 +2007,8 @@ pub fn handle_select_anchor_mode(
             let for_element = match request.target {
                 Some(for_element) => for_element,
                 None => {
-                    println!(
-                        "DEV ERROR: for_element must be Some for ReplaceAnchor. \
+                    error!(
+                        "for_element must be Some for ReplaceAnchor. \
                         Reverting to Inspect Mode."
                     );
                     params.cleanup();
@@ -1989,8 +2020,8 @@ pub fn handle_select_anchor_mode(
             let original = match request.placement.save_original(for_element, &mut params) {
                 Some(original) => original,
                 None => {
-                    println!(
-                        "DEV ERROR: cannot locate an original anchor for \
+                    error!(
+                        "cannot locate an original anchor for \
                         entity {:?}. Reverting to Inspect Mode.",
                         for_element,
                     );
@@ -2034,8 +2065,8 @@ pub fn handle_select_anchor_mode(
             let tf = match transforms.get(params.cursor.frame) {
                 Ok(tf) => tf,
                 Err(_) => {
-                    println!(
-                        "DEV ERROR: Could not get transform for cursor frame \
+                    error!(
+                        "Could not get transform for cursor frame \
                         {:?} in SelectAnchor mode.",
                         params.cursor.frame,
                     );
@@ -2068,7 +2099,7 @@ pub fn handle_select_anchor_mode(
                     new_anchor
                 }
                 Scope::MultipleDrawings => {
-                    println!("Ignoring click, only pre-added fiducials can be connected");
+                    warn!("Only existing fiducials can be connected through constraints");
                     return;
                 }
                 Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
@@ -2134,7 +2165,7 @@ pub fn handle_select_anchor_mode(
                                 for c in children.iter().filter(|c| params.anchors.get(**c).is_ok())
                                 {
                                     set_visibility(*c, &mut params.visibility, false);
-                                    params.hidden_entities.drawing_anchors.insert(*c);
+                                    params.hidden_entities.selected_drawing_anchors.insert(*c);
                                 }
                             })
                             .ok();
@@ -2304,7 +2335,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::Model(ref a) => {
-                        println!("Creating model for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = workspace.root.expect("No workspace");
                         model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
@@ -2312,7 +2342,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::WorkcellVisual(ref a) => {
-                        println!("Creating visual for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request
                             .parent
@@ -2324,7 +2353,6 @@ pub fn handle_select_anchor_3d_mode(
                         parent
                     }
                     PlaceableObject::WorkcellCollision(ref a) => {
-                        println!("Creating collision for entity {:?}", id);
                         let mut model = a.clone();
                         let parent = request
                             .parent

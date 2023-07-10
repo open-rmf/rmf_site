@@ -94,9 +94,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         // Only show the optime layers button if there are constraints
         if ui.add(Button::new("Optimize layer transforms")).clicked() {
             if let Some(level) = self.events.request.current_level.0 {
-                self.events.align_drawings.send(AlignLevelDrawings(level));
+                self.events
+                    .drawing_params
+                    .align_drawings
+                    .send(AlignLevelDrawings(level));
             } else {
-                println!("DEV ERROR: No current level when optimizing level layers");
+                error!("No current level when optimizing level layers");
             }
         }
     }

@@ -67,7 +67,7 @@ pub fn add_physical_lights(
             if let Some(current_level) = **current_level {
                 commands.entity(current_level).add_child(e);
             } else {
-                println!("DEV ERROR: No current level to assign light {e:?}");
+                error!("No current level to assign light {e:?}");
             }
         }
     }
@@ -162,7 +162,7 @@ pub fn export_lights(
         let out_file = match std::fs::File::create(export.0.clone()) {
             Ok(out_file) => out_file,
             Err(err) => {
-                println!(
+                error!(
                     "Failed to create file {:?} for exporting lights: {}",
                     export.0, err,
                 );
@@ -178,7 +178,7 @@ pub fn export_lights(
         }
 
         if let Err(err) = serde_yaml::to_writer(out_file, &root) {
-            println!("Error while exporting lights: {err}");
+            error!("Error while exporting lights: {err}");
         }
     }
 }

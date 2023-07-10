@@ -17,6 +17,7 @@
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
@@ -24,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -67,7 +68,7 @@ impl WorkspaceData {
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
         } else {
-            println!("Unrecognized file type {:?}", filename);
+            error!("Unrecognized file type {:?}", filename);
             None
         }
     }
@@ -134,11 +135,16 @@ pub fn dispatch_new_workspace_events(
     if let Some(_cmd) = new_workspace.iter().last() {
         match state.current() {
             AppState::MainMenu => {
-                println!("DEV ERROR: Sent generic change workspace while in main menu");
+                error!("Sent generic change workspace while in main menu");
             }
-            AppState::SiteEditor | AppState::SiteDrawingEditor => {
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+                let mut levels = BTreeMap::new();
+                levels.insert(0, Level::default());
                 load_site.send(LoadSite {
-                    site: Site::default(),
+                    site: Site {
+                        levels,
+                        ..default()
+                    },
                     focus: true,
                     default_file: None,
                 });
@@ -222,7 +228,7 @@ fn handle_workspace_data(
 ) {
     match workspace_data {
         WorkspaceData::LegacyBuilding(data) => {
-            println!("Opening legacy building map file");
+            info!("Opening legacy building map file");
             match BuildingMap::from_bytes(&data) {
                 Ok(building) => {
                     match building.to_site() {
@@ -237,17 +243,17 @@ fn handle_workspace_data(
                             interaction_state.set(InteractionState::Enable).ok();
                         }
                         Err(err) => {
-                            println!("Failed converting to site {:?}", err);
+                            error!("Failed converting to site {:?}", err);
                         }
                     }
                 }
                 Err(err) => {
-                    println!("Failed loading legacy building {:?}", err);
+                    error!("Failed loading legacy building {:?}", err);
                 }
             }
         }
         WorkspaceData::Site(data) => {
-            println!("Opening site file");
+            info!("Opening site file");
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
@@ -260,12 +266,12 @@ fn handle_workspace_data(
                     interaction_state.set(InteractionState::Enable).ok();
                 }
                 Err(err) => {
-                    println!("Failed loading site {:?}", err);
+                    error!("Failed loading site {:?}", err);
                 }
             }
         }
         WorkspaceData::Workcell(data) => {
-            println!("Opening workcell file");
+            info!("Opening workcell file");
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
@@ -278,7 +284,7 @@ fn handle_workspace_data(
                     interaction_state.set(InteractionState::Enable).ok();
                 }
                 Err(err) => {
-                    println!("Failed loading workcell {:?}", err);
+                    error!("Failed loading workcell {:?}", err);
                 }
             }
         }

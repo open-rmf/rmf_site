@@ -425,6 +425,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(is_primary) = self.params.drawing.is_primary.get(selection) {
                 if let Some(new_is_primary) = InspectIsPrimary::new(is_primary).show(ui) {
                     self.events
+                        .drawing_params
                         .is_primary
                         .send(Change::new(new_is_primary, selection));
                 }
@@ -442,6 +443,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .show(ui)
                 {
                     self.events
+                        .drawing_params
                         .distance
                         .send(Change::new(Distance(new_distance), selection));
                 }
@@ -469,7 +471,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                     AppState::SiteDrawingEditor => {
                         if ui.add(Button::new("Scale drawing")).clicked() {
-                            self.events.scale_drawing.send(ScaleDrawing(selection));
+                            self.events
+                                .drawing_params
+                                .scale_drawing
+                                .send(ScaleDrawing(selection));
                         }
                     }
                     _ => {}

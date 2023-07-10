@@ -41,6 +41,9 @@ pub struct ScaleDrawing(pub Entity);
 #[derive(Deref, DerefMut)]
 pub struct AlignLevelDrawings(pub Entity);
 
+#[derive(Deref, DerefMut)]
+pub struct AlignSiteDrawings(pub Entity);
+
 fn hide_level_entities(
     mut visibilities: Query<&mut Visibility>,
     mut camera_controls: ResMut<CameraControls>,

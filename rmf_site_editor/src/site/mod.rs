@@ -99,6 +99,9 @@ pub use save::*;
 pub mod site;
 pub use site::*;
 
+pub mod site_visualizer;
+pub use site_visualizer::*;
+
 pub mod util;
 pub use util::*;
 
@@ -165,6 +168,7 @@ impl Plugin for SitePlugin {
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
             .add_event::<AlignLevelDrawings>()
+            .add_event::<AlignSiteDrawings>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -204,6 +208,7 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
+            .add_plugin(SiteVisualizerPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -285,6 +290,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
                     .with_system(update_constraint_for_moved_anchors)
+                    .with_system(update_constraint_for_changed_labels)
                     .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
                     .with_system(handle_new_sdf_roots)
@@ -301,6 +307,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_for_changed_texture)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(align_level_drawings)
+                    .with_system(align_site_drawings)
                     .with_system(export_lights),
             );
     }

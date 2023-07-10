@@ -31,9 +31,11 @@ pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
 mod demo_world;
+mod log;
 mod recency;
 use recency::*;
 mod shapes;
+use log::LogHistoryPlugin;
 
 mod main_menu;
 use main_menu::Autoload;
@@ -74,6 +76,7 @@ struct CommandLineArgs {
 pub enum AppState {
     MainMenu,
     SiteEditor,
+    SiteVisualizer,
     //WarehouseGenerator,
     WorkcellEditor,
     SiteDrawingEditor,
@@ -129,6 +132,8 @@ pub fn run(command_line_args: Vec<String>) {
     {
         app.add_plugins(
             DefaultPlugins
+                .build()
+                .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     window: WindowDescriptor {
                         title: "RMF Site Editor".to_owned(),
@@ -158,6 +163,8 @@ pub fn run(command_line_args: Vec<String>) {
     {
         app.add_plugins(
             DefaultPlugins
+                .build()
+                .disable::<LogPlugin>()
                 .set(WindowPlugin {
                     window: WindowDescriptor {
                         title: "RMF Site Editor".to_owned(),
@@ -186,6 +193,7 @@ pub fn run(command_line_args: Vec<String>) {
     app.init_resource::<Settings>()
         .add_startup_system(init_settings)
         .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        .add_plugin(LogHistoryPlugin)
         .add_plugin(AabbUpdatePlugin)
         .add_plugin(EguiPlugin)
         .add_plugin(KeyboardInputPlugin)

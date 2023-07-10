@@ -89,13 +89,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
-        Query<Entity, (With<ConstraintMarker>, Without<Pending>)>,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (level_children, nav_graph_elements, levels, lifts, constraints, sites, site_ids, children) =
+    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
         state.get_mut(world);
 
     let mut new_entities = Vec::new();
@@ -146,12 +145,6 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                         }
                     }
                 }
-            }
-        }
-
-        if let Ok(constraint) = constraints.get(*site_child) {
-            if !site_ids.contains(constraint) {
-                new_entities.push(constraint);
             }
         }
     }
@@ -211,7 +204,6 @@ fn generate_levels(
         >,
         Query<
             (
-                Entity,
                 &NameInSite,
                 &AssetSource,
                 &Pose,
@@ -393,9 +385,7 @@ fn generate_levels(
         }
     }
 
-    for (entity, name, source, pose, is_primary, pixels_per_meter, id, parent, children) in
-        &q_drawings
-    {
+    for (name, source, pose, is_primary, pixels_per_meter, id, parent, children) in &q_drawings {
         if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
@@ -882,59 +872,6 @@ fn generate_locations(
     Ok(locations)
 }
 
-fn generate_constraints(
-    world: &mut World,
-    site: Entity,
-) -> Result<BTreeMap<u32, Constraint<u32>>, SiteGenerationError> {
-    let mut state: SystemState<(
-        Query<
-            (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
-                &SiteID,
-                &Parent,
-            ),
-            (With<ConstraintMarker>, Without<Pending>),
-        >,
-        Query<&SiteID, With<Anchor>>,
-    )> = SystemState::new(world);
-
-    let (q_constraints, q_anchors) = state.get(world);
-
-    let get_anchor_id = |entity| {
-        let site_id = q_anchors
-            .get(entity)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
-        Ok(site_id.0)
-    };
-
-    let get_anchor_id_edge = |edge: &Edge<Entity>| {
-        let left = get_anchor_id(edge.left())?;
-        let right = get_anchor_id(edge.right())?;
-        Ok(Edge::new(left, right))
-    };
-
-    let mut constraints = BTreeMap::new();
-    for (edge, o_edge, constraint_id, parent) in &q_constraints {
-        if parent.get() != site {
-            continue;
-        }
-
-        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        let edge = get_anchor_id_edge(edge)?;
-
-        constraints.insert(
-            constraint_id.0,
-            Constraint {
-                edge: edge.clone(),
-                marker: ConstraintMarker,
-            },
-        );
-    }
-
-    Ok(constraints)
-}
-
 fn generate_graph_rankings(
     world: &mut World,
     site: Entity,
@@ -971,7 +908,6 @@ pub fn generate_site(
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
-    let constraints = generate_constraints(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
 
     let props = match world.get::<SiteProperties>(site) {
@@ -984,7 +920,6 @@ pub fn generate_site(
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        constraints,
         properties: props.clone(),
         levels,
         lifts,
@@ -1005,14 +940,14 @@ pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
         let path = save_event.to_file;
-        println!(
+        info!(
             "Saving to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
-                println!("Unable to save file: {err}");
+                error!("Unable to save file: {err}");
                 continue;
             }
         };
@@ -1020,17 +955,17 @@ pub fn save_site(world: &mut World) {
         let site = match generate_site(world, save_event.site) {
             Ok(site) => site,
             Err(err) => {
-                println!("Unable to compile site: {err}");
+                error!("Unable to compile site: {err}");
                 continue;
             }
         };
 
         match site.to_writer(f) {
             Ok(()) => {
-                println!("Save successful");
+                info!("Save successful");
             }
             Err(err) => {
-                println!("Save failed: {err}");
+                error!("Save failed: {err}");
             }
         }
     }
@@ -1047,7 +982,7 @@ pub fn save_nav_graphs(world: &mut World) {
         let mut site = match generate_site(world, save_event.site) {
             Ok(site) => site,
             Err(err) => {
-                println!("Unable to compile site: {err}");
+                error!("Unable to compile site: {err}");
                 continue;
             }
         };
@@ -1055,19 +990,19 @@ pub fn save_nav_graphs(world: &mut World) {
         for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
             let mut graph_file = path.clone();
             graph_file.set_file_name(name + ".nav.yaml");
-            println!(
+            info!(
                 "Saving legacy nav graph to {}",
                 graph_file.to_str().unwrap_or("<failed to render??>")
             );
             let f = match std::fs::File::create(graph_file) {
                 Ok(f) => f,
                 Err(err) => {
-                    println!("Unable to save nav graph: {err}");
+                    error!("Unable to save nav graph: {err}");
                     continue;
                 }
             };
             if let Err(err) = serde_yaml::to_writer(f, &nav_graph) {
-                println!("Failed to save nav graph: {err}");
+                error!("Failed to save nav graph: {err}");
             }
         }
 
@@ -1081,24 +1016,24 @@ pub fn save_nav_graphs(world: &mut World) {
             level.walls.clear();
         }
 
-        println!(
+        info!(
             "Saving all site nav graphs to {}",
             path.to_str().unwrap_or("<failed to render??>")
         );
         let f = match std::fs::File::create(path) {
             Ok(f) => f,
             Err(err) => {
-                println!("Unable to save file: {err}");
+                error!("Unable to save file: {err}");
                 continue;
             }
         };
 
         match site.to_writer(f) {
             Ok(()) => {
-                println!("Save successful");
+                info!("Save successful");
             }
             Err(err) => {
-                println!("Save failed: {err}");
+                error!("Save failed: {err}");
             }
         }
     }

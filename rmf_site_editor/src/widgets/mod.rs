@@ -20,13 +20,14 @@ use crate::{
         CategoryVisibility, ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
         SetCategoryVisibility, SpawnPreview,
     },
+    log::LogHistory,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignLevelDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag,
-        CurrentLevel, Delete, DrawingMarker, ExportLights, GlobalDrawingVisibility,
-        GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, ScaleDrawing,
-        SiteState, Texture, ToggleLiftDoorAvailability,
+        AlignLevelDrawings, AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
+        SaveNavGraphs, ScaleDrawing, SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -57,6 +58,9 @@ use view_nav_graphs::*;
 
 pub mod view_occupancy;
 use view_occupancy::*;
+
+pub mod console;
+pub use console::*;
 
 pub mod icons;
 pub use icons::*;
@@ -94,6 +98,10 @@ impl Plugin for StandardUiLayout {
             .add_system_set(
                 SystemSet::on_update(AppState::SiteDrawingEditor)
                     .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteVisualizer)
+                    .with_system(site_visualizer_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -145,6 +153,7 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
+    pub log_history: ResMut<'w, LogHistory>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -215,6 +224,15 @@ pub struct VisibilityParameters<'w, 's> {
     resources: VisibilityResources<'w, 's>,
 }
 
+#[derive(SystemParam)]
+pub struct DrawingParams<'w, 's> {
+    pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
+    pub distance: EventWriter<'w, 's, Change<Distance>>,
+    pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
+    pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
+    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -239,10 +257,7 @@ pub struct AppEvents<'w, 's> {
     pub pending_drawings:
         Query<'w, 's, (Entity, &'static AssetSource), (With<Pending>, With<DrawingMarker>)>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
-    pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
-    pub distance: EventWriter<'w, 's, Change<Distance>>,
-    pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
-    pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
+    pub drawing_params: DrawingParams<'w, 's>,
     pub texture: EventWriter<'w, 's, Change<Texture>>,
 }
 
@@ -268,7 +283,9 @@ fn site_ui_layout(
                         CollapsingHeader::new("Levels")
                             .default_open(true)
                             .show(ui, |ui| {
-                                ViewLevels::new(&levels, &mut events).show(ui);
+                                ViewLevels::new(&levels, &mut events)
+                                    .for_editing_visibility()
+                                    .show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Navigation Graphs")
@@ -307,6 +324,9 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
+                        if ui.add(Button::new("Building preview")).clicked() {
+                            events.app_state.set(AppState::SiteVisualizer).ok();
+                        }
                     });
                 });
         });
@@ -316,6 +336,15 @@ fn site_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
     );
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -365,6 +394,81 @@ fn site_drawing_ui_layout(
                         }
                     });
                 });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
+
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+    );
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn site_visualizer_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    inspector_params: InspectorParams,
+    mut events: AppEvents,
+    levels: LevelParams,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .default_width(300.0)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewLevels::new(&levels, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        if ui.add(Button::new("Align levels")).clicked() {
+                            events.drawing_params.align_site.send(AlignSiteDrawings(
+                                events.request.current_workspace.root.unwrap(),
+                            ));
+                        }
+                        if ui.add(Button::new("Return to site editor")).clicked() {
+                            events.app_state.set(AppState::SiteEditor).ok();
+                        }
+                    });
+                });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     top_menu_bar(
@@ -418,6 +522,15 @@ fn workcell_ui_layout(
                         ui.separator();
                     });
                 });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     top_menu_bar(

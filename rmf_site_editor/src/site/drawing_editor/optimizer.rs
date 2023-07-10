@@ -15,15 +15,17 @@
  *
 */
 
+use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::site::{
-    AlignLevelDrawings, Anchor, Angle, Category, ConstraintMarker, Distance, DrawingMarker, Edge,
-    IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter, Pose, Rotation, ScaleDrawing,
+    AlignLevelDrawings, AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
+    Distance, DrawingMarker, Edge, IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter,
+    Pose, Rotation, ScaleDrawing, SiteProperties,
 };
 use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashSet;
 
 pub fn scale_drawings(
     mut drawings: Query<(&Children, &mut PixelsPerMeter), With<DrawingMarker>>,
@@ -57,7 +59,7 @@ pub fn scale_drawings(
             if scale_denominator > 0 {
                 ppm.0 = scale_numerator / (scale_denominator as f32);
             } else {
-                println!("No measurements found on current drawing");
+                warn!("No measurements found on current drawing, skipping scaling");
             }
         }
     }
@@ -113,138 +115,246 @@ fn align_level_gradient(
     Ok(())
 }
 
-pub fn align_level_drawings(
-    mut drawings: Query<
+fn align_drawing_pair(
+    references: &HashSet<Entity>,
+    target_drawing: Entity,
+    constraints: &Vec<&Edge<Entity>>,
+    params: &OptimizationParams,
+    change: &mut OptimizationChangeParams,
+) -> Option<(f64, f64, f64, f64)> {
+    // Function that creates a pair of reference point and target point poses, their distance to be
+    // minimized as part of the optimization
+    let make_point_pair = |reference: Entity, target: Entity| {
+        let reference_point = params
+            .global_tfs
+            .get(reference)
+            .expect("Transform for anchor not found")
+            .translation()
+            .truncate()
+            .to_array()
+            .map(|t| t as f64);
+        let target_point = params
+            .anchors
+            .get(target)
+            .expect("Broken constraint anchor reference")
+            .translation_for_category(Category::Drawing)
+            .map(|t| t as f64);
+        (reference_point, target_point)
+    };
+    // Guaranteed safe since caller passes a drawing entity
+    let (_, _, target_pose, target_ppm, _) = params.drawings.get(target_drawing).unwrap();
+    let mut matching_points = Vec::new();
+    for edge in constraints.iter() {
+        let start_parent = params
+            .parents
+            .get(edge.start())
+            .expect("Anchor in constraint without drawing parent");
+        let end_parent = params
+            .parents
+            .get(edge.end())
+            .expect("Anchor in constraint without drawing parent");
+        if (references.contains(&*start_parent)) & (target_drawing == **end_parent) {
+            matching_points.push(make_point_pair(edge.start(), edge.end()));
+        } else if (references.contains(&*end_parent)) & (target_drawing == **start_parent) {
+            matching_points.push(make_point_pair(edge.end(), edge.start()));
+        } else {
+            continue;
+        }
+    }
+    if matching_points.is_empty() {
+        warn!(
+            "No constraints found for drawing {:?}, skipping optimization",
+            target_drawing
+        );
+        return None;
+    }
+    // Optimize the transform
+    let min_vals = vec![
+        -std::f64::INFINITY,
+        -std::f64::INFINITY,
+        -180_f64.to_radians(),
+        1e-3,
+    ];
+    let max_vals = vec![
+        std::f64::INFINITY,
+        std::f64::INFINITY,
+        180_f64.to_radians(),
+        1e6,
+    ];
+    let x = target_pose.trans[0];
+    let y = target_pose.trans[1];
+    let theta = match target_pose.rot.as_yaw() {
+        Rotation::Yaw(yaw) => yaw.radians(),
+        _ => unreachable!(),
+    };
+    let s = target_ppm.0;
+    let mut u = vec![x as f64, y as f64, theta as f64, s as f64];
+    // Now optimize it
+    let opt_constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
+    let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
+    let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
+        align_level_cost(&matching_points, u, c)
+    };
+
+    let df = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
+        align_level_gradient(&matching_points, u, gradient)
+    };
+    let problem = Problem::new(&opt_constraints, df, f);
+    let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
+    panoc.solve(&mut u).ok();
+
+    // Update transform parameters with results of the optimization
+    let mut new_pose = target_pose.clone();
+    new_pose.trans[0] = u[0] as f32;
+    new_pose.trans[1] = u[1] as f32;
+    new_pose.rot = Rotation::Yaw(Angle::Rad(u[2] as f32));
+    change.pose.send(Change::new(new_pose, target_drawing));
+    change
+        .ppm
+        .send(Change::new(PixelsPerMeter(u[3] as f32), target_drawing));
+    Some((u[0], u[1], u[2], u[3]))
+}
+
+#[derive(SystemParam)]
+pub struct OptimizationChangeParams<'w, 's> {
+    pose: EventWriter<'w, 's, Change<Pose>>,
+    ppm: EventWriter<'w, 's, Change<PixelsPerMeter>>,
+}
+
+#[derive(SystemParam)]
+pub struct OptimizationParams<'w, 's> {
+    drawings: Query<
+        'w,
+        's,
         (
             Entity,
-            &Children,
-            &mut Pose,
-            &mut PixelsPerMeter,
-            &IsPrimary,
+            &'static Children,
+            &'static Pose,
+            &'static PixelsPerMeter,
+            &'static IsPrimary,
         ),
         With<DrawingMarker>,
     >,
+    global_tfs: Query<'w, 's, &'static GlobalTransform>,
+    parents: Query<'w, 's, &'static Parent>,
+    anchors: Query<'w, 's, &'static Anchor>,
+    constraints: Query<'w, 's, &'static Edge<Entity>, With<ConstraintMarker>>,
+}
+
+pub fn align_level_drawings(
     levels: Query<&Children, With<LevelProperties>>,
-    global_tfs: Query<&GlobalTransform>,
-    parents: Query<&Parent>,
-    anchors: Query<&Anchor>,
-    constraints: Query<&Edge<Entity>, With<ConstraintMarker>>,
     mut events: EventReader<AlignLevelDrawings>,
+    params: OptimizationParams,
+    mut change: OptimizationChangeParams,
 ) {
     for e in events.iter() {
-        let mut opt_results = HashMap::new();
         // Get the matching points for this entity
         let level_children = levels
             .get(**e)
             .expect("Align level event sent to non level entity");
         let constraints = level_children
             .iter()
-            .filter_map(|child| constraints.get(*child).ok())
+            .filter_map(|child| params.constraints.get(*child).ok())
             .collect::<Vec<_>>();
         if constraints.is_empty() {
-            println!("No constraints found for level, skipping optimization");
+            warn!("No constraints found for level, skipping optimization");
             continue;
         }
         let (references, layers): (HashSet<_>, Vec<_>) = level_children
             .iter()
-            .filter_map(|child| drawings.get(*child).ok())
-            .partition_map(|(e, _, pose, ppm, primary)| {
+            .filter_map(|child| params.drawings.get(*child).ok())
+            .partition_map(|(e, _, _, _, primary)| {
                 if primary.0 == true {
                     Either::Left(e)
                 } else {
-                    Either::Right((e, pose, ppm))
+                    Either::Right(e)
                 }
             });
         if layers.is_empty() {
-            println!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
+            warn!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
             continue;
         }
         if references.is_empty() {
-            println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
+            warn!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
         }
-        let make_point_pair = |reference: Entity, target: Entity| {
-            let reference_point = global_tfs
-                .get(reference)
-                .expect("Transform for anchor not found")
-                .translation()
-                .truncate()
-                .to_array()
-                .map(|t| t as f64);
-            let target_point = anchors
-                .get(target)
-                .expect("Broken constraint anchor reference")
-                .translation_for_category(Category::Drawing)
-                .map(|t| t as f64);
-            (reference_point, target_point)
-        };
-        for (layer_entity, layer_pose, layer_ppm) in layers {
-            // Optimize this layer
-            let mut matching_points = Vec::new();
-            let x = layer_pose.trans[0];
-            let y = layer_pose.trans[1];
-            let theta = match layer_pose.rot.as_yaw() {
-                Rotation::Yaw(yaw) => yaw.radians(),
-                _ => unreachable!(),
-            };
-            let s = layer_ppm.0;
-            let mut u = vec![x as f64, y as f64, theta as f64, s as f64];
-            for edge in constraints.iter() {
-                let start_parent = parents
-                    .get(edge.start())
-                    .expect("Anchor in constraint without drawing parent");
-                let end_parent = parents
-                    .get(edge.end())
-                    .expect("Anchor in constraint without drawing parent");
-                if references.contains(&*start_parent) & (layer_entity == **end_parent) {
-                    matching_points.push(make_point_pair(edge.start(), edge.end()));
-                } else if references.contains(&*end_parent) & (layer_entity == **start_parent) {
-                    matching_points.push(make_point_pair(edge.end(), edge.start()));
-                } else {
-                    continue;
-                }
-            }
-            if matching_points.is_empty() {
-                println!(
-                    "No constraints found for layer {:?}, skipping optimization",
-                    layer_entity
-                );
-                continue;
-            }
-            let min_vals = vec![
-                -std::f64::INFINITY,
-                -std::f64::INFINITY,
-                -180_f64.to_radians(),
-                1e-3,
-            ];
-            let max_vals = vec![
-                std::f64::INFINITY,
-                std::f64::INFINITY,
-                180_f64.to_radians(),
-                1e6,
-            ];
-            // Now optimize it
-            let opt_constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
-            let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
-            let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
-                align_level_cost(&matching_points, u, c)
-            };
-
-            let df = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
-                align_level_gradient(&matching_points, u, gradient)
-            };
-            let problem = Problem::new(&opt_constraints, df, f);
-            let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
-            panoc.solve(&mut u).ok();
-            opt_results.insert(layer_entity, (u[0], u[1], u[2], u[3]));
+        for layer_entity in layers {
+            align_drawing_pair(
+                &references,
+                layer_entity,
+                &constraints,
+                &params,
+                &mut change,
+            );
         }
-        // Update transform parameters with results of the optimization
-        for (e, res) in opt_results.iter() {
-            let (_, _, mut pose, mut ppm, _) = drawings.get_mut(*e).unwrap();
-            pose.trans[0] = res.0 as f32;
-            pose.trans[1] = res.1 as f32;
-            pose.rot = Rotation::Yaw(Angle::Rad(res.2 as f32));
-            ppm.0 = res.3 as f32;
+    }
+}
+
+pub fn align_site_drawings(
+    levels: Query<(Entity, &Children, &Parent, &LevelProperties)>,
+    sites: Query<&Children, With<SiteProperties>>,
+    mut events: EventReader<AlignSiteDrawings>,
+    params: OptimizationParams,
+    mut change: OptimizationChangeParams,
+) {
+    for e in events.iter() {
+        // Get the levels that are children of the requested site
+        let levels = levels
+            .iter()
+            .filter(|(_, _, p, _)| ***p == **e)
+            .collect::<Vec<_>>();
+        let reference_level = levels
+            .iter()
+            .min_by(|l_a, l_b| l_a.3.elevation.partial_cmp(&l_b.3.elevation).unwrap())
+            .expect("Site has no levels");
+        // Reference level will be the one with minimum elevation
+        let references = reference_level
+            .1
+            .iter()
+            .filter_map(|c| {
+                params
+                    .drawings
+                    .get(*c)
+                    .ok()
+                    .filter(|(_, _, _, _, primary)| primary.0 == true)
+            })
+            .map(|(e, _, _, _, _)| e)
+            .collect::<HashSet<_>>();
+        // Layers to be optimized are primary drawings in the non reference level
+        let layers = levels
+            .iter()
+            .filter_map(|(e, c, _, _)| (*e != reference_level.0).then(|| c.iter()))
+            .flatten()
+            .filter_map(|child| params.drawings.get(*child).ok())
+            .filter_map(|(e, _, _, _, primary)| (primary.0 == true).then(|| e))
+            .collect::<Vec<_>>();
+        // Inter level constraints are children of the site
+        let constraints = sites
+            .get(**e)
+            .expect("Align site sent to non site entity")
+            .iter()
+            .filter_map(|child| params.constraints.get(*child).ok())
+            .collect::<Vec<_>>();
+        if constraints.is_empty() {
+            warn!("No constraints found for site, skipping optimization");
+            continue;
+        }
+        if layers.is_empty() {
+            warn!("No other levels drawings found for site, at least one other level must have a primary drawing to be optimized against reference level. Skipping optimization");
+            continue;
+        }
+        if references.is_empty() {
+            warn!("No reference level drawing found for site. At least one primary drawing must be present in the lowest level to use as a reference for other levels. Skipping optimization");
+            continue;
+        }
+        for layer_entity in layers {
+            align_drawing_pair(
+                &references,
+                layer_entity,
+                &constraints,
+                &params,
+                &mut change,
+            );
         }
     }
 }

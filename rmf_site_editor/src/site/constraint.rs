@@ -65,7 +65,7 @@ pub fn add_constraint_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
 ) {
     for (e, edge) in &constraints {
-        let mut transform = line_stroke_transform(
+        let transform = line_stroke_transform(
             &anchors
                 .point_in_parent_frame_of(edge.start(), Category::Constraint, e)
                 .unwrap(),
@@ -74,8 +74,6 @@ pub fn add_constraint_visuals(
                 .unwrap(),
             CONSTRAINT_WIDTH,
         );
-        // TODO(luca) proper layering rather than hardcoded
-        transform.translation.z = CONSTRAINT_LAYER_START;
 
         let child_id = commands
             .spawn(PbrBundle {
@@ -119,7 +117,6 @@ fn update_constraint_visual(
         .point_in_parent_frame_of(edge.end(), Category::Measurement, entity)
         .unwrap();
     *transform = line_stroke_transform(&start_anchor, &end_anchor, CONSTRAINT_WIDTH);
-    transform.translation.z = CONSTRAINT_LAYER_START;
 }
 
 pub fn update_changed_constraint(
@@ -154,6 +151,65 @@ pub fn update_constraint_for_moved_anchors(
             if let Some((edge, segment)) = constraints.get(*dependent).ok() {
                 if let Ok(mut tf) = transforms.get_mut(**segment) {
                     update_constraint_visual(**segment, edge, &anchors, tf.as_mut());
+                }
+            }
+        }
+    }
+}
+
+pub fn update_constraint_for_changed_labels(
+    mut commands: Commands,
+    changed_labels: Query<(&Point<Entity>, &Label), (With<FiducialMarker>, Changed<Label>)>,
+    all_labels: Query<(&Point<Entity>, &Label), With<FiducialMarker>>,
+    dependents: Query<&Dependents>,
+    fiducials: Query<Entity, With<FiducialMarker>>,
+    constraints: Query<(Entity, &Edge<Entity>, &Parent), With<ConstraintMarker>>,
+    open_sites: Query<Entity, With<SiteProperties>>,
+) {
+    let get_fiducial_label = |e: Entity| -> Option<&Label> {
+        let fiducial = dependents
+            .get(e)
+            .ok()
+            .map(|deps| deps.iter().find_map(|d| fiducials.get(*d).ok()))
+            .flatten()?;
+        all_labels.get(fiducial).map(|(_, label)| label).ok()
+    };
+    for (p1, l1) in &changed_labels {
+        for (e, edge, parent) in &constraints {
+            // Ignore constraints between drawings for now, only apply to multilevel ones
+            if open_sites.get(parent.get()).is_err() {
+                continue;
+            }
+            // Despawn if labels don't match anymore
+            if edge.start() == **p1 || edge.end() == **p1 {
+                if let (Some(start_label), Some(end_label)) = (
+                    get_fiducial_label(edge.start()),
+                    get_fiducial_label(edge.end()),
+                ) {
+                    if start_label != end_label {
+                        commands.entity(e).despawn_recursive();
+                    }
+                }
+            }
+        }
+        for (p2, l2) in &all_labels {
+            if p2 == p1 {
+                continue;
+            }
+            // TODO(luca) also make sure they both have a value?
+            if l1 == l2 {
+                // Make sure there isn't a constraint already between the two points
+                // A constraint is a dependent of both anchors so we only need to check one
+                if dependents
+                    .get(**p1)
+                    .ok()
+                    .and_then(|deps| Some(deps.iter().filter_map(|d| constraints.get(*d).ok())))
+                    .and_then(|mut constraints| {
+                        constraints.find(|c| c.1.start() == **p2 || c.1.end() == **p2)
+                    })
+                    .is_none()
+                {
+                    commands.spawn(Constraint::from(Edge::from([**p1, **p2])));
                 }
             }
         }
