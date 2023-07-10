@@ -649,7 +649,7 @@ fn door_open_position(
             ])
         }
         DoorBodyType::Model { .. } => {
-            println!("Model open position not implemented");
+            warn!("Model open position not implemented");
             None
         }
     }
