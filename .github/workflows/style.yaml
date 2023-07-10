@@ -20,8 +20,6 @@ jobs:
 
     - name: rustfmt
       run: |
-        rustup toolchain install nightly
-        rustup default nightly
         rustup component add rustfmt
 
     - name: style
