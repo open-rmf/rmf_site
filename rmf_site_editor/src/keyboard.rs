@@ -86,14 +86,14 @@ fn handle_keyboard_input(
             if let Some(selection) = selection.0 {
                 delete.send(Delete::new(selection));
             } else {
-                println!("No selected entity to delete");
+                warn!("No selected entity to delete");
             }
         }
     }
 
     if keyboard_input.just_pressed(KeyCode::D) {
         debug_mode.0 = !debug_mode.0;
-        println!("Toggling debug mode: {debug_mode:?}");
+        info!("Toggling debug mode: {debug_mode:?}");
     }
 
     // Ctrl keybindings
