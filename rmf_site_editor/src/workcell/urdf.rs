@@ -44,7 +44,6 @@ pub fn handle_new_urdf_roots(mut commands: Commands, new_urdfs: Query<(Entity, &
                 .insert(RigidBody::KinematicVelocityBased)
                 .insert(Category::Workcell)
                 .id();
-            println!("Found link {:?} - {}", link_entity, link.name);
             link_name_to_entity.insert(link.name.clone(), link_entity);
             root_links.insert(link_entity);
             for visual in &link.visual {
@@ -106,10 +105,6 @@ pub fn handle_new_urdf_roots(mut commands: Commands, new_urdfs: Query<(Entity, &
                     //commands.entity(*child).insert(AnchorBundle::new(Anchor::Pose3D(Pose {trans, rot})));
                     commands.entity(*parent).add_child(*child);
                     root_links.remove(child);
-                    println!(
-                        "Adding joint between {:?} - {} and {:?} - {}",
-                        *parent, &joint.parent.link, *child, &joint.child.link
-                    );
                     commands.entity(*child).with_children(|children| {
                         children
                             .spawn(SpatialBundle::VISIBLE_IDENTITY)
@@ -120,7 +115,6 @@ pub fn handle_new_urdf_roots(mut commands: Commands, new_urdfs: Query<(Entity, &
             }
         }
         for link in root_links.iter() {
-            println!("Found root entity {:?}", link);
             commands.entity(e).add_child(*link);
         }
         commands.entity(e).remove::<UrdfRoot>();

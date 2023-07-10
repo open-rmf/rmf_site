@@ -19,6 +19,7 @@ use crate::{
     interaction::{
         ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
+    log::LogHistory,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -52,6 +53,9 @@ use view_nav_graphs::*;
 
 pub mod view_occupancy;
 use view_occupancy::*;
+
+pub mod console;
+pub use console::*;
 
 pub mod icons;
 pub use icons::*;
@@ -140,6 +144,7 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
+    pub log_history: ResMut<'w, LogHistory>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -253,6 +258,15 @@ fn site_ui_layout(
                             });
                     });
                 });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {

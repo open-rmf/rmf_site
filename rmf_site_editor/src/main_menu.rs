@@ -87,7 +87,7 @@ fn egui_ui(
                 // TODO(@mxgrey): Bring this back when we have time to fix the
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
-                //     println!("Entering warehouse generator");
+                //     info!("Entering warehouse generator");
                 //     _app_state.set(AppState::WarehouseGenerator).unwrap();
                 // }
             });
