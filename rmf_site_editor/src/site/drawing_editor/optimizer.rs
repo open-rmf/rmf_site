@@ -59,7 +59,7 @@ pub fn scale_drawings(
             if scale_denominator > 0 {
                 ppm.0 = scale_numerator / (scale_denominator as f32);
             } else {
-                println!("No measurements found on current drawing");
+                warn!("No measurements found on current drawing, skipping scaling");
             }
         }
     }
@@ -162,7 +162,7 @@ fn align_drawing_pair(
         }
     }
     if matching_points.is_empty() {
-        println!(
+        warn!(
             "No constraints found for drawing {:?}, skipping optimization",
             target_drawing
         );
@@ -257,7 +257,7 @@ pub fn align_level_drawings(
             .filter_map(|child| params.constraints.get(*child).ok())
             .collect::<Vec<_>>();
         if constraints.is_empty() {
-            println!("No constraints found for level, skipping optimization");
+            warn!("No constraints found for level, skipping optimization");
             continue;
         }
         let (references, layers): (HashSet<_>, Vec<_>) = level_children
@@ -271,11 +271,11 @@ pub fn align_level_drawings(
                 }
             });
         if layers.is_empty() {
-            println!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
+            warn!("No non-primary drawings found for level, at least one drawing must be set to non-primary to be optimized against primary drawings.Skipping optimization");
             continue;
         }
         if references.is_empty() {
-            println!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
+            warn!("No primary drawings found for level. At least one drawing must be set to primary to use as a reference for other drawings. Skipping optimization");
             continue;
         }
         for layer_entity in layers {
@@ -336,15 +336,15 @@ pub fn align_site_drawings(
             .filter_map(|child| params.constraints.get(*child).ok())
             .collect::<Vec<_>>();
         if constraints.is_empty() {
-            println!("No constraints found for site, skipping optimization");
+            warn!("No constraints found for site, skipping optimization");
             continue;
         }
         if layers.is_empty() {
-            println!("No other levels drawings found for site, at least one other level must have a primary drawing to be optimized against reference level. Skipping optimization");
+            warn!("No other levels drawings found for site, at least one other level must have a primary drawing to be optimized against reference level. Skipping optimization");
             continue;
         }
         if references.is_empty() {
-            println!("No reference level drawing found for site. At least one primary drawing must be present in the lowest level to use as a reference for other levels. Skipping optimization");
+            warn!("No reference level drawing found for site. At least one primary drawing must be present in the lowest level to use as a reference for other levels. Skipping optimization");
             continue;
         }
         for layer_entity in layers {

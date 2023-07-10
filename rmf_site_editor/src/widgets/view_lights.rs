@@ -112,7 +112,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
                 if ui.button("Export Lights As...").clicked() {
                     match &self.events.display.light.choosing_file_for_export {
                         Some(_) => {
-                            println!("A file is already being chosen!");
+                            warn!("A file is already being chosen!");
                         }
                         None => {
                             let future = AsyncComputeTaskPool::get().spawn(async move {

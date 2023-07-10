@@ -20,6 +20,7 @@ use crate::{
         CategoryVisibility, ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
         SetCategoryVisibility, SpawnPreview,
     },
+    log::LogHistory,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
@@ -57,6 +58,9 @@ use view_nav_graphs::*;
 
 pub mod view_occupancy;
 use view_occupancy::*;
+
+pub mod console;
+pub use console::*;
 
 pub mod icons;
 pub use icons::*;
@@ -149,6 +153,7 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
+    pub log_history: ResMut<'w, LogHistory>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -326,6 +331,15 @@ fn site_ui_layout(
         &mut events.visibility_parameters,
     );
 
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
+
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -374,6 +388,15 @@ fn site_drawing_ui_layout(
                         }
                     });
                 });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     top_menu_bar(
@@ -433,6 +456,15 @@ fn site_visualizer_ui_layout(
                 });
         });
 
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
+
     top_menu_bar(
         &mut egui_context,
         &mut events.file_events,
@@ -484,6 +516,15 @@ fn workcell_ui_layout(
                         ui.separator();
                     });
                 });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
 
     top_menu_bar(

@@ -76,12 +76,12 @@ fn update_level_elevation(
 }
 
 fn disable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
-    println!("Entering site visualizer");
+    info!("Entering site visualizer");
     interaction_state.set(InteractionState::Disable).ok();
 }
 
 fn enable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
-    println!("Exiting site visualizer");
+    info!("Exiting site visualizer");
     interaction_state.set(InteractionState::Enable).ok();
 }
 

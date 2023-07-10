@@ -134,7 +134,7 @@ pub fn dispatch_save_events(
                 AppState::MainMenu => { /* Noop */ }
             }
         } else {
-            println!("Unable to save, no workspace loaded");
+            warn!("Unable to save, no workspace loaded");
             return;
         }
     }

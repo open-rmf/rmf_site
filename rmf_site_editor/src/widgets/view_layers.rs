@@ -96,7 +96,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
             if let Some(level) = self.events.request.current_level.0 {
                 self.events.align_drawings.send(AlignLevelDrawings(level));
             } else {
-                println!("DEV ERROR: No current level when optimizing level layers");
+                error!("No current level when optimizing level layers");
             }
         }
     }

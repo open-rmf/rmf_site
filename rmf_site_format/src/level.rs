@@ -38,7 +38,7 @@ impl Default for LevelProperties {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Level {
     pub properties: LevelProperties,
     pub anchors: BTreeMap<u32, Anchor>,

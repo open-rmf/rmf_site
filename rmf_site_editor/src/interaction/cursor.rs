@@ -354,7 +354,7 @@ pub fn update_cursor_transform(
             let mut transform = match transforms.get_mut(cursor.frame) {
                 Ok(transform) => transform,
                 Err(_) => {
-                    println!("No cursor transform found");
+                    error!("No cursor transform found");
                     return;
                 }
             };
