@@ -106,84 +106,92 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     }
                 }
             }
-            if let Ok((e, source, scale)) = self.events.pending_models.get_single() {
-                ui.add_space(10.0);
-                CollapsingHeader::new("New model")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        if let Some(new_asset_source) =
-                            InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui)
-                        {
-                            self.events
-                                .change
-                                .asset_source
-                                .send(Change::new(new_asset_source, e));
-                        }
-                        ui.add_space(5.0);
-                        if let Some(new_scale) = InspectScale::new(scale).show(ui) {
-                            self.events
-                                .workcell_change
-                                .scale
-                                .send(Change::new(new_scale, e));
-                        }
-                        ui.add_space(5.0);
-                        match self.events.app_state.current() {
-                            AppState::MainMenu
-                            | AppState::SiteDrawingEditor
-                            | AppState::SiteVisualizer => {}
-                            AppState::SiteEditor => {
-                                if ui.button("Spawn model").clicked() {
-                                    let model = Model {
-                                        source: source.clone(),
-                                        ..default()
-                                    };
-                                    self.events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point().for_model(model).into(),
-                                    ));
+            match self.events.app_state.current() {
+                AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
+                AppState::SiteEditor | AppState::WorkcellEditor => {
+                    if let Ok((e, source, scale)) = self.events.pending_models.get_single() {
+                        ui.add_space(10.0);
+                        CollapsingHeader::new("New model")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                if let Some(new_asset_source) =
+                                    InspectAssetSource::new(source, &RecallAssetSource::default())
+                                        .show(ui)
+                                {
+                                    self.events
+                                        .change
+                                        .asset_source
+                                        .send(Change::new(new_asset_source, e));
                                 }
-                            }
-                            AppState::WorkcellEditor => {
-                                if ui.button("Spawn visual").clicked() {
-                                    let workcell_model = WorkcellModel {
-                                        geometry: Geometry::Mesh {
-                                            filename: source.into(),
-                                            scale: Some(**scale),
-                                        },
-                                        ..default()
-                                    };
-                                    self.events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point()
-                                            .for_visual(workcell_model)
-                                            .into(),
-                                    ));
+                                ui.add_space(5.0);
+                                if let Some(new_scale) = InspectScale::new(scale).show(ui) {
+                                    self.events
+                                        .workcell_change
+                                        .scale
+                                        .send(Change::new(new_scale, e));
                                 }
-                                if ui.button("Spawn collision").clicked() {
-                                    let workcell_model = WorkcellModel {
-                                        geometry: Geometry::Mesh {
-                                            filename: source.into(),
-                                            scale: Some(**scale),
-                                        },
-                                        ..default()
-                                    };
-                                    self.events.request.change_mode.send(ChangeMode::To(
-                                        SelectAnchor3D::create_new_point()
-                                            .for_collision(workcell_model)
-                                            .into(),
-                                    ));
+                                ui.add_space(5.0);
+                                match self.events.app_state.current() {
+                                    AppState::MainMenu
+                                    | AppState::SiteDrawingEditor
+                                    | AppState::SiteVisualizer => {}
+                                    AppState::SiteEditor => {
+                                        if ui.button("Spawn model").clicked() {
+                                            let model = Model {
+                                                source: source.clone(),
+                                                ..default()
+                                            };
+                                            self.events.request.change_mode.send(ChangeMode::To(
+                                                SelectAnchor3D::create_new_point()
+                                                    .for_model(model)
+                                                    .into(),
+                                            ));
+                                        }
+                                    }
+                                    AppState::WorkcellEditor => {
+                                        if ui.button("Spawn visual").clicked() {
+                                            let workcell_model = WorkcellModel {
+                                                geometry: Geometry::Mesh {
+                                                    filename: source.into(),
+                                                    scale: Some(**scale),
+                                                },
+                                                ..default()
+                                            };
+                                            self.events.request.change_mode.send(ChangeMode::To(
+                                                SelectAnchor3D::create_new_point()
+                                                    .for_visual(workcell_model)
+                                                    .into(),
+                                            ));
+                                        }
+                                        if ui.button("Spawn collision").clicked() {
+                                            let workcell_model = WorkcellModel {
+                                                geometry: Geometry::Mesh {
+                                                    filename: source.into(),
+                                                    scale: Some(**scale),
+                                                },
+                                                ..default()
+                                            };
+                                            self.events.request.change_mode.send(ChangeMode::To(
+                                                SelectAnchor3D::create_new_point()
+                                                    .for_collision(workcell_model)
+                                                    .into(),
+                                            ));
+                                        }
+                                        ui.add_space(10.0);
+                                    }
                                 }
-                                ui.add_space(10.0);
-                            }
-                        }
-                    });
-            } else if self.events.pending_models.is_empty() {
-                // Spawn one
-                let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                self.events
-                    .commands
-                    .spawn(source.clone())
-                    .insert(Scale::default())
-                    .insert(ModelMarker)
-                    .insert(Pending);
+                            });
+                    } else if self.events.pending_models.is_empty() {
+                        // Spawn one
+                        let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
+                        self.events
+                            .commands
+                            .spawn(source.clone())
+                            .insert(Scale::default())
+                            .insert(ModelMarker)
+                            .insert(Pending);
+                    }
+                }
             }
             if let Ok((e, source)) = self.events.pending_drawings.get_single() {
                 ui.add_space(10.0);
