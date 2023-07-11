@@ -1,7 +1,7 @@
 use bevy::{
     prelude::*,
     render::view::RenderLayers,
-    utils::{hashbrown::HashMap, HashSet},
+    utils::{hashbrown::HashMap},
 };
 use bevy_polyline::prelude::*;
 
