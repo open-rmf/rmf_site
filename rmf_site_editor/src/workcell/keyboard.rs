@@ -43,14 +43,14 @@ pub fn handle_workcell_keyboard_input(
 
     if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
         if keyboard_input.just_pressed(KeyCode::V) {
-            println!("Toggling visuals");
+            info!("Toggling visuals");
             for mut v in visuals.iter_mut() {
                 v.is_visible = !v.is_visible;
             }
         }
 
         if keyboard_input.just_pressed(KeyCode::C) {
-            println!("Toggling collisions");
+            info!("Toggling collisions");
             for mut c in collisions.iter_mut() {
                 c.is_visible = !c.is_visible;
             }
