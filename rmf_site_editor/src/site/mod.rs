@@ -22,6 +22,7 @@ pub mod assets;
 pub use assets::*;
 
 pub mod change_plugin;
+use bevy_points::prelude::PointsPlugin;
 pub use change_plugin::*;
 
 pub mod deletion;
@@ -135,6 +136,7 @@ pub struct SitePlugin;
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app.add_state(SiteState::Off)
+            .add_plugin(PointsPlugin)
             .add_stage_after(
                 CoreStage::Update,
                 SiteUpdateStage::AssignOrphans,
@@ -146,6 +148,7 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .insert_resource(FloorVisibility::default())
+            .init_resource::<PointAsset>()
             .init_resource::<SiteAssets>()
             .init_resource::<LoadingDrawings>()
             .init_resource::<CurrentLevel>()
