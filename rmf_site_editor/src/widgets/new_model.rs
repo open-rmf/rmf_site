@@ -136,12 +136,6 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                         false => None,
                     };
                 });
-                // TODO(luca) should we cache the models by owner result to avoid calling at every
-                // frame?
-                let mut models = match &owner_filter {
-                    Some(owner) => fuel_client.as_ref().models_by_owner(None, &owner).unwrap(),
-                    None => models.clone(),
-                };
 
                 let tag_filter = gallery_status.filters.tag.clone();
                 let mut tag_filter_enabled = tag_filter.is_some();
@@ -177,13 +171,6 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                     };
                 });
 
-                if let Some(tag) = &tag_filter {
-                    models = fuel_client
-                        .as_ref()
-                        .models_by_tag(Some(&models), &tag)
-                        .unwrap();
-                }
-
                 let private_filter = gallery_status.filters.private.clone();
                 let mut private_filter_enabled = private_filter.is_some();
                 ui.horizontal(|ui| {
@@ -213,13 +200,26 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                     };
                 });
 
-                if let Some(private) = &private_filter {
-                    models = fuel_client
-                        .as_ref()
-                        .models_by_private(Some(&models), *private)
-                        .unwrap();
-                }
                 ui.add_space(10.0);
+
+                // TODO(luca) should we cache the models by owner result to avoid calling at every
+                // frame?
+                let models = models
+                    .iter()
+                    .filter(|m| {
+                        owner_filter.is_none()
+                            | owner_filter.as_ref().is_some_and(|owner| m.owner == *owner)
+                    })
+                    .filter(|m| {
+                        private_filter.is_none()
+                            | private_filter
+                                .as_ref()
+                                .is_some_and(|private| m.private == *private)
+                    })
+                    .filter(|m| {
+                        tag_filter.is_none()
+                            | tag_filter.as_ref().is_some_and(|tag| m.tags.contains(&tag))
+                    });
 
                 ui.label(RichText::new("Models").size(14.0));
                 ui.add_space(5.0);
@@ -230,10 +230,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         for model in models {
-                            let sel = gallery_status
-                                .selected
-                                .as_ref()
-                                .is_some_and(|s| *s == model);
+                            let sel = gallery_status.selected.as_ref().is_some_and(|s| s == model);
                             if ui.selectable_label(sel, &model.name).clicked() {
                                 new_selected = Some(model);
                             }
@@ -247,7 +244,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 );
                 ui.add_space(10.0);
 
-                if gallery_status.selected != new_selected {
+                if gallery_status.selected.as_ref() != new_selected {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
                         let model_entity = self.events.new_model.model_preview_camera.model_entity;
@@ -258,7 +255,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                             ..default()
                         };
                         self.events.commands.entity(model_entity).insert(model);
-                        gallery_status.selected = Some(selected);
+                        gallery_status.selected = Some(selected.clone());
                     }
                 }
 
