@@ -156,6 +156,7 @@ impl Plugin for SitePlugin {
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
             .add_event::<UpdateFuelCache>()
+            .add_event::<SetFuelApiKey>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -280,6 +281,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_for_moved_anchors)
                     .with_system(handle_update_fuel_cache_requests)
                     .with_system(read_update_fuel_cache_results)
+                    .with_system(reload_failed_models_with_new_api_key)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(export_lights),
             );

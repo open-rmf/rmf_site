@@ -16,11 +16,11 @@
 */
 
 use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
-use crate::site::{AssetSource, FuelClient, Model, UpdateFuelCache};
+use crate::site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache};
 use crate::AppEvents;
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui};
-use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
+use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui, Window};
+use gz_fuel::FuelModel;
 
 /// Filters applied to models in the fuel list
 pub struct ShowAssetFilters {
@@ -28,6 +28,8 @@ pub struct ShowAssetFilters {
     pub recall_owner: Option<String>,
     pub tag: Option<String>,
     pub recall_tag: Option<String>,
+    pub private: Option<bool>,
+    pub recall_private: Option<bool>,
 }
 
 /// Used to signals whether to show or hide the left side panel with the asset gallery
@@ -38,7 +40,9 @@ pub struct AssetGalleryStatus {
     pub cached_owners: Option<Vec<String>>,
     pub cached_tags: Option<Vec<String>>,
     pub filters: ShowAssetFilters,
+    pub proposed_api_key: String,
     pub fetching_cache: bool,
+    pub show_api_window: bool,
 }
 
 impl Default for ShowAssetFilters {
@@ -48,6 +52,8 @@ impl Default for ShowAssetFilters {
             recall_owner: None,
             tag: None,
             recall_tag: None,
+            private: None,
+            recall_private: None,
         }
     }
 }
@@ -60,7 +66,9 @@ impl Default for AssetGalleryStatus {
             cached_owners: None,
             cached_tags: None,
             filters: Default::default(),
+            proposed_api_key: Default::default(),
             fetching_cache: false,
+            show_api_window: false,
         }
     }
 }
@@ -72,6 +80,7 @@ pub struct NewModelParams<'w, 's> {
     pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     pub model_preview_camera: Res<'w, ModelPreviewCamera>,
     pub update_cache: EventWriter<'w, 's, UpdateFuelCache>,
+    pub set_api_key: EventWriter<'w, 's, SetFuelApiKey>,
 }
 
 pub struct NewModel<'a, 'w, 's> {
@@ -127,7 +136,6 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                         false => None,
                     };
                 });
-                ui.add_space(5.0);
                 // TODO(luca) should we cache the models by owner result to avoid calling at every
                 // frame?
                 let mut models = match &owner_filter {
@@ -175,6 +183,42 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                         .models_by_tag(Some(&models), &tag)
                         .unwrap();
                 }
+
+                let private_filter = gallery_status.filters.private.clone();
+                let mut private_filter_enabled = private_filter.is_some();
+                ui.horizontal(|ui| {
+                    ui.checkbox(&mut private_filter_enabled, "Private");
+                    gallery_status.filters.private = match private_filter_enabled {
+                        true => {
+                            let mut selected = match &private_filter {
+                                Some(s) => s.clone(),
+                                None => gallery_status.filters.recall_private.unwrap_or(false),
+                            };
+                            ComboBox::from_id_source("Asset Private Filter")
+                                .selected_text(selected.to_string())
+                                .show_ui(ui, |ui| {
+                                    for private in [true, false].into_iter() {
+                                        ui.selectable_value(
+                                            &mut selected,
+                                            private,
+                                            private.to_string(),
+                                        );
+                                    }
+                                    ui.end_row();
+                                });
+                            gallery_status.filters.recall_private = Some(selected);
+                            Some(selected)
+                        }
+                        false => None,
+                    };
+                });
+
+                if let Some(private) = &private_filter {
+                    models = fuel_client
+                        .as_ref()
+                        .models_by_private(Some(&models), *private)
+                        .unwrap();
+                }
                 ui.add_space(10.0);
 
                 ui.label(RichText::new("Models").size(14.0));
@@ -182,7 +226,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 // Show models
                 let mut new_selected = None;
                 ScrollArea::vertical()
-                    .max_height(350.0)
+                    .max_height(300.0)
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         for model in models {
@@ -237,6 +281,27 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
             }
         }
         ui.add_space(10.0);
+        if gallery_status.show_api_window {
+            Window::new("API Key").show(ui.ctx(), |ui| {
+                ui.label("Key");
+                ui.text_edit_singleline(&mut gallery_status.proposed_api_key);
+                if ui.add(Button::new("Save")).clicked() {
+                    // Take it to avoid leaking the information in the dialog
+                    self.events
+                        .new_model
+                        .set_api_key
+                        .send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
+                    fuel_client.token = Some(std::mem::take(&mut gallery_status.proposed_api_key));
+                    gallery_status.show_api_window = false;
+                } else if ui.add(Button::new("Close")).clicked() {
+                    gallery_status.proposed_api_key = Default::default();
+                    gallery_status.show_api_window = false;
+                }
+            });
+        }
+        if ui.add(Button::new("Set API key")).clicked() {
+            gallery_status.show_api_window = true;
+        }
         if gallery_status.fetching_cache == true {
             ui.label("Updating model cache...");
         } else {
@@ -245,7 +310,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
             }
         }
         if ui.add(Button::new("Close")).clicked() {
-            self.events.new_model.asset_gallery_status.show = false;
+            gallery_status.show = false;
         }
     }
 }

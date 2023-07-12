@@ -10,6 +10,7 @@ use std::fs;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::urdf_loader::UrdfPlugin;
 use urdf_rs::utils::expand_package_path;
@@ -29,7 +30,9 @@ struct SiteAssetIo {
 }
 
 const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
-const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+pub const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+
+pub static FUEL_API_KEY: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Deserialize)]
 struct FuelErrorMsg {
@@ -61,12 +64,13 @@ impl SiteAssetIo {
         asset_name: String,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let bytes = surf::get(remote_url.clone())
-                .recv_bytes()
-                .await
-                .map_err(|e| {
-                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                })?;
+            let mut req = surf::get(remote_url.clone());
+            if let Some(key) = &(*FUEL_API_KEY.lock().unwrap()) {
+                req = req.header("Private-token", key.clone());
+            }
+            let bytes = req.recv_bytes().await.map_err(|e| {
+                AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+            })?;
 
             match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
                 Ok(error) => {

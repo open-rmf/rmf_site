@@ -15,10 +15,11 @@
  *
 */
 
+use crate::site::{AssetSource, ModelMarker, ModelSceneRoot, TentativeModelFormat};
+use crate::site_asset_io::FUEL_API_KEY;
+use crate::widgets::AssetGalleryStatus;
 use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
-// TODO(luca) move FuelClient here
-use crate::widgets::AssetGalleryStatus;
 use crossbeam_channel::{Receiver, Sender};
 use gz_fuel::FuelClient as GzFuelClient;
 
@@ -30,6 +31,10 @@ pub struct UpdateFuelCache;
 
 #[derive(Deref, DerefMut)]
 pub struct FuelCacheUpdated(Option<FuelClient>);
+
+/// Event used to set the fuel API key from the UI. Will also trigger a reload for failed assets
+#[derive(Deref, DerefMut)]
+pub struct SetFuelApiKey(pub String);
 
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
 /// be cloned and moved into async functions therefore don't have lifetime issues
@@ -53,7 +58,7 @@ pub fn handle_update_fuel_cache_requests(
     channels: Res<UpdateFuelCacheChannels>,
 ) {
     if events.iter().last().is_some() {
-        println!("Updating fuel cache");
+        info!("Updating fuel cache");
         gallery_status.fetching_cache = true;
         let mut fuel_client = fuel_client.clone();
         let sender = channels.sender.clone();
@@ -78,10 +83,23 @@ pub fn read_update_fuel_cache_results(
     mut gallery_status: ResMut<AssetGalleryStatus>,
 ) {
     if let Ok(result) = channels.receiver.try_recv() {
-        println!("Fuel cache updated");
-        if let Some(client) = result.0 {
-            *fuel_client = client;
+        match result.0 {
+            Some(client) => *fuel_client = client,
+            None => error!("Failed updating fuel cache"),
         }
         gallery_status.fetching_cache = false;
+    }
+}
+
+pub fn reload_failed_models_with_new_api_key(
+    mut commands: Commands,
+    mut api_key_events: EventReader<SetFuelApiKey>,
+    failed_models: Query<Entity, (With<ModelMarker>, Without<ModelSceneRoot>)>,
+) {
+    if let Some(key) = api_key_events.iter().last() {
+        *FUEL_API_KEY.lock().unwrap() = Some((**key).clone());
+        for e in &failed_models {
+            commands.entity(e).insert(TentativeModelFormat::default());
+        }
     }
 }

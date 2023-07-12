@@ -18,6 +18,7 @@
 use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
     site::{Category, PreventDeletion, SiteAssets},
+    site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     SdfRoot,
 };
 use bevy::{asset::LoadState, gltf::Gltf, prelude::*, render::view::RenderLayers};
@@ -83,13 +84,7 @@ pub struct ModelSceneRoot;
 pub fn handle_model_loaded_events(
     mut commands: Commands,
     loading_models: Query<
-        (
-            Entity,
-            &TentativeModelFormat,
-            &PendingSpawning,
-            &Scale,
-            Option<&RenderLayers>,
-        ),
+        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>),
         With<ModelMarker>,
     >,
     mut current_scenes: Query<&mut ModelScene>,
@@ -104,7 +99,7 @@ pub fn handle_model_loaded_events(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, tentative_format, h, scale, render_layer) in loading_models.iter() {
+    for (e, h, scale, render_layer) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
                 Some(commands.entity(e).add_children(|parent| {
@@ -270,28 +265,39 @@ pub fn update_model_tentative_formats(
     >,
     asset_server: Res<AssetServer>,
 ) {
+    static SUPPORTED_EXTENSIONS: &[&str] = &["obj", "stl", "sdf", "glb", "gltf"];
     for e in changed_models.iter() {
         // Reset to the first format
         commands.entity(e).insert(TentativeModelFormat::default());
     }
     // Check from the asset server if any format failed, if it did try the next
     for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
-        match asset_server.get_load_state(&h.0) {
-            LoadState::Failed => {
-                let mut cmd = commands.entity(e);
-                cmd.remove::<PreventDeletion>();
+        if matches!(asset_server.get_load_state(&h.0), LoadState::Failed) {
+            let mut cmd = commands.entity(e);
+            cmd.remove::<PreventDeletion>();
+            // We want to iterate only for search asset types, for others just print an error
+            if matches!(source, AssetSource::Search(_)) {
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
                     cmd.remove::<PendingSpawning>();
-                } else {
-                    warn!(
-                        "WARNING: Model with source {} not found",
-                        String::from(source)
-                    );
-                    cmd.remove::<TentativeModelFormat>();
+                    continue;
                 }
             }
-            _ => {}
+            let path = String::from(source);
+            let model_ext = path
+                .rsplit_once('.')
+                .map(|s| s.1.to_owned())
+                .unwrap_or_else(|| tentative_format.to_string(""));
+            let reason = if !SUPPORTED_EXTENSIONS.iter().any(|e| model_ext.ends_with(e)) {
+                "Format not supported".to_owned()
+            } else {
+                match source {
+                    AssetSource::Search(_) | AssetSource::Remote(_) => format!("Model not found, try using an API key if it belongs to a private organization, or add its path to the {} environment variable", MODEL_ENVIRONMENT_VARIABLE),
+                    _ => "Failed parsing file".to_owned(),
+                }
+            };
+            warn!("Failed loading Model with source {}: {}", path, reason);
+            cmd.remove::<TentativeModelFormat>();
         }
     }
 }
