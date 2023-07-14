@@ -23,6 +23,7 @@ use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
 /// Filters applied to models in the fuel list
+#[derive(Default)]
 pub struct ShowAssetFilters {
     pub owner: Option<String>,
     pub recall_owner: Option<String>,
@@ -33,7 +34,7 @@ pub struct ShowAssetFilters {
 }
 
 /// Used to signals whether to show or hide the left side panel with the asset gallery
-#[derive(Resource)]
+#[derive(Resource, Default)]
 pub struct AssetGalleryStatus {
     pub show: bool,
     pub selected: Option<FuelModel>,
@@ -43,34 +44,6 @@ pub struct AssetGalleryStatus {
     pub proposed_api_key: String,
     pub fetching_cache: bool,
     pub show_api_window: bool,
-}
-
-impl Default for ShowAssetFilters {
-    fn default() -> Self {
-        Self {
-            owner: Some("OpenRobotics".into()),
-            recall_owner: None,
-            tag: None,
-            recall_tag: None,
-            private: None,
-            recall_private: None,
-        }
-    }
-}
-
-impl Default for AssetGalleryStatus {
-    fn default() -> Self {
-        Self {
-            show: true,
-            selected: None,
-            cached_owners: None,
-            cached_tags: None,
-            filters: Default::default(),
-            proposed_api_key: Default::default(),
-            fetching_cache: false,
-            show_api_window: false,
-        }
-    }
 }
 
 #[derive(SystemParam)]
@@ -202,7 +175,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
 
                 ui.add_space(10.0);
 
-                // TODO(luca) should we cache the models by owner result to avoid calling at every
+                // TODO(luca) should we cache the models by filters result to avoid calling at every
                 // frame?
                 let models = models
                     .iter()
@@ -299,7 +272,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
         if ui.add(Button::new("Set API key")).clicked() {
             gallery_status.show_api_window = true;
         }
-        if gallery_status.fetching_cache == true {
+        if gallery_status.fetching_cache {
             ui.label("Updating model cache...");
         } else {
             if ui.add(Button::new("Update model cache")).clicked() {

@@ -32,15 +32,6 @@ pub struct ModelPreviewCamera {
 
 pub struct ModelPreviewPlugin;
 
-// TODO(luca) implement this system to scale the view based on the model's Aabb
-fn scale_preview_for_model_bounding_box(
-    aabbs: Query<&Aabb, Changed<Aabb>>,
-    parents: Query<&Parent>,
-    model_preview: Res<ModelPreviewCamera>,
-    camera_transforms: Query<&mut Transform, With<Camera>>,
-) {
-}
-
 impl FromWorld for ModelPreviewCamera {
     fn from_world(world: &mut World) -> Self {
         // camera
@@ -94,7 +85,6 @@ impl FromWorld for ModelPreviewCamera {
 
 impl Plugin for ModelPreviewPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ModelPreviewCamera>()
-            .add_system(scale_preview_for_model_bounding_box);
+        app.init_resource::<ModelPreviewCamera>();
     }
 }

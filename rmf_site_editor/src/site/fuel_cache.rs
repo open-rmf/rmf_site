@@ -58,7 +58,7 @@ pub fn handle_update_fuel_cache_requests(
     channels: Res<UpdateFuelCacheChannels>,
 ) {
     if events.iter().last().is_some() {
-        info!("Updating fuel cache");
+        info!("Updating fuel cache, this might take a few minutes");
         gallery_status.fetching_cache = true;
         let mut fuel_client = fuel_client.clone();
         let sender = channels.sender.clone();
