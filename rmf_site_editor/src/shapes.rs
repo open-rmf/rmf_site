@@ -1107,14 +1107,8 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
         let p0 = Vec3::new(p0[0], p0[1], 0.0);
         let p1 = Vec3::new(p1[0], p1[1], 0.0);
         let p2 = Vec3::new(p2[0], p2[1], 0.0);
-        let v0 = match (p1 - p0).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
-        let v1 = match (p2 - p1).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
+        let v0 = (p1 - p0).normalize_or_zero();
+        let v1 = (p2 - p1).normalize_or_zero();
 
         // n: normal
         let n = Vec3::Z;
