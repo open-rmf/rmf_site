@@ -60,7 +60,12 @@ impl<T: RefTrait> From<Path<T>> for Floor<T> {
     fn from(path: Path<T>) -> Self {
         Floor {
             anchors: path,
-            texture: Default::default(),
+            texture: Texture {
+                source: AssetSource::Remote(
+                    "OpenRobotics/RMF_Materials/textures/blue_linoleum.png".to_owned(),
+                ),
+                ..Default::default()
+            },
             marker: Default::default(),
         }
     }

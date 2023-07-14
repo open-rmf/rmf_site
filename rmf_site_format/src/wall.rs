@@ -60,7 +60,12 @@ impl<T: RefTrait> From<Edge<T>> for Wall<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self {
             anchors,
-            texture: Default::default(),
+            texture: Texture {
+                source: AssetSource::Remote(
+                    "OpenRobotics/RMF_Materials/textures/default.png".to_owned(),
+                ),
+                ..Default::default()
+            },
             marker: Default::default(),
         }
     }
