@@ -266,8 +266,8 @@ impl FromWorld for PointAsset {
             .get_resource_mut::<Assets<PointsMaterial>>()
             .unwrap();
         let bevy_point_material = points_materials.add(PointsMaterial {
-            point_size: 0.5,       // Defines the size of the points. 
-            perspective: true,      // Specify whether points' size is attenuated by the camera depth. 
+            point_size: 100.0,       // Defines the size of the points. 
+            perspective: false,      // Specify whether points' size is attenuated by the camera depth. 
             circle: true,           // Specify whether the shape of points is circular or rectangular.
             ..Default::default()
         });
