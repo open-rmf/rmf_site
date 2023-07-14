@@ -21,7 +21,7 @@ use crate::widgets::AssetGalleryStatus;
 use bevy::prelude::*;
 use bevy::tasks::IoTaskPool;
 use crossbeam_channel::{Receiver, Sender};
-use gz_fuel::FuelClient as GzFuelClient;
+use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
 
 #[derive(Resource, Clone, Default, Deref, DerefMut)]
 pub struct FuelClient(GzFuelClient);
@@ -30,7 +30,7 @@ pub struct FuelClient(GzFuelClient);
 pub struct UpdateFuelCache;
 
 #[derive(Deref, DerefMut)]
-pub struct FuelCacheUpdated(Option<FuelClient>);
+pub struct FuelCacheUpdated(Option<Vec<FuelModel>>);
 
 /// Event used to set the fuel API key from the UI. Will also trigger a reload for failed assets
 #[derive(Deref, DerefMut)]
@@ -64,11 +64,13 @@ pub fn handle_update_fuel_cache_requests(
         let sender = channels.sender.clone();
         IoTaskPool::get()
             .spawn(async move {
+                // Only write to cache in non wasm, no file system in web
+                #[cfg(target_arch = "wasm32")]
+                let write_to_disk = false;
+                #[cfg(not(target_arch = "wasm32"))]
+                let write_to_disk = true;
                 // Send client if update was successful
-                let res = fuel_client
-                    .update_cache()
-                    .await
-                    .and_then(|()| Some(fuel_client));
+                let res = fuel_client.update_cache(write_to_disk).await;
                 sender
                     .send(FuelCacheUpdated(res))
                     .expect("Failed sending fuel cache update event");
@@ -84,7 +86,7 @@ pub fn read_update_fuel_cache_results(
 ) {
     if let Ok(result) = channels.receiver.try_recv() {
         match result.0 {
-            Some(client) => *fuel_client = client,
+            Some(models) => fuel_client.models = Some(models),
             None => error!("Failed updating fuel cache"),
         }
         gallery_status.fetching_cache = false;
