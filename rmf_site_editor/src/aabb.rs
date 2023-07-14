@@ -88,7 +88,7 @@ pub fn update_bounds(
     meshes: Res<Assets<Mesh>>,
     mut mesh_reassigned: Query<(Entity, &Handle<Mesh>, &mut Aabb), Changed<Handle<Mesh>>>,
     mut entity_mesh_map: ResMut<EntityMeshMap>,
-    mut mesh_events: EventReader<AssetEvent<Mesh>>,
+    //mut mesh_events: EventReader<AssetEvent<Mesh>>,
     entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
 ) {
     for entity in entities_lost_mesh.iter() {
@@ -105,6 +105,15 @@ pub fn update_bounds(
         }
     }
 
+    // Note (luca) This has been removed since entity despawns are not caught to cleanup the
+    // entity_mesh_map and there is a possibility of panic in case we try to add an aabb to an
+    // entity that has since been despawned (i.e. when updating models' AssetSource and their scene
+    // is despawned).
+    // Tracking issue here with the details https://github.com/open-rmf/rmf_site/issues/145
+    // It seems we don't currently change meshes themselves outside of the model systems that cause
+    // the panic, with the general pattern in the editor being to reassign new handles
+    // so this event is never created anyway
+    /*
     let to_update = |event: &AssetEvent<Mesh>| {
         let handle = match event {
             AssetEvent::Modified { handle } => handle,
@@ -120,6 +129,7 @@ pub fn update_bounds(
             commands.entity(*entity).insert(aabb.clone());
         }
     }
+    */
 }
 
 pub struct AabbUpdatePlugin;
