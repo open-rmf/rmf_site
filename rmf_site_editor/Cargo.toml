@@ -61,3 +61,4 @@ surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 surf = { version = "2.3", default-features = false, features = ["wasm-client", "encoding"] }
+console_error_panic_hook = "0.1.7"

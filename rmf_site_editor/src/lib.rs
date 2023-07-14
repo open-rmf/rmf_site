@@ -104,8 +104,11 @@ fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapter
     }
 }
 
+#[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn run_js() {
+    extern crate console_error_panic_hook;
+    std::panic::set_hook(Box::new(console_error_panic_hook::hook));
     run(vec!["web".to_owned()]);
 }
 
