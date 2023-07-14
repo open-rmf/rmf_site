@@ -99,6 +99,7 @@ pub fn reload_failed_models_with_new_api_key(
     failed_models: Query<Entity, (With<ModelMarker>, Without<ModelSceneRoot>)>,
 ) {
     if let Some(key) = api_key_events.iter().last() {
+        info!("New API Key set, attempting to re-download failed models");
         *FUEL_API_KEY.lock().unwrap() = Some((**key).clone());
         for e in &failed_models {
             commands.entity(e).insert(TentativeModelFormat::default());

@@ -292,7 +292,12 @@ pub fn update_model_tentative_formats(
                 "Format not supported".to_owned()
             } else {
                 match source {
-                    AssetSource::Search(_) | AssetSource::Remote(_) => format!("Model not found, try using an API key if it belongs to a private organization, or add its path to the {} environment variable", MODEL_ENVIRONMENT_VARIABLE),
+                    AssetSource::Search(_) | AssetSource::Remote(_) => format!(
+                        "Model not found, try using an API key if it belongs to \
+                                a private organization, or add its path to the {} \
+                                environment variable",
+                        MODEL_ENVIRONMENT_VARIABLE
+                    ),
                     _ => "Failed parsing file".to_owned(),
                 }
             };
