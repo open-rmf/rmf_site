@@ -20,7 +20,10 @@ use crate::{
     interaction::IntersectGroundPlaneParams,
     interaction::*,
     keyboard::DebugMode,
-    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate, PointAsset},
+    site::{
+        Anchor, Category, Delete, Dependents, PointAsset, ScreenSpaceSelection, SiteAssets,
+        Subordinate,
+    },
 };
 use bevy::prelude::*;
 
@@ -61,6 +64,7 @@ pub fn add_anchor_visual_cues(
                 material: point_assets.bevy_point_material.clone(),
                 ..default()
             });
+            body.insert(ScreenSpaceSelection::Point);
             if subordinate.is_none() {
                 body.insert(DragPlaneBundle::new(e, Vec3::Z));
             }
@@ -107,23 +111,6 @@ pub fn move_anchor(
         }
     }
 }
-
-/*pub fn scale_anchor_by_dist(
-    mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
-    mut cameras: Query<(&Camera, &GlobalTransform)>,
-    camera_controls: Res<CameraControls>,)
-{
-    let cam_entity = match camera_controls.mode() {
-        ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
-        ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
-    };
-
-    if let Ok((camera, transform)) = cameras.get(cam_entity) {
-        // Ideally this should be a shader... not a cpu process...
-        // However, for now we
-        camera.
-    }
-}*/
 
 pub fn update_anchor_proximity_xray(
     mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,

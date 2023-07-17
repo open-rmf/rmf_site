@@ -1,15 +1,12 @@
-use bevy::{
-    prelude::*,
-    render::view::RenderLayers,
-    utils::{hashbrown::HashMap},
-};
+use bevy::{prelude::*, render::view::RenderLayers, utils::hashbrown::HashMap};
+use bevy_points::prelude::PointsMaterial;
 use bevy_polyline::prelude::*;
 
 use std::collections::BTreeMap;
 
-use crate::interaction::PICKING_LAYER;
+use crate::interaction::{LINE_PICKING_LAYER, POINT_PICKING_LAYER};
 
-use super::ImageToSave;
+use super::{ImageToSave, PointAsset};
 
 #[derive(Debug, Clone)]
 pub struct ScreenspacePolyline {
@@ -22,6 +19,7 @@ pub struct ScreenspacePolyline {
 #[derive(Component, Debug, Clone)]
 pub enum ScreenSpaceSelection {
     Polyline(ScreenspacePolyline),
+    Point,
 }
 
 impl ScreenSpaceSelection {
@@ -37,12 +35,13 @@ impl ScreenSpaceSelection {
 /// Label items which need to be selected.
 #[derive(Resource, Debug, Clone, Default)]
 pub struct ColorEntityMap {
-    entity_to_material_map: HashMap<Entity, Handle<PolylineMaterial>>,
+    entity_to_polyline_material_map: HashMap<Entity, Handle<PolylineMaterial>>,
+    entity_to_point_material_map: HashMap<Entity, Handle<PointsMaterial>>,
     color_to_entity_map: BTreeMap<(u8, u8, u8), Entity>,
 }
 
 impl ColorEntityMap {
-    fn allocate_new_color(
+    fn allocate_new_polyline_color(
         &mut self,
         entity: &Entity,
         polyline_materials: &mut ResMut<Assets<PolylineMaterial>>,
@@ -72,22 +71,69 @@ impl ColorEntityMap {
             ..default()
         });
 
-        self.entity_to_material_map
+        self.entity_to_polyline_material_map
             .insert(*entity, material.clone());
 
         material
     }
 
-    pub fn get_material(
+    fn allocate_new_point_material(
+        &mut self,
+        entity: &Entity,
+        point_materials: &mut ResMut<Assets<PointsMaterial>>,
+    ) -> Handle<PointsMaterial> {
+        let mut r = rand::random::<u8>();
+        let mut g = rand::random::<u8>();
+        let mut b = rand::random::<u8>();
+
+        while self.color_to_entity_map.get(&(r, g, b)).is_some()
+            || (r == u8::MAX && g == u8::MAX && b == u8::MAX)
+        {
+            r = rand::random::<u8>();
+            g = rand::random::<u8>();
+            b = rand::random::<u8>();
+        }
+        self.color_to_entity_map.insert((r, g, b), *entity);
+
+        let color = Color::rgb_u8(r, g, b);
+
+        let material = point_materials.add(PointsMaterial {
+            point_size: 30.0,   // Defines the size of the points.
+            perspective: false, // Specify whether points' size is attenuated by the camera depth.
+            circle: true,
+            use_vertex_color: false,
+            color,
+            ..default()
+        });
+
+        self.entity_to_point_material_map
+            .insert(*entity, material.clone());
+
+        material
+    }
+
+    pub fn get_polyline_material(
         &mut self,
         entity: &Entity,
         polyline_materials: &mut ResMut<Assets<PolylineMaterial>>,
         thickness: f32,
     ) -> Handle<PolylineMaterial> {
-        if let Some(color) = self.entity_to_material_map.get(entity) {
+        if let Some(color) = self.entity_to_polyline_material_map.get(entity) {
             color.clone()
         } else {
-            self.allocate_new_color(entity, polyline_materials, thickness)
+            self.allocate_new_polyline_color(entity, polyline_materials, thickness)
+        }
+    }
+
+    pub fn get_points_material(
+        &mut self,
+        entity: &Entity,
+        points_material: &mut ResMut<Assets<PointsMaterial>>,
+    ) -> Handle<PointsMaterial> {
+        if let Some(color) = self.entity_to_point_material_map.get(entity) {
+            color.clone()
+        } else {
+            self.allocate_new_point_material(entity, points_material)
         }
     }
 
@@ -98,19 +144,22 @@ impl ColorEntityMap {
 
 /// Label items which need to be selected.
 #[derive(Component, Debug, Clone)]
-pub struct ScreenSpaceEntity;
+pub struct ScreenSpaceEntity<const Layer: u8>;
 
-pub fn screenspace_selection_system(
+// TODO(arjo): Split off into 2 systems?
+pub fn screenspace_selection_system<const Layer: u8>(
     mut commands: Commands,
-    screen_space_lines: Query<(&ScreenSpaceSelection, Entity)>,
+    screen_space_lines: Query<(&ScreenSpaceSelection, Entity, Option<&GlobalTransform>)>,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut point_materials: ResMut<Assets<PointsMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
     mut color_map: ResMut<ColorEntityMap>,
-    screen_space_entities: Query<(&ScreenSpaceEntity, Entity)>,
-    images_to_save: Query<&ImageToSave>,
+    screen_space_entities: Query<(&ScreenSpaceEntity<Layer>, Entity)>,
+    images_to_save: Query<&ImageToSave<Layer>>,
+    point_assets: Res<PointAsset>,
 ) {
-    // TODO(arjo) Perhaps perform some form of diff calculation to
-    // Reduce ECS-churn.
+    // TODO(arjo) Make these children of relevent entities instead of
+    // this expensive operation
     for (_, entity) in &screen_space_entities {
         commands.entity(entity).despawn();
     }
@@ -122,7 +171,7 @@ pub fn screenspace_selection_system(
     };
 
     // Redraw parameters.
-    for (screenspace_shape, entity) in &screen_space_lines {
+    for (screenspace_shape, entity, tf) in &screen_space_lines {
         match screenspace_shape {
             ScreenSpaceSelection::Polyline(shape) => {
                 let thickness = shape.thickness * scale;
@@ -132,15 +181,33 @@ pub fn screenspace_selection_system(
                         polyline: polylines.add(Polyline {
                             vertices: vec![shape.start, shape.end],
                         }),
-                        material: color_map.get_material(
+                        material: color_map.get_polyline_material(
                             &entity,
                             &mut polyline_materials,
                             thickness,
                         ),
                         ..default()
                     },
-                    RenderLayers::layer(PICKING_LAYER),
-                    ScreenSpaceEntity,
+                    RenderLayers::layer(LINE_PICKING_LAYER),
+                    ScreenSpaceEntity::<LINE_PICKING_LAYER>,
+                ));
+            }
+            ScreenSpaceSelection::Point => {
+                let Some(tf) = tf else {
+                    continue;
+                };
+
+                commands.spawn((
+                    MaterialMeshBundle {
+                        mesh: point_assets.bevy_point_mesh.clone(),
+                        material: color_map
+                            .get_points_material(&entity, &mut point_materials)
+                            .clone(),
+                        transform: Transform::from_translation(tf.translation()), // TODO(arjo): Remove after parenting
+                        ..default()
+                    },
+                    RenderLayers::layer(POINT_PICKING_LAYER),
+                    ScreenSpaceEntity::<POINT_PICKING_LAYER>,
                 ));
             }
         }

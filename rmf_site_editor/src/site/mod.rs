@@ -103,10 +103,17 @@ pub use offscreen_render_tests::*;
 pub mod camera_capture;
 pub use camera_capture::*;
 
-use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use crate::{
+    interaction::{LINE_PICKING_LAYER, POINT_PICKING_LAYER},
+    recency::{RecencyRank, RecencyRankingPlugin},
+};
 pub use rmf_site_format::*;
 
-use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::{
+    prelude::*,
+    render::view::{visibility::VisibilitySystems, RenderLayers},
+    transform::TransformSystem,
+};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
@@ -200,10 +207,13 @@ impl Plugin for SitePlugin {
             .add_plugin(ImageCopyPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
-            .add_system(resize_notificator)
-            .add_system_to_stage(CoreStage::PostUpdate, image_saver)
+            .add_system(resize_notificator::<LINE_PICKING_LAYER>)
+            .add_system(resize_notificator::<POINT_PICKING_LAYER>)
+            .add_system_to_stage(CoreStage::PostUpdate, image_saver::<POINT_PICKING_LAYER>)
+            .add_system_to_stage(CoreStage::PostUpdate, image_saver::<LINE_PICKING_LAYER>)
             .init_resource::<ColorEntityMap>()
-            .add_system(screenspace_selection_system)
+            .add_system(screenspace_selection_system::<LINE_PICKING_LAYER>)
+            .add_system(screenspace_selection_system::<POINT_PICKING_LAYER>)
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)

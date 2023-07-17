@@ -1,3 +1,4 @@
+use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
 use bevy::prelude::*;
@@ -6,11 +7,10 @@ use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
-use bevy::{core_pipeline::clear_color::ClearColorConfig, input::keyboard::KeyboardInput};
 
 use super::{ColorEntityMap, ImageCopier};
 use crate::interaction::camera_controls::MouseLocation;
-use crate::interaction::{CameraControls, ProjectionMode, PICKING_LAYER};
+use crate::interaction::{CameraControls, ProjectionMode};
 use crate::keyboard::DebugMode;
 
 #[derive(Component, Clone, Debug, Default)]
@@ -22,9 +22,9 @@ pub struct RenderingBufferDetails {
 }
 
 #[derive(Component)]
-pub struct ImageToSave(Handle<Image>, u32, u32, pub f32);
+pub struct ImageToSave<const Layer: u8>(Handle<Image>, u32, u32, pub f32);
 
-pub fn resize_notificator(
+pub fn resize_notificator<const Layer: u8>(
     mut resize_event: EventReader<WindowResized>,
     mut render_buffer_details: Local<RenderingBufferDetails>,
     mut commands: Commands,
@@ -32,7 +32,7 @@ pub fn resize_notificator(
     camera_controls: Res<CameraControls>,
     cameras: Query<(&Camera, &GlobalTransform)>,
     render_device: Res<RenderDevice>,
-    handles: Query<(&ImageToSave, Entity)>,
+    handles: Query<(&ImageToSave<Layer>, Entity)>,
 ) {
     let view_cam_entity = match camera_controls.mode() {
         ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
@@ -109,7 +109,7 @@ pub fn resize_notificator(
             render_buffer_details.image = render_target_image_handle.clone();
 
             let image = commands
-                .spawn(ImageToSave(
+                .spawn(ImageToSave::<Layer>(
                     cpu_image_handle.clone(),
                     size.width,
                     size.height,
@@ -134,7 +134,7 @@ pub fn resize_notificator(
                         },
                         ..default()
                     },
-                    RenderLayers::layer(PICKING_LAYER),
+                    RenderLayers::layer(Layer),
                 ))
                 .remove::<Fxaa>()
                 .id();
@@ -162,8 +162,8 @@ pub fn resize_notificator(
     }
 }
 
-pub fn image_saver(
-    images_to_save: Query<&ImageToSave>,
+pub fn image_saver<const Layer: u8>(
+    images_to_save: Query<&ImageToSave<Layer>>,
     camera_controls: Res<CameraControls>,
     cameras: Query<&Camera>,
     mut images: ResMut<Assets<Image>>,
@@ -177,7 +177,9 @@ pub fn image_saver(
     };
 
     let offset = if let Ok(camera) = cameras.get(view_cam_entity) {
-        let (viewport_min, viewport_max) = camera.logical_viewport_rect().unwrap();
+        let Some((viewport_min, viewport_max)) = camera.logical_viewport_rect() else {
+            return;
+        };
         let screen_size = camera.logical_target_size().unwrap();
         // let viewport_size = viewport_max - viewport_min;
         Vec2::new(viewport_min.x, screen_size.y - viewport_max.y)
@@ -189,31 +191,30 @@ pub fn image_saver(
     for image in images_to_save.iter() {
         let data = &images.get_mut(&image.0).unwrap().data;
 
-        let img = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+        let Some(img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
             image.1,
             image.2,
             data.as_slice(),
         )
-        .unwrap();
+        else {
+            continue;
+        };
 
         let mx = (mouse_position.x * image.3) as u32;
         let my = (mouse_position.y * image.3) as u32;
 
         if debug.0 {
             println!("x : {}, y: {}", mx, my);
-            let result = img.save("test_r.png");
+            let result = img.save(format!("picking_layer_{:?}.png", Layer));
             if let Err(something) = result {
                 println!("{:?}", something);
             }
         }
 
-
-
         if let Some(pixel) = img.get_pixel_checked(mx, my) {
-
             if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
                 if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
-                    println!("Selected {:?}", entity);
+                    println!("Selected {:?} {:?}", entity, Layer);
                 } else {
                     println!("Uh-oh can't find color {:?}", pixel);
                     //Color::as_linear_rgba_f32(self)

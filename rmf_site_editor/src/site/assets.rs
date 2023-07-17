@@ -51,7 +51,6 @@ pub struct SiteAssets {
     pub physical_camera_material: Handle<StandardMaterial>,
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
-
 }
 
 impl FromWorld for SiteAssets {
@@ -235,7 +234,6 @@ impl FromWorld for SiteAssets {
             physical_camera_material,
             occupied_material,
             default_mesh_grey_material,
-            
         }
     }
 }
@@ -262,24 +260,20 @@ pub struct PointAsset {
 
 impl FromWorld for PointAsset {
     fn from_world(world: &mut World) -> Self {
-        let mut points_materials = world
-            .get_resource_mut::<Assets<PointsMaterial>>()
-            .unwrap();
+        let mut points_materials = world.get_resource_mut::<Assets<PointsMaterial>>().unwrap();
         let bevy_point_material = points_materials.add(PointsMaterial {
-            point_size: 100.0,       // Defines the size of the points. 
-            perspective: false,      // Specify whether points' size is attenuated by the camera depth. 
-            circle: true,           // Specify whether the shape of points is circular or rectangular.
+            point_size: 100.0,  // Defines the size of the points.
+            perspective: false, // Specify whether points' size is attenuated by the camera depth.
+            circle: true,       // Specify whether the shape of points is circular or rectangular.
             ..Default::default()
         });
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
-        let bevy_point_mesh = meshes.add(PointsMesh::from_iter((0..1).map(|i| {
-            Vec3::ZERO
-        })).into());
+        let bevy_point_mesh = meshes.add(PointsMesh::from_iter((0..1).map(|i| Vec3::ZERO)).into());
 
         Self {
             bevy_point_material,
-            bevy_point_mesh
+            bevy_point_mesh,
         }
     }
 }
