@@ -26,7 +26,7 @@ pub const CONSTRAINT_LAYER_START: f32 =
     FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 const CONSTRAINT_WIDTH: f32 = 0.2 * LANE_WIDTH;
 
-/// Stores which (child) entity contains the measurement mesh
+/// Stores which (child) entity contains the constraint mesh
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct ConstraintSegment(pub Entity);
 
@@ -196,8 +196,7 @@ pub fn update_constraint_for_changed_labels(
             if p2 == p1 {
                 continue;
             }
-            // TODO(luca) also make sure they both have a value?
-            if l1 == l2 {
+            if l1.is_some() && l1 == l2 {
                 // Make sure there isn't a constraint already between the two points
                 // A constraint is a dependent of both anchors so we only need to check one
                 if dependents

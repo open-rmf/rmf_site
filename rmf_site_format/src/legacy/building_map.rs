@@ -72,7 +72,7 @@ impl BuildingMap {
                 drawing_vertices.insert(measurement.0);
                 drawing_vertices.insert(measurement.1);
             }
-            for (idx, mut v) in level.vertices.iter_mut().enumerate() {
+            for (idx, v) in level.vertices.iter_mut().enumerate() {
                 if drawing_vertices.contains(&idx) {
                     v.1 = -v.1;
                 } else {

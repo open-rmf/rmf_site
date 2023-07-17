@@ -27,7 +27,7 @@ use bevy_egui::egui::{ImageButton, Ui};
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
     pub icons: &'a Icons,
-    /// Does the floor have a custom visibility setting?
+    /// Does the layer have a custom visibility setting?
     pub layer_vis: Option<LayerVisibility>,
     /// Alpha to be applied for semi-transparent variant
     pub default_alpha: f32,

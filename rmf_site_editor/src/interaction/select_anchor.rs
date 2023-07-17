@@ -1149,7 +1149,7 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         self.drawings.iter().find(|(e, _)| {
             self.visibility
                 .get(*e)
-                .map_or(false, |vis| vis.is_visible == true)
+                .is_ok_and(|vis| vis.is_visible == true)
         })
     }
 
@@ -1954,17 +1954,9 @@ pub fn handle_select_anchor_mode(
                 // If we are working with requests that span multiple drawings,
                 // (constraints) hide all non fiducials
                 for (e, _) in &params.anchors {
-                    if params
-                        .dependents
-                        .get(e)
-                        .ok()
-                        .and_then(|deps| {
-                            deps.0
-                                .iter()
-                                .find(|dep| params.fiducials.get(**dep).is_ok())
-                        })
-                        .is_none()
-                    {
+                    if !params.dependents.get(e).is_ok_and(|deps| {
+                        deps.0.iter().any(|dep| params.fiducials.get(*dep).is_ok())
+                    }) {
                         if let Ok(mut visibility) = params.visibility.get_mut(e) {
                             visibility.is_visible = false;
                             params.hidden_entities.level_anchors.insert(e);
@@ -1978,9 +1970,7 @@ pub fn handle_select_anchor_mode(
                     params
                         .parents
                         .get(*e)
-                        .ok()
-                        .and_then(|p| params.drawings.get(**p).ok())
-                        .is_some()
+                        .is_ok_and(|p| params.drawings.get(**p).is_ok())
                 }) {
                     set_visibility(anchor.0, &mut params.visibility, false);
                     params.hidden_entities.drawing_anchors.insert(anchor.0);
