@@ -241,15 +241,16 @@ pub fn buffer_to_selection<const Layer: u8>(
                     }
 
                     if Layer == LINE_PICKING_LAYER {
-
                         // TODO(arjoc): Make picker contain parent entity
-                        let result: Vec<_> = lane_segments.iter().filter(
-                            |(_, segment)| segment.picker == *entity).collect();
+                        let result: Vec<_> = lane_segments
+                            .iter()
+                            .filter(|(_, segment)| segment.picker == *entity)
+                            .collect();
 
                         if result.len() > 0usize {
                             println!("Not a lane segment");
                             continue;
-                        }    
+                        }
 
                         if mouse_button_input.just_released(MouseButton::Left) {
                             select_event.send(Select(Some(*entity)));
