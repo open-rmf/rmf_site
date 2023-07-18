@@ -167,7 +167,7 @@ pub fn resize_notificator<const Layer: u8>(
     }
 }
 
-pub fn image_saver<const Layer: u8>(
+pub fn buffer_to_selection<const Layer: u8>(
     images_to_save: Query<&ImageToSave<Layer>>,
     camera_controls: Res<CameraControls>,
     cameras: Query<&Camera>,
