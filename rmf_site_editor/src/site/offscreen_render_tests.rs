@@ -1,3 +1,6 @@
+use crate::interaction::Hover;
+use crate::interaction::Select;
+use crate::interaction::LINE_PICKING_LAYER;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
@@ -7,10 +10,12 @@ use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
+use rmf_site_format::Anchor;
 
-use super::{ColorEntityMap, ImageCopier};
+use super::LaneSegments;
+use super::{ColorEntityMap, ImageCopier, ScreenSpaceSelection};
 use crate::interaction::camera_controls::MouseLocation;
-use crate::interaction::{CameraControls, ProjectionMode};
+use crate::interaction::{CameraControls, ProjectionMode, Selected, POINT_PICKING_LAYER};
 use crate::keyboard::DebugMode;
 
 #[derive(Component, Clone, Debug, Default)]
@@ -170,6 +175,12 @@ pub fn image_saver<const Layer: u8>(
     mut color_map: ResMut<ColorEntityMap>,
     debug: ResMut<DebugMode>,
     mouse_location: Res<MouseLocation>,
+    anchors: Query<&Anchor>,
+    lane_segments: Query<(Entity, &LaneSegments)>,
+    selections: Query<(&ScreenSpaceSelection, &Parent)>,
+    mut hover_event: EventWriter<Hover>,
+    mut select_event: EventWriter<Select>,
+    mouse_button_input: Res<Input<MouseButton>>,
 ) {
     let view_cam_entity = match camera_controls.mode() {
         ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
@@ -181,7 +192,6 @@ pub fn image_saver<const Layer: u8>(
             return;
         };
         let screen_size = camera.logical_target_size().unwrap();
-        // let viewport_size = viewport_max - viewport_min;
         Vec2::new(viewport_min.x, screen_size.y - viewport_max.y)
     } else {
         Vec2::ZERO
@@ -214,7 +224,39 @@ pub fn image_saver<const Layer: u8>(
         if let Some(pixel) = img.get_pixel_checked(mx, my) {
             if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
                 if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
-                    println!("Selected {:?} {:?}", entity, Layer);
+                    if Layer == POINT_PICKING_LAYER {
+                        let Ok((_, parent)) = selections.get(*entity) else {
+                            println!("No parent found");
+                            continue;
+                        };
+                        let Ok(_) = anchors.get(parent.get()) else {
+                            println!("Not an anchor");
+                            continue;
+                        };
+                        if (mouse_button_input.just_released(MouseButton::Left)) {
+                            select_event.send(Select(Some(parent.get())));
+                        } else {
+                            hover_event.send(Hover(Some(parent.get())));
+                        }
+                    }
+
+                    if Layer == LINE_PICKING_LAYER {
+
+                        // TODO(arjoc): Make picker contain parent entity
+                        let result: Vec<_> = lane_segments.iter().filter(
+                            |(_, segment)| segment.picker == *entity).collect();
+
+                        if result.len() > 0usize {
+                            println!("Not a lane segment");
+                            continue;
+                        }    
+
+                        if mouse_button_input.just_released(MouseButton::Left) {
+                            select_event.send(Select(Some(*entity)));
+                        } else {
+                            hover_event.send(Hover(Some(*entity)));
+                        }
+                    }
                 } else {
                     println!("Uh-oh can't find color {:?}", pixel);
                     //Color::as_linear_rgba_f32(self)
