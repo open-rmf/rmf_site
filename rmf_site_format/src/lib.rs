@@ -66,6 +66,9 @@ pub use measurement::*;
 pub mod misc;
 pub use misc::*;
 
+pub mod mobile_robot;
+pub use mobile_robot::*;
+
 pub mod model;
 pub use model::*;
 
@@ -86,6 +89,9 @@ pub use point::*;
 
 pub mod recall;
 pub use recall::*;
+
+pub mod scenario;
+pub use scenario::*;
 
 pub mod semver;
 pub use semver::*;
