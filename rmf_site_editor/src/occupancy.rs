@@ -157,7 +157,7 @@ fn calculate_grid(
     )>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,
-    sites: Query<(), With<SiteProperties>>,
+    sites: Query<(), With<SiteProperties<Entity>>>,
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
@@ -313,7 +313,7 @@ fn get_group(
     e: Entity,
     parents: &Query<&Parent>,
     levels: &Query<Entity, With<LevelProperties>>,
-    sites: &Query<(), With<SiteProperties>>,
+    sites: &Query<(), With<SiteProperties<Entity>>>,
 ) -> Group {
     let mut e_meta = e;
     loop {

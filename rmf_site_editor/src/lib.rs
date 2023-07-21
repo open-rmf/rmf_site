@@ -29,6 +29,8 @@ use widgets::*;
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
+pub mod issue;
+use issue::*;
 
 mod demo_world;
 mod log;
@@ -183,6 +185,7 @@ pub fn run(command_line_args: Vec<String>) {
         .add_plugin(WorkcellEditorPlugin)
         .add_plugin(SitePlugin)
         .add_plugin(InteractionPlugin)
+        .add_plugin(IssuePlugin)
         .add_plugin(StandardUiLayout)
         .add_plugin(AnimationPlugin)
         .add_plugin(OccupancyPlugin)

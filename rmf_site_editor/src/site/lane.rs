@@ -74,7 +74,7 @@ pub fn assign_orphan_nav_elements_to_site(
         ),
     >,
     current_workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for e in &elements {

@@ -88,7 +88,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         Self { params, events }
     }
 
-    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<SiteProperties>>) {
+    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<SiteProperties<Entity>>>) {
         let ranking = match self.events.request.current_workspace.root {
             Some(c) => match self.params.ranking.get(c) {
                 Ok(r) => r,
@@ -297,7 +297,7 @@ pub fn resolve_nav_graph_import_export_files(
     mut nav_graph_display: ResMut<NavGraphDisplay>,
     mut save_nav_graphs: EventWriter<SaveNavGraphs>,
     mut import_nav_graphs: EventWriter<ImportNavGraphs>,
-    open_sites: Query<Entity, With<rmf_site_format::SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     if 'resolved: {

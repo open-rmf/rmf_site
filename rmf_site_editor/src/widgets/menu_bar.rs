@@ -15,7 +15,9 @@
  *
 */
 
-use crate::{CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters};
+use crate::{
+    CreateNewWorkspace, LoadWorkspace, SaveWorkspace, TopMenuEvents, VisibilityParameters,
+};
 
 use bevy_egui::{
     egui::{self, Button},
@@ -24,14 +26,14 @@ use bevy_egui::{
 
 pub fn top_menu_bar(
     egui_context: &mut EguiContext,
-    file_events: &mut FileEvents,
+    top_menu_events: &mut TopMenuEvents,
     params: &mut VisibilityParameters,
 ) {
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    file_events.new_workspace.send(CreateNewWorkspace);
+                    top_menu_events.new_workspace.send(CreateNewWorkspace);
                 }
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -39,7 +41,7 @@ pub fn top_menu_bar(
                         .add(Button::new("Save").shortcut_text("Ctrl+S"))
                         .clicked()
                     {
-                        file_events
+                        top_menu_events
                             .save
                             .send(SaveWorkspace::new().to_default_file());
                     }
@@ -47,14 +49,14 @@ pub fn top_menu_bar(
                         .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
                         .clicked()
                     {
-                        file_events.save.send(SaveWorkspace::new().to_dialog());
+                        top_menu_events.save.send(SaveWorkspace::new().to_dialog());
                     }
                 }
                 if ui
                     .add(Button::new("Open").shortcut_text("Ctrl+O"))
                     .clicked()
                 {
-                    file_events.load_workspace.send(LoadWorkspace::Dialog);
+                    top_menu_events.load_workspace.send(LoadWorkspace::Dialog);
                 }
             });
             ui.menu_button("View", |ui| {
@@ -143,6 +145,11 @@ pub fn top_menu_bar(
                     .clicked()
                 {
                     params.events.walls.send((!params.resources.walls.0).into());
+                }
+            });
+            ui.menu_button("Tools", |ui| {
+                if ui.add(Button::new("Validate")).clicked() {
+                    top_menu_events.diagnostic_window.show = true;
                 }
             });
         });

@@ -110,7 +110,7 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {

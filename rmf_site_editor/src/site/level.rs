@@ -33,7 +33,7 @@ pub fn update_level_visibility(
 pub fn assign_orphan_levels_to_site(
     mut commands: Commands,
     new_levels: Query<Entity, (Without<Parent>, Added<LevelProperties>)>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(site) = current_workspace.to_site(&open_sites) {

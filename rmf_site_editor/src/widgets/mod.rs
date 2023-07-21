@@ -29,7 +29,8 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
     },
-    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    AppState, CreateNewWorkspace, CurrentWorkspace, Issue, IssueDictionary, LoadWorkspace,
+    SaveWorkspace, ValidateCurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -40,6 +41,9 @@ use rmf_site_format::*;
 
 pub mod create;
 use create::CreateWidget;
+
+pub mod diagnostic_window;
+use diagnostic_window::*;
 
 pub mod menu_bar;
 use menu_bar::*;
@@ -86,6 +90,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<DiagnosticWindowState>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -141,10 +146,14 @@ pub struct WorkcellChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct FileEvents<'w, 's> {
+pub struct TopMenuEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
+    pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
+    pub validate_event: EventWriter<'w, 's, ValidateCurrentWorkspace>,
+    pub issue_dictionary: Res<'w, IssueDictionary>,
+    pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
 }
 
 #[derive(SystemParam)]
@@ -235,7 +244,7 @@ pub struct AppEvents<'w, 's> {
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
-    pub file_events: FileEvents<'w, 's>,
+    pub top_menu_events: TopMenuEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
@@ -258,11 +267,12 @@ pub struct AppEvents<'w, 's> {
 fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     inspector_params: InspectorParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
+    mut diagnostic_params: DiagnosticParams,
     layers: LayersParams,
     mut events: AppEvents,
 ) {
@@ -327,9 +337,11 @@ fn site_ui_layout(
 
     top_menu_bar(
         &mut egui_context,
-        &mut events.file_events,
+        &mut events.top_menu_events,
         &mut events.visibility_parameters,
     );
+
+    DiagnosticWindow::new(&mut events, &mut diagnostic_params).show(egui_context.ctx_mut());
 
     egui::TopBottomPanel::bottom("log_console")
         .resizable(true)
@@ -401,7 +413,7 @@ fn site_drawing_ui_layout(
 
     top_menu_bar(
         &mut egui_context,
-        &mut events.file_events,
+        &mut events.top_menu_events,
         &mut events.visibility_parameters,
     );
 
@@ -467,7 +479,7 @@ fn site_visualizer_ui_layout(
 
     top_menu_bar(
         &mut egui_context,
-        &mut events.file_events,
+        &mut events.top_menu_events,
         &mut events.visibility_parameters,
     );
 
@@ -529,7 +541,7 @@ fn workcell_ui_layout(
 
     top_menu_bar(
         &mut egui_context,
-        &mut events.file_events,
+        &mut events.top_menu_events,
         &mut events.visibility_parameters,
     );
 

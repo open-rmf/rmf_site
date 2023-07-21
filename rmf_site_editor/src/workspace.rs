@@ -103,7 +103,10 @@ impl Default for LoadWorkspaceChannels {
 pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
+    pub fn to_site(
+        self,
+        open_sites: &Query<Entity, With<SiteProperties<Entity>>>,
+    ) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
     }

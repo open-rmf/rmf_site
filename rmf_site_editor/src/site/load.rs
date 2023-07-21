@@ -51,7 +51,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
     let mut site_cmd = commands.spawn(SpatialBundle::INVISIBLE_IDENTITY);
     site_cmd
         .insert(Category::Site)
-        .insert(site_data.properties.clone())
         .with_children(|site| {
             for (anchor_id, anchor) in &site_data.anchors {
                 let anchor_entity = site
@@ -240,7 +239,8 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 id_to_entity.insert(*location_id, location);
                 consider_id(*location_id);
             }
-        });
+        })
+        .insert(site_data.properties.to_ecs(&id_to_entity));
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,
@@ -317,7 +317,7 @@ pub struct ImportNavGraphs {
 #[derive(SystemParam)]
 pub struct ImportNavGraphParams<'w, 's> {
     commands: Commands<'w, 's>,
-    sites: Query<'w, 's, &'static Children, With<SiteProperties>>,
+    sites: Query<'w, 's, &'static Children, With<SiteProperties<Entity>>>,
     levels: Query<
         'w,
         's,
@@ -520,7 +520,7 @@ pub fn import_nav_graph(
     mut import_requests: EventReader<ImportNavGraphs>,
     mut autoload: Option<ResMut<Autoload>>,
     current_workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {

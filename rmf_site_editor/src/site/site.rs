@@ -49,7 +49,7 @@ pub fn change_site(
     mut current_level: ResMut<CurrentLevel>,
     cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
     levels: Query<Entity, With<LevelProperties>>,

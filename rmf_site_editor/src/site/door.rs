@@ -15,12 +15,14 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, issue::*, shapes::*, site::*, CurrentWorkspace};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
+    utils::Uuid,
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use std::collections::{BTreeSet, HashMap};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
@@ -317,6 +319,53 @@ pub fn update_door_for_moved_anchors(
                     &mut mesh_handles,
                     &mut mesh_assets,
                 );
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated door names
+const DUPLICATED_DOOR_NAME_ISSUE_UUID: &str = "73f641f2-a08d-4ffd-9021-6eb9bacb4743";
+
+pub fn register_duplicated_door_issue(mut dictionary: ResMut<IssueDictionary>) {
+    let type_uuid = Uuid::parse_str(DUPLICATED_DOOR_NAME_ISSUE_UUID).unwrap();
+    let name = String::from("Duplicated Door Name");
+    register_issue(type_uuid, name, &mut dictionary);
+}
+
+// When triggered by a validation request event, check if there are duplicated door names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_door_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateCurrentWorkspace>,
+    current_workspace: Res<CurrentWorkspace>,
+    parents: Query<&Parent>,
+    door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
+) {
+    if validate_events.iter().last().is_some() {
+        let Some(root) = current_workspace.root else {
+            return;
+        };
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &door_names {
+            if AncestorIter::new(&parents, e).any(|p| p == root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: Uuid::parse_str(DUPLICATED_DOOR_NAME_ISSUE_UUID).unwrap(),
+                    },
+                    brief: format!("Multiple doors found with the same name {}", name),
+                    hint: "Doors use their names as identifiers with RMF and each door should have a unique \
+                           name, rename the affected doors".to_string()
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(root).add_child(id);
             }
         }
     }

@@ -26,7 +26,7 @@ pub struct SiteVisualizerPlugin;
 
 fn show_all_levels(
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     children: Query<&Children>,
     mut levels: Query<(&mut Visibility, &mut Transform, &LevelProperties)>,
     mut lanes_visibility: EventWriter<SetCategoryVisibility<LaneMarker>>,
@@ -47,7 +47,7 @@ fn show_all_levels(
 
 fn hide_all_non_current_levels(
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
     children: Query<&Children>,
     mut levels: Query<(&mut Visibility, &mut Transform), With<LevelProperties>>,
     current_level: Res<CurrentLevel>,

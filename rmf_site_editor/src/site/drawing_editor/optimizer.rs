@@ -300,7 +300,7 @@ pub fn align_level_drawings(
 
 pub fn align_site_drawings(
     levels: Query<(Entity, &Children, &Parent, &LevelProperties)>,
-    sites: Query<&Children, With<SiteProperties>>,
+    sites: Query<&Children, With<SiteProperties<Entity>>>,
     mut events: EventReader<AlignSiteDrawings>,
     params: OptimizationParams,
     mut change: OptimizationChangeParams,

@@ -1904,7 +1904,7 @@ pub fn handle_select_anchor_mode(
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),

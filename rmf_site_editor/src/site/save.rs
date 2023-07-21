@@ -897,6 +897,38 @@ fn generate_graph_rankings(
         .collect()
 }
 
+fn generate_site_properties(
+    world: &mut World,
+    site: Entity,
+) -> Result<SiteProperties<u32>, SiteGenerationError> {
+    let mut state: SystemState<Query<&SiteID>> = SystemState::new(world);
+    let site_id = state.get(world);
+    let props = world
+        .get::<SiteProperties<Entity>>(site)
+        .ok_or(SiteGenerationError::InvalidSiteEntity(site))?;
+
+    let properties = SiteProperties {
+        name: props.name.clone(),
+        filtered_issues: props
+            .filtered_issues
+            .iter()
+            .map(|key| {
+                let entities = key
+                    .entities
+                    .iter()
+                    .map(|e| site_id.get(*e).unwrap().0)
+                    .collect();
+                IssueKey {
+                    entities,
+                    kind: key.kind,
+                }
+            })
+            .collect(),
+        filtered_issue_kinds: props.filtered_issue_kinds.clone(),
+    };
+    Ok(properties)
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -909,18 +941,12 @@ pub fn generate_site(
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
-
-    let props = match world.get::<SiteProperties>(site) {
-        Some(props) => props,
-        None => {
-            return Err(SiteGenerationError::InvalidSiteEntity(site));
-        }
-    };
+    let properties = generate_site_properties(world, site)?;
 
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties: props.clone(),
+        properties,
         levels,
         lifts,
         navigation: Navigation {

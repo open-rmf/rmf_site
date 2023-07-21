@@ -19,20 +19,47 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Entity};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    io,
+};
+use uuid::Uuid;
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct SiteProperties {
+pub struct SiteProperties<T: RefTrait> {
     pub name: String,
+    // TODO(luca) group these into an IssueFilters?
+    pub filtered_issues: BTreeSet<IssueKey<T>>,
+    pub filtered_issue_kinds: BTreeSet<Uuid>,
 }
 
-impl Default for SiteProperties {
+impl<T: RefTrait> Default for SiteProperties<T> {
     fn default() -> Self {
         Self {
             name: "new_site".to_string(),
+            filtered_issues: Default::default(),
+            filtered_issue_kinds: Default::default(),
+        }
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl SiteProperties<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> SiteProperties<Entity> {
+        SiteProperties {
+            name: self.name.clone(),
+            filtered_issues: self
+                .filtered_issues
+                .iter()
+                .map(|i| i.to_ecs(id_to_entity))
+                .collect(),
+            filtered_issue_kinds: self.filtered_issue_kinds.clone(),
         }
     }
 }
@@ -47,7 +74,7 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
-    pub properties: SiteProperties,
+    pub properties: SiteProperties<u32>,
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,

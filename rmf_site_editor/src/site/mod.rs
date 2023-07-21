@@ -108,6 +108,7 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+use crate::clear_old_issues_on_new_validate_event;
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 pub use rmf_site_format::*;
 
@@ -208,6 +209,7 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
+            .add_startup_system(register_duplicated_door_issue)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -218,6 +220,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
                     .with_system(update_drawing_pixels_per_meter)
+                    .with_system(check_for_duplicated_door_names)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
@@ -305,6 +308,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(align_level_drawings)
                     .with_system(align_site_drawings)
+                    .with_system(clear_old_issues_on_new_validate_event)
                     .with_system(export_lights),
             );
     }
