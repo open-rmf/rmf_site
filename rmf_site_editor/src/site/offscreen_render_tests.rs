@@ -226,11 +226,11 @@ pub fn buffer_to_selection<const Layer: u8>(
                 if let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) {
                     if Layer == POINT_PICKING_LAYER {
                         let Ok((_, parent)) = selections.get(*entity) else {
-                            println!("No parent found");
+                            error!("No parent found");
                             continue;
                         };
                         let Ok(_) = anchors.get(parent.get()) else {
-                            println!("Not an anchor");
+                            error!("Not an anchor");
                             continue;
                         };
                         if (mouse_button_input.just_released(MouseButton::Left)) {
@@ -240,24 +240,23 @@ pub fn buffer_to_selection<const Layer: u8>(
                         }
                     }
 
-                    if Layer == LINE_PICKING_LAYER {
+                    /*if Layer == LINE_PICKING_LAYER {
                         // TODO(arjoc): Make picker contain parent entity
                         let result: Vec<_> = lane_segments
                             .iter()
                             .filter(|(_, segment)| segment.picker == *entity)
                             .collect();
 
-                        if result.len() > 0usize {
-                            println!("Not a lane segment");
+                        if result.len() == 0usize {
                             continue;
-                        }
+                        }             
 
                         if mouse_button_input.just_released(MouseButton::Left) {
                             select_event.send(Select(Some(*entity)));
                         } else {
                             hover_event.send(Hover(Some(*entity)));
                         }
-                    }
+                    }*/
                 } else {
                     println!("Uh-oh can't find color {:?}", pixel);
                     //Color::as_linear_rgba_f32(self)
