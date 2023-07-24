@@ -325,13 +325,8 @@ pub fn update_door_for_moved_anchors(
 }
 
 /// Unique UUID to identify issue of duplicated door names
-const DUPLICATED_DOOR_NAME_ISSUE_UUID: &str = "73f641f2-a08d-4ffd-9021-6eb9bacb4743";
-
-pub fn register_duplicated_door_issue(mut dictionary: ResMut<IssueDictionary>) {
-    let type_uuid = Uuid::parse_str(DUPLICATED_DOOR_NAME_ISSUE_UUID).unwrap();
-    let name = String::from("Duplicated Door Name");
-    register_issue(type_uuid, name, &mut dictionary);
-}
+pub const DUPLICATED_DOOR_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x73f641f2a08d4ffd90216eb9bacb4743u128);
 
 // When triggered by a validation request event, check if there are duplicated door names and
 // generate an issue if that is the case
@@ -358,7 +353,7 @@ pub fn check_for_duplicated_door_names(
                 let issue = Issue {
                     key: IssueKey {
                         entities: entities,
-                        kind: Uuid::parse_str(DUPLICATED_DOOR_NAME_ISSUE_UUID).unwrap(),
+                        kind: DUPLICATED_DOOR_NAME_ISSUE_UUID,
                     },
                     brief: format!("Multiple doors found with the same name {}", name),
                     hint: "Doors use their names as identifiers with RMF and each door should have a unique \

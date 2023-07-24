@@ -16,8 +16,7 @@
 */
 
 use crate::{
-    interaction::Selectable, register_issue, shapes::*, site::*, CurrentWorkspace, Issue,
-    IssueDictionary, ValidateCurrentWorkspace,
+    interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateCurrentWorkspace,
 };
 use bevy::{
     prelude::*,
@@ -604,13 +603,8 @@ fn remove_door(
 }
 
 /// Unique UUID to identify issue of duplicated lift names
-const DUPLICATED_LIFT_NAME_ISSUE_UUID: &str = "307e8182-2d8d-4b62-b20f-2503955f1032";
-
-pub fn register_duplicated_lift_issue(mut dictionary: ResMut<IssueDictionary>) {
-    let type_uuid = Uuid::parse_str(DUPLICATED_LIFT_NAME_ISSUE_UUID).unwrap();
-    let name = String::from("Duplicated Lift Name");
-    register_issue(type_uuid, name, &mut dictionary);
-}
+pub const DUPLICATED_LIFT_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x307e81822d8d4b62b20f2503955f1032u128);
 
 // When triggered by a validation request event, check if there are duplicated door names and
 // generate an issue if that is the case
@@ -637,7 +631,7 @@ pub fn check_for_duplicated_lift_names(
                 let issue = Issue {
                     key: IssueKey {
                         entities: entities,
-                        kind: Uuid::parse_str(DUPLICATED_LIFT_NAME_ISSUE_UUID).unwrap(),
+                        kind: DUPLICATED_LIFT_NAME_ISSUE_UUID,
                     },
                     brief: format!("Multiple lifts found with the same name {}", name),
                     hint: "Doors use their names as identifiers with RMF and each lift should have a unique \

@@ -29,6 +29,20 @@ pub struct Issue {
     pub hint: String,
 }
 
+pub trait RegisterIssueType {
+    fn add_issue_type(&mut self, type_uuid: &Uuid, name: &str) -> &mut Self;
+}
+
+impl RegisterIssueType for App {
+    fn add_issue_type(&mut self, type_uuid: &Uuid, name: &str) -> &mut Self {
+        let mut issue_dictionary = self
+            .world
+            .get_resource_or_insert_with::<IssueDictionary>(Default::default);
+        issue_dictionary.insert(type_uuid.clone(), name.into());
+        self
+    }
+}
+
 /// Used as an event to request validation of the current workspace
 pub struct ValidateCurrentWorkspace;
 
@@ -65,16 +79,5 @@ pub fn clear_old_issues_on_new_validate_event(
                 commands.entity(*e).despawn_recursive();
             }
         }
-    }
-}
-
-pub fn register_issue(type_uuid: Uuid, name: String, dictionary: &mut IssueDictionary) {
-    if !dictionary.contains_key(&type_uuid) {
-        dictionary.insert(type_uuid, name);
-    } else {
-        warn!(
-            "Issue type {} with name {} already registered",
-            type_uuid, name
-        );
     }
 }

@@ -108,8 +108,8 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-use crate::clear_old_issues_on_new_validate_event;
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -209,8 +209,9 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
-            .add_startup_system(register_duplicated_door_issue)
-            .add_startup_system(register_duplicated_lift_issue)
+            .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
+            .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
+            .add_issue_type(&FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID, "Fiducial without label")
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -223,6 +224,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(check_for_duplicated_door_names)
                     .with_system(check_for_duplicated_lift_names)
+                    .with_system(check_for_fiducials_without_label)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
