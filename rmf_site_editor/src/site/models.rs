@@ -15,11 +15,11 @@
  *
 */
 
-use rmf_site_format::{AssetSource, Scale};
 use bevy::{
-    prelude::*,
     ecs::system::{Command, EntityCommands},
+    prelude::*,
 };
+use rmf_site_format::{AssetSource, Scale};
 
 #[derive(Component, Clone, Copy)]
 pub struct InScenario(pub Entity);
@@ -35,7 +35,7 @@ impl ModelSource {
 #[derive(Component, Clone)]
 pub struct ModelInstances(Vec<Entity>);
 impl ModelInstances {
-    pub fn iter(&self) -> impl Iterator<Item=&Entity> {
+    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
         self.0.iter()
     }
 }
@@ -78,14 +78,12 @@ impl Command for ChangeModelSource {
             error!(
                 "Cannot change model source of instance {:?} to {:?} because \
                 that source no longer exists",
-                self.instance,
-                self.source,
+                self.instance, self.source,
             );
 
-            if let (Some(mut e), Some(prev)) = (
-                world.get_entity_mut(self.instance),
-                previous_source
-            ) {
+            if let (Some(mut e), Some(prev)) =
+                (world.get_entity_mut(self.instance), previous_source)
+            {
                 e.insert(ModelSource(prev));
             }
             return;
@@ -127,17 +125,13 @@ fn handle_changed_model_sources(
     for change in changed_instances.iter() {
         let Some(mut instance) = commands.get_entity(change.source) else { continue };
         let Ok((source, scale)) = sources.get(change.source) else { continue };
-        instance
-            .insert(source.clone())
-            .insert(scale.clone());
+        instance.insert(source.clone()).insert(scale.clone());
     }
 
     for (instances, source, scale) in &changed_sources {
         for instance in instances.iter() {
             let Some(mut instance) = commands.get_entity(*instance) else { continue };
-            instance
-                .insert(source.clone())
-                .insert(scale.clone());
+            instance.insert(source.clone()).insert(scale.clone());
         }
     }
 }
@@ -145,8 +139,7 @@ fn handle_changed_model_sources(
 pub struct ModelSourcePlugin;
 impl Plugin for ModelSourcePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<ChangeModelSource>()
+        app.add_event::<ChangeModelSource>()
             .add_system(handle_changed_model_sources);
     }
 }

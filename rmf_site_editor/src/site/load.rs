@@ -226,7 +226,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     .id();
                 id_to_entity.insert(*location_id, location);
                 consider_id(*location_id);
-
             }
 
             for (robot_id, robot) in &site_data.models.mobile_robots {

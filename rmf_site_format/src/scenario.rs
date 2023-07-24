@@ -63,7 +63,7 @@ impl Models {
 
     pub fn contains_key(&self, key: &u32) -> bool {
         self.mobile_robots.contains_key(key)
-        || self.workcells.contains_key(key)
-        || self.agents.contains_key(key)
+            || self.workcells.contains_key(key)
+            || self.agents.contains_key(key)
     }
 }

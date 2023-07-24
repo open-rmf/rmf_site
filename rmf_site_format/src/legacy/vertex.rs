@@ -1,9 +1,8 @@
 use super::rbmf::*;
 use crate::{
-    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, IsStatic,
-    Location, LocationTags, Model, ModelMarker, NameInSite, Pose, Scale,
-    Instance, InstanceBundle, Models, MobileRobot, MobileRobotKinematics,
-    DifferentialDrive,
+    is_default, AssetSource, AssociatedGraphs, ConstraintDependents, DifferentialDrive, Instance,
+    InstanceBundle, IsStatic, Location, LocationTags, MobileRobot, MobileRobotKinematics, Model,
+    ModelMarker, Models, NameInSite, Pose, Scale,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};
@@ -94,7 +93,7 @@ impl Vertex {
                     bundle: InstanceBundle {
                         name: NameInSite(me.spawn_robot_name.1.clone()),
                         pose: Pose::default(),
-                    }
+                    },
                 });
             }
 
@@ -103,15 +102,15 @@ impl Vertex {
             let model_id = new_site_id.next().unwrap();
             let mobile_robot = MobileRobot {
                 model_name: NameInSite(me.spawn_robot_type.1.clone()),
-                source: AssetSource::Search("OpenRobotics/".to_owned() + &me.spawn_robot_type.1.clone()),
+                source: AssetSource::Search(
+                    "OpenRobotics/".to_owned() + &me.spawn_robot_type.1.clone(),
+                ),
                 scale: Scale::default(),
-                kinematics: MobileRobotKinematics::DifferentialDrive(
-                    DifferentialDrive {
-                        translational_speed: 0.5,
-                        rotational_speed: 0.6,
-                        bidirectional: false,
-                    }
-                )
+                kinematics: MobileRobotKinematics::DifferentialDrive(DifferentialDrive {
+                    translational_speed: 0.5,
+                    rotational_speed: 0.6,
+                    bidirectional: false,
+                }),
             };
 
             models.mobile_robots.insert(model_id, mobile_robot);
@@ -122,7 +121,7 @@ impl Vertex {
                 bundle: InstanceBundle {
                     name: NameInSite(me.spawn_robot_name.1.clone()),
                     pose: Pose::default(),
-                }
+                },
             });
         }
 

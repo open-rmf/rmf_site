@@ -53,30 +53,28 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
 
     pub fn show(self, ui: &mut Ui) -> Option<LocationTags> {
         ui.label(RichText::new("Location Tags").size(18.0));
-        let changed_charger = InspectOptionString::new(
-            "Charger",
-            &self.tags.charger,
-            &self.recall.recall_charger,
-        ).multiline().default("").show(ui);
-        let changed_parking = InspectOptionString::new(
-            "Parking",
-            &self.tags.parking,
-            &self.recall.recall_parking,
-        ).multiline().default("").show(ui);
-        let changed_holding = InspectOptionString::new(
-            "Holding",
-            &self.tags.holding,
-            &self.recall.recall_holding,
-        ).multiline().default("").show(ui);
+        let changed_charger =
+            InspectOptionString::new("Charger", &self.tags.charger, &self.recall.recall_charger)
+                .multiline()
+                .default("")
+                .show(ui);
+        let changed_parking =
+            InspectOptionString::new("Parking", &self.tags.parking, &self.recall.recall_parking)
+                .multiline()
+                .default("")
+                .show(ui);
+        let changed_holding =
+            InspectOptionString::new("Holding", &self.tags.holding, &self.recall.recall_holding)
+                .multiline()
+                .default("")
+                .show(ui);
 
         if changed_charger.is_some() || changed_parking.is_some() || changed_holding.is_some() {
-            return Some(
-                LocationTags {
-                    charger: changed_charger.unwrap_or_else(|| self.tags.charger.clone()),
-                    parking: changed_parking.unwrap_or_else(|| self.tags.parking.clone()),
-                    holding: changed_holding.unwrap_or_else(|| self.tags.holding.clone()),
-                }
-            )
+            return Some(LocationTags {
+                charger: changed_charger.unwrap_or_else(|| self.tags.charger.clone()),
+                parking: changed_parking.unwrap_or_else(|| self.tags.parking.clone()),
+                holding: changed_holding.unwrap_or_else(|| self.tags.holding.clone()),
+            });
         }
 
         return None;

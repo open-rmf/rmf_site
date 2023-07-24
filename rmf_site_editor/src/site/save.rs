@@ -860,24 +860,16 @@ fn generate_scenarios(
 ) -> Result<(BTreeMap<u32, Scenario>, Models), SiteGenerationError> {
     let models = {
         let mut state: SystemState<(
+            Query<(
+                &NameInSite,
+                &AssetSource,
+                &Scale,
+                &MobileRobotKinematics,
+                &SiteID,
+                &Parent,
+            )>,
             Query<
-                (
-                    &NameInSite,
-                    &AssetSource,
-                    &Scale,
-                    &MobileRobotKinematics,
-                    &SiteID,
-                    &Parent,
-                )
-            >,
-            Query<
-                (
-                    &NameInSite,
-                    &AssetSource,
-                    &Scale,
-                    &SiteID,
-                    &Parent,
-                ),
+                (&NameInSite, &AssetSource, &Scale, &SiteID, &Parent),
                 With<StationaryRobotMarker>,
             >,
         )> = SystemState::new(world);
@@ -889,12 +881,15 @@ fn generate_scenarios(
                 continue;
             }
 
-            models.mobile_robots.insert(site_id.0, MobileRobot {
-                model_name: model_name.clone(),
-                source: source.clone(),
-                scale: scale.clone(),
-                kinematics: kinematics.clone(),
-            });
+            models.mobile_robots.insert(
+                site_id.0,
+                MobileRobot {
+                    model_name: model_name.clone(),
+                    source: source.clone(),
+                    scale: scale.clone(),
+                    kinematics: kinematics.clone(),
+                },
+            );
         }
 
         for (model_name, source, scale, site_id, parent) in &q_stationary {
@@ -902,12 +897,15 @@ fn generate_scenarios(
                 continue;
             }
 
-            models.workcells.insert(site_id.0, StationaryRobot {
-                model_name: model_name.clone(),
-                source: source.clone(),
-                scale: scale.clone(),
-                marker: StationaryRobotMarker,
-            });
+            models.workcells.insert(
+                site_id.0,
+                StationaryRobot {
+                    model_name: model_name.clone(),
+                    source: source.clone(),
+                    scale: scale.clone(),
+                    marker: StationaryRobotMarker,
+                },
+            );
         }
 
         models
@@ -915,23 +913,15 @@ fn generate_scenarios(
 
     let scenarios = {
         let mut state: SystemState<(
-            Query<
-                (
-                    &ScenarioProperties,
-                    &SiteID,
-                    &Parent,
-                )
-            >,
-            Query<
-                (
-                    &NameInSite,
-                    &Pose,
-                    &Parent,
-                    &ModelSource,
-                    &InScenario,
-                    &SiteID,
-                )
-            >,
+            Query<(&ScenarioProperties, &SiteID, &Parent)>,
+            Query<(
+                &NameInSite,
+                &Pose,
+                &Parent,
+                &ModelSource,
+                &InScenario,
+                &SiteID,
+            )>,
             Query<&SiteID>,
         )> = SystemState::new(world);
 
@@ -943,10 +933,13 @@ fn generate_scenarios(
                 continue;
             }
 
-            scenarios.insert(site_id.0, Scenario {
-                properties: properties.clone(),
-                instances: BTreeMap::new(),
-            });
+            scenarios.insert(
+                site_id.0,
+                Scenario {
+                    properties: properties.clone(),
+                    instances: BTreeMap::new(),
+                },
+            );
         }
 
         for (name, pose, parent, model, in_scenario, site_id) in &q_instances {
@@ -984,14 +977,17 @@ fn generate_scenarios(
                 );
             }
 
-            scenario.instances.insert(site_id.0, Instance {
-                parent,
-                model,
-                bundle: InstanceBundle {
-                    name: name.clone(),
-                    pose: pose.clone()
+            scenario.instances.insert(
+                site_id.0,
+                Instance {
+                    parent,
+                    model,
+                    bundle: InstanceBundle {
+                        name: name.clone(),
+                        pose: pose.clone(),
+                    },
                 },
-            });
+            );
         }
 
         scenarios

@@ -23,9 +23,8 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AssociatedGraphs, Change, ConsiderAssociatedGraph, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        AssociatedGraphs, Change, ConsiderAssociatedGraph, CurrentLevel, Delete, ExportLights,
+        FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };

@@ -2,11 +2,11 @@ use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
-    Fiducial as SiteFiducial, FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph,
-    Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane,
-    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS, Models, Instance,
-    Scenario, ScenarioProperties,
+    Fiducial as SiteFiducial, FiducialMarker, Guided, Instance, Label, Lane as SiteLane,
+    LaneMarker, Level as SiteLevel, LevelProperties as SiteLevelProperties, Models, Motion,
+    NameInSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel,
+    ReverseLane, Rotation, Scenario, ScenarioProperties, Site, SiteProperties,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -173,12 +173,9 @@ impl BuildingMap {
                     locations.insert(site_id.next().unwrap(), location);
                 }
 
-                if let Some(instance) = v.make_instance(
-                    &mut site_id,
-                    &mut model_source_map,
-                    &mut models,
-                    anchor_id,
-                ) {
+                if let Some(instance) =
+                    v.make_instance(&mut site_id, &mut model_source_map, &mut models, anchor_id)
+                {
                     let instance_id = site_id.next().unwrap();
                     instances.insert(instance_id, instance);
                 }
@@ -394,9 +391,11 @@ impl BuildingMap {
         scenarios.insert(
             default_scenario_id,
             Scenario {
-                properties: ScenarioProperties { name: "Default Scenario".to_owned() },
+                properties: ScenarioProperties {
+                    name: "Default Scenario".to_owned(),
+                },
                 instances,
-            }
+            },
         );
 
         Ok(Site {
