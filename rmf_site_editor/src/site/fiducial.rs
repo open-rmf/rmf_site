@@ -16,7 +16,7 @@
 */
 
 use crate::interaction::VisualCue;
-use crate::{issue::*, site::*, CurrentWorkspace};
+use crate::{issue::*, site::*};
 use bevy::{prelude::*, utils::Uuid};
 
 pub fn add_fiducial_visuals(
@@ -89,17 +89,13 @@ pub const FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID: Uuid =
 // generate an issue if that is the case
 pub fn check_for_fiducials_without_label(
     mut commands: Commands,
-    mut validate_events: EventReader<ValidateCurrentWorkspace>,
-    current_workspace: Res<CurrentWorkspace>,
+    mut validate_events: EventReader<ValidateWorkspace>,
     parents: Query<&Parent>,
     fiducial_labels: Query<(Entity, &Label), With<FiducialMarker>>,
 ) {
-    if validate_events.iter().last().is_some() {
-        let Some(root) = current_workspace.root else {
-            return;
-        };
+    for root in validate_events.iter() {
         for (e, label) in &fiducial_labels {
-            if AncestorIter::new(&parents, e).any(|p| p == root) {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
                 if label.is_none() {
                     let issue = Issue {
                         key: IssueKey {
@@ -113,7 +109,7 @@ pub fn check_for_fiducials_without_label(
                             .to_string(),
                     };
                     let id = commands.spawn(issue).id();
-                    commands.entity(root).add_child(id);
+                    commands.entity(**root).add_child(id);
                 }
             }
         }

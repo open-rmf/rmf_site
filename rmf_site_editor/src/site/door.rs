@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, issue::*, shapes::*, site::*, CurrentWorkspace};
+use crate::{interaction::Selectable, issue::*, shapes::*, site::*};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
@@ -332,18 +332,14 @@ pub const DUPLICATED_DOOR_NAME_ISSUE_UUID: Uuid =
 // generate an issue if that is the case
 pub fn check_for_duplicated_door_names(
     mut commands: Commands,
-    mut validate_events: EventReader<ValidateCurrentWorkspace>,
-    current_workspace: Res<CurrentWorkspace>,
+    mut validate_events: EventReader<ValidateWorkspace>,
     parents: Query<&Parent>,
     door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
 ) {
-    if validate_events.iter().last().is_some() {
-        let Some(root) = current_workspace.root else {
-            return;
-        };
+    for root in validate_events.iter() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &door_names {
-            if AncestorIter::new(&parents, e).any(|p| p == root) {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
                 entities_with_name.insert(e);
             }
@@ -360,7 +356,7 @@ pub fn check_for_duplicated_door_names(
                            name, rename the affected doors".to_string()
                 };
                 let id = commands.spawn(issue).id();
-                commands.entity(root).add_child(id);
+                commands.entity(**root).add_child(id);
             }
         }
     }

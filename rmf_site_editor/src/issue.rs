@@ -15,7 +15,6 @@
  *
 */
 
-use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use bevy::utils::{HashMap, Uuid};
 use rmf_site_format::IssueKey;
@@ -43,8 +42,9 @@ impl RegisterIssueType for App {
     }
 }
 
-/// Used as an event to request validation of the current workspace
-pub struct ValidateCurrentWorkspace;
+/// Used as an event to request validation of a workspace
+#[derive(Deref, DerefMut)]
+pub struct ValidateWorkspace(pub Entity);
 
 // Maps a uuid to the issue name
 #[derive(Default, Resource, Deref, DerefMut)]
@@ -55,23 +55,19 @@ pub struct IssuePlugin;
 
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ValidateCurrentWorkspace>()
+        app.add_event::<ValidateWorkspace>()
             .init_resource::<IssueDictionary>();
     }
 }
 
 pub fn clear_old_issues_on_new_validate_event(
     mut commands: Commands,
-    mut validate_events: EventReader<ValidateCurrentWorkspace>,
+    mut validate_events: EventReader<ValidateWorkspace>,
     children: Query<&Children>,
     issues: Query<Entity, With<Issue>>,
-    current_workspace: Res<CurrentWorkspace>,
 ) {
-    if validate_events.iter().last().is_some() {
-        let Some(root) = current_workspace.root else {
-            return;
-        };
-        let Ok(children) = children.get(root) else {
+    for root in validate_events.iter() {
+        let Ok(children) = children.get(**root) else {
             return;
         };
         for e in children {

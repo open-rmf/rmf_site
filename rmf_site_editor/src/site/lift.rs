@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateCurrentWorkspace,
+    interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
 };
 use bevy::{
     prelude::*,
@@ -610,18 +610,14 @@ pub const DUPLICATED_LIFT_NAME_ISSUE_UUID: Uuid =
 // generate an issue if that is the case
 pub fn check_for_duplicated_lift_names(
     mut commands: Commands,
-    mut validate_events: EventReader<ValidateCurrentWorkspace>,
-    current_workspace: Res<CurrentWorkspace>,
+    mut validate_events: EventReader<ValidateWorkspace>,
     parents: Query<&Parent>,
     lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
 ) {
-    if validate_events.iter().last().is_some() {
-        let Some(root) = current_workspace.root else {
-            return;
-        };
+    for root in validate_events.iter() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &lift_names {
-            if AncestorIter::new(&parents, e).any(|p| p == root) {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
                 let entities_with_name = names.entry(name.0.clone()).or_default();
                 entities_with_name.insert(e);
             }
@@ -638,7 +634,7 @@ pub fn check_for_duplicated_lift_names(
                            name, rename the affected lifts".to_string()
                 };
                 let id = commands.spawn(issue).id();
-                commands.entity(root).add_child(id);
+                commands.entity(**root).add_child(id);
             }
         }
     }

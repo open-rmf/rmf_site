@@ -18,7 +18,7 @@
 use crate::inspector::SelectionWidget;
 use crate::site::{IssueKey, SiteID, SiteProperties};
 use crate::{AppEvents, Icons, Issue};
-use crate::{IssueDictionary, ValidateCurrentWorkspace};
+use crate::{IssueDictionary, ValidateWorkspace};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Window};
@@ -34,7 +34,7 @@ pub struct DiagnosticParams<'w, 's> {
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub site_properties: Query<'w, 's, &'static mut SiteProperties<Entity>>,
-    pub validate_event: EventWriter<'w, 's, ValidateCurrentWorkspace>,
+    pub validate_event: EventWriter<'w, 's, ValidateWorkspace>,
     pub issue_dictionary: Res<'w, IssueDictionary>,
     pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
 }
@@ -181,7 +181,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                 }
 
                 if ui.add(Button::new("Validate")).clicked() {
-                    self.params.validate_event.send(ValidateCurrentWorkspace);
+                    self.params.validate_event.send(ValidateWorkspace(root));
                 }
             });
         *self.events.top_menu_events.diagnostic_window = state;
