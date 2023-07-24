@@ -151,9 +151,6 @@ pub struct TopMenuEvents<'w, 's> {
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
     pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
-    pub validate_event: EventWriter<'w, 's, ValidateCurrentWorkspace>,
-    pub issue_dictionary: Res<'w, IssueDictionary>,
-    pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
 }
 
 #[derive(SystemParam)]
