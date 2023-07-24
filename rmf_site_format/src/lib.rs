@@ -45,6 +45,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod instance;
+pub use instance::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -98,6 +101,9 @@ pub use semver::*;
 
 pub mod site;
 pub use site::*;
+
+pub mod stationary_robot;
+pub use stationary_robot::*;
 
 pub mod texture;
 pub use texture::*;

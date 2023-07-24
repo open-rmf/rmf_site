@@ -21,6 +21,8 @@ pub struct InspectOptionString<'a> {
     title: &'a str,
     value: &'a Option<String>,
     recall: &'a Option<String>,
+    default: &'a str,
+    multiline: bool,
 }
 
 impl<'a> InspectOptionString<'a> {
@@ -29,7 +31,19 @@ impl<'a> InspectOptionString<'a> {
             title,
             value,
             recall,
+            default: "<undefined>",
+            multiline: false,
         }
+    }
+
+    pub fn multiline(mut self) -> Self {
+        self.multiline = true;
+        self
+    }
+
+    pub fn default(mut self, default: &'a str) -> Self {
+        self.default = default;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Option<String>> {
@@ -42,9 +56,13 @@ impl<'a> InspectOptionString<'a> {
                         self.recall
                             .as_ref()
                             .map(|x| x.clone())
-                            .unwrap_or_else(|| "<undefined>".to_string())
+                            .unwrap_or_else(|| self.default.to_owned())
                     });
-                ui.text_edit_singleline(&mut assumed_value);
+                if self.multiline {
+                    ui.text_edit_multiline(&mut assumed_value);
+                } else {
+                    ui.text_edit_singleline(&mut assumed_value);
+                }
 
                 let new_value = Some(assumed_value);
                 if new_value != *self.value {

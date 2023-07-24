@@ -57,6 +57,9 @@ pub struct Site {
     /// Data related to navigation
     #[serde(default, skip_serializing_if = "Navigation::is_empty")]
     pub navigation: Navigation,
+    /// Models associated with this site
+    #[serde(default, skip_serializing_if = "Models::is_empty")]
+    pub models: Models,
     /// Scenarios associated with this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub scenarios: BTreeMap<u32, Scenario>,

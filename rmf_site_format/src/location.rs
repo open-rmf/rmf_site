@@ -19,67 +19,32 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum LocationTag {
-    Charger,
-    ParkingSpot,
-    HoldingPoint,
-    SpawnRobot(Model),
-    Workcell(Model),
-}
-
-impl LocationTag {
-    pub fn label(&self) -> &'static str {
-        match self {
-            Self::Charger => "Charger",
-            Self::ParkingSpot => "Parking Spot",
-            Self::HoldingPoint => "Holding Point",
-            Self::SpawnRobot(_) => "Spawn Robot",
-            Self::Workcell(_) => "Workcell",
-        }
-    }
-
-    pub fn is_charger(&self) -> bool {
-        matches!(self, Self::Charger)
-    }
-    pub fn is_parking_spot(&self) -> bool {
-        matches!(self, Self::ParkingSpot)
-    }
-    pub fn is_holding_point(&self) -> bool {
-        matches!(self, Self::HoldingPoint)
-    }
-    pub fn spawn_robot(&self) -> Option<&Model> {
-        match self {
-            Self::SpawnRobot(model) => Some(model),
-            _ => None,
-        }
-    }
-    pub fn workcell(&self) -> Option<&Model> {
-        match self {
-            Self::Workcell(model) => Some(model),
-            _ => None,
-        }
-    }
-}
+use std::collections::{BTreeSet, HashSet, HashMap};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Location<T: RefTrait> {
     pub anchor: Point<T>,
+    #[serde(flatten)]
     pub tags: LocationTags,
     pub name: NameInSite,
     pub graphs: AssociatedGraphs<T>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
-pub struct LocationTags(pub Vec<LocationTag>);
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct LocationTags {
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub charger: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub parking: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub holding: Option<String>,
+}
 
-impl Default for LocationTags {
-    fn default() -> Self {
-        LocationTags(Vec::new())
+impl LocationTags {
+    pub fn is_empty(&self) -> bool {
+        self.charger.is_none() && self.parking.is_none() && self.holding.is_none()
     }
 }
 
@@ -112,88 +77,25 @@ impl<T: RefTrait> From<Point<T>> for Location<T> {
 #[derive(Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallLocationTags {
-    pub robot_asset_source_recall: RecallAssetSource,
-    pub robot_asset_source: Option<AssetSource>,
-    pub workcell_asset_source_recall: RecallAssetSource,
-    pub workcell_asset_source: Option<AssetSource>,
-    pub robot_name: Option<NameInSite>,
-    pub workcell_name: Option<NameInSite>,
-    pub consider_tag: Option<LocationTag>,
-    pub consider_tag_asset_source_recall: RecallAssetSource,
-}
-
-impl RecallLocationTags {
-    pub fn assume_tag(&self, current: &LocationTags) -> LocationTag {
-        if let Some(tag) = &self.consider_tag {
-            match tag {
-                LocationTag::Charger | LocationTag::HoldingPoint | LocationTag::ParkingSpot => {
-                    // If the tag to consider is one of these three values, then
-                    // only accept it if it does not already exist in the current
-                    // tag list.
-                    if current.0.iter().find(|t| **t == *tag).is_none() {
-                        return tag.clone();
-                    }
-                }
-                _ => return tag.clone(),
-            }
-        }
-        if current.0.iter().find(|t| t.is_charger()).is_none() {
-            return LocationTag::Charger;
-        }
-        if current.0.iter().find(|t| t.is_parking_spot()).is_none() {
-            return LocationTag::ParkingSpot;
-        }
-        self.assume_spawn_robot()
-    }
-    pub fn assume_spawn_robot(&self) -> LocationTag {
-        let model = self
-            .consider_tag
-            .as_ref()
-            .map(|t| t.spawn_robot())
-            .flatten()
-            .cloned()
-            .unwrap_or_else(|| Model {
-                name: self.robot_name.clone().unwrap_or_default(),
-                source: self.robot_asset_source.clone().unwrap_or_default(),
-                ..Default::default()
-            });
-        LocationTag::SpawnRobot(model)
-    }
-    pub fn assume_workcell(&self) -> LocationTag {
-        let model = self
-            .consider_tag
-            .as_ref()
-            .map(|t| t.spawn_robot())
-            .flatten()
-            .cloned()
-            .unwrap_or_else(|| Model {
-                name: self.workcell_name.clone().unwrap_or_default(),
-                source: self.workcell_asset_source.clone().unwrap_or_default(),
-                ..Default::default()
-            });
-        LocationTag::Workcell(model)
-    }
+    pub recall_charger: Option<String>,
+    pub recall_parking: Option<String>,
+    pub recall_holding: Option<String>,
 }
 
 impl Recall for RecallLocationTags {
     type Source = LocationTags;
 
     fn remember(&mut self, source: &Self::Source) {
-        for tag in &source.0 {
-            // TODO(MXG): Consider isolating this memory per element
-            match tag {
-                LocationTag::SpawnRobot(robot) => {
-                    self.robot_asset_source_recall.remember(&robot.source);
-                    self.robot_asset_source = Some(robot.source.clone());
-                    self.robot_name = Some(robot.name.clone());
-                }
-                LocationTag::Workcell(cell) => {
-                    self.workcell_asset_source_recall.remember(&cell.source);
-                    self.workcell_asset_source = Some(cell.source.clone());
-                    self.workcell_name = Some(cell.name.clone());
-                }
-                _ => {}
-            }
+        if let Some(charger) = &source.charger {
+            self.recall_charger = Some(charger.clone());
+        }
+
+        if let Some(parking) = &source.parking {
+            self.recall_parking = Some(parking.clone());
+        }
+
+        if let Some(holding) = &source.holding {
+            self.recall_holding = Some(holding.clone());
         }
     }
 }

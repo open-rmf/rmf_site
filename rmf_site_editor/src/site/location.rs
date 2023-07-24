@@ -89,65 +89,6 @@ pub fn add_location_visuals(
     }
 }
 
-pub fn add_robot_to_spawn_location(
-    mut commands: Commands,
-    locations: Query<
-        (
-            Entity,
-            &Point<Entity>,
-            &LocationTags,
-            Option<&LocationRobotModel>,
-        ),
-        Changed<LocationTags>,
-    >,
-    levels: Query<(), With<LevelProperties>>,
-    mut models: Query<(&mut NameInSite, &mut AssetSource), With<ModelMarker>>,
-    anchors: AnchorParams,
-    parents: Query<&Parent>,
-) {
-    for (e, point, location_tags, location_model) in &locations {
-        let position = anchors
-            .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap();
-
-        let parent = AncestorIter::new(&parents, point.0).find(|p| levels.get(*p).is_ok());
-
-        if let Some(parent) = parent {
-            if let Some(m) = location_tags.iter().find_map(|l| match l {
-                LocationTag::SpawnRobot(m) => Some(m),
-                _ => None,
-            }) {
-                if let Some(location_model) = location_model {
-                    // Update existing model
-                    if let Ok((mut name, mut source)) = models.get_mut(location_model.0) {
-                        *name = m.name.clone();
-                        *source = m.source.clone();
-                    }
-                } else {
-                    // Spawn new model
-                    let mut model = m.clone();
-                    model.pose = Pose {
-                        trans: position.into(),
-                        ..default()
-                    };
-                    // TODO(luca) there should be a marker component to denote this is a robot
-                    // as well as set it non static
-                    // Robots should probably be made non deletable, since their spawning is
-                    // controlled by the location property
-                    let child = commands.spawn(model).id();
-                    commands.entity(parent).push_children(&[child]);
-                    commands.entity(e).insert(LocationRobotModel(child));
-                }
-            } else {
-                if let Some(location_model) = location_model {
-                    commands.entity(location_model.0).despawn_recursive();
-                    commands.entity(e).remove::<LocationRobotModel>();
-                }
-            }
-        }
-    }
-}
-
 pub fn update_changed_location(
     mut locations: Query<
         (
@@ -280,36 +221,6 @@ pub fn update_visibility_for_locations(
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
                 *m = graphs.display_style(associated_graphs).0;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ConsiderLocationTag {
-    pub tag: Option<LocationTag>,
-    pub for_element: Entity,
-}
-
-impl ConsiderLocationTag {
-    pub fn new(tag: Option<LocationTag>, for_element: Entity) -> Self {
-        Self { tag, for_element }
-    }
-}
-
-// TODO(MXG): Consider refactoring into a generic plugin, alongside ConsiderAssociatedGraph
-pub fn handle_consider_location_tag(
-    mut recalls: Query<&mut RecallLocationTags>,
-    mut considerations: EventReader<ConsiderLocationTag>,
-) {
-    for consider in considerations.iter() {
-        if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
-            recall.consider_tag = consider.tag.clone();
-            let r = recall.as_mut();
-            if let Some(LocationTag::SpawnRobot(model)) | Some(LocationTag::Workcell(model)) =
-                &r.consider_tag
-            {
-                r.consider_tag_asset_source_recall.remember(&model.source);
             }
         }
     }

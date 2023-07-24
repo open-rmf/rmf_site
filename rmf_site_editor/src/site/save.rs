@@ -89,12 +89,20 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<LevelProperties>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
+        Query<
+            (),
+            Or<(
+                With<MobileRobotKinematics>,
+                With<StationaryRobotMarker>,
+                With<ScenarioProperties>,
+            )>,
+        >,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
+    let (level_children, nav_graph_elements, levels, lifts, scenarios, sites, site_ids, children) =
         state.get_mut(world);
 
     let mut new_entities = Vec::new();
@@ -145,6 +153,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                         }
                     }
                 }
+            }
+        }
+
+        if scenarios.contains(*site_child) {
+            if !site_ids.contains(*site_child) {
+                new_entities.push(*site_child);
             }
         }
     }
@@ -840,6 +854,152 @@ fn generate_locations(
     Ok(locations)
 }
 
+fn generate_scenarios(
+    world: &mut World,
+    site: Entity,
+) -> Result<(BTreeMap<u32, Scenario>, Models), SiteGenerationError> {
+    let models = {
+        let mut state: SystemState<(
+            Query<
+                (
+                    &NameInSite,
+                    &AssetSource,
+                    &Scale,
+                    &MobileRobotKinematics,
+                    &SiteID,
+                    &Parent,
+                )
+            >,
+            Query<
+                (
+                    &NameInSite,
+                    &AssetSource,
+                    &Scale,
+                    &SiteID,
+                    &Parent,
+                ),
+                With<StationaryRobotMarker>,
+            >,
+        )> = SystemState::new(world);
+
+        let (q_mobile, q_stationary) = state.get(world);
+        let mut models = Models::default();
+        for (model_name, source, scale, kinematics, site_id, parent) in &q_mobile {
+            if parent.get() != site {
+                continue;
+            }
+
+            models.mobile_robots.insert(site_id.0, MobileRobot {
+                model_name: model_name.clone(),
+                source: source.clone(),
+                scale: scale.clone(),
+                kinematics: kinematics.clone(),
+            });
+        }
+
+        for (model_name, source, scale, site_id, parent) in &q_stationary {
+            if parent.get() != site {
+                continue;
+            }
+
+            models.workcells.insert(site_id.0, StationaryRobot {
+                model_name: model_name.clone(),
+                source: source.clone(),
+                scale: scale.clone(),
+                marker: StationaryRobotMarker,
+            });
+        }
+
+        models
+    };
+
+    let scenarios = {
+        let mut state: SystemState<(
+            Query<
+                (
+                    &ScenarioProperties,
+                    &SiteID,
+                    &Parent,
+                )
+            >,
+            Query<
+                (
+                    &NameInSite,
+                    &Pose,
+                    &Parent,
+                    &ModelSource,
+                    &InScenario,
+                    &SiteID,
+                )
+            >,
+            Query<&SiteID>,
+        )> = SystemState::new(world);
+
+        let (q_scenarios, q_instances, q_site_id) = state.get(world);
+
+        let mut scenarios = BTreeMap::new();
+        for (properties, site_id, parent) in &q_scenarios {
+            if parent.get() != site {
+                continue;
+            }
+
+            scenarios.insert(site_id.0, Scenario {
+                properties: properties.clone(),
+                instances: BTreeMap::new(),
+            });
+        }
+
+        for (name, pose, parent, model, in_scenario, site_id) in &q_instances {
+            let Ok((_, scenario_id, _)) = q_scenarios.get(in_scenario.0) else {
+                continue;
+            };
+            let Some(scenario) = scenarios.get_mut(&scenario_id.0) else {
+                continue;
+            };
+
+            let Ok(parent) = q_site_id.get(parent.get()) else {
+                error!(
+                    "Unable to save instance {} because its parent does not \
+                    have a SiteID",
+                    name.0,
+                );
+                continue;
+            };
+            let parent = parent.0;
+
+            let Ok(model) = q_site_id.get(model.get()) else {
+                error!(
+                    "Unable to save instance {} because its model does not \
+                    have a SiteID",
+                    name.0,
+                );
+                continue;
+            };
+            let model = model.0;
+            if !models.contains_key(&model) {
+                error!(
+                    "Unable to save instance {} because its model is not part \
+                    of the site that is being saved",
+                    model,
+                );
+            }
+
+            scenario.instances.insert(site_id.0, Instance {
+                parent,
+                model,
+                bundle: InstanceBundle {
+                    name: name.clone(),
+                    pose: pose.clone()
+                },
+            });
+        }
+
+        scenarios
+    };
+
+    Ok((scenarios, models))
+}
+
 fn generate_graph_rankings(
     world: &mut World,
     site: Entity,
@@ -876,6 +1036,7 @@ pub fn generate_site(
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
+    let (scenarios, models) = generate_scenarios(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
 
     let props = match world.get::<SiteProperties>(site) {
@@ -899,8 +1060,8 @@ pub fn generate_site(
                 locations,
             },
         },
-        // TODO(MXG): Parse agent information once the spec is figured out
-        agents: Default::default(),
+        models,
+        scenarios,
     });
 }
 

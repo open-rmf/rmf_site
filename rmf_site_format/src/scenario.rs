@@ -35,14 +35,35 @@ impl Default for ScenarioProperties {
     }
 }
 
-#[derive(Serailize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Scenario {
     /// Basic properties of the scenario
     pub properties: ScenarioProperties,
+    /// Instances of models contained in the scenario
+    pub instances: BTreeMap<u32, Instance>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+pub struct Models {
     /// What mobile robots exist in the scenario
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub mobile_robots: BTreeMap<u32, MobileRobot>,
+    /// What workcells exist in the scenario
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub workcells: BTreeMap<u32, StationaryRobot>,
     /// What agents exist in the scenario
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
+}
+
+impl Models {
+    pub fn is_empty(&self) -> bool {
+        self.mobile_robots.is_empty() && self.workcells.is_empty() && self.agents.is_empty()
+    }
+
+    pub fn contains_key(&self, key: &u32) -> bool {
+        self.mobile_robots.contains_key(key)
+        || self.workcells.contains_key(key)
+        || self.agents.contains_key(key)
+    }
 }

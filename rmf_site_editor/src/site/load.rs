@@ -226,6 +226,28 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     .id();
                 id_to_entity.insert(*location_id, location);
                 consider_id(*location_id);
+
+            }
+
+            for (robot_id, robot) in &site_data.models.mobile_robots {
+                let robot_entity = site.spawn(robot.clone()).id();
+                id_to_entity.insert(*robot_id, robot_entity);
+                consider_id(*robot_id);
+            }
+
+            for (robot_id, robot) in &site_data.models.workcells {
+                let robot_entity = site.spawn(robot.clone()).id();
+                id_to_entity.insert(*robot_id, robot_entity);
+                consider_id(*robot_id);
+            }
+
+            for (scenario_id, scenario) in &site_data.scenarios {
+                let scenario_entity = site
+                    .spawn(scenario.properties.clone())
+                    .insert(SiteID(*scenario_id))
+                    .id();
+                id_to_entity.insert(*scenario_id, scenario_entity);
+                consider_id(*scenario_id);
             }
         });
 
@@ -236,17 +258,60 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
         Ok(r) => r,
         Err(id) => {
             error!(
-                "ERROR: Nav Graph ranking could not load because a graph with \
+                "Nav Graph ranking could not load because a graph with \
                 id {id} does not exist."
             );
             RecencyRanking::new()
         }
     };
 
-    site_cmd
-        .insert(nav_graph_rankings)
-        .insert(NextSiteID(highest_id + 1));
+    site_cmd.insert(nav_graph_rankings);
     let site_id = site_cmd.id();
+
+    // Construct instances separately so we can parent them correctly
+    for (scenario_id, scenario) in &site_data.scenarios {
+        let Some(scenario_entity) = id_to_entity.get(scenario_id).cloned() else {
+            error!(
+                "Failed to load scenario {scenario_id:?}, unable to find a \
+                loaded entity for it."
+            );
+            continue;
+        };
+
+        for (instance_id, instance) in &scenario.instances {
+            let Some(model_entity) = id_to_entity.get(&instance.model).cloned() else {
+                error!(
+                    "Failed to load instance {instance_id:?} for scenario \
+                    {scenario_id:?} because its model {:?} is missing.",
+                    instance.model,
+                );
+                continue;
+            };
+
+            let Some(parent_entity) = id_to_entity.get(&instance.parent).cloned() else {
+                error!(
+                    "Failed to load instance {instance_id:?} for scenario \
+                    {scenario_id:?} because its parent {:?} is missing.",
+                    instance.parent,
+                );
+                continue;
+            };
+
+            let instance_entity = commands
+                .spawn(instance.bundle.clone())
+                .insert(InScenario(scenario_entity))
+                .set_model_source(model_entity)
+                .insert(ModelMarker)
+                .insert(SiteID(*instance_id))
+                .id();
+            id_to_entity.insert(*instance_id, instance_entity);
+            consider_id(*instance_id);
+
+            commands.entity(parent_entity).add_child(instance_entity);
+        }
+    }
+
+    commands.entity(site_id).insert(NextSiteID(highest_id + 1));
 
     // Make the lift cabin anchors that are used by doors subordinate
     for (lift_id, lift_data) in &site_data.lifts {

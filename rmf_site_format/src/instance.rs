@@ -17,29 +17,23 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Bundle};
+use bevy::prelude::Bundle;
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeMap;
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct Instance {
+    /// This may be the entity ID of a level or an anchor.
+    pub parent: u32,
+    /// The entity ID of the model (e.g. MobileRobot, StationaryRobot)
+    /// that this is instantiating.
+    pub model: u32,
+    #[serde(flatten)]
+    pub bundle: InstanceBundle,
+}
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct MobileRobot {
-    pub model_name: NameInSite,
-    pub source: AssetSource,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub scale: Scale,
-    pub kinematics: MobileRobotKinematics,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum MobileRobotKinematics {
-    DifferentialDrive(DifferentialDrive),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DifferentialDrive {
-    pub translational_speed: f32,
-    pub rotational_speed: f32,
-    pub bidirectional: bool,
+pub struct InstanceBundle {
+    pub name: NameInSite,
+    pub pose: Pose,
 }

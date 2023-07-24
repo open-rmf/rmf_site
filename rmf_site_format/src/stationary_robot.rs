@@ -23,23 +23,14 @@ use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct MobileRobot {
+pub struct StationaryRobot {
     pub model_name: NameInSite,
     pub source: AssetSource,
-    #[serde(default, skip_serializing_if = "is_default")]
     pub scale: Scale,
-    pub kinematics: MobileRobotKinematics,
+    #[serde(skip)]
+    pub marker: StationaryRobotMarker,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Clone, Copy, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum MobileRobotKinematics {
-    DifferentialDrive(DifferentialDrive),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone)]
-pub struct DifferentialDrive {
-    pub translational_speed: f32,
-    pub rotational_speed: f32,
-    pub bidirectional: bool,
-}
+pub struct StationaryRobotMarker;

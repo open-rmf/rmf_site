@@ -63,6 +63,9 @@ pub use measurement::*;
 pub mod model;
 pub use model::*;
 
+pub mod models;
+pub use models::*;
+
 pub mod nav_graph;
 pub use nav_graph::*;
 
@@ -149,7 +152,7 @@ impl Plugin for SitePlugin {
             .add_event::<ToggleLiftDoorAvailability>()
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
-            .add_event::<ConsiderLocationTag>()
+            .add_plugin(ModelSourcePlugin)
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -234,7 +237,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_floor_visibility)
                     .with_system(add_lane_visuals)
                     .with_system(add_location_visuals)
-                    .with_system(add_robot_to_spawn_location)
                     .with_system(update_level_visibility)
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
@@ -249,7 +251,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_location)
                     .with_system(update_location_for_moved_anchors)
                     .with_system(handle_consider_associated_graph)
-                    .with_system(handle_consider_location_tag)
                     .with_system(update_lift_for_moved_anchors)
                     .with_system(update_lift_door_availability)
                     .with_system(update_physical_lights)
