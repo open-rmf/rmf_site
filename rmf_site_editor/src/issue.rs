@@ -15,10 +15,9 @@
  *
 */
 
-use crate::site::SiteProperties;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
-use bevy::utils::{HashMap, HashSet, Uuid};
+use bevy::utils::{HashMap, Uuid};
 use rmf_site_format::IssueKey;
 
 #[derive(Component, Debug, Clone)]

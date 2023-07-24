@@ -29,8 +29,7 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
     },
-    AppState, CreateNewWorkspace, CurrentWorkspace, Issue, IssueDictionary, LoadWorkspace,
-    SaveWorkspace, ValidateCurrentWorkspace,
+    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{

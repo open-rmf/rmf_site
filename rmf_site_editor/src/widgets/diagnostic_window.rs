@@ -21,10 +21,7 @@ use crate::{AppEvents, Icons, Issue};
 use crate::{IssueDictionary, ValidateCurrentWorkspace};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy::utils::Uuid;
-use bevy_egui::egui::{
-    Button, Checkbox, ComboBox, Context, Grid, ImageButton, RichText, ScrollArea, Ui, Window,
-};
+use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Window};
 
 #[derive(Resource, Debug, Clone)]
 pub struct DiagnosticWindowState {
