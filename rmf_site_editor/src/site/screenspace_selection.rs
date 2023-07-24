@@ -100,7 +100,7 @@ impl ColorEntityMap {
         let color = Color::rgb_u8(r, g, b);
 
         let material = point_materials.add(PointsMaterial {
-            point_size: SCREEN_SPACE_POINT_SIZE_SELECTION,   // Defines the size of the points.
+            point_size: SCREEN_SPACE_POINT_SIZE_SELECTION, // Defines the size of the points.
             perspective: false, // Specify whether points' size is attenuated by the camera depth.
             circle: true,
             use_vertex_color: false,

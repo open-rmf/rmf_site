@@ -1,9 +1,11 @@
 use crate::interaction::Hover;
+use crate::interaction::LimitScaleFactor;
 use crate::interaction::Select;
 use crate::interaction::LINE_PICKING_LAYER;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
+use bevy::ecs::query::WorldQuery;
 use bevy::prelude::*;
 use bevy::render::camera::RenderTarget;
 use bevy::render::render_resource::*;
@@ -249,7 +251,7 @@ pub fn buffer_to_selection<const Layer: u8>(
 
                         if result.len() == 0usize {
                             continue;
-                        }             
+                        }
 
                         if mouse_button_input.just_released(MouseButton::Left) {
                             select_event.send(Select(Some(*entity)));
@@ -262,6 +264,50 @@ pub fn buffer_to_selection<const Layer: u8>(
                     //Color::as_linear_rgba_f32(self)
                 }
             }
+        }
+    }
+}
+
+pub fn limit_size(
+    item_to_limit_scale: Query<(&LimitScaleFactor, Entity)>,
+    camera_controls: Res<CameraControls>,
+    cameras: Query<&Camera>,
+    transforms: Query<&GlobalTransform>,
+    mut editable_transforms: Query<&mut Transform>,
+) {
+    let view_cam_entity = match camera_controls.mode() {
+        ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
+        ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
+    };
+
+    let Ok((camera)) = cameras.get(view_cam_entity) else {
+        println!("here1q");
+        return;
+    };
+
+    let Ok(camera_transform) = transforms.get(view_cam_entity)
+    else {
+        return;
+    };
+
+    for (limits, entity) in item_to_limit_scale.iter() {
+        let Ok(item_to_scale_transform) = transforms.get(entity) else {
+            continue;
+        };
+
+        let dist = camera_transform.translation() - item_to_scale_transform.translation();
+
+        if dist.length() > limits.distance_to_start_scaling {
+            let Ok(mut item_to_scale) = editable_transforms.get_mut(entity) else {
+                continue;
+            };
+            item_to_scale.scale = Vec3::splat(dist.length() / limits.distance_to_start_scaling)
+                * limits.original_scale;
+        } else {
+            let Ok(mut item_to_scale) = editable_transforms.get_mut(entity) else {
+                continue;
+            };
+            item_to_scale.scale = Vec3::ONE * limits.original_scale;
         }
     }
 }

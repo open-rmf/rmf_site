@@ -104,7 +104,7 @@ pub mod camera_capture;
 pub use camera_capture::*;
 
 use crate::{
-    interaction::{LINE_PICKING_LAYER, POINT_PICKING_LAYER},
+    interaction::{LimitScaleFactor, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
     recency::{RecencyRank, RecencyRankingPlugin},
 };
 pub use rmf_site_format::*;
@@ -227,7 +227,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
-                    .with_system(update_material_for_display_color),
+                    .with_system(update_material_for_display_color)
+                    .with_system(limit_size),
             )
             .add_system_set(
                 SystemSet::on_update(SiteState::Display)
