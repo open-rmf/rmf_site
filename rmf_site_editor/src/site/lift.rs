@@ -15,8 +15,15 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
-use bevy::{prelude::*, render::primitives::Aabb};
+use crate::{
+    interaction::Selectable, register_issue, shapes::*, site::*, CurrentWorkspace, Issue,
+    IssueDictionary, ValidateCurrentWorkspace,
+};
+use bevy::{
+    prelude::*,
+    render::primitives::Aabb,
+    utils::{HashMap, Uuid},
+};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
 
@@ -592,6 +599,53 @@ fn remove_door(
                 .entity(anchor)
                 .insert(Pending)
                 .insert(Visibility { is_visible: false });
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated lift names
+const DUPLICATED_LIFT_NAME_ISSUE_UUID: &str = "307e8182-2d8d-4b62-b20f-2503955f1032";
+
+pub fn register_duplicated_lift_issue(mut dictionary: ResMut<IssueDictionary>) {
+    let type_uuid = Uuid::parse_str(DUPLICATED_LIFT_NAME_ISSUE_UUID).unwrap();
+    let name = String::from("Duplicated Lift Name");
+    register_issue(type_uuid, name, &mut dictionary);
+}
+
+// When triggered by a validation request event, check if there are duplicated door names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_lift_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateCurrentWorkspace>,
+    current_workspace: Res<CurrentWorkspace>,
+    parents: Query<&Parent>,
+    lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
+) {
+    if validate_events.iter().last().is_some() {
+        let Some(root) = current_workspace.root else {
+            return;
+        };
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &lift_names {
+            if AncestorIter::new(&parents, e).any(|p| p == root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: Uuid::parse_str(DUPLICATED_LIFT_NAME_ISSUE_UUID).unwrap(),
+                    },
+                    brief: format!("Multiple lifts found with the same name {}", name),
+                    hint: "Doors use their names as identifiers with RMF and each lift should have a unique \
+                           name, rename the affected lifts".to_string()
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(root).add_child(id);
+            }
         }
     }
 }

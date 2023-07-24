@@ -210,6 +210,7 @@ impl Plugin for SitePlugin {
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
             .add_startup_system(register_duplicated_door_issue)
+            .add_startup_system(register_duplicated_lift_issue)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -221,6 +222,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_tentative_formats)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(check_for_duplicated_door_names)
+                    .with_system(check_for_duplicated_lift_names)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
