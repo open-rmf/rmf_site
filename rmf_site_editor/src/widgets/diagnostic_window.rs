@@ -144,7 +144,14 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                             let mut sel = state.selected.as_ref().is_some_and(|k| *k == issue.key);
                             issue_still_exists |= sel;
                             ui.horizontal(|ui| {
-                                if ui.add(Button::new("Suppress")).clicked() {
+                                if ui
+                                    .add(ImageButton::new(
+                                        self.params.icons.hide.egui(),
+                                        [16., 16.],
+                                    ))
+                                    .on_hover_text("Suppress this issue")
+                                    .clicked()
+                                {
                                     props.filtered_issues.insert(issue.key.clone());
                                     issue_still_exists = false;
                                 }

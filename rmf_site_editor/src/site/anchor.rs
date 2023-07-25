@@ -204,7 +204,7 @@ pub fn check_for_close_unconnected_anchors(
             if let Some(level) = AncestorIter::new(&parents, e).find(|p| levels.get(*p).is_ok()) {
                 if AncestorIter::new(&parents, level).any(|p| p == **root) {
                     // Level that belongs to requested workspace
-                    let mut poses = anchor_poses.entry(level).or_default();
+                    let poses = anchor_poses.entry(level).or_default();
                     poses.push((
                         e,
                         anchors
@@ -230,7 +230,7 @@ pub fn check_for_close_unconnected_anchors(
                                 kind: UNCONNECTED_ANCHORS_ISSUE_UUID,
                             },
                             brief: format!(
-                                "Anchors are closer than {} but unconnected",
+                                "Anchors are closer than {} m but unconnected",
                                 DISTANCE_THRESHOLD
                             ),
                             hint: ISSUE_HINT.to_string(),
