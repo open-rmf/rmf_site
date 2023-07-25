@@ -23,7 +23,7 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Window};
 
-#[derive(Resource, Debug, Clone)]
+#[derive(Resource, Debug, Clone, Default)]
 pub struct DiagnosticWindowState {
     pub show: bool,
     pub selected: Option<IssueKey<Entity>>,
@@ -37,15 +37,6 @@ pub struct DiagnosticParams<'w, 's> {
     pub validate_event: EventWriter<'w, 's, ValidateWorkspace>,
     pub issue_dictionary: Res<'w, IssueDictionary>,
     pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
-}
-
-impl Default for DiagnosticWindowState {
-    fn default() -> Self {
-        Self {
-            show: true,
-            selected: None,
-        }
-    }
 }
 
 pub struct DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
@@ -134,6 +125,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                     .auto_shrink([false, false])
                     .show(ui, |ui| {
                         let mut issue_still_exists = false;
+                        if self.params.issues.is_empty() {
+                            ui.label("No issues found");
+                        }
                         for (issue, parent) in &self.params.issues {
                             if props.filtered_issue_kinds.contains(&issue.key.kind)
                                 || props.filtered_issues.contains(&issue.key)

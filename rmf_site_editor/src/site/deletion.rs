@@ -89,7 +89,7 @@ struct DeletionParams<'w, 's> {
     levels: Query<'w, 's, Entity, With<LevelProperties>>,
     select: EventWriter<'w, 's, Select>,
     log: EventWriter<'w, 's, Log>,
-    issues: Query<'w, 's, &'static mut Issue>,
+    issues: Query<'w, 's, (Entity, &'static mut Issue)>,
 }
 
 pub struct DeletionPlugin;
@@ -224,8 +224,11 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
-    for mut issue in &mut params.issues {
+    for (e, mut issue) in &mut params.issues {
         issue.key.entities.remove(&element);
+        if issue.key.entities.is_empty() {
+            params.commands.entity(e).despawn_recursive();
+        }
     }
 
     // Fetch the parent and delete this dependent

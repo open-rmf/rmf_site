@@ -408,7 +408,7 @@ pub fn handle_consider_associated_graph(
     }
 }
 
-/// Unique UUID to identify issue of duplicated door names
+/// Unique UUID to identify issue of duplicated dock names
 pub const DUPLICATED_DOCK_NAME_ISSUE_UUID: Uuid =
     Uuid::from_u128(0xca210e1025014ac2a4072bc956d76151u128);
 
