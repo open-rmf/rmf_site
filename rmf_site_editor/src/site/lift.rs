@@ -606,7 +606,7 @@ fn remove_door(
 pub const DUPLICATED_LIFT_NAME_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x307e81822d8d4b62b20f2503955f1032u128);
 
-// When triggered by a validation request event, check if there are duplicated door names and
+// When triggered by a validation request event, check if there are duplicated lift names and
 // generate an issue if that is the case
 pub fn check_for_duplicated_lift_names(
     mut commands: Commands,
@@ -614,6 +614,8 @@ pub fn check_for_duplicated_lift_names(
     parents: Query<&Parent>,
     lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
 ) {
+    const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
+                              have a unique name, rename the affected lifts";
     for root in validate_events.iter() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &lift_names {
@@ -630,8 +632,7 @@ pub fn check_for_duplicated_lift_names(
                         kind: DUPLICATED_LIFT_NAME_ISSUE_UUID,
                     },
                     brief: format!("Multiple lifts found with the same name {}", name),
-                    hint: "Doors use their names as identifiers with RMF and each lift should have a unique \
-                           name, rename the affected lifts".to_string()
+                    hint: ISSUE_HINT.to_string(),
                 };
                 let id = commands.spawn(issue).id();
                 commands.entity(**root).add_child(id);

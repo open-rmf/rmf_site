@@ -15,9 +15,11 @@
  *
 */
 
-use crate::site::*;
-use bevy::{prelude::*, render::primitives::Sphere};
+use crate::{site::*, Issue, ValidateWorkspace};
+use bevy::{prelude::*, render::primitives::Sphere, utils::Uuid};
+use itertools::Itertools;
 use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
+use std::collections::HashMap;
 
 #[derive(Bundle, Debug)]
 pub struct AnchorBundle {
@@ -173,5 +175,71 @@ pub fn assign_orphan_anchors_to_parent(
         };
 
         commands.entity(parent).add_child(e_anchor);
+    }
+}
+
+/// Unique UUID to identify issue of anchors being close but not connected
+pub const UNCONNECTED_ANCHORS_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0xe1ef2a60c3bc45829effdf8ca7dd3403u128);
+
+// When triggered by a validation request event, check if there are anchors that are very close to
+// each other but not connected
+pub fn check_for_close_unconnected_anchors(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    anchors: AnchorParams,
+    anchor_entities: Query<Entity, With<Anchor>>,
+    levels: Query<Entity, With<LevelProperties>>,
+    dependents: Query<&Dependents>,
+) {
+    const ISSUE_HINT: &str = "Pair of anchors that are very close but not connected was found, \
+                        review if this is intended and, if it is, suppress the issue";
+    // TODO(luca) make this configurable
+    const DISTANCE_THRESHOLD: f32 = 0.5;
+    for root in validate_events.iter() {
+        // Key is level id, value is vector of (Entity, Global tf's position)
+        let mut anchor_poses: HashMap<Entity, Vec<(Entity, Vec3)>> = HashMap::new();
+        for e in &anchor_entities {
+            if let Some(level) = AncestorIter::new(&parents, e).find(|p| levels.get(*p).is_ok()) {
+                if AncestorIter::new(&parents, level).any(|p| p == **root) {
+                    // Level that belongs to requested workspace
+                    let mut poses = anchor_poses.entry(level).or_default();
+                    poses.push((
+                        e,
+                        anchors
+                            .point_in_parent_frame_of(e, Category::Level, level)
+                            .expect("Failed fetching anchor pose"),
+                    ));
+                }
+            }
+        }
+        // Now find close unconnected pairs, sadly n^2 problem for anchors, unless we use better
+        // data structures that sort in space
+        for values in anchor_poses.values() {
+            for ((e0, p0), (e1, p1)) in values.iter().tuple_combinations() {
+                if p0.distance(*p1) < DISTANCE_THRESHOLD {
+                    let mut edge_found = false;
+                    if let (Ok(d0), Ok(d1)) = (dependents.get(*e0), dependents.get(*e1)) {
+                        edge_found = d0.iter().any(|d| d1.contains(d));
+                    }
+                    if !edge_found {
+                        let issue = Issue {
+                            key: IssueKey {
+                                entities: [*e0, *e1].into(),
+                                kind: UNCONNECTED_ANCHORS_ISSUE_UUID,
+                            },
+                            brief: format!(
+                                "Anchors are closer than {} but unconnected",
+                                DISTANCE_THRESHOLD
+                            ),
+                            hint: ISSUE_HINT.to_string(),
+                        };
+                        let id = commands.spawn(issue).id();
+                        commands.entity(**root).add_child(id);
+                    }
+                }
+            }
+        }
     }
 }

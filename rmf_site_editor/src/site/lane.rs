@@ -420,7 +420,7 @@ pub fn check_for_duplicated_dock_names(
     parents: Query<&Parent>,
     lane_properties: Query<(Entity, &Motion, Option<&ReverseLane>), With<LaneMarker>>,
 ) {
-    const hint: &str = "RMF uses the dock name parameter to trigger special behavior from \
+    const ISSUE_HINT: &str = "RMF uses the dock name parameter to trigger special behavior from \
                         the robots. Duplicated dock names would make such behavior ambiguous as \
                         it would be triggered in different parts of the map, rename the docks to \
                         be unique";
@@ -448,7 +448,7 @@ pub fn check_for_duplicated_dock_names(
                                     "Same dock name found for forward and reverse motion {}",
                                     dock.name
                                 ),
-                                hint: hint.to_string(),
+                                hint: ISSUE_HINT.to_string(),
                             };
                             let id = commands.spawn(issue).id();
                             commands.entity(**root).add_child(id);
@@ -465,7 +465,7 @@ pub fn check_for_duplicated_dock_names(
                         kind: DUPLICATED_DOCK_NAME_ISSUE_UUID,
                     },
                     brief: format!("Multiple docks found with the same name {}", name),
-                    hint: hint.to_string(),
+                    hint: ISSUE_HINT.to_string(),
                 };
                 let id = commands.spawn(issue).id();
                 commands.entity(**root).add_child(id);

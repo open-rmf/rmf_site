@@ -85,7 +85,7 @@ pub fn update_fiducial_for_moved_anchors(
 pub const FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID: Uuid =
     Uuid::from_u128(0x242a655f67cc4d4f9176ed5d64cd87f0u128);
 
-// When triggered by a validation request event, check if there are duplicated door names and
+// When triggered by a validation request event, check if there are fiducials without a label,
 // generate an issue if that is the case
 pub fn check_for_fiducials_without_label(
     mut commands: Commands,
@@ -93,6 +93,9 @@ pub fn check_for_fiducials_without_label(
     parents: Query<&Parent>,
     fiducial_labels: Query<(Entity, &Label), With<FiducialMarker>>,
 ) {
+    const ISSUE_HINT: &str = "Fiducials names are used by the site editor to map matching \
+                            fiducials between different floors or drawings and calculate their \
+                            relative transform, fiducials without labels are ignored";
     for root in validate_events.iter() {
         for (e, label) in &fiducial_labels {
             if AncestorIter::new(&parents, e).any(|p| p == **root) {
@@ -103,10 +106,7 @@ pub fn check_for_fiducials_without_label(
                             kind: FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID,
                         },
                         brief: format!("Fiducial without label found"),
-                        hint: "Fiducials names are used by the site editor to map matching \
-                            fiducials between different floors or drawings and calculate their \
-                            relative transform, fiducials without labels are ignored"
-                            .to_string(),
+                        hint: ISSUE_HINT.to_string(),
                     };
                     let id = commands.spawn(issue).id();
                     commands.entity(**root).add_child(id);

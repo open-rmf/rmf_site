@@ -213,6 +213,7 @@ impl Plugin for SitePlugin {
             .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
             .add_issue_type(&FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID, "Fiducial without label")
             .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
+            .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -227,6 +228,7 @@ impl Plugin for SitePlugin {
                     .with_system(check_for_duplicated_lift_names)
                     .with_system(check_for_duplicated_dock_names)
                     .with_system(check_for_fiducials_without_label)
+                    .with_system(check_for_close_unconnected_anchors)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(update_material_for_display_color),
             )
