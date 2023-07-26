@@ -45,6 +45,12 @@ impl Lift {
         // TODO(MXG): Rewrite this with glam now that we've accepted it as a dependency
         let x = self.x as f32;
         let y = self.y as f32;
+        // NOTE: Coordinate axes changed between the legacy format and the
+        // new format. Width used to be along the local x axis, and depth
+        // used to be along the local y axis, but now that is flipped to
+        // better align with the robotics convention of the local x axis
+        // being forward/backward while the local y axis is the lateral
+        // direction (side-to-side).
         let d = self.width as f32 / 2.0;
         let w = self.depth as f32 / 2.0;
         let theta = self.yaw as f32;
@@ -95,6 +101,12 @@ impl Lift {
 
             let dx = door.x as f32;
             let dy = door.y as f32;
+            // NOTE: Coordinate axes changed between the legacy format and the
+            // new format. Width used to be along the local x axis, and depth
+            // used to be along the local y axis, but now that is flipped to
+            // better align with the robotics convention of the local x axis
+            // being forward/backward while the local y axis is the lateral
+            // direction (side-to-side).
             let half_width = self.depth as f32 / 2.0;
             let half_depth = self.width as f32 / 2.0;
 
@@ -208,6 +220,12 @@ impl Lift {
             }
         }
 
+        // NOTE: Coordinate axes changed between the legacy format and the
+        // new format. Width used to be along the local x axis, and depth
+        // used to be along the local y axis, but now that is flipped to
+        // better align with the robotics convention of the local x axis
+        // being forward/backward while the local y axis is the lateral
+        // direction (side-to-side).
         let width = self.depth as f32;
         let depth = self.width as f32;
         let cabin = RectangularLiftCabin {
