@@ -22,6 +22,9 @@ use bevy::prelude::*;
 // experience z-fighting.
 const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
 
+#[derive(Component, Debug, Clone)]
+pub struct LocationRobotModel(Entity);
+
 // TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
@@ -218,36 +221,6 @@ pub fn update_visibility_for_locations(
         for e in &locations_with_changed_association {
             if let Ok((_, associated_graphs, _, mut m)) = locations.get_mut(e) {
                 *m = graphs.display_style(associated_graphs).0;
-            }
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-pub struct ConsiderLocationTag {
-    pub tag: Option<LocationTag>,
-    pub for_element: Entity,
-}
-
-impl ConsiderLocationTag {
-    pub fn new(tag: Option<LocationTag>, for_element: Entity) -> Self {
-        Self { tag, for_element }
-    }
-}
-
-// TODO(MXG): Consider refactoring into a generic plugin, alongside ConsiderAssociatedGraph
-pub fn handle_consider_location_tag(
-    mut recalls: Query<&mut RecallLocationTags>,
-    mut considerations: EventReader<ConsiderLocationTag>,
-) {
-    for consider in considerations.iter() {
-        if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
-            recall.consider_tag = consider.tag.clone();
-            let r = recall.as_mut();
-            if let Some(LocationTag::SpawnRobot(model)) | Some(LocationTag::Workcell(model)) =
-                &r.consider_tag
-            {
-                r.consider_tag_asset_source_recall.remember(&model.source);
             }
         }
     }

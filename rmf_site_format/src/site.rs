@@ -32,7 +32,7 @@ pub struct SiteProperties {
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
-            name: "new_site".to_string(),
+            name: "new_site".to_owned(),
         }
     }
 }
@@ -57,9 +57,12 @@ pub struct Site {
     /// Data related to navigation
     #[serde(default, skip_serializing_if = "Navigation::is_empty")]
     pub navigation: Navigation,
-    /// Properties that describe simulated agents in the site
+    /// Models associated with this site
+    #[serde(default, skip_serializing_if = "Models::is_empty")]
+    pub models: Models,
+    /// Scenarios associated with this site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub agents: BTreeMap<u32, Agent>,
+    pub scenarios: BTreeMap<u32, Scenario>,
 }
 
 fn default_style_config() -> Style {

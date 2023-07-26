@@ -2,10 +2,11 @@ use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
-    Fiducial as SiteFiducial, FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph,
-    Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane,
-    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    Fiducial as SiteFiducial, FiducialMarker, Guided, Instance, Label, Lane as SiteLane,
+    LaneMarker, Level as SiteLevel, LevelProperties as SiteLevelProperties, Models, Motion,
+    NameInSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel,
+    ReverseLane, Rotation, Scenario, ScenarioProperties, Site, SiteProperties,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -126,6 +127,9 @@ impl BuildingMap {
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
+        let mut models = Models::default();
+        let mut model_source_map: HashMap<String, u32> = HashMap::new();
+        let mut instances: BTreeMap<u32, Instance> = BTreeMap::new();
 
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
@@ -167,6 +171,13 @@ impl BuildingMap {
                 vertex_to_anchor_id.insert(i, anchor_id);
                 if let Some(location) = v.make_location(anchor_id) {
                     locations.insert(site_id.next().unwrap(), location);
+                }
+
+                if let Some(instance) =
+                    v.make_instance(&mut site_id, &mut model_source_map, &mut models, anchor_id)
+                {
+                    let instance_id = site_id.next().unwrap();
+                    instances.insert(instance_id, instance);
                 }
             }
 
@@ -375,6 +386,18 @@ impl BuildingMap {
             );
         }
 
+        let default_scenario_id = site_id.next().unwrap();
+        let mut scenarios: BTreeMap<u32, Scenario> = BTreeMap::new();
+        scenarios.insert(
+            default_scenario_id,
+            Scenario {
+                properties: ScenarioProperties {
+                    name: "Default Scenario".to_owned(),
+                },
+                instances,
+            },
+        );
+
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
@@ -391,7 +414,8 @@ impl BuildingMap {
                     locations,
                 },
             },
-            agents: Default::default(),
+            models,
+            scenarios,
         })
     }
 }

@@ -23,9 +23,8 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        AssociatedGraphs, Change, ConsiderAssociatedGraph, CurrentLevel, Delete, ExportLights,
+        FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -160,7 +159,6 @@ pub struct Requests<'w, 's> {
     pub export_lights: EventWriter<'w, 's, ExportLights>,
     pub save_nav_graphs: EventWriter<'w, 's, SaveNavGraphs>,
     pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
-    pub consider_tag: EventWriter<'w, 's, ConsiderLocationTag>,
     pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
 }
 

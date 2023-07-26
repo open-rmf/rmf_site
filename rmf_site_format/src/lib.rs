@@ -45,6 +45,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod instance;
+pub use instance::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -65,6 +68,9 @@ pub use measurement::*;
 
 pub mod misc;
 pub use misc::*;
+
+pub mod mobile_robot;
+pub use mobile_robot::*;
 
 pub mod model;
 pub use model::*;
@@ -87,11 +93,17 @@ pub use point::*;
 pub mod recall;
 pub use recall::*;
 
+pub mod scenario;
+pub use scenario::*;
+
 pub mod semver;
 pub use semver::*;
 
 pub mod site;
 pub use site::*;
+
+pub mod stationary_robot;
+pub use stationary_robot::*;
 
 pub mod texture;
 pub use texture::*;
