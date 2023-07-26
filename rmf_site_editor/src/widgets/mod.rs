@@ -33,7 +33,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader, Sense},
+    egui::{self, Button, CollapsingHeader},
     EguiContext,
 };
 use rmf_site_format::*;
@@ -76,6 +76,19 @@ pub enum UiUpdateLabel {
     DrawUi,
 }
 
+#[derive(Resource, Clone, Default)]
+pub struct PendingDrawing {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct PendingModel {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+    pub scale: Scale,
+}
+
 #[derive(Default)]
 pub struct StandardUiLayout;
 
@@ -86,6 +99,8 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<PendingDrawing>()
+            .init_resource::<PendingModel>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -239,16 +254,9 @@ pub struct AppEvents<'w, 's> {
     pub layers: LayerEvents<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
-    pub pending_models: Query<
-        'w,
-        's,
-        (Entity, &'static AssetSource, &'static Scale),
-        (With<Pending>, With<ModelMarker>),
-    >,
-    pub pending_drawings:
-        Query<'w, 's, (Entity, &'static AssetSource), (With<Pending>, With<DrawingMarker>)>,
+    pub pending_model: ResMut<'w, PendingModel>,
+    pub pending_drawings: ResMut<'w, PendingDrawing>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
-    pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
     pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,

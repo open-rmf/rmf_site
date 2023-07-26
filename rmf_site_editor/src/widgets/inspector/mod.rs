@@ -409,15 +409,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(is_primary) = self.params.drawing.is_primary.get(selection) {
-                if let Some(new_is_primary) = InspectIsPrimary::new(is_primary).show(ui) {
-                    self.events
-                        .is_primary
-                        .send(Change::new(new_is_primary, selection));
-                }
-                ui.add_space(10.0);
-            }
-
             if let Ok(distance) = self.params.drawing.distance.get(selection) {
                 if let Some(new_distance) =
                     InspectOptionF32::new("Distance".to_string(), distance.0, 10.0)
