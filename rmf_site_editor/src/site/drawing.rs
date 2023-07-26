@@ -112,7 +112,7 @@ pub fn handle_loaded_drawing(
                     if let Ok(mut mesh_handle) = mesh_handles.get_mut(segment.leaf) {
                         *mesh_handle = mesh;
                     } else {
-                        println!("DEV ERROR: Partially-constructed Drawing entity detected");
+                        error!("Partially-constructed Drawing entity detected");
                     }
                     // We can ignore the layer height here since that update
                     // will be handled by another system.
