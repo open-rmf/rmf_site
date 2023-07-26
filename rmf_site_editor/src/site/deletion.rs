@@ -17,6 +17,7 @@
 
 use crate::{
     interaction::{Select, Selection},
+    log::Log,
     site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -86,6 +87,7 @@ struct DeletionParams<'w, 's> {
     current_level: ResMut<'w, CurrentLevel>,
     levels: Query<'w, 's, Entity, With<LevelProperties>>,
     select: EventWriter<'w, 's, Select>,
+    log: EventWriter<'w, 's, Log>,
 }
 
 pub struct DeletionPlugin;
@@ -128,16 +130,16 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Element {:?} cannot be deleted because: {}",
                     element,
                     prevent
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             } else {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Element {:?} is an ancestor of {:?} which cannot be \
                     deleted because: {}",
                     element,
@@ -146,7 +148,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             }
             return;
         }
@@ -155,20 +157,20 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             for dep in dependents.iter() {
                 if !all_descendents.contains(dep) {
                     if *descendent == element {
-                        println!(
+                        params.log.send(Log::hint(format!(
                             "Cannot delete {:?} because it has {} dependents. \
                             Only elements with no outside dependents can be \
                             deleted.",
                             element,
                             dependents.len(),
-                        );
+                        )));
                     } else {
-                        println!(
+                        params.log.send(Log::hint(format!(
                             "Element {:?} is an ancestor of {:?} \
                             which cannot be deleted because {:?} depends \
                             on it.",
                             element, descendent, dep,
-                        );
+                        )));
                     }
                     return;
                 }
@@ -238,16 +240,16 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     while let Some(top) = queue.pop() {
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Cannot delete {:?} because: {}",
                     element,
                     prevent
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             } else {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Cannot delete {:?} because we would need to also delete \
                     {:?} which cannot be deleted because: {}",
                     element,
@@ -256,7 +258,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                )
+                )));
             }
             return;
         }
