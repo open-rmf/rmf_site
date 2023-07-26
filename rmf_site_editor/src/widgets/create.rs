@@ -91,18 +91,18 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         .default_open(false)
                         .show(ui, |ui| {
                             if let Some(new_asset_source) = InspectAssetSource::new(
-                                &self.events.pending_drawings.source,
-                                &self.events.pending_drawings.recall_source,
+                                &self.events.display.pending_drawings.source,
+                                &self.events.display.pending_drawings.recall_source,
                             ).show(ui) {
-                                self.events.pending_drawings.recall_source.remember(
+                                self.events.display.pending_drawings.recall_source.remember(
                                     &new_asset_source
                                 );
-                                self.events.pending_drawings.source = new_asset_source;
+                                self.events.display.pending_drawings.source = new_asset_source;
                             }
                             ui.add_space(5.0);
                             if ui.button("Add Drawing").clicked() {
                                 let drawing = Drawing {
-                                    source: self.events.pending_drawings.source.clone(),
+                                    source: self.events.display.pending_drawings.source.clone(),
                                     ..default()
                                 };
                                 self.events.commands.spawn(DrawingBundle::new(&drawing));
@@ -137,17 +137,17 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                         .default_open(false)
                         .show(ui, |ui| {
                             if let Some(new_asset_source) = InspectAssetSource::new(
-                                &self.events.pending_model.source,
-                                &self.events.pending_model.recall_source,
+                                &self.events.display.pending_model.source,
+                                &self.events.display.pending_model.recall_source,
                             ).show(ui) {
-                                self.events.pending_model.recall_source.remember(&new_asset_source);
-                                self.events.pending_model.source = new_asset_source;
+                                self.events.display.pending_model.recall_source.remember(&new_asset_source);
+                                self.events.display.pending_model.source = new_asset_source;
                             }
                             ui.add_space(5.0);
                             if let Some(new_scale) = InspectScale::new(
-                                &self.events.pending_model.scale,
+                                &self.events.display.pending_model.scale,
                             ).show(ui) {
-                                self.events.pending_model.scale = new_scale;
+                                self.events.display.pending_model.scale = new_scale;
                             }
                             ui.add_space(5.0);
                             match self.events.app_state.current() {
@@ -157,8 +157,8 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                 AppState::SiteEditor => {
                                     if ui.button("Spawn model").clicked() {
                                         let model = Model {
-                                            source: self.events.pending_model.source.clone(),
-                                            scale: self.events.pending_model.scale,
+                                            source: self.events.display.pending_model.source.clone(),
+                                            scale: self.events.display.pending_model.scale,
                                             ..default()
                                         };
                                         self.events.request.change_mode.send(ChangeMode::To(
@@ -172,8 +172,8 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     if ui.button("Spawn visual").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self.events.pending_model.source).into(),
-                                                scale: Some(*self.events.pending_model.scale),
+                                                filename: (&self.events.display.pending_model.source).into(),
+                                                scale: Some(*self.events.display.pending_model.scale),
                                             },
                                             ..default()
                                         };
@@ -186,8 +186,8 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     if ui.button("Spawn collision").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self.events.pending_model.source).into(),
-                                                scale: Some(*self.events.pending_model.scale),
+                                                filename: (&self.events.display.pending_model.source).into(),
+                                                scale: Some(*self.events.display.pending_model.scale),
                                             },
                                             ..default()
                                         };

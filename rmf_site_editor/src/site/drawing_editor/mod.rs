@@ -28,6 +28,12 @@ use crate::{AppState, VisibilityEvents};
 
 use std::collections::HashSet;
 
+#[derive(Clone, Copy)]
+pub struct BeginEditDrawing(pub Entity);
+
+#[derive(Clone, Copy)]
+pub struct FinishEditDrawing;
+
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
 
@@ -166,7 +172,9 @@ fn make_drawing_default_selected(
 
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ScaleDrawing>()
+        app
+            .add_event::<ScaleDrawing>()
+            .add_event::<BeginEditDrawing>()
             .add_system_set(
                 SystemSet::on_enter(AppState::SiteDrawingEditor)
                     .with_system(hide_level_entities)

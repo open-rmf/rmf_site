@@ -28,6 +28,7 @@ use crate::{
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
+        BeginEditDrawing, FinishEditDrawing,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -169,6 +170,8 @@ pub struct PanelResources<'w, 's> {
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
     pub log_history: ResMut<'w, LogHistory>,
+    pub pending_model: ResMut<'w, PendingModel>,
+    pub pending_drawings: ResMut<'w, PendingDrawing>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -200,6 +203,8 @@ pub struct LayerEvents<'w, 's> {
     pub change_layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
     pub global_floor_vis: ResMut<'w, GlobalFloorVisibility>,
     pub global_drawing_vis: ResMut<'w, GlobalDrawingVisibility>,
+    pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
+    pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
 }
 
 #[derive(SystemParam)]
@@ -254,8 +259,6 @@ pub struct AppEvents<'w, 's> {
     pub layers: LayerEvents<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
-    pub pending_model: ResMut<'w, PendingModel>,
-    pub pending_drawings: ResMut<'w, PendingDrawing>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
@@ -458,7 +461,7 @@ fn site_visualizer_ui_layout(
                             ));
                         }
                         if ui.add(Button::new("Return to site editor")).clicked() {
-                            events.app_state.set(AppState::SiteEditor).ok();
+                            events.layers.begin_edit_drawing.send(FinishEditDrawing);
                         }
                     });
                 });

@@ -92,6 +92,7 @@ use crate::{
     site::{
         Category, Change, DrawingMarker, DrawingSemiTransparency, EdgeLabels,
         FloorSemiTransparency, LayerVisibility, Original, ScaleDrawing, SiteID,
+        BeginEditDrawing,
     },
     widgets::AppEvents,
     AppState,
@@ -442,7 +443,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 match self.events.app_state.current() {
                     AppState::SiteEditor => {
                         if ui.add(Button::new("Drawing editor")).clicked() {
-                            self.events.app_state.set(AppState::SiteDrawingEditor).ok();
+                            self.events.layers.begin_edit_drawing.send(
+                                BeginEditDrawing(selection)
+                            );
                         }
                     }
                     AppState::SiteDrawingEditor => {
