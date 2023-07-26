@@ -85,6 +85,26 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_one_new_edge().for_constraint().into(),
                         ));
                     }
+                    CollapsingHeader::new("New drawing")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            if let Some(new_asset_source) = InspectAssetSource::new(
+                                source, &RecallAssetSource::default()
+                            ).show(ui) {
+                                self.events
+                                    .change
+                                    .asset_source
+                                    .send(Change::new(new_asset_source, e));
+                            }
+                            ui.add_space(5.0);
+                            if ui.button("Add Drawing").clicked() {
+                                let drawing = Drawing {
+                                    source: source.clone(),
+                                    ..default()
+                                };
+                                self.events.commands.spawn(DrawingBundle::new(&drawing));
+                            }
+                        });
                 }
                 AppState::SiteDrawingEditor => {
                     if ui.button("Fiducial").clicked() {
@@ -192,44 +212,6 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             .insert(Pending);
                     }
                 }
-            }
-            if let Ok((e, source)) = self.events.pending_drawings.get_single() {
-                ui.add_space(10.0);
-                CollapsingHeader::new("New drawing")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        if let Some(new_asset_source) =
-                            InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui)
-                        {
-                            self.events
-                                .change
-                                .asset_source
-                                .send(Change::new(new_asset_source, e));
-                        }
-                        ui.add_space(5.0);
-                        match self.events.app_state.current() {
-                            AppState::SiteEditor => {
-                                if ui.button("Add Drawing").clicked() {
-                                    let drawing = Drawing {
-                                        source: source.clone(),
-                                        ..default()
-                                    };
-                                    self.events.commands.spawn(DrawingBundle::new(&drawing));
-                                }
-                                ui.add_space(10.0);
-                            }
-                            _ => {}
-                        }
-                    });
-            } else if self.events.pending_drawings.is_empty() {
-                // Spawn one
-                let source = AssetSource::Local("clinic.png".to_string());
-                self.events
-                    .commands
-                    .spawn(source.clone())
-                    .insert(DrawingMarker)
-                    .insert(SuppressRecencyRank)
-                    .insert(Pending);
             }
         });
     }
