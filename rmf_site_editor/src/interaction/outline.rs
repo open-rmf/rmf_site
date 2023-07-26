@@ -81,17 +81,20 @@ impl OutlineVisualization {
         }
     }
 
-    // A strange issue is causing outlines to diverge at certain camera angles
-    // for objects that use the Flat depth. The issue doesn't seem to happen
-    // for objects with Real depth, so we are switching most objects to use the
-    // Real outline setting. However, I don't think this looks good for certain
-    // types of objects so we will keep the Flat setting for them and accept
-    // that certain camera angles can make their outline look strange.
-    //
-    // The relevant upstream issue is being tracked here: https://github.com/komadori/bevy_mod_outline/issues/14
+    // Flat outlines look better but are subject to glitches in wasm, use a feature flag to use
+    // Real outline depth in wasm and flat in other platforms.
+    // Tracking issue here https://github.com/komadori/bevy_mod_outline/issues/19
+    // TODO(luca) revisit once issue is solved
     pub fn depth(&self) -> SetOutlineDepth {
-        SetOutlineDepth::Flat {
-            model_origin: Vec3::ZERO,
+        #[cfg(target_arch = "wasm32")]
+        {
+            SetOutlineDepth::Real
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            SetOutlineDepth::Flat {
+                model_origin: Vec3::ZERO,
+            }
         }
     }
 
