@@ -15,24 +15,46 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{prelude::*, render::view::visibility::RenderLayers};
 
 pub mod optimizer;
 pub use optimizer::*;
 
-use crate::interaction::{CameraControls, HeadlightToggle, Selection};
-use crate::site::{
-    Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending, PixelsPerMeter, Point,
+use crate::{
+    interaction::{CameraControls, HeadlightToggle, Selection},
+    site::{
+        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending,
+        PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
+    },
+    WorkspaceMarker, CurrentWorkspace,
 };
-use crate::{AppState, VisibilityEvents};
+use crate::AppState;
 
 use std::collections::HashSet;
 
 #[derive(Clone, Copy)]
 pub struct BeginEditDrawing(pub Entity);
 
+/// Command to finish editing a drawing. Use None to command any drawing to finish.
 #[derive(Clone, Copy)]
-pub struct FinishEditDrawing;
+pub struct FinishEditDrawing(pub Option<Entity>);
+
+#[derive(Clone, Copy)]
+pub struct EditDrawing {
+    /// What drawing is being edited
+    pub drawing: Entity,
+    /// What is the original parent level for the drawing
+    pub level: Entity,
+}
+
+#[derive(Clone, Copy, Default, Resource, Deref)]
+pub struct CurrentEditDrawing(Option<EditDrawing>);
+
+impl CurrentEditDrawing {
+    pub fn get(&self) -> &Option<EditDrawing> {
+        &self.0
+    }
+}
 
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
@@ -50,81 +72,147 @@ pub struct AlignLevelDrawings(pub Entity);
 #[derive(Deref, DerefMut)]
 pub struct AlignSiteDrawings(pub Entity);
 
-fn hide_level_entities(
-    mut visibilities: Query<&mut Visibility>,
-    mut camera_controls: ResMut<CameraControls>,
-    mut cameras: Query<&mut Camera>,
-    headlight_toggle: Res<HeadlightToggle>,
-    mut visibility_events: VisibilityEvents,
+fn switch_edit_drawing_mode(
+    mut commands: Commands,
+    mut begin: EventReader<BeginEditDrawing>,
+    mut finish: EventReader<FinishEditDrawing>,
+    mut current: ResMut<CurrentEditDrawing>,
+    mut workspace_visibility: Query<&mut Visibility, With<WorkspaceMarker>>,
+    mut app_state: ResMut<State<AppState>>,
+    current_workspace: Res<CurrentWorkspace>,
+    parent: Query<&Parent, With<DrawingMarker>>,
+    is_site: Query<(), With<SiteProperties>>,
+    is_workcell: Query<(), With<WorkcellProperties>>,
+    global_tf: Query<&GlobalTransform>,
+    vis: Query<(&Visibility, &ComputedVisibility, Option<&RenderLayers>), Without<WorkspaceMarker>>,
 ) {
-    camera_controls.use_orthographic(true, &mut cameras, &mut visibilities, headlight_toggle.0);
-    visibility_events.constraints.send(false.into());
-    visibility_events.doors.send(false.into());
-    visibility_events.lanes.send(false.into());
-    visibility_events.lift_cabins.send(false.into());
-    visibility_events.lift_cabin_doors.send(false.into());
-    visibility_events.locations.send(false.into());
-    visibility_events.floors.send(false.into());
-    visibility_events.models.send(false.into());
-    visibility_events.walls.send(false.into());
-}
+    if let CurrentEditDrawing(Some(e)) = *current {
+        if let Ok((v, cv, r)) = vis.get(e.drawing) {
+            println!("Visibility of drawing: {} -> {}", v.is_visible, cv.is_visible_in_view());
+            println!("Render layers of drawing: {r:?}");
+        } else {
+            println!("No visibility information for drawing");
+        }
 
-fn hide_non_drawing_entities(
-    mut anchors: Query<(Entity, &mut Visibility), (With<Anchor>, Without<DrawingMarker>)>,
-    parents: Query<&Parent>,
-    mut drawings: Query<(Entity, &mut Visibility), (Without<Anchor>, With<DrawingMarker>)>,
-    mut anchor_set: ResMut<DrawingEditorHiddenEntities>,
-    selection: Res<Selection>,
-) {
-    for (e, mut vis) in &mut anchors {
-        if let Ok(parent) = parents.get(e) {
-            if drawings.get(**parent).is_err() {
-                if vis.is_visible {
-                    vis.is_visible = false;
-                    anchor_set.insert(e);
+        if let Ok(tf) = global_tf.get(e.drawing) {
+            println!("Global tf of drawing: {tf:?}");
+        }
+    }
+
+    // TODO(@mxgrey): We can make this implementation much cleaner after we
+    // update to the latest version of bevy that distinguishes between inherited
+    // vs independent visibility.
+    //
+    // We should also consider using an edit mode stack instead of simply
+    // CurrentWorkspace and AppState.
+    'handle_begin: {
+        if let Some(BeginEditDrawing(e)) = begin.iter().last() {
+            dbg!();
+            if current.get().is_some_and(|c| c.drawing == *e) {
+                dbg!();
+                break 'handle_begin;
+            }
+
+            if let Some(c) = current.get() {
+                dbg!();
+                // A drawing was being edited and now we're switching to a
+                // different drawing, so we need to reset the previous drawing.
+                commands.entity(c.drawing)
+                    .set_parent(c.level)
+                    .remove::<PreventDeletion>();
+            }
+
+            let level = if let Ok(p) = parent.get(*e) {
+                p.get()
+            } else {
+                error!("Cannot edit {e:?} as a drawing");
+                *current = CurrentEditDrawing(None);
+                break 'handle_begin;
+            };
+
+            if let Ok(tf) = global_tf.get(level) {
+                println!("Level global transform: {tf:?}");
+            } else {
+                println!("Could not find global transform of level");
+            }
+
+            if let Ok(tf) = global_tf.get(*e) {
+                println!("Drawing global transform: {tf:?}");
+            }
+
+            if let Ok((v, cv, r)) = vis.get(*e) {
+                println!("Visibility of drawing: {} -> {}", v.is_visible, cv.is_visible_in_view());
+                println!("Drawing render layers: {r:?}");
+            }
+
+            dbg!();
+            *current = CurrentEditDrawing(Some(EditDrawing { drawing: *e, level }));
+            commands.entity(*e)
+                .remove_parent()
+                .insert(Visibility { is_visible: true })
+                .insert(PreventDeletion::because(
+                    "Cannot delete a drawing that is currently being edited"
+                    .to_owned()
+                ));
+            if let Some(err) = app_state.set(AppState::SiteDrawingEditor).err() {
+                error!("Unable to switch to drawing editor mode: {err:?}");
+            }
+
+            dbg!();
+            for mut v in &mut workspace_visibility {
+                v.is_visible = false;
+            }
+        }
+    }
+
+    for FinishEditDrawing(finish) in finish.iter() {
+        dbg!();
+        let c = if let Some(c) = current.get() {
+            if finish.is_some_and(|e| e != c.drawing) {
+                dbg!();
+                continue;
+            }
+            c
+        } else {
+            dbg!();
+            continue;
+        };
+
+        commands.entity(c.drawing)
+            .set_parent(c.level)
+            .remove::<PreventDeletion>();
+        *current = CurrentEditDrawing(None);
+
+        dbg!(&current_workspace);
+        if let Some(w) = current_workspace.root {
+            if let Ok(mut v) = workspace_visibility.get_mut(w) {
+                v.is_visible = current_workspace.display;
+            }
+
+            dbg!();
+            if is_site.contains(w) {
+                dbg!();
+                if let Some(err) = app_state.set(AppState::SiteEditor).err() {
+                    error!("Failed to switch back to site editing mode: {err:?}");
+                }
+            } else if is_workcell.contains(w) {
+                dbg!();
+                if let Some(err) = app_state.set(AppState::WorkcellEditor).err() {
+                    error!("Failed to switch back to workcell editing mode: {err:?}");
+                }
+            } else {
+                dbg!();
+                // This logic can probably be improved with an editor mode stack
+                error!(
+                    "Unable to identify the type for the current workspace \
+                    {w:?}, so we will default to site editing mode",
+                );
+                if let Some(err) = app_state.set(AppState::SiteEditor).err() {
+                    error!("Failed to switch back to site editing mode: {err:?}");
                 }
             }
         }
     }
-    for (e, mut vis) in &mut drawings {
-        if **selection != Some(e) {
-            if vis.is_visible {
-                vis.is_visible = false;
-                anchor_set.insert(e);
-            }
-        }
-    }
-}
-
-fn restore_non_drawing_entities(
-    mut visibilities: Query<&mut Visibility>,
-    mut anchor_set: ResMut<DrawingEditorHiddenEntities>,
-) {
-    for e in anchor_set.drain() {
-        visibilities
-            .get_mut(e)
-            .map(|mut vis| vis.is_visible = true)
-            .ok();
-    }
-}
-
-fn restore_level_entities(
-    mut visibilities: Query<&mut Visibility>,
-    mut camera_controls: ResMut<CameraControls>,
-    mut cameras: Query<&mut Camera>,
-    headlight_toggle: Res<HeadlightToggle>,
-    mut visibility_events: VisibilityEvents,
-) {
-    camera_controls.use_perspective(true, &mut cameras, &mut visibilities, headlight_toggle.0);
-    visibility_events.constraints.send(true.into());
-    visibility_events.doors.send(true.into());
-    visibility_events.lanes.send(true.into());
-    visibility_events.lift_cabins.send(true.into());
-    visibility_events.lift_cabin_doors.send(true.into());
-    visibility_events.locations.send(true.into());
-    visibility_events.floors.send(true.into());
-    visibility_events.models.send(true.into());
-    visibility_events.walls.send(true.into());
 }
 
 fn assign_drawing_parent_to_new_measurements_and_fiducials(
@@ -175,16 +263,9 @@ impl Plugin for DrawingEditorPlugin {
         app
             .add_event::<ScaleDrawing>()
             .add_event::<BeginEditDrawing>()
-            .add_system_set(
-                SystemSet::on_enter(AppState::SiteDrawingEditor)
-                    .with_system(hide_level_entities)
-                    .with_system(hide_non_drawing_entities),
-            )
-            .add_system_set(
-                SystemSet::on_exit(AppState::SiteDrawingEditor)
-                    .with_system(restore_level_entities)
-                    .with_system(restore_non_drawing_entities),
-            )
+            .add_event::<FinishEditDrawing>()
+            .init_resource::<CurrentEditDrawing>()
+            .add_system(switch_edit_drawing_mode)
             .add_system_set(
                 SystemSet::on_update(AppState::SiteDrawingEditor)
                     .with_system(assign_drawing_parent_to_new_measurements_and_fiducials)

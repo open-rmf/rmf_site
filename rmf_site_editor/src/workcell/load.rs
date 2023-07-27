@@ -18,19 +18,22 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState};
-use crate::workcell::ChangeCurrentWorkcell;
+use crate::{
+    site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState},
+    workcell::ChangeCurrentWorkcell,
+    WorkspaceMarker,
+};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
     Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID,
-    WorkcellCollisionMarker, WorkcellVisualMarker,
+    WorkcellCollisionMarker, WorkcellVisualMarker, Workcell,
 };
 
 pub struct LoadWorkcell {
     /// The site data to load
-    pub workcell: rmf_site_format::Workcell,
+    pub workcell: Workcell,
     /// Should the application switch focus to this new site
     pub focus: bool,
     /// Set if the workcell was loaded from a file
@@ -39,7 +42,7 @@ pub struct LoadWorkcell {
 
 fn generate_workcell_entities(
     commands: &mut Commands,
-    workcell: &rmf_site_format::Workcell,
+    workcell: &Workcell,
 ) -> Entity {
     // Create hashmap of ids to entity to correctly generate hierarchy
     let mut id_to_entity = HashMap::new();
@@ -54,6 +57,7 @@ fn generate_workcell_entities(
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
+        .insert(WorkspaceMarker)
         .insert(PreventDeletion::because(
             "Workcell root cannot be deleted".to_string(),
         ))

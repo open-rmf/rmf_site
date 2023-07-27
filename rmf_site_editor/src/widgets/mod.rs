@@ -395,7 +395,7 @@ fn site_drawing_ui_layout(
                             });
                         ui.separator();
                         if ui.add(Button::new("Return to site editor")).clicked() {
-                            events.app_state.set(AppState::SiteEditor).ok();
+                            events.layers.finish_edit_drawing.send(FinishEditDrawing(None));
                         }
                     });
                 });
@@ -461,7 +461,7 @@ fn site_visualizer_ui_layout(
                             ));
                         }
                         if ui.add(Button::new("Return to site editor")).clicked() {
-                            events.layers.begin_edit_drawing.send(FinishEditDrawing);
+                            events.app_state.set(AppState::SiteEditor);
                         }
                     });
                 });

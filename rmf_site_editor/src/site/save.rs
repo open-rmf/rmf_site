@@ -58,6 +58,25 @@ pub enum SiteGenerationError {
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
 }
 
+/// This is used when a drawing is being edited to fix its parenting before we
+/// attempt to save the site.
+// TODO(@mxgrey): Remove this when we no longer need to de-parent drawings while
+// editing them.
+fn assemble_edited_drawing(world: &mut World) {
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = c.get() else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    level.push_children(&[c.drawing]);
+}
+
+/// Revert the drawing back to the root so it can continue to be edited.
+fn disassemble_edited_drawing(world: &mut World) {
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = c.get() else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    level.remove_children(&[c.drawing]);
+}
+
 /// Look through all the elements that we will be saving and assign a SiteID
 /// component to any elements that do not have one already.
 fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGenerationError> {
@@ -901,6 +920,8 @@ pub fn generate_site(
     world: &mut World,
     site: Entity,
 ) -> Result<rmf_site_format::Site, SiteGenerationError> {
+    assemble_edited_drawing(world);
+
     assign_site_ids(world, site)?;
     let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
@@ -910,17 +931,18 @@ pub fn generate_site(
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
 
-    let props = match world.get::<SiteProperties>(site) {
-        Some(props) => props,
+    let properties = match world.get::<SiteProperties>(site) {
+        Some(props) => props.clone(),
         None => {
             return Err(SiteGenerationError::InvalidSiteEntity(site));
         }
     };
 
+    disassemble_edited_drawing(world);
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties: props.clone(),
+        properties,
         levels,
         lifts,
         navigation: Navigation {

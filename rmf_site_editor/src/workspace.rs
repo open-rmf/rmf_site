@@ -40,6 +40,10 @@ pub struct ChangeCurrentWorkspace {
 /// what app mode the editor is currently in
 pub struct CreateNewWorkspace;
 
+/// Apply this component to all workspace types
+#[derive(Component)]
+pub struct WorkspaceMarker;
+
 /// Used as an event to command that a workspace should be loaded. This will spawn a file open
 /// dialog (in non-wasm) with allowed extensions depending on the app state
 // TODO(luca) Encapsulate a list of optional filters, for example to allow users to only load
@@ -75,6 +79,8 @@ impl WorkspaceData {
 }
 
 /// Used as a resource that keeps track of the current workspace
+// TODO(@mxgrey): Consider a workspace stack, e.g. so users can temporarily edit
+// a workcell inside of a site and then revert back into the site.
 #[derive(Clone, Copy, Debug, Default, Resource)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
