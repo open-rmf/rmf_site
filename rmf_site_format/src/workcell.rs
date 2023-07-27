@@ -280,6 +280,70 @@ pub struct Workcell {
     // TODO(luca) Joints
 }
 
+impl From<Workcell> for urdf_rs::Robot {
+    fn from(workcell: Workcell) -> Self {
+        urdf_rs::Robot {
+            name: workcell.properties.name,
+            links: workcell
+                .frames
+                .into_iter()
+                .map(|f| {
+
+                    let frame = f.1.bundle;
+
+                    let pose: urdf_rs::Pose = match frame.anchor {
+                        Anchor::Pose3D(pose) => {
+                            urdf_rs::Pose {
+                                rpy: match pose.rot {
+                                    Rotation::EulerExtrinsicXYZ(arr) => {
+                                        urdf_rs::Vec3(arr.map(|v| match v {
+                                            Angle::Rad(v) => v as f64,
+                                            Angle::Deg(v) => v.to_radians() as f64,
+                                        }))
+                                    },
+                                    Rotation::Yaw(v) => match v {
+                                        Angle::Rad(v) => urdf_rs::Vec3([0.0, 0.0, v as f64]),
+                                        Angle::Deg(v) => urdf_rs::Vec3([0.0, 0.0, v.to_radians() as f64]),
+                                    },
+                                    _ => todo!(),
+                                },
+                                xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
+                            }
+                        },
+                        _ => todo!(),
+                    };
+                    urdf_rs::Link {
+                        name: match frame.name {
+                            Some(name) => name.0,
+                            None => format!("frame_{}", f.0),
+                        },
+                        collision: vec![],
+                        inertial: urdf_rs::Inertial {
+                            origin: pose,
+                            inertia: {
+                                urdf_rs::Inertia {
+                                    ixx: 0.0,
+                                    ixy: 0.0,
+                                    ixz: 0.0,
+                                    iyy: 0.0,
+                                    iyz: 0.0,
+                                    izz: 0.0,
+                                }
+                            },
+                            mass: urdf_rs::Mass {
+                                value: 0.0,
+                            },
+                        },
+                        visual: vec![],
+                    }
+                })
+                .collect(),
+            joints: vec![],
+            materials: vec![],
+        }
+    }
+}
+
 impl Workcell {
     pub fn to_writer<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
         serde_json::ser::to_writer_pretty(writer, self)
@@ -287,6 +351,15 @@ impl Workcell {
 
     pub fn to_string(&self) -> serde_json::Result<String> {
         serde_json::ser::to_string_pretty(self)
+    }
+
+    pub fn to_urdf(&self) -> urdf_rs::Robot {
+        self.clone().into()
+    }
+
+    pub fn to_urdf_string(&self) -> urdf_rs::Result<String> {
+        let urdf = self.to_urdf();
+        urdf_rs::write_to_string(&urdf)
     }
 
     pub fn from_reader<R: io::Read>(reader: R) -> serde_json::Result<Self> {

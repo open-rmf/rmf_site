@@ -265,6 +265,21 @@ pub fn save_workcell(world: &mut World) {
             },
             ExportFormat::Urdf => {
                 info!("Saving to urdf");
+                let urdf = match workcell.to_urdf_string() {
+                    Ok(urdf) => urdf,
+                    Err(err) => {
+                        error!("Save failed: {err}");
+                        continue;
+                    }
+                };
+                match std::io::Write::write_all(&mut std::io::BufWriter::new(f), urdf.as_bytes()) {
+                    Ok(()) => {
+                        info!("Save successful");
+                    }
+                    Err(err) => {
+                        error!("Save failed: {err}");
+                    }
+                }
             }
         }
     }
