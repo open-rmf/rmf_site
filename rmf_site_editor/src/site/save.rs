@@ -64,7 +64,7 @@ pub enum SiteGenerationError {
 // editing them.
 fn assemble_edited_drawing(world: &mut World) {
     let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
-    let Some(c) = c.get() else { return };
+    let Some(c) = c.target() else { return };
     let Some(mut level) = world.get_entity_mut(c.level) else { return };
     level.push_children(&[c.drawing]);
 }
@@ -72,7 +72,7 @@ fn assemble_edited_drawing(world: &mut World) {
 /// Revert the drawing back to the root so it can continue to be edited.
 fn disassemble_edited_drawing(world: &mut World) {
     let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
-    let Some(c) = c.get() else { return };
+    let Some(c) = c.target() else { return };
     let Some(mut level) = world.get_entity_mut(c.level) else { return };
     level.remove_children(&[c.drawing]);
 }

@@ -21,7 +21,7 @@ pub mod optimizer;
 pub use optimizer::*;
 
 use crate::{
-    interaction::{CameraControls, HeadlightToggle, Selection},
+    interaction::{CameraControls, HeadlightToggle, Selection, ChangeProjectionMode},
     site::{
         Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending,
         PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
@@ -47,12 +47,22 @@ pub struct EditDrawing {
     pub level: Entity,
 }
 
-#[derive(Clone, Copy, Default, Resource, Deref)]
-pub struct CurrentEditDrawing(Option<EditDrawing>);
+#[derive(Clone, Copy, Resource)]
+pub struct CurrentEditDrawing {
+    editor: Entity,
+    target: Option<EditDrawing>,
+}
+
+impl FromWorld for CurrentEditDrawing {
+    fn from_world(world: &mut World) -> Self {
+        let editor = world.spawn(SpatialBundle::default()).id();
+        Self { editor, target: None }
+    }
+}
 
 impl CurrentEditDrawing {
-    pub fn get(&self) -> &Option<EditDrawing> {
-        &self.0
+    pub fn target(&self) -> &Option<EditDrawing> {
+        &self.target
     }
 }
 
@@ -79,26 +89,14 @@ fn switch_edit_drawing_mode(
     mut current: ResMut<CurrentEditDrawing>,
     mut workspace_visibility: Query<&mut Visibility, With<WorkspaceMarker>>,
     mut app_state: ResMut<State<AppState>>,
+    mut local_tf: Query<&mut Transform>,
+    mut change_camera_mode: EventWriter<ChangeProjectionMode>,
+    global_tf: Query<&GlobalTransform>,
     current_workspace: Res<CurrentWorkspace>,
     parent: Query<&Parent, With<DrawingMarker>>,
     is_site: Query<(), With<SiteProperties>>,
     is_workcell: Query<(), With<WorkcellProperties>>,
-    global_tf: Query<&GlobalTransform>,
-    vis: Query<(&Visibility, &ComputedVisibility, Option<&RenderLayers>), Without<WorkspaceMarker>>,
 ) {
-    if let CurrentEditDrawing(Some(e)) = *current {
-        if let Ok((v, cv, r)) = vis.get(e.drawing) {
-            println!("Visibility of drawing: {} -> {}", v.is_visible, cv.is_visible_in_view());
-            println!("Render layers of drawing: {r:?}");
-        } else {
-            println!("No visibility information for drawing");
-        }
-
-        if let Ok(tf) = global_tf.get(e.drawing) {
-            println!("Global tf of drawing: {tf:?}");
-        }
-    }
-
     // TODO(@mxgrey): We can make this implementation much cleaner after we
     // update to the latest version of bevy that distinguishes between inherited
     // vs independent visibility.
@@ -107,14 +105,11 @@ fn switch_edit_drawing_mode(
     // CurrentWorkspace and AppState.
     'handle_begin: {
         if let Some(BeginEditDrawing(e)) = begin.iter().last() {
-            dbg!();
-            if current.get().is_some_and(|c| c.drawing == *e) {
-                dbg!();
+            if current.target().is_some_and(|c| c.drawing == *e) {
                 break 'handle_begin;
             }
 
-            if let Some(c) = current.get() {
-                dbg!();
+            if let Some(c) = current.target() {
                 // A drawing was being edited and now we're switching to a
                 // different drawing, so we need to reset the previous drawing.
                 commands.entity(c.drawing)
@@ -126,39 +121,36 @@ fn switch_edit_drawing_mode(
                 p.get()
             } else {
                 error!("Cannot edit {e:?} as a drawing");
-                *current = CurrentEditDrawing(None);
+                current.target = None;
                 break 'handle_begin;
             };
 
-            if let Ok(tf) = global_tf.get(level) {
-                println!("Level global transform: {tf:?}");
-            } else {
-                println!("Could not find global transform of level");
-            }
-
-            if let Ok(tf) = global_tf.get(*e) {
-                println!("Drawing global transform: {tf:?}");
-            }
-
-            if let Ok((v, cv, r)) = vis.get(*e) {
-                println!("Visibility of drawing: {} -> {}", v.is_visible, cv.is_visible_in_view());
-                println!("Drawing render layers: {r:?}");
-            }
-
-            dbg!();
-            *current = CurrentEditDrawing(Some(EditDrawing { drawing: *e, level }));
+            current.target = Some(EditDrawing { drawing: *e, level });
             commands.entity(*e)
-                .remove_parent()
+                .set_parent(current.editor)
                 .insert(Visibility { is_visible: true })
+                .insert(ComputedVisibility::default())
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited"
                     .to_owned()
                 ));
+
+            change_camera_mode.send(ChangeProjectionMode::to_orthographic());
+
+            if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
+                if let Ok(mut level_tf) = global_tf.get(level) {
+                    *editor_tf = level_tf.compute_transform();
+                } else {
+                    error!("Cannot get transform of current level");
+                }
+            } else {
+                error!("Cannot change transform of drawing editor view");
+            }
+
             if let Some(err) = app_state.set(AppState::SiteDrawingEditor).err() {
                 error!("Unable to switch to drawing editor mode: {err:?}");
             }
 
-            dbg!();
             for mut v in &mut workspace_visibility {
                 v.is_visible = false;
             }
@@ -166,42 +158,37 @@ fn switch_edit_drawing_mode(
     }
 
     for FinishEditDrawing(finish) in finish.iter() {
-        dbg!();
-        let c = if let Some(c) = current.get() {
+        let c = if let Some(c) = current.target() {
             if finish.is_some_and(|e| e != c.drawing) {
-                dbg!();
                 continue;
             }
             c
         } else {
-            dbg!();
             continue;
         };
 
         commands.entity(c.drawing)
             .set_parent(c.level)
             .remove::<PreventDeletion>();
-        *current = CurrentEditDrawing(None);
+        current.target = None;
 
-        dbg!(&current_workspace);
+        // This camera change would not be needed if we have an edit mode stack
+        change_camera_mode.send(ChangeProjectionMode::to_perspective());
+
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {
                 v.is_visible = current_workspace.display;
             }
 
-            dbg!();
             if is_site.contains(w) {
-                dbg!();
                 if let Some(err) = app_state.set(AppState::SiteEditor).err() {
                     error!("Failed to switch back to site editing mode: {err:?}");
                 }
             } else if is_workcell.contains(w) {
-                dbg!();
                 if let Some(err) = app_state.set(AppState::WorkcellEditor).err() {
                     error!("Failed to switch back to workcell editing mode: {err:?}");
                 }
             } else {
-                dbg!();
                 // This logic can probably be improved with an editor mode stack
                 error!(
                     "Unable to identify the type for the current workspace \
