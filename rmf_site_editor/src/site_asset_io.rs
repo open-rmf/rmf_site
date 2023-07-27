@@ -171,6 +171,10 @@ impl SiteAssetIo {
             include_bytes!("../../assets/textures/edit.png").to_vec(),
         );
         self.bundled_assets.insert(
+            "textures/exit.png".to_owned(),
+            include_bytes!("../../assets/textures/exit.png").to_vec(),
+        );
+        self.bundled_assets.insert(
             "textures/up.png".to_owned(),
             include_bytes!("../../assets/textures/up.png").to_vec(),
         );

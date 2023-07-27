@@ -52,6 +52,7 @@ impl Icon {
 pub struct Icons {
     pub select: Icon,
     pub edit: Icon,
+    pub exit: Icon,
     pub trash: Icon,
     pub layer_up: Icon,
     pub layer_down: Icon,
@@ -68,6 +69,7 @@ impl FromWorld for Icons {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let select = IconBuilder::new("textures/select.png", &asset_server);
         let edit = IconBuilder::new("textures/edit.png", &asset_server);
+        let exit = IconBuilder::new("textures/exit.png", &asset_server);
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
         let layer_up = IconBuilder::new("textures/up.png", &asset_server);
         let layer_down = IconBuilder::new("textures/down.png", &asset_server);
@@ -85,6 +87,7 @@ impl FromWorld for Icons {
         Self {
             select: select.build(&mut egui_context),
             edit: edit.build(&mut egui_context),
+            exit: exit.build(&mut egui_context),
             trash: trash.build(&mut egui_context),
             layer_up: layer_up.build(&mut egui_context),
             layer_down: layer_down.build(&mut egui_context),

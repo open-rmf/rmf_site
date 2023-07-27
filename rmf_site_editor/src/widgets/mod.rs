@@ -395,7 +395,11 @@ fn site_drawing_ui_layout(
                                 CreateWidget::new(&mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Return to site editor")).clicked() {
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.exit.egui(),
+                            [18., 18.],
+                            "Return to site editor",
+                        )).clicked() {
                             events.layers.finish_edit_drawing.send(FinishEditDrawing(None));
                         }
                     });
@@ -461,7 +465,11 @@ fn site_visualizer_ui_layout(
                                 events.request.current_workspace.root.unwrap(),
                             ));
                         }
-                        if ui.add(Button::new("Return to site editor")).clicked() {
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.exit.egui(),
+                            [18., 18.],
+                            "Return to site editor"
+                        )).clicked() {
                             events.app_state.set(AppState::SiteEditor).ok();
                         }
                     });
