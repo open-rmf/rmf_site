@@ -98,7 +98,7 @@ use crate::{
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, RichText, Ui};
+use bevy_egui::egui::{Button, ImageButton, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -256,6 +256,34 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     )
                     .show(ui);
                 });
+            }
+
+            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
+                if *self.events.app_state.current() == AppState::SiteEditor {
+                    ui.add_space(10.0);
+                    if ui.add(
+                        Button::image_and_text(
+                            self.events.layers.icons.edit.egui(), [18., 18.],
+                            "Edit Drawing",
+                        )
+                    ).clicked() {
+                        self.events.layers.begin_edit_drawing.send(
+                            BeginEditDrawing(selection)
+                        );
+                    }
+                }
+                ui.add_space(10.0);
+                if let Some(new_ppm) =
+                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
+                        .clamp_range(0.0001..=std::f32::INFINITY)
+                        .tooltip("How many image pixels per meter".to_string())
+                        .show(ui)
+                {
+                    self.events
+                        .change
+                        .pixels_per_meter
+                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                }
             }
 
             if let Ok((edge, original, labels, category)) =
@@ -425,36 +453,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(Distance(new_distance), selection));
                 }
                 ui.add_space(10.0);
-            }
-
-            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
-                if let Some(new_ppm) =
-                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
-                        .clamp_range(0.0001..=std::f32::INFINITY)
-                        .tooltip("How many image pixels per meter".to_string())
-                        .show(ui)
-                {
-                    self.events
-                        .change
-                        .pixels_per_meter
-                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
-                }
-                ui.add_space(10.0);
-                match self.events.app_state.current() {
-                    AppState::SiteEditor => {
-                        if ui.add(Button::new("Drawing editor")).clicked() {
-                            self.events.layers.begin_edit_drawing.send(
-                                BeginEditDrawing(selection)
-                            );
-                        }
-                    }
-                    AppState::SiteDrawingEditor => {
-                        if ui.add(Button::new("Scale drawing")).clicked() {
-                            self.events.scale_drawing.send(ScaleDrawing(selection));
-                        }
-                    }
-                    _ => {}
-                }
             }
 
             if let Ok(camera_properties) = self

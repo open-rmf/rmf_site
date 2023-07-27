@@ -205,6 +205,7 @@ pub struct LayerEvents<'w, 's> {
     pub global_drawing_vis: ResMut<'w, GlobalDrawingVisibility>,
     pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
     pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
+    pub icons: Res<'w, Icons>,
 }
 
 #[derive(SystemParam)]
@@ -461,7 +462,7 @@ fn site_visualizer_ui_layout(
                             ));
                         }
                         if ui.add(Button::new("Return to site editor")).clicked() {
-                            events.app_state.set(AppState::SiteEditor);
+                            events.app_state.set(AppState::SiteEditor).ok();
                         }
                     });
                 });

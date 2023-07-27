@@ -18,7 +18,7 @@
 use crate::{
     interaction::Hover,
     recency::ChangeRank,
-    site::{Change, LayerVisibility, SiteID, VisibilityCycle},
+    site::{Change, LayerVisibility, SiteID, VisibilityCycle, BeginEditDrawing},
     widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
 };
 use bevy::prelude::*;
@@ -111,6 +111,15 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
 
         if let Some(site_id) = self.site_id {
             SelectionWidget::new(self.entity, site_id, self.icons, self.events).show(ui);
+            if !self.is_floor {
+                if ui.add(
+                    ImageButton::new(self.events.layers.icons.edit.egui(), [18., 18.])
+                ).on_hover_text("Edit Drawing").clicked() {
+                    self.events.layers.begin_edit_drawing.send(
+                        BeginEditDrawing(self.entity)
+                    )
+                }
+            }
         }
     }
 
