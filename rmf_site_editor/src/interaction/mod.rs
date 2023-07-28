@@ -65,8 +65,8 @@ pub use preview::*;
 pub mod scale_factor_limiting;
 pub use scale_factor_limiting::*;
 
-pub mod ColorBasedPicker;
-pub use ColorBasedPicker::*;
+pub mod color_based_picker;
+pub use color_based_picker::*;
 
 pub mod select;
 pub use select::*;
