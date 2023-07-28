@@ -62,6 +62,9 @@ pub use point::*;
 pub mod preview;
 pub use preview::*;
 
+pub mod scale_factor_limiting;
+pub use scale_factor_limiting::*;
+
 pub mod select;
 pub use select::*;
 

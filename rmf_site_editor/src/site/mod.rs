@@ -104,7 +104,7 @@ pub mod camera_capture;
 pub use camera_capture::*;
 
 use crate::{
-    interaction::{LimitScaleFactor, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
+    interaction::{limit_size, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
     recency::{RecencyRank, RecencyRankingPlugin},
 };
 pub use rmf_site_format::*;

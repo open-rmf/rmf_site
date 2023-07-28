@@ -26,12 +26,6 @@ use bevy_mod_raycast::{Intersection, Ray3d};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
-#[derive(Debug, Clone, Component)]
-pub struct LimitScaleFactor {
-    pub distance_to_start_scaling: f32,
-    pub original_scale: f32,
-}
-
 /// A resource that keeps track of the unique entities that play a role in
 /// displaying the 3D cursor
 #[derive(Debug, Clone, Resource)]
