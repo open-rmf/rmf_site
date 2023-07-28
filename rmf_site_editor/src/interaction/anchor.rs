@@ -19,12 +19,8 @@ use crate::{
     animate::*,
     interaction::IntersectGroundPlaneParams,
     interaction::*,
-
     keyboard::DebugMode,
-    site::{
-        Anchor, Category, Delete, Dependents, PointAsset, SiteAssets,
-        Subordinate,
-    },
+    site::{Anchor, Category, Delete, Dependents, PointAsset, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 

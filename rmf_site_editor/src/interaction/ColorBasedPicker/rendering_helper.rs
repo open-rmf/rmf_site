@@ -9,12 +9,12 @@ use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
 use rmf_site_format::Anchor;
 
-use crate::site::LaneSegments;
 use super::{ColorEntityMap, ScreenSpaceSelection};
-use crate::interaction::*;
 use crate::interaction::camera_controls::MouseLocation;
+use crate::interaction::*;
 use crate::interaction::{CameraControls, ProjectionMode, POINT_PICKING_LAYER};
 use crate::keyboard::DebugMode;
+use crate::site::LaneSegments;
 
 #[derive(Component, Clone, Debug, Default)]
 pub struct RenderingBufferDetails {
