@@ -77,11 +77,11 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        change_camera_mode.send(ChangeProjectionMode::to_perspective());
+        change_camera_mode.send(ChangeProjectionMode::to_orthographic());
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        change_camera_mode.send(ChangeProjectionMode::to_orthographic());
+        change_camera_mode.send(ChangeProjectionMode::to_perspective());
     }
 
     if keyboard_input.just_pressed(KeyCode::Escape) {

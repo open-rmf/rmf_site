@@ -112,12 +112,18 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         if let Some(site_id) = self.site_id {
             SelectionWidget::new(self.entity, site_id, self.icons, self.events).show(ui);
             if !self.is_floor {
-                if ui.add(
-                    ImageButton::new(self.events.layers.icons.edit.egui(), [18., 18.])
-                ).on_hover_text("Edit Drawing").clicked() {
+                let response = ui.add(ImageButton::new(
+                    self.events.layers.icons.edit.egui(), [18., 18.]
+                )).on_hover_text("Edit Drawing");
+
+                if response.hovered() {
+                    self.events.request.hover.send(Hover(Some(self.entity)));
+                }
+
+                if response.clicked() {
                     self.events.layers.begin_edit_drawing.send(
                         BeginEditDrawing(self.entity)
-                    )
+                    );
                 }
             }
         }

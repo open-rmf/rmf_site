@@ -21,7 +21,7 @@ pub mod optimizer;
 pub use optimizer::*;
 
 use crate::{
-    interaction::{CameraControls, HeadlightToggle, Selection, ChangeProjectionMode},
+    interaction::{Selection, ChangeProjectionMode, SuppressHighlight, SuppressOutline},
     site::{
         Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending,
         PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
@@ -112,9 +112,7 @@ fn switch_edit_drawing_mode(
             if let Some(c) = current.target() {
                 // A drawing was being edited and now we're switching to a
                 // different drawing, so we need to reset the previous drawing.
-                commands.entity(c.drawing)
-                    .set_parent(c.level)
-                    .remove::<PreventDeletion>();
+                restore_edited_drawing(c, &mut commands);
             }
 
             let level = if let Ok(p) = parent.get(*e) {
@@ -133,7 +131,10 @@ fn switch_edit_drawing_mode(
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited"
                     .to_owned()
-                ));
+                ))
+                // Highlighting the drawing looks bad when the user will be
+                // constantly hovering over it anyway.
+                .insert(SuppressHighlight);
 
             change_camera_mode.send(ChangeProjectionMode::to_orthographic());
 
@@ -167,9 +168,7 @@ fn switch_edit_drawing_mode(
             continue;
         };
 
-        commands.entity(c.drawing)
-            .set_parent(c.level)
-            .remove::<PreventDeletion>();
+        restore_edited_drawing(c, &mut commands);
         current.target = None;
 
         // This camera change would not be needed if we have an edit mode stack
@@ -200,6 +199,17 @@ fn switch_edit_drawing_mode(
             }
         }
     }
+}
+
+/// Restore a drawing that was being edited back to its normal place and behavior
+fn restore_edited_drawing(
+    edit: &EditDrawing,
+    commands: &mut Commands,
+) {
+    commands.entity(edit.drawing)
+        .set_parent(edit.level)
+        .remove::<PreventDeletion>()
+        .remove::<SuppressHighlight>();
 }
 
 fn assign_drawing_parent_to_new_measurements_and_fiducials(

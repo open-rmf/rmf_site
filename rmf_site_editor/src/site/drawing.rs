@@ -175,6 +175,13 @@ pub fn handle_loaded_drawing(
                     Affine3A::from_translation(Vec3::new(width / 2.0, -height / 2.0, 0.0)),
                 );
                 let mesh = mesh_assets.add(mesh.into());
+                let (alpha, alpha_mode) = drawing_alpha(vis, &default_drawing_vis);
+                let material = materials.add(StandardMaterial {
+                    base_color_texture: Some(handle.0.clone()),
+                    base_color: *Color::default().set_a(alpha),
+                    alpha_mode,
+                    ..default()
+                });
 
                 let leaf = if let Ok(segment) = segments.get(entity) {
                     segment.leaf
@@ -188,22 +195,22 @@ pub fn handle_loaded_drawing(
                         .insert(SpatialBundle::from_transform(pose.transform().with_scale(
                             Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
                         )))
-                        .insert(Selectable::new(entity));
+                        .insert(Selectable::new(entity))
+                        // Put a handle for the material into the main entity
+                        // so that we can modify it during interactions.
+                        .insert(material.clone());
                     leaf
                 };
                 let z = drawing_layer_height(rank.get(entity).ok());
-                let (alpha, alpha_mode) = drawing_alpha(vis, &default_drawing_vis);
-                commands.entity(leaf).insert(PbrBundle {
-                    mesh,
-                    material: materials.add(StandardMaterial {
-                        base_color_texture: Some(handle.0.clone()),
-                        base_color: *Color::default().set_a(alpha),
-                        alpha_mode,
+                commands
+                    .entity(leaf)
+                    .insert(PbrBundle {
+                        mesh,
+                        material,
+                        transform: Transform::from_xyz(0.0, 0.0, z),
                         ..default()
-                    }),
-                    transform: Transform::from_xyz(0.0, 0.0, z),
-                    ..default()
-                });
+                    })
+                    .insert(Selectable::new(entity));
                 commands.entity(entity).remove::<LoadingDrawing>();
             }
             LoadState::Failed => {
