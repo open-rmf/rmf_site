@@ -62,7 +62,6 @@ impl ColorEntityMap {
             g = rand::random::<u8>();
             b = rand::random::<u8>();
         }
-        println!("Handling new color {} {} {}", r, g, b);
         self.color_to_entity_map.insert((r, g, b), *entity);
 
         let color = Color::rgb_u8(r, g, b);

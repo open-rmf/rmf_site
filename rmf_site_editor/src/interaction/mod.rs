@@ -65,8 +65,8 @@ pub use preview::*;
 pub mod scale_factor_limiting;
 pub use scale_factor_limiting::*;
 
-pub mod screen_space_selection;
-pub use screen_space_selection::*;
+pub mod ColorBasedPicker;
+pub use ColorBasedPicker::*;
 
 pub mod select;
 pub use select::*;
@@ -143,6 +143,7 @@ impl Plugin for InteractionPlugin {
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
             .add_plugin(CameraControlsPlugin)
+            .add_plugin(ColorBasedPicker)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(make_lift_doormat_gizmo)

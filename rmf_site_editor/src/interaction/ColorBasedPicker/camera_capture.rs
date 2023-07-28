@@ -1,4 +1,5 @@
 // Taken from https://github.com/bevyengine/bevy/pull/5550/files
+// Might be useful to move this to a utils folder.
 use std::sync::Arc;
 
 use bevy::prelude::*;

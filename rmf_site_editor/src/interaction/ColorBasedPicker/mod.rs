@@ -1,10 +1,13 @@
 use bevy::prelude::*;
 
-pub mod color_based_picking;
-pub use color_based_picking::*;
+pub mod rendering_helper;
+pub use rendering_helper::*;
 
 pub mod color_entity_mapping;
 pub use color_entity_mapping::*;
+
+pub mod camera_capture;
+pub use camera_capture::*;
 
 use super::{LINE_PICKING_LAYER, POINT_PICKING_LAYER};
 
@@ -24,6 +27,7 @@ impl Plugin for ColorBasedPicker {
         )
         .init_resource::<ColorEntityMap>()
         .add_system(color_entity_mapping_system::<LINE_PICKING_LAYER>)
-        .add_system(color_entity_mapping_system::<POINT_PICKING_LAYER>);
+        .add_system(color_entity_mapping_system::<POINT_PICKING_LAYER>)
+        .add_plugin(ImageCopyPlugin);
     }
 }

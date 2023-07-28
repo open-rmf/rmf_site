@@ -93,9 +93,6 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-pub mod camera_capture;
-pub use camera_capture::*;
-
 use bevy_points::prelude::PointsPlugin;
 
 use crate::{
@@ -199,7 +196,6 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
-            .add_plugin(ImageCopyPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(

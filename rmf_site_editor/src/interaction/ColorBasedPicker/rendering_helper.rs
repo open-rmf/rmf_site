@@ -1,5 +1,3 @@
-use crate::interaction::Hover;
-use crate::interaction::Select;
 use bevy::core_pipeline::clear_color::ClearColorConfig;
 use bevy::core_pipeline::fxaa::Fxaa;
 use bevy::core_pipeline::tonemapping::Tonemapping;
@@ -11,10 +9,11 @@ use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
 use rmf_site_format::Anchor;
 
-use crate::site::{LaneSegments, ImageCopier};
+use crate::site::LaneSegments;
 use super::{ColorEntityMap, ScreenSpaceSelection};
+use crate::interaction::*;
 use crate::interaction::camera_controls::MouseLocation;
-use crate::interaction::{CameraControls, ProjectionMode, Selected, POINT_PICKING_LAYER};
+use crate::interaction::{CameraControls, ProjectionMode, POINT_PICKING_LAYER};
 use crate::keyboard::DebugMode;
 
 #[derive(Component, Clone, Debug, Default)]
@@ -43,7 +42,7 @@ pub fn resize_notificator<const Layer: u8>(
         ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
     };
 
-    if let Ok((camera, camera_transform)) = cameras.get(view_cam_entity) {
+    if let Ok((camera, _)) = cameras.get(view_cam_entity) {
         for _e in resize_event.iter() {
             //Despawn old allocations
             if let Some(camera) = render_buffer_details.selection_cam_entity {
