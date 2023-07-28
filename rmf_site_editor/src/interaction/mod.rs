@@ -65,6 +65,9 @@ pub use preview::*;
 pub mod scale_factor_limiting;
 pub use scale_factor_limiting::*;
 
+pub mod screen_space_selection;
+pub use screen_space_selection::*;
+
 pub mod select;
 pub use select::*;
 

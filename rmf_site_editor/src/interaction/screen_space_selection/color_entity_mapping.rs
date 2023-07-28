@@ -5,8 +5,9 @@ use bevy_polyline::prelude::*;
 use std::collections::BTreeMap;
 
 use crate::interaction::{LINE_PICKING_LAYER, POINT_PICKING_LAYER};
+use crate::site::PointAsset;
 
-use super::{ImageToSave, PointAsset};
+use super::ImageToSave;
 
 const SCREEN_SPACE_POINT_SIZE_SELECTION: f32 = 40.0;
 

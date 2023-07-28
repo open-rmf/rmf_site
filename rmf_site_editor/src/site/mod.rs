@@ -22,7 +22,6 @@ pub mod assets;
 pub use assets::*;
 
 pub mod change_plugin;
-use bevy_points::prelude::PointsPlugin;
 pub use change_plugin::*;
 
 pub mod deletion;
@@ -88,20 +87,16 @@ pub use save::*;
 pub mod site;
 pub use site::*;
 
-pub mod screenspace_selection;
-pub use screenspace_selection::*;
-
 pub mod util;
 pub use util::*;
 
 pub mod wall;
 pub use wall::*;
 
-pub mod offscreen_render_tests;
-pub use offscreen_render_tests::*;
-
 pub mod camera_capture;
 pub use camera_capture::*;
+
+use bevy_points::prelude::PointsPlugin;
 
 use crate::{
     interaction::{limit_size, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
@@ -207,19 +202,6 @@ impl Plugin for SitePlugin {
             .add_plugin(ImageCopyPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
-            .add_system(resize_notificator::<LINE_PICKING_LAYER>)
-            .add_system(resize_notificator::<POINT_PICKING_LAYER>)
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                buffer_to_selection::<POINT_PICKING_LAYER>,
-            )
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
-                buffer_to_selection::<LINE_PICKING_LAYER>,
-            )
-            .init_resource::<ColorEntityMap>()
-            .add_system(screenspace_selection_system::<LINE_PICKING_LAYER>)
-            .add_system(screenspace_selection_system::<POINT_PICKING_LAYER>)
             .add_system_set_to_stage(
                 CoreStage::PreUpdate,
                 SystemSet::on_update(SiteState::Display)

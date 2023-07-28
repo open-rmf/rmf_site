@@ -11,8 +11,8 @@ use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
 use rmf_site_format::Anchor;
 
-use super::LaneSegments;
-use super::{ColorEntityMap, ImageCopier, ScreenSpaceSelection};
+use crate::site::{LaneSegments, ImageCopier};
+use super::{ColorEntityMap, ScreenSpaceSelection};
 use crate::interaction::camera_controls::MouseLocation;
 use crate::interaction::{CameraControls, ProjectionMode, Selected, POINT_PICKING_LAYER};
 use crate::keyboard::DebugMode;

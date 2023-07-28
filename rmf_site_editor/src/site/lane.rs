@@ -15,6 +15,7 @@
  *
 */
 
+use crate::interaction::ScreenSpaceSelection;
 use crate::interaction::Selectable;
 use crate::site::*;
 use crate::CurrentWorkspace;

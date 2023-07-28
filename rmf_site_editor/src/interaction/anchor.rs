@@ -19,9 +19,10 @@ use crate::{
     animate::*,
     interaction::IntersectGroundPlaneParams,
     interaction::*,
+
     keyboard::DebugMode,
     site::{
-        Anchor, Category, Delete, Dependents, PointAsset, ScreenSpaceSelection, SiteAssets,
+        Anchor, Category, Delete, Dependents, PointAsset, SiteAssets,
         Subordinate,
     },
 };
