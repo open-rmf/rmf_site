@@ -149,8 +149,8 @@ impl ColorEntityMap {
 #[derive(Component, Debug, Clone)]
 pub struct ScreenSpaceEntity<const Layer: u8>;
 
-// TODO(arjo): Split off into 2 systems?
-pub fn screenspace_selection_system<const Layer: u8>(
+/// This system handles the mapping of entities to their colors.
+pub fn color_entity_mapping_system<const Layer: u8>(
     mut commands: Commands,
     screen_space_lines: Query<(&ScreenSpaceSelection, Entity, Option<&GlobalTransform>)>,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
