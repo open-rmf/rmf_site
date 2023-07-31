@@ -27,7 +27,7 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use bevy::reflect::TypeUuid;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-use urdf_rs::{Robot, Visual};
+use urdf_rs::{Collision, Robot, Visual};
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -331,8 +331,7 @@ impl From<Geometry> for urdf_rs::Geometry {
 
 impl From<Workcell> for urdf_rs::Robot {
     fn from(workcell: Workcell) -> Self {
-        dbg!(&workcell);
-        let visuals_and_parent: Vec<(urdf_rs::Visual, _)> = workcell
+        let visuals_and_parents: Vec<(urdf_rs::Visual, _)> = workcell
             .visuals
             .into_iter()
             .map(|v| {
@@ -346,6 +345,19 @@ impl From<Workcell> for urdf_rs::Robot {
                 (visual, v.1.parent)
             })
             .collect();
+        let collisions_and_parents: Vec<(urdf_rs::Collision, _)> = workcell
+            .collisions
+            .into_iter()
+            .map(|c| {
+                let collision = c.1.bundle;
+                let collision = urdf_rs::Collision {
+                    name: Some(collision.name),
+                    origin: collision.pose.into(),
+                    geometry: collision.geometry.into(),
+                };
+                (collision, c.1.parent)
+            })
+            .collect();
         urdf_rs::Robot {
             name: workcell.properties.name,
             links: workcell
@@ -353,13 +365,18 @@ impl From<Workcell> for urdf_rs::Robot {
                 .into_iter()
                 .map(|f| {
                     let frame = f.1.bundle;
-                    let visual: Vec<Visual> = visuals_and_parent
+
+                    let visual: Vec<Visual> = visuals_and_parents
                         .iter()
                         .filter(|(_, parent)| parent == &f.1.parent)
                         .map(|(visual, _)| visual.clone())
                         .collect();
+                    let collision: Vec<Collision> = collisions_and_parents
+                        .iter()
+                        .filter(|(_, parent)| parent == &f.1.parent)
+                        .map(|(collision, _)| collision.clone())
+                        .collect();
 
-                    dbg!(&frame);
                     let pose: urdf_rs::Pose = match frame.anchor {
                         Anchor::Pose3D(pose) => pose.into(),
                         _ => todo!(),
@@ -383,7 +400,7 @@ impl From<Workcell> for urdf_rs::Robot {
                             },
                             mass: urdf_rs::Mass { value: 0.0 },
                         },
-                        collision: vec![],
+                        collision,
                         visual,
                     }
                 })
