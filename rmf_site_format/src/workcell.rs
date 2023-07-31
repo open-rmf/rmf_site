@@ -27,7 +27,7 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use bevy::reflect::TypeUuid;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-use urdf_rs::Robot;
+use urdf_rs::{Robot, Visual};
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -280,36 +280,88 @@ pub struct Workcell {
     // TODO(luca) Joints
 }
 
+impl From<Pose> for urdf_rs::Pose {
+    fn from(pose: Pose) -> Self {
+        urdf_rs::Pose {
+            rpy: match pose.rot {
+                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| match v {
+                    Angle::Rad(v) => v as f64,
+                    Angle::Deg(v) => v.to_radians() as f64,
+                })),
+                Rotation::Yaw(v) => match v {
+                    Angle::Rad(v) => urdf_rs::Vec3([0.0, 0.0, v as f64]),
+                    Angle::Deg(v) => urdf_rs::Vec3([0.0, 0.0, v.to_radians() as f64]),
+                },
+                _ => todo!("Unsupported rotation type for conversion to urdf pose"),
+            },
+            xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
+        }
+    }
+}
+
+impl From<Geometry> for urdf_rs::Geometry {
+    fn from(geometry: Geometry) -> Self {
+        match geometry {
+            Geometry::Mesh { filename, scale } => urdf_rs::Geometry::Mesh {
+                filename,
+                scale: scale.map(|v| urdf_rs::Vec3([v.x as f64, v.y as f64, v.z as f64])),
+            },
+            Geometry::Primitive(MeshPrimitive::Box { size: [x, y, z] }) => urdf_rs::Geometry::Box {
+                size: urdf_rs::Vec3([x as f64, y as f64, z as f64]),
+            },
+            Geometry::Primitive(MeshPrimitive::Cylinder { radius, length }) => {
+                urdf_rs::Geometry::Cylinder {
+                    radius: radius as f64,
+                    length: length as f64,
+                }
+            }
+            Geometry::Primitive(MeshPrimitive::Capsule { radius, length }) => {
+                urdf_rs::Geometry::Capsule {
+                    radius: radius as f64,
+                    length: length as f64,
+                }
+            }
+            Geometry::Primitive(MeshPrimitive::Sphere { radius }) => urdf_rs::Geometry::Sphere {
+                radius: radius as f64,
+            },
+            _ => todo!("Only meshes and primitives are supported for conversion to urdf geometry"),
+        }
+    }
+}
+
 impl From<Workcell> for urdf_rs::Robot {
     fn from(workcell: Workcell) -> Self {
+        dbg!(&workcell);
+        let visuals_and_parent: Vec<(urdf_rs::Visual, _)> = workcell
+            .visuals
+            .into_iter()
+            .map(|v| {
+                let visual = v.1.bundle;
+                let visual = urdf_rs::Visual {
+                    name: Some(visual.name),
+                    origin: visual.pose.into(),
+                    geometry: visual.geometry.into(),
+                    material: None,
+                };
+                (visual, v.1.parent)
+            })
+            .collect();
         urdf_rs::Robot {
             name: workcell.properties.name,
             links: workcell
                 .frames
                 .into_iter()
                 .map(|f| {
-
                     let frame = f.1.bundle;
+                    let visual: Vec<Visual> = visuals_and_parent
+                        .iter()
+                        .filter(|(_, parent)| parent == &f.1.parent)
+                        .map(|(visual, _)| visual.clone())
+                        .collect();
 
+                    dbg!(&frame);
                     let pose: urdf_rs::Pose = match frame.anchor {
-                        Anchor::Pose3D(pose) => {
-                            urdf_rs::Pose {
-                                rpy: match pose.rot {
-                                    Rotation::EulerExtrinsicXYZ(arr) => {
-                                        urdf_rs::Vec3(arr.map(|v| match v {
-                                            Angle::Rad(v) => v as f64,
-                                            Angle::Deg(v) => v.to_radians() as f64,
-                                        }))
-                                    },
-                                    Rotation::Yaw(v) => match v {
-                                        Angle::Rad(v) => urdf_rs::Vec3([0.0, 0.0, v as f64]),
-                                        Angle::Deg(v) => urdf_rs::Vec3([0.0, 0.0, v.to_radians() as f64]),
-                                    },
-                                    _ => todo!(),
-                                },
-                                xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
-                            }
-                        },
+                        Anchor::Pose3D(pose) => pose.into(),
                         _ => todo!(),
                     };
                     urdf_rs::Link {
@@ -317,7 +369,6 @@ impl From<Workcell> for urdf_rs::Robot {
                             Some(name) => name.0,
                             None => format!("frame_{}", f.0),
                         },
-                        collision: vec![],
                         inertial: urdf_rs::Inertial {
                             origin: pose,
                             inertia: {
@@ -330,11 +381,10 @@ impl From<Workcell> for urdf_rs::Robot {
                                     izz: 0.0,
                                 }
                             },
-                            mass: urdf_rs::Mass {
-                                value: 0.0,
-                            },
+                            mass: urdf_rs::Mass { value: 0.0 },
                         },
-                        visual: vec![],
+                        collision: vec![],
+                        visual,
                     }
                 })
                 .collect(),
