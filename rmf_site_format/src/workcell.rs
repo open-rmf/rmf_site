@@ -28,6 +28,7 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use bevy::reflect::TypeUuid;
 use glam::{EulerRot, Vec3};
 use serde::{Deserialize, Serialize};
+use thiserror::Error as ThisError;
 use urdf_rs::{Collision, Robot, Visual};
 
 /// Helper structure to serialize / deserialize entities with parents
@@ -326,6 +327,14 @@ impl From<Geometry> for urdf_rs::Geometry {
     }
 }
 
+#[derive(Debug, ThisError)]
+pub enum WorkcellToUrdfError {
+    #[error("Invalid anchor type {0:?}")]
+    InvalidAnchorType(Anchor),
+    #[error("Urdf error: {0}")]
+    WriteToStringError(#[from] urdf_rs::UrdfError),
+}
+
 impl Workcell {
     pub fn to_writer<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
         serde_json::ser::to_writer_pretty(writer, self)
@@ -335,7 +344,7 @@ impl Workcell {
         serde_json::ser::to_string_pretty(self)
     }
 
-    pub fn to_urdf(&self) -> urdf_rs::Result<urdf_rs::Robot> {
+    pub fn to_urdf(&self) -> Result<urdf_rs::Robot, WorkcellToUrdfError> {
         let workcell = self.clone();
 
         let visuals_and_parents: Vec<(urdf_rs::Visual, _)> = workcell
@@ -367,12 +376,16 @@ impl Workcell {
             })
             .collect();
 
-        let links: Vec<_> = workcell
+        let links: Result<Vec<_>, WorkcellToUrdfError> = workcell
             .frames
             .into_iter()
             .map(|f| {
                 let frame = f.1.bundle;
 
+                let name = match frame.name {
+                    Some(name) => name.0,
+                    None => format!("frame_{}", f.0),
+                };
                 let visual: Vec<Visual> = visuals_and_parents
                     .iter()
                     .filter(|(_, parent)| parent == &f.1.parent)
@@ -384,17 +397,14 @@ impl Workcell {
                     .map(|(collision, _)| collision.clone())
                     .collect();
 
-                let pose: urdf_rs::Pose = match frame.anchor {
-                    Anchor::Pose3D(pose) => pose.into(),
-                    Anchor::CategorizedTranslate2D(_) | Anchor::Translate2D(_) => {
-                        unreachable!("Only 3D poses are supported for conversion to urdf")
-                    }
-                };
-                urdf_rs::Link {
-                    name: match frame.name {
-                        Some(name) => name.0,
-                        None => format!("frame_{}", f.0),
-                    },
+                let pose: urdf_rs::Pose;
+                if let Anchor::Pose3D(p) = frame.anchor {
+                    pose = p.into();
+                } else {
+                    return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor));
+                }
+                let link = urdf_rs::Link {
+                    name,
                     inertial: urdf_rs::Inertial {
                         origin: pose,
                         inertia: {
@@ -411,9 +421,14 @@ impl Workcell {
                     },
                     collision,
                     visual,
-                }
+                };
+                Ok(link)
             })
             .collect();
+        let links = match links {
+            Ok(links) => links,
+            Err(e) => return Err(e),
+        };
         let robot = urdf_rs::Robot {
             name: workcell.properties.name,
             links,
@@ -423,9 +438,12 @@ impl Workcell {
         return Ok(robot);
     }
 
-    pub fn to_urdf_string(&self) -> urdf_rs::Result<String> {
+    pub fn to_urdf_string(&self) -> Result<String, WorkcellToUrdfError> {
         match self.to_urdf() {
-            Ok(urdf) => urdf_rs::write_to_string(&urdf),
+            Ok(urdf) => match urdf_rs::write_to_string(&urdf) {
+                Ok(string) => Ok(string),
+                Err(e) => Err(WorkcellToUrdfError::WriteToStringError(e)),
+            },
             Err(e) => Err(e),
         }
     }
