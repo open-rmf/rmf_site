@@ -18,6 +18,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io;
 
+use super::misc::Rotation;
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
@@ -25,7 +26,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
-use glam::Vec3;
+use glam::{EulerRot, Vec3};
 use serde::{Deserialize, Serialize};
 use urdf_rs::{Collision, Robot, Visual};
 
@@ -284,15 +285,12 @@ impl From<Pose> for urdf_rs::Pose {
     fn from(pose: Pose) -> Self {
         urdf_rs::Pose {
             rpy: match pose.rot {
-                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| match v {
-                    Angle::Rad(v) => v as f64,
-                    Angle::Deg(v) => v.to_radians() as f64,
-                })),
-                Rotation::Yaw(v) => match v {
-                    Angle::Rad(v) => urdf_rs::Vec3([0.0, 0.0, v as f64]),
-                    Angle::Deg(v) => urdf_rs::Vec3([0.0, 0.0, v.to_radians() as f64]),
-                },
-                _ => todo!("Unsupported rotation type for conversion to urdf pose"),
+                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
+                Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
+                Rotation::Quat([x, y, z, w]) => {
+                    let (x, y, z) = glam::quat(x, y, z, w).to_euler(EulerRot::XYZ);
+                    urdf_rs::Vec3([x as f64, y as f64, z as f64])
+                }
             },
             xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
         }
@@ -324,13 +322,22 @@ impl From<Geometry> for urdf_rs::Geometry {
             Geometry::Primitive(MeshPrimitive::Sphere { radius }) => urdf_rs::Geometry::Sphere {
                 radius: radius as f64,
             },
-            _ => todo!("Only meshes and primitives are supported for conversion to urdf geometry"),
         }
     }
 }
 
-impl From<Workcell> for urdf_rs::Robot {
-    fn from(workcell: Workcell) -> Self {
+impl Workcell {
+    pub fn to_writer<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
+        serde_json::ser::to_writer_pretty(writer, self)
+    }
+
+    pub fn to_string(&self) -> serde_json::Result<String> {
+        serde_json::ser::to_string_pretty(self)
+    }
+
+    pub fn to_urdf(&self) -> urdf_rs::Result<urdf_rs::Robot> {
+        let workcell = self.clone();
+
         let visuals_and_parents: Vec<(urdf_rs::Visual, _)> = workcell
             .visuals
             .into_iter()
@@ -345,6 +352,7 @@ impl From<Workcell> for urdf_rs::Robot {
                 (visual, v.1.parent)
             })
             .collect();
+
         let collisions_and_parents: Vec<(urdf_rs::Collision, _)> = workcell
             .collisions
             .into_iter()
@@ -358,75 +366,68 @@ impl From<Workcell> for urdf_rs::Robot {
                 (collision, c.1.parent)
             })
             .collect();
-        urdf_rs::Robot {
-            name: workcell.properties.name,
-            links: workcell
-                .frames
-                .into_iter()
-                .map(|f| {
-                    let frame = f.1.bundle;
 
-                    let visual: Vec<Visual> = visuals_and_parents
-                        .iter()
-                        .filter(|(_, parent)| parent == &f.1.parent)
-                        .map(|(visual, _)| visual.clone())
-                        .collect();
-                    let collision: Vec<Collision> = collisions_and_parents
-                        .iter()
-                        .filter(|(_, parent)| parent == &f.1.parent)
-                        .map(|(collision, _)| collision.clone())
-                        .collect();
+        let links: Vec<_> = workcell
+            .frames
+            .into_iter()
+            .map(|f| {
+                let frame = f.1.bundle;
 
-                    let pose: urdf_rs::Pose = match frame.anchor {
-                        Anchor::Pose3D(pose) => pose.into(),
-                        _ => todo!(),
-                    };
-                    urdf_rs::Link {
-                        name: match frame.name {
-                            Some(name) => name.0,
-                            None => format!("frame_{}", f.0),
-                        },
-                        inertial: urdf_rs::Inertial {
-                            origin: pose,
-                            inertia: {
-                                urdf_rs::Inertia {
-                                    ixx: 0.0,
-                                    ixy: 0.0,
-                                    ixz: 0.0,
-                                    iyy: 0.0,
-                                    iyz: 0.0,
-                                    izz: 0.0,
-                                }
-                            },
-                            mass: urdf_rs::Mass { value: 0.0 },
-                        },
-                        collision,
-                        visual,
+                let visual: Vec<Visual> = visuals_and_parents
+                    .iter()
+                    .filter(|(_, parent)| parent == &f.1.parent)
+                    .map(|(visual, _)| visual.clone())
+                    .collect();
+                let collision: Vec<Collision> = collisions_and_parents
+                    .iter()
+                    .filter(|(_, parent)| parent == &f.1.parent)
+                    .map(|(collision, _)| collision.clone())
+                    .collect();
+
+                let pose: urdf_rs::Pose = match frame.anchor {
+                    Anchor::Pose3D(pose) => pose.into(),
+                    Anchor::CategorizedTranslate2D(_) | Anchor::Translate2D(_) => {
+                        unreachable!("Only 3D poses are supported for conversion to urdf")
                     }
-                })
-                .collect(),
+                };
+                urdf_rs::Link {
+                    name: match frame.name {
+                        Some(name) => name.0,
+                        None => format!("frame_{}", f.0),
+                    },
+                    inertial: urdf_rs::Inertial {
+                        origin: pose,
+                        inertia: {
+                            urdf_rs::Inertia {
+                                ixx: 0.0,
+                                ixy: 0.0,
+                                ixz: 0.0,
+                                iyy: 0.0,
+                                iyz: 0.0,
+                                izz: 0.0,
+                            }
+                        },
+                        mass: urdf_rs::Mass { value: 0.0 },
+                    },
+                    collision,
+                    visual,
+                }
+            })
+            .collect();
+        let robot = urdf_rs::Robot {
+            name: workcell.properties.name,
+            links,
             joints: vec![],
             materials: vec![],
-        }
-    }
-}
-
-impl Workcell {
-    pub fn to_writer<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
-        serde_json::ser::to_writer_pretty(writer, self)
-    }
-
-    pub fn to_string(&self) -> serde_json::Result<String> {
-        serde_json::ser::to_string_pretty(self)
-    }
-
-    pub fn to_urdf(&self) -> urdf_rs::Robot {
-        self.clone().into()
+        };
+        return Ok(robot);
     }
 
     pub fn to_urdf_string(&self) -> urdf_rs::Result<String> {
-        let urdf = self.to_urdf();
-        urdf_rs::write_to_string(&urdf)
+        match self.to_urdf() {
+            Ok(urdf) => urdf_rs::write_to_string(&urdf),
+            Err(e) => Err(e),
+        }
     }
 
     pub fn from_reader<R: io::Read>(reader: R) -> serde_json::Result<Self> {
