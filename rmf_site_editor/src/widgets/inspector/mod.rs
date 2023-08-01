@@ -84,6 +84,8 @@ pub use inspect_value::*;
 pub mod selection_widget;
 pub use selection_widget::*;
 
+use super::move_layer::MoveLayer;
+
 use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
@@ -226,6 +228,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
                 ui.horizontal(|ui| {
+                    MoveLayer::new(
+                        selection,
+                        &mut self.events.layers.floors,
+                        &self.events.layers.icons
+                    )
+                    .show(ui);
+                });
+                ui.horizontal(|ui| {
                     InspectLayer::new(
                         selection,
                         &self.params.anchor_params.icons,
@@ -239,6 +249,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((drawing_vis, alpha)) = self.params.layer.drawings.get(selection) {
+                ui.horizontal(|ui| {
+                    MoveLayer::new(
+                        selection,
+                        &mut self.events.layers.drawings,
+                        &self.events.layers.icons
+                    )
+                    .show(ui);
+                });
                 ui.horizontal(|ui| {
                     InspectLayer::new(
                         selection,

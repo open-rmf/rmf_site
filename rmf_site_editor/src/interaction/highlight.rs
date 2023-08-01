@@ -60,19 +60,20 @@ pub fn update_highlight_visualization(
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
     for (hovered, selected, m, highlight, suppress) in &highlightable {
-        let color = if suppress.is_some() {
-            Color::WHITE
-        } else if hovered.cue() && selected.cue() {
-            highlight.hover_select
-        } else if hovered.cue() {
-            highlight.hover
-        } else if selected.cue() {
-            highlight.select
-        } else {
-            Color::WHITE
-        };
-
         if let Some(material) = materials.get_mut(m) {
+            let mut color = if suppress.is_some() {
+                Color::WHITE
+            } else if hovered.cue() && selected.cue() {
+                highlight.hover_select
+            } else if hovered.cue() {
+                highlight.hover
+            } else if selected.cue() {
+                highlight.select
+            } else {
+                Color::WHITE
+            };
+            color.set_a(material.base_color.a());
+
             material.base_color = color;
         }
     }

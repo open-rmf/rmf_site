@@ -19,10 +19,10 @@ use crate::{
     interaction::Selection,
     recency::RecencyRanking,
     site::*,
-    widgets::{inspector::InspectLayer, AppEvents, Icons},
+    widgets::{inspector::InspectLayer, AppEvents, Icons, MoveLayer},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Ui, DragValue};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui, DragValue, ScrollArea};
 
 #[derive(SystemParam)]
 pub struct LayersParams<'w, 's> {
@@ -143,17 +143,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         {
             *vis = vis.next(*default_alpha);
         }
-        match vis {
-            LayerVisibility::Alpha(alpha) => {
-                if ui.add(
-                    DragValue::new(alpha)
-                        .clamp_range(0_f32..=1_f32)
-                        .speed(0.01)
-                ).changed() {
-                    *default_alpha = *alpha;
-                }
+
+        if let LayerVisibility::Alpha(alpha) = vis {
+            if ui.add(
+                DragValue::new(alpha)
+                    .clamp_range(0_f32..=1_f32)
+                    .speed(0.01)
+            ).changed() {
+                *default_alpha = *alpha;
             }
-            _ => { }
         }
     }
 
@@ -163,26 +161,44 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         is_floor: bool,
         ui: &mut Ui,
     ) {
+        let mut layer_selected = None;
         ui.vertical(|ui| {
-            for e in ranking.iter().rev() {
-                let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else { continue };
-                ui.horizontal(|ui| {
-                    InspectLayer::new(
-                        *e,
-                        &self.params.icons,
-                        &mut self.events,
-                        vis.copied(),
-                        alpha.0,
-                        is_floor,
-                    )
-                        .with_selecting(self.params.site_id.get(*e).ok().flatten().copied())
-                        .show(ui);
-
-                    if Some(*e) == self.params.selection.0 {
-                        ui.label("Selected");
+            ui.separator();
+            ScrollArea::vertical()
+            .show(ui, |ui| {
+                for e in ranking.iter().rev() {
+                    if self.params.selection.0.is_some_and(|sel| sel == *e) {
+                        layer_selected = Some(*e);
                     }
+                    let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else { continue };
+                    ui.horizontal(|ui| {
+                        InspectLayer::new(
+                            *e,
+                            &self.params.icons,
+                            &mut self.events,
+                            vis.copied(),
+                            alpha.0,
+                            is_floor,
+                        )
+                            .with_selecting(self.params.site_id.get(*e).ok().flatten().copied())
+                            .show(ui);
+
+                        if Some(*e) == self.params.selection.0 {
+                            ui.label("Selected");
+                        }
+                    });
+                }
+            });
+            if let Some(e) = layer_selected {
+                ui.horizontal(|ui| {
+                    MoveLayer::new(
+                        e,
+                        &mut self.events.layers.floors,
+                        &self.events.layers.icons
+                    ).show(ui);
                 });
             }
+            ui.separator();
         });
     }
 }
