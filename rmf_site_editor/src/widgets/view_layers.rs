@@ -75,7 +75,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                             );
                         }
                     });
-                    self.show_rankings(ranking.entities(), true, ui);
+                    ui.separator();
+                    if let Some(selected) = self.show_rankings(ranking.entities(), true, ui) {
+                        ui.horizontal(|ui| {
+                            MoveLayer::new(
+                                selected,
+                                &mut self.events.layers.floors,
+                                &self.events.layers.icons
+                            ).show(ui);
+                        });
+                    }
+                    ui.separator();
                 });
         }
 
@@ -114,7 +124,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                         );
                     }
 
-                    self.show_rankings(ranking.entities(), false, ui);
+                    if let Some(selected) = self.show_rankings(ranking.entities(), false, ui) {
+                        ui.horizontal(|ui| {
+                            MoveLayer::new(
+                                selected,
+                                &mut self.events.layers.drawings,
+                                &self.events.layers.icons
+                            ).show(ui);
+                        });
+                    }
                 });
         }
 
@@ -160,10 +178,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         ranking: &Vec<Entity>,
         is_floor: bool,
         ui: &mut Ui,
-    ) {
+    ) -> Option<Entity> {
         let mut layer_selected = None;
         ui.vertical(|ui| {
-            ui.separator();
             ScrollArea::vertical()
             .show(ui, |ui| {
                 for e in ranking.iter().rev() {
@@ -188,16 +205,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                     });
                 }
             });
-            if let Some(e) = layer_selected {
-                ui.horizontal(|ui| {
-                    MoveLayer::new(
-                        e,
-                        &mut self.events.layers.floors,
-                        &self.events.layers.icons
-                    ).show(ui);
-                });
-            }
-            ui.separator();
         });
+        layer_selected
     }
 }
