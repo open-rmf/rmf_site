@@ -167,7 +167,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
             ScrollArea::vertical()
             .show(ui, |ui| {
                 for e in ranking.iter().rev() {
+                    let mut as_selected = false;
                     if self.params.selection.0.is_some_and(|sel| sel == *e) {
+                        as_selected = true;
                         layer_selected = Some(*e);
                     }
                     let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else { continue };
@@ -181,11 +183,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                             is_floor,
                         )
                             .with_selecting(self.params.site_id.get(*e).ok().flatten().copied())
+                            .as_selected(as_selected)
                             .show(ui);
-
-                        if Some(*e) == self.params.selection.0 {
-                            ui.label("Selected");
-                        }
                     });
                 }
             });

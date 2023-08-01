@@ -51,6 +51,7 @@ impl Icon {
 #[derive(Clone, Debug, Resource)]
 pub struct Icons {
     pub select: Icon,
+    pub selected: Icon,
     pub edit: Icon,
     pub exit: Icon,
     pub trash: Icon,
@@ -68,6 +69,7 @@ impl FromWorld for Icons {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let select = IconBuilder::new("textures/select.png", &asset_server);
+        let selected = IconBuilder::new("textures/selected.png", &asset_server);
         let edit = IconBuilder::new("textures/edit.png", &asset_server);
         let exit = IconBuilder::new("textures/exit.png", &asset_server);
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
@@ -86,6 +88,7 @@ impl FromWorld for Icons {
         let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
         Self {
             select: select.build(&mut egui_context),
+            selected: selected.build(&mut egui_context),
             edit: edit.build(&mut egui_context),
             exit: exit.build(&mut egui_context),
             trash: trash.build(&mut egui_context),

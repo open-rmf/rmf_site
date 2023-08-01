@@ -35,6 +35,7 @@ pub struct InspectLayer<'a, 'w, 's> {
     pub default_alpha: f32,
     // TODO(luca) make this an enum
     pub is_floor: bool,
+    pub as_selected: bool,
     /// Outer Option: Can this be selected?
     /// Inner Option: Does this have a SiteID?
     pub site_id: Option<Option<SiteID>>,
@@ -57,6 +58,7 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
             layer_vis,
             default_alpha,
             is_floor,
+            as_selected: false,
             site_id: None,
         }
     }
@@ -65,9 +67,17 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         self
     }
 
+    pub fn as_selected(mut self, as_selected: bool) -> Self {
+        self.as_selected = as_selected;
+        self
+    }
+
     pub fn show(self, ui: &mut Ui) {
         if let Some(site_id) = self.site_id {
-            SelectionWidget::new(self.entity, site_id, self.icons, self.events).show(ui);
+            SelectionWidget::new(self.entity, site_id, self.icons, self.events)
+                .as_selected(self.as_selected)
+                .show(ui);
+
             if !self.is_floor {
                 let response = ui.add(ImageButton::new(
                     self.events.layers.icons.edit.egui(), [18., 18.]
