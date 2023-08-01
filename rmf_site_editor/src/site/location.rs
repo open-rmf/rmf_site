@@ -27,7 +27,7 @@ fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
     parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
+    levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
@@ -46,7 +46,7 @@ pub fn add_location_visuals(
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
@@ -99,7 +99,7 @@ pub fn update_changed_location(
     >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
@@ -160,7 +160,7 @@ pub fn update_visibility_for_locations(
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     locations_with_changed_association: Query<

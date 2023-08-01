@@ -20,8 +20,8 @@ use bevy::prelude::*;
 
 use crate::site::{
     AlignLevelDrawings, AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
-    Distance, DrawingMarker, Edge, IsPrimary, LevelProperties, MeasurementMarker, PixelsPerMeter,
-    Pose, Rotation, ScaleDrawing, SiteProperties,
+    Distance, DrawingMarker, Edge, LevelElevation, MeasurementMarker, PixelsPerMeter,
+    Pose, Rotation, ScaleDrawing, SiteProperties, NameOfSite,
 };
 use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
@@ -144,7 +144,7 @@ fn align_drawing_pair(
         (reference_point, target_point)
     };
     // Guaranteed safe since caller passes a drawing entity
-    let (_, _, target_pose, target_ppm, _) = params.drawings.get(target_drawing).unwrap();
+    let (_, _, target_pose, target_ppm) = params.drawings.get(target_drawing).unwrap();
     let mut matching_points = Vec::new();
     for edge in constraints.iter() {
         let start_parent = params
@@ -233,7 +233,6 @@ pub struct OptimizationParams<'w, 's> {
             &'static Children,
             &'static Pose,
             &'static PixelsPerMeter,
-            &'static IsPrimary,
         ),
         With<DrawingMarker>,
     >,
@@ -244,132 +243,132 @@ pub struct OptimizationParams<'w, 's> {
 }
 
 pub fn align_level_drawings(
-    levels: Query<&Children, With<LevelProperties>>,
+    levels: Query<&Children, With<LevelElevation>>,
     mut events: EventReader<AlignLevelDrawings>,
     params: OptimizationParams,
     mut change: OptimizationChangeParams,
 ) {
-    for e in events.iter() {
-        // Get the matching points for this entity
-        let level_children = levels
-            .get(**e)
-            .expect("Align level event sent to non level entity");
-        let constraints = level_children
-            .iter()
-            .filter_map(|child| params.constraints.get(*child).ok())
-            .collect::<Vec<_>>();
-        if constraints.is_empty() {
-            warn!("No constraints found for level, skipping optimization");
-            continue;
-        }
-        let (references, layers): (HashSet<_>, Vec<_>) = level_children
-            .iter()
-            .filter_map(|child| params.drawings.get(*child).ok())
-            .partition_map(|(e, _, _, _, primary)| {
-                if primary.0 == true {
-                    Either::Left(e)
-                } else {
-                    Either::Right(e)
-                }
-            });
-        if layers.is_empty() {
-            warn!(
-                "No non-primary drawings found for level, at least one drawing must be set to \
-                  non-primary to be optimized against primary drawings.Skipping optimization"
-            );
-            continue;
-        }
-        if references.is_empty() {
-            warn!(
-                "No primary drawings found for level. At least one drawing must be set to \
-                  primary to use as a reference for other drawings. Skipping optimization"
-            );
-            continue;
-        }
-        for layer_entity in layers {
-            align_drawing_pair(
-                &references,
-                layer_entity,
-                &constraints,
-                &params,
-                &mut change,
-            );
-        }
-    }
+    // for e in events.iter() {
+    //     // Get the matching points for this entity
+    //     let level_children = levels
+    //         .get(**e)
+    //         .expect("Align level event sent to non level entity");
+    //     let constraints = level_children
+    //         .iter()
+    //         .filter_map(|child| params.constraints.get(*child).ok())
+    //         .collect::<Vec<_>>();
+    //     if constraints.is_empty() {
+    //         warn!("No constraints found for level, skipping optimization");
+    //         continue;
+    //     }
+    //     let (references, layers): (HashSet<_>, Vec<_>) = level_children
+    //         .iter()
+    //         .filter_map(|child| params.drawings.get(*child).ok())
+    //         .partition_map(|(e, _, _, _)| {
+    //             if primary.0 == true {
+    //                 Either::Left(e)
+    //             } else {
+    //                 Either::Right(e)
+    //             }
+    //         });
+    //     if layers.is_empty() {
+    //         warn!(
+    //             "No non-primary drawings found for level, at least one drawing must be set to \
+    //               non-primary to be optimized against primary drawings.Skipping optimization"
+    //         );
+    //         continue;
+    //     }
+    //     if references.is_empty() {
+    //         warn!(
+    //             "No primary drawings found for level. At least one drawing must be set to \
+    //               primary to use as a reference for other drawings. Skipping optimization"
+    //         );
+    //         continue;
+    //     }
+    //     for layer_entity in layers {
+    //         align_drawing_pair(
+    //             &references,
+    //             layer_entity,
+    //             &constraints,
+    //             &params,
+    //             &mut change,
+    //         );
+    //     }
+    // }
 }
 
 pub fn align_site_drawings(
-    levels: Query<(Entity, &Children, &Parent, &LevelProperties)>,
-    sites: Query<&Children, With<SiteProperties>>,
+    levels: Query<(Entity, &Children, &Parent), With<LevelElevation>>,
+    sites: Query<&Children, With<NameOfSite>>,
     mut events: EventReader<AlignSiteDrawings>,
     params: OptimizationParams,
     mut change: OptimizationChangeParams,
 ) {
-    for e in events.iter() {
-        // Get the levels that are children of the requested site
-        let levels = levels
-            .iter()
-            .filter(|(_, _, p, _)| ***p == **e)
-            .collect::<Vec<_>>();
-        let reference_level = levels
-            .iter()
-            .min_by(|l_a, l_b| l_a.3.elevation.partial_cmp(&l_b.3.elevation).unwrap())
-            .expect("Site has no levels");
-        // Reference level will be the one with minimum elevation
-        let references = reference_level
-            .1
-            .iter()
-            .filter_map(|c| {
-                params
-                    .drawings
-                    .get(*c)
-                    .ok()
-                    .filter(|(_, _, _, _, primary)| primary.0 == true)
-            })
-            .map(|(e, _, _, _, _)| e)
-            .collect::<HashSet<_>>();
-        // Layers to be optimized are primary drawings in the non reference level
-        let layers = levels
-            .iter()
-            .filter_map(|(e, c, _, _)| (*e != reference_level.0).then(|| c.iter()))
-            .flatten()
-            .filter_map(|child| params.drawings.get(*child).ok())
-            .filter_map(|(e, _, _, _, primary)| (primary.0 == true).then(|| e))
-            .collect::<Vec<_>>();
-        // Inter level constraints are children of the site
-        let constraints = sites
-            .get(**e)
-            .expect("Align site sent to non site entity")
-            .iter()
-            .filter_map(|child| params.constraints.get(*child).ok())
-            .collect::<Vec<_>>();
-        if constraints.is_empty() {
-            warn!("No constraints found for site, skipping optimization");
-            continue;
-        }
-        if layers.is_empty() {
-            warn!(
-                "No other levels drawings found for site, at least one other level must have a \
-                  primary drawing to be optimized against reference level. Skipping optimization"
-            );
-            continue;
-        }
-        if references.is_empty() {
-            warn!(
-                "No reference level drawing found for site. At least one primary drawing must be \
-                  present in the lowest level to use as a reference for other levels. \
-                  Skipping optimization"
-            );
-            continue;
-        }
-        for layer_entity in layers {
-            align_drawing_pair(
-                &references,
-                layer_entity,
-                &constraints,
-                &params,
-                &mut change,
-            );
-        }
-    }
+    // for e in events.iter() {
+    //     // Get the levels that are children of the requested site
+    //     let levels = levels
+    //         .iter()
+    //         .filter(|(_, _, p)| ***p == **e)
+    //         .collect::<Vec<_>>();
+    //     let reference_level = levels
+    //         .iter()
+    //         .min_by(|l_a, l_b| l_a.3.elevation.partial_cmp(&l_b.3.elevation).unwrap())
+    //         .expect("Site has no levels");
+    //     // Reference level will be the one with minimum elevation
+    //     let references = reference_level
+    //         .1
+    //         .iter()
+    //         .filter_map(|c| {
+    //             params
+    //                 .drawings
+    //                 .get(*c)
+    //                 .ok()
+    //                 .filter(|(_, _, _, _, primary)| primary.0 == true)
+    //         })
+    //         .map(|(e, _, _, _, _)| e)
+    //         .collect::<HashSet<_>>();
+    //     // Layers to be optimized are primary drawings in the non reference level
+    //     let layers = levels
+    //         .iter()
+    //         .filter_map(|(e, c, _)| (*e != reference_level.0).then(|| c.iter()))
+    //         .flatten()
+    //         .filter_map(|child| params.drawings.get(*child).ok())
+    //         .filter_map(|(e, _, _, _, primary)| (primary.0 == true).then(|| e))
+    //         .collect::<Vec<_>>();
+    //     // Inter level constraints are children of the site
+    //     let constraints = sites
+    //         .get(**e)
+    //         .expect("Align site sent to non site entity")
+    //         .iter()
+    //         .filter_map(|child| params.constraints.get(*child).ok())
+    //         .collect::<Vec<_>>();
+    //     if constraints.is_empty() {
+    //         warn!("No constraints found for site, skipping optimization");
+    //         continue;
+    //     }
+    //     if layers.is_empty() {
+    //         warn!(
+    //             "No other levels drawings found for site, at least one other level must have a \
+    //               primary drawing to be optimized against reference level. Skipping optimization"
+    //         );
+    //         continue;
+    //     }
+    //     if references.is_empty() {
+    //         warn!(
+    //             "No reference level drawing found for site. At least one primary drawing must be \
+    //               present in the lowest level to use as a reference for other levels. \
+    //               Skipping optimization"
+    //         );
+    //         continue;
+    //     }
+    //     for layer_entity in layers {
+    //         align_drawing_pair(
+    //             &references,
+    //             layer_entity,
+    //             &constraints,
+    //             &params,
+    //             &mut change,
+    //         );
+    //     }
+    // }
 }

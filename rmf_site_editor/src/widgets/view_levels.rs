@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Category, Change, Delete, LevelProperties},
+    site::{Category, Change, Delete, LevelElevation, LevelProperties, NameInSite},
     widgets::{AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -46,7 +46,7 @@ impl Default for LevelDisplay {
 
 #[derive(SystemParam)]
 pub struct LevelParams<'w, 's> {
-    pub levels: Query<'w, 's, (Entity, &'static LevelProperties)>,
+    pub levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
     pub parents: Query<'w, 's, &'static Parent>,
     pub icons: Res<'w, Icons>,
 }
@@ -88,8 +88,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                     .commands
                     .spawn(SpatialBundle::default())
                     .insert(LevelProperties {
-                        elevation: show_elevation,
-                        name: show_name.clone(),
+                        elevation: LevelElevation(show_elevation),
+                        name: NameInSite(show_name.clone()),
+                        ..Default::default()
                     })
                     .insert(Category::Level)
                     .id();
@@ -105,11 +106,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 .params
                 .levels
                 .iter()
-                .filter(|(e, _props)| {
+                .filter(|(e, _, _)| {
                     AncestorIter::new(&self.params.parents, *e)
                         .any(|e| Some(e) == self.events.request.current_workspace.root)
                 })
-                .map(|(e, props)| (Reverse(props.elevation), e))
+                .map(|(e, _, elevation)| (Reverse(elevation.0), e))
                 .collect();
 
             ordered_level_list.sort_by(|(h_a, e_a), (h_b, e_b)| {
@@ -146,8 +147,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
         let mut any_dragging = false;
         let mut any_deleted = false;
         for e in self.events.display.level.order.iter().copied() {
-            if let Ok((_, props)) = self.params.levels.get(e) {
-                let mut shown_props = props.clone();
+            if let Ok((_, name, elevation)) = self.params.levels.get(e) {
+                let mut shown_elevation = elevation.clone().0;
+                let mut shown_name = name.clone().0;
                 ui.horizontal(|ui| {
                     if self.events.display.level.removing {
                         if ui
@@ -171,21 +173,28 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                     }
 
                     let r = ui
-                        .add(DragValue::new(&mut shown_props.elevation).suffix("m"))
+                        .add(DragValue::new(&mut shown_elevation).suffix("m"))
                         .on_hover_text("Elevation of the level");
                     if r.dragged() || r.has_focus() {
                         any_dragging = true;
                     }
 
-                    ui.text_edit_singleline(&mut shown_props.name)
+                    ui.text_edit_singleline(&mut shown_name)
                         .on_hover_text("Name of the level");
                 });
 
-                if shown_props != *props {
+                if shown_name != name.0 {
                     self.events
                         .change
-                        .level_props
-                        .send(Change::new(shown_props, e));
+                        .name
+                        .send(Change::new(NameInSite(shown_name), e));
+                }
+
+                if shown_elevation != elevation.0 {
+                    self.events
+                        .change
+                        .level_elevation
+                        .send(Change::new(LevelElevation(shown_elevation), e));
                 }
             }
         }

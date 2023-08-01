@@ -106,7 +106,7 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 Without<Pending>,
             ),
         >,
-        Query<Entity, (With<LevelProperties>, Without<Pending>)>,
+        Query<Entity, (With<LevelElevation>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
         Query<&NextSiteID>,
         Query<&SiteID>,
@@ -226,8 +226,8 @@ fn generate_levels(
                 &NameInSite,
                 &AssetSource,
                 &Pose,
-                &IsPrimary,
                 &PixelsPerMeter,
+                &PreferredSemiTransparency,
                 &SiteID,
                 &Parent,
                 &Children,
@@ -257,6 +257,7 @@ fn generate_levels(
                 &Path<Entity>,
                 Option<&Original<Path<Entity>>>,
                 &Texture,
+                &PreferredSemiTransparency,
                 &SiteID,
                 &Parent,
             ),
@@ -308,7 +309,10 @@ fn generate_levels(
         >,
         Query<
             (
-                &LevelProperties,
+                &NameInSite,
+                &LevelElevation,
+                &GlobalFloorVisibility,
+                &GlobalDrawingVisibility,
                 &SiteID,
                 &Parent,
                 Option<&RecencyRanking<FloorMarker>>,
@@ -336,12 +340,17 @@ fn generate_levels(
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
-    for (properties, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
+    for (name, elevation, floor_vis, drawing_vis, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
         if parent.get() == site {
             levels.insert(
                 level_id.0,
                 Level::new(
-                    properties.clone(),
+                    LevelProperties {
+                        name: name.clone(),
+                        elevation: elevation.clone(),
+                        global_floor_visibility: floor_vis.clone(),
+                        global_drawing_visibility: drawing_vis.clone(),
+                    },
                     RankingsInLevel {
                         floors: floor_ranking
                             .map(|r| r.to_u32(&q_site_ids))
@@ -379,7 +388,7 @@ fn generate_levels(
     };
 
     for (anchor, id, parent) in &q_anchors {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.anchors.insert(id.0, anchor.clone());
             }
@@ -388,7 +397,7 @@ fn generate_levels(
 
     for (edge, o_edge, name, kind, id, parent) in &q_doors {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.doors.insert(
@@ -404,8 +413,8 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_primary, pixels_per_meter, id, parent, children) in &q_drawings {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+    for (name, source, pose, pixels_per_meter, preferred_alpha, id, parent, children) in &q_drawings {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
                 let mut fiducials = BTreeMap::new();
@@ -443,14 +452,16 @@ fn generate_levels(
                 level.drawings.insert(
                     id.0,
                     Drawing {
-                        name: name.clone(),
+                        properties: DrawingProperties {
+                            name: name.clone(),
+                            source: source.clone(),
+                            pose: pose.clone(),
+                            pixels_per_meter: pixels_per_meter.clone(),
+                            preferred_semi_transparency: preferred_alpha.clone(),
+                        },
                         anchors,
                         fiducials,
                         measurements,
-                        source: source.clone(),
-                        pose: pose.clone(),
-                        is_primary: is_primary.clone(),
-                        pixels_per_meter: pixels_per_meter.clone(),
                     },
                 );
             }
@@ -458,7 +469,7 @@ fn generate_levels(
     }
 
     for (edge, o_edge, constraint_id, parent) in &q_constraints {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                 let edge = get_anchor_id_edge(edge)?;
@@ -470,9 +481,9 @@ fn generate_levels(
         }
     }
 
-    for (path, o_path, texture, id, parent) in &q_floors {
+    for (path, o_path, texture, preferred_alpha, id, parent) in &q_floors {
         let path = o_path.map(|x| &x.0).unwrap_or(path);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_path(&path)?;
                 level.floors.insert(
@@ -480,6 +491,7 @@ fn generate_levels(
                     Floor {
                         anchors,
                         texture: texture.clone(),
+                        preferred_semi_transparency: preferred_alpha.clone(),
                         marker: FloorMarker,
                     },
                 );
@@ -488,7 +500,7 @@ fn generate_levels(
     }
 
     for (kind, pose, id, parent) in &q_lights {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.lights.insert(
                     id.0,
@@ -502,7 +514,7 @@ fn generate_levels(
     }
 
     for (name, source, pose, is_static, constraint_dependents, scale, id, parent) in &q_models {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
                     id.0,
@@ -521,7 +533,7 @@ fn generate_levels(
     }
 
     for (name, pose, properties, id, parent) in &q_physical_cameras {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _ , _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.physical_cameras.insert(
                     id.0,
@@ -538,7 +550,7 @@ fn generate_levels(
 
     for (edge, o_edge, texture, id, parent) in &q_walls {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.walls.insert(
@@ -580,7 +592,7 @@ fn generate_lifts(
     let mut state: SystemState<(
         Query<(&SiteID, &Anchor), Without<Pending>>,
         QueryLiftDoor,
-        Query<&SiteID, (With<LevelProperties>, Without<Pending>)>,
+        Query<&SiteID, (With<LevelElevation>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
         Query<&Parent, Without<Pending>>,
@@ -931,7 +943,7 @@ pub fn generate_site(
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
 
-    let properties = match world.get::<SiteProperties>(site) {
+    let name_of_site = match world.get::<NameOfSite>(site) {
         Some(props) => props.clone(),
         None => {
             return Err(SiteGenerationError::InvalidSiteEntity(site));
@@ -942,7 +954,7 @@ pub fn generate_site(
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties,
+        properties: SiteProperties { name: name_of_site },
         levels,
         lifts,
         navigation: Navigation {

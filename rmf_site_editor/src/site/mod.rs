@@ -51,9 +51,6 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
-pub mod layer;
-pub use layer::*;
-
 pub mod level;
 pub use level::*;
 
@@ -151,13 +148,9 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-            .insert_resource(GlobalFloorVisibility::default())
-            .insert_resource(GlobalDrawingVisibility::default())
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
-            .init_resource::<DrawingSemiTransparency>()
-            .init_resource::<FloorSemiTransparency>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -175,18 +168,18 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
+            .add_plugin(ChangePlugin::<NameOfSite>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<NameInWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
             .add_plugin(ChangePlugin::<Scale>::default())
-            .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Distance>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
-            .add_plugin(ChangePlugin::<LevelProperties>::default())
+            .add_plugin(ChangePlugin::<LevelElevation>::default())
             .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
@@ -202,6 +195,9 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(ChangePlugin::<LayerVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalFloorVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
+            .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())

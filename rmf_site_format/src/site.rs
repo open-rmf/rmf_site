@@ -17,22 +17,22 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Component, Bundle, Entity, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use std::{collections::BTreeMap, io};
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct SiteProperties {
-    pub name: String,
+    pub name: NameOfSite,
 }
 
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
-            name: "new_site".to_string(),
+            name: NameOfSite("new_site".to_owned()),
         }
     }
 }
@@ -61,6 +61,11 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct NameOfSite(pub String);
 
 fn default_style_config() -> Style {
     Style::new()

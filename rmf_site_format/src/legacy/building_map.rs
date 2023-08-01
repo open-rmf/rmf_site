@@ -2,10 +2,11 @@ use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Edge, Fiducial as SiteFiducial,
-    FiducialMarker, Guided, IsPrimary, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph, Navigation,
     OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane, Rotation, Site,
-    SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    SiteProperties, DEFAULT_NAV_GRAPH_COLORS, LevelElevation, NameOfSite,
+    DrawingProperties, PreferredSemiTransparency,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -281,21 +282,23 @@ impl BuildingMap {
                 drawings.insert(
                     id,
                     SiteDrawing {
-                        name: NameInSite(
-                            Path::new(&level.drawing.filename)
-                                .file_stem()
-                                .unwrap_or_default()
-                                .to_str()
-                                .unwrap()
-                                .to_string(),
-                        ),
+                        properties: DrawingProperties {
+                            name: NameInSite(
+                                Path::new(&level.drawing.filename)
+                                    .file_stem()
+                                    .unwrap_or_default()
+                                    .to_str()
+                                    .unwrap()
+                                    .to_string()
+                            ),
+                            source: AssetSource::Local(level.drawing.filename.clone()),
+                            pose,
+                            pixels_per_meter,
+                            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+                        },
                         anchors: drawing_anchors,
                         fiducials,
                         measurements,
-                        source: AssetSource::Local(level.drawing.filename.clone()),
-                        pose,
-                        is_primary: IsPrimary(true),
-                        pixels_per_meter,
                     },
                 );
                 rankings.drawings.insert(0, id);
@@ -340,14 +343,16 @@ impl BuildingMap {
                 drawings.insert(
                     id,
                     SiteDrawing {
-                        name: NameInSite(name.clone()),
+                        properties: DrawingProperties {
+                            name: NameInSite(name.clone()),
+                            source: AssetSource::Local(layer.filename.clone()),
+                            pose,
+                            pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
+                            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+                        },
                         anchors,
                         fiducials,
                         measurements: Default::default(),
-                        source: AssetSource::Local(layer.filename.clone()),
-                        pose,
-                        is_primary: IsPrimary(false),
-                        pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
                     },
                 );
             }
@@ -399,8 +404,10 @@ impl BuildingMap {
                 level_id,
                 SiteLevel {
                     properties: SiteLevelProperties {
-                        name: name.clone(),
-                        elevation,
+                        name: NameInSite(name.clone()),
+                        elevation: LevelElevation(elevation),
+                        global_floor_visibility: Default::default(),
+                        global_drawing_visibility: Default::default(),
                     },
                     anchors,
                     constraints,
@@ -509,7 +516,7 @@ impl BuildingMap {
             format_version: Default::default(),
             anchors: site_anchors,
             properties: SiteProperties {
-                name: self.name.clone(),
+                name: NameOfSite(self.name.clone()),
             },
             levels,
             lifts,

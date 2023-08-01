@@ -25,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, Site, SiteProperties, Workcell, NameOfSite};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -109,7 +109,7 @@ impl Default for LoadWorkspaceChannels {
 pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
+    pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
     }

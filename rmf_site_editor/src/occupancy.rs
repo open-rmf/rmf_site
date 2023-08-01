@@ -18,7 +18,7 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{Category, LevelProperties, SiteAssets, SiteProperties, LANE_LAYER_START},
+    site::{Category, LevelElevation, SiteAssets, NameOfSite, LANE_LAYER_START},
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -156,8 +156,8 @@ fn calculate_grid(
         Option<&ComputedVisualCue>,
     )>,
     parents: Query<&Parent>,
-    levels: Query<Entity, With<LevelProperties>>,
-    sites: Query<(), With<SiteProperties>>,
+    levels: Query<Entity, With<LevelElevation>>,
+    sites: Query<(), With<NameOfSite>>,
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
@@ -296,7 +296,7 @@ fn calculate_grid(
 }
 
 fn get_levels_of_sites(
-    levels: &Query<Entity, With<LevelProperties>>,
+    levels: &Query<Entity, With<LevelElevation>>,
     parents: &Query<&Parent>,
 ) -> HashMap<Entity, Vec<Entity>> {
     let mut levels_of_sites: HashMap<Entity, Vec<Entity>> = HashMap::new();
@@ -312,8 +312,8 @@ fn get_levels_of_sites(
 fn get_group(
     e: Entity,
     parents: &Query<&Parent>,
-    levels: &Query<Entity, With<LevelProperties>>,
-    sites: &Query<(), With<SiteProperties>>,
+    levels: &Query<Entity, With<LevelElevation>>,
+    sites: &Query<(), With<NameOfSite>>,
 ) -> Group {
     let mut e_meta = e;
     loop {

@@ -26,7 +26,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
     Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
     Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path,
-    PixelsPerMeter, Point, Pose, Side, SiteProperties, Wall, WorkcellCollisionMarker,
+    PixelsPerMeter, Point, Pose, Side, NameOfSite, Wall, WorkcellCollisionMarker,
     WorkcellModel, WorkcellVisualMarker,
 };
 use std::collections::HashSet;
@@ -1904,7 +1904,7 @@ pub fn handle_select_anchor_mode(
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),

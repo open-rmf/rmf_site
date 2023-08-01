@@ -33,9 +33,6 @@ pub use inspect_door::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
-pub mod inspect_is_primary;
-pub use inspect_is_primary::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -90,9 +87,8 @@ pub use selection_widget::*;
 use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
-        Category, Change, DrawingMarker, DrawingSemiTransparency, EdgeLabels,
-        FloorSemiTransparency, LayerVisibility, Original, ScaleDrawing, SiteID,
-        BeginEditDrawing,
+        Category, Change, DrawingMarker, EdgeLabels, LayerVisibility, Original,
+        ScaleDrawing, SiteID, BeginEditDrawing,
     },
     widgets::AppEvents,
     AppState,
@@ -153,16 +149,14 @@ pub struct InspectorComponentParams<'w, 's> {
 
 #[derive(SystemParam)]
 pub struct InspectDrawingParams<'w, 's> {
-    pub is_primary: Query<'w, 's, &'static IsPrimary>,
     pub distance: Query<'w, 's, &'static Distance>,
 }
 
 #[derive(SystemParam)]
 pub struct InspectorLayerParams<'w, 's> {
-    pub floors: Query<'w, 's, Option<&'static LayerVisibility>, With<FloorMarker>>,
-    pub drawings: Query<'w, 's, Option<&'static LayerVisibility>, With<DrawingMarker>>,
-    pub floor_semi_transparency: Res<'w, FloorSemiTransparency>,
-    pub drawing_semi_transparency: Res<'w, DrawingSemiTransparency>,
+    pub floors: Query<'w, 's, (Option<&'static LayerVisibility>, &'static PreferredSemiTransparency), With<FloorMarker>>,
+    pub drawings: Query<'w, 's, (Option<&'static LayerVisibility>, &'static PreferredSemiTransparency), With<DrawingMarker>>,
+    pub levels: Query<'w, 's, (&'static GlobalFloorVisibility, &'static GlobalDrawingVisibility)>,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -230,28 +224,28 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(floor_vis) = self.params.layer.floors.get(selection) {
+            if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
                 ui.horizontal(|ui| {
                     InspectLayer::new(
                         selection,
                         &self.params.anchor_params.icons,
                         self.events,
                         floor_vis.copied(),
-                        **self.params.layer.floor_semi_transparency,
+                        alpha.0,
                         true,
                     )
                     .show(ui);
                 });
             }
 
-            if let Ok(drawing_vis) = self.params.layer.drawings.get(selection) {
+            if let Ok((drawing_vis, alpha)) = self.params.layer.drawings.get(selection) {
                 ui.horizontal(|ui| {
                     InspectLayer::new(
                         selection,
                         &self.params.anchor_params.icons,
                         self.events,
                         drawing_vis.copied(),
-                        **self.params.layer.drawing_semi_transparency,
+                        alpha.0,
                         false,
                     )
                     .show(ui);

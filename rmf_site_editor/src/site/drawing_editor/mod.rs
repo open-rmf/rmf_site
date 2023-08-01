@@ -25,6 +25,7 @@ use crate::{
     site::{
         Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending,
         PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
+        NameOfSite,
     },
     WorkspaceMarker, CurrentWorkspace,
 };
@@ -94,7 +95,7 @@ fn switch_edit_drawing_mode(
     global_tf: Query<&GlobalTransform>,
     current_workspace: Res<CurrentWorkspace>,
     parent: Query<&Parent, With<DrawingMarker>>,
-    is_site: Query<(), With<SiteProperties>>,
+    is_site: Query<(), With<NameOfSite>>,
     is_workcell: Query<(), With<WorkcellProperties>>,
 ) {
     // TODO(@mxgrey): We can make this implementation much cleaner after we

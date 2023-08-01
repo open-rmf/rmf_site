@@ -1,5 +1,5 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Angle, CustomTexture, Floor as SiteFloor, FloorMarker, Path, Texture, TextureSource};
+use crate::{Angle, CustomTexture, Floor as SiteFloor, FloorMarker, Path, Texture, TextureSource, PreferredSemiTransparency};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -40,6 +40,7 @@ impl Floor {
                     offset: None,
                 })
             },
+            preferred_semi_transparency: PreferredSemiTransparency::for_floor(),
             marker: FloorMarker,
         })
     }

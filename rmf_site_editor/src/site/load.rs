@@ -93,7 +93,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
 
                         for (drawing_id, drawing) in &level_data.drawings {
                             level
-                                .spawn(DrawingBundle::new(drawing))
+                                .spawn(DrawingBundle::new(drawing.properties.clone()))
                                 .insert(SiteID(*drawing_id))
                                 .with_children(|drawing_parent| {
                                     for (anchor_id, anchor) in &drawing.anchors {
@@ -320,16 +320,17 @@ pub struct ImportNavGraphs {
 #[derive(SystemParam)]
 pub struct ImportNavGraphParams<'w, 's> {
     commands: Commands<'w, 's>,
-    sites: Query<'w, 's, &'static Children, With<SiteProperties>>,
+    sites: Query<'w, 's, &'static Children, With<NameOfSite>>,
     levels: Query<
         'w,
         's,
         (
             Entity,
-            &'static LevelProperties,
+            &'static NameInSite,
             &'static Parent,
             &'static Children,
         ),
+        With<LevelElevation>,
     >,
     lifts: Query<
         'w,
@@ -357,12 +358,12 @@ fn generate_imported_nav_graphs(
     };
 
     let mut level_name_to_entity = HashMap::new();
-    for (e, level, parent, _) in &params.levels {
+    for (e, name, parent, _) in &params.levels {
         if parent.get() != into_site {
             continue;
         }
 
-        level_name_to_entity.insert(level.name.clone(), e);
+        level_name_to_entity.insert(name.clone().0, e);
     }
 
     let mut lift_name_to_entity = HashMap::new();
@@ -371,16 +372,16 @@ fn generate_imported_nav_graphs(
             continue;
         }
 
-        lift_name_to_entity.insert(name.0.clone(), e);
+        lift_name_to_entity.insert(name.clone().0, e);
     }
 
     let mut id_to_entity = HashMap::new();
     for (level_id, level_data) in &from_site_data.levels {
-        if let Some(e) = level_name_to_entity.get(&level_data.properties.name) {
+        if let Some(e) = level_name_to_entity.get(&level_data.properties.name.0) {
             id_to_entity.insert(*level_id, *e);
         } else {
             return Err(ImportNavGraphError::MissingLevelName(
-                level_data.properties.name.clone(),
+                level_data.properties.name.0.clone(),
             ));
         }
     }
@@ -523,7 +524,7 @@ pub fn import_nav_graph(
     mut import_requests: EventReader<ImportNavGraphs>,
     mut autoload: Option<ResMut<Autoload>>,
     current_workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     for r in import_requests.iter() {
         if let Err(err) = generate_imported_nav_graphs(&mut params, r.into_site, &r.from_site) {

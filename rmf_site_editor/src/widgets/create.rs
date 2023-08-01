@@ -25,8 +25,8 @@ use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, Drawing, Geometry, Model, ModelMarker, Pending, RecallAssetSource, Scale,
-    WorkcellModel,
+    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending,
+    RecallAssetSource, Scale, WorkcellModel,
 };
 
 pub struct CreateWidget<'a, 'w, 's> {
@@ -101,11 +101,12 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             }
                             ui.add_space(5.0);
                             if ui.button("Add Drawing").clicked() {
-                                let drawing = Drawing {
-                                    source: self.events.display.pending_drawings.source.clone(),
-                                    ..default()
-                                };
-                                self.events.commands.spawn(DrawingBundle::new(&drawing));
+                                self.events.commands.spawn(DrawingBundle::new(
+                                    DrawingProperties {
+                                        source: self.events.display.pending_drawings.source.clone(),
+                                        ..default()
+                                    })
+                                );
                             }
                         });
                 }

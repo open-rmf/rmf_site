@@ -22,15 +22,14 @@ use crate::{
     widgets::{inspector::InspectLayer, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui, DragValue};
 
 #[derive(SystemParam)]
 pub struct LayersParams<'w, 's> {
-    pub floors: Query<'w, 's, &'static RecencyRanking<FloorMarker>>,
-    pub drawings: Query<'w, 's, &'static RecencyRanking<DrawingMarker>>,
-    pub layer_visibility: Query<'w, 's, &'static LayerVisibility>,
-    pub floor_semi_transparency: Res<'w, FloorSemiTransparency>,
-    pub drawing_semi_transparency: Res<'w, DrawingSemiTransparency>,
+    pub floors: Query<'w, 's, (&'static RecencyRanking<FloorMarker>, &'static GlobalFloorVisibility)>,
+    pub drawings: Query<'w, 's, (&'static RecencyRanking<DrawingMarker>, &'static GlobalDrawingVisibility)>,
+    pub layer_visibility: Query<'w, 's, (Option<&'static LayerVisibility>, &'static PreferredSemiTransparency)>,
+    pub levels: Query<'w, 's, (&'static GlobalFloorVisibility, &'static GlobalDrawingVisibility)>,
     pub site_id: Query<'w, 's, Option<&'static SiteID>>,
     pub icons: Res<'w, Icons>,
     pub selection: Res<'w, Selection>,
@@ -52,42 +51,70 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
             None => return,
         };
 
-        if let Ok(ranking) = self.params.floors.get(current_level) {
+        let has_drawings = self.params.drawings.get(current_level).ok().is_some_and(
+            |(ranking, _)| !ranking.is_empty()
+        );
+
+        if let Ok((ranking, global)) = self.params.floors.get(current_level) {
             CollapsingHeader::new("Floors")
                 .default_open(true)
                 .show(ui, |ui| {
-                    let transparency = **self.params.floor_semi_transparency;
                     ui.horizontal(|ui| {
-                        // TODO(luca) Remove duplication with snippet below
-                        let vis = **self.events.layers.global_floor_vis;
-                        let icon = self.params.icons.layer_visibility_of(Some(vis));
-                        let resp = ui
-                            .add(Button::image_and_text(icon, [18., 18.], "Global"))
-                            .on_hover_text(format!("Change to {}", vis.next(transparency).label()));
-                        if resp.clicked() {
-                            **self.events.layers.global_floor_vis = vis.next(transparency);
+                        let mut shown_global = global.clone();
+                        let (text, vis) = if has_drawings {
+                            ("Global", &mut shown_global.general)
+                        } else {
+                            ("Global (without drawings)", &mut shown_global.without_drawings)
+                        };
+                        let default_alpha = &mut shown_global.preferred_semi_transparency;
+                        self.show_global(text, vis, default_alpha, ui);
+
+                        if shown_global != *global {
+                            self.events.layers.global_floor_vis.send(
+                                Change::new(shown_global, current_level)
+                            );
                         }
                     });
-                    self.show_rankings(ranking.entities(), true, ui, transparency);
+                    self.show_rankings(ranking.entities(), true, ui);
                 });
         }
 
-        if let Ok(ranking) = self.params.drawings.get(current_level) {
+        if let Ok((ranking, global)) = self.params.drawings.get(current_level) {
             CollapsingHeader::new("Drawings")
                 .default_open(true)
                 .show(ui, |ui| {
-                    let transparency = **self.params.drawing_semi_transparency;
+                    let mut shown_global = global.clone();
                     ui.horizontal(|ui| {
-                        let vis = **self.events.layers.global_drawing_vis;
-                        let icon = self.params.icons.layer_visibility_of(Some(vis));
-                        let resp = ui
-                            .add(Button::image_and_text(icon, [18., 18.], "Global"))
-                            .on_hover_text(format!("Change to {}", vis.next(transparency).label()));
-                        if resp.clicked() {
-                            **self.events.layers.global_drawing_vis = vis.next(transparency);
-                        }
+                        let vis = &mut shown_global.general;
+                        let default_alpha = &mut shown_global.preferred_general_semi_transparency;
+                        self.show_global("Global (general)", vis, default_alpha, ui);
                     });
-                    self.show_rankings(ranking.entities(), false, ui, transparency);
+                    ui.horizontal(|ui| {
+                        let vis = &mut shown_global.bottom;
+                        let default_alpha = &mut shown_global.preferred_bottom_semi_transparency;
+                        self.show_global("Global (bottom)", vis, default_alpha, ui);
+                    });
+                    ui.horizontal(|ui| {
+                        ui.label("Bottom Count").on_hover_text(
+                            "How many of the lowest layer drawings are part of the bottom?"
+                        );
+                        // ui.with_layer_id(, add_contents)
+                        ui.push_id("Bottom Drawing Count", |ui| {
+                            ui.add(
+                                DragValue::new(&mut shown_global.bottom_count)
+                                .clamp_range(0..=usize::MAX)
+                                .speed(0.05)
+                            );
+                        });
+                    });
+
+                    if shown_global != *global {
+                        self.events.layers.global_drawing_vis.send(
+                            Change::new(shown_global, current_level)
+                        );
+                    }
+
+                    self.show_rankings(ranking.entities(), false, ui);
                 });
         }
 
@@ -101,27 +128,55 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
         }
     }
 
+    fn show_global(
+        &self,
+        text: &str,
+        vis: &mut LayerVisibility,
+        default_alpha: &mut f32,
+        ui: &mut Ui,
+    ) {
+        let icon = self.params.icons.layer_visibility_of(Some(*vis));
+        if ui
+            .add(Button::image_and_text(icon, [18., 18.], text))
+            .on_hover_text(format!("Change to {}", vis.next(*default_alpha).label()))
+            .clicked()
+        {
+            *vis = vis.next(*default_alpha);
+        }
+        match vis {
+            LayerVisibility::Alpha(alpha) => {
+                if ui.add(
+                    DragValue::new(alpha)
+                        .clamp_range(0_f32..=1_f32)
+                        .speed(0.01)
+                ).changed() {
+                    *default_alpha = *alpha;
+                }
+            }
+            _ => { }
+        }
+    }
+
     fn show_rankings(
         &mut self,
         ranking: &Vec<Entity>,
         is_floor: bool,
         ui: &mut Ui,
-        transparency: f32,
     ) {
         ui.vertical(|ui| {
             for e in ranking.iter().rev() {
+                let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else { continue };
                 ui.horizontal(|ui| {
-                    let layer = InspectLayer::new(
+                    InspectLayer::new(
                         *e,
                         &self.params.icons,
                         &mut self.events,
-                        self.params.layer_visibility.get(*e).ok().copied(),
-                        transparency,
+                        vis.copied(),
+                        alpha.0,
                         is_floor,
                     )
-                    .with_selecting(self.params.site_id.get(*e).ok().flatten().copied());
-
-                    layer.show(ui);
+                        .with_selecting(self.params.site_id.get(*e).ok().flatten().copied())
+                        .show(ui);
 
                     if Some(*e) == self.params.selection.0 {
                         ui.label("Selected");

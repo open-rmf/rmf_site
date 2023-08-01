@@ -18,7 +18,10 @@
 use crate::{
     interaction::Hover,
     recency::ChangeRank,
-    site::{Change, LayerVisibility, SiteID, VisibilityCycle, BeginEditDrawing},
+    site::{
+        Change, LayerVisibility, SiteID, VisibilityCycle, BeginEditDrawing,
+        PreferredSemiTransparency,
+    },
     widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
 };
 use bevy::prelude::*;
@@ -29,7 +32,6 @@ pub struct InspectLayer<'a, 'w, 's> {
     pub icons: &'a Icons,
     /// Does the layer have a custom visibility setting?
     pub layer_vis: Option<LayerVisibility>,
-    /// Alpha to be applied for semi-transparent variant
     pub default_alpha: f32,
     // TODO(luca) make this an enum
     pub is_floor: bool,

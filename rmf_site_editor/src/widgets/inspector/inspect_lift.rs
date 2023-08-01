@@ -16,7 +16,9 @@
 */
 
 use crate::{
-    site::{CabinDoorId, LevelProperties, SiteID, ToggleLiftDoorAvailability},
+    site::{
+        CabinDoorId, NameInSite, LevelElevation, SiteID, ToggleLiftDoorAvailability
+    },
     widgets::{
         inspector::{InspectOptionF32, SelectionWidget},
         AppEvents, Icons,
@@ -30,7 +32,7 @@ use rmf_site_format::lift::*;
 pub struct InspectLiftParams<'w, 's> {
     pub cabins: Query<'w, 's, (&'static LiftCabin<Entity>, &'static RecallLiftCabin<Entity>)>,
     pub doors: Query<'w, 's, &'static LevelVisits<Entity>>,
-    pub levels: Query<'w, 's, &'static LevelProperties>,
+    pub levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
 }
@@ -213,8 +215,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> InspectLiftCabin<'a, 'w1, 's1, 'w2, 's2> {
                                                         self.params
                                                             .levels
                                                             .get(*level)
-                                                            .map(|n| &n.name)
-                                                            .unwrap_or(&"<Unknown>".to_string()),
+                                                            .map(|(n, _)| &n.0)
+                                                            .unwrap_or(&"<Unknown>".to_owned()),
                                                     )
                                                     .changed()
                                                 {
