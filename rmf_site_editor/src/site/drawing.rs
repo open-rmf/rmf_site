@@ -30,6 +30,7 @@ use bevy::{asset::LoadState, math::Affine3A, prelude::*};
 use rmf_site_format::{
     AssetSource, Category, DrawingProperties, NameInSite, PixelsPerMeter, Pose,
 };
+use std::path::PathBuf;
 
 #[derive(Bundle, Debug, Clone)]
 pub struct DrawingBundle {
@@ -88,12 +89,16 @@ pub fn add_drawing_visuals(
     site_files: Query<&DefaultFile>,
     default_drawing_vis: Query<&GlobalDrawingVisibility>,
 ) {
+    if changed_drawings.is_empty() {
+        return;
+    }
+
     // TODO(luca) depending on when this system is executed, this function might be called between
     // the creation of the drawing and the change of the workspace, making this silently fail
     // Look into reordering systems, or adding a marker component, to make sure this doesn't happen
     let file_path = match get_current_workspace_path(current_workspace, site_files) {
         Some(file_path) => file_path,
-        None => return,
+        None => PathBuf::new(),
     };
     for (e, source) in &changed_drawings {
         // Append file name to path if it's a local file

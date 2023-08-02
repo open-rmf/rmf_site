@@ -18,7 +18,7 @@
 use crate::{
     site::{
         ConsiderLocationTag, LocationTag, LocationTags, Model, RecallAssetSource,
-        RecallLocationTags,
+        RecallLocationTags, DefaultFile,
     },
     widgets::{
         inspector::{InspectAssetSource, InspectName},
@@ -57,7 +57,6 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
     pub fn show(self, ui: &mut Ui) -> Option<LocationTags> {
         ui.label(RichText::new("Location Tags").size(18.0));
         let mut deleted_tag = None;
-        let mut changed_tag = None;
         for (i, tag) in self.tags.0.iter().enumerate() {
             ui.horizontal(|ui| {
                 if ui
@@ -68,27 +67,6 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
                 }
                 ui.label(tag.label());
             });
-            match tag {
-                LocationTag::SpawnRobot(robot) => {
-                    ui.push_id(i.to_string() + " spawn robot", |ui| {
-                        if let Some(new_robot) =
-                            self.inspect_model(ui, robot, &self.recall.robot_asset_source_recall)
-                        {
-                            changed_tag = Some((i, LocationTag::SpawnRobot(new_robot)));
-                        }
-                    });
-                }
-                LocationTag::Workcell(cell) => {
-                    ui.push_id(i.to_string() + " workcell", |ui| {
-                        if let Some(new_cell) =
-                            self.inspect_model(ui, cell, &self.recall.workcell_asset_source_recall)
-                        {
-                            changed_tag = Some((i, LocationTag::Workcell(new_cell)));
-                        }
-                    });
-                }
-                _ => {}
-            }
             ui.add_space(5.0);
             ui.separator();
             ui.add_space(5.0);
@@ -126,32 +104,6 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
                     })
                     .inner;
 
-                match &mut consider {
-                    LocationTag::SpawnRobot(model) => {
-                        ui.push_id("consider spawn robot", |ui| {
-                            if let Some(new_model) = self.inspect_model(
-                                ui,
-                                model,
-                                &self.recall.consider_tag_asset_source_recall,
-                            ) {
-                                *model = new_model;
-                            }
-                        });
-                    }
-                    LocationTag::Workcell(model) => {
-                        ui.push_id("consider workcell", |ui| {
-                            if let Some(new_model) = self.inspect_model(
-                                ui,
-                                model,
-                                &self.recall.consider_tag_asset_source_recall,
-                            ) {
-                                *model = new_model;
-                            }
-                        });
-                    }
-                    _ => {}
-                }
-
                 let consider_changed = if let Some(original) = &self.recall.consider_tag {
                     consider != *original
                 } else {
@@ -176,7 +128,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
             .body_returned
             .flatten();
 
-        if deleted_tag.is_some() || added_tag.is_some() || changed_tag.is_some() {
+        if deleted_tag.is_some() || added_tag.is_some() {
             let mut new_tags = self.tags.clone();
             if let Some(i) = deleted_tag {
                 new_tags.remove(i);
@@ -184,10 +136,6 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
 
             if let Some(new_tag) = added_tag {
                 new_tags.push(new_tag);
-            }
-
-            if let Some((i, tag)) = changed_tag {
-                new_tags[i] = tag;
             }
 
             Some(new_tags)
@@ -201,9 +149,10 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         ui: &mut Ui,
         model: &Model,
         recall_asset: &RecallAssetSource,
+        default_file: Option<&'a DefaultFile>,
     ) -> Option<Model> {
         let new_name = InspectName::new(&model.name).show(ui);
-        let new_source = InspectAssetSource::new(&model.source, &recall_asset).show(ui);
+        let new_source = InspectAssetSource::new(&model.source, &recall_asset, default_file).show(ui);
 
         if new_name.is_some() || new_source.is_some() {
             let mut new_model = model.clone();

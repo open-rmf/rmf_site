@@ -18,10 +18,10 @@
 use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{Change, DrawingBundle, DrawingMarker, Recall},
-    AppEvents, AppState, SuppressRecencyRank,
+    site::{Change, DrawingBundle, DrawingMarker, Recall, DefaultFile},
+    AppEvents, AppState, SuppressRecencyRank, CurrentWorkspace,
 };
-use bevy::prelude::*;
+use bevy::{prelude::*, ecs::system::SystemParam};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
@@ -29,13 +29,22 @@ use rmf_site_format::{
     RecallAssetSource, Scale, WorkcellModel,
 };
 
-pub struct CreateWidget<'a, 'w, 's> {
-    pub events: &'a mut AppEvents<'w, 's>,
+#[derive(SystemParam)]
+pub struct CreateParams<'w, 's> {
+    pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
-impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
-    pub fn new(events: &'a mut AppEvents<'w, 's>) -> Self {
-        Self { events }
+pub struct CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub params: &'a CreateParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
+}
+
+impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn new(
+        params: &'a CreateParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
+    ) -> Self {
+        Self { params, events }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -90,9 +99,13 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     CollapsingHeader::new("New drawing")
                         .default_open(false)
                         .show(ui, |ui| {
+                            let default_file = self.events.request.current_workspace.root
+                                .map(|e| self.params.default_file.get(e).ok())
+                                .flatten();
                             if let Some(new_asset_source) = InspectAssetSource::new(
                                 &self.events.display.pending_drawings.source,
                                 &self.events.display.pending_drawings.recall_source,
+                                default_file,
                             ).show(ui) {
                                 self.events.display.pending_drawings.recall_source.remember(
                                     &new_asset_source
@@ -137,9 +150,13 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     CollapsingHeader::new("New model")
                         .default_open(false)
                         .show(ui, |ui| {
+                            let default_file = self.events.request.current_workspace.root
+                                .map(|e| self.params.default_file.get(e).ok())
+                                .flatten();
                             if let Some(new_asset_source) = InspectAssetSource::new(
                                 &self.events.display.pending_model.source,
                                 &self.events.display.pending_model.recall_source,
+                                default_file,
                             ).show(ui) {
                                 self.events.display.pending_model.recall_source.remember(&new_asset_source);
                                 self.events.display.pending_model.source = new_asset_source;

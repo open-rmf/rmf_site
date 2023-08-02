@@ -90,10 +90,10 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         Category, Change, DrawingMarker, EdgeLabels, LayerVisibility, Original,
-        ScaleDrawing, SiteID, BeginEditDrawing,
+        ScaleDrawing, SiteID, BeginEditDrawing, DefaultFile,
     },
     widgets::AppEvents,
-    AppState,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, ImageButton, RichText, Ui};
@@ -115,6 +115,7 @@ pub struct InspectorParams<'w, 's> {
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
+    pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
 // NOTE: We may need to split this struct into multiple structs if we ever need
@@ -414,7 +415,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {
-                if let Some(new_asset_source) = InspectAssetSource::new(source, recall).show(ui) {
+                let default_file = self.events.request.current_workspace.root
+                    .map(|e| self.params.default_file.get(e).ok())
+                    .flatten();
+                if let Some(new_asset_source) = InspectAssetSource::new(
+                    source, recall, default_file
+                ).show(ui) {
                     self.events
                         .change
                         .asset_source

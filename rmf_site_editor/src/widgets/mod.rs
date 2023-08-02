@@ -40,7 +40,7 @@ use bevy_egui::{
 use rmf_site_format::*;
 
 pub mod create;
-use create::CreateWidget;
+use create::*;
 
 pub mod menu_bar;
 use menu_bar::*;
@@ -273,6 +273,7 @@ fn site_ui_layout(
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
@@ -317,7 +318,7 @@ fn site_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(false)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Lights")
@@ -375,6 +376,7 @@ fn site_drawing_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -393,7 +395,7 @@ fn site_drawing_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                         if ui.add(Button::image_and_text(
@@ -514,6 +516,7 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -532,7 +535,7 @@ fn workcell_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                     });
