@@ -55,7 +55,12 @@ pub fn add_highlight_visualization(
 pub fn update_highlight_visualization(
     highlightable: Query<
         (&Hovered, &Selected, &Handle<StandardMaterial>, &Highlight, Option<&SuppressHighlight>),
-        Or<(Changed<Hovered>, Changed<Selected>, Changed<SuppressHighlight>)>,
+        Or<(
+            Changed<Hovered>,
+            Changed<Selected>,
+            Changed<SuppressHighlight>,
+            Changed<Handle<StandardMaterial>>,
+        )>,
     >,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {

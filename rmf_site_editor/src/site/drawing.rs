@@ -169,10 +169,7 @@ pub fn handle_loaded_drawing(
                         .insert(SpatialBundle::from_transform(pose.transform().with_scale(
                             Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
                         )))
-                        .insert(Selectable::new(entity))
-                        // Put a handle for the material into the main entity
-                        // so that we can modify it during interactions.
-                        .insert(material.clone());
+                        .insert(Selectable::new(entity));
                     leaf
                 };
                 let z = drawing_layer_height(rank);
@@ -180,12 +177,16 @@ pub fn handle_loaded_drawing(
                     .entity(leaf)
                     .insert(PbrBundle {
                         mesh,
-                        material,
+                        material: material.clone(),
                         transform: Transform::from_xyz(0.0, 0.0, z),
                         ..Default::default()
                     })
                     .insert(Selectable::new(entity));
-                commands.entity(entity).remove::<LoadingDrawing>();
+                commands.entity(entity)
+                    // Put a handle for the material into the main entity
+                    // so that we can modify it during interactions.
+                    .insert(material)
+                    .remove::<LoadingDrawing>();
             }
             LoadState::Failed => {
                 error!("Failed loading drawing {:?}", String::from(source));
