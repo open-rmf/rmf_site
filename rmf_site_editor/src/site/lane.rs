@@ -210,10 +210,13 @@ pub fn add_lane_visuals(
                             .insert(Selectable::new(e))
                             .id();
                         let picker = parent
-                            .spawn(ScreenSpaceSelection::polyline(
-                                start_anchor,
-                                end_anchor,
-                                10.0,
+                            .spawn((
+                                ScreenSpaceSelection::polyline(start_anchor, end_anchor, 10.0),
+                                Transform::IDENTITY,
+                                GlobalTransform::IDENTITY,
+                                ComputedVisibility::default(),
+                                Visibility::VISIBLE,
+                                RenderLayers::layer(LINE_PICKING_LAYER),
                             ))
                             .id();
 

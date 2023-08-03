@@ -3,8 +3,9 @@ use bevy_points::prelude::PointsMaterial;
 use bevy_polyline::prelude::*;
 
 use std::collections::BTreeMap;
+use std::process::Child;
 
-use crate::interaction::{LINE_PICKING_LAYER, POINT_PICKING_LAYER};
+use crate::interaction::{DontPropagateVisualCue, LINE_PICKING_LAYER, POINT_PICKING_LAYER};
 use crate::site::PointAsset;
 
 use super::ImageToSave;
@@ -148,24 +149,28 @@ impl ColorEntityMap {
 #[derive(Component, Debug, Clone)]
 pub struct ScreenSpaceEntity<const Layer: u8>;
 
+/// Label items which already have been marked as
+#[derive(Component, Debug, Clone)]
+pub struct ScreenSpaceDrawing;
+
+#[derive(Component, Debug, Clone)]
+pub struct ScreenSpaceShape;
+
 /// This system handles the mapping of entities to their colors.
-pub fn color_entity_mapping_system<const Layer: u8>(
+pub fn new_objectcolor_entity_mapping<const Layer: u8>(
     mut commands: Commands,
-    screen_space_lines: Query<(&ScreenSpaceSelection, Entity, Option<&GlobalTransform>)>,
+    screen_space_lines: Query<
+        (&ScreenSpaceSelection, Entity, Option<&GlobalTransform>),
+        Without<ScreenSpaceEntity<Layer>>,
+    >,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut point_materials: ResMut<Assets<PointsMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
     mut color_map: ResMut<ColorEntityMap>,
-    screen_space_entities: Query<(&ScreenSpaceEntity<Layer>, Entity)>,
+    //screen_space_entities: Query<(&ScreenSpaceEntity<Layer>, Entity)>,
     images_to_save: Query<&ImageToSave<Layer>>,
     point_assets: Res<PointAsset>,
 ) {
-    // TODO(arjo) Make these children of relevent entities instead of
-    // this expensive operation
-    for (_, entity) in &screen_space_entities {
-        commands.entity(entity).despawn();
-    }
-
     let scale = if let Ok(image_parameters) = images_to_save.get_single() {
         image_parameters.3
     } else {
@@ -178,40 +183,82 @@ pub fn color_entity_mapping_system<const Layer: u8>(
             ScreenSpaceSelection::Polyline(shape) => {
                 let thickness = shape.thickness * scale;
                 let thickness = if thickness < 10.0 { 10.0 } else { thickness };
-                commands.spawn((
-                    PolylineBundle {
-                        polyline: polylines.add(Polyline {
-                            vertices: vec![shape.start, shape.end],
-                        }),
-                        material: color_map.get_polyline_material(
-                            &entity,
-                            &mut polyline_materials,
-                            thickness,
-                        ),
-                        ..default()
-                    },
-                    RenderLayers::layer(LINE_PICKING_LAYER),
-                    ScreenSpaceEntity::<LINE_PICKING_LAYER>,
-                ));
+                if Layer == LINE_PICKING_LAYER {
+                    println!("Adding line");
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            PolylineBundle {
+                                polyline: polylines.add(Polyline {
+                                    vertices: vec![shape.start, shape.end],
+                                }),
+                                material: color_map.get_polyline_material(
+                                    &entity,
+                                    &mut polyline_materials,
+                                    thickness,
+                                ),
+                                ..default()
+                            },
+                            RenderLayers::layer(LINE_PICKING_LAYER),
+                            DontPropagateVisualCue,
+                            ScreenSpaceDrawing,
+                        ));
+                    });
+                    commands
+                        .entity(entity)
+                        .insert(ScreenSpaceEntity::<LINE_PICKING_LAYER>);
+                }
             }
             ScreenSpaceSelection::Point => {
                 let Some(tf) = tf else {
                     continue;
                 };
 
-                commands.spawn((
-                    MaterialMeshBundle {
-                        mesh: point_assets.bevy_point_mesh.clone(),
-                        material: color_map
-                            .get_points_material(&entity, &mut point_materials)
-                            .clone(),
-                        transform: Transform::from_translation(tf.translation()), // TODO(arjo): Remove after parenting
-                        ..default()
-                    },
-                    RenderLayers::layer(POINT_PICKING_LAYER),
-                    ScreenSpaceEntity::<POINT_PICKING_LAYER>,
-                ));
+                if Layer == POINT_PICKING_LAYER {
+                    commands.entity(entity).with_children(|parent| {
+                        parent.spawn((
+                            MaterialMeshBundle {
+                                mesh: point_assets.bevy_point_mesh.clone(),
+                                material: color_map
+                                    .get_points_material(&entity, &mut point_materials)
+                                    .clone(),
+                                ..default()
+                            },
+                            RenderLayers::layer(POINT_PICKING_LAYER),
+                            DontPropagateVisualCue,
+                            ScreenSpaceDrawing,
+                        ));
+                    });
+                    commands
+                        .entity(entity)
+                        .insert(ScreenSpaceEntity::<POINT_PICKING_LAYER>);
+                }
             }
+        }
+    }
+}
+
+pub fn sync_polyline_selection_buffer(
+    screen_space_lines: Query<
+        (&ScreenSpaceSelection, &Children),
+        With<ScreenSpaceEntity<LINE_PICKING_LAYER>>,
+    >,
+    polylines: Query<(&Handle<Polyline>, &ScreenSpaceDrawing, &RenderLayers)>,
+    mut polyline_assets: ResMut<Assets<Polyline>>,
+) {
+    for (selection, children) in screen_space_lines.iter() {
+        let ScreenSpaceSelection::Polyline(line) = selection else {
+            continue;
+        };
+
+        for child in children.iter() {
+            let Ok((handle, _, layers)) = polylines.get(*child) else {
+                continue;
+            };
+            let m: Vec<_> = layers.iter().collect();
+            let Some(mut polyline) = polyline_assets.get_mut(handle) else {
+                continue;
+            };
+            polyline.vertices = vec![line.start, line.end];
         }
     }
 }

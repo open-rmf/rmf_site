@@ -26,8 +26,9 @@ impl Plugin for ColorBasedPicker {
                 buffer_to_selection::<LINE_PICKING_LAYER>,
             )
             .init_resource::<ColorEntityMap>()
-            .add_system(color_entity_mapping_system::<LINE_PICKING_LAYER>)
-            .add_system(color_entity_mapping_system::<POINT_PICKING_LAYER>)
+            .add_system(new_objectcolor_entity_mapping::<LINE_PICKING_LAYER>)
+            .add_system(new_objectcolor_entity_mapping::<POINT_PICKING_LAYER>)
+            .add_system(sync_polyline_selection_buffer)
             .add_plugin(ImageCopyPlugin);
     }
 }
