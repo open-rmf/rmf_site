@@ -18,7 +18,7 @@
 use std::collections::{BTreeMap, HashSet};
 use std::io;
 
-use super::misc::Rotation;
+use crate::misc::Rotation;
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
@@ -289,7 +289,7 @@ impl From<Pose> for urdf_rs::Pose {
                 Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
                 Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
                 Rotation::Quat([x, y, z, w]) => {
-                    let (x, y, z) = glam::quat(x, y, z, w).to_euler(EulerRot::XYZ);
+                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(EulerRot::ZYX);
                     urdf_rs::Vec3([x as f64, y as f64, z as f64])
                 }
             },
@@ -376,7 +376,7 @@ impl Workcell {
             })
             .collect();
 
-        let links: Result<Vec<_>, WorkcellToUrdfError> = workcell
+        let links = workcell
             .frames
             .into_iter()
             .map(|f| {
@@ -424,11 +424,8 @@ impl Workcell {
                 };
                 Ok(link)
             })
-            .collect();
-        let links = match links {
-            Ok(links) => links,
-            Err(e) => return Err(e),
-        };
+            .collect::<Result<Vec<_>, _>>()?;
+
         let robot = urdf_rs::Robot {
             name: workcell.properties.name,
             links,
@@ -439,12 +436,10 @@ impl Workcell {
     }
 
     pub fn to_urdf_string(&self) -> Result<String, WorkcellToUrdfError> {
-        match self.to_urdf() {
-            Ok(urdf) => match urdf_rs::write_to_string(&urdf) {
-                Ok(string) => Ok(string),
-                Err(e) => Err(WorkcellToUrdfError::WriteToStringError(e)),
-            },
-            Err(e) => Err(e),
+        let urdf = self.to_urdf()?;
+        match urdf_rs::write_to_string(&urdf) {
+            Ok(string) => Ok(string),
+            Err(e) => Err(WorkcellToUrdfError::WriteToStringError(e)),
         }
     }
 
