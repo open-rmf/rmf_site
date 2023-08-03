@@ -397,12 +397,11 @@ impl Workcell {
                     .map(|(collision, _)| collision.clone())
                     .collect();
 
-                let pose: urdf_rs::Pose;
-                if let Anchor::Pose3D(p) = frame.anchor {
-                    pose = p.into();
+                let pose = if let Anchor::Pose3D(p) = frame.anchor {
+                    p.into()
                 } else {
                     return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor));
-                }
+                };
                 let link = urdf_rs::Link {
                     name,
                     inertial: urdf_rs::Inertial {
