@@ -15,7 +15,7 @@
  *
 */
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 
 use crate::misc::Rotation;
@@ -345,88 +345,105 @@ impl Workcell {
     }
 
     pub fn to_urdf(&self) -> Result<urdf_rs::Robot, WorkcellToUrdfError> {
-        let workcell = self.clone();
+        let workcell = self;
 
         let visuals_and_parents: Vec<(urdf_rs::Visual, _)> = workcell
             .visuals
-            .into_iter()
+            .iter()
             .map(|v| {
-                let visual = v.1.bundle;
+                let visual = &v.1.bundle;
                 let visual = urdf_rs::Visual {
-                    name: Some(visual.name),
+                    name: Some(visual.name.clone()),
                     origin: visual.pose.into(),
-                    geometry: visual.geometry.into(),
+                    geometry: visual.geometry.clone().into(),
                     material: None,
                 };
                 (visual, v.1.parent)
             })
             .collect();
+        let mut parent_to_visuals = HashMap::new();
+        visuals_and_parents.iter().for_each(|(visual, parent)| {
+            parent_to_visuals
+                .entry(*parent)
+                .or_insert_with(Vec::new)
+                .push(visual.clone());
+        });
 
         let collisions_and_parents: Vec<(urdf_rs::Collision, _)> = workcell
             .collisions
-            .into_iter()
+            .iter()
             .map(|c| {
-                let collision = c.1.bundle;
+                let collision = &c.1.bundle;
                 let collision = urdf_rs::Collision {
-                    name: Some(collision.name),
+                    name: Some(collision.name.clone()),
                     origin: collision.pose.into(),
-                    geometry: collision.geometry.into(),
+                    geometry: collision.geometry.clone().into(),
                 };
                 (collision, c.1.parent)
             })
             .collect();
+        let mut parent_to_collisions = HashMap::new();
+        collisions_and_parents
+            .iter()
+            .for_each(|(collision, parent)| {
+                parent_to_collisions
+                    .entry(*parent)
+                    .or_insert_with(Vec::new)
+                    .push(collision.clone());
+            });
 
         let links = workcell
             .frames
-            .into_iter()
+            .iter()
             .map(|f| {
-                let frame = f.1.bundle;
+                let frame = &f.1.bundle;
 
-                let name = match frame.name {
-                    Some(name) => name.0,
+                let name = match &frame.name {
+                    Some(name) => name.0.clone(),
                     None => format!("frame_{}", f.0),
                 };
-                let visual: Vec<Visual> = visuals_and_parents
-                    .iter()
-                    .filter(|(_, parent)| parent == &f.1.parent)
-                    .map(|(visual, _)| visual.clone())
-                    .collect();
-                let collision: Vec<Collision> = collisions_and_parents
-                    .iter()
-                    .filter(|(_, parent)| parent == &f.1.parent)
-                    .map(|(collision, _)| collision.clone())
-                    .collect();
 
                 let pose = if let Anchor::Pose3D(p) = frame.anchor {
                     p.into()
                 } else {
-                    return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor));
+                    return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor.clone()));
                 };
-                let link = urdf_rs::Link {
-                    name,
-                    inertial: urdf_rs::Inertial {
-                        origin: pose,
-                        inertia: {
-                            urdf_rs::Inertia {
-                                ixx: 0.0,
-                                ixy: 0.0,
-                                ixz: 0.0,
-                                iyy: 0.0,
-                                iyz: 0.0,
-                                izz: 0.0,
-                            }
-                        },
-                        mass: urdf_rs::Mass { value: 0.0 },
+                let inertial = urdf_rs::Inertial {
+                    origin: pose,
+                    inertia: {
+                        urdf_rs::Inertia {
+                            ixx: 0.0,
+                            ixy: 0.0,
+                            ixz: 0.0,
+                            iyy: 0.0,
+                            iyz: 0.0,
+                            izz: 0.0,
+                        }
                     },
+                    mass: urdf_rs::Mass { value: 0.0 },
+                };
+
+                let parent = &f.1.parent;
+                let collision = parent_to_collisions
+                    .get(parent)
+                    .map(|collisions| collisions.clone())
+                    .unwrap_or_default();
+                let visual = parent_to_visuals
+                    .get(parent)
+                    .map(|visuals| visuals.clone())
+                    .unwrap_or_default();
+
+                Ok(urdf_rs::Link {
+                    name,
+                    inertial,
                     collision,
                     visual,
-                };
-                Ok(link)
+                })
             })
             .collect::<Result<Vec<_>, _>>()?;
 
         let robot = urdf_rs::Robot {
-            name: workcell.properties.name,
+            name: workcell.properties.name.clone(),
             links,
             joints: vec![],
             materials: vec![],
