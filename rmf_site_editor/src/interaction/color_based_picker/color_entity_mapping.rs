@@ -147,27 +147,23 @@ impl ColorEntityMap {
 
 /// Label items which need to be selected.
 #[derive(Component, Debug, Clone)]
-pub struct ScreenSpaceEntity<const Layer: u8>;
+pub struct MarkAsDrawnToSelectionBuffer<const Layer: u8>;
 
-/// Label items which already have been marked as
+/// Label entities whic are part of the selection buffer
 #[derive(Component, Debug, Clone)]
-pub struct ScreenSpaceDrawing;
+pub struct SelectionBufferDrawing;
 
-#[derive(Component, Debug, Clone)]
-pub struct ScreenSpaceShape;
-
-/// This system handles the mapping of entities to their colors.
+/// This system handles drawing new entities in the selection
 pub fn new_objectcolor_entity_mapping<const Layer: u8>(
     mut commands: Commands,
     screen_space_lines: Query<
-        (&ScreenSpaceSelection, Entity, Option<&GlobalTransform>),
-        Without<ScreenSpaceEntity<Layer>>,
+        (&ScreenSpaceSelection, Entity),
+        Without<MarkAsDrawnToSelectionBuffer<Layer>>,
     >,
     mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
     mut point_materials: ResMut<Assets<PointsMaterial>>,
     mut polylines: ResMut<Assets<Polyline>>,
     mut color_map: ResMut<ColorEntityMap>,
-    //screen_space_entities: Query<(&ScreenSpaceEntity<Layer>, Entity)>,
     images_to_save: Query<&ImageToSave<Layer>>,
     point_assets: Res<PointAsset>,
 ) {
@@ -178,13 +174,12 @@ pub fn new_objectcolor_entity_mapping<const Layer: u8>(
     };
 
     // Redraw parameters.
-    for (screenspace_shape, entity, tf) in &screen_space_lines {
+    for (screenspace_shape, entity) in &screen_space_lines {
         match screenspace_shape {
             ScreenSpaceSelection::Polyline(shape) => {
                 let thickness = shape.thickness * scale;
                 let thickness = if thickness < 10.0 { 10.0 } else { thickness };
                 if Layer == LINE_PICKING_LAYER {
-                    println!("Adding line");
                     commands.entity(entity).with_children(|parent| {
                         parent.spawn((
                             PolylineBundle {
@@ -200,19 +195,15 @@ pub fn new_objectcolor_entity_mapping<const Layer: u8>(
                             },
                             RenderLayers::layer(LINE_PICKING_LAYER),
                             DontPropagateVisualCue,
-                            ScreenSpaceDrawing,
+                            SelectionBufferDrawing,
                         ));
                     });
                     commands
                         .entity(entity)
-                        .insert(ScreenSpaceEntity::<LINE_PICKING_LAYER>);
+                        .insert(MarkAsDrawnToSelectionBuffer::<LINE_PICKING_LAYER>);
                 }
             }
             ScreenSpaceSelection::Point => {
-                let Some(tf) = tf else {
-                    continue;
-                };
-
                 if Layer == POINT_PICKING_LAYER {
                     commands.entity(entity).with_children(|parent| {
                         parent.spawn((
@@ -225,24 +216,26 @@ pub fn new_objectcolor_entity_mapping<const Layer: u8>(
                             },
                             RenderLayers::layer(POINT_PICKING_LAYER),
                             DontPropagateVisualCue,
-                            ScreenSpaceDrawing,
+                            SelectionBufferDrawing,
                         ));
                     });
                     commands
                         .entity(entity)
-                        .insert(ScreenSpaceEntity::<POINT_PICKING_LAYER>);
+                        .insert(MarkAsDrawnToSelectionBuffer::<POINT_PICKING_LAYER>);
                 }
             }
         }
     }
 }
 
+/// This system synchronizes the polylines in the selection buffer
+/// and the rendering system.
 pub fn sync_polyline_selection_buffer(
     screen_space_lines: Query<
         (&ScreenSpaceSelection, &Children),
-        With<ScreenSpaceEntity<LINE_PICKING_LAYER>>,
+        With<MarkAsDrawnToSelectionBuffer<LINE_PICKING_LAYER>>,
     >,
-    polylines: Query<(&Handle<Polyline>, &ScreenSpaceDrawing, &RenderLayers)>,
+    polylines: Query<(&Handle<Polyline>, &SelectionBufferDrawing, &RenderLayers)>,
     mut polyline_assets: ResMut<Assets<Polyline>>,
 ) {
     for (selection, children) in screen_space_lines.iter() {
@@ -254,7 +247,6 @@ pub fn sync_polyline_selection_buffer(
             let Ok((handle, _, layers)) = polylines.get(*child) else {
                 continue;
             };
-            let m: Vec<_> = layers.iter().collect();
             let Some(mut polyline) = polyline_assets.get_mut(handle) else {
                 continue;
             };
