@@ -15,7 +15,7 @@
  *
 */
 
-use crate::Recall;
+use crate::{Recall, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};
@@ -441,3 +441,39 @@ pub struct Pending;
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Original<T>(pub T);
+
+/// Marks that an entity represents a group
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Group;
+
+/// Affiliates an entity with a group.
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Affiliation<T: RefTrait>(pub Option<T>);
+
+impl<T: RefTrait> From<T> for Affiliation<T> {
+    fn from(value: T) -> Self {
+        Affiliation(Some(value))
+    }
+}
+
+impl<T: RefTrait> From<Option<T>> for Affiliation<T> {
+    fn from(value: Option<T>) -> Self {
+        Affiliation(value)
+    }
+}
+
+impl<T: RefTrait> Default for Affiliation<T> {
+    fn default() -> Self {
+        Affiliation(None)
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl Affiliation<u32> {
+    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Affiliation<Entity> {
+        Affiliation(self.0.map(|a| *id_to_entity.get(&a).unwrap()))
+    }
+}

@@ -15,41 +15,49 @@
  *
 */
 
-use crate::{Label, Point, RefTrait};
+use crate::{NameInSite, Point, RefTrait, Affiliation, Group};
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
 
-/// Mark a point within the map of a level to serve as a ground truth relative
-/// to other levels.
+/// Mark a point within a drawing or level to serve as a ground truth relative
+/// to other drawings and levels.
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Fiducial<T: RefTrait> {
     /// The anchor that represents the position of this fiducial.
     pub anchor: Point<T>,
-    /// Label of this fiducial. This label must be unique within the level that
-    /// the fiducial is being defined on. To be used for aligning, there must
-    /// be a fiducial with the same label on one or more other levels. A value
-    /// of None means it will not effect alignment.
-    pub label: Label,
+    /// Affiliation of this fiducial. This affiliation must be unique within the
+    /// parent level or parent drawing of the fiducial.
+    pub affiliation: Affiliation<T>,
     #[serde(skip)]
     pub marker: FiducialMarker,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct FiducialGroup {
+    /// Name of this group
+    pub name: NameInSite,
+    #[serde(skip)]
+    pub group: Group,
+    #[serde(skip)]
+    pub marker: FiducialMarker,
+}
+
+impl FiducialGroup {
+    pub fn new(name: NameInSite) -> Self {
+        Self {
+            name,
+            group: Default::default(),
+            marker: Default::default(),
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Default)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct FiducialMarker;
-
-#[cfg(feature = "bevy")]
-impl Fiducial<Entity> {
-    pub fn to_u32(&self, anchor: u32) -> Fiducial<u32> {
-        Fiducial {
-            label: self.label.clone(),
-            anchor: anchor.into(),
-            marker: Default::default(),
-        }
-    }
-}
 
 #[cfg(feature = "bevy")]
 impl Fiducial<u32> {
@@ -59,7 +67,7 @@ impl Fiducial<u32> {
     ) -> Fiducial<Entity> {
         Fiducial {
             anchor: self.anchor.to_ecs(id_to_entity),
-            label: self.label.clone(),
+            affiliation: self.affiliation.to_ecs(id_to_entity),
             marker: Default::default(),
         }
     }
@@ -69,7 +77,7 @@ impl<T: RefTrait> From<Point<T>> for Fiducial<T> {
     fn from(anchor: Point<T>) -> Self {
         Self {
             anchor,
-            label: Default::default(),
+            affiliation: Default::default(),
             marker: Default::default(),
         }
     }

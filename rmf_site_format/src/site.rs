@@ -51,6 +51,12 @@ pub struct Site {
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
+    /// The fiducial groups that exist in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducial_groups: BTreeMap<u32, FiducialGroup>,
+    /// The fiducial instances that exist in Cartesian space
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     /// Properties of each lift
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lifts: BTreeMap<u32, Lift<u32>>,

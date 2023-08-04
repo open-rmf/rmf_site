@@ -42,6 +42,8 @@ pub enum SiteGenerationError {
     InvalidSiteEntity(Entity),
     #[error("an object has a reference to an anchor that does not exist")]
     BrokenAnchorReference(Entity),
+    #[error("an object has a reference to a group that does not exist")]
+    BrokenAffiliation(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a nav graph that does not exist")]
@@ -88,10 +90,8 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<Anchor>,
                     With<DoorType>,
                     With<DrawingMarker>,
-                    With<FiducialMarker>,
                     With<FloorMarker>,
                     With<LightKind>,
-                    With<MeasurementMarker>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
                     With<WallMarker>,
@@ -108,12 +108,23 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         >,
         Query<Entity, (With<LevelElevation>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
+        Query<
+            Entity,
+            (
+                Or<(
+                    With<Anchor>,
+                    With<FiducialMarker>,
+                    With<MeasurementMarker>,
+                )>,
+                Without<Pending>,
+            )>,
+        Query<(), With<DrawingMarker>>,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
+    let (level_children, nav_graph_elements, levels, lifts, drawing_children, drawings, sites, site_ids, children) =
         state.get_mut(world);
 
     let mut new_entities = Vec::new();
@@ -134,14 +145,34 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 new_entities.push(level);
             }
 
-            if let Ok(children) = children.get(level) {
-                for child in children {
+            if let Ok(current_level_children) = children.get(level) {
+                for child in current_level_children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
                             new_entities.push(*child);
                         }
+
+                        if drawings.contains(*child) {
+                            if let Ok(drawing_children) = children.get(*child) {
+                                for child in drawing_children {
+                                    if !site_ids.contains(*child) {
+                                        new_entities.push(*child);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        if let Ok(e) = drawing_children.get(*site_child) {
+            // Sites can contain anchors and fiducials but should not contain
+            // measurements, so this query doesn't make perfect sense to use
+            // here, but it shouldn't be harmful and it saves us from writing
+            // yet another query.
+            if !site_ids.contains(e) {
+                new_entities.push(e);
             }
         }
 
@@ -210,6 +241,7 @@ fn generate_levels(
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Anchor, &SiteID, &Parent)>,
+        Query<&SiteID, With<Group>>,
         Query<
             (
                 &Edge<Entity>,
@@ -238,19 +270,10 @@ fn generate_levels(
             (
                 &Point<Entity>,
                 Option<&Original<Point<Entity>>>,
-                &Label,
+                &Affiliation<Entity>,
                 &SiteID,
             ),
             (With<FiducialMarker>, Without<Pending>),
-        >,
-        Query<
-            (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
-                &SiteID,
-                &Parent,
-            ),
-            (With<ConstraintMarker>, Without<Pending>),
         >,
         Query<
             (
@@ -325,10 +348,10 @@ fn generate_levels(
 
     let (
         q_anchors,
+        q_groups,
         q_doors,
         q_drawings,
         q_fiducials,
-        q_constraints,
         q_floors,
         q_lights,
         q_measurements,
@@ -369,6 +392,12 @@ fn generate_levels(
             .get(entity)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
         Ok(site_id.0)
+    };
+
+    let get_group_id = |entity| {
+        q_groups.get(entity)
+        .map(|id| id.0)
+        .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
     };
 
     let get_anchor_id_edge = |edge: &Edge<Entity>| {
@@ -436,14 +465,19 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((point, o_point, label, id)) = q_fiducials.get(*e) {
+                    if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
                         let point = o_point.map(|x| &x.0).unwrap_or(point);
                         let anchor = Point(get_anchor_id(point.0)?);
+                        let affiliation = if let Affiliation(Some(e)) = affiliation {
+                            Affiliation(Some(get_group_id(*e)?))
+                        } else {
+                            Affiliation(None)
+                        };
                         fiducials.insert(
                             id.0,
                             Fiducial {
                                 anchor,
-                                label: label.clone(),
+                                affiliation,
                                 marker: FiducialMarker,
                             },
                         );
@@ -464,19 +498,6 @@ fn generate_levels(
                         measurements,
                     },
                 );
-            }
-        }
-    }
-
-    for (edge, o_edge, constraint_id, parent) in &q_constraints {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                let edge = get_anchor_id_edge(edge)?;
-
-                level
-                    .constraints
-                    .insert(constraint_id.0, Constraint::from(edge));
             }
         }
     }
@@ -752,6 +773,79 @@ fn generate_lifts(
     return Ok(lifts);
 }
 
+fn generate_fiducials(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, Fiducial<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<&SiteID, (With<Anchor>, Without<Pending>)>,
+        Query<&SiteID, (With<Group>, Without<Pending>)>,
+        Query<(&Point<Entity>, &Affiliation<Entity>, &SiteID), (With<FiducialMarker>, Without<Pending>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (
+        q_anchor_ids,
+        q_group_ids,
+        q_fiducials,
+        q_children,
+    ) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut fiducials = BTreeMap::new();
+    for child in children {
+        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
+        let anchor = q_anchor_ids.get(point.0)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?.0;
+        let anchor = Point(anchor);
+        let affiliation = if let Some(e) = affiliation.0 {
+            let group_id = q_group_ids.get(e)
+                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?.0;
+            Affiliation(Some(group_id))
+        } else {
+            Affiliation(None)
+        };
+
+        fiducials.insert(site_id.0, Fiducial {
+            anchor,
+            affiliation,
+            marker: Default::default(),
+        });
+    }
+
+    Ok(fiducials)
+}
+
+fn generate_fiducial_groups(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, FiducialGroup>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&NameInSite, &SiteID), (With<Group>, With<FiducialMarker>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (
+        q_groups,
+        q_children
+    ) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut fiducial_groups = BTreeMap::new();
+    for child in children {
+        let Ok((name, site_id)) = q_groups.get(*child) else { continue };
+        fiducial_groups.insert(site_id.0, FiducialGroup::new(name.clone()));
+    }
+
+    Ok(fiducial_groups)
+}
+
 fn generate_nav_graphs(
     world: &mut World,
     site: Entity,
@@ -938,6 +1032,8 @@ pub fn generate_site(
     let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
     let lifts = generate_lifts(world, site)?;
+    let fiducials = generate_fiducials(world, site)?;
+    let fiducial_groups = generate_fiducial_groups(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
@@ -957,6 +1053,8 @@ pub fn generate_site(
         properties: SiteProperties { name: name_of_site },
         levels,
         lifts,
+        fiducials,
+        fiducial_groups,
         navigation: Navigation {
             guided: Guided {
                 graphs: nav_graphs,

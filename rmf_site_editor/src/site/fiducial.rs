@@ -26,6 +26,7 @@ pub fn add_fiducial_visuals(
     assets: Res<SiteAssets>,
 ) {
     for (e, point, tf) in fiducials.iter() {
+        dbg!(e);
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }

@@ -65,6 +65,15 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 consider_id(*anchor_id);
             }
 
+            for (group_id, group) in &site_data.fiducial_groups {
+                let group_entity = site
+                    .spawn(group.clone())
+                    .insert(SiteID(*group_id))
+                    .id();
+                id_to_entity.insert(*group_id, group_entity);
+                consider_id(*group_id);
+            }
+
             for (level_id, level_data) in &site_data.levels {
                 let mut level_cmd = site.spawn(SiteID(*level_id));
 
@@ -150,15 +159,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                                 .insert(SiteID(*wall_id));
                             consider_id(*wall_id);
                         }
-
-                        for (constraint_id, constraint_data) in &level_data.constraints {
-                            let constraint = level
-                                .spawn(constraint_data.to_ecs(&id_to_entity))
-                                .insert(SiteID(*constraint_id))
-                                .id();
-                            id_to_entity.insert(*constraint_id, constraint);
-                            consider_id(*constraint_id);
-                        }
                     });
 
                 // TODO(MXG): Log when a RecencyRanking fails to load correctly.
@@ -214,6 +214,16 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     .id();
                 id_to_entity.insert(*lift_id, lift);
                 consider_id(*lift_id);
+            }
+
+            for (fiducial_id, fiducial) in &site_data.fiducials {
+                let fiducial_entity = site
+                    .spawn(fiducial.to_ecs(&id_to_entity))
+                    .insert(SiteID(*fiducial_id))
+                    .id();
+                dbg!(fiducial_entity);
+                id_to_entity.insert(*fiducial_id, fiducial_entity);
+                consider_id(*fiducial_id);
             }
 
             for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {

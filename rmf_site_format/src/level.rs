@@ -53,9 +53,6 @@ pub struct LevelElevation(pub f32);
 pub struct Level {
     pub properties: LevelProperties,
     pub anchors: BTreeMap<u32, Anchor>,
-    /// Constraints to be used for drawing scaling alignment
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub constraints: BTreeMap<u32, Constraint<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub doors: BTreeMap<u32, Door<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -80,7 +77,6 @@ impl Level {
             properties,
             rankings,
             anchors: Default::default(),
-            constraints: Default::default(),
             doors: Default::default(),
             drawings: Default::default(),
             floors: Default::default(),
