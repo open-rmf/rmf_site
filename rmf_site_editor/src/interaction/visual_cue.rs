@@ -124,10 +124,14 @@ impl VisualCue {
     }
 }
 
+#[derive(Component)]
+pub struct DontPropagateVisualCue;
+
 /// This system propagates visual cue tags and the correct RenderLayer to all
 /// entities that are meant to be visual cues. This system makes two assumptions:
 /// 1. Any entity that is a VisualCue will be a VisualCue forever
-/// 2. Any descendents of a VisualCue should also be VisualCues.
+/// 2. Any descendents of a VisualCue should also be VisualCues, unless
+/// one of the descendents is marked with `DontPropagateVisualCue`.
 /// We will need to change the implementation of this system if we ever want to
 /// loosen either of those assumptions.
 pub fn propagate_visual_cues(
@@ -135,11 +139,16 @@ pub fn propagate_visual_cues(
     changed_cues: Query<(Entity, &VisualCue), Or<(Changed<VisualCue>, Changed<Children>)>>,
     children: Query<&Children>,
     existing_cues: Query<(), With<VisualCue>>,
+    stop_visualcue_prop: Query<(), With<DontPropagateVisualCue>>,
 ) {
     for (e, root_cue) in &changed_cues {
         let mut queue = SmallVec::<[(Entity, VisualCue); 5]>::new();
         queue.push((e, root_cue.clone()));
         while let Some((top, top_cue)) = queue.pop() {
+            if stop_visualcue_prop.contains(top) {
+                continue;
+            }
+
             commands
                 .entity(top)
                 .insert(top_cue.layers())

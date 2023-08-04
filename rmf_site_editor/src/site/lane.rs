@@ -15,10 +15,14 @@
  *
 */
 
+use crate::interaction::ScreenSpaceSelection;
+use crate::interaction::Selectable;
 use crate::site::*;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
 use rmf_site_format::{Edge, LaneMarker};
+
+use bevy_polyline::prelude::*;
 
 pub const SELECTED_LANE_OFFSET: f32 = 0.001;
 pub const HOVERED_LANE_OFFSET: f32 = 0.002;
@@ -35,6 +39,8 @@ pub struct LaneSegments {
     pub start: Entity,
     pub mid: Entity,
     pub end: Entity,
+    pub polyline: Entity,
+    pub picker: Entity,
     pub outlines: [Entity; 3],
 }
 
@@ -93,6 +99,8 @@ pub fn add_lane_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
+    mut polyline_materials: ResMut<Assets<PolylineMaterial>>,
+    mut polylines: ResMut<Assets<Polyline>>,
 ) {
     for (e, edge, associated_graphs) in &lanes {
         for anchor in &edge.array() {
@@ -118,72 +126,112 @@ pub fn add_lane_visuals(
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
         let mut commands = commands.entity(e);
-        let (layer, start, mid, end, outlines) = commands.add_children(|parent| {
-            // Create a "layer" entity that manages the height of the lane,
-            // determined by the DisplayHeight of the graph.
-            let mut layer_cmd = parent.spawn(SpatialBundle {
-                transform: Transform::from_xyz(0.0, 0.0, height),
-                ..default()
-            });
-
-            let (start, mid, end, outlines) = layer_cmd.add_children(|parent| {
-                let mut start = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(start_anchor),
+        let (layer, start, mid, end, polyline, picker, outlines) =
+            commands.add_children(|parent| {
+                // Create a "layer" entity that manages the height of the lane,
+                // determined by the DisplayHeight of the graph.
+                let mut layer_cmd = parent.spawn(SpatialBundle {
+                    transform: Transform::from_xyz(0.0, 0.0, height),
                     ..default()
                 });
-                let start_outline = start.add_children(|start| {
-                    start
-                        .spawn(PbrBundle {
-                            mesh: assets.lane_end_outline.clone(),
-                            transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                            visibility: Visibility { is_visible: false },
+
+                let (start, mid, end, polyline, picker, outlines) =
+                    layer_cmd.add_children(|parent| {
+                        let mut start = parent.spawn(PbrBundle {
+                            mesh: assets.lane_end_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: Transform::from_translation(start_anchor),
                             ..default()
-                        })
-                        .id()
-                });
-                let start = start.id();
+                        });
+                        let start_outline = start.add_children(|start| {
+                            start
+                                .spawn(PbrBundle {
+                                    mesh: assets.lane_end_outline.clone(),
+                                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                    visibility: Visibility { is_visible: false },
+                                    ..default()
+                                })
+                                .id()
+                        });
+                        let start = start.id();
 
-                let mut mid = parent.spawn(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
-                    ..default()
-                });
-                let mid_outline = mid.add_children(|mid| {
-                    mid.spawn(PbrBundle {
-                        mesh: assets.lane_mid_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let mid = mid.id();
+                        let mut mid = parent.spawn(PbrBundle {
+                            mesh: assets.lane_mid_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: line_stroke_transform(
+                                &start_anchor,
+                                &end_anchor,
+                                LANE_WIDTH,
+                            ),
+                            ..default()
+                        });
+                        let mid_outline = mid.add_children(|mid| {
+                            mid.spawn(PbrBundle {
+                                mesh: assets.lane_mid_outline.clone(),
+                                transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                visibility: Visibility { is_visible: false },
+                                ..default()
+                            })
+                            .id()
+                        });
+                        let mid = mid.id();
 
-                let mut end = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(end_anchor),
-                    ..default()
-                });
-                let end_outline = end.add_children(|end| {
-                    end.spawn(PbrBundle {
-                        mesh: assets.lane_end_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let end = end.id();
+                        let mut end = parent.spawn(PbrBundle {
+                            mesh: assets.lane_end_mesh.clone(),
+                            material: lane_material.clone(),
+                            transform: Transform::from_translation(end_anchor),
+                            ..default()
+                        });
 
-                (start, mid, end, [start_outline, mid_outline, end_outline])
+                        let end_outline = end.add_children(|end| {
+                            end.spawn(PbrBundle {
+                                mesh: assets.lane_end_outline.clone(),
+                                transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                                visibility: Visibility { is_visible: false },
+                                ..default()
+                            })
+                            .id()
+                        });
+                        let end = end.id();
+
+                        let polyline = parent
+                            .spawn(PolylineBundle {
+                                polyline: polylines.add(Polyline {
+                                    vertices: vec![start_anchor, end_anchor],
+                                }),
+                                material: polyline_materials.add(PolylineMaterial {
+                                    width: 10.0,
+                                    color: Color::RED,
+                                    perspective: false,
+                                    ..default()
+                                }),
+                                ..default()
+                            })
+                            .insert(Selectable::new(e))
+                            .id();
+                        let picker = parent
+                            .spawn((
+                                ScreenSpaceSelection::polyline(start_anchor, end_anchor, 10.0),
+                                Transform::IDENTITY,
+                                GlobalTransform::IDENTITY,
+                                ComputedVisibility::default(),
+                                Visibility::VISIBLE,
+                                RenderLayers::layer(LINE_PICKING_LAYER),
+                            ))
+                            .id();
+
+                        (
+                            start,
+                            mid,
+                            end,
+                            polyline,
+                            picker,
+                            [start_outline, mid_outline, end_outline],
+                        )
+                    });
+
+                (layer_cmd.id(), start, mid, end, polyline, picker, outlines)
             });
-
-            (layer_cmd.id(), start, mid, end, outlines)
-        });
 
         commands
             .insert(LaneSegments {
@@ -191,6 +239,8 @@ pub fn add_lane_visuals(
                 start,
                 mid,
                 end,
+                polyline,
+                picker,
                 outlines,
             })
             .insert(SpatialBundle {
@@ -209,6 +259,9 @@ fn update_lane_visuals(
     segments: &LaneSegments,
     anchors: &AnchorParams,
     transforms: &mut Query<&mut Transform>,
+    polylines: &Query<&Handle<Polyline>>,
+    polyline_assets: &mut Assets<Polyline>,
+    picker: &mut Query<&mut ScreenSpaceSelection>,
 ) {
     let start_anchor = anchors
         .point_in_parent_frame_of(edge.left(), Category::Lane, entity)
@@ -225,6 +278,24 @@ fn update_lane_visuals(
     }
     if let Some(mut tf) = transforms.get_mut(segments.end).ok() {
         *tf = Transform::from_translation(end_anchor);
+    }
+    if let Ok(polyline) = polylines.get(segments.polyline) {
+        if let Some(mut polyline) = polyline_assets.get_mut(polyline) {
+            polyline.vertices = vec![start_anchor, end_anchor];
+        }
+    }
+
+    if let Ok(polyline) = polylines.get(segments.polyline) {
+        if let Some(mut polyline) = polyline_assets.get_mut(polyline) {
+            polyline.vertices = vec![start_anchor, end_anchor];
+        }
+    }
+
+    if let Ok(mut picker) = picker.get_mut(segments.picker) {
+        if let ScreenSpaceSelection::Polyline(ply) = picker.as_mut() {
+            ply.start = start_anchor;
+            ply.end = end_anchor;
+        }
     }
 }
 
@@ -244,10 +315,22 @@ pub fn update_changed_lane(
     levels: Query<(), With<LevelProperties>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
+    polylines: Query<&Handle<Polyline>>,
+    mut polyline_assets: ResMut<Assets<Polyline>>,
     current_level: Res<CurrentLevel>,
+    mut picker: Query<&mut ScreenSpaceSelection>,
 ) {
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
-        update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+        update_lane_visuals(
+            e,
+            edge,
+            segments,
+            &anchors,
+            &mut transforms,
+            &polylines,
+            &mut polyline_assets,
+            &mut picker,
+        );
 
         let is_visible =
             should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
@@ -268,11 +351,23 @@ pub fn update_lane_for_moved_anchor(
         ),
     >,
     mut transforms: Query<&mut Transform>,
+    polylines: Query<&Handle<Polyline>>,
+    mut polyline_assets: ResMut<Assets<Polyline>>,
+    mut picker: Query<&mut ScreenSpaceSelection>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Ok((e, edge, segments)) = lanes.get(*dependent) {
-                update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
+                update_lane_visuals(
+                    e,
+                    edge,
+                    segments,
+                    &anchors,
+                    &mut transforms,
+                    &polylines,
+                    &mut polyline_assets,
+                    &mut picker,
+                );
             }
         }
     }
