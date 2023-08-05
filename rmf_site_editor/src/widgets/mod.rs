@@ -148,6 +148,13 @@ pub struct ChangeEvents<'w, 's> {
     pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
 }
 
+// We split out this new struct to deal with the 16 field limitation on
+// SystemParams.
+#[derive(SystemParam)]
+pub struct MoreChangeEvents<'w, 's> {
+    pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+}
+
 #[derive(SystemParam)]
 pub struct WorkcellChangeEvents<'w, 's> {
     pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
@@ -254,6 +261,7 @@ pub struct VisibilityParameters<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    pub change_more: MoreChangeEvents<'w, 's>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,

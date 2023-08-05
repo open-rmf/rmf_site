@@ -448,7 +448,7 @@ pub struct Original<T>(pub T);
 pub struct Group;
 
 /// Affiliates an entity with a group.
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Affiliation<T: RefTrait>(pub Option<T>);

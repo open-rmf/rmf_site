@@ -198,6 +198,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<GlobalFloorVisibility>::default())
             .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
             .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
+            .add_plugin(ChangePlugin::<Affiliation<Entity>>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
@@ -264,6 +265,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(remove_association_for_deleted_graphs)
+                    .with_system(add_unused_fiducial_tracker)
+                    .with_system(update_unused_fiducial_tracker)
                     .with_system(
                         update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                     )
