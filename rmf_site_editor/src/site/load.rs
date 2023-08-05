@@ -221,7 +221,6 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                     .spawn(fiducial.to_ecs(&id_to_entity))
                     .insert(SiteID(*fiducial_id))
                     .id();
-                dbg!(fiducial_entity);
                 id_to_entity.insert(*fiducial_id, fiducial_entity);
                 consider_id(*fiducial_id);
             }

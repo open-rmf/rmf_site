@@ -89,9 +89,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                             SelectAnchor::create_new_path().for_floor().into(),
                         ));
                     }
-                    if ui.button("Constraint").clicked() {
+                    if ui.button("Fiducial").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_one_new_edge().for_constraint().into(),
+                            SelectAnchor::create_new_point().for_site_fiducial().into(),
                         ));
                     }
 
@@ -126,7 +126,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                 AppState::SiteDrawingEditor => {
                     if ui.button("Fiducial").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point().for_fiducial().into(),
+                            SelectAnchor::create_new_point().for_drawing_fiducial().into(),
                         ));
                     }
                     if ui.button("Measurement").clicked() {

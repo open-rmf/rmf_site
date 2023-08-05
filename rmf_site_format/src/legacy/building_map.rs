@@ -156,13 +156,13 @@ impl BuildingMap {
         for (level_name, level) in &self.levels {
             let level_id = site_id.next().unwrap();
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
+            let mut level_anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
                     let anchor_id = site_id.next().unwrap();
                     let anchor = [v.0 as f32, v.1 as f32];
-                    anchors.insert(anchor_id, anchor.into());
+                    level_anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
                     let lift = self
@@ -244,15 +244,15 @@ impl BuildingMap {
                         pin_group_id,
                         FiducialGroup::new(NameInSite(format!("{drawing_name}_{side}_pin").to_owned()))
                     );
-                    let pin_level_anchor_id = site_id.next().unwrap();
+                    let pin_site_anchor_id = site_id.next().unwrap();
                     let pin_drawing_anchor_id = site_id.next().unwrap();
                     let pin_level_fiducial_id = site_id.next().unwrap();
                     let pin_drawing_fiducial_id = site_id.next().unwrap();
 
-                    anchors.insert(pin_level_anchor_id, pin_level_pose.into());
+                    site_anchors.insert(pin_site_anchor_id, pin_level_pose.into());
                     drawing_anchors.insert(pin_drawing_anchor_id, pin_drawing_pose.into());
                     cartesian_fiducials.insert(pin_level_fiducial_id, SiteFiducial {
-                        anchor: pin_level_anchor_id.into(),
+                        anchor: pin_site_anchor_id.into(),
                         affiliation: pin_group_id.into(),
                         marker: Default::default(),
                     });
@@ -327,8 +327,8 @@ impl BuildingMap {
                     let mut site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
                     let edge = &mut site_measurement.anchors;
                     let (start_anchor, end_anchor) = (
-                        anchors.get(&edge.left()).unwrap(),
-                        anchors.get(&edge.right()).unwrap(),
+                        level_anchors.get(&edge.left()).unwrap(),
+                        level_anchors.get(&edge.right()).unwrap(),
                     );
                     // Now get the anchors and duplicate them in the drawing
                     let anchor_id = site_id.next().unwrap();
@@ -477,7 +477,7 @@ impl BuildingMap {
                         global_floor_visibility: Default::default(),
                         global_drawing_visibility: Default::default(),
                     },
-                    anchors,
+                    anchors: level_anchors,
                     doors,
                     drawings,
                     floors,

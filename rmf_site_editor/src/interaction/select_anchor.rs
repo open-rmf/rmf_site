@@ -1206,15 +1206,6 @@ impl SelectAnchorEdgeBuilder {
         }
     }
 
-    pub fn for_constraint(self) -> SelectAnchor {
-        SelectAnchor {
-            target: self.for_element,
-            placement: EdgePlacement::new::<Constraint<Entity>>(self.placement),
-            continuity: self.continuity,
-            scope: Scope::MultipleDrawings,
-        }
-    }
-
     pub fn for_wall(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
@@ -1269,7 +1260,16 @@ impl SelectAnchorPointBuilder {
         }
     }
 
-    pub fn for_fiducial(self) -> SelectAnchor {
+    pub fn for_site_fiducial(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: PointPlacement::new::<Fiducial<Entity>>(),
+            continuity: self.continuity,
+            scope: Scope::Site,
+        }
+    }
+
+    pub fn for_drawing_fiducial(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
             placement: PointPlacement::new::<Fiducial<Entity>>(),
