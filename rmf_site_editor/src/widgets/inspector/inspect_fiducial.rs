@@ -32,6 +32,7 @@ use bevy_egui::egui::{ComboBox, Ui, ImageButton};
 pub struct SearchForFiducial(pub String);
 
 enum SearchResult {
+    Empty,
     Current,
     NoMatch,
     Match(Entity),
@@ -43,14 +44,14 @@ impl SearchResult {
         match self {
             Self::NoMatch => { *self = SearchResult::Match(entity); }
             Self::Match(_) => { *self = SearchResult::Conflict("Multiple groups have this name"); }
-            Self::Conflict(_) | Self::Current => { }
+            Self::Conflict(_) | Self::Current | Self::Empty => { }
         }
     }
 
     fn conflict(&mut self, text: &'static str) {
         match self {
             // If we already found a match then don't change the behavior
-            Self::Match(_) | Self::Current | Self::Conflict(_) => { }
+            Self::Match(_) | Self::Current | Self::Conflict(_) | Self::Empty => { }
             // If there is not a match, prevent the user from creating a duplicate
             // fiducial name
             _ => { *self = Self::Conflict(text) }
@@ -104,6 +105,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
         ui.horizontal(|ui| {
             let search = &mut self.events.change_more.search_for_fiducial.0;
             let mut result = SearchResult::NoMatch;
+            let mut any_partial_matches = false;
+
+            if *search == "" {
+                // An empty string should not be used
+                result = SearchResult::Empty;
+            }
 
             if *search == selected_text {
                 result = SearchResult::Current;
@@ -113,6 +120,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if *search == *name {
                     result.consider(*e);
                 }
+
+                if !any_partial_matches {
+                    if name.contains(&*search) {
+                        any_partial_matches = true;
+                    }
+                }
             }
 
             for (e, name) in tracker.used().iter() {
@@ -121,18 +134,37 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
-            if *search == "" {
-                // An empty string should not be used
-                result.conflict("An empty string is not a good group name");
+            if any_partial_matches {
+                if ui.add(ImageButton::new(self.params.icons.search.egui(), [18., 18.]))
+                    .on_hover_text("Search results for this text can be found below")
+                    .clicked()
+                {
+                    info!("Use the drop-down box to choose a group for this fiducial");
+                }
+            } else {
+                ui.add(ImageButton::new(self.params.icons.empty.egui(), [18., 18.]))
+                    .on_hover_text("No search results can be found for this text");
             }
 
             match result {
+                SearchResult::Empty => {
+                    if ui.add(ImageButton::new(self.params.icons.hidden.egui(), [18., 18.]))
+                        .on_hover_text("An empty string is not a good fiducial group name")
+                        .clicked()
+                    {
+                        warn!("You should not use an empty string as a fiducial group name");
+                    }
+                }
                 SearchResult::Current => {
-                    ui.button("Current")
-                        .on_hover_text("This is the current group of the fiducial");
+                    if ui.add(ImageButton::new(self.params.icons.selected.egui(), [18., 18.]))
+                        .on_hover_text("This is the name of the fiducial's current group")
+                        .clicked()
+                    {
+                        info!("This fiducial group is already selected");
+                    }
                 }
                 SearchResult::NoMatch => {
-                    if ui.button("Add")
+                    if ui.add(ImageButton::new(self.params.icons.add.egui(), [18., 18.]))
                         .on_hover_text("Create a new group for this fiducial")
                         .clicked()
                     {
@@ -146,15 +178,22 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::Match(group) => {
-                    if ui.button("Select").clicked() {
+                    if ui.add(ImageButton::new(self.params.icons.confirm.egui(), [18., 18.]))
+                        .on_hover_text("Select this group")
+                        .clicked()
+                    {
                         self.events.change_more.affiliation.send(
                             Change::new(Affiliation(Some(group)), self.entity)
                         );
                     }
                 }
                 SearchResult::Conflict(text) => {
-                    ui.button("Invalid")
-                        .on_hover_text(text);
+                    if ui.add(ImageButton::new(self.params.icons.reject.egui(), [18., 18.]))
+                        .on_hover_text(text)
+                        .clicked()
+                    {
+                        warn!("Cannot set {search} as the fiducial group name: {text}");
+                    }
                 }
             }
 

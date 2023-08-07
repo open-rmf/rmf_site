@@ -171,6 +171,26 @@ impl SiteAssetIo {
             include_bytes!("../../assets/textures/trash.png").to_vec(),
         );
         self.bundled_assets.insert(
+            "textures/confirm.png".to_owned(),
+            include_bytes!("../../assets/textures/confirm.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/add.png".to_owned(),
+            include_bytes!("../../assets/textures/add.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/reject.png".to_owned(),
+            include_bytes!("../../assets/textures/reject.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/search.png".to_owned(),
+            include_bytes!("../../assets/textures/search.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/empty.png".to_owned(),
+            include_bytes!("../../assets/textures/empty.png").to_vec(),
+        );
+        self.bundled_assets.insert(
             "textures/edit.png".to_owned(),
             include_bytes!("../../assets/textures/edit.png").to_vec(),
         );

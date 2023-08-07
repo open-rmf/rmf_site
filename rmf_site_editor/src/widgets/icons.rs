@@ -55,6 +55,11 @@ pub struct Icons {
     pub edit: Icon,
     pub exit: Icon,
     pub trash: Icon,
+    pub confirm: Icon,
+    pub add: Icon,
+    pub reject: Icon,
+    pub search: Icon,
+    pub empty: Icon,
     pub layer_up: Icon,
     pub layer_down: Icon,
     pub layer_to_top: Icon,
@@ -73,6 +78,11 @@ impl FromWorld for Icons {
         let edit = IconBuilder::new("textures/edit.png", &asset_server);
         let exit = IconBuilder::new("textures/exit.png", &asset_server);
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
+        let confirm = IconBuilder::new("textures/confirm.png", &asset_server);
+        let add = IconBuilder::new("textures/add.png", &asset_server);
+        let reject = IconBuilder::new("textures/reject.png", &asset_server);
+        let search = IconBuilder::new("textures/search.png", &asset_server);
+        let empty = IconBuilder::new("textures/empty.png", &asset_server);
         let layer_up = IconBuilder::new("textures/up.png", &asset_server);
         let layer_down = IconBuilder::new("textures/down.png", &asset_server);
         let layer_to_top = IconBuilder::new("textures/to_top.png", &asset_server);
@@ -92,6 +102,11 @@ impl FromWorld for Icons {
             edit: edit.build(&mut egui_context),
             exit: exit.build(&mut egui_context),
             trash: trash.build(&mut egui_context),
+            confirm: confirm.build(&mut egui_context),
+            add: add.build(&mut egui_context),
+            reject: reject.build(&mut egui_context),
+            search: search.build(&mut egui_context),
+            empty: empty.build(&mut egui_context),
             layer_up: layer_up.build(&mut egui_context),
             layer_down: layer_down.build(&mut egui_context),
             layer_to_top: layer_to_top.build(&mut egui_context),
