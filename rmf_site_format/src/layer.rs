@@ -137,8 +137,9 @@ impl Default for GlobalFloorVisibility {
     }
 }
 
-// Semi transparency for floors, more transparent than drawings to make them hidden
-pub const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.2;
+// Semi transparency for floors, less transparent than drawings to make it clear
+// where floors have been drawn.
+pub const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.7;
 fn is_default_floor_semi_transparency(value: &f32) -> bool {
     *value == DEFAULT_FLOOR_SEMI_TRANSPARENCY
 }
