@@ -67,7 +67,7 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial};
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -102,6 +102,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<OccupancyDisplay>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
+            .init_resource::<SearchForFiducial>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -153,6 +154,7 @@ pub struct ChangeEvents<'w, 's> {
 #[derive(SystemParam)]
 pub struct MoreChangeEvents<'w, 's> {
     pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+    pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
 }
 
 #[derive(SystemParam)]

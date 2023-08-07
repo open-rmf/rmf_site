@@ -266,7 +266,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(remove_association_for_deleted_graphs)
                     .with_system(add_unused_fiducial_tracker)
-                    .with_system(update_unused_fiducial_tracker)
+                    .with_system(update_fiducial_usage_tracker)
                     .with_system(
                         update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                     )
