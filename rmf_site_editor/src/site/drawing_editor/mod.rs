@@ -225,14 +225,15 @@ fn assign_drawing_parent_to_new_measurements_and_fiducials(
             )>,
         ),
     >,
-    drawings: Query<(Entity, &Visibility, &PixelsPerMeter), With<DrawingMarker>>,
+    drawings: Query<(Entity, &PixelsPerMeter), With<DrawingMarker>>,
+    current: Res<CurrentEditDrawing>,
 ) {
     if new_elements.is_empty() {
         return;
     }
-    let (parent, ppm) = match drawings.iter().find(|(_, vis, _)| vis.is_visible == true) {
-        Some(parent) => (parent.0, parent.2),
-        None => return,
+    let drawing_entity = current.target().expect("No drawing while spawning drawing anchor").drawing;
+    let Ok((parent, ppm)) = drawings.get(drawing_entity) else {
+        return;
     };
     for (e, old_parent, mut tf) in &mut new_elements {
         if old_parent.map(|p| drawings.get(**p).ok()).is_none() {
@@ -244,14 +245,13 @@ fn assign_drawing_parent_to_new_measurements_and_fiducials(
 }
 
 fn make_drawing_default_selected(
-    drawings: Query<(Entity, &Visibility), With<DrawingMarker>>,
     mut selection: ResMut<Selection>,
+    current: Res<CurrentEditDrawing>,
 ) {
     if selection.is_changed() {
         if selection.0.is_none() {
-            if let Some(drawing) = drawings.iter().find(|(_, vis)| vis.is_visible == true) {
-                selection.0 = Some(drawing.0);
-            }
+            let drawing_entity = current.target().expect("No drawing while spawning drawing anchor").drawing;
+            selection.0 = Some(drawing_entity);
         }
     }
 }

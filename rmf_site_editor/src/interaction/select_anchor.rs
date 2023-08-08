@@ -18,6 +18,7 @@
 use crate::{
     interaction::*,
     site::{
+        drawing_editor::CurrentEditDrawing,
         Anchor, AnchorBundle, Category, Dependents, DrawingMarker, Original, PathBehavior, Pending,
     },
     CurrentWorkspace,
@@ -1882,6 +1883,7 @@ pub fn handle_select_anchor_mode(
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
     open_sites: Query<Entity, With<NameOfSite>>,
+    current_drawing: Res<CurrentEditDrawing>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -2036,9 +2038,8 @@ pub fn handle_select_anchor_mode(
                     new_anchor
                 }
                 Scope::Drawing => {
-                    let (parent, ppm) = params
-                        .get_visible_drawing()
-                        .expect("No drawing while spawning drawing anchor");
+                    let drawing_entity = current_drawing.target().expect("No drawing while spawning drawing anchor").drawing;
+                    let (parent, ppm) = params.drawings.get(drawing_entity).expect("Entity being edited is not a drawing");
                     // We also need to have a transform such that the anchor will spawn in the
                     // right spot
                     let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
