@@ -314,6 +314,15 @@ impl BuildingMap {
                         [feature.x as f32, feature.y as f32].into()
                     );
 
+                    drawing_fiducials.insert(
+                        fiducial_id,
+                        SiteFiducial {
+                            affiliation: Default::default(),
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+
                     feature_info.insert(feature.id.clone(), FeatureInfo {
                         fiducial_id,
                         on_anchor: anchor_id,
@@ -384,6 +393,15 @@ impl BuildingMap {
                     drawing_anchors.insert(
                         anchor_id,
                         [feature.x as f32, feature.y as f32].into()
+                    );
+
+                    drawing_fiducials.insert(
+                        fiducial_id,
+                        SiteFiducial {
+                            affiliation: Default::default(),
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
                     );
 
                     feature_info.insert(feature.id.clone(), FeatureInfo {
