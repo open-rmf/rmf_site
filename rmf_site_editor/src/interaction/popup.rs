@@ -35,19 +35,29 @@ pub fn add_popups(
     )>>,
 ) {
     for e in &new_poppers {
-        // commands.entity(e).insert(Popup {
-        //     regular: LOCATION_LAYER_HEIGHT,
-        //     hovered: LOCATION_LAYER_HEIGHT
-        //     selected: SELECTED_LANE_OFFSET
-        // })
+        commands.entity(e).insert(Popup {
+            regular: LOCATION_LAYER_HEIGHT,
+            hovered: LOCATION_LAYER_HEIGHT + HOVERED_LANE_OFFSET,
+            selected: LOCATION_LAYER_HEIGHT + SELECTED_LANE_OFFSET,
+        });
     }
 }
 
 // TODO(@mxgrey): Merge this implementation with the popup implementation for
 // lanes at some point.
-// pub fn update_popups(
-//     mut objects: Query<
-
-// ) {
-
-// }
+pub fn update_popups(
+    mut objects: Query<
+        (&Hovered, &Selected, &Popup, &mut Transform),
+        Or<(Changed<Hovered>, Changed<Selected>, Changed<Popup>)>,
+    >,
+) {
+    for (hovered, selected, popup, mut tf) in &mut objects {
+        if hovered.is_hovered {
+            tf.translation.z = popup.hovered;
+        } else if selected.cue() {
+            tf.translation.z = popup.selected;
+        } else {
+            tf.translation.z = popup.regular;
+        }
+    }
+}

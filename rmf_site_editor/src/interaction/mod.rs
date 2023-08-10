@@ -177,6 +177,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
                     .with_system(handle_select_anchor_3d_mode.after(maintain_selected_entities))
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_popups.after(maintain_selected_entities))
                     .with_system(update_unassigned_anchor_cues)
                     .with_system(update_anchor_cues_for_mode)
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
@@ -216,7 +217,8 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_outline_visualization)
                     .with_system(add_highlight_visualization)
                     .with_system(add_cursor_hover_visualization)
-                    .with_system(add_physical_light_visual_cues),
+                    .with_system(add_physical_light_visual_cues)
+                    .with_system(add_popups),
             )
             .add_system_set_to_stage(
                 InteractionUpdateStage::ProcessVisuals,
