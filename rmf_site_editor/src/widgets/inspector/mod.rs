@@ -93,7 +93,7 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         Category, Change, DrawingMarker, EdgeLabels, LayerVisibility, Original,
-        ScaleDrawing, SiteID, BeginEditDrawing, DefaultFile,
+        SiteID, BeginEditDrawing, DefaultFile,
     },
     widgets::AppEvents,
     AppState, CurrentWorkspace,

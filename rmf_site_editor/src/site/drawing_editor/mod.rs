@@ -70,16 +70,6 @@ impl CurrentEditDrawing {
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
 
-#[derive(Resource, Default, Deref, DerefMut)]
-pub struct DrawingEditorHiddenEntities(HashSet<Entity>);
-
-// TODO(luca) should these events be defined somewhere else?
-#[derive(Deref, DerefMut)]
-pub struct ScaleDrawing(pub Entity);
-
-#[derive(Deref, DerefMut)]
-pub struct AlignLevelDrawings(pub Entity);
-
 #[derive(Deref, DerefMut)]
 pub struct AlignSiteDrawings(pub Entity);
 
@@ -213,33 +203,33 @@ fn restore_edited_drawing(
         .remove::<SuppressHighlight>();
 }
 
-fn assign_drawing_parent_to_new_measurements_and_fiducials(
+fn assign_drawing_parent_to_new_measurements(
     mut commands: Commands,
-    mut new_elements: Query<
-        (Entity, Option<&Parent>, &mut Transform),
+    mut changed_measurement: Query<
+        (Entity, &Edge<Entity>, Option<&Parent>),
         (
             Without<Pending>,
-            Or<(
-                (With<MeasurementMarker>, Changed<Edge<Entity>>),
-                (Changed<Point<Entity>>, With<FiducialMarker>),
-            )>,
+            (With<MeasurementMarker>, Changed<Edge<Entity>>),
         ),
     >,
-    drawings: Query<(Entity, &PixelsPerMeter), With<DrawingMarker>>,
-    current: Res<CurrentEditDrawing>,
+    parents: Query<&Parent>,
 ) {
-    if new_elements.is_empty() {
-        return;
-    }
-    let drawing_entity = current.target().expect("No drawing while spawning drawing anchor").drawing;
-    let Ok((parent, ppm)) = drawings.get(drawing_entity) else {
-        return;
-    };
-    for (e, old_parent, mut tf) in &mut new_elements {
-        if old_parent.map(|p| drawings.get(**p).ok()).is_none() {
-            commands.entity(parent).add_child(e);
-            // Set its scale to the parent's pixels per meter to make it in pixel coordinates
-            tf.scale = Vec3::new(ppm.0, ppm.0, 1.0);
+    for (e, edge, mut tf) in &mut changed_measurement {
+        if let (Ok(p0), Ok(p1)) = (parents.get(edge.left()), parents.get(edge.right())) {
+            if p0.get() != p1.get() {
+                commands.entity(e).set_parent(p0.get());
+            } else {
+                warn!(
+                    "Mismatch in parents of anchors for measurement {e:?}: {:?}, {:?}",
+                    p0, p1
+                );
+            }
+        } else {
+            warn!(
+                "Missing parents of anchors for measurement {e:?}: {:?}, {:?}",
+                parents.get(edge.left()),
+                parents.get(edge.right()),
+            );
         }
     }
 }
@@ -259,17 +249,15 @@ fn make_drawing_default_selected(
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
         app
-            .add_event::<ScaleDrawing>()
             .add_event::<BeginEditDrawing>()
             .add_event::<FinishEditDrawing>()
+            .add_event::<AlignSiteDrawings>()
             .init_resource::<CurrentEditDrawing>()
             .add_system(switch_edit_drawing_mode)
             .add_system_set(
                 SystemSet::on_update(AppState::SiteDrawingEditor)
-                    .with_system(assign_drawing_parent_to_new_measurements_and_fiducials)
-                    .with_system(scale_drawings)
+                    .with_system(assign_drawing_parent_to_new_measurements)
                     .with_system(make_drawing_default_selected),
-            )
-            .init_resource::<DrawingEditorHiddenEntities>();
+            );
     }
 }

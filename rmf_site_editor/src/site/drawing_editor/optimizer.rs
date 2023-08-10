@@ -19,53 +19,13 @@ use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 
 use crate::site::{
-    AlignLevelDrawings, AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
+    AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
     Distance, DrawingMarker, Edge, LevelElevation, MeasurementMarker, PixelsPerMeter,
-    Pose, Rotation, ScaleDrawing, SiteProperties, NameOfSite,
+    Pose, Rotation, SiteProperties, NameOfSite,
 };
 use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
 use std::collections::HashSet;
-
-// Simple optimization purely based on measurement scale, used to transform between pixel and
-// cartesian coordinates
-pub fn scale_drawings(
-    mut drawings: Query<(&Children, &mut PixelsPerMeter), With<DrawingMarker>>,
-    measurements: Query<(&Edge<Entity>, &Distance), With<MeasurementMarker>>,
-    anchors: Query<&Anchor>,
-    mut events: EventReader<ScaleDrawing>,
-) {
-    for e in events.iter() {
-        if let Ok((children, mut ppm)) = drawings.get_mut(**e) {
-            let mut scale_numerator = 0.0;
-            let mut scale_denominator = 0;
-            for child in children {
-                if let Ok((edge, distance)) = measurements.get(*child) {
-                    if let Some(in_meters) = distance.0 {
-                        let a0 = anchors
-                            .get(edge.start())
-                            .expect("Broken measurement anchor reference");
-                        let d0 = a0.translation_for_category(Category::Drawing);
-                        let a1 = anchors
-                            .get(edge.end())
-                            .expect("Broken measurement anchor reference");
-                        let d1 = a1.translation_for_category(Category::Drawing);
-                        let in_pixels = ((d0[0] - d1[0]) * (d0[0] - d1[0])
-                            + (d0[1] - d1[1]) * (d0[1] - d1[1]))
-                            .sqrt();
-                        scale_numerator += in_pixels / in_meters;
-                        scale_denominator += 1;
-                    }
-                }
-            }
-            if scale_denominator > 0 {
-                ppm.0 = scale_numerator / (scale_denominator as f32);
-            } else {
-                warn!("No measurements found on current drawing, skipping scaling");
-            }
-        }
-    }
-}
 
 // The cost will be the sum of the square distances between pairs of points in constraints.
 // Reference point pose is just world pose in meters, while the pose of the point to be optimized
@@ -240,61 +200,6 @@ pub struct OptimizationParams<'w, 's> {
     parents: Query<'w, 's, &'static Parent>,
     anchors: Query<'w, 's, &'static Anchor>,
     constraints: Query<'w, 's, &'static Edge<Entity>, With<ConstraintMarker>>,
-}
-
-pub fn align_level_drawings(
-    levels: Query<&Children, With<LevelElevation>>,
-    mut events: EventReader<AlignLevelDrawings>,
-    params: OptimizationParams,
-    mut change: OptimizationChangeParams,
-) {
-    // for e in events.iter() {
-    //     // Get the matching points for this entity
-    //     let level_children = levels
-    //         .get(**e)
-    //         .expect("Align level event sent to non level entity");
-    //     let constraints = level_children
-    //         .iter()
-    //         .filter_map(|child| params.constraints.get(*child).ok())
-    //         .collect::<Vec<_>>();
-    //     if constraints.is_empty() {
-    //         warn!("No constraints found for level, skipping optimization");
-    //         continue;
-    //     }
-    //     let (references, layers): (HashSet<_>, Vec<_>) = level_children
-    //         .iter()
-    //         .filter_map(|child| params.drawings.get(*child).ok())
-    //         .partition_map(|(e, _, _, _)| {
-    //             if primary.0 == true {
-    //                 Either::Left(e)
-    //             } else {
-    //                 Either::Right(e)
-    //             }
-    //         });
-    //     if layers.is_empty() {
-    //         warn!(
-    //             "No non-primary drawings found for level, at least one drawing must be set to \
-    //               non-primary to be optimized against primary drawings.Skipping optimization"
-    //         );
-    //         continue;
-    //     }
-    //     if references.is_empty() {
-    //         warn!(
-    //             "No primary drawings found for level. At least one drawing must be set to \
-    //               primary to use as a reference for other drawings. Skipping optimization"
-    //         );
-    //         continue;
-    //     }
-    //     for layer_entity in layers {
-    //         align_drawing_pair(
-    //             &references,
-    //             layer_entity,
-    //             &constraints,
-    //             &params,
-    //             &mut change,
-    //         );
-    //     }
-    // }
 }
 
 pub fn align_site_drawings(

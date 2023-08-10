@@ -160,8 +160,6 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
-            .add_event::<AlignLevelDrawings>()
-            .add_event::<AlignSiteDrawings>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -304,7 +302,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_edge)
                     .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses)
-                    .with_system(align_level_drawings)
                     .with_system(align_site_drawings)
                     .with_system(export_lights),
             );

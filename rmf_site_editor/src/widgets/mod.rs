@@ -24,10 +24,10 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignLevelDrawings, AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
+        AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
-        SaveNavGraphs, ScaleDrawing, SiteState, ToggleLiftDoorAvailability,
+        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
         BeginEditDrawing, FinishEditDrawing,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
@@ -273,8 +273,6 @@ pub struct AppEvents<'w, 's> {
     pub visibility_parameters: VisibilityParameters<'w, 's>,
     // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
     pub distance: EventWriter<'w, 's, Change<Distance>>,
-    pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
-    pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
 }
 
@@ -473,7 +471,7 @@ fn site_visualizer_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Align levels")).clicked() {
+                        if ui.add(Button::new("Align Drawings")).clicked() {
                             events.align_site.send(AlignSiteDrawings(
                                 events.request.current_workspace.root.unwrap(),
                             ));
