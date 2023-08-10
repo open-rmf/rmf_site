@@ -36,9 +36,9 @@ pub fn add_popups(
 ) {
     for e in &new_poppers {
         commands.entity(e).insert(Popup {
-            regular: LOCATION_LAYER_HEIGHT,
-            hovered: LOCATION_LAYER_HEIGHT + HOVERED_LANE_OFFSET,
-            selected: LOCATION_LAYER_HEIGHT + SELECTED_LANE_OFFSET,
+            regular: 0.,
+            hovered: HOVERED_LANE_OFFSET,
+            selected: SELECTED_LANE_OFFSET,
         });
     }
 }

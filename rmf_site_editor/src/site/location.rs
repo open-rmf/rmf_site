@@ -68,8 +68,7 @@ pub fn add_location_visuals(
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap()
-            + LOCATION_LAYER_HEIGHT * Vec3::Z;
+            .unwrap();
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
