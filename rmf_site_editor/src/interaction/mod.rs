@@ -69,6 +69,9 @@ pub use picking::*;
 pub mod point;
 pub use point::*;
 
+pub mod popup;
+pub use popup::*;
+
 pub mod preview;
 pub use preview::*;
 

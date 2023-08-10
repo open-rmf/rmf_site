@@ -18,11 +18,11 @@
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
-// TODO(MXG): Consider using recency rankings for Locations so they don't
+// TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.
-const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
+pub const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET;
 
-// TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
+// TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
