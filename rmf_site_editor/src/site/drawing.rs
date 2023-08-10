@@ -239,7 +239,7 @@ pub fn update_drawing_pixels_per_meter(
 
 pub fn update_drawing_children_to_pixel_coordinates(
     mut commands: Commands,
-    changed_drawings: Query<(&PixelsPerMeter, &Children), Changed<PixelsPerMeter>>,
+    changed_drawings: Query<(&PixelsPerMeter, &Children), Or<(Changed<PixelsPerMeter>, Changed<Children>)>>,
     meshes: Query<Entity, Or<(With<FiducialMarker>, With<Anchor>, With<MeasurementMarker>)>>,
     mut transforms: Query<&mut Transform>,
 ) {

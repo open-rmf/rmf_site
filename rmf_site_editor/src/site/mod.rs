@@ -231,6 +231,7 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_constraints_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
+                    .with_system(assign_orphan_fiducials_to_parent)
                     .with_system(assign_orphan_elements_to_level::<DoorMarker>)
                     .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
                     .with_system(assign_orphan_elements_to_level::<FloorMarker>)

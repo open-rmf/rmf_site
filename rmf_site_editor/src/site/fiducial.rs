@@ -197,15 +197,36 @@ pub fn add_fiducial_visuals(
             .entity(e)
             .insert(assets.fiducial_mesh.clone())
             .insert(assets.fiducial_material.clone())
+            .insert(Visibility::default())
+            .insert(ComputedVisibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
+    }
+}
+
+pub fn assign_orphan_fiducials_to_parent(
+    mut commands: Commands,
+    orphans: Query<
+        (Entity, &Point<Entity>),
+        (With<FiducialMarker>, Without<Parent>, Without<Pending>)
+    >,
+    anchors: Query<&Parent, With<Anchor>>,
+    site_id: Query<&SiteID>,
+) {
+    for (e, point) in &orphans {
+        if let Ok(parent) = anchors.get(point.0) {
+            commands.entity(e).set_parent(parent.get());
+        }
     }
 }
 
 pub fn update_changed_fiducial(
     mut fiducials: Query<
         (Entity, &Point<Entity>, &mut Transform),
-        (Changed<Point<Entity>>, With<FiducialMarker>),
+        (
+            With<FiducialMarker>,
+            Or<(Changed<Point<Entity>>, Changed<Parent>)>,
+        ),
     >,
     anchors: AnchorParams,
 ) {
