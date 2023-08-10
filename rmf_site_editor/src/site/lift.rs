@@ -170,7 +170,9 @@ pub fn update_lift_cabin(
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, .. } = params.aabb();
-                let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
+                let cabin_tf = Transform::from_translation(
+                    Vec3::new(center.x, center.y, FLOOR_LAYER_START)
+                );
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0 * params.thickness(),
                     params.width + 2.0 * params.thickness(),
