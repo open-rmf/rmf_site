@@ -25,8 +25,6 @@ jobs:
         cd rmf_site_format
         cargo build
     - name: Build rmf_site_editor
-      run: |
-        cd -
-        cargo build
+      run: cargo build
     - name: Run tests
       run: cargo test
