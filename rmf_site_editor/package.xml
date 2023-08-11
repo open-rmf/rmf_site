@@ -1,0 +1,13 @@
+<package format="3">
+  <name>rmf_site_editor</name>
+  <version>0.0.1</version>
+  <description>An editor and visualizer of building environments</description>
+  <maintainer email="mxgrey@openrobotics.org">Grey</maintainer>
+  <license>Apache License 2.0</license>
+
+  <depend>rmf_site_format</depend>
+  
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>
