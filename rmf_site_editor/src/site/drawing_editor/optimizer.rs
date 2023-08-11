@@ -21,161 +21,12 @@ use bevy::prelude::*;
 use crate::site::{
     AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
     Distance, DrawingMarker, Edge, LevelElevation, MeasurementMarker, PixelsPerMeter,
-    Pose, Rotation, SiteProperties, NameOfSite,
+    Pose, Rotation, SiteProperties, NameOfSite, Affiliation, Point, FiducialMarker,
 };
 use itertools::{Either, Itertools};
 use optimization_engine::{panoc::*, *};
 use std::collections::HashSet;
 
-// The cost will be the sum of the square distances between pairs of points in constraints.
-// Reference point pose is just world pose in meters, while the pose of the point to be optimized
-// is expressed as a function of drawing translation, rotation and scale
-// In matching points, first is reference second is to be optimized
-// Order in u is x, y, theta, scale
-fn align_level_cost(
-    matching_points: &Vec<([f64; 2], [f64; 2])>,
-    u: &[f64],
-    cost: &mut f64,
-) -> Result<(), SolverError> {
-    *cost = 0.0;
-    let (x, y, theta, s) = (u[0], u[1], u[2], u[3]);
-    for (p0, p1) in matching_points {
-        *cost += (x + (theta.cos() * p1[0] - theta.sin() * p1[1]) / s - p0[0]).powi(2)
-            + (y + (theta.sin() * p1[0] + theta.cos() * p1[1]) / s - p0[1]).powi(2);
-    }
-    Ok(())
-}
-
-// Calculates the partial derivatives for the cost function for each variable
-fn align_level_gradient(
-    matching_points: &Vec<([f64; 2], [f64; 2])>,
-    u: &[f64],
-    grad: &mut [f64],
-) -> Result<(), SolverError> {
-    let (x, y, theta, s) = (u[0], u[1], u[2], u[3]);
-    grad[0] = 0.0;
-    grad[1] = 0.0;
-    grad[2] = 0.0;
-    grad[3] = 0.0;
-    for (p0, p1) in matching_points {
-        grad[0] += 2.0 * (x + (theta.cos() * p1[0] - theta.sin() * p1[1]) / s - p0[0]);
-        grad[1] += 2.0 * (y + (theta.sin() * p1[0] + theta.cos() * p1[1]) / s - p0[1]);
-        // ref https://www.wolframalpha.com/input?i=d%2Fdtheta+%28x+%2B+%28cos%28theta%29+*+p1%5B0%5D+-+sin%28theta%29+*+p1%5B1%5D%29+%2F+s+-+p0%5B0%5D%29%5E2+%2B+%28y+%2B+%28sin%28theta%29+*+p1%5B0%5D+%2B+cos%28theta%29+*+p1%5B1%5D%29+%2F+s+-+p0%5B1%5D%29%5E2
-        grad[2] += 2.0 / s
-            * (theta.sin() * (p0[1] * p1[1] + p0[0] * p1[0] - p1[0] * x - p1[1] * y)
-                + theta.cos() * (p0[0] * p1[1] - p0[1] * p1[0] - p1[1] * x + p1[0] * y));
-        // ref https://www.wolframalpha.com/input?i=d%2Fds+%28x+%2B+%28cos%28theta%29+*+p1%5B0%5D+-+sin%28theta%29+*+p1%5B1%5D%29+%2F+s+-+p0%5B0%5D%29%5E2+%2B+%28y+%2B+%28sin%28theta%29+*+p1%5B0%5D+%2B+cos%28theta%29+*+p1%5B1%5D%29+%2F+s+-+p0%5B1%5D%29%5E2
-        grad[3] += -2.0
-            * (p1[0] * theta.cos() - p1[1] * theta.sin())
-            * (-p0[0] + (p1[0] * theta.cos() - p1[1] * theta.sin()) / s + x)
-            / (s * s)
-            - 2.0
-                * (p1[0] * theta.sin() + p1[1] * theta.cos())
-                * (-p0[1] + (p1[0] * theta.sin() + p1[1] * theta.cos()) / s + y)
-                / (s * s);
-    }
-    Ok(())
-}
-
-fn align_drawing_pair(
-    references: &HashSet<Entity>,
-    target_drawing: Entity,
-    constraints: &Vec<&Edge<Entity>>,
-    params: &OptimizationParams,
-    change: &mut OptimizationChangeParams,
-) -> Option<(f64, f64, f64, f64)> {
-    // Function that creates a pair of reference point and target point poses, their distance to be
-    // minimized as part of the optimization
-    let make_point_pair = |reference: Entity, target: Entity| {
-        let reference_point = params
-            .global_tfs
-            .get(reference)
-            .expect("Transform for anchor not found")
-            .translation()
-            .truncate()
-            .to_array()
-            .map(|t| t as f64);
-        let target_point = params
-            .anchors
-            .get(target)
-            .expect("Broken constraint anchor reference")
-            .translation_for_category(Category::Drawing)
-            .map(|t| t as f64);
-        (reference_point, target_point)
-    };
-    // Guaranteed safe since caller passes a drawing entity
-    let (_, _, target_pose, target_ppm) = params.drawings.get(target_drawing).unwrap();
-    let mut matching_points = Vec::new();
-    for edge in constraints.iter() {
-        let start_parent = params
-            .parents
-            .get(edge.start())
-            .expect("Anchor in constraint without drawing parent");
-        let end_parent = params
-            .parents
-            .get(edge.end())
-            .expect("Anchor in constraint without drawing parent");
-        if (references.contains(&*start_parent)) & (target_drawing == **end_parent) {
-            matching_points.push(make_point_pair(edge.start(), edge.end()));
-        } else if (references.contains(&*end_parent)) & (target_drawing == **start_parent) {
-            matching_points.push(make_point_pair(edge.end(), edge.start()));
-        } else {
-            continue;
-        }
-    }
-    if matching_points.is_empty() {
-        warn!(
-            "No constraints found for drawing {:?}, skipping optimization",
-            target_drawing
-        );
-        return None;
-    }
-    // Optimize the transform
-    let min_vals = vec![
-        -std::f64::INFINITY,
-        -std::f64::INFINITY,
-        -180_f64.to_radians(),
-        1e-3,
-    ];
-    let max_vals = vec![
-        std::f64::INFINITY,
-        std::f64::INFINITY,
-        180_f64.to_radians(),
-        1e6,
-    ];
-    let x = target_pose.trans[0];
-    let y = target_pose.trans[1];
-    let theta = match target_pose.rot.as_yaw() {
-        Rotation::Yaw(yaw) => yaw.radians(),
-        _ => unreachable!(),
-    };
-    let s = target_ppm.0;
-    let mut u = vec![x as f64, y as f64, theta as f64, s as f64];
-    // Now optimize it
-    let opt_constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
-    let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
-    let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
-        align_level_cost(&matching_points, u, c)
-    };
-
-    let df = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
-        align_level_gradient(&matching_points, u, gradient)
-    };
-    let problem = Problem::new(&opt_constraints, df, f);
-    let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
-    panoc.solve(&mut u).ok();
-
-    // Update transform parameters with results of the optimization
-    let mut new_pose = target_pose.clone();
-    new_pose.trans[0] = u[0] as f32;
-    new_pose.trans[1] = u[1] as f32;
-    new_pose.rot = Rotation::Yaw(Angle::Rad(u[2] as f32));
-    change.pose.send(Change::new(new_pose, target_drawing));
-    change
-        .ppm
-        .send(Change::new(PixelsPerMeter(u[3] as f32), target_drawing));
-    Some((u[0], u[1], u[2], u[3]))
-}
 
 #[derive(SystemParam)]
 pub struct OptimizationChangeParams<'w, 's> {
@@ -189,7 +40,6 @@ pub struct OptimizationParams<'w, 's> {
         'w,
         's,
         (
-            Entity,
             &'static Children,
             &'static Pose,
             &'static PixelsPerMeter,
@@ -199,7 +49,16 @@ pub struct OptimizationParams<'w, 's> {
     global_tfs: Query<'w, 's, &'static GlobalTransform>,
     parents: Query<'w, 's, &'static Parent>,
     anchors: Query<'w, 's, &'static Anchor>,
-    constraints: Query<'w, 's, &'static Edge<Entity>, With<ConstraintMarker>>,
+    fiducials: Query<
+        'w,
+        's,
+        (
+            &'static Affiliation<Entity>,
+            &'static Point<Entity>,
+        ),
+        With<FiducialMarker>,
+    >,
+    measurements: Query<'w, 's, &'static Edge<Entity>, With<MeasurementMarker>>,
 }
 
 pub fn align_site_drawings(

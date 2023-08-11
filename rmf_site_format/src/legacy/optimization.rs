@@ -1,7 +1,49 @@
-use super::{building_map::BuildingMap, level::Alignment};
-use glam::{DMat2, DVec2};
+use super::building_map::BuildingMap;
+use crate::RefTrait;
+use glam::{DMat2, DVec2, DAffine2};
 use optimization_engine::{panoc::*, *};
 use std::collections::HashMap;
+
+pub struct SiteVariables<T: RefTrait> {
+    fiducials: Vec<FiducialVariables<T>>,
+    drawings: HashMap<T, DrawingVariables<T>>,
+}
+
+pub struct DrawingVariables<T: RefTrait> {
+    position: DVec2,
+    yaw: f64,
+    scale: f64,
+    fiducials: Vec<FiducialVariables<T>>,
+    measurements: Vec<MeasurementVariables>,
+}
+
+pub struct FiducialVariables<T: RefTrait> {
+    group: T,
+    position: DVec2,
+}
+
+#[derive(Clone, Copy)]
+pub struct MeasurementVariables {
+    in_pixels: f64,
+    in_meters: f64,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Alignment {
+    pub translation: DVec2,
+    pub rotation: f64,
+    pub scale: f64,
+}
+
+impl Alignment {
+    pub fn to_affine(&self) -> DAffine2 {
+        DAffine2::from_scale_angle_translation(
+            DVec2::splat(self.scale),
+            self.rotation,
+            self.translation,
+        )
+    }
+}
 
 pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
     let mut names = Vec::new();
@@ -9,10 +51,6 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
     let mut fiducials = Vec::new();
     let mut f_map = HashMap::new();
     let mut u = Vec::new();
-    let mut min_vals = Vec::new();
-    let mut max_vals = Vec::new();
-    let inf = std::f64::INFINITY;
-    let neg_inf = std::f64::NEG_INFINITY;
     for (name, level) in &building.levels {
         names.push(name.clone());
         let mut level_measurements = Vec::new();
@@ -20,7 +58,7 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
         for measurement in &level.measurements {
             let p0 = level.vertices.get(measurement.0).unwrap().to_vec();
             let p1 = level.vertices.get(measurement.1).unwrap().to_vec();
-            let m = Measurement {
+            let m = MeasurementVariables {
                 in_pixels: (p1 - p0).length(),
                 in_meters: measurement.2.distance.1,
             };
@@ -47,33 +85,71 @@ pub fn align_building(building: &BuildingMap) -> HashMap<String, Alignment> {
             0.0,
             initial_scale_numerator / level.measurements.len() as f64,
         ]);
-        min_vals.extend([neg_inf, neg_inf, -45_f64.to_radians(), 1e-12]);
-        max_vals.extend([inf, inf, 45_f64.to_radians(), 1000.0]);
     }
 
-    let constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
-    let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
-    let f = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
-        *c = calculate_scale_cost(&measurements, &fiducials, u);
-        Ok(())
-    };
-
-    let df = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
-        calculate_scale_gradient(&measurements, &fiducials, u, gradient);
-        Ok(())
-    };
-    let problem = Problem::new(&constraints, df, f);
-    let mut panoc = PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(1000);
-    panoc.solve(&mut u).ok();
-
-    calculate_yaw_adjustment(&fiducials, &mut u);
-    calculate_displacement_adjustment(&fiducials, &mut u);
+    solve(&mut u, &fiducials, &measurements, false);
     calculate_center_adjustment(building, &mut u);
 
     names
         .into_iter()
         .zip(AllVariables::new(&u).map(|vars| vars.to_alignment()))
         .collect()
+}
+
+fn solve(
+    u: &mut [f64],
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    measurements: &Vec<Vec<MeasurementVariables>>,
+    has_ground_truth: bool,
+) {
+    let inf = std::f64::INFINITY;
+    let neg_inf = std::f64::NEG_INFINITY;
+    let mut min_vals = Vec::new();
+    let mut max_vals = Vec::new();
+    for i in 0 .. u.len() / 4 {
+        min_vals.extend([neg_inf, neg_inf, -45_f64.to_radians(), 1e-12]);
+        max_vals.extend([inf, inf, 45_f64.to_radians(), 1000.0]);
+    }
+
+    let constraints = constraints::Rectangle::new(Some(&min_vals), Some(&max_vals));
+    let mut panoc_cache = PANOCCache::new(u.len(), 1e-6, 10);
+    let f_scale = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
+        *c = calculate_scale_cost(&measurements, &fiducials, u);
+        Ok(())
+    };
+
+    let df_scale = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
+        calculate_scale_gradient(has_ground_truth, &measurements, &fiducials, u, gradient);
+        if has_ground_truth {
+            for i in 0..4 {
+                gradient[i] = 0.0;
+            }
+        }
+        Ok(())
+    };
+    gradient_descent(1e-6, 1.0, 100, u, df_scale);
+
+    let f_yaw = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
+        *c = calculate_yaw_cost(&fiducials, u);
+        Ok(())
+    };
+
+    let df_yaw = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
+        calculate_yaw_gradient(has_ground_truth, &fiducials, u, gradient);
+        Ok(())
+    };
+    gradient_descent(1e-6, 1.0, 100, u, df_yaw);
+
+    let f_displacement = |u: &[f64], c: &mut f64| -> Result<(), SolverError> {
+        *c = calculate_displacement_cost(&fiducials, u);
+        Ok(())
+    };
+
+    let df_displacement = |u: &[f64], gradient: &mut [f64]| -> Result<(), SolverError> {
+        calculate_displacement_gradient(has_ground_truth, &fiducials, u, gradient);
+        Ok(())
+    };
+    gradient_descent(1e-6, 1.0, 100, u, df_displacement);
 }
 
 struct LevelVariables<'a> {
@@ -129,6 +205,7 @@ impl<'a> LevelVariables<'a> {
 struct AllVariables<'a> {
     slice: &'a [f64],
     next_level: usize,
+    except: Option<usize>,
 }
 
 impl<'a> AllVariables<'a> {
@@ -136,6 +213,7 @@ impl<'a> AllVariables<'a> {
         Self {
             slice,
             next_level: 0,
+            except: None,
         }
     }
 
@@ -143,6 +221,15 @@ impl<'a> AllVariables<'a> {
         Self {
             slice,
             next_level: level + 1,
+            except: None,
+        }
+    }
+
+    fn except(level: usize, slice: &'a [f64]) -> Self {
+        Self {
+            slice,
+            next_level: 0,
+            except: Some(level),
         }
     }
 }
@@ -151,6 +238,10 @@ impl<'a> Iterator for AllVariables<'a> {
     type Item = LevelVariables<'a>;
 
     fn next(&mut self) -> Option<Self::Item> {
+        if self.except.is_some_and(|except| self.next_level == except) {
+            self.next_level += 1;
+        }
+
         if 4 * (self.next_level + 1) <= self.slice.len() {
             let level = self.next_level;
             self.next_level += 1;
@@ -160,12 +251,6 @@ impl<'a> Iterator for AllVariables<'a> {
             None
         }
     }
-}
-
-#[derive(Clone, Copy)]
-struct Measurement {
-    in_pixels: f64,
-    in_meters: f64,
 }
 
 struct LevelGradient<'a> {
@@ -197,7 +282,7 @@ impl<'a> LevelGradient<'a> {
 }
 
 fn calculate_scale_cost(
-    measurements: &Vec<Vec<Measurement>>,
+    measurements: &Vec<Vec<MeasurementVariables>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
     u: &[f64],
 ) -> f64 {
@@ -209,32 +294,26 @@ fn calculate_scale_cost(
             }
         }
 
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_ki) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_ki) = phi_ki {
-                            if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-                                let f_ki = vars_i.transform(*phi_ki);
-                                let f_kj = vars_j.transform(*phi_kj);
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        for vars_j in AllVariables::after(vars_i.level, u) {
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            for (k, phi_ki) in fiducials_i.iter().enumerate() {
+                let Some(phi_ki) = phi_ki else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let f_ki = vars_i.transform(*phi_ki);
+                let f_kj = vars_j.transform(*phi_kj);
 
-                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
-                                    let m = m + k + 1;
-                                    if let Some(phi_mi) = phi_mi {
-                                        if let Some(Some(phi_mj)) = fiducials_j.get(m) {
-                                            let f_mi = vars_i.transform(*phi_mi);
-                                            let f_mj = vars_j.transform(*phi_mj);
-                                            let df_i = f_ki - f_mi;
-                                            let df_j = f_kj - f_mj;
+                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                    let m = m + k + 1;
+                    let Some(phi_mi) = phi_mi else { continue };
+                    let Some(Some(phi_mj)) = fiducials_j.get(m) else { continue };
+                    let f_mi = vars_i.transform(*phi_mi);
+                    let f_mj = vars_j.transform(*phi_mj);
+                    let df_i = f_ki - f_mi;
+                    let df_j = f_kj - f_mj;
 
-                                            cost += (df_i.dot(df_i).sqrt() - df_j.dot(df_j).sqrt())
-                                                .powi(2);
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    cost += (df_i.dot(df_i).sqrt() - df_j.dot(df_j).sqrt())
+                        .powi(2);
                 }
             }
         }
@@ -244,147 +323,240 @@ fn calculate_scale_cost(
 }
 
 fn calculate_scale_gradient(
-    measurements: &Vec<Vec<Measurement>>,
+    has_ground_truth: bool,
+    measurements: &Vec<Vec<MeasurementVariables>>,
     fiducials: &Vec<Vec<Option<DVec2>>>,
     u: &[f64],
     gradient: &mut [f64],
 ) {
+    for x in gradient.iter_mut() {
+        *x = 0.0;
+    }
+
+    let mut weight = 0.0;
+
     for vars_i in AllVariables::new(u) {
         let mut grad = LevelGradient::new(vars_i.level, gradient);
-        *grad.dx() = 0.0;
-        *grad.dy() = 0.0;
-        *grad.theta() = 0.0;
-        *grad.scale() = 0.0;
-
         if let Some(measurements_i) = measurements.get(vars_i.level) {
             for m in measurements_i {
-                *grad.scale() += 2.0 * (m.in_pixels * vars_i.scale() - m.in_meters) * m.in_pixels;
+                // *grad.scale() += 2.0 * (m.in_pixels * vars_i.scale() - m.in_meters) * m.in_pixels;
+                *grad.scale() += vars_i.scale() - m.in_meters / m.in_pixels;
+                weight += 1.0;
             }
         }
+    }
 
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_ki) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_ki) = phi_ki {
-                            if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-                                let f_ki = vars_i.transform(*phi_ki);
-                                let f_kj = vars_j.transform(*phi_kj);
+    for vars_i in AllVariables::new(u) {
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        for vars_j in AllVariables::except(vars_i.level, u) {
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            for (k, phi_ki) in fiducials_i.iter().enumerate() {
+                let Some(phi_ki) = phi_ki else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let f_ki = vars_i.transform(*phi_ki);
+                let f_kj = vars_j.transform(*phi_kj);
 
-                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
-                                    let m = m + k + 1;
-                                    if let Some(phi_mi) = phi_mi {
-                                        if let Some(Some(phi_mj)) = fiducials_j.get(m) {
-                                            let f_mi = vars_i.transform(*phi_mi);
-                                            let f_mj = vars_j.transform(*phi_mj);
-                                            let df_i = f_ki - f_mi;
-                                            let df_j = f_kj - f_mj;
+                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                    let m = m + k + 1;
+                    let Some(phi_mi) = phi_mi else { continue };
+                    let Some(Some(phi_mj)) = fiducials_j.get(m) else { continue };
+                    let f_mi = vars_i.transform(*phi_mi);
+                    let f_mj = vars_j.transform(*phi_mj);
+                    let df_i = f_ki - f_mi;
+                    let df_j = f_kj - f_mj;
 
-                                            let s_m_i = df_i.dot(df_i).sqrt();
-                                            let s_m_j = df_j.dot(df_j).sqrt();
-                                            *grad.scale() +=
-                                                2.0 * (s_m_i - s_m_j) * s_m_i / vars_i.scale();
-                                        }
-                                    }
-                                }
-                            }
-                        }
+                    let s_m_i = df_i.dot(df_i).sqrt();
+                    let s_m_j = df_j.dot(df_j).sqrt();
+
+                    if !(has_ground_truth && vars_i.level == 0) {
+                        let mut grad_i = LevelGradient::new(vars_i.level, gradient);
+                        *grad_i.scale() += vars_i.scale() * (1.0 - s_m_j / s_m_i);
+                        weight += 1.0;
                     }
+
+                    let mut grad_j = LevelGradient::new(vars_j.level, gradient);
+                    *grad_j.scale() += vars_j.scale() * (1.0 - s_m_i / s_m_j);
+                    weight += 1.0;
+                }
+            }
+        }
+    }
+
+    for x in gradient.iter_mut() {
+        *x /= f64::max(weight, 1.0);
+    }
+}
+
+fn gradient_descent(
+    gradient_threshold: f64,
+    gamma: f64,
+    iteration_limit: usize,
+    u: &mut [f64],
+    df: impl Fn(&[f64], &mut [f64]) -> Result<(), SolverError>,
+) {
+    let mut iterations = 0;
+    let mut gradient = Vec::new();
+    gradient.resize(u.len(), 0.0);
+    loop {
+        df(u, &mut gradient).ok();
+        let mut grad_length = 0.0;
+        for (x, dx) in u.iter_mut().zip(gradient.iter()) {
+            *x = *x - gamma * *dx;
+            grad_length += *dx * *dx;
+        }
+        if grad_length.sqrt() <= gradient_threshold {
+            break;
+        }
+
+        iterations += 1;
+        if iterations >= iteration_limit {
+            break;
+        }
+    }
+}
+
+fn calculate_yaw_cost(
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+) -> f64 {
+    let mut cost = 0.0;
+    traverse_yaws(
+        fiducials, u,
+        |_, yaw_i, _, yaw_j| {
+            cost += (yaw_i - yaw_j).powi(2);
+        }
+    );
+    cost
+}
+
+fn calculate_yaw_gradient(
+    has_ground_truth: bool,
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+    gradient: &mut [f64],
+) {
+    for x in gradient.iter_mut() {
+        *x = 0.0;
+    }
+
+    let mut weight = 0.0;
+
+    traverse_yaws(
+        fiducials, u,
+        |i, yaw_i, j, yaw_j| {
+            if !(has_ground_truth && i == 0) {
+                *LevelGradient::new(i, gradient).theta() += yaw_i - yaw_j;
+                weight += 1.0;
+            }
+
+            *LevelGradient::new(j, gradient).theta() += yaw_j - yaw_i;
+            weight += 1.0;
+        }
+    );
+
+    for x in gradient.iter_mut() {
+        *x /= f64::max(weight, 1.0);
+    }
+}
+
+fn traverse_yaws<F: FnMut(usize, f64, usize, f64)>(
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+    mut f: F,
+) {
+    for vars_i in AllVariables::new(u) {
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        for vars_j in AllVariables::after(vars_i.level, u) {
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            for (k, phi_ki) in fiducials_i.iter().enumerate() {
+                let Some(phi_ki) = phi_ki else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let f_ki = vars_i.transform(*phi_ki);
+                let f_kj = vars_j.transform(*phi_kj);
+
+                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
+                    let m = m + k + 1;
+                    let Some(phi_mi) = phi_mi else { continue };
+                    let Some(Some(phi_mj)) = fiducials_j.get(m) else { continue };
+                    let f_mi = vars_i.transform(*phi_mi);
+                    let f_mj = vars_j.transform(*phi_mj);
+                    let df_i = f_ki - f_mi;
+                    let df_j = f_kj - f_mj;
+                    let yaw_i = f64::atan2(df_i.y, df_i.x);
+                    let yaw_j = f64::atan2(df_j.y, df_j.x);
+
+                    f(vars_i.level, yaw_i, vars_j.level, yaw_j);
                 }
             }
         }
     }
 }
 
-fn calculate_yaw_adjustment(fiducials: &Vec<Vec<Option<DVec2>>>, u: &mut [f64]) {
-    let mut adjustment = vec![0.0; u.len()];
-    let mut weight = vec![0.0; u.len()];
-
-    for level in 0..u.len() / 4 {
-        let range = 4 * level..4 * (level + 1);
-        for (v, (a, w)) in u[range.clone()].iter_mut().zip(
-            adjustment[range.clone()]
-                .iter()
-                .zip(weight[range.clone()].iter()),
-        ) {
-            if *w > 0.0 {
-                *v += *a / *w;
-            }
+fn calculate_displacement_cost(
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+) -> f64 {
+    let mut cost = 0.0;
+    traverse_locations(
+        fiducials, u,
+        |_, f_ki, _, f_kj| {
+            let delta = f_ki - f_kj;
+            cost += delta.dot(delta);
         }
+    );
+    cost
+}
 
-        let vars_i = LevelVariables::new(&u[range], level);
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                let mut level_adjustment = LevelGradient::new(vars_j.level, &mut adjustment);
-                let mut level_weight = LevelGradient::new(vars_j.level, &mut weight);
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_ki) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_ki) = phi_ki {
-                            if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-                                let f_ki = vars_i.transform(*phi_ki);
-                                let f_kj = vars_j.transform(*phi_kj);
+fn calculate_displacement_gradient(
+    has_ground_truth: bool,
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+    gradient: &mut [f64],
+) {
+    for x in gradient.iter_mut() {
+        *x = 0.0;
+    }
 
-                                for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
-                                    let m = m + k + 1;
-                                    if let Some(phi_mi) = phi_mi {
-                                        if let Some(Some(phi_mj)) = fiducials_j.get(m) {
-                                            let f_mi = vars_i.transform(*phi_mi);
-                                            let f_mj = vars_j.transform(*phi_mj);
-                                            let df_i = f_ki - f_mi;
-                                            let df_j = f_kj - f_mj;
-                                            let yaw_i = df_i.y.atan2(df_i.x);
-                                            let yaw_j = df_j.y.atan2(df_j.x);
+    let mut weight = 0.0;
 
-                                            *level_adjustment.theta() += yaw_i - yaw_j;
-                                            *level_weight.theta() += 1.0;
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
+    traverse_locations(
+        fiducials, u,
+        |i, f_ki, j, f_kj| {
+            let delta = f_ki - f_kj;
+            if !(has_ground_truth && i == 0) {
+                let mut grad_i = LevelGradient::new(i, gradient);
+                *grad_i.dx() += delta.x;
+                *grad_i.dy() += delta.y;
+                weight += 1.0;
             }
+
+            let mut grad_j = LevelGradient::new(j, gradient);
+            *grad_j.dx() += -delta.x;
+            *grad_j.dy() += -delta.y;
+            weight += 1.0;
         }
+    );
+
+    for x in gradient.iter_mut() {
+        *x /= f64::max(weight, 1.0);
     }
 }
 
-fn calculate_displacement_adjustment(fiducials: &Vec<Vec<Option<DVec2>>>, u: &mut [f64]) {
-    let mut adjustment = vec![0.0; u.len()];
-    let mut weight = vec![0.0; u.len()];
-    for level in 0..u.len() / 4 {
-        let range = 4 * level..4 * (level + 1);
-        for (v, (a, w)) in u[range.clone()].iter_mut().zip(
-            adjustment[range.clone()]
-                .iter()
-                .zip(weight[range.clone()].iter()),
-        ) {
-            if *w > 0.0 {
-                *v += *a / *w;
-            }
-        }
-
-        let vars_i = LevelVariables::new(&u[range], level);
-        if let Some(fiducials_i) = fiducials.get(vars_i.level) {
-            for vars_j in AllVariables::after(vars_i.level, u) {
-                let mut level_adjustment = LevelGradient::new(vars_j.level, &mut adjustment);
-                let mut level_weight = LevelGradient::new(vars_j.level, &mut weight);
-                if let Some(fiducials_j) = fiducials.get(vars_j.level) {
-                    for (k, phi_ki) in fiducials_i.iter().enumerate() {
-                        if let Some(phi_ki) = phi_ki {
-                            if let Some(Some(phi_kj)) = fiducials_j.get(k) {
-                                let f_ki = vars_i.transform(*phi_ki);
-                                let f_kj = vars_j.transform(*phi_kj);
-                                let delta = f_ki - f_kj;
-                                *level_adjustment.dx() += delta.x;
-                                *level_weight.dx() += 1.0;
-
-                                *level_adjustment.dy() += delta.y;
-                                *level_weight.dy() += 1.0;
-                            }
-                        }
-                    }
-                }
+fn traverse_locations<F: FnMut(usize, DVec2, usize, DVec2)>(
+    fiducials: &Vec<Vec<Option<DVec2>>>,
+    u: &[f64],
+    mut f: F,
+) {
+    for vars_i in AllVariables::new(u) {
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        for vars_j in AllVariables::after(vars_i.level, u) {
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            for (k, phi_ki) in fiducials_i.iter().enumerate() {
+                let Some(phi_ki) = phi_ki else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let f_ki = vars_i.transform(*phi_ki);
+                let f_kj = vars_j.transform(*phi_kj);
+                f(vars_i.level, f_ki, vars_j.level, f_kj);
             }
         }
     }
