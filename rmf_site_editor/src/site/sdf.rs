@@ -25,8 +25,8 @@ use crate::SdfRoot;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, MeshPrimitive, Model,
-    ModelMarker, NameInSite, Pose, Rotation, Scale, WorkcellCollisionMarker, WorkcellVisualMarker,
+    Angle, AssetSource, Geometry, IsStatic, MeshPrimitive, Model, ModelMarker, NameInSite, Pose,
+    Rotation, Scale, WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 
 // TODO(luca) reduce chances for panic and do proper error handling here
@@ -92,7 +92,6 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                                 source: compute_model_source(&sdf.path, &mesh.uri),
                                 pose,
                                 is_static: IsStatic(sdf.model.r#static.unwrap_or(false)),
-                                constraints: ConstraintDependents::default(),
                                 scale: parse_scale(&mesh.scale),
                                 marker: ModelMarker,
                             })

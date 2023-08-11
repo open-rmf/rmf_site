@@ -125,8 +125,8 @@ impl RectFace {
     }
 }
 
-#[derive(Serialize, Deserialize, Deref, DerefMut, PartialEq, Clone, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Serialize, Deserialize, PartialEq, Clone, Debug)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Scale(pub Vec3);
 
 impl Default for Scale {

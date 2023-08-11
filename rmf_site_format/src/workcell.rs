@@ -69,8 +69,8 @@ pub enum MeshElement {
 
 /// Attached to Model entities to keep track of constraints attached to them,
 /// for change detection and hierarchy propagation
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg(feature = "bevy")]
+#[derive(Component, Deref, DerefMut, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
