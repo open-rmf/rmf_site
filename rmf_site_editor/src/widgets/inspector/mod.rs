@@ -296,7 +296,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 ui.add_space(10.0);
-                if ui.add(Button::new("Align Drawings")).clicked() {
+                if ui.add(Button::image_and_text(
+                    self.events.layers.icons.alignment.egui(),
+                    [18., 18.],
+                    "Align Drawings",
+                ))
+                    .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+                    .clicked()
+                {
                     if let Some(site) = self.events.request.current_workspace.root {
                         self.events.align_site.send(AlignSiteDrawings(site));
                     }

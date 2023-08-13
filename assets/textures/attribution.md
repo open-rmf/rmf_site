@@ -8,3 +8,4 @@
 * [`search.png`](https://thenounproject.com/icon/search-3743008/)
 * `trash.png`: @mxgrey
 * `selected.png`: @mxgrey
+* `alignment.png`: @mxgrey

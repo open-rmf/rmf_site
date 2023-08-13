@@ -471,7 +471,11 @@ fn site_visualizer_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Align Drawings"))
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.alignment.egui(),
+                            [18., 18.],
+                            "Align Drawings",
+                        ))
                             .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
                             .clicked()
                         {

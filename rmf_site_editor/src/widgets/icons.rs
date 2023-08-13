@@ -60,6 +60,7 @@ pub struct Icons {
     pub reject: Icon,
     pub search: Icon,
     pub empty: Icon,
+    pub alignment: Icon,
     pub layer_up: Icon,
     pub layer_down: Icon,
     pub layer_to_top: Icon,
@@ -83,6 +84,7 @@ impl FromWorld for Icons {
         let reject = IconBuilder::new("textures/reject.png", &asset_server);
         let search = IconBuilder::new("textures/search.png", &asset_server);
         let empty = IconBuilder::new("textures/empty.png", &asset_server);
+        let alignment = IconBuilder::new("textures/alignment.png", &asset_server);
         let layer_up = IconBuilder::new("textures/up.png", &asset_server);
         let layer_down = IconBuilder::new("textures/down.png", &asset_server);
         let layer_to_top = IconBuilder::new("textures/to_top.png", &asset_server);
@@ -107,6 +109,7 @@ impl FromWorld for Icons {
             reject: reject.build(&mut egui_context),
             search: search.build(&mut egui_context),
             empty: empty.build(&mut egui_context),
+            alignment: alignment.build(&mut egui_context),
             layer_up: layer_up.build(&mut egui_context),
             layer_down: layer_down.build(&mut egui_context),
             layer_to_top: layer_to_top.build(&mut egui_context),
