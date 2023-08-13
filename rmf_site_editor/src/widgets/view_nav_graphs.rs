@@ -16,15 +16,15 @@
 */
 
 use crate::{
+    interaction::Selection,
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph, NavGraphMarker,
-        SaveNavGraphs, NameOfSite, DEFAULT_NAV_GRAPH_COLORS, SiteID,
+        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NameOfSite, NavGraph,
+        NavGraphMarker, SaveNavGraphs, SiteID, DEFAULT_NAV_GRAPH_COLORS,
     },
-    interaction::Selection,
     widgets::{
         inspector::{color_edit, selection_widget::SelectionWidget},
-        AppEvents, Icons, MoveLayerButton
+        AppEvents, Icons, MoveLayerButton,
     },
     Autoload, CurrentWorkspace,
 };
@@ -187,12 +187,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
 
-                SelectionWidget::new(
-                    e,
-                    site_id.copied(),
-                    &self.params.icons,
-                    self.events,
-                ).show(ui);
+                SelectionWidget::new(e, site_id.copied(), &self.params.icons, self.events).show(ui);
 
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
@@ -215,21 +210,21 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
 
         if let Some(e) = selected_graph {
             ui.horizontal(|ui| {
-                MoveLayerButton::to_top(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons
-                ).show(ui);
+                MoveLayerButton::to_top(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
 
-                MoveLayerButton::up(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons
-                ).show(ui);
+                MoveLayerButton::up(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
 
-                MoveLayerButton::down(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons
-                ).show(ui);
+                MoveLayerButton::down(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
 
                 MoveLayerButton::to_bottom(
-                    e, &mut self.events.layers.nav_graphs, &self.params.icons
-                ).show(ui);
+                    e,
+                    &mut self.events.layers.nav_graphs,
+                    &self.params.icons,
+                )
+                .show(ui);
             });
         }
 

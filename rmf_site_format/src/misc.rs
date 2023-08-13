@@ -477,7 +477,10 @@ impl<T: RefTrait> Default for Affiliation<T> {
 
 #[cfg(feature = "bevy")]
 impl Affiliation<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Affiliation<Entity> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> Affiliation<Entity> {
         Affiliation(self.0.map(|a| *id_to_entity.get(&a).unwrap()))
     }
 }

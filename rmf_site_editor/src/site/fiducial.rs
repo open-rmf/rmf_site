@@ -71,13 +71,23 @@ pub fn update_fiducial_usage_tracker(
     parent: Query<&Parent>,
     children: Query<&Children>,
     fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
-    changed_fiducials: Query<(Entity, &Parent), (Changed<Affiliation<Entity>>, With<FiducialMarker>)>,
+    changed_fiducials: Query<
+        (Entity, &Parent),
+        (Changed<Affiliation<Entity>>, With<FiducialMarker>),
+    >,
     fiducial_groups: Query<(Entity, &NameInSite, &Parent), (With<Group>, With<FiducialMarker>)>,
-    changed_fiducial_groups: Query<Entity, Or<(
-        (Added<Group>, With<FiducialMarker>),
-        (With<Group>, Added<FiducialMarker>),
-        (Or<(Changed<Parent>, Changed<NameInSite>)>, With<Group>, With<FiducialMarker>),
-    )>>,
+    changed_fiducial_groups: Query<
+        Entity,
+        Or<(
+            (Added<Group>, With<FiducialMarker>),
+            (With<Group>, Added<FiducialMarker>),
+            (
+                Or<(Changed<Parent>, Changed<NameInSite>)>,
+                With<Group>,
+                With<FiducialMarker>,
+            ),
+        )>,
+    >,
     removed_fiducial_groups: RemovedComponents<Group>,
 ) {
     for e in &changed_parent {
@@ -88,7 +98,8 @@ pub fn update_fiducial_usage_tracker(
         }
     }
 
-    for e in changed_parent.iter()
+    for e in changed_parent
+        .iter()
         .chain(changed_fiducial.iter().map(|p| p.get()))
     {
         let Ok((_, mut tracker)) = unused_fiducial_trackers.get_mut(e) else { continue };
@@ -208,7 +219,7 @@ pub fn assign_orphan_fiducials_to_parent(
     mut commands: Commands,
     orphans: Query<
         (Entity, &Point<Entity>),
-        (With<FiducialMarker>, Without<Parent>, Without<Pending>)
+        (With<FiducialMarker>, Without<Parent>, Without<Pending>),
     >,
     anchors: Query<&Parent, With<Anchor>>,
     site_id: Query<&SiteID>,

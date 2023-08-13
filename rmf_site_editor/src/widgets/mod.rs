@@ -24,11 +24,10 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
-        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
-        BeginEditDrawing, FinishEditDrawing,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -406,12 +405,18 @@ fn site_drawing_ui_layout(
                                 CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::image_and_text(
-                            events.layers.icons.exit.egui(),
-                            [18., 18.],
-                            "Return to site editor",
-                        )).clicked() {
-                            events.layers.finish_edit_drawing.send(FinishEditDrawing(None));
+                        if ui
+                            .add(Button::image_and_text(
+                                events.layers.icons.exit.egui(),
+                                [18., 18.],
+                                "Return to site editor",
+                            ))
+                            .clicked()
+                        {
+                            events
+                                .layers
+                                .finish_edit_drawing
+                                .send(FinishEditDrawing(None));
                         }
                     });
                 });

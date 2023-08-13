@@ -27,7 +27,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, NameInSite, LevelElevation, Light, LightKind, Pose};
+use rmf_site_format::{Category, LevelElevation, Light, LightKind, NameInSite, Pose};
 use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be

@@ -84,7 +84,10 @@ impl NavGraph {
                     }
                 }
 
-                levels.insert(level.properties.name.clone().0, NavLevel { lanes, vertices });
+                levels.insert(
+                    level.properties.name.clone().0,
+                    NavLevel { lanes, vertices },
+                );
             }
 
             graphs.push((

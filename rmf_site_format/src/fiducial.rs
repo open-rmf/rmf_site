@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{NameInSite, Point, RefTrait, Affiliation, Group};
+use crate::{Affiliation, Group, NameInSite, Point, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};

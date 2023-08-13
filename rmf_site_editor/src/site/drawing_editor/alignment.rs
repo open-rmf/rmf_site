@@ -17,19 +17,19 @@
 
 use bevy::ecs::system::SystemParam;
 use bevy::{
-    prelude::*,
     math::{DVec2, Vec2},
+    prelude::*,
 };
 
 use crate::site::{
-    AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker,
-    Distance, DrawingMarker, Edge, LevelElevation, MeasurementMarker, PixelsPerMeter,
-    Pose, Rotation, SiteProperties, NameOfSite, Affiliation, Point, FiducialMarker,
-};
-use rmf_site_format::alignment::{
-    align_site, SiteVariables, DrawingVariables, FiducialVariables, MeasurementVariables,
+    Affiliation, AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker, Distance,
+    DrawingMarker, Edge, FiducialMarker, LevelElevation, MeasurementMarker, NameOfSite,
+    PixelsPerMeter, Point, Pose, Rotation, SiteProperties,
 };
 use itertools::{Either, Itertools};
+use rmf_site_format::alignment::{
+    align_site, DrawingVariables, FiducialVariables, MeasurementVariables, SiteVariables,
+};
 use std::collections::HashSet;
 
 #[derive(SystemParam)]
@@ -45,23 +45,10 @@ pub struct OptimizationParams<'w, 's> {
         With<DrawingMarker>,
     >,
     anchors: Query<'w, 's, &'static Anchor>,
-    fiducials: Query<
-        'w,
-        's,
-        (
-            &'static Affiliation<Entity>,
-            &'static Point<Entity>,
-        ),
-        With<FiducialMarker>,
-    >,
-    measurements: Query<
-        'w,
-        's,
-        (
-            &'static Edge<Entity>,
-            &'static Distance,
-        ),
-        With<MeasurementMarker>>,
+    fiducials:
+        Query<'w, 's, (&'static Affiliation<Entity>, &'static Point<Entity>), With<FiducialMarker>>,
+    measurements:
+        Query<'w, 's, (&'static Edge<Entity>, &'static Distance), With<MeasurementMarker>>,
 }
 
 pub fn align_site_drawings(
@@ -108,16 +95,21 @@ pub fn align_site_drawings(
                         let Ok([anchor0, anchor1]) = params.anchors.get_many(edge.array()) else { continue };
                         let Some(in_meters) = distance.0 else { continue };
                         let in_meters = in_meters as f64;
-                        let p0 = Vec2::from_slice(anchor0.translation_for_category(Category::Fiducial));
-                        let p1 = Vec2::from_slice(anchor1.translation_for_category(Category::Fiducial));
+                        let p0 =
+                            Vec2::from_slice(anchor0.translation_for_category(Category::Fiducial));
+                        let p1 =
+                            Vec2::from_slice(anchor1.translation_for_category(Category::Fiducial));
                         let in_pixels = (p1 - p0).length() as f64;
-                        drawing_variables.measurements.push(
-                            MeasurementVariables { in_pixels, in_meters }
-                        );
+                        drawing_variables.measurements.push(MeasurementVariables {
+                            in_pixels,
+                            in_meters,
+                        });
                     }
                 }
 
-                site_variables.drawings.insert(*level_child, drawing_variables);
+                site_variables
+                    .drawings
+                    .insert(*level_child, drawing_variables);
             }
         }
 
@@ -128,9 +120,8 @@ pub fn align_site_drawings(
             let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(e) else { continue };
             pose.trans[0] = alignment.translation.x as f32;
             pose.trans[1] = alignment.translation.y as f32;
-            pose.rot = Rotation::Yaw(
-                Angle::Rad(alignment.rotation as f32).match_variant(pose.rot.yaw())
-            );
+            pose.rot =
+                Rotation::Yaw(Angle::Rad(alignment.rotation as f32).match_variant(pose.rot.yaw()));
             ppm.0 = 1.0 / alignment.scale as f32;
         }
     }

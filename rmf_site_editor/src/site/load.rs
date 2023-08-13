@@ -15,9 +15,7 @@
  *
 */
 
-use crate::{
-    recency::RecencyRanking, site::*, Autoload, CurrentWorkspace, WorkspaceMarker,
-};
+use crate::{recency::RecencyRanking, site::*, Autoload, CurrentWorkspace, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use rmf_site_format::legacy::building_map::BuildingMap;
@@ -66,10 +64,7 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
             }
 
             for (group_id, group) in &site_data.fiducial_groups {
-                let group_entity = site
-                    .spawn(group.clone())
-                    .insert(SiteID(*group_id))
-                    .id();
+                let group_entity = site.spawn(group.clone()).insert(SiteID(*group_id)).id();
                 id_to_entity.insert(*group_id, group_entity);
                 consider_id(*group_id);
             }

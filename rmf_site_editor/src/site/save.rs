@@ -111,21 +111,27 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<
             Entity,
             (
-                Or<(
-                    With<Anchor>,
-                    With<FiducialMarker>,
-                    With<MeasurementMarker>,
-                )>,
+                Or<(With<Anchor>, With<FiducialMarker>, With<MeasurementMarker>)>,
                 Without<Pending>,
-            )>,
+            ),
+        >,
         Query<(), With<DrawingMarker>>,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (level_children, nav_graph_elements, levels, lifts, drawing_children, drawings, sites, site_ids, children) =
-        state.get_mut(world);
+    let (
+        level_children,
+        nav_graph_elements,
+        levels,
+        lifts,
+        drawing_children,
+        drawings,
+        sites,
+        site_ids,
+        children,
+    ) = state.get_mut(world);
 
     let mut new_entities = Vec::new();
 
@@ -363,7 +369,17 @@ fn generate_levels(
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
-    for (name, elevation, floor_vis, drawing_vis, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
+    for (
+        name,
+        elevation,
+        floor_vis,
+        drawing_vis,
+        level_id,
+        parent,
+        floor_ranking,
+        drawing_ranking,
+    ) in &q_levels
+    {
         if parent.get() == site {
             levels.insert(
                 level_id.0,
@@ -395,9 +411,10 @@ fn generate_levels(
     };
 
     let get_group_id = |entity| {
-        q_groups.get(entity)
-        .map(|id| id.0)
-        .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
+        q_groups
+            .get(entity)
+            .map(|id| id.0)
+            .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
     };
 
     let get_anchor_id_edge = |edge: &Edge<Entity>| {
@@ -442,7 +459,8 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, pixels_per_meter, preferred_alpha, id, parent, children) in &q_drawings {
+    for (name, source, pose, pixels_per_meter, preferred_alpha, id, parent, children) in &q_drawings
+    {
         if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
@@ -554,7 +572,7 @@ fn generate_levels(
     }
 
     for (name, pose, properties, id, parent) in &q_physical_cameras {
-        if let Ok((_, _, _ , _, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.physical_cameras.insert(
                     id.0,
@@ -780,16 +798,14 @@ fn generate_fiducials(
     let mut state: SystemState<(
         Query<&SiteID, (With<Anchor>, Without<Pending>)>,
         Query<&SiteID, (With<Group>, Without<Pending>)>,
-        Query<(&Point<Entity>, &Affiliation<Entity>, &SiteID), (With<FiducialMarker>, Without<Pending>)>,
+        Query<
+            (&Point<Entity>, &Affiliation<Entity>, &SiteID),
+            (With<FiducialMarker>, Without<Pending>),
+        >,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (
-        q_anchor_ids,
-        q_group_ids,
-        q_fiducials,
-        q_children,
-    ) = state.get(world);
+    let (q_anchor_ids, q_group_ids, q_fiducials, q_children) = state.get(world);
 
     let Ok(children) = q_children.get(parent) else {
         return Ok(BTreeMap::new());
@@ -798,22 +814,29 @@ fn generate_fiducials(
     let mut fiducials = BTreeMap::new();
     for child in children {
         let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
-        let anchor = q_anchor_ids.get(point.0)
-            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?.0;
+        let anchor = q_anchor_ids
+            .get(point.0)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
+            .0;
         let anchor = Point(anchor);
         let affiliation = if let Some(e) = affiliation.0 {
-            let group_id = q_group_ids.get(e)
-                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?.0;
+            let group_id = q_group_ids
+                .get(e)
+                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?
+                .0;
             Affiliation(Some(group_id))
         } else {
             Affiliation(None)
         };
 
-        fiducials.insert(site_id.0, Fiducial {
-            anchor,
-            affiliation,
-            marker: Default::default(),
-        });
+        fiducials.insert(
+            site_id.0,
+            Fiducial {
+                anchor,
+                affiliation,
+                marker: Default::default(),
+            },
+        );
     }
 
     Ok(fiducials)
@@ -828,10 +851,7 @@ fn generate_fiducial_groups(
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (
-        q_groups,
-        q_children
-    ) = state.get(world);
+    let (q_groups, q_children) = state.get(world);
 
     let Ok(children) = q_children.get(parent) else {
         return Ok(BTreeMap::new());

@@ -35,21 +35,21 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
-        Self { entity, rank_events, icons }
+        Self {
+            entity,
+            rank_events,
+            icons,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) {
-        MoveLayerButton::to_top(self.entity, self.rank_events, self.icons)
-            .show(ui);
+        MoveLayerButton::to_top(self.entity, self.rank_events, self.icons).show(ui);
 
-        MoveLayerButton::up(self.entity, self.rank_events, self.icons)
-            .show(ui);
+        MoveLayerButton::up(self.entity, self.rank_events, self.icons).show(ui);
 
-        MoveLayerButton::down(self.entity, self.rank_events, self.icons)
-            .show(ui);
+        MoveLayerButton::down(self.entity, self.rank_events, self.icons).show(ui);
 
-        MoveLayerButton::to_bottom(self.entity, self.rank_events, self.icons)
-            .show(ui);
+        MoveLayerButton::to_bottom(self.entity, self.rank_events, self.icons).show(ui);
     }
 }
 

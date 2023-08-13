@@ -17,10 +17,10 @@
 
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature  = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component))]
 pub enum LayerVisibility {
     /// The layer is fully opaque. This is the default for floors when no drawing is
     /// present.
@@ -116,14 +116,23 @@ impl VisibilityCycle for Option<LayerVisibility> {
 pub struct GlobalFloorVisibility {
     /// The global visibility that will be applied to all floors when a drawing
     /// is not present on the level
-    #[serde(default = "default_floor_without_drawings_visibility", skip_serializing_if = "LayerVisibility::is_opaque")]
+    #[serde(
+        default = "default_floor_without_drawings_visibility",
+        skip_serializing_if = "LayerVisibility::is_opaque"
+    )]
     pub without_drawings: LayerVisibility,
     /// The global visibility that will be applied to all floors when at least
     /// one drawing is present on the same level.
-    #[serde(default = "default_floor_general_visibility", skip_serializing_if = "LayerVisibility::is_floor_general_default")]
+    #[serde(
+        default = "default_floor_general_visibility",
+        skip_serializing_if = "LayerVisibility::is_floor_general_default"
+    )]
     pub general: LayerVisibility,
     /// The user's preference for semi-transparency values for floors
-    #[serde(default = "default_floor_semi_transparency", skip_serializing_if = "is_default_floor_semi_transparency")]
+    #[serde(
+        default = "default_floor_semi_transparency",
+        skip_serializing_if = "is_default_floor_semi_transparency"
+    )]
     pub preferred_semi_transparency: f32,
 }
 
@@ -161,20 +170,35 @@ fn default_floor_general_visibility() -> LayerVisibility {
 pub struct GlobalDrawingVisibility {
     /// The global visibility that will be applied to the bottom-most drawings
     /// in the ranking.
-    #[serde(default = "default_bottom_drawing_visibility", skip_serializing_if = "LayerVisibility::is_opaque")]
+    #[serde(
+        default = "default_bottom_drawing_visibility",
+        skip_serializing_if = "LayerVisibility::is_opaque"
+    )]
     pub bottom: LayerVisibility,
     /// The user's preference for semi-transparency values for bottom drawings
-    #[serde(default = "default_drawing_semi_transparency", skip_serializing_if = "is_default_drawing_semi_transparency")]
+    #[serde(
+        default = "default_drawing_semi_transparency",
+        skip_serializing_if = "is_default_drawing_semi_transparency"
+    )]
     pub preferred_bottom_semi_transparency: f32,
     /// How many of the bottom-most drawings count as being on the bottom
-    #[serde(default = "default_bottom_drawing_count", skip_serializing_if = "is_default_bottom_drawing_count")]
+    #[serde(
+        default = "default_bottom_drawing_count",
+        skip_serializing_if = "is_default_bottom_drawing_count"
+    )]
     pub bottom_count: usize,
     /// The global visibility that will be applied to all drawings which are not
     /// on the bottom.
-    #[serde(default = "default_general_drawing_visibility", skip_serializing_if = "is_default_drawing_visibility")]
+    #[serde(
+        default = "default_general_drawing_visibility",
+        skip_serializing_if = "is_default_drawing_visibility"
+    )]
     pub general: LayerVisibility,
     /// The user's preference for semi-transparency values for general drawings
-    #[serde(default = "default_drawing_semi_transparency", skip_serializing_if = "is_default_drawing_semi_transparency")]
+    #[serde(
+        default = "default_drawing_semi_transparency",
+        skip_serializing_if = "is_default_drawing_semi_transparency"
+    )]
     pub preferred_general_semi_transparency: f32,
 }
 

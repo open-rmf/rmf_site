@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    site::DrawingMarker,
-    interaction::*,
-};
+use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
 use rmf_site_format::{
@@ -143,8 +140,18 @@ pub fn add_outline_visualization(
 pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
-        (Entity, &Hovered, &Selected, &OutlineVisualization, Option<&SuppressOutline>),
-        Or<(Changed<Hovered>, Changed<Selected>, Changed<SuppressOutline>)>,
+        (
+            Entity,
+            &Hovered,
+            &Selected,
+            &OutlineVisualization,
+            Option<&SuppressOutline>,
+        ),
+        Or<(
+            Changed<Hovered>,
+            Changed<Selected>,
+            Changed<SuppressOutline>,
+        )>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {

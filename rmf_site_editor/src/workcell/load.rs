@@ -27,8 +27,8 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID,
-    WorkcellCollisionMarker, WorkcellVisualMarker, Workcell,
+    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
+    WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 
 pub struct LoadWorkcell {
@@ -40,10 +40,7 @@ pub struct LoadWorkcell {
     pub default_file: Option<PathBuf>,
 }
 
-fn generate_workcell_entities(
-    commands: &mut Commands,
-    workcell: &Workcell,
-) -> Entity {
+fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> Entity {
     // Create hashmap of ids to entity to correctly generate hierarchy
     let mut id_to_entity = HashMap::new();
     // Hashmap of parent id to list of its children entities

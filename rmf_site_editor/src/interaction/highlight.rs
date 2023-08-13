@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    site::DrawingMarker,
-};
+use crate::{interaction::*, site::DrawingMarker};
 use bevy::prelude::*;
 
 #[derive(Component)]
@@ -46,15 +43,19 @@ pub fn add_highlight_visualization(
     new_drawings: Query<Entity, Added<DrawingMarker>>,
 ) {
     for e in &new_drawings {
-        commands
-            .entity(e)
-            .insert(Highlight::for_drawing());
+        commands.entity(e).insert(Highlight::for_drawing());
     }
 }
 
 pub fn update_highlight_visualization(
     highlightable: Query<
-        (&Hovered, &Selected, &Handle<StandardMaterial>, &Highlight, Option<&SuppressHighlight>),
+        (
+            &Hovered,
+            &Selected,
+            &Handle<StandardMaterial>,
+            &Highlight,
+            Option<&SuppressHighlight>,
+        ),
         Or<(
             Changed<Hovered>,
             Changed<Selected>,

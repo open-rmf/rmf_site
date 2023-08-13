@@ -16,9 +16,7 @@
 */
 
 use crate::{
-    site::{
-        CabinDoorId, NameInSite, LevelElevation, SiteID, ToggleLiftDoorAvailability
-    },
+    site::{CabinDoorId, LevelElevation, NameInSite, SiteID, ToggleLiftDoorAvailability},
     widgets::{
         inspector::{InspectOptionF32, SelectionWidget},
         AppEvents, Icons,

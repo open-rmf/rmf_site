@@ -15,10 +15,10 @@
  *
 */
 
-use bevy_egui::egui::{ComboBox, Ui};
-use rmf_site_format::{AssetSource, RecallAssetSource};
 use crate::site::DefaultFile;
+use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
+use rmf_site_format::{AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
@@ -35,7 +35,11 @@ impl<'a> InspectAssetSource<'a> {
         recall: &'a RecallAssetSource,
         default_file: Option<&'a DefaultFile>,
     ) -> Self {
-        Self { source, recall, default_file }
+        Self {
+            source,
+            recall,
+            default_file,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
@@ -72,7 +76,9 @@ impl<'a> InspectAssetSource<'a> {
                     let mut is_relative = path.is_relative();
                     if ui.checkbox(&mut is_relative, "Relative").clicked() {
                         if is_relative {
-                            let parent_dir = default_file.0.parent()
+                            let parent_dir = default_file
+                                .0
+                                .parent()
                                 .map(|p| p.to_str())
                                 .flatten()
                                 .unwrap_or("");
@@ -98,8 +104,11 @@ impl<'a> InspectAssetSource<'a> {
                     if ui.button("Browse").clicked() {
                         if let Some(file) = FileDialog::new().pick_file() {
                             if let Some(src) = file.to_str() {
-                                if let (Some(default_file), true) = (self.default_file, is_relative) {
-                                    let parent_dir = default_file.0.parent()
+                                if let (Some(default_file), true) = (self.default_file, is_relative)
+                                {
+                                    let parent_dir = default_file
+                                        .0
+                                        .parent()
                                         .map(|p| p.to_str())
                                         .flatten()
                                         .unwrap_or("");

@@ -19,13 +19,13 @@ use crate::{
     interaction::Hover,
     recency::ChangeRank,
     site::{
-        Change, LayerVisibility, SiteID, VisibilityCycle, BeginEditDrawing,
-        PreferredSemiTransparency,
+        BeginEditDrawing, Change, LayerVisibility, PreferredSemiTransparency, SiteID,
+        VisibilityCycle,
     },
     widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayerButton},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ImageButton, Ui, DragValue};
+use bevy_egui::egui::{DragValue, ImageButton, Ui};
 
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
@@ -79,18 +79,22 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
                 .show(ui);
 
             if !self.is_floor {
-                let response = ui.add(ImageButton::new(
-                    self.events.layers.icons.edit.egui(), [18., 18.]
-                )).on_hover_text("Edit Drawing");
+                let response = ui
+                    .add(ImageButton::new(
+                        self.events.layers.icons.edit.egui(),
+                        [18., 18.],
+                    ))
+                    .on_hover_text("Edit Drawing");
 
                 if response.hovered() {
                     self.events.request.hover.send(Hover(Some(self.entity)));
                 }
 
                 if response.clicked() {
-                    self.events.layers.begin_edit_drawing.send(
-                        BeginEditDrawing(self.entity)
-                    );
+                    self.events
+                        .layers
+                        .begin_edit_drawing
+                        .send(BeginEditDrawing(self.entity));
                 }
             }
         }
@@ -123,11 +127,14 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         }
 
         if let Some(LayerVisibility::Alpha(mut alpha)) = self.layer_vis {
-            if ui.add(
-                DragValue::new(&mut alpha)
-                    .clamp_range(0_f32..=1_f32)
-                    .speed(0.01)
-            ).changed() {
+            if ui
+                .add(
+                    DragValue::new(&mut alpha)
+                        .clamp_range(0_f32..=1_f32)
+                        .speed(0.01),
+                )
+                .changed()
+            {
                 self.events
                     .layers
                     .layer_vis

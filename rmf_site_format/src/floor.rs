@@ -26,7 +26,10 @@ pub struct Floor<T: RefTrait> {
     pub anchors: Path<T>,
     #[serde(default, skip_serializing_if = "is_default")]
     pub texture: Texture,
-    #[serde(default = "PreferredSemiTransparency::for_floor", skip_serializing_if = "PreferredSemiTransparency::is_default_for_floor")]
+    #[serde(
+        default = "PreferredSemiTransparency::for_floor",
+        skip_serializing_if = "PreferredSemiTransparency::is_default_for_floor"
+    )]
     pub preferred_semi_transparency: PreferredSemiTransparency,
     #[serde(skip)]
     pub marker: FloorMarker,

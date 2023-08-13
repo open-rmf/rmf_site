@@ -18,7 +18,7 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{Category, LevelElevation, SiteAssets, NameOfSite, LANE_LAYER_START},
+    site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},

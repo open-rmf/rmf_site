@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        ConsiderLocationTag, LocationTag, LocationTags, Model, RecallAssetSource,
-        RecallLocationTags, DefaultFile,
+        ConsiderLocationTag, DefaultFile, LocationTag, LocationTags, Model, RecallAssetSource,
+        RecallLocationTags,
     },
     widgets::{
         inspector::{InspectAssetSource, InspectName},
@@ -152,7 +152,8 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         default_file: Option<&'a DefaultFile>,
     ) -> Option<Model> {
         let new_name = InspectName::new(&model.name).show(ui);
-        let new_source = InspectAssetSource::new(&model.source, &recall_asset, default_file).show(ui);
+        let new_source =
+            InspectAssetSource::new(&model.source, &recall_asset, default_file).show(ui);
 
         if new_name.is_some() || new_source.is_some() {
             let mut new_model = model.clone();

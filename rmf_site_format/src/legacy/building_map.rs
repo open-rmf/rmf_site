@@ -1,12 +1,12 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    alignment::align_legacy_building, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Fiducial as SiteFiducial,
-    FiducialMarker, Guided, Lane as SiteLane, LaneMarker, Level as SiteLevel,
-    LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph, Navigation,
-    OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane, Rotation, Site,
-    SiteProperties, DEFAULT_NAV_GRAPH_COLORS, LevelElevation, NameOfSite,
-    DrawingProperties, PreferredSemiTransparency, FiducialGroup, Affiliation,
+    alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
+    NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
+    PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
+    DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -227,7 +227,7 @@ impl BuildingMap {
                 // Use this transform to create anchors that pin the main
                 // drawing to where it belongs in Cartesian coordinates.
                 let drawing_tf = DAffine2::from_scale_angle_translation(
-                    DVec2::splat(1.0/pixels_per_meter.0 as f64),
+                    DVec2::splat(1.0 / pixels_per_meter.0 as f64),
                     pose.trans[2] as f64,
                     DVec2::new(pose.trans[0] as f64, pose.trans[1] as f64),
                 );
@@ -237,34 +237,32 @@ impl BuildingMap {
                     // Do not add this anchor to the vertex_to_anchor_id map
                     // because this fiducial is not really recognized as a
                     // vertex to the building format.
-                    drawing_anchors.insert(
-                        anchor_id,
-                        [fiducial.0 as f32, fiducial.1 as f32].into()
-                    );
+                    drawing_anchors
+                        .insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
                     let affiliation = if fiducial.2.is_empty() {
                         // We assume an empty reference name means this fiducial
                         // is not really being used.
                         Affiliation(None)
                     } else {
                         let name = &fiducial.2;
-                        let group_id = if let Some((group_id, _)) = fiducial_groups.iter().find(
-                            |(_, group)| group.name.0 == *name
-                        ) {
+                        let group_id = if let Some((group_id, _)) = fiducial_groups
+                            .iter()
+                            .find(|(_, group)| group.name.0 == *name)
+                        {
                             // The group already exists
                             *group_id
                         } else {
                             // The group does not exist yet, so let's create it
                             let group_id = site_id.next().unwrap();
-                            fiducial_groups.insert(
-                                group_id,
-                                FiducialGroup::new(NameInSite(name.clone())),
-                            );
+                            fiducial_groups
+                                .insert(group_id, FiducialGroup::new(NameInSite(name.clone())));
                             group_id
                         };
                         let drawing_coords = DVec2::new(fiducial.0, fiducial.1);
-                        cartesian_fiducials.entry(group_id).or_default().push(
-                            drawing_tf.transform_point2(drawing_coords)
-                        );
+                        cartesian_fiducials
+                            .entry(group_id)
+                            .or_default()
+                            .push(drawing_tf.transform_point2(drawing_coords));
 
                         Affiliation(Some(group_id))
                     };
@@ -284,10 +282,7 @@ impl BuildingMap {
                     // building format.
                     let anchor_id = site_id.next().unwrap();
                     let fiducial_id = site_id.next().unwrap();
-                    drawing_anchors.insert(
-                        anchor_id,
-                        [feature.x as f32, feature.y as f32].into()
-                    );
+                    drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
 
                     drawing_fiducials.insert(
                         fiducial_id,
@@ -298,12 +293,15 @@ impl BuildingMap {
                         },
                     );
 
-                    feature_info.insert(feature.id.clone(), FeatureInfo {
-                        fiducial_id,
-                        on_anchor: anchor_id,
-                        in_drawing: primary_drawing_id,
-                        name: (!feature.name.is_empty()).then(|| feature.name.clone()),
-                    });
+                    feature_info.insert(
+                        feature.id.clone(),
+                        FeatureInfo {
+                            fiducial_id,
+                            on_anchor: anchor_id,
+                            in_drawing: primary_drawing_id,
+                            name: (!feature.name.is_empty()).then(|| feature.name.clone()),
+                        },
+                    );
                 }
 
                 let mut measurements = BTreeMap::new();
@@ -365,10 +363,7 @@ impl BuildingMap {
                     // building format.
                     let anchor_id = site_id.next().unwrap();
                     let fiducial_id = site_id.next().unwrap();
-                    drawing_anchors.insert(
-                        anchor_id,
-                        [feature.x as f32, feature.y as f32].into()
-                    );
+                    drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
 
                     drawing_fiducials.insert(
                         fiducial_id,
@@ -379,12 +374,15 @@ impl BuildingMap {
                         },
                     );
 
-                    feature_info.insert(feature.id.clone(), FeatureInfo {
-                        fiducial_id,
-                        on_anchor: anchor_id,
-                        in_drawing: drawing_id,
-                        name: (!feature.name.is_empty()).then(|| feature.name.clone()),
-                    });
+                    feature_info.insert(
+                        feature.id.clone(),
+                        FeatureInfo {
+                            fiducial_id,
+                            on_anchor: anchor_id,
+                            in_drawing: drawing_id,
+                            name: (!feature.name.is_empty()).then(|| feature.name.clone()),
+                        },
+                    );
                 }
 
                 drawings.insert(
@@ -406,13 +404,17 @@ impl BuildingMap {
 
             for (i, constraint) in level.constraints.iter().enumerate() {
                 let fiducial_group_id = site_id.next().unwrap();
-                let group_name = constraint.ids.iter().find_map(|id| {
-                    if let Some(info) = feature_info.get(id) {
-                        info.name.clone()
-                    } else {
-                        None
-                    }
-                }).unwrap_or_else(|| format!("{}_constraint_{i}", level_name));
+                let group_name = constraint
+                    .ids
+                    .iter()
+                    .find_map(|id| {
+                        if let Some(info) = feature_info.get(id) {
+                            info.name.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| format!("{}_constraint_{i}", level_name));
                 fiducial_groups.insert(
                     fiducial_group_id,
                     FiducialGroup::new(NameInSite(group_name)),
@@ -572,12 +574,13 @@ impl BuildingMap {
             );
         }
 
-        let cartesian_fiducials: BTreeMap<u32, SiteFiducial<u32>> = cartesian_fiducials.into_iter().map(
-            |(group_id, locations)| {
-                let p = locations.iter().fold(
-                    DVec2::ZERO,
-                    |base, next| base + *next
-                ) / locations.len() as f64;
+        let cartesian_fiducials: BTreeMap<u32, SiteFiducial<u32>> = cartesian_fiducials
+            .into_iter()
+            .map(|(group_id, locations)| {
+                let p = locations
+                    .iter()
+                    .fold(DVec2::ZERO, |base, next| base + *next)
+                    / locations.len() as f64;
                 let anchor_id = site_id.next().unwrap();
                 site_anchors.insert(anchor_id, [p.x as f32, p.y as f32].into());
                 let fiducial_id = site_id.next().unwrap();
@@ -587,10 +590,10 @@ impl BuildingMap {
                         anchor: anchor_id.into(),
                         affiliation: Affiliation(Some(group_id)),
                         marker: FiducialMarker,
-                    }
+                    },
                 )
-            }
-        ).collect();
+            })
+            .collect();
 
         Ok(Site {
             format_version: Default::default(),

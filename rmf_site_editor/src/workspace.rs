@@ -25,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, Site, SiteProperties, Workcell, NameOfSite};
+use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 

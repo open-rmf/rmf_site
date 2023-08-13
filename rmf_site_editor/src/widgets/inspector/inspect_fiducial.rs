@@ -16,17 +16,11 @@
 */
 
 use crate::{
-    site::{
-        Affiliation, FiducialMarker, FiducialUsage, NameInSite, Group,
-        FiducialGroup, Change
-    },
+    site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
     widgets::{AppEvents, Icons},
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{ComboBox, Ui, ImageButton};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{ComboBox, ImageButton, Ui};
 
 #[derive(Resource, Default)]
 pub struct SearchForFiducial(pub String);
@@ -42,19 +36,23 @@ enum SearchResult {
 impl SearchResult {
     fn consider(&mut self, entity: Entity) {
         match self {
-            Self::NoMatch => { *self = SearchResult::Match(entity); }
-            Self::Match(_) => { *self = SearchResult::Conflict("Multiple groups have this name"); }
-            Self::Conflict(_) | Self::Current | Self::Empty => { }
+            Self::NoMatch => {
+                *self = SearchResult::Match(entity);
+            }
+            Self::Match(_) => {
+                *self = SearchResult::Conflict("Multiple groups have this name");
+            }
+            Self::Conflict(_) | Self::Current | Self::Empty => {}
         }
     }
 
     fn conflict(&mut self, text: &'static str) {
         match self {
             // If we already found a match then don't change the behavior
-            Self::Match(_) | Self::Current | Self::Conflict(_) | Self::Empty => { }
+            Self::Match(_) | Self::Current | Self::Conflict(_) | Self::Empty => {}
             // If there is not a match, prevent the user from creating a duplicate
             // fiducial name
-            _ => { *self = Self::Conflict(text) }
+            _ => *self = Self::Conflict(text),
         }
     }
 }
@@ -79,7 +77,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
         params: &'a InspectFiducialParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { entity, params, events }
+        Self {
+            entity,
+            params,
+            events,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -99,8 +101,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                 Some("<none>".to_owned())
             }
         };
-        let selected_text = get_group_name(*affiliation)
-            .unwrap_or_else(|| "<broken reference>".to_owned());
+        let selected_text =
+            get_group_name(*affiliation).unwrap_or_else(|| "<broken reference>".to_owned());
 
         ui.horizontal(|ui| {
             let search = &mut self.events.change_more.search_for_fiducial.0;
@@ -135,7 +137,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if any_partial_matches {
-                if ui.add(ImageButton::new(self.params.icons.search.egui(), [18., 18.]))
+                if ui
+                    .add(ImageButton::new(
+                        self.params.icons.search.egui(),
+                        [18., 18.],
+                    ))
                     .on_hover_text("Search results for this text can be found below")
                     .clicked()
                 {
@@ -148,7 +154,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             match result {
                 SearchResult::Empty => {
-                    if ui.add(ImageButton::new(self.params.icons.hidden.egui(), [18., 18.]))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.hidden.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("An empty string is not a good fiducial group name")
                         .clicked()
                     {
@@ -156,7 +166,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::Current => {
-                    if ui.add(ImageButton::new(self.params.icons.selected.egui(), [18., 18.]))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.selected.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("This is the name of the fiducial's current group")
                         .clicked()
                     {
@@ -164,31 +178,44 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::NoMatch => {
-                    if ui.add(ImageButton::new(self.params.icons.add.egui(), [18., 18.]))
+                    if ui
+                        .add(ImageButton::new(self.params.icons.add.egui(), [18., 18.]))
                         .on_hover_text("Create a new group for this fiducial")
                         .clicked()
                     {
-                        let new_group = self.events.commands
+                        let new_group = self
+                            .events
+                            .commands
                             .spawn(FiducialGroup::new(NameInSite(search.clone())))
                             .set_parent(tracker.site())
                             .id();
-                        self.events.change_more.affiliation.send(
-                            Change::new(Affiliation(Some(new_group)), self.entity)
-                        );
+                        self.events
+                            .change_more
+                            .affiliation
+                            .send(Change::new(Affiliation(Some(new_group)), self.entity));
                     }
                 }
                 SearchResult::Match(group) => {
-                    if ui.add(ImageButton::new(self.params.icons.confirm.egui(), [18., 18.]))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.confirm.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("Select this group")
                         .clicked()
                     {
-                        self.events.change_more.affiliation.send(
-                            Change::new(Affiliation(Some(group)), self.entity)
-                        );
+                        self.events
+                            .change_more
+                            .affiliation
+                            .send(Change::new(Affiliation(Some(group)), self.entity));
                     }
                 }
                 SearchResult::Conflict(text) => {
-                    if ui.add(ImageButton::new(self.params.icons.reject.egui(), [18., 18.]))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.reject.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text(text)
                         .clicked()
                     {
@@ -203,42 +230,37 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
 
         let mut new_affiliation = affiliation.clone();
         ui.horizontal(|ui| {
-            if ui.add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
+            if ui
+                .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
                 .on_hover_text("Remove this fiducial from its group")
                 .clicked()
             {
-                self.events.change_more.affiliation.send(
-                    Change::new(Affiliation(None), self.entity)
-                );
+                self.events
+                    .change_more
+                    .affiliation
+                    .send(Change::new(Affiliation(None), self.entity));
             }
             ComboBox::from_id_source("fiducial_affiliation")
                 .selected_text(selected_text)
                 .show_ui(ui, |ui| {
                     if let Some(group_name) = get_group_name(new_affiliation) {
-                        ui.selectable_value(
-                            &mut new_affiliation,
-                            *affiliation,
-                            group_name,
-                        );
+                        ui.selectable_value(&mut new_affiliation, *affiliation, group_name);
                     }
 
                     for (group, name) in tracker.unused() {
                         if name.contains(&self.events.change_more.search_for_fiducial.0) {
                             let select_affiliation = Affiliation(Some(*group));
-                            ui.selectable_value(
-                                &mut new_affiliation,
-                                select_affiliation,
-                                name,
-                            );
+                            ui.selectable_value(&mut new_affiliation, select_affiliation, name);
                         }
                     }
                 });
         });
 
         if new_affiliation != *affiliation {
-            self.events.change_more.affiliation.send(
-                Change::new(new_affiliation, self.entity)
-            );
+            self.events
+                .change_more
+                .affiliation
+                .send(Change::new(new_affiliation, self.entity));
         }
         ui.separator();
     }

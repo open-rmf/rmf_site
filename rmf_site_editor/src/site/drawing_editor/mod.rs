@@ -20,16 +20,15 @@ use bevy::{prelude::*, render::view::visibility::RenderLayers};
 pub mod alignment;
 pub use alignment::*;
 
-use crate::{
-    interaction::{Selection, ChangeProjectionMode, SuppressHighlight, SuppressOutline},
-    site::{
-        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, Pending,
-        PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
-        NameOfSite,
-    },
-    WorkspaceMarker, CurrentWorkspace,
-};
 use crate::AppState;
+use crate::{
+    interaction::{ChangeProjectionMode, Selection, SuppressHighlight, SuppressOutline},
+    site::{
+        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, NameOfSite, Pending,
+        PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
+    },
+    CurrentWorkspace, WorkspaceMarker,
+};
 
 use std::collections::HashSet;
 
@@ -57,7 +56,10 @@ pub struct CurrentEditDrawing {
 impl FromWorld for CurrentEditDrawing {
     fn from_world(world: &mut World) -> Self {
         let editor = world.spawn(SpatialBundle::default()).id();
-        Self { editor, target: None }
+        Self {
+            editor,
+            target: None,
+        }
     }
 }
 
@@ -115,13 +117,13 @@ fn switch_edit_drawing_mode(
             };
 
             current.target = Some(EditDrawing { drawing: *e, level });
-            commands.entity(*e)
+            commands
+                .entity(*e)
                 .set_parent(current.editor)
                 .insert(Visibility { is_visible: true })
                 .insert(ComputedVisibility::default())
                 .insert(PreventDeletion::because(
-                    "Cannot delete a drawing that is currently being edited"
-                    .to_owned()
+                    "Cannot delete a drawing that is currently being edited".to_owned(),
                 ))
                 // Highlighting the drawing looks bad when the user will be
                 // constantly hovering over it anyway.
@@ -193,11 +195,9 @@ fn switch_edit_drawing_mode(
 }
 
 /// Restore a drawing that was being edited back to its normal place and behavior
-fn restore_edited_drawing(
-    edit: &EditDrawing,
-    commands: &mut Commands,
-) {
-    commands.entity(edit.drawing)
+fn restore_edited_drawing(edit: &EditDrawing, commands: &mut Commands) {
+    commands
+        .entity(edit.drawing)
         .set_parent(edit.level)
         .remove::<PreventDeletion>()
         .remove::<SuppressHighlight>();
@@ -240,7 +240,10 @@ fn make_drawing_default_selected(
 ) {
     if selection.is_changed() {
         if selection.0.is_none() {
-            let drawing_entity = current.target().expect("No drawing while spawning drawing anchor").drawing;
+            let drawing_entity = current
+                .target()
+                .expect("No drawing while spawning drawing anchor")
+                .drawing;
             selection.0 = Some(drawing_entity);
         }
     }
@@ -248,8 +251,7 @@ fn make_drawing_default_selected(
 
 impl Plugin for DrawingEditorPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<BeginEditDrawing>()
+        app.add_event::<BeginEditDrawing>()
             .add_event::<FinishEditDrawing>()
             .add_event::<AlignSiteDrawings>()
             .init_resource::<CurrentEditDrawing>()

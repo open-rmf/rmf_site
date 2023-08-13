@@ -365,7 +365,12 @@ fn camera_controls(
     mut change_mode: EventReader<ChangeProjectionMode>,
 ) {
     if let Some(mode) = change_mode.iter().last() {
-        controls.use_mode(mode.0, &mut bevy_cameras, &mut visibility, headlight_toggle.0);
+        controls.use_mode(
+            mode.0,
+            &mut bevy_cameras,
+            &mut visibility,
+            headlight_toggle.0,
+        );
     }
 
     if headlight_toggle.is_changed() {

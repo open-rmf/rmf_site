@@ -15,12 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::Selectable,
-    shapes::*,
-    site::*,
-    RecencyRanking,
-};
+use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
 use bevy::{
     math::Affine3A,
     prelude::*,
@@ -175,17 +170,21 @@ fn floor_material(
     specific: Option<&LayerVisibility>,
     general: Option<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) -> StandardMaterial {
-    let alpha = specific.copied()
-        .unwrap_or_else(
-            || general.map(|(v, r)| {
-                if r.is_empty() {
-                    &v.without_drawings
-                } else {
-                    &v.general
-                }
-            }).copied()
-            .unwrap_or(LayerVisibility::Opaque)
-        ).alpha();
+    let alpha = specific
+        .copied()
+        .unwrap_or_else(|| {
+            general
+                .map(|(v, r)| {
+                    if r.is_empty() {
+                        &v.without_drawings
+                    } else {
+                        &v.general
+                    }
+                })
+                .copied()
+                .unwrap_or(LayerVisibility::Opaque)
+        })
+        .alpha();
 
     Color::rgba(0.3, 0.3, 0.3, alpha).into()
 }
@@ -212,7 +211,9 @@ pub fn add_floor_visuals(
         let mesh = make_floor_mesh(e, new_floor, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
-        let default = parent.map(|p| default_floor_vis.get(p.get()).ok()).flatten();
+        let default = parent
+            .map(|p| default_floor_vis.get(p.get()).ok())
+            .flatten();
         let material = materials.add(floor_material(vis, default));
 
         let mesh_entity_id = cmd
@@ -295,7 +296,13 @@ pub fn update_floor_for_moved_anchors(
 
 #[inline]
 fn iter_update_floor_visibility<'a>(
-    iter: impl Iterator<Item = (Option<&'a LayerVisibility>, Option<&'a Parent>, &'a FloorSegments)>,
+    iter: impl Iterator<
+        Item = (
+            Option<&'a LayerVisibility>,
+            Option<&'a Parent>,
+            &'a FloorSegments,
+        ),
+    >,
     material_handles: &Query<&Handle<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
     default_floor_vis: &Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
@@ -303,7 +310,9 @@ fn iter_update_floor_visibility<'a>(
     for (vis, parent, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default = parent.map(|p| default_floor_vis.get(p.get()).ok()).flatten();
+                let default = parent
+                    .map(|p| default_floor_vis.get(p.get()).ok())
+                    .flatten();
                 *mat = floor_material(vis, default);
             }
         }
@@ -320,7 +329,10 @@ pub fn update_floor_visibility(
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     changed_default_floor_vis: Query<
         &Children,
-        Or<(Changed<GlobalFloorVisibility>, Changed<RecencyRanking<DrawingMarker>>)>,
+        Or<(
+            Changed<GlobalFloorVisibility>,
+            Changed<RecencyRanking<DrawingMarker>>,
+        )>,
     >,
 ) {
     iter_update_floor_visibility(

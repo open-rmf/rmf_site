@@ -17,7 +17,7 @@
 
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
-use rmf_site_format::{LevelElevation, NameOfSite, NameInSite, LevelProperties};
+use rmf_site_format::{LevelElevation, LevelProperties, NameInSite, NameOfSite};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]

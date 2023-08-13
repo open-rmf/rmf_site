@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Bundle};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
@@ -50,7 +50,10 @@ pub struct DrawingProperties {
     pub source: AssetSource,
     pub pose: Pose,
     pub pixels_per_meter: PixelsPerMeter,
-    #[serde(default = "PreferredSemiTransparency::for_drawing", skip_serializing_if = "PreferredSemiTransparency::is_default_for_drawing")]
+    #[serde(
+        default = "PreferredSemiTransparency::for_drawing",
+        skip_serializing_if = "PreferredSemiTransparency::is_default_for_drawing"
+    )]
     pub preferred_semi_transparency: PreferredSemiTransparency,
 }
 

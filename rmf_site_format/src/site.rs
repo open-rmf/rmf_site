@@ -17,9 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Bundle, Entity, Deref, DerefMut};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io, hash::Hash};
+use std::{collections::BTreeMap, hash::Hash, io};
 
 pub use ron::ser::PrettyConfig as Style;
 

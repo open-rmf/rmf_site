@@ -43,7 +43,6 @@ impl Default for LevelProperties {
     }
 }
 
-
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]

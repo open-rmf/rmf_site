@@ -1,5 +1,8 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{Angle, CustomTexture, Floor as SiteFloor, FloorMarker, Path, Texture, TextureSource, PreferredSemiTransparency};
+use crate::{
+    Angle, CustomTexture, Floor as SiteFloor, FloorMarker, Path, PreferredSemiTransparency,
+    Texture, TextureSource,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

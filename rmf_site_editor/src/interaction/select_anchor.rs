@@ -18,17 +18,17 @@
 use crate::{
     interaction::*,
     site::{
-        drawing_editor::CurrentEditDrawing,
-        Anchor, AnchorBundle, Category, Dependents, DrawingMarker, Original, PathBehavior, Pending,
+        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, Dependents,
+        DrawingMarker, Original, PathBehavior, Pending,
     },
     CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
     Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
-    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path,
-    PixelsPerMeter, Point, Pose, Side, NameOfSite, Wall, WorkcellCollisionMarker,
-    WorkcellModel, WorkcellVisualMarker,
+    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, NameOfSite, Path,
+    PixelsPerMeter, Point, Pose, Side, Wall, WorkcellCollisionMarker, WorkcellModel,
+    WorkcellVisualMarker,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -2038,8 +2038,14 @@ pub fn handle_select_anchor_mode(
                     new_anchor
                 }
                 Scope::Drawing => {
-                    let drawing_entity = current_drawing.target().expect("No drawing while spawning drawing anchor").drawing;
-                    let (parent, ppm) = params.drawings.get(drawing_entity).expect("Entity being edited is not a drawing");
+                    let drawing_entity = current_drawing
+                        .target()
+                        .expect("No drawing while spawning drawing anchor")
+                        .drawing;
+                    let (parent, ppm) = params
+                        .drawings
+                        .get(drawing_entity)
+                        .expect("Entity being edited is not a drawing");
                     // We also need to have a transform such that the anchor will spawn in the
                     // right spot
                     let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
@@ -2103,9 +2109,7 @@ pub fn handle_select_anchor_mode(
             .filter(|s| anchors.contains(*s))
         {
             request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
-                Some(next_mode) => {
-                    next_mode
-                }
+                Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();
                     *mode = InteractionMode::Inspect;

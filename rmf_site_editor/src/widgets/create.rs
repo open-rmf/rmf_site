@@ -18,15 +18,15 @@
 use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{Change, DrawingBundle, DrawingMarker, Recall, DefaultFile},
-    AppEvents, AppState, SuppressRecencyRank, CurrentWorkspace,
+    site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall},
+    AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank,
 };
-use bevy::{prelude::*, ecs::system::SystemParam};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending,
-    RecallAssetSource, Scale, WorkcellModel,
+    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending, RecallAssetSource,
+    Scale, WorkcellModel,
 };
 
 #[derive(SystemParam)]
@@ -40,10 +40,7 @@ pub struct CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
 }
 
 impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        params: &'a CreateParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a CreateParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
@@ -99,34 +96,44 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                     CollapsingHeader::new("New drawing")
                         .default_open(false)
                         .show(ui, |ui| {
-                            let default_file = self.events.request.current_workspace.root
+                            let default_file = self
+                                .events
+                                .request
+                                .current_workspace
+                                .root
                                 .map(|e| self.params.default_file.get(e).ok())
                                 .flatten();
                             if let Some(new_asset_source) = InspectAssetSource::new(
                                 &self.events.display.pending_drawings.source,
                                 &self.events.display.pending_drawings.recall_source,
                                 default_file,
-                            ).show(ui) {
-                                self.events.display.pending_drawings.recall_source.remember(
-                                    &new_asset_source
-                                );
+                            )
+                            .show(ui)
+                            {
+                                self.events
+                                    .display
+                                    .pending_drawings
+                                    .recall_source
+                                    .remember(&new_asset_source);
                                 self.events.display.pending_drawings.source = new_asset_source;
                             }
                             ui.add_space(5.0);
                             if ui.button("Add Drawing").clicked() {
-                                self.events.commands.spawn(DrawingBundle::new(
-                                    DrawingProperties {
+                                self.events
+                                    .commands
+                                    .spawn(DrawingBundle::new(DrawingProperties {
                                         source: self.events.display.pending_drawings.source.clone(),
                                         ..default()
-                                    })
-                                );
+                                    }));
                             }
                         });
                 }
                 AppState::SiteDrawingEditor => {
                     if ui.button("Fiducial").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor::create_new_point().for_drawing_fiducial().into(),
+                            SelectAnchor::create_new_point()
+                                .for_drawing_fiducial()
+                                .into(),
                         ));
                     }
                     if ui.button("Measurement").clicked() {
@@ -150,21 +157,31 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                     CollapsingHeader::new("New model")
                         .default_open(false)
                         .show(ui, |ui| {
-                            let default_file = self.events.request.current_workspace.root
+                            let default_file = self
+                                .events
+                                .request
+                                .current_workspace
+                                .root
                                 .map(|e| self.params.default_file.get(e).ok())
                                 .flatten();
                             if let Some(new_asset_source) = InspectAssetSource::new(
                                 &self.events.display.pending_model.source,
                                 &self.events.display.pending_model.recall_source,
                                 default_file,
-                            ).show(ui) {
-                                self.events.display.pending_model.recall_source.remember(&new_asset_source);
+                            )
+                            .show(ui)
+                            {
+                                self.events
+                                    .display
+                                    .pending_model
+                                    .recall_source
+                                    .remember(&new_asset_source);
                                 self.events.display.pending_model.source = new_asset_source;
                             }
                             ui.add_space(5.0);
-                            if let Some(new_scale) = InspectScale::new(
-                                &self.events.display.pending_model.scale,
-                            ).show(ui) {
+                            if let Some(new_scale) =
+                                InspectScale::new(&self.events.display.pending_model.scale).show(ui)
+                            {
                                 self.events.display.pending_model.scale = new_scale;
                             }
                             ui.add_space(5.0);
@@ -175,7 +192,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 AppState::SiteEditor => {
                                     if ui.button("Spawn model").clicked() {
                                         let model = Model {
-                                            source: self.events.display.pending_model.source.clone(),
+                                            source: self
+                                                .events
+                                                .display
+                                                .pending_model
+                                                .source
+                                                .clone(),
                                             scale: self.events.display.pending_model.scale,
                                             ..default()
                                         };
@@ -190,8 +212,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     if ui.button("Spawn visual").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self.events.display.pending_model.source).into(),
-                                                scale: Some(*self.events.display.pending_model.scale),
+                                                filename: (&self
+                                                    .events
+                                                    .display
+                                                    .pending_model
+                                                    .source)
+                                                    .into(),
+                                                scale: Some(
+                                                    *self.events.display.pending_model.scale,
+                                                ),
                                             },
                                             ..default()
                                         };
@@ -204,8 +233,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     if ui.button("Spawn collision").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self.events.display.pending_model.source).into(),
-                                                scale: Some(*self.events.display.pending_model.scale),
+                                                filename: (&self
+                                                    .events
+                                                    .display
+                                                    .pending_model
+                                                    .source)
+                                                    .into(),
+                                                scale: Some(
+                                                    *self.events.display.pending_model.scale,
+                                                ),
                                             },
                                             ..default()
                                         };
@@ -219,7 +255,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 }
                             }
                         });
-                    }
+                }
             }
         });
     }

@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    interaction::*,
-    site::*,
-};
+use crate::{interaction::*, site::*};
 
 #[derive(Component, Clone, Copy)]
 pub struct Popup {
@@ -29,10 +26,7 @@ pub struct Popup {
 
 pub fn add_popups(
     mut commands: Commands,
-    new_poppers: Query<Entity, Or<(
-        Added<LocationTags>,
-        Added<FiducialMarker>,
-    )>>,
+    new_poppers: Query<Entity, Or<(Added<LocationTags>, Added<FiducialMarker>)>>,
 ) {
     for e in &new_poppers {
         commands.entity(e).insert(Popup {

@@ -1,6 +1,6 @@
 use super::legacy::building_map::BuildingMap;
 use crate::RefTrait;
-use glam::{DMat2, DVec2, DAffine2};
+use glam::{DAffine2, DMat2, DVec2};
 use std::collections::HashMap;
 
 pub struct SiteVariables<T: RefTrait> {
@@ -26,11 +26,7 @@ pub struct DrawingVariables<T: RefTrait> {
 }
 
 impl<T: RefTrait> DrawingVariables<T> {
-    pub fn new(
-        position: DVec2,
-        yaw: f64,
-        scale: f64,
-    ) -> Self {
+    pub fn new(position: DVec2, yaw: f64, scale: f64) -> Self {
         Self {
             position,
             yaw,
@@ -69,9 +65,7 @@ impl Alignment {
     }
 }
 
-pub fn align_site<T: RefTrait>(
-    site_variables: &SiteVariables<T>,
-) -> HashMap<T, Alignment> {
+pub fn align_site<T: RefTrait>(site_variables: &SiteVariables<T>) -> HashMap<T, Alignment> {
     let mut drawing_map = HashMap::new();
     let mut measurements = Vec::new();
     let mut fiducials = Vec::new();
@@ -431,18 +425,15 @@ fn calculate_yaw_gradient(
 
     let mut weight = 0.0;
 
-    traverse_yaws(
-        fiducials, u,
-        |i, yaw_i, j, yaw_j| {
-            if !(has_ground_truth && i == 0) {
-                *LevelGradient::new(i, gradient).theta() += yaw_i - yaw_j;
-                weight += 1.0;
-            }
-
-            *LevelGradient::new(j, gradient).theta() += yaw_j - yaw_i;
+    traverse_yaws(fiducials, u, |i, yaw_i, j, yaw_j| {
+        if !(has_ground_truth && i == 0) {
+            *LevelGradient::new(i, gradient).theta() += yaw_i - yaw_j;
             weight += 1.0;
         }
-    );
+
+        *LevelGradient::new(j, gradient).theta() += yaw_j - yaw_i;
+        weight += 1.0;
+    });
 
     for x in gradient.iter_mut() {
         *x /= f64::max(weight, 1.0);
@@ -494,23 +485,20 @@ fn calculate_displacement_gradient(
 
     let mut weight = 0.0;
 
-    traverse_locations(
-        fiducials, u,
-        |i, f_ki, j, f_kj| {
-            let delta = f_ki - f_kj;
-            if !(has_ground_truth && i == 0) {
-                let mut grad_i = LevelGradient::new(i, gradient);
-                *grad_i.dx() += delta.x;
-                *grad_i.dy() += delta.y;
-                weight += 1.0;
-            }
-
-            let mut grad_j = LevelGradient::new(j, gradient);
-            *grad_j.dx() += -delta.x;
-            *grad_j.dy() += -delta.y;
+    traverse_locations(fiducials, u, |i, f_ki, j, f_kj| {
+        let delta = f_ki - f_kj;
+        if !(has_ground_truth && i == 0) {
+            let mut grad_i = LevelGradient::new(i, gradient);
+            *grad_i.dx() += delta.x;
+            *grad_i.dy() += delta.y;
             weight += 1.0;
         }
-    );
+
+        let mut grad_j = LevelGradient::new(j, gradient);
+        *grad_j.dx() += -delta.x;
+        *grad_j.dy() += -delta.y;
+        weight += 1.0;
+    });
 
     for x in gradient.iter_mut() {
         *x /= f64::max(weight, 1.0);

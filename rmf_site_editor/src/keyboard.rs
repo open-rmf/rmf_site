@@ -18,7 +18,7 @@
 use crate::{
     interaction::{
         camera_controls::{CameraControls, HeadlightToggle},
-        ChangeMode, InteractionMode, Selection, ChangeProjectionMode,
+        ChangeMode, ChangeProjectionMode, InteractionMode, Selection,
     },
     site::{AlignSiteDrawings, CurrentLevel, Delete},
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
