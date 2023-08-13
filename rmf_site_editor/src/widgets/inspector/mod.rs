@@ -93,7 +93,7 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         Category, Change, DrawingMarker, EdgeLabels, LayerVisibility, Original,
-        SiteID, BeginEditDrawing, DefaultFile,
+        SiteID, BeginEditDrawing, DefaultFile, AlignSiteDrawings,
     },
     widgets::AppEvents,
     AppState, CurrentWorkspace,
@@ -293,6 +293,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         self.events.layers.begin_edit_drawing.send(
                             BeginEditDrawing(selection)
                         );
+                    }
+                }
+                ui.add_space(10.0);
+                if ui.add(Button::new("Align Drawings")).clicked() {
+                    if let Some(site) = self.events.request.current_workspace.root {
+                        self.events.align_site.send(AlignSiteDrawings(site));
                     }
                 }
                 ui.add_space(10.0);

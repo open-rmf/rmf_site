@@ -1,8 +1,8 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
-    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Edge, Fiducial as SiteFiducial,
-    FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker, Level as SiteLevel,
+    alignment::align_legacy_building, Anchor, Angle, AssetSource, AssociatedGraphs,
+    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, Fiducial as SiteFiducial,
+    FiducialMarker, Guided, Lane as SiteLane, LaneMarker, Level as SiteLevel,
     LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph, Navigation,
     OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane, Rotation, Site,
     SiteProperties, DEFAULT_NAV_GRAPH_COLORS, LevelElevation, NameOfSite,
@@ -51,7 +51,7 @@ impl BuildingMap {
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
     fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
-        let alignments = align_building(&map);
+        let alignments = align_legacy_building(&map);
 
         let get_delta_yaw = |tf: &DAffine2| {
             DQuat::from_mat3(&DMat3::from_cols(

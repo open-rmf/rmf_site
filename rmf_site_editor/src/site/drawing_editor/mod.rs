@@ -17,8 +17,8 @@
 
 use bevy::{prelude::*, render::view::visibility::RenderLayers};
 
-pub mod optimizer;
-pub use optimizer::*;
+pub mod alignment;
+pub use alignment::*;
 
 use crate::{
     interaction::{Selection, ChangeProjectionMode, SuppressHighlight, SuppressOutline},

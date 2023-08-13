@@ -15,6 +15,8 @@
  *
 */
 
+pub mod alignment;
+
 pub mod agent;
 pub use agent::*;
 

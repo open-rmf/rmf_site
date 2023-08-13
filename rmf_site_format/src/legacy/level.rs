@@ -2,7 +2,7 @@ use super::{
     super::Light, door::Door, fiducial::Fiducial, floor::Floor, lane::Lane,
     measurement::Measurement, model::Model, physical_camera::PhysicalCamera, vertex::Vertex,
     wall::Wall,
-    optimization::Alignment,
+    super::alignment::Alignment,
 };
 use glam::DVec2;
 use serde::{Deserialize, Serialize};

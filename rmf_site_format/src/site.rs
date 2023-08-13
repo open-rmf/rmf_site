@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Component, Bundle, Entity, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, io, hash::Hash};
 
 pub use ron::ser::PrettyConfig as Style;
 
@@ -113,7 +113,7 @@ impl Site {
     }
 }
 
-pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static {}
+pub trait RefTrait: Ord + Eq + Copy + Send + Sync + Hash + 'static {}
 
 impl RefTrait for u32 {}
 

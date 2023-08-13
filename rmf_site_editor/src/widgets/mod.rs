@@ -471,10 +471,13 @@ fn site_visualizer_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Align Drawings")).clicked() {
-                            events.align_site.send(AlignSiteDrawings(
-                                events.request.current_workspace.root.unwrap(),
-                            ));
+                        if ui.add(Button::new("Align Drawings"))
+                            .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+                            .clicked()
+                        {
+                            if let Some(site) = events.request.current_workspace.root {
+                                events.align_site.send(AlignSiteDrawings(site));
+                            }
                         }
                         if ui.add(Button::image_and_text(
                             events.layers.icons.exit.egui(),

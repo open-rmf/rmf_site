@@ -250,12 +250,16 @@ impl Rotation {
 
 #[cfg(feature = "bevy")]
 impl Rotation {
-    pub fn as_yaw(&self) -> Self {
+    pub fn yaw(&self) -> Angle {
         match self {
-            Self::Yaw(_) => self.clone(),
-            Self::EulerExtrinsicXYZ([_, _, yaw]) => Self::Yaw(*yaw),
-            Self::Quat(_) => Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0)),
+            Self::Yaw(yaw) => *yaw,
+            Self::EulerExtrinsicXYZ([_, _, yaw]) => *yaw,
+            Self::Quat(_) => Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0),
         }
+    }
+
+    pub fn as_yaw(&self) -> Self {
+        Self::Yaw(self.yaw())
     }
 
     pub fn as_euler_extrinsic_xyz(&self) -> Self {
