@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
 use bevy::{
     math::Affine3A,
     prelude::*,
@@ -27,22 +27,6 @@ use lyon::{
     tessellation::{geometry_builder::simple_builder, *},
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
-
-#[derive(Debug, Clone, Copy, Default, Deref, DerefMut, Resource)]
-pub struct GlobalFloorVisibility(pub LayerVisibility);
-
-// Semi transparency for floors, more transparent than drawings to make them hidden
-const DEFAULT_FLOOR_SEMI_TRANSPARENCY: f32 = 0.2;
-
-/// Resource used to set what the alpha value for partially transparent floors should be
-#[derive(Clone, Resource, Deref, DerefMut)]
-pub struct FloorSemiTransparency(f32);
-
-impl Default for FloorSemiTransparency {
-    fn default() -> Self {
-        FloorSemiTransparency(DEFAULT_FLOOR_SEMI_TRANSPARENCY)
-    }
-}
 
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
@@ -192,11 +176,27 @@ fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
         .unwrap_or(FLOOR_LAYER_START)
 }
 
+#[inline]
 fn floor_transparency(
     specific: Option<&LayerVisibility>,
-    general: &LayerVisibility,
+    general: Option<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) -> (Color, AlphaMode) {
-    let alpha = specific.map(|s| s.alpha()).unwrap_or(general.alpha());
+    let alpha = specific
+        .copied()
+        .unwrap_or_else(|| {
+            general
+                .map(|(v, r)| {
+                    if r.is_empty() {
+                        &v.without_drawings
+                    } else {
+                        &v.general
+                    }
+                })
+                .copied()
+                .unwrap_or(LayerVisibility::Opaque)
+        })
+        .alpha();
+
     let alpha_mode = if alpha < 1.0 {
         AlphaMode::Blend
     } else {
@@ -214,6 +214,7 @@ pub fn add_floor_visuals(
             &Texture,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
+            Option<&Parent>,
         ),
         Added<FloorMarker>,
     >,
@@ -221,14 +222,23 @@ pub fn add_floor_visuals(
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    default_floor_visibility: Res<GlobalFloorVisibility>,
+    default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
     asset_server: Res<AssetServer>,
 ) {
-    for (e, new_floor, texture, rank, vis) in &floors {
+    for (e, new_floor, texture, rank, vis, parent) in &floors {
         let mesh = make_floor_mesh(e, new_floor, texture, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
-        let (base_color, alpha_mode) = floor_transparency(vis, default_floor_visibility.as_ref());
+        let default_vis = parent
+            .map(|p| default_floor_vis.get(p.get()).ok())
+            .flatten();
+        let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
+        let material = materials.add(StandardMaterial {
+            base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
+            base_color,
+            alpha_mode,
+            ..default()
+        });
 
         let mesh_entity_id = cmd
             .insert(SpatialBundle {
@@ -238,12 +248,7 @@ pub fn add_floor_visuals(
             .add_children(|p| {
                 p.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
-                    material: materials.add(StandardMaterial {
-                        base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
-                        base_color,
-                        alpha_mode,
-                        ..default()
-                    }),
+                    material,
                     ..default()
                 })
                 .insert(Selectable::new(e))
@@ -337,16 +342,26 @@ pub fn update_floor_for_changed_texture(
     }
 }
 
+#[inline]
 fn iter_update_floor_visibility<'a>(
-    iter: impl Iterator<Item = (Option<&'a LayerVisibility>, &'a FloorSegments)>,
+    iter: impl Iterator<
+        Item = (
+            Option<&'a LayerVisibility>,
+            Option<&'a Parent>,
+            &'a FloorSegments,
+        ),
+    >,
     material_handles: &Query<&Handle<StandardMaterial>>,
     material_assets: &mut ResMut<Assets<StandardMaterial>>,
-    default_floor_vis: &LayerVisibility,
+    default_floor_vis: &Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) {
-    for (vis, segments) in iter {
+    for (vis, parent, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let (base_color, alpha_mode) = floor_transparency(vis, &default_floor_vis);
+                let default_vis = parent
+                    .map(|p| default_floor_vis.get(p.get()).ok())
+                    .flatten();
+                let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
                 mat.base_color = base_color;
                 mat.alpha_mode = alpha_mode;
             }
@@ -356,33 +371,40 @@ fn iter_update_floor_visibility<'a>(
 
 // TODO(luca) RemovedComponents is brittle, maybe wrap component in an option?
 pub fn update_floor_visibility(
-    changed_floors: Query<(Option<&LayerVisibility>, &FloorSegments), Changed<LayerVisibility>>,
+    changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<Parent>)>>,
     removed_vis: RemovedComponents<LayerVisibility>,
-    all_floors: Query<(Option<&LayerVisibility>, &FloorSegments)>,
+    all_floors: Query<(Option<&LayerVisibility>, Option<&Parent>, &FloorSegments)>,
     material_handles: Query<&Handle<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,
-    default_floor_vis: Res<GlobalFloorVisibility>,
+    default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
+    changed_default_floor_vis: Query<
+        &Children,
+        Or<(
+            Changed<GlobalFloorVisibility>,
+            Changed<RecencyRanking<DrawingMarker>>,
+        )>,
+    >,
 ) {
-    if default_floor_vis.is_changed() {
-        iter_update_floor_visibility(
-            all_floors.iter(),
-            &material_handles,
-            &mut material_assets,
-            &default_floor_vis,
-        );
-    } else {
-        iter_update_floor_visibility(
-            changed_floors.iter(),
-            &material_handles,
-            &mut material_assets,
-            &default_floor_vis,
-        );
+    iter_update_floor_visibility(
+        changed_floors.iter().filter_map(|e| all_floors.get(e).ok()),
+        &material_handles,
+        &mut material_assets,
+        &default_floor_vis,
+    );
 
+    iter_update_floor_visibility(
+        removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
+        &material_handles,
+        &mut material_assets,
+        &default_floor_vis,
+    );
+
+    for children in &changed_default_floor_vis {
         iter_update_floor_visibility(
-            removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
+            children.iter().filter_map(|e| all_floors.get(*e).ok()),
             &material_handles,
             &mut material_assets,
             &default_floor_vis,
         );
-    };
+    }
 }

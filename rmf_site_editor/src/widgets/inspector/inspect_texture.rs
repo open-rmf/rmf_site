@@ -15,18 +15,25 @@
  *
 */
 
-use crate::inspector::{InspectAssetSource, InspectValue};
-use crate::widgets::egui::RichText;
+use crate::{
+    site::DefaultFile,
+    inspector::{InspectAssetSource, InspectValue},
+    widgets::egui::RichText,
+};
 use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::{RecallAssetSource, Texture};
 
 pub struct InspectTexture<'a> {
     pub texture: &'a Texture,
+    pub default_file: Option<&'a DefaultFile>,
 }
 
 impl<'a> InspectTexture<'a> {
-    pub fn new(texture: &'a Texture) -> Self {
-        Self { texture }
+    pub fn new(
+        texture: &'a Texture,
+        default_file: Option<&'a DefaultFile>,
+    ) -> Self {
+        Self { texture, default_file }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Texture> {
@@ -35,7 +42,11 @@ impl<'a> InspectTexture<'a> {
         ui.label(RichText::new("Texture Properties").size(18.0));
         // TODO(luca) recall
         if let Some(new_source) =
-            InspectAssetSource::new(&new_texture.source, &RecallAssetSource::default()).show(ui)
+            InspectAssetSource::new(
+                &new_texture.source,
+                &RecallAssetSource::default(),
+                self.default_file,
+            ).show(ui)
         {
             new_texture.source = new_source;
         }

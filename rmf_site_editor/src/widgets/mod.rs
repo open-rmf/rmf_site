@@ -24,22 +24,22 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignLevelDrawings, AlignSiteDrawings, AssociatedGraphs, Change, ConsiderAssociatedGraph,
-        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
-        SaveNavGraphs, ScaleDrawing, SiteState, Texture, ToggleLiftDoorAvailability,
+        SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader, Sense},
+    egui::{self, Button, CollapsingHeader},
     EguiContext,
 };
 use rmf_site_format::*;
 
 pub mod create;
-use create::CreateWidget;
+use create::*;
 
 pub mod menu_bar;
 use menu_bar::*;
@@ -66,7 +66,7 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial};
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -74,6 +74,19 @@ pub use move_layer::*;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct PendingDrawing {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct PendingModel {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+    pub scale: Scale,
 }
 
 #[derive(Default)]
@@ -86,6 +99,9 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<PendingDrawing>()
+            .init_resource::<PendingModel>()
+            .init_resource::<SearchForFiducial>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -125,11 +141,21 @@ pub struct ChangeEvents<'w, 's> {
     pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
     pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
     pub light: EventWriter<'w, 's, Change<LightKind>>,
-    pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
+    pub level_elevation: EventWriter<'w, 's, Change<LevelElevation>>,
     pub color: EventWriter<'w, 's, Change<DisplayColor>>,
     pub visibility: EventWriter<'w, 's, Change<Visibility>>,
     pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
     pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
+}
+
+// We split out this new struct to deal with the 16 field limitation on
+// SystemParams.
+#[derive(SystemParam)]
+pub struct MoreChangeEvents<'w, 's> {
+    pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+    pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
+    pub distance: EventWriter<'w, 's, Change<Distance>>,
+    pub texture: EventWriter<'w, 's, Change<Texture>>,
 }
 
 #[derive(SystemParam)]
@@ -154,6 +180,8 @@ pub struct PanelResources<'w, 's> {
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
     pub log_history: ResMut<'w, LogHistory>,
+    pub pending_model: ResMut<'w, PendingModel>,
+    pub pending_drawings: ResMut<'w, PendingDrawing>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -182,9 +210,13 @@ pub struct LayerEvents<'w, 's> {
     pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
     pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub change_layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
-    pub global_floor_vis: ResMut<'w, GlobalFloorVisibility>,
-    pub global_drawing_vis: ResMut<'w, GlobalDrawingVisibility>,
+    pub layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
+    pub preferred_alpha: EventWriter<'w, 's, Change<PreferredSemiTransparency>>,
+    pub global_floor_vis: EventWriter<'w, 's, Change<GlobalFloorVisibility>>,
+    pub global_drawing_vis: EventWriter<'w, 's, Change<GlobalDrawingVisibility>>,
+    pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
+    pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
+    pub icons: Res<'w, Icons>,
 }
 
 #[derive(SystemParam)]
@@ -224,15 +256,6 @@ pub struct VisibilityParameters<'w, 's> {
     resources: VisibilityResources<'w, 's>,
 }
 
-#[derive(SystemParam)]
-pub struct DrawingParams<'w, 's> {
-    pub is_primary: EventWriter<'w, 's, Change<IsPrimary>>,
-    pub distance: EventWriter<'w, 's, Change<Distance>>,
-    pub scale_drawing: EventWriter<'w, 's, ScaleDrawing>,
-    pub align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
-    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
-}
-
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -241,6 +264,7 @@ pub struct DrawingParams<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    pub change_more: MoreChangeEvents<'w, 's>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
@@ -248,24 +272,15 @@ pub struct AppEvents<'w, 's> {
     pub layers: LayerEvents<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
-    pub pending_models: Query<
-        'w,
-        's,
-        (Entity, &'static AssetSource, &'static Scale),
-        (With<Pending>, With<ModelMarker>),
-    >,
-    pub pending_drawings:
-        Query<'w, 's, (Entity, &'static AssetSource), (With<Pending>, With<DrawingMarker>)>,
-    // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
-    pub drawing_params: DrawingParams<'w, 's>,
-    pub texture: EventWriter<'w, 's, Change<Texture>>,
+    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
 }
 
 fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
@@ -310,7 +325,7 @@ fn site_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(false)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Lights")
@@ -368,6 +383,7 @@ fn site_drawing_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -386,11 +402,21 @@ fn site_drawing_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Return to site editor")).clicked() {
-                            events.app_state.set(AppState::SiteEditor).ok();
+                        if ui
+                            .add(Button::image_and_text(
+                                events.layers.icons.exit.egui(),
+                                [18., 18.],
+                                "Return to site editor",
+                            ))
+                            .clicked()
+                        {
+                            events
+                                .layers
+                                .finish_edit_drawing
+                                .send(FinishEditDrawing(None));
                         }
                     });
                 });
@@ -450,12 +476,23 @@ fn site_visualizer_ui_layout(
                                 ViewLevels::new(&levels, &mut events).show(ui);
                             });
                         ui.separator();
-                        if ui.add(Button::new("Align levels")).clicked() {
-                            events.drawing_params.align_site.send(AlignSiteDrawings(
-                                events.request.current_workspace.root.unwrap(),
-                            ));
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.alignment.egui(),
+                            [18., 18.],
+                            "Align Drawings",
+                        ))
+                            .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+                            .clicked()
+                        {
+                            if let Some(site) = events.request.current_workspace.root {
+                                events.align_site.send(AlignSiteDrawings(site));
+                            }
                         }
-                        if ui.add(Button::new("Return to site editor")).clicked() {
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.exit.egui(),
+                            [18., 18.],
+                            "Return to site editor"
+                        )).clicked() {
                             events.app_state.set(AppState::SiteEditor).ok();
                         }
                     });
@@ -499,6 +536,7 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -517,7 +555,7 @@ fn workcell_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                     });

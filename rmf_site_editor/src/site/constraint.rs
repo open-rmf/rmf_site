@@ -26,7 +26,7 @@ pub const CONSTRAINT_LAYER_START: f32 =
     FLOOR_LAYER_START - (FLOOR_LAYER_START - DRAWING_LAYER_START) / 10.0;
 const CONSTRAINT_WIDTH: f32 = 0.2 * LANE_WIDTH;
 
-/// Stores which (child) entity contains the measurement mesh
+/// Stores which (child) entity contains the constraint mesh
 #[derive(Component, Debug, Clone, Deref, DerefMut)]
 pub struct ConstraintSegment(pub Entity);
 
@@ -37,8 +37,8 @@ pub fn assign_orphan_constraints_to_parent(
     constraints: Query<(Entity, &Edge<Entity>), (Without<Parent>, With<ConstraintMarker>)>,
     current_workspace: Res<CurrentWorkspace>,
     parents: Query<&Parent>,
-    levels: Query<Entity, With<LevelProperties>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    levels: Query<Entity, With<LevelElevation>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for (e, edge) in &constraints {
@@ -164,7 +164,7 @@ pub fn update_constraint_for_changed_labels(
     dependents: Query<&Dependents>,
     fiducials: Query<Entity, With<FiducialMarker>>,
     constraints: Query<(Entity, &Edge<Entity>, &Parent), With<ConstraintMarker>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     let get_fiducial_label = |e: Entity| -> Option<&Label> {
         let fiducial = dependents
@@ -196,8 +196,7 @@ pub fn update_constraint_for_changed_labels(
             if p2 == p1 {
                 continue;
             }
-            // TODO(luca) also make sure they both have a value?
-            if l1 == l2 {
+            if l1.is_some() && l1 == l2 {
                 // Make sure there isn't a constraint already between the two points
                 // A constraint is a dependent of both anchors so we only need to check one
                 if dependents
