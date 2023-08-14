@@ -45,6 +45,7 @@ pub enum Category {
     Drawing,
     Constraint,
     Workcell,
+    NavigationGraph,
 }
 
 impl Category {
@@ -68,6 +69,7 @@ impl Category {
             Self::Drawing => "Drawing",
             Self::Constraint => "Constraint",
             Self::Workcell => "Workcell",
+            Self::NavigationGraph => "Navigation Graph",
         }
     }
 

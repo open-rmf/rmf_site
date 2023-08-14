@@ -51,9 +51,6 @@ pub use floor::*;
 pub mod lane;
 pub use lane::*;
 
-pub mod layer;
-pub use layer::*;
-
 pub mod level;
 pub use level::*;
 
@@ -151,13 +148,9 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-            .insert_resource(GlobalFloorVisibility::default())
-            .insert_resource(GlobalDrawingVisibility::default())
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
-            .init_resource::<DrawingSemiTransparency>()
-            .init_resource::<FloorSemiTransparency>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -167,26 +160,24 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
-            .add_event::<AlignLevelDrawings>()
-            .add_event::<AlignSiteDrawings>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
+            .add_plugin(ChangePlugin::<NameOfSite>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<NameInWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
             .add_plugin(ChangePlugin::<Scale>::default())
-            .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Distance>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
-            .add_plugin(ChangePlugin::<LevelProperties>::default())
+            .add_plugin(ChangePlugin::<LevelElevation>::default())
             .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
@@ -202,6 +193,10 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(ChangePlugin::<LayerVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalFloorVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
+            .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
+            .add_plugin(ChangePlugin::<Affiliation<Entity>>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
@@ -234,6 +229,7 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_constraints_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
+                    .with_system(assign_orphan_fiducials_to_parent)
                     .with_system(assign_orphan_elements_to_level::<DoorMarker>)
                     .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
                     .with_system(assign_orphan_elements_to_level::<FloorMarker>)
@@ -241,6 +237,7 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_elements_to_level::<ModelMarker>)
                     .with_system(assign_orphan_elements_to_level::<PhysicalCameraProperties>)
                     .with_system(assign_orphan_elements_to_level::<WallMarker>)
+                    .with_system(add_category_to_graphs)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
                     .with_system(add_physical_lights),
@@ -267,6 +264,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(remove_association_for_deleted_graphs)
+                    .with_system(add_unused_fiducial_tracker)
+                    .with_system(update_fiducial_usage_tracker)
                     .with_system(
                         update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                     )
@@ -303,7 +302,6 @@ impl Plugin for SitePlugin {
                     .with_system(update_wall_edge)
                     .with_system(update_wall_for_moved_anchors)
                     .with_system(update_transforms_for_changed_poses)
-                    .with_system(align_level_drawings)
                     .with_system(align_site_drawings)
                     .with_system(export_lights),
             );

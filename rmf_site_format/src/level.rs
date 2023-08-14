@@ -17,34 +17,41 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Bundle, Component, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct LevelProperties {
-    // TODO(MXG): Change this to a NameInSite component
-    pub name: String,
-    pub elevation: f32,
+    pub name: NameInSite,
+    pub elevation: LevelElevation,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub global_floor_visibility: GlobalFloorVisibility,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub global_drawing_visibility: GlobalDrawingVisibility,
 }
 
 impl Default for LevelProperties {
     fn default() -> Self {
         Self {
-            name: "<Unnamed>".to_string(),
-            elevation: 0.0,
+            name: NameInSite("<Unnamed>".to_owned()),
+            elevation: LevelElevation(0.0),
+            global_floor_visibility: Default::default(),
+            global_drawing_visibility: Default::default(),
         }
     }
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct LevelElevation(pub f32);
 
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 pub struct Level {
     pub properties: LevelProperties,
     pub anchors: BTreeMap<u32, Anchor>,
-    /// Constraints to be used for drawing scaling alignment
-    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
-    pub constraints: BTreeMap<u32, Constraint<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub doors: BTreeMap<u32, Door<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
@@ -69,7 +76,6 @@ impl Level {
             properties,
             rankings,
             anchors: Default::default(),
-            constraints: Default::default(),
             doors: Default::default(),
             drawings: Default::default(),
             floors: Default::default(),

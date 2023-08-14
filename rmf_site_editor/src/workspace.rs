@@ -25,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -39,6 +39,10 @@ pub struct ChangeCurrentWorkspace {
 /// Used as an event to command that a new workspace should be created, behavior will depend on
 /// what app mode the editor is currently in
 pub struct CreateNewWorkspace;
+
+/// Apply this component to all workspace types
+#[derive(Component)]
+pub struct WorkspaceMarker;
 
 /// Used as an event to command that a workspace should be loaded. This will spawn a file open
 /// dialog (in non-wasm) with allowed extensions depending on the app state
@@ -75,6 +79,8 @@ impl WorkspaceData {
 }
 
 /// Used as a resource that keeps track of the current workspace
+// TODO(@mxgrey): Consider a workspace stack, e.g. so users can temporarily edit
+// a workcell inside of a site and then revert back into the site.
 #[derive(Clone, Copy, Debug, Default, Resource)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
@@ -103,7 +109,7 @@ impl Default for LoadWorkspaceChannels {
 pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
+    pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
     }

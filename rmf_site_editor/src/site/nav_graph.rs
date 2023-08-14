@@ -121,3 +121,12 @@ impl<'w, 's> GraphSelect<'w, 's> {
         }
     }
 }
+
+pub fn add_category_to_graphs(
+    mut commands: Commands,
+    new_graphs: Query<Entity, (With<NavGraphMarker>, Without<Category>)>,
+) {
+    for e in &new_graphs {
+        commands.entity(e).insert(Category::NavigationGraph);
+    }
+}
