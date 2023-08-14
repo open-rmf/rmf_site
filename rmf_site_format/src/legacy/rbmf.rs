@@ -1,10 +1,13 @@
 // RBMF stands for "RMF Building Map Format"
 
-use std::ops::{Deref, DerefMut};
+use std::{
+    ops::{Deref, DerefMut},
+    hash::Hash,
+};
 
 use serde::{Deserialize, Serialize};
 
-#[derive(Deserialize, Serialize, Clone)]
+#[derive(Deserialize, Serialize, Clone, Hash)]
 pub struct RbmfString(usize, pub String);
 
 impl From<String> for RbmfString {
@@ -30,6 +33,8 @@ impl PartialEq for RbmfString {
         self.1 == other.1
     }
 }
+
+impl Eq for RbmfString { }
 
 impl From<RbmfString> for String {
     fn from(s: RbmfString) -> Self {
@@ -116,6 +121,14 @@ impl PartialEq for RbmfFloat {
         self.1 == other.1
     }
 }
+
+impl Hash for RbmfFloat {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        state.write_i64((self.1 * 10000.0) as i64);
+    }
+}
+
+impl Eq for RbmfFloat { }
 
 impl PartialOrd for RbmfFloat {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

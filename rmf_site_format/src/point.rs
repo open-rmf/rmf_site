@@ -17,8 +17,9 @@
 
 use crate::RefTrait;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Component, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[serde(transparent)]
@@ -31,9 +32,11 @@ impl<T: RefTrait> From<T> for Point<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Point<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Point<Entity> {
-        Point(*id_to_entity.get(&self.0).unwrap())
+impl<T: RefTrait> Point<T> {
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<Point<U>, T> {
+        Ok(Point(id_map.get(&self.0).ok_or(self.0)?.clone()))
     }
 }

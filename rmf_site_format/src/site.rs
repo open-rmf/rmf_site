@@ -51,6 +51,9 @@ pub struct Site {
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
+    /// The groups of textures being used in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub textures: BTreeMap<u32, TextureGroup>,
     /// The fiducial groups that exist in the site
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fiducial_groups: BTreeMap<u32, FiducialGroup>,

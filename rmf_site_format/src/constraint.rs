@@ -17,8 +17,9 @@
 
 use crate::{Edge, RefTrait};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -33,16 +34,15 @@ pub struct Constraint<T: RefTrait> {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct ConstraintMarker;
 
-#[cfg(feature = "bevy")]
-impl Constraint<u32> {
-    pub fn to_ecs(
+impl<T: RefTrait> Constraint<T> {
+    pub fn convert<U: RefTrait>(
         &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Constraint<Entity> {
-        Constraint {
-            edge: self.edge.to_ecs(id_to_entity),
+        id_map: &HashMap<T, U>,
+    ) -> Result<Constraint<U>, T> {
+        Ok(Constraint {
+            edge: self.edge.convert(id_map)?,
             marker: Default::default(),
-        }
+        })
     }
 }
 

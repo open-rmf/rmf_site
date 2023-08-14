@@ -1,4 +1,7 @@
-use super::{level::Level, lift::Lift, PortingError, Result};
+use super::{
+    level::Level, lift::Lift, floor::FloorParameters, PortingError, Result,
+    wall::WallProperties,
+};
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
     DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
@@ -6,7 +9,7 @@ use crate::{
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
     NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
     PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
-    DEFAULT_NAV_GRAPH_COLORS,
+    DEFAULT_NAV_GRAPH_COLORS, Texture as SiteTexture, TextureGroup,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -146,7 +149,9 @@ impl BuildingMap {
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
-
+        let mut textures: BTreeMap<u32, SiteTexture> = BTreeMap::new();
+        let mut floor_texture_map: HashMap<FloorParameters, u32> = HashMap::new();
+        let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
         let mut building_id_to_nav_graph_id = HashMap::new();
@@ -433,7 +438,12 @@ impl BuildingMap {
 
             let mut floors = BTreeMap::new();
             for floor in &level.floors {
-                let site_floor = floor.to_site(&vertex_to_anchor_id)?;
+                let site_floor = floor.to_site(
+                    &vertex_to_anchor_id,
+                    &mut textures,
+                    &mut floor_texture_map,
+                    &mut site_id,
+                )?;
                 let id = site_id.next().unwrap();
                 floors.insert(id, site_floor);
                 rankings.floors.push(id);
@@ -456,7 +466,12 @@ impl BuildingMap {
 
             let mut walls = BTreeMap::new();
             for wall in &level.walls {
-                let site_wall = wall.to_site(&vertex_to_anchor_id)?;
+                let site_wall = wall.to_site(
+                    &vertex_to_anchor_id,
+                    &mut textures,
+                    &mut wall_texture_map,
+                    &mut site_id,
+                )?;
                 walls.insert(site_id.next().unwrap(), site_wall);
             }
 
@@ -595,6 +610,28 @@ impl BuildingMap {
             })
             .collect();
 
+        let textures = textures
+            .into_iter()
+            .map(
+                |(id, texture)| {
+                    let name: String = (&texture.source).into();
+                    let name = Path::new(&name)
+                        .file_stem()
+                        .map(|s| s.to_str().map(|s| s.to_owned()))
+                        .flatten()
+                        .unwrap_or(name);
+                    (
+                        id,
+                        TextureGroup {
+                            name: NameInSite(name),
+                            texture,
+                            group: Default::default(),
+                        }
+                    )
+                }
+            )
+            .collect();
+
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
@@ -605,6 +642,7 @@ impl BuildingMap {
             lifts,
             fiducial_groups,
             fiducials: cartesian_fiducials,
+            textures,
             navigation: Navigation {
                 guided: Guided {
                     graphs: nav_graphs,

@@ -1,3 +1,5 @@
+#![feature(error_generic_member_access, provide_any)]
+
 use bevy::{
     log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
 };

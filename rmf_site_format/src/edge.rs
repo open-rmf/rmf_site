@@ -17,8 +17,9 @@
 
 use crate::{RefTrait, Side};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::Component;
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq)]
 #[serde(transparent)]
@@ -106,12 +107,14 @@ impl<T: RefTrait> From<[T; 2]> for Edge<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Edge<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Edge<Entity> {
-        Edge([
-            *id_to_entity.get(&self.left()).unwrap(),
-            *id_to_entity.get(&self.right()).unwrap(),
-        ])
+impl<T: RefTrait> Edge<T> {
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<Edge<U>, T> {
+        Ok(Edge([
+            id_map.get(&self.left()).ok_or(self.left())?.clone(),
+            id_map.get(&self.right()).ok_or(self.right())?.clone(),
+        ]))
     }
 }

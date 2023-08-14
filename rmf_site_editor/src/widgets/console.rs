@@ -15,12 +15,8 @@
  *
 */
 
-use crate::{log::*, site::*, widgets::AppEvents};
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::{
-    egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
-    EguiContext,
-};
+use crate::{log::*, widgets::AppEvents};
+use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText, Ui};
 
 pub struct ConsoleWidget<'a, 'w2, 's2> {
     events: &'a mut AppEvents<'w2, 's2>,

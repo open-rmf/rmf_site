@@ -24,7 +24,7 @@ use bevy::{
 };
 use glam::{Vec2, Vec3};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashMap};
 
 pub const DEFAULT_CABIN_WALL_THICKNESS: f32 = 0.1;
 pub const DEFAULT_CABIN_DOOR_THICKNESS: f32 = 0.05;
@@ -59,18 +59,17 @@ pub struct LiftCabinDoor<T: RefTrait> {
     pub marker: LiftCabinDoorMarker,
 }
 
-#[cfg(feature = "bevy")]
-impl LiftCabinDoor<u32> {
-    pub fn to_ecs(
+impl<T: RefTrait> LiftCabinDoor<T> {
+    pub fn convert<U: RefTrait>(
         &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LiftCabinDoor<Entity> {
-        LiftCabinDoor {
+        id_map: &HashMap<T, U>,
+    ) -> Result<LiftCabinDoor<U>, T> {
+        Ok(LiftCabinDoor {
             kind: self.kind.clone(),
-            reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
-            visits: self.visits.to_ecs(id_to_entity),
+            reference_anchors: self.reference_anchors.convert(id_map)?,
+            visits: self.visits.convert(id_map)?,
             marker: Default::default(),
-        }
+        })
     }
 }
 
@@ -85,19 +84,16 @@ impl<T: RefTrait> Default for LevelVisits<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl LevelVisits<u32> {
-    pub fn to_ecs(
+impl<T: RefTrait> LevelVisits<T> {
+    pub fn convert<U: RefTrait>(
         &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LevelVisits<Entity> {
-        LevelVisits(
-            self.0
-                .iter()
-                .map(|level| id_to_entity.get(level).unwrap())
-                .copied()
-                .collect(),
-        )
+        id_map: &HashMap<T, U>,
+    ) -> Result<LevelVisits<U>, T> {
+        let set: Result<BTreeSet<U>, T> = self.0
+            .iter()
+            .map(|level| id_map.get(level).copied().ok_or(*level))
+            .collect();
+        Ok(LevelVisits(set?))
     }
 }
 
@@ -180,6 +176,16 @@ impl<T: RefTrait> LiftCabin<T> {
         }
 
         None
+    }
+
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<LiftCabin<U>, T> {
+        let result = match self {
+            LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.convert(id_map)?),
+        };
+        Ok(result)
     }
 }
 
@@ -390,6 +396,23 @@ impl<T: RefTrait> RectangularLiftCabin<T> {
             ),
         ])
     }
+
+    pub fn convert<U: RefTrait>(
+        &self,
+        id_map: &HashMap<T, U>,
+    ) -> Result<RectangularLiftCabin<U>, T> {
+        Ok(RectangularLiftCabin {
+            width: self.width,
+            depth: self.depth,
+            wall_thickness: self.wall_thickness,
+            gap: self.gap,
+            shift: self.shift,
+            front_door: self.front_door.map(|d| d.convert(id_map)).transpose()?,
+            back_door: self.back_door.map(|d| d.convert(id_map)).transpose()?,
+            left_door: self.left_door.map(|d| d.convert(id_map)).transpose()?,
+            right_door: self.right_door.map(|d| d.convert(id_map)).transpose()?,
+        })
+    }
 }
 
 #[cfg(feature = "bevy")]
@@ -462,23 +485,22 @@ pub struct LiftCabinDoorPlacement<T: RefTrait> {
     pub custom_gap: Option<f32>,
 }
 
-#[cfg(feature = "bevy")]
-impl LiftProperties<u32> {
-    pub fn to_ecs(
+impl<T: RefTrait> LiftProperties<T> {
+    pub fn convert<U: RefTrait>(
         &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LiftProperties<Entity> {
-        LiftProperties {
+        id_map: &HashMap<T, U>,
+    ) -> Result<LiftProperties<U>, T> {
+        Ok(LiftProperties {
             name: self.name.clone(),
-            reference_anchors: self.reference_anchors.to_ecs(id_to_entity),
-            cabin: self.cabin.to_ecs(id_to_entity),
+            reference_anchors: self.reference_anchors.convert(id_map)?,
+            cabin: self.cabin.convert(id_map)?,
             is_static: self.is_static,
             initial_level: InitialLevel(
                 self.initial_level
-                    .map(|id| id_to_entity.get(&id).unwrap())
+                    .map(|id| id_map.get(&id).unwrap())
                     .copied(),
             ),
-        }
+        })
     }
 }
 
@@ -490,18 +512,6 @@ impl<T: RefTrait> From<Edge<T>> for LiftProperties<T> {
             cabin: LiftCabin::default(),
             is_static: Default::default(),
             initial_level: InitialLevel(None),
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl LiftCabin<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LiftCabin<Entity> {
-        match self {
-            LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.to_ecs(id_to_entity)),
         }
     }
 }
@@ -530,26 +540,6 @@ impl LiftCabin<Entity> {
 }
 
 #[cfg(feature = "bevy")]
-impl RectangularLiftCabin<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> RectangularLiftCabin<Entity> {
-        RectangularLiftCabin {
-            width: self.width,
-            depth: self.depth,
-            wall_thickness: self.wall_thickness,
-            gap: self.gap,
-            shift: self.shift,
-            front_door: self.front_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
-            back_door: self.back_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
-            left_door: self.left_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
-            right_door: self.right_door.as_ref().map(|d| d.to_ecs(id_to_entity)),
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
 impl RectangularLiftCabin<Entity> {
     pub fn to_u32(&self, doors: &QueryLiftDoor) -> RectangularLiftCabin<u32> {
         RectangularLiftCabin {
@@ -566,19 +556,18 @@ impl RectangularLiftCabin<Entity> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl LiftCabinDoorPlacement<u32> {
-    pub fn to_ecs(
+impl<T: RefTrait> LiftCabinDoorPlacement<T> {
+    pub fn convert<U: RefTrait>(
         &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> LiftCabinDoorPlacement<Entity> {
-        LiftCabinDoorPlacement {
-            door: *id_to_entity.get(&self.door).unwrap(),
+        id_map: &HashMap<T, U>,
+    ) -> Result<LiftCabinDoorPlacement<U>, T> {
+        Ok(LiftCabinDoorPlacement {
+            door: id_map.get(&self.door).ok_or(self.door)?.clone(),
             width: self.width,
             thickness: self.thickness,
             shifted: self.shifted,
             custom_gap: self.custom_gap,
-        }
+        })
     }
 }
 
