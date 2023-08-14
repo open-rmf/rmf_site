@@ -39,10 +39,13 @@ pub enum Category {
     Light,
     Location,
     Measurement,
+    Fiducial,
     Model,
     Camera,
     Drawing,
+    Constraint,
     Workcell,
+    NavigationGraph,
 }
 
 impl Category {
@@ -60,10 +63,13 @@ impl Category {
             Self::Light => "Light",
             Self::Location => "Location",
             Self::Measurement => "Measurement",
+            Self::Fiducial => "Fiducial",
             Self::Model => "Model",
             Self::Camera => "Camera",
             Self::Drawing => "Drawing",
+            Self::Constraint => "Constraint",
             Self::Workcell => "Workcell",
+            Self::NavigationGraph => "Navigation Graph",
         }
     }
 

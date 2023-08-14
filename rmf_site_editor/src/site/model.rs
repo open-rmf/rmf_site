@@ -84,10 +84,7 @@ pub fn update_model_scenes(
         (Changed<TentativeModelFormat>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    loading_models: Query<
-        (Entity, &TentativeModelFormat, &PendingSpawning, &Scale),
-        With<ModelMarker>,
-    >,
+    loading_models: Query<(Entity, &PendingSpawning, &Scale), With<ModelMarker>>,
     spawned_models: Query<
         Entity,
         (
@@ -154,7 +151,7 @@ pub fn update_model_scenes(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, tentative_format, h, scale) in loading_models.iter() {
+    for (e, h, scale) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
                 Some(commands.entity(e).add_children(|parent| {
@@ -286,6 +283,7 @@ pub fn update_model_tentative_formats(
                 } else {
                     warn!("Model with source {} not found", String::from(source));
                     commands.entity(e).remove::<TentativeModelFormat>();
+                    commands.entity(e).remove::<PreventDeletion>();
                 }
             }
             _ => {}
