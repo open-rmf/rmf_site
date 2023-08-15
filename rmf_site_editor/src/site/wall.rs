@@ -57,14 +57,15 @@ fn make_wall(
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Edge<Entity>, &Texture), Added<WallMarker>>,
+    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
-    asset_server: Res<AssetServer>,
 ) {
-    for (e, edge, texture) in &walls {
+    for (e, edge, texture_source) in &walls {
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
             (*Color::default().set_a(alpha), AlphaMode::Blend)
         } else {
@@ -73,9 +74,9 @@ pub fn add_wall_visual(
         commands
             .entity(e)
             .insert(PbrBundle {
-                mesh: meshes.add(make_wall(e, edge, texture, &anchors)),
+                mesh: meshes.add(make_wall(e, edge, &texture, &anchors)),
                 material: materials.add(StandardMaterial {
-                    base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
+                    base_color_texture,
                     base_color,
                     alpha_mode,
                     ..default()
@@ -94,22 +95,10 @@ pub fn add_wall_visual(
     }
 }
 
-pub fn update_wall_edge(
-    mut walls: Query<
-        (Entity, &Edge<Entity>, &Texture, &mut Handle<Mesh>),
-        (With<WallMarker>, Changed<Edge<Entity>>),
-    >,
+pub fn update_walls_for_moved_anchors(
+    mut walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
     anchors: AnchorParams,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    for (e, edge, texture, mut mesh) in &mut walls {
-        *mesh = meshes.add(make_wall(e, edge, texture, &anchors));
-    }
-}
-
-pub fn update_wall_for_moved_anchors(
-    mut walls: Query<(Entity, &Edge<Entity>, &Texture, &mut Handle<Mesh>), With<WallMarker>>,
-    anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -121,38 +110,66 @@ pub fn update_wall_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, edge, texture, mut mesh)) = walls.get_mut(*dependent).ok() {
-                *mesh = meshes.add(make_wall(e, edge, texture, &anchors));
+            if let Some((e, edge, texture_source, mut mesh)) = walls.get_mut(*dependent).ok() {
+                let (_, texture) = from_texture_source(texture_source, &textures);
+                *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
             }
         }
     }
 }
 
-pub fn update_wall_for_changed_texture(
-    mut changed_walls: Query<
+pub fn update_walls(
+    mut walls: Query<
         (
-            Entity,
             &Edge<Entity>,
-            &Texture,
+            &Affiliation<Entity>,
             &mut Handle<Mesh>,
             &Handle<StandardMaterial>,
         ),
-        (Changed<Texture>, With<WallMarker>),
+        With<WallMarker>,
+    >,
+    changed_walls: Query<
+        Entity,
+        (
+            With<WallMarker>,
+            Or<(
+                Changed<Affiliation<Entity>>,
+                Changed<Edge<Entity>>,
+            )>,
+        ),
+    >,
+    changed_texture_sources: Query<
+        &Members,
+        (
+            With<Group>,
+            Or<(
+                Changed<Handle<Image>>,
+                Changed<Texture>,
+            )>,
+        )
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     anchors: AnchorParams,
-    asset_server: Res<AssetServer>,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
 ) {
-    for (e, edge, texture, mut mesh, material) in &mut changed_walls {
-        *mesh = meshes.add(make_wall(e, edge, texture, &anchors));
+    for e in changed_walls.iter()
+        .chain(
+            changed_texture_sources
+            .iter()
+            .flat_map(|members| members.iter().cloned())
+        )
+    {
+        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else { continue };
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+        *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
         if let Some(mut material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
                 (*Color::default().set_a(alpha), AlphaMode::Blend)
             } else {
                 (Color::default(), AlphaMode::Opaque)
             };
-            material.base_color_texture = Some(asset_server.load(&String::from(&texture.source)));
+            material.base_color_texture = base_color_texture;
             material.base_color = base_color;
             material.alpha_mode = alpha_mode;
         }

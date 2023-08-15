@@ -94,6 +94,12 @@ fn generate_site_entities(commands: &mut Commands, site_data: &rmf_site_format::
                 consider_id(*group_id);
             }
 
+            for (group_id, group) in &site_data.textures {
+                let group_entity = site.spawn(group.clone()).insert(SiteID(*group_id)).id();
+                id_to_entity.insert(*group_id, group_entity);
+                consider_id(*group_id);
+            }
+
             for (level_id, level_data) in &site_data.levels {
                 let mut level_cmd = site.spawn(SiteID(*level_id));
 
@@ -326,7 +332,8 @@ pub fn load_site(
                 commands.entity(err.site).despawn_recursive();
                 error!(
                     "Failed to load the site entities because the file had an \
-                    internal inconsistency: {err:#?}",
+                    internal inconsistency:\n{err:#?}\n---\nSite Data:\n{:#?}",
+                    &cmd.site,
                 );
                 continue;
             }
