@@ -17,15 +17,70 @@
 
 use crate::{
     site::DefaultFile,
+    AppEvents,
     inspector::{InspectAssetSource, InspectValue},
     widgets::egui::RichText,
+    WorkspaceMarker,
 };
+use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
-use rmf_site_format::{RecallAssetSource, Texture};
+use rmf_site_format::{
+    RecallAssetSource, Texture, NameInSite, Group, Affiliation, FloorMarker,
+    WallMarker,
+};
+
+pub struct InspectTextureAffiliationParams<'w, 's> {
+    with_texture: Query<
+        'w,
+        's,
+        &'static Affiliation<Entity>,
+        Or<(With<FloorMarker>, With<WallMarker>)>,
+    >,
+    texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
+    parents: Query<'w, 's, &'static Parent>,
+    sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
+}
+
+pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
+    entity: Entity,
+    params: &'a InspectTextureAffiliationParams<'w1, 's1>,
+    events: &'a mut AppEvents<'w2, 's2>,
+}
+
+impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn new(
+        entity: Entity,
+        params: &'a InspectTextureAffiliationParams<'w1, 's1>,
+        events: &'a mut AppEvents<'w2, 's2>,
+    ) -> Self {
+        Self { entity, params, events }
+    }
+
+    pub fn show(self, ui: &mut Ui) {
+        let Ok(affiliation) = self.params.with_texture.get(self.entity) else { return };
+        let mut site = self.entity;
+        let children = loop {
+            if let Ok(children) = self.params.sites.get(site) {
+                break children;
+            }
+
+            if let Ok(parent) = self.params.parents.get(site) {
+                site = parent.get();
+            } else {
+                return;
+            }
+        };
+
+        ui.separator();
+        ui.label("Texture");
+
+
+    }
+}
 
 pub struct InspectTexture<'a> {
-    pub texture: &'a Texture,
-    pub default_file: Option<&'a DefaultFile>,
+    texture: &'a Texture,
+    default_file: Option<&'a DefaultFile>,
 }
 
 impl<'a> InspectTexture<'a> {
