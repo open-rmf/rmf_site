@@ -29,7 +29,8 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
-    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace, ui_command::{TopLevelMenuExtensions, EventHandle, MenuEvent},
+    ui_command::{EventHandle, MenuEvent, TopLevelMenuExtensions},
+    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -287,7 +288,7 @@ fn site_ui_layout(
     layers: LayersParams,
     mut events: AppEvents,
     external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -353,7 +354,7 @@ fn site_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &external_menu,
-        &mut extension_events
+        &mut extension_events,
     );
 
     egui::TopBottomPanel::bottom("log_console")
@@ -390,7 +391,7 @@ fn site_drawing_ui_layout(
     create_params: CreateParams,
     mut events: AppEvents,
     external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -442,7 +443,7 @@ fn site_drawing_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &external_menu,
-        &mut extension_events
+        &mut extension_events,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -470,7 +471,7 @@ fn site_visualizer_ui_layout(
     mut events: AppEvents,
     levels: LevelParams,
     external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -523,7 +524,7 @@ fn site_visualizer_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &external_menu,
-        &mut extension_events
+        &mut extension_events,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -551,7 +552,7 @@ fn workcell_ui_layout(
     create_params: CreateParams,
     mut events: AppEvents,
     external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -590,7 +591,7 @@ fn workcell_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &external_menu,
-        &mut extension_events       
+        &mut extension_events,
     );
 
     let egui_context = egui_context.ctx_mut();

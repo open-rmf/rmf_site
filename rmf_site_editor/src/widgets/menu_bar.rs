@@ -15,28 +15,32 @@
  *
 */
 
-use crate::{CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters, ui_command::{TopLevelMenuExtensions, EventHandle, MenuEvent}};
+use crate::{
+    ui_command::{EventHandle, MenuEvent, TopLevelMenuExtensions},
+    CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters,
+};
 
-use bevy::prelude::{Res, EventWriter};
+use bevy::prelude::{EventWriter, Res};
 use bevy_egui::{
-    egui::{self, Button, epaint::ahash::HashSet},
+    egui::{self, epaint::ahash::HashSet, Button},
     EguiContext,
 };
 use lazy_static::lazy_static;
 
 lazy_static! {
-static ref TOP_LEVEL_OPTIONS: std::collections::HashSet<String> = { 
-    vec!["File".to_string(), "View".to_string()].into_iter().collect()
-};
+    static ref TOP_LEVEL_OPTIONS: std::collections::HashSet<String> = {
+        vec!["File".to_string(), "View".to_string()]
+            .into_iter()
+            .collect()
+    };
 }
 pub fn top_menu_bar(
     egui_context: &mut EguiContext,
     file_events: &mut FileEvents,
     params: &mut VisibilityParameters,
     external_menu: &Res<TopLevelMenuExtensions>,
-    extension_events: &mut EventWriter<MenuEvent>
+    extension_events: &mut EventWriter<MenuEvent>,
 ) {
-    
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
@@ -67,10 +71,9 @@ pub fn top_menu_bar(
                     file_events.load_workspace.send(LoadWorkspace::Dialog);
                 }
                 for (item, event) in external_menu.iter_with_key(&"File".to_string()) {
-                    if ui
-                        .add(Button::new(item)).clicked() {
-                            extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
-                        }
+                    if ui.add(Button::new(item)).clicked() {
+                        extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
+                    }
                 }
             });
             ui.menu_button("View", |ui| {
@@ -161,19 +164,18 @@ pub fn top_menu_bar(
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
                 for (item, event) in external_menu.iter_with_key(&"File".to_string()) {
-                    if ui
-                        .add(Button::new(item)).clicked() {
-                            extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
-                        }
+                    if ui.add(Button::new(item)).clicked() {
+                        extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
+                    }
                 }
             });
 
-            for (top_level, menu_items) in external_menu.iter_all_without_keys(&(*TOP_LEVEL_OPTIONS)) {
-                
+            for (top_level, menu_items) in
+                external_menu.iter_all_without_keys(&(*TOP_LEVEL_OPTIONS))
+            {
                 ui.menu_button(top_level, |ui| {
                     for (item, event) in menu_items {
-                        if ui
-                            .add(Button::new(item)).clicked() {
+                        if ui.add(Button::new(item)).clicked() {
                             extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
                         }
                     }
