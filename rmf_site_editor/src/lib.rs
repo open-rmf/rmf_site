@@ -156,7 +156,7 @@ impl Plugin for SiteEditor {
                     .with_system(check_browser_window_size),
             );
         }
-    
+
         #[cfg(not(target_arch = "wasm32"))]
         {
             app.add_plugins(
@@ -176,23 +176,23 @@ impl Plugin for SiteEditor {
             );
         }
         app.init_resource::<Settings>()
-        .add_startup_system(init_settings)
-        .insert_resource(DirectionalLightShadowMap { size: 2048 })
-        .add_plugin(LogHistoryPlugin)
-        .add_plugin(AabbUpdatePlugin)
-        .add_plugin(EguiPlugin)
-        .add_plugin(KeyboardInputPlugin)
-        .add_plugin(SavePlugin)
-        .add_plugin(SdfPlugin)
-        .add_state(AppState::MainMenu)
-        .add_plugin(MainMenuPlugin)
-        // .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(WorkcellEditorPlugin)
-        .add_plugin(SitePlugin)
-        .add_plugin(InteractionPlugin)
-        .add_plugin(StandardUiLayout)
-        .add_plugin(AnimationPlugin)
-        .add_plugin(OccupancyPlugin)
-        .add_plugin(WorkspacePlugin);
+            .add_startup_system(init_settings)
+            .insert_resource(DirectionalLightShadowMap { size: 2048 })
+            .add_plugin(LogHistoryPlugin)
+            .add_plugin(AabbUpdatePlugin)
+            .add_plugin(EguiPlugin)
+            .add_plugin(KeyboardInputPlugin)
+            .add_plugin(SavePlugin)
+            .add_plugin(SdfPlugin)
+            .add_state(AppState::MainMenu)
+            .add_plugin(MainMenuPlugin)
+            // .add_plugin(WarehouseGeneratorPlugin)
+            .add_plugin(WorkcellEditorPlugin)
+            .add_plugin(SitePlugin)
+            .add_plugin(InteractionPlugin)
+            .add_plugin(StandardUiLayout)
+            .add_plugin(AnimationPlugin)
+            .add_plugin(OccupancyPlugin)
+            .add_plugin(WorkspacePlugin);
     }
 }
