@@ -15,11 +15,16 @@
  *
 */
 
-use rmf_site_format::Affiliation;
+use rmf_site_format::{Affiliation, Group};
 use bevy::{
     ecs::system::{Command, EntityCommands},
     prelude::*,
 };
+
+pub struct MergeGroups {
+    pub from_group: Entity,
+    pub into_group: Entity,
+}
 
 #[derive(Component, Deref)]
 pub struct Members(Vec<Entity>);
@@ -33,11 +38,33 @@ impl Members {
 #[derive(Component, Clone, Copy)]
 struct LastAffiliation(Option<Entity>);
 
+pub fn update_affiliations(
+    mut affiliations: Query<&mut Affiliation<Entity>>,
+    mut merge_groups: EventReader<MergeGroups>,
+    deleted_groups: RemovedComponents<Group>,
+) {
+    for merge in merge_groups.iter() {
+        for mut affiliation in &mut affiliations {
+            if affiliation.0.is_some_and(|a| a == merge.from_group) {
+                affiliation.0 = Some(merge.into_group);
+            }
+        }
+    }
+
+    for deleted in &deleted_groups {
+        for mut affiliation in &mut affiliations {
+            if affiliation.0.is_some_and(|a| a == deleted) {
+                affiliation.0 = None;
+            }
+        }
+    }
+}
+
 pub fn update_members_of_groups(
     mut commands: Commands,
-    mut changed_affiliation: Query<(Entity, &Affiliation<Entity>), Changed<Affiliation<Entity>>>,
+    changed_affiliation: Query<(Entity, &Affiliation<Entity>), Changed<Affiliation<Entity>>>,
 ) {
-    for (e, affiliation) in &mut changed_affiliation {
+    for (e, affiliation) in &changed_affiliation {
         commands.entity(e).set_membership(affiliation.0);
     }
 }

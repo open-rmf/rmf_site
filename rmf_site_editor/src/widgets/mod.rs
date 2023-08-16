@@ -27,7 +27,7 @@ use crate::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
-        SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
+        SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability, MergeGroups,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -43,6 +43,9 @@ use create::*;
 
 pub mod menu_bar;
 use menu_bar::*;
+
+pub mod view_groups;
+use view_groups::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -105,6 +108,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
             .init_resource::<SearchForTexture>()
+            .init_resource::<GroupViewModes>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -160,6 +164,7 @@ pub struct MoreChangeEvents<'w, 's> {
     pub search_for_texture: ResMut<'w, SearchForTexture>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub texture: EventWriter<'w, 's, Change<Texture>>,
+    pub merge_groups: EventWriter<'w, 's, MergeGroups>,
 }
 
 #[derive(SystemParam)]
@@ -289,6 +294,7 @@ fn site_ui_layout(
     lights: LightParams,
     nav_graphs: NavGraphParams,
     layers: LayersParams,
+    mut groups: GroupParams,
     mut events: AppEvents,
 ) {
     egui::SidePanel::right("right_panel")
@@ -330,6 +336,12 @@ fn site_ui_layout(
                             .default_open(false)
                             .show(ui, |ui| {
                                 CreateWidget::new(&create_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Groups")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewGroups::new(&mut groups, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Lights")

@@ -192,6 +192,7 @@ fn reset_fiducial_usage(
 pub fn add_fiducial_visuals(
     mut commands: Commands,
     fiducials: Query<(Entity, &Point<Entity>, Option<&Transform>), Added<FiducialMarker>>,
+    fiducial_groups: Query<Entity, (Added<FiducialMarker>, With<Group>)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
@@ -212,6 +213,10 @@ pub fn add_fiducial_visuals(
             .insert(ComputedVisibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
+    }
+
+    for e in &fiducial_groups {
+        commands.entity(e).insert(Category::FiducialGroup);
     }
 }
 

@@ -15,21 +15,26 @@
  *
 */
 
-use rmf_site_format::{Texture, Affiliation};
+use rmf_site_format::{Texture, Affiliation, Category};
 use bevy::prelude::*;
 
 pub fn fetch_image_for_texture(
     mut commands: Commands,
     mut changed_textures: Query<(Entity, Option<&mut Handle<Image>>, &Texture), Changed<Texture>>,
+    new_textures: Query<Entity, Added<Texture>>,
     asset_server: Res<AssetServer>,
 ) {
-    for (e, mut image, texture) in &mut changed_textures {
+    for (e, image, texture) in &mut changed_textures {
         if let Some(mut image) = image {
             *image = asset_server.load(String::from(&texture.source));
         } else {
             let image: Handle<Image> = asset_server.load(String::from(&texture.source));
             commands.entity(e).insert(image);
         }
+    }
+
+    for e in &new_textures {
+        commands.entity(e).insert(Category::TextureGroup);
     }
 }
 

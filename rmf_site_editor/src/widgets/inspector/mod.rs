@@ -36,6 +36,9 @@ pub use inspect_edge::*;
 pub mod inspect_fiducial;
 pub use inspect_fiducial::*;
 
+pub mod inspect_group;
+pub use inspect_group::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -156,13 +159,6 @@ pub struct InspectorComponentParams<'w, 's> {
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
-}
-
-#[derive(SystemParam)]
-pub struct InspectGroupParams<'w, 's> {
-    pub affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
-    pub textures: Query<'w, 's, &'static Texture>,
-    pub members: Query<'w, 's, &'static Members>,
 }
 
 #[derive(SystemParam)]
@@ -415,17 +411,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 self.events,
             ).show(ui);
 
-            if let Ok(texture) = self.params.groups.textures.get(selection) {
-                ui.label(RichText::new("Texture Properties").size(18.0));
-                if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
-                    self.events
-                        .change_more
-                        .texture
-                        .send(Change::new(new_texture, selection));
-                }
-                ui.add_space(10.0);
-            }
-
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
@@ -598,44 +583,30 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
             if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
                 ui.separator();
-                ui.label(RichText::new("Group").size(18.0));
-                if let Ok(name) = self.params.component.names.get(*group) {
-                    ui.horizontal(|ui| {
-                        ui.label("Name ");
-                        let mut new_name = name.0.clone();
-                        if ui.text_edit_singleline(&mut new_name).changed() {
-                            self.events.change.name.send(
-                                Change::new(NameInSite(new_name), *group)
-                            );
-                        }
-                    });
-                }
-                if let Ok(texture) = self.params.groups.textures.get(*group) {
-                    ui.label(RichText::new("Texture Properties").size(18.0));
-                    if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
-                        self.events
-                            .change_more
-                            .texture
-                            .send(Change::new(new_texture, selection));
-                    }
-                    ui.add_space(10.0);
-                }
-                if let Ok(members) = self.params.groups.members.get(*group) {
-                    CollapsingHeader::new("Members").show(ui, |ui| {
-                        for member in members.iter() {
-                            let site_id = self.params
-                                .anchor_params.site_id.get(*group).ok().cloned();
-                            SelectionWidget::new(
-                                *member,
-                                site_id,
-                                &self.params.anchor_params.icons,
-                                self.events,
-                            )
-                            .as_selected(*member == selection)
-                            .show(ui);
-                        }
-                    });
-                }
+                let empty = String::new();
+                let name = self.params.component.names.get(*group)
+                    .map(|n| &n.0)
+                    .unwrap_or(&empty);
+
+                ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
+                ui.add_space(5.0);
+                InspectGroup::new(
+                    *group,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events
+                ).show(ui);
+            }
+
+            if self.params.groups.is_group.contains(selection) {
+                InspectGroup::new(
+                    selection,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events
+                ).show(ui);
             }
         } else {
             ui.label("Nothing selected");
