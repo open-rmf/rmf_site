@@ -12,7 +12,7 @@ path = "src/main.rs"
 name = "rmf_site_editor"
 
 [[example]]
-name = "trust-dns-demo"
+name = "edtending_site_editor"
 path = "examples/extending_menu.rs"
 
 
