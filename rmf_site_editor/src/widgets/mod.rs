@@ -66,7 +66,9 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget, SearchForFiducial};
+use inspector::{
+    InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture,
+};
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -102,6 +104,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
+            .init_resource::<SearchForTexture>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -154,6 +157,7 @@ pub struct ChangeEvents<'w, 's> {
 pub struct MoreChangeEvents<'w, 's> {
     pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
+    pub search_for_texture: ResMut<'w, SearchForTexture>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub texture: EventWriter<'w, 's, Change<Texture>>,
 }

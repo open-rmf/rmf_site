@@ -122,6 +122,7 @@ pub struct InspectorParams<'w, 's> {
     pub scales: Query<'w, 's, &'static Scale>,
     pub textures: Query<'w, 's, &'static Texture>,
     pub layer: InspectorLayerParams<'w, 's>,
+    pub texture: InspectTextureAffiliationParams<'w, 's>,
     pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
@@ -400,7 +401,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
+            InspectTextureAffiliation::new(
+                selection,
+                default_file,
+                &self.params.texture,
+                self.events,
+            ).show(ui);
+
             if let Ok(texture) = self.params.textures.get(selection) {
+                ui.label(RichText::new("Texture Properties").size(18.0));
                 if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
                     self.events
                         .change_more
