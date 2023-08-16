@@ -12,9 +12,8 @@ path = "src/main.rs"
 name = "rmf_site_editor"
 
 [[example]]
-name = "edtending_site_editor"
+name = "extending_site_editor"
 path = "examples/extending_menu.rs"
-
 
 [dependencies]
 bevy_egui = "0.19"
