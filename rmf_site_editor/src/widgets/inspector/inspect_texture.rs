@@ -258,19 +258,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 .affiliation
                 .send(Change::new(new_affiliation, self.entity));
         }
-
-        if let Some((group, texture)) = current_texture {
-            ui.add_space(5.0);
-            ui.label(RichText::new(format!("Properties of [{current_texture_name}]")).size(18.0));
-            if let Some(new_texture) = InspectTexture::new(
-                texture, self.default_file
-            ).show(ui) {
-                self.events
-                    .change_more
-                    .texture
-                    .send(Change::new(new_texture, group))
-            }
-        }
         ui.add_space(10.0);
     }
 }

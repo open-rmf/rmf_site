@@ -96,13 +96,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Original, SiteID,
+        EdgeLabels, LayerVisibility, Original, SiteID, Members,
     },
     widgets::AppEvents,
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, RichText, Ui};
+use bevy_egui::egui::{Button, RichText, Ui, CollapsingHeader};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -120,9 +120,9 @@ pub struct InspectorParams<'w, 's> {
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
-    pub textures: Query<'w, 's, &'static Texture>,
     pub layer: InspectorLayerParams<'w, 's>,
     pub texture: InspectTextureAffiliationParams<'w, 's>,
+    pub groups: InspectGroupParams<'w, 's>,
     pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
@@ -156,6 +156,13 @@ pub struct InspectorComponentParams<'w, 's> {
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
     pub previewable: Query<'w, 's, &'static PreviewableMarker>,
+}
+
+#[derive(SystemParam)]
+pub struct InspectGroupParams<'w, 's> {
+    pub affiliation: Query<'w, 's, &'static Affiliation<Entity>>,
+    pub textures: Query<'w, 's, &'static Texture>,
+    pub members: Query<'w, 's, &'static Members>,
 }
 
 #[derive(SystemParam)]
@@ -408,7 +415,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 self.events,
             ).show(ui);
 
-            if let Ok(texture) = self.params.textures.get(selection) {
+            if let Ok(texture) = self.params.groups.textures.get(selection) {
                 ui.label(RichText::new("Texture Properties").size(18.0));
                 if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
                     self.events
@@ -587,6 +594,48 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
+                ui.separator();
+                ui.label(RichText::new("Group").size(18.0));
+                if let Ok(name) = self.params.component.names.get(*group) {
+                    ui.horizontal(|ui| {
+                        ui.label("Name ");
+                        let mut new_name = name.0.clone();
+                        if ui.text_edit_singleline(&mut new_name).changed() {
+                            self.events.change.name.send(
+                                Change::new(NameInSite(new_name), *group)
+                            );
+                        }
+                    });
+                }
+                if let Ok(texture) = self.params.groups.textures.get(*group) {
+                    ui.label(RichText::new("Texture Properties").size(18.0));
+                    if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
+                        self.events
+                            .change_more
+                            .texture
+                            .send(Change::new(new_texture, selection));
+                    }
+                    ui.add_space(10.0);
+                }
+                if let Ok(members) = self.params.groups.members.get(*group) {
+                    CollapsingHeader::new("Members").show(ui, |ui| {
+                        for member in members.iter() {
+                            let site_id = self.params
+                                .anchor_params.site_id.get(*group).ok().cloned();
+                            SelectionWidget::new(
+                                *member,
+                                site_id,
+                                &self.params.anchor_params.icons,
+                                self.events,
+                            )
+                            .as_selected(*member == selection)
+                            .show(ui);
+                        }
+                    });
+                }
             }
         } else {
             ui.label("Nothing selected");

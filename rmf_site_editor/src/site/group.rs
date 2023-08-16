@@ -15,7 +15,7 @@
  *
 */
 
-use rmf_site_format::{Affiliation, Group};
+use rmf_site_format::Affiliation;
 use bevy::{
     ecs::system::{Command, EntityCommands},
     prelude::*,
@@ -23,6 +23,12 @@ use bevy::{
 
 #[derive(Component, Deref)]
 pub struct Members(Vec<Entity>);
+
+impl Members {
+    pub fn iter(&self) -> impl Iterator<Item = &Entity> {
+        self.0.iter()
+    }
+}
 
 #[derive(Component, Clone, Copy)]
 struct LastAffiliation(Option<Entity>);
