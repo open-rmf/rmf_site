@@ -29,7 +29,7 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
-    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace, ui_command::{TopLevelMenuExtensions, EventHandle, MenuEvent},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -286,6 +286,8 @@ fn site_ui_layout(
     nav_graphs: NavGraphParams,
     layers: LayersParams,
     mut events: AppEvents,
+    external_menu: Res<TopLevelMenuExtensions>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -350,6 +352,8 @@ fn site_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &external_menu,
+        &mut extension_events
     );
 
     egui::TopBottomPanel::bottom("log_console")
@@ -385,6 +389,8 @@ fn site_drawing_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
+    external_menu: Res<TopLevelMenuExtensions>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -435,6 +441,8 @@ fn site_drawing_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &external_menu,
+        &mut extension_events
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -461,6 +469,8 @@ fn site_visualizer_ui_layout(
     inspector_params: InspectorParams,
     mut events: AppEvents,
     levels: LevelParams,
+    external_menu: Res<TopLevelMenuExtensions>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -512,6 +522,8 @@ fn site_visualizer_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &external_menu,
+        &mut extension_events
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -538,6 +550,8 @@ fn workcell_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
+    external_menu: Res<TopLevelMenuExtensions>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -575,6 +589,8 @@ fn workcell_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &external_menu,
+        &mut extension_events       
     );
 
     let egui_context = egui_context.ctx_mut();

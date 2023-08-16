@@ -48,6 +48,9 @@ mod interaction;
 mod workspace;
 use workspace::*;
 
+pub mod ui_command;
+use ui_command::*;
+
 mod sdf_loader;
 
 mod site_asset_io;
@@ -193,6 +196,7 @@ impl Plugin for SiteEditor {
             .add_plugin(StandardUiLayout)
             .add_plugin(AnimationPlugin)
             .add_plugin(OccupancyPlugin)
-            .add_plugin(WorkspacePlugin);
+            .add_plugin(WorkspacePlugin)
+            .add_plugin(MenuPluginManager);
     }
 }
