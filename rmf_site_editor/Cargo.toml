@@ -34,7 +34,9 @@ bevy_utils = "0.9"
 dirs = "4.0"
 thread_local = "*"
 lyon = "1"
-thiserror = "*"
+# TODO(@mxgrey): A newer version of thiserror introduced a CI error. Remove this
+# inequality requirement when that error can be resolved.
+thiserror = "<=1.0.40"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
 bitfield = "*"
