@@ -406,7 +406,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 default_file,
                 &self.params.texture,
                 self.events,
-            ).show(ui);
+            )
+            .show(ui);
 
             if let Ok(texture) = self.params.textures.get(selection) {
                 ui.label(RichText::new("Texture Properties").size(18.0));

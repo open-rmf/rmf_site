@@ -113,16 +113,11 @@ impl<T: RefTrait> Default for AssociatedGraphs<T> {
 }
 
 impl<T: RefTrait> AssociatedGraphs<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<AssociatedGraphs<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<AssociatedGraphs<U>, T> {
         let result = match self {
             Self::All => AssociatedGraphs::All,
             Self::Only(set) => AssociatedGraphs::Only(Self::convert_set(set, id_map)?),
-            Self::AllExcept(set) => {
-                AssociatedGraphs::AllExcept(Self::convert_set(set, id_map)?)
-            }
+            Self::AllExcept(set) => AssociatedGraphs::AllExcept(Self::convert_set(set, id_map)?),
         };
         Ok(result)
     }
@@ -131,8 +126,7 @@ impl<T: RefTrait> AssociatedGraphs<T> {
         set: &BTreeSet<T>,
         id_map: &HashMap<T, U>,
     ) -> Result<BTreeSet<U>, T> {
-        set
-            .iter()
+        set.iter()
             .map(|g| id_map.get(g).cloned().ok_or(*g))
             .collect()
     }

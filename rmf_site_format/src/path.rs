@@ -27,11 +27,9 @@ use std::collections::HashMap;
 pub struct Path<T: RefTrait>(pub Vec<T>);
 
 impl<T: RefTrait> Path<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Path<U>, T> {
-        let path: Result<Vec<U>, T> = self.0
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Path<U>, T> {
+        let path: Result<Vec<U>, T> = self
+            .0
             .iter()
             .map(|a| id_map.get(a).cloned().ok_or(*a))
             .collect();

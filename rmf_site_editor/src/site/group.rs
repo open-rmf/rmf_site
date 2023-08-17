@@ -15,11 +15,11 @@
  *
 */
 
-use rmf_site_format::{Affiliation, Group};
 use bevy::{
     ecs::system::{Command, EntityCommands},
     prelude::*,
 };
+use rmf_site_format::{Affiliation, Group};
 
 #[derive(Component, Deref)]
 pub struct Members(Vec<Entity>);
@@ -43,8 +43,11 @@ struct ChangeMembership {
 
 impl Command for ChangeMembership {
     fn write(self, world: &mut World) {
-        let last = world.get_entity(self.member)
-            .map(|e| e.get::<LastAffiliation>()).flatten().cloned();
+        let last = world
+            .get_entity(self.member)
+            .map(|e| e.get::<LastAffiliation>())
+            .flatten()
+            .cloned();
         if let Some(last) = last {
             if last.0 == self.group {
                 // There is no effect from this change

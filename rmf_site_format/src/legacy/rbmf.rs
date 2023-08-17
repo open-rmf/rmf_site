@@ -1,8 +1,8 @@
 // RBMF stands for "RMF Building Map Format"
 
 use std::{
-    ops::{Deref, DerefMut},
     hash::Hash,
+    ops::{Deref, DerefMut},
 };
 
 use serde::{Deserialize, Serialize};
@@ -34,7 +34,7 @@ impl PartialEq for RbmfString {
     }
 }
 
-impl Eq for RbmfString { }
+impl Eq for RbmfString {}
 
 impl From<RbmfString> for String {
     fn from(s: RbmfString) -> Self {
@@ -128,7 +128,7 @@ impl Hash for RbmfFloat {
     }
 }
 
-impl Eq for RbmfFloat { }
+impl Eq for RbmfFloat {}
 
 impl PartialOrd for RbmfFloat {
     fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {

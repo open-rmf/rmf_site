@@ -66,9 +66,7 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{
-    InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture,
-};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture};
 
 pub mod move_layer;
 pub use move_layer::*;

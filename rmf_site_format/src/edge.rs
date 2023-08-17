@@ -108,10 +108,7 @@ impl<T: RefTrait> From<[T; 2]> for Edge<T> {
 }
 
 impl<T: RefTrait> Edge<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Edge<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Edge<U>, T> {
         Ok(Edge([
             id_map.get(&self.left()).ok_or(self.left())?.clone(),
             id_map.get(&self.right()).ok_or(self.right())?.clone(),

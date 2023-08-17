@@ -308,29 +308,17 @@ pub fn update_floors_for_moved_anchors(
 }
 
 pub fn update_floors(
-    floors: Query<
-        (&FloorSegments, &Path<Entity>, &Affiliation<Entity>),
-        With<FloorMarker>,
-    >,
+    floors: Query<(&FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     changed_floors: Query<
         Entity,
         (
             With<FloorMarker>,
-            Or<(
-                Changed<Affiliation<Entity>>,
-                Changed<Path<Entity>>,
-            )>,
-        )
+            Or<(Changed<Affiliation<Entity>>, Changed<Path<Entity>>)>,
+        ),
     >,
     changed_texture_sources: Query<
         &Members,
-        (
-            With<Group>,
-            Or<(
-                Changed<Handle<Image>>,
-                Changed<Texture>,
-            )>,
-        )
+        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
@@ -339,13 +327,11 @@ pub fn update_floors(
     anchors: AnchorParams,
     textures: Query<(Option<&Handle<Image>>, &Texture)>,
 ) {
-    for e in changed_floors.iter()
-        .chain(
-            changed_texture_sources
+    for e in changed_floors.iter().chain(
+        changed_texture_sources
             .iter()
-            .flat_map(|members| members.iter().cloned())
-        )
-    {
+            .flat_map(|members| members.iter().cloned()),
+    ) {
         let Ok((segment, path, texture_source)) = floors.get(e) else { continue };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {

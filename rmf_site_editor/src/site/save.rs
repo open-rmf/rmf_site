@@ -901,11 +901,14 @@ fn generate_texture_groups(
     let mut texture_groups = BTreeMap::new();
     for child in children {
         let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
-        texture_groups.insert(site_id.0, TextureGroup {
-            name: name.clone(),
-            texture: texture.clone(),
-            group: Default::default(),
-        });
+        texture_groups.insert(
+            site_id.0,
+            TextureGroup {
+                name: name.clone(),
+                texture: texture.clone(),
+                group: Default::default(),
+            },
+        );
     }
 
     Ok(texture_groups)

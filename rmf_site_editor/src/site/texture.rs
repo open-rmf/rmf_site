@@ -15,8 +15,8 @@
  *
 */
 
-use rmf_site_format::{Texture, Affiliation, FloorMarker, WallMarker, Group};
 use bevy::prelude::*;
+use rmf_site_format::{Affiliation, FloorMarker, Group, Texture, WallMarker};
 
 #[derive(Component)]
 pub struct TextureNeedsAssignment;
@@ -40,9 +40,7 @@ pub fn detect_last_selected_texture<T: Component>(
     mut commands: Commands,
     parents: Query<&Parent>,
     mut last_selected: Query<&mut LastSelectedTexture<T>>,
-    changed_affiliations: Query<
-        &Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)
-    >,
+    changed_affiliations: Query<&Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)>,
     removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
@@ -70,7 +68,10 @@ pub fn apply_last_selected_texture<T: Component>(
     mut commands: Commands,
     parents: Query<&Parent>,
     last_selected: Query<&LastSelectedTexture<T>>,
-    mut unassigned: Query<(Entity, &mut Affiliation<Entity>), (With<TextureNeedsAssignment>, With<T>)>,
+    mut unassigned: Query<
+        (Entity, &mut Affiliation<Entity>),
+        (With<TextureNeedsAssignment>, With<T>),
+    >,
 ) {
     for (e, mut affiliation) in &mut unassigned {
         let mut search = e;
@@ -93,7 +94,7 @@ pub fn apply_last_selected_texture<T: Component>(
 }
 
 #[derive(Component)]
-pub struct LastSelectedTexture<T>{
+pub struct LastSelectedTexture<T> {
     selection: Option<Entity>,
     marker: std::marker::PhantomData<T>,
 }
@@ -104,9 +105,10 @@ pub fn from_texture_source(
     texture_source: &Affiliation<Entity>,
     textures: &Query<(Option<&Handle<Image>>, &Texture)>,
 ) -> (Option<Handle<Image>>, Texture) {
-    texture_source.0
-    .map(|t| textures.get(t).ok())
-    .flatten()
-    .map(|(i, t)| (i.cloned(), t.clone()))
-    .unwrap_or_else(|| (None, Texture::default()))
+    texture_source
+        .0
+        .map(|t| textures.get(t).ok())
+        .flatten()
+        .map(|(i, t)| (i.cloned(), t.clone()))
+        .unwrap_or_else(|| (None, Texture::default()))
 }

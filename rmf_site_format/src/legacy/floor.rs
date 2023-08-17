@@ -1,11 +1,11 @@
 use super::{rbmf::*, PortingError, Result};
 use crate::{
-    Angle, AssetSource, Floor as SiteFloor, FloorMarker, Path,
-    PreferredSemiTransparency, Texture, Affiliation,
+    Affiliation, Angle, AssetSource, Floor as SiteFloor, FloorMarker, Path,
+    PreferredSemiTransparency, Texture,
 };
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, BTreeMap},
+    collections::{BTreeMap, HashMap},
     ops::RangeFrom,
 };
 
@@ -39,32 +39,34 @@ impl Floor {
             anchors.push(anchor);
         }
 
-        let texture_site_id = *texture_map.entry(self.parameters.clone()).or_insert_with(|| {
-            let texture = if self.parameters.texture_name.1.is_empty() {
-                Texture {
-                    source: AssetSource::Remote(
-                        "OpenRobotics/RMF_Materials/textures/blue_linoleum.png".to_owned(),
-                    ),
-                    ..Default::default()
-                }
-            } else {
-                Texture {
-                    source: AssetSource::Remote(
-                        "OpenRobotics/RMF_Materials/textures/".to_owned()
-                            + &self.parameters.texture_name.1
-                            + ".png",
-                    ),
-                    rotation: Some(Angle::Deg(self.parameters.texture_rotation.1 as f32)),
-                    width: Some(self.parameters.texture_scale.1 as f32),
-                    height: Some(self.parameters.texture_scale.1 as f32),
-                    ..Default::default()
-                }
-            };
+        let texture_site_id = *texture_map
+            .entry(self.parameters.clone())
+            .or_insert_with(|| {
+                let texture = if self.parameters.texture_name.1.is_empty() {
+                    Texture {
+                        source: AssetSource::Remote(
+                            "OpenRobotics/RMF_Materials/textures/blue_linoleum.png".to_owned(),
+                        ),
+                        ..Default::default()
+                    }
+                } else {
+                    Texture {
+                        source: AssetSource::Remote(
+                            "OpenRobotics/RMF_Materials/textures/".to_owned()
+                                + &self.parameters.texture_name.1
+                                + ".png",
+                        ),
+                        rotation: Some(Angle::Deg(self.parameters.texture_rotation.1 as f32)),
+                        width: Some(self.parameters.texture_scale.1 as f32),
+                        height: Some(self.parameters.texture_scale.1 as f32),
+                        ..Default::default()
+                    }
+                };
 
-            let texture_site_id = site_id.next().unwrap();
-            textures.insert(texture_site_id, texture);
-            texture_site_id
-        });
+                let texture_site_id = site_id.next().unwrap();
+                textures.insert(texture_site_id, texture);
+                texture_site_id
+            });
 
         Ok(SiteFloor {
             anchors: Path(anchors),

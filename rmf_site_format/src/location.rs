@@ -85,10 +85,7 @@ impl Default for LocationTags {
 }
 
 impl<T: RefTrait> Location<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Location<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Location<U>, T> {
         Ok(Location {
             anchor: self.anchor.convert(id_map)?,
             tags: self.tags.clone(),

@@ -61,10 +61,7 @@ impl Measurement<Entity> {
 }
 
 impl<T: RefTrait> Measurement<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Measurement<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Measurement<U>, T> {
         Ok(Measurement {
             anchors: self.anchors.convert(id_map)?,
             distance: self.distance,

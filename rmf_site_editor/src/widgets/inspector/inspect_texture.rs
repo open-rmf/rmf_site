@@ -16,19 +16,16 @@
 */
 
 use crate::{
-    site::{DefaultFile, Change, Category},
     inspector::{InspectAssetSource, InspectValue, SearchResult},
+    site::{Category, Change, DefaultFile},
     widgets::egui::RichText,
-    WorkspaceMarker, Icons, AppEvents,
+    AppEvents, Icons, WorkspaceMarker,
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{Grid, Ui, ImageButton, ComboBox};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{ComboBox, Grid, ImageButton, Ui};
 use rmf_site_format::{
-    RecallAssetSource, Texture, NameInSite, Group, Affiliation, FloorMarker,
-    WallMarker, TextureGroup,
+    Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
+    WallMarker,
 };
 
 #[derive(Resource, Default)]
@@ -62,7 +59,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         params: &'a InspectTextureAffiliationParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { entity, default_file, params, events }
+        Self {
+            entity,
+            default_file,
+            params,
+            events,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -111,10 +113,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         ui.label("Texture");
         ui.horizontal(|ui| {
             if any_partial_matches {
-                if ui.add(ImageButton::new(
-                    self.params.icons.search.egui(),
-                    [18., 18.],
-                ))
+                if ui
+                    .add(ImageButton::new(
+                        self.params.icons.search.egui(),
+                        [18., 18.],
+                    ))
                     .on_hover_text("Search results for this text can be found below")
                     .clicked()
                 {
@@ -127,10 +130,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
 
             match result {
                 SearchResult::Empty => {
-                    if ui.add(ImageButton::new(
-                        self.params.icons.hidden.egui(),
-                        [18., 18.],
-                    ))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.hidden.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("An empty string is not a good texture name")
                         .clicked()
                     {
@@ -138,10 +142,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::Current => {
-                    if ui.add(ImageButton::new(
-                        self.params.icons.selected.egui(),
-                        [18., 18.],
-                    ))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.selected.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("This is the name of the currently selected texture")
                         .clicked()
                     {
@@ -149,22 +154,20 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::NoMatch => {
-                    if ui.add(ImageButton::new(
-                        self.params.icons.add.egui(),
-                        [18., 18.],
-                    ))
-                        .on_hover_text(
-                            if affiliation.0.is_some() {
-                                "Create a new copy of the current texture"
-                            } else {
-                                "Create a new texture"
-                            }
-                        )
+                    if ui
+                        .add(ImageButton::new(self.params.icons.add.egui(), [18., 18.]))
+                        .on_hover_text(if affiliation.0.is_some() {
+                            "Create a new copy of the current texture"
+                        } else {
+                            "Create a new texture"
+                        })
                         .clicked()
                     {
-                        let new_texture = if let Some((_, t)) = affiliation.0.map(
-                            |a| self.params.texture_groups.get(a).ok()
-                        ).flatten() {
+                        let new_texture = if let Some((_, t)) = affiliation
+                            .0
+                            .map(|a| self.params.texture_groups.get(a).ok())
+                            .flatten()
+                        {
                             t.clone()
                         } else {
                             Texture::default()
@@ -180,17 +183,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                             })
                             .set_parent(site)
                             .id();
-                        self.events
-                            .change_more
-                            .affiliation
-                            .send(Change::new(Affiliation(Some(new_texture_group)), self.entity));
+                        self.events.change_more.affiliation.send(Change::new(
+                            Affiliation(Some(new_texture_group)),
+                            self.entity,
+                        ));
                     }
                 }
                 SearchResult::Match(group) => {
-                    if ui.add(ImageButton::new(
-                        self.params.icons.confirm.egui(),
-                        [18., 18.],
-                    ))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.confirm.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text("Select this texture")
                         .clicked()
                     {
@@ -201,10 +205,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
                 SearchResult::Conflict(text) => {
-                    if ui.add(ImageButton::new(
-                        self.params.icons.reject.egui(),
-                        [18., 18.],
-                    ))
+                    if ui
+                        .add(ImageButton::new(
+                            self.params.icons.reject.egui(),
+                            [18., 18.],
+                        ))
                         .on_hover_text(text)
                         .clicked()
                     {
@@ -218,16 +223,20 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         });
 
         let (current_texture_name, current_texture) = if let Some(a) = affiliation.0 {
-            self.params.texture_groups.get(a).ok().map(
-                |(n, t)| (n.0.as_str(), Some((a, t)))
-            )
+            self.params
+                .texture_groups
+                .get(a)
+                .ok()
+                .map(|(n, t)| (n.0.as_str(), Some((a, t))))
         } else {
             None
-        }.unwrap_or(("<none>", None));
+        }
+        .unwrap_or(("<none>", None));
 
         let mut new_affiliation = affiliation.clone();
         ui.horizontal(|ui| {
-            if ui.add(ImageButton::new(self.params.icons.exit.egui(), [18., 18.]))
+            if ui
+                .add(ImageButton::new(self.params.icons.exit.egui(), [18., 18.]))
                 .on_hover_text(format!("Remove this texture from the {}", category.label()))
                 .clicked()
             {
@@ -262,9 +271,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         if let Some((group, texture)) = current_texture {
             ui.add_space(5.0);
             ui.label(RichText::new(format!("Properties of [{current_texture_name}]")).size(18.0));
-            if let Some(new_texture) = InspectTexture::new(
-                texture, self.default_file
-            ).show(ui) {
+            if let Some(new_texture) = InspectTexture::new(texture, self.default_file).show(ui) {
                 self.events
                     .change_more
                     .texture
@@ -281,23 +288,23 @@ pub struct InspectTexture<'a> {
 }
 
 impl<'a> InspectTexture<'a> {
-    pub fn new(
-        texture: &'a Texture,
-        default_file: Option<&'a DefaultFile>,
-    ) -> Self {
-        Self { texture, default_file }
+    pub fn new(texture: &'a Texture, default_file: Option<&'a DefaultFile>) -> Self {
+        Self {
+            texture,
+            default_file,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<Texture> {
         let mut new_texture = self.texture.clone();
 
         // TODO(luca) recall
-        if let Some(new_source) =
-            InspectAssetSource::new(
-                &new_texture.source,
-                &RecallAssetSource::default(),
-                self.default_file,
-            ).show(ui)
+        if let Some(new_source) = InspectAssetSource::new(
+            &new_texture.source,
+            &RecallAssetSource::default(),
+            self.default_file,
+        )
+        .show(ui)
         {
             new_texture.source = new_source;
         }

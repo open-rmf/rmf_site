@@ -96,7 +96,15 @@ pub fn add_wall_visual(
 }
 
 pub fn update_walls_for_moved_anchors(
-    mut walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
+    mut walls: Query<
+        (
+            Entity,
+            &Edge<Entity>,
+            &Affiliation<Entity>,
+            &mut Handle<Mesh>,
+        ),
+        With<WallMarker>,
+    >,
     anchors: AnchorParams,
     textures: Query<(Option<&Handle<Image>>, &Texture)>,
     changed_anchors: Query<
@@ -132,34 +140,23 @@ pub fn update_walls(
         Entity,
         (
             With<WallMarker>,
-            Or<(
-                Changed<Affiliation<Entity>>,
-                Changed<Edge<Entity>>,
-            )>,
+            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>)>,
         ),
     >,
     changed_texture_sources: Query<
         &Members,
-        (
-            With<Group>,
-            Or<(
-                Changed<Handle<Image>>,
-                Changed<Texture>,
-            )>,
-        )
+        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     anchors: AnchorParams,
     textures: Query<(Option<&Handle<Image>>, &Texture)>,
 ) {
-    for e in changed_walls.iter()
-        .chain(
-            changed_texture_sources
+    for e in changed_walls.iter().chain(
+        changed_texture_sources
             .iter()
-            .flat_map(|members| members.iter().cloned())
-        )
-    {
+            .flat_map(|members| members.iter().cloned()),
+    ) {
         let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else { continue };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
