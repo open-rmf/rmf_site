@@ -1,7 +1,7 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
     NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
@@ -202,8 +202,9 @@ impl BuildingMap {
             let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
             let mut feature_info = HashMap::new();
+            let mut primary_drawing_id = None;
             if !level.drawing.filename.is_empty() {
-                let primary_drawing_id = site_id.next().unwrap();
+                primary_drawing_id = Some(site_id.next().unwrap());
                 let drawing_name = Path::new(&level.drawing.filename)
                     .file_stem()
                     .unwrap_or_default()
@@ -298,7 +299,7 @@ impl BuildingMap {
                         FeatureInfo {
                             fiducial_id,
                             on_anchor: anchor_id,
-                            in_drawing: primary_drawing_id,
+                            in_drawing: primary_drawing_id.unwrap(),
                             name: (!feature.name.is_empty()).then(|| feature.name.clone()),
                         },
                     );
@@ -325,7 +326,7 @@ impl BuildingMap {
                 }
 
                 drawings.insert(
-                    primary_drawing_id,
+                    primary_drawing_id.unwrap(),
                     SiteDrawing {
                         properties: DrawingProperties {
                             name: NameInSite(drawing_name),
@@ -339,7 +340,7 @@ impl BuildingMap {
                         measurements,
                     },
                 );
-                rankings.drawings.push(primary_drawing_id);
+                rankings.drawings.push(primary_drawing_id.unwrap());
             }
 
             for (name, layer) in &level.layers {
@@ -425,6 +426,30 @@ impl BuildingMap {
                         if let Some(drawing) = drawings.get_mut(&info.in_drawing) {
                             if let Some(fiducial) = drawing.fiducials.get_mut(&info.fiducial_id) {
                                 fiducial.affiliation = Affiliation(Some(fiducial_group_id));
+                            }
+                            // Add a level anchor to pin this feature
+                            if Some(info.in_drawing) == primary_drawing_id {
+                                let drawing_tf = DAffine2::from_scale_angle_translation(
+                                    DVec2::splat(
+                                        1.0 / drawing.properties.pixels_per_meter.0 as f64,
+                                    ),
+                                    drawing.properties.pose.trans[2] as f64,
+                                    DVec2::new(
+                                        drawing.properties.pose.trans[0] as f64,
+                                        drawing.properties.pose.trans[1] as f64,
+                                    ),
+                                );
+                                let anchor_tf = drawing
+                                    .anchors
+                                    .get(&info.on_anchor)
+                                    .unwrap()
+                                    .translation_for_category(Category::General);
+                                let drawing_coords =
+                                    DVec2::new(anchor_tf[0] as f64, anchor_tf[1] as f64);
+                                cartesian_fiducials
+                                    .entry(fiducial_group_id)
+                                    .or_default()
+                                    .push(drawing_tf.transform_point2(drawing_coords));
                             }
                         }
                     }
