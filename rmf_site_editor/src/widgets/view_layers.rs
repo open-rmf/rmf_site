@@ -216,7 +216,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
                         as_selected = true;
                         layer_selected = Some(*e);
                     }
-                    let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else { continue };
+                    let Ok((vis, alpha)) = self.params.layer_visibility.get(*e) else {
+                        continue;
+                    };
                     ui.horizontal(|ui| {
                         InspectLayer::new(
                             *e,

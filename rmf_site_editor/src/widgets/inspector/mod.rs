@@ -99,13 +99,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Original, SiteID, Members,
+        EdgeLabels, LayerVisibility, Members, Original, SiteID,
     },
     widgets::AppEvents,
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, RichText, Ui, CollapsingHeader};
+use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -409,7 +409,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 default_file,
                 &self.params.texture,
                 self.events,
-            ).show(ui);
+            )
+            .show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
@@ -584,7 +585,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
                 ui.separator();
                 let empty = String::new();
-                let name = self.params.component.names.get(*group)
+                let name = self
+                    .params
+                    .component
+                    .names
+                    .get(*group)
                     .map(|n| &n.0)
                     .unwrap_or(&empty);
 
@@ -595,8 +600,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     selection,
                     default_file,
                     &self.params.groups,
-                    self.events
-                ).show(ui);
+                    self.events,
+                )
+                .show(ui);
             }
 
             if self.params.groups.is_group.contains(selection) {
@@ -605,8 +611,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     selection,
                     default_file,
                     &self.params.groups,
-                    self.events
-                ).show(ui);
+                    self.events,
+                )
+                .show(ui);
             }
         } else {
             ui.label("Nothing selected");

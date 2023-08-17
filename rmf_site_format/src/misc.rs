@@ -477,10 +477,7 @@ impl<T: RefTrait> Default for Affiliation<T> {
 }
 
 impl<T: RefTrait> Affiliation<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Affiliation<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Affiliation<U>, T> {
         if let Some(x) = self.0 {
             Ok(Affiliation(Some(id_map.get(&x).ok_or(x)?.clone())))
         } else {

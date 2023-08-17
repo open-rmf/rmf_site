@@ -26,8 +26,8 @@ use crate::{
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
-        SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability, MergeGroups,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
+        PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -69,9 +69,7 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{
-    InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture,
-};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture};
 
 pub mod move_layer;
 pub use move_layer::*;

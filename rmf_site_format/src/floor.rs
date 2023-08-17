@@ -41,10 +41,7 @@ pub struct Floor<T: RefTrait> {
 pub struct FloorMarker;
 
 impl<T: RefTrait> Floor<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Floor<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Floor<U>, T> {
         Ok(Floor {
             anchors: self.anchors.convert(id_map)?,
             texture: self.texture.convert(id_map)?,

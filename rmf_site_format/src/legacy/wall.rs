@@ -1,10 +1,8 @@
 use super::{rbmf::*, PortingError, Result};
-use crate::{
-    AssetSource, Texture, Wall as SiteWall, Affiliation, DEFAULT_LEVEL_HEIGHT,
-};
+use crate::{Affiliation, AssetSource, Texture, Wall as SiteWall, DEFAULT_LEVEL_HEIGHT};
 use serde::{Deserialize, Serialize};
 use std::{
-    collections::{HashMap, BTreeMap},
+    collections::{BTreeMap, HashMap},
     ops::RangeFrom,
 };
 
@@ -78,8 +76,8 @@ impl Wall {
                             + ".png",
                     ),
                     rotation: None,
-                    width: Some((self.2.texture_width.1/self.2.texture_scale.1) as f32),
-                    height: Some((self.2.texture_height.1/self.2.texture_scale.1) as f32),
+                    width: Some((self.2.texture_width.1 / self.2.texture_scale.1) as f32),
+                    height: Some((self.2.texture_height.1 / self.2.texture_scale.1) as f32),
                     alpha: Some(self.2.alpha.1 as f32),
                 }
             };

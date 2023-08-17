@@ -16,22 +16,15 @@
 */
 
 use crate::{
-    site::{
-        Texture, Members, Affiliation, Change, NameInSite, DefaultFile, SiteID,
-        Group,
-    },
+    site::{Affiliation, Change, DefaultFile, Group, Members, NameInSite, SiteID, Texture},
     widgets::{
-        AppEvents,
         inspector::{InspectTexture, SelectionWidget},
+        AppEvents,
     },
     Icons,
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{Ui, RichText, CollapsingHeader};
-
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
 
 #[derive(SystemParam)]
 pub struct InspectGroupParams<'w, 's> {
@@ -59,15 +52,19 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectGroup<'a, 'w1, 'w2, 's1, 's2> {
         params: &'a InspectGroupParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
-        Self { group, selection, default_file, params, events }
+        Self {
+            group,
+            selection,
+            default_file,
+            params,
+            events,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) {
         if let Ok(texture) = self.params.textures.get(self.group) {
             ui.label(RichText::new("Texture Properties").size(18.0));
-            if let Some(new_texture) = InspectTexture::new(
-                texture, self.default_file,
-            ).show(ui) {
+            if let Some(new_texture) = InspectTexture::new(texture, self.default_file).show(ui) {
                 self.events
                     .change_more
                     .texture
@@ -78,16 +75,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectGroup<'a, 'w1, 'w2, 's1, 's2> {
         if let Ok(members) = self.params.members.get(self.group) {
             CollapsingHeader::new("Members").show(ui, |ui| {
                 for member in members.iter() {
-                    let site_id = self.params
-                        .site_id.get(self.group).ok().cloned();
-                    SelectionWidget::new(
-                        *member,
-                        site_id,
-                        &self.params.icons,
-                        self.events,
-                    )
-                    .as_selected(self.selection == *member)
-                    .show(ui);
+                    let site_id = self.params.site_id.get(self.group).ok().cloned();
+                    SelectionWidget::new(*member, site_id, &self.params.icons, self.events)
+                        .as_selected(self.selection == *member)
+                        .show(ui);
                 }
             });
         }

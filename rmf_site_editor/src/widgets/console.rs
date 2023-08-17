@@ -158,12 +158,10 @@ fn print_log(ui: &mut egui::Ui, element: &LogHistoryElement) {
         }
 
         if truncated {
-            ui
-                .label(" [...]")
-                .on_hover_text(
-                    "Some of the message is hidden. Click on it to copy the \
-                    full text to your clipboard."
-                );
+            ui.label(" [...]").on_hover_text(
+                "Some of the message is hidden. Click on it to copy the \
+                    full text to your clipboard.",
+            );
         }
     });
 }

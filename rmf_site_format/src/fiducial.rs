@@ -61,10 +61,7 @@ impl FiducialGroup {
 pub struct FiducialMarker;
 
 impl<T: RefTrait> Fiducial<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Fiducial<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Fiducial<U>, T> {
         Ok(Fiducial {
             anchor: self.anchor.convert(id_map)?,
             affiliation: self.affiliation.convert(id_map)?,

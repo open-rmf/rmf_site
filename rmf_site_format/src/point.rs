@@ -33,10 +33,7 @@ impl<T: RefTrait> From<T> for Point<T> {
 }
 
 impl<T: RefTrait> Point<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Point<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Point<U>, T> {
         Ok(Point(id_map.get(&self.0).ok_or(self.0)?.clone()))
     }
 }

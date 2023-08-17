@@ -85,8 +85,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let Ok((affiliation, parent)) = self.params.fiducials.get(self.entity) else { return };
-        let Ok(tracker) = self.params.usage.get(parent.get()) else { return };
+        let Ok((affiliation, parent)) = self.params.fiducials.get(self.entity) else {
+            return;
+        };
+        let Ok(tracker) = self.params.usage.get(parent.get()) else {
+            return;
+        };
 
         ui.separator();
         ui.label("Affiliation");

@@ -60,10 +60,7 @@ pub struct LiftCabinDoor<T: RefTrait> {
 }
 
 impl<T: RefTrait> LiftCabinDoor<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<LiftCabinDoor<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftCabinDoor<U>, T> {
         Ok(LiftCabinDoor {
             kind: self.kind.clone(),
             reference_anchors: self.reference_anchors.convert(id_map)?,
@@ -85,11 +82,9 @@ impl<T: RefTrait> Default for LevelVisits<T> {
 }
 
 impl<T: RefTrait> LevelVisits<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<LevelVisits<U>, T> {
-        let set: Result<BTreeSet<U>, T> = self.0
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LevelVisits<U>, T> {
+        let set: Result<BTreeSet<U>, T> = self
+            .0
             .iter()
             .map(|level| id_map.get(level).copied().ok_or(*level))
             .collect();
@@ -178,10 +173,7 @@ impl<T: RefTrait> LiftCabin<T> {
         None
     }
 
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<LiftCabin<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftCabin<U>, T> {
         let result = match self {
             LiftCabin::Rect(cabin) => LiftCabin::Rect(cabin.convert(id_map)?),
         };
@@ -486,10 +478,7 @@ pub struct LiftCabinDoorPlacement<T: RefTrait> {
 }
 
 impl<T: RefTrait> LiftProperties<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<LiftProperties<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<LiftProperties<U>, T> {
         Ok(LiftProperties {
             name: self.name.clone(),
             reference_anchors: self.reference_anchors.convert(id_map)?,

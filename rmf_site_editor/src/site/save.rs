@@ -65,17 +65,25 @@ pub enum SiteGenerationError {
 // TODO(@mxgrey): Remove this when we no longer need to de-parent drawings while
 // editing them.
 fn assemble_edited_drawing(world: &mut World) {
-    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
     level.push_children(&[c.drawing]);
 }
 
 /// Revert the drawing back to the root so it can continue to be edited.
 fn disassemble_edited_drawing(world: &mut World) {
-    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
     level.remove_children(&[c.drawing]);
 }
 
@@ -830,7 +838,9 @@ fn generate_fiducials(
 
     let mut fiducials = BTreeMap::new();
     for child in children {
-        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
+        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else {
+            continue;
+        };
         let anchor = q_anchor_ids
             .get(point.0)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
@@ -876,7 +886,9 @@ fn generate_fiducial_groups(
 
     let mut fiducial_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, site_id)) = q_groups.get(*child) else { continue };
+        let Ok((name, site_id)) = q_groups.get(*child) else {
+            continue;
+        };
         fiducial_groups.insert(site_id.0, FiducialGroup::new(name.clone()));
     }
 
@@ -900,12 +912,17 @@ fn generate_texture_groups(
 
     let mut texture_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
-        texture_groups.insert(site_id.0, TextureGroup {
-            name: name.clone(),
-            texture: texture.clone(),
-            group: Default::default(),
-        });
+        let Ok((name, texture, site_id)) = q_groups.get(*child) else {
+            continue;
+        };
+        texture_groups.insert(
+            site_id.0,
+            TextureGroup {
+                name: name.clone(),
+                texture: texture.clone(),
+                group: Default::default(),
+            },
+        );
     }
 
     Ok(texture_groups)

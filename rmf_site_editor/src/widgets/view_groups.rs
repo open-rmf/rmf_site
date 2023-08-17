@@ -16,21 +16,12 @@
 */
 
 use crate::{
-    site::{
-        NameInSite, SiteID, Members, Texture, FiducialMarker, MergeGroups,
-        Change,
-    },
-    widgets::{
-        AppEvents,
-        inspector::SelectionWidget,
-    },
+    site::{Change, FiducialMarker, Members, MergeGroups, NameInSite, SiteID, Texture},
+    widgets::{inspector::SelectionWidget, AppEvents},
     Icons,
 };
-use bevy::{
-    prelude::*,
-    ecs::system::SystemParam,
-};
-use bevy_egui::egui::{Ui, CollapsingHeader, ImageButton, Button};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::egui::{Button, CollapsingHeader, ImageButton, Ui};
 
 #[derive(Default, Clone, Copy)]
 pub enum GroupViewMode {
@@ -70,20 +61,21 @@ pub struct ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
 }
 
 impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(
-        params: &'a mut GroupParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
+    pub fn new(params: &'a mut GroupParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
         Self { params, events }
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let Some(site) = self.events.request.current_workspace.root else { return };
+        let Some(site) = self.events.request.current_workspace.root else {
+            return;
+        };
         let modes = &mut *self.params.group_view_modes;
         if !modes.site.is_some_and(|s| s == site) {
             modes.reset(site);
         }
-        let Ok(children) = self.params.children.get(site) else { return };
+        let Ok(children) = self.params.children.get(site) else {
+            return;
+        };
         CollapsingHeader::new("Textures").show(ui, |ui| {
             Self::show_groups(
                 children,
@@ -101,59 +93,80 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                 &mut modes.fiducials,
                 &self.params.icons,
                 self.events,
-                ui
+                ui,
             );
         });
     }
 
     fn show_groups<'b, T: Component>(
-        children: impl IntoIterator<Item=&'b Entity>,
+        children: impl IntoIterator<Item = &'b Entity>,
         q_groups: &Query<(&NameInSite, Option<&SiteID>), With<T>>,
         mode: &mut GroupViewMode,
         icons: &Res<Icons>,
         events: &mut AppEvents,
         ui: &mut Ui,
     ) {
-        ui.horizontal(|ui| {
-            match mode {
-                GroupViewMode::View => {
-                    if ui.add(Button::image_and_text(icons.merge.egui(), [18., 18.], "merge"))
-                        .on_hover_text("Merge two groups")
-                        .clicked()
-                    {
-                        info!("Select a group whose members will be merged into another group");
-                        *mode = GroupViewMode::SelectMergeFrom;
-                    }
-                    if ui.add(Button::image_and_text(icons.trash.egui(), [18., 18.], "delete"))
-                        .on_hover_text("Delete a group")
-                        .clicked()
-                    {
-                        info!("Deleting a group will make all its members unaffiliated");
-                        *mode = GroupViewMode::Delete;
-                    }
+        ui.horizontal(|ui| match mode {
+            GroupViewMode::View => {
+                if ui
+                    .add(Button::image_and_text(
+                        icons.merge.egui(),
+                        [18., 18.],
+                        "merge",
+                    ))
+                    .on_hover_text("Merge two groups")
+                    .clicked()
+                {
+                    info!("Select a group whose members will be merged into another group");
+                    *mode = GroupViewMode::SelectMergeFrom;
                 }
-                GroupViewMode::MergeFrom(_) | GroupViewMode::SelectMergeFrom => {
-                    if ui.add(Button::image_and_text(icons.exit.egui(), [18., 18.], "cancel"))
-                        .on_hover_text("Cancel the merge")
-                        .clicked()
-                    {
-                        *mode = GroupViewMode::View;
-                    }
+                if ui
+                    .add(Button::image_and_text(
+                        icons.trash.egui(),
+                        [18., 18.],
+                        "delete",
+                    ))
+                    .on_hover_text("Delete a group")
+                    .clicked()
+                {
+                    info!("Deleting a group will make all its members unaffiliated");
+                    *mode = GroupViewMode::Delete;
                 }
-                GroupViewMode::Delete => {
-                    if ui.add(Button::image_and_text(icons.exit.egui(), [18., 18.], "cancel"))
-                        .on_hover_text("Cancel the delete")
-                        .clicked()
-                    {
-                        *mode = GroupViewMode::View;
-                    }
+            }
+            GroupViewMode::MergeFrom(_) | GroupViewMode::SelectMergeFrom => {
+                if ui
+                    .add(Button::image_and_text(
+                        icons.exit.egui(),
+                        [18., 18.],
+                        "cancel",
+                    ))
+                    .on_hover_text("Cancel the merge")
+                    .clicked()
+                {
+                    *mode = GroupViewMode::View;
+                }
+            }
+            GroupViewMode::Delete => {
+                if ui
+                    .add(Button::image_and_text(
+                        icons.exit.egui(),
+                        [18., 18.],
+                        "cancel",
+                    ))
+                    .on_hover_text("Cancel the delete")
+                    .clicked()
+                {
+                    *mode = GroupViewMode::View;
                 }
             }
         });
 
         for child in children {
-            let Ok((name, site_id)) = q_groups.get(*child) else { continue };
-            let text = site_id.map(|s| format!("{}", s.0.clone()))
+            let Ok((name, site_id)) = q_groups.get(*child) else {
+                continue;
+            };
+            let text = site_id
+                .map(|s| format!("{}", s.0.clone()))
                 .unwrap_or_else(|| "*".to_owned());
             ui.horizontal(|ui| {
                 match mode.clone() {
@@ -161,7 +174,12 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                         SelectionWidget::new(*child, site_id.cloned(), &icons, events).show(ui);
                     }
                     GroupViewMode::SelectMergeFrom => {
-                        if ui.add(Button::image_and_text(icons.merge.egui(), [18., 18.], &text))
+                        if ui
+                            .add(Button::image_and_text(
+                                icons.merge.egui(),
+                                [18., 18.],
+                                &text,
+                            ))
                             .on_hover_text("Merge the members of this group into another group")
                             .clicked()
                         {
@@ -170,29 +188,38 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                     }
                     GroupViewMode::MergeFrom(merge_from) => {
                         if merge_from == *child {
-                            if ui.add(Button::image_and_text(icons.exit.egui(), [18., 18.], &text))
+                            if ui
+                                .add(Button::image_and_text(icons.exit.egui(), [18., 18.], &text))
                                 .on_hover_text("Cancel merge")
                                 .clicked()
                             {
                                 *mode = GroupViewMode::View;
                             }
                         } else {
-                            if ui.add(Button::image_and_text(icons.confirm.egui(), [18., 18.], &text))
+                            if ui
+                                .add(Button::image_and_text(
+                                    icons.confirm.egui(),
+                                    [18., 18.],
+                                    &text,
+                                ))
                                 .on_hover_text("Merge into this group")
                                 .clicked()
                             {
-                                events.change_more.merge_groups.send(
-                                    MergeGroups {
-                                        from_group: merge_from,
-                                        into_group: *child,
-                                    }
-                                );
+                                events.change_more.merge_groups.send(MergeGroups {
+                                    from_group: merge_from,
+                                    into_group: *child,
+                                });
                                 *mode = GroupViewMode::View;
                             }
                         }
                     }
                     GroupViewMode::Delete => {
-                        if ui.add(Button::image_and_text(icons.trash.egui(), [18., 18.], &text))
+                        if ui
+                            .add(Button::image_and_text(
+                                icons.trash.egui(),
+                                [18., 18.],
+                                &text,
+                            ))
                             .on_hover_text("Delete this group")
                             .clicked()
                         {
@@ -204,9 +231,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
 
                 let mut new_name = name.0.clone();
                 if ui.text_edit_singleline(&mut new_name).changed() {
-                    events.change.name.send(
-                        Change::new(NameInSite(new_name), *child)
-                    );
+                    events
+                        .change
+                        .name
+                        .send(Change::new(NameInSite(new_name), *child));
                 }
             });
         }

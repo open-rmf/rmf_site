@@ -1,6 +1,5 @@
 use super::{
-    level::Level, lift::Lift, floor::FloorParameters, PortingError, Result,
-    wall::WallProperties,
+    floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
 };
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
@@ -9,7 +8,7 @@ use crate::{
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
     NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
     PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
-    DEFAULT_NAV_GRAPH_COLORS, Texture as SiteTexture, TextureGroup,
+    Texture as SiteTexture, TextureGroup, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -612,24 +611,22 @@ impl BuildingMap {
 
         let textures = textures
             .into_iter()
-            .map(
-                |(id, texture)| {
-                    let name: String = (&texture.source).into();
-                    let name = Path::new(&name)
-                        .file_stem()
-                        .map(|s| s.to_str().map(|s| s.to_owned()))
-                        .flatten()
-                        .unwrap_or(name);
-                    (
-                        id,
-                        TextureGroup {
-                            name: NameInSite(name),
-                            texture,
-                            group: Default::default(),
-                        }
-                    )
-                }
-            )
+            .map(|(id, texture)| {
+                let name: String = (&texture.source).into();
+                let name = Path::new(&name)
+                    .file_stem()
+                    .map(|s| s.to_str().map(|s| s.to_owned()))
+                    .flatten()
+                    .unwrap_or(name);
+                (
+                    id,
+                    TextureGroup {
+                        name: NameInSite(name),
+                        texture,
+                        group: Default::default(),
+                    },
+                )
+            })
             .collect();
 
         Ok(Site {

@@ -15,8 +15,8 @@
  *
 */
 
-use rmf_site_format::{Texture, Affiliation, Category};
 use bevy::prelude::*;
+use rmf_site_format::{Affiliation, Category, Texture};
 
 pub fn fetch_image_for_texture(
     mut commands: Commands,
@@ -44,9 +44,10 @@ pub fn from_texture_source(
     texture_source: &Affiliation<Entity>,
     textures: &Query<(Option<&Handle<Image>>, &Texture)>,
 ) -> (Option<Handle<Image>>, Texture) {
-    texture_source.0
-    .map(|t| textures.get(t).ok())
-    .flatten()
-    .map(|(i, t)| (i.cloned(), t.clone()))
-    .unwrap_or_else(|| (None, Texture::default()))
+    texture_source
+        .0
+        .map(|t| textures.get(t).ok())
+        .flatten()
+        .map(|(i, t)| (i.cloned(), t.clone()))
+        .unwrap_or_else(|| (None, Texture::default()))
 }

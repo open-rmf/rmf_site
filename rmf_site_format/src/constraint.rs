@@ -35,10 +35,7 @@ pub struct Constraint<T: RefTrait> {
 pub struct ConstraintMarker;
 
 impl<T: RefTrait> Constraint<T> {
-    pub fn convert<U: RefTrait>(
-        &self,
-        id_map: &HashMap<T, U>,
-    ) -> Result<Constraint<U>, T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Constraint<U>, T> {
         Ok(Constraint {
             edge: self.edge.convert(id_map)?,
             marker: Default::default(),

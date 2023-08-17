@@ -59,10 +59,16 @@ pub fn align_site_drawings(
 ) {
     for AlignSiteDrawings(site) in events.iter() {
         let mut site_variables = SiteVariables::<Entity>::default();
-        let Ok(children) = sites.get(*site) else { continue };
+        let Ok(children) = sites.get(*site) else {
+            continue;
+        };
         for child in children {
-            let Ok((group, point)) = params.fiducials.get(*child) else { continue };
-            let Ok(anchor) = params.anchors.get(point.0) else { continue };
+            let Ok((group, point)) = params.fiducials.get(*child) else {
+                continue;
+            };
+            let Ok(anchor) = params.anchors.get(point.0) else {
+                continue;
+            };
             let Some(group) = group.0 else { continue };
             let p = anchor.translation_for_category(Category::Fiducial);
             site_variables.fiducials.push(FiducialVariables {
@@ -72,9 +78,13 @@ pub fn align_site_drawings(
         }
 
         for child in children {
-            let Ok(level_children) = levels.get(*child) else { continue };
+            let Ok(level_children) = levels.get(*child) else {
+                continue;
+            };
             for level_child in level_children {
-                let Ok((drawing_children, pose, ppm)) = params.drawings.get(*level_child) else { continue };
+                let Ok((drawing_children, pose, ppm)) = params.drawings.get(*level_child) else {
+                    continue;
+                };
                 let mut drawing_variables = DrawingVariables::<Entity>::new(
                     Vec2::from_slice(&pose.trans).as_dvec2(),
                     pose.rot.yaw().radians() as f64,
@@ -82,7 +92,9 @@ pub fn align_site_drawings(
                 );
                 for child in drawing_children {
                     if let Ok((group, point)) = params.fiducials.get(*child) {
-                        let Ok(anchor) = params.anchors.get(point.0) else { continue };
+                        let Ok(anchor) = params.anchors.get(point.0) else {
+                            continue;
+                        };
                         let Some(group) = group.0 else { continue };
                         let p = anchor.translation_for_category(Category::Fiducial);
                         drawing_variables.fiducials.push(FiducialVariables {
@@ -92,8 +104,12 @@ pub fn align_site_drawings(
                     }
 
                     if let Ok((edge, distance)) = params.measurements.get(*child) {
-                        let Ok([anchor0, anchor1]) = params.anchors.get_many(edge.array()) else { continue };
-                        let Some(in_meters) = distance.0 else { continue };
+                        let Ok([anchor0, anchor1]) = params.anchors.get_many(edge.array()) else {
+                            continue;
+                        };
+                        let Some(in_meters) = distance.0 else {
+                            continue;
+                        };
                         let in_meters = in_meters as f64;
                         let p0 =
                             Vec2::from_slice(anchor0.translation_for_category(Category::Fiducial));
@@ -117,7 +133,9 @@ pub fn align_site_drawings(
         // undo operation for this set of changes.
         let alignments = align_site(&site_variables);
         for (e, alignment) in alignments {
-            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(e) else { continue };
+            let Ok((_, mut pose, mut ppm)) = params.drawings.get_mut(e) else {
+                continue;
+            };
             pose.trans[0] = alignment.translation.x as f32;
             pose.trans[1] = alignment.translation.y as f32;
             pose.rot =
