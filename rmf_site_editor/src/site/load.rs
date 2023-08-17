@@ -50,10 +50,7 @@ struct LoadSiteError {
 
 impl LoadSiteError {
     fn new(site: Entity, broken: u32) -> Self {
-        Self {
-            site,
-            broken,
-        }
+        Self { site, broken }
     }
 }
 
