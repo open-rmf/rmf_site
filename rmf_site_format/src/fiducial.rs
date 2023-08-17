@@ -17,7 +17,7 @@
 
 use crate::{Affiliation, Group, NameInSite, Point, RefTrait};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

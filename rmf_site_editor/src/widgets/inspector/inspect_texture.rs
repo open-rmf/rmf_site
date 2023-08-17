@@ -68,9 +68,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let Ok((category, affiliation)) = self.params.with_texture.get(self.entity) else {
-            return;
-        };
+        let Ok((category, affiliation)) = self.params.with_texture.get(self.entity) else { return };
         let mut site = self.entity;
         let children = loop {
             if let Ok(children) = self.params.sites.get(site) {
@@ -90,9 +88,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         let mut any_partial_matches = false;
         let mut result = SearchResult::NoMatch;
         for child in children {
-            let Ok((name, _)) = self.params.texture_groups.get(*child) else {
-                continue;
-            };
+            let Ok((name, _)) = self.params.texture_groups.get(*child) else { continue };
             if name.0.contains(&*search) {
                 any_partial_matches = true;
             }

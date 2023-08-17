@@ -157,9 +157,7 @@ pub fn update_walls(
             .iter()
             .flat_map(|members| members.iter().cloned()),
     ) {
-        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else {
-            continue;
-        };
+        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else { continue };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
         if let Some(mut material) = materials.get_mut(material) {

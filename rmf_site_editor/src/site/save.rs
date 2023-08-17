@@ -838,9 +838,7 @@ fn generate_fiducials(
 
     let mut fiducials = BTreeMap::new();
     for child in children {
-        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else {
-            continue;
-        };
+        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
         let anchor = q_anchor_ids
             .get(point.0)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
@@ -886,9 +884,7 @@ fn generate_fiducial_groups(
 
     let mut fiducial_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, site_id)) = q_groups.get(*child) else {
-            continue;
-        };
+        let Ok((name, site_id)) = q_groups.get(*child) else { continue };
         fiducial_groups.insert(site_id.0, FiducialGroup::new(name.clone()));
     }
 
@@ -912,9 +908,7 @@ fn generate_texture_groups(
 
     let mut texture_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, texture, site_id)) = q_groups.get(*child) else {
-            continue;
-        };
+        let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
         texture_groups.insert(
             site_id.0,
             TextureGroup {
