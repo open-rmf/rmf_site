@@ -204,7 +204,8 @@ impl BuildingMap {
             let mut feature_info = HashMap::new();
             let mut primary_drawing_id = None;
             if !level.drawing.filename.is_empty() {
-                primary_drawing_id = Some(site_id.next().unwrap());
+                let drawing_id = site_id.next().unwrap();
+                primary_drawing_id = Some(drawing_id);
                 let drawing_name = Path::new(&level.drawing.filename)
                     .file_stem()
                     .unwrap_or_default()
@@ -299,7 +300,7 @@ impl BuildingMap {
                         FeatureInfo {
                             fiducial_id,
                             on_anchor: anchor_id,
-                            in_drawing: primary_drawing_id.unwrap(),
+                            in_drawing: drawing_id,
                             name: (!feature.name.is_empty()).then(|| feature.name.clone()),
                         },
                     );
@@ -326,7 +327,7 @@ impl BuildingMap {
                 }
 
                 drawings.insert(
-                    primary_drawing_id.unwrap(),
+                    drawing_id,
                     SiteDrawing {
                         properties: DrawingProperties {
                             name: NameInSite(drawing_name),
@@ -340,7 +341,7 @@ impl BuildingMap {
                         measurements,
                     },
                 );
-                rankings.drawings.push(primary_drawing_id.unwrap());
+                rankings.drawings.push(drawing_id);
             }
 
             for (name, layer) in &level.layers {
