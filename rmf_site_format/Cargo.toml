@@ -12,9 +12,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "*"
 ron = "0.7"
-# TODO(@mxgrey): A newer version of thiserror introduced a CI error. Remove this
-# inequality requirement when that error can be resolved.
-thiserror = "<=1.0.40"
+thiserror = "*"
 glam = "0.22"
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { version = "0.9", optional = true }

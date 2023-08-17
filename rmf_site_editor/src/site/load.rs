@@ -19,7 +19,7 @@ use crate::{recency::RecencyRanking, site::*, Autoload, CurrentWorkspace, Worksp
 use bevy::{ecs::system::SystemParam, prelude::*, tasks::AsyncComputeTaskPool};
 use futures_lite::future;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use std::{backtrace::Backtrace, collections::HashMap, path::PathBuf};
+use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -44,7 +44,8 @@ pub struct LoadSite {
 struct LoadSiteError {
     site: Entity,
     broken: u32,
-    backtrace: Backtrace,
+    // TODO(@mxgrey): reintroduce Backtrack when it's supported on stable
+    // backtrace: Backtrace,
 }
 
 impl LoadSiteError {
@@ -52,7 +53,6 @@ impl LoadSiteError {
         Self {
             site,
             broken,
-            backtrace: Backtrace::force_capture(),
         }
     }
 }
