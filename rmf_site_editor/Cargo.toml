@@ -49,7 +49,6 @@ rfd = "0.11"
 urdf-rs = "0.7"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "a5daef0"}
 pathdiff = "*"
-lazy_static = "1.4.0"
 
 # only enable the 'dynamic' feature if we're not building for web or windows
 [target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]

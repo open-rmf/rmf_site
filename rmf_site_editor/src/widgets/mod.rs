@@ -29,7 +29,7 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
-    ui_command::{EventHandle, MenuEvent, TopLevelMenuExtensions},
+    ui_command::{MenuEvent, FileMenu, Menu, MenuItem},
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -287,8 +287,11 @@ fn site_ui_layout(
     nav_graphs: NavGraphParams,
     layers: LayersParams,
     mut events: AppEvents,
-    external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    menus: Query<&Menu>,
+    menu_items: Query<&MenuItem>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -353,7 +356,10 @@ fn site_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
-        &external_menu,
+        &file_menu,
+        &children,
+        &menus,
+        &menu_items,
         &mut extension_events,
     );
 
@@ -390,7 +396,10 @@ fn site_drawing_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
-    external_menu: Res<TopLevelMenuExtensions>,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    menus: Query<&Menu>,
+    menu_items: Query<&MenuItem>,
     mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
@@ -442,7 +451,10 @@ fn site_drawing_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
-        &external_menu,
+        &file_menu,
+        &children,
+        &menus,
+        &menu_items,
         &mut extension_events,
     );
 
@@ -470,8 +482,11 @@ fn site_visualizer_ui_layout(
     inspector_params: InspectorParams,
     mut events: AppEvents,
     levels: LevelParams,
-    external_menu: Res<TopLevelMenuExtensions>,
-    mut extension_events: EventWriter<MenuEvent>,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    menus: Query<&Menu>,
+    menu_items: Query<&MenuItem>,
+    mut extension_events: EventWriter<MenuEvent>
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -523,8 +538,11 @@ fn site_visualizer_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
-        &external_menu,
-        &mut extension_events,
+        &file_menu,
+        &children,
+        &menus,
+        &menu_items,
+        &mut extension_events
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -551,8 +569,11 @@ fn workcell_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
-    external_menu: Res<TopLevelMenuExtensions>,
     mut extension_events: EventWriter<MenuEvent>,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    menus: Query<&Menu>,
+    menu_items: Query<&MenuItem>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -590,7 +611,10 @@ fn workcell_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
-        &external_menu,
+        &file_menu,
+        &children,
+        &menus,
+        &menu_items,
         &mut extension_events,
     );
 

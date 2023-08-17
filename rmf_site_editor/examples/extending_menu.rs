@@ -1,6 +1,5 @@
 use bevy::prelude::*;
-use librmf_site_editor::ui_command::TopLevelMenuExtensions;
-use librmf_site_editor::ui_command::{EventHandle, MenuEvent};
+use librmf_site_editor::ui_command::{FileMenu, MenuEvent, MenuItem};
 use librmf_site_editor::SiteEditor;
 
 #[derive(Debug, Default)]
@@ -8,21 +7,22 @@ struct MyMenuPlugin;
 
 #[derive(Debug, Default, Resource)]
 struct MyMenuHandler {
-    event_handler: Option<EventHandle>,
+    event_handler: Option<Entity>,
 }
 
 /// Startup system to register menu.
-fn init(mut data: ResMut<TopLevelMenuExtensions>, mut menu_handle: ResMut<MyMenuHandler>) {
+fn init(mut file_menu: Res<FileMenu>, 
+    mut menu_handle: ResMut<MyMenuHandler>,
+    mut commands: Commands) {
     // This is all it takes to register a new menu item
-    // We need to keep track of the event handler in order to make
-    // sure that we can check the
-    menu_handle.event_handler = Some(
-        data.add_item(&"My Menu".to_string(), &"My Random Action".to_string())
-            .unwrap(),
-    );
+    // We need to keep track of the entity in order to make
+    // sure that we can check the callback
+    let id = commands.spawn(MenuItem::Text("My unique export".to_string())).id();
+    commands.entity(file_menu.get()).add_child(id);
+    menu_handle.event_handler = Some(id);
 }
 
-/// Handler for menu item. All one needs tp dp is check that you recieve
+/// Handler for menu item. All one needs to do is check that you recieve
 /// an event that is of the same type as the one we are supposed to
 /// handle.
 fn watch_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandler>) {
@@ -30,7 +30,7 @@ fn watch_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandle
         return;
     };
     for event in reader.iter() {
-        if event.is_same(evt) {
+        if event.check_source(evt) {
             println!("Custom event clicked")
         }
     }

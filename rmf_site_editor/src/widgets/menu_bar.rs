@@ -16,29 +16,72 @@
 */
 
 use crate::{
-    ui_command::{EventHandle, MenuEvent, TopLevelMenuExtensions},
+    ui_command::{MenuEvent, FileMenu, MenuItem, Menu},
     CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters,
 };
 
-use bevy::prelude::{EventWriter, Res};
+use bevy::prelude::{EventWriter, Res, Children, Query, Entity};
 use bevy_egui::{
-    egui::{self, epaint::ahash::HashSet, Button},
+    egui::{self, epaint::ahash::HashSet, Button, Ui},
     EguiContext,
 };
-use lazy_static::lazy_static;
 
-lazy_static! {
-    static ref TOP_LEVEL_OPTIONS: std::collections::HashSet<String> = {
-        vec!["File".to_string(), "View".to_string()]
-            .into_iter()
-            .collect()
-    };
+/// Helper function to render a submenu starting at the entity.
+fn render_sub_menu(
+    ui: &mut Ui,
+    entity: &Entity,
+    children: &Query<&Children>,
+    menus: &Query<&Menu>,
+    menu_items: &Query<&MenuItem>,
+    extension_events: &mut EventWriter<MenuEvent>,
+    skip_top_label: bool
+) {
+    if let Ok(e) =  menu_items.get(*entity) {
+        // Draw ui
+        match e {
+            MenuItem::Text(title) => {
+                if ui.add(Button::new(title)).clicked() {
+                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                }
+            }
+        }
+        return;
+    }
+
+    let Ok(menu) = menus.get(*entity) else {
+        return;
+    };  
+
+    if !skip_top_label {
+    ui.menu_button(&menu.get(), |ui| {
+        let Ok(child_items) = children.get(*entity) else {
+            return;
+        };
+
+        for child in child_items.iter() {
+            render_sub_menu(ui, child, children, menus, menu_items, extension_events, false);
+        }
+    });
 }
+else {
+    let Ok(child_items) = children.get(*entity) else {
+        return;
+    };
+
+    for child in child_items.iter() {
+        render_sub_menu(ui, child, children, menus, menu_items, extension_events, false);
+    }
+}
+}
+
 pub fn top_menu_bar(
     egui_context: &mut EguiContext,
     file_events: &mut FileEvents,
     params: &mut VisibilityParameters,
-    external_menu: &Res<TopLevelMenuExtensions>,
+    file_menu: &Res<FileMenu>,
+    children: &Query<&Children>,
+    menus: &Query<&Menu>,
+    menu_items: &Query<&MenuItem>,
     extension_events: &mut EventWriter<MenuEvent>,
 ) {
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
@@ -70,11 +113,8 @@ pub fn top_menu_bar(
                 {
                     file_events.load_workspace.send(LoadWorkspace::Dialog);
                 }
-                for (item, event) in external_menu.iter_with_key(&"File".to_string()) {
-                    if ui.add(Button::new(item)).clicked() {
-                        extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
-                    }
-                }
+                
+                render_sub_menu(ui, &file_menu.get(), children, menus, menu_items, extension_events, true);
             });
             ui.menu_button("View", |ui| {
                 if ui
@@ -163,24 +203,7 @@ pub fn top_menu_bar(
                 {
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
-                for (item, event) in external_menu.iter_with_key(&"File".to_string()) {
-                    if ui.add(Button::new(item)).clicked() {
-                        extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
-                    }
-                }
             });
-
-            for (top_level, menu_items) in
-                external_menu.iter_all_without_keys(&(*TOP_LEVEL_OPTIONS))
-            {
-                ui.menu_button(top_level, |ui| {
-                    for (item, event) in menu_items {
-                        if ui.add(Button::new(item)).clicked() {
-                            extension_events.send(MenuEvent::MenuClickEvent(event.clone()));
-                        }
-                    }
-                });
-            }
         });
     });
 }
