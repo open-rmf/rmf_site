@@ -49,10 +49,6 @@ pub fn top_menu_bar(
                     {
                         file_events.save.send(SaveWorkspace::new().to_dialog());
                     }
-                    ui.menu_button("Text expansion", |ui| {
-                        ui.label("Oh look");
-                        ui.label("It worked");
-                    });
                 }
                 if ui
                     .add(Button::new("Open").shortcut_text("Ctrl+O"))
