@@ -19,7 +19,7 @@ use crate::{
     interaction::*,
     site::{
         drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, Dependents,
-        DrawingMarker, Original, PathBehavior, Pending,
+        DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
     },
     CurrentWorkspace,
 };
@@ -375,6 +375,23 @@ impl EdgePlacement {
                     .remove::<Original<Edge<Entity>>>();
             }),
         })
+    }
+
+    fn with_extra<F>(self: Arc<Self>, f: F) -> Arc<Self>
+    where
+        F: Fn(&mut SelectAnchorPlacementParams, Entity) + Send + Sync + 'static,
+    {
+        let mut result = match Arc::try_unwrap(self) {
+            Ok(r) => r,
+            Err(r) => (*r).clone(),
+        };
+        let base = result.create;
+        result.create = Arc::new(move |params: &mut SelectAnchorPlacementParams, edge: Edge<Entity>| {
+            let entity = base(params, edge);
+            f(params, entity);
+            entity
+        });
+        Arc::new(result)
     }
 
     fn update_dependencies(
@@ -812,6 +829,23 @@ impl PathPlacement {
         })
     }
 
+    fn with_extra<F>(self: Arc<Self>, f: F) -> Arc<Self>
+    where
+        F: Fn(&mut SelectAnchorPlacementParams, Entity) + Send + Sync + 'static,
+    {
+        let mut result = match Arc::try_unwrap(self) {
+            Ok(r) => r,
+            Err(r) => (*r).clone(),
+        };
+        let base = result.create;
+        result.create = Arc::new(move |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
+            let entity = base(params, path);
+            f(params, entity);
+            entity
+        });
+        Arc::new(result)
+    }
+
     fn at_index(&self, index: usize) -> Arc<Self> {
         Arc::new(Self {
             index: Some(index),
@@ -1188,7 +1222,10 @@ impl SelectAnchorEdgeBuilder {
     pub fn for_wall(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
-            placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
+            placement: EdgePlacement::new::<Wall<Entity>>(self.placement)
+                .with_extra(|params, entity| {
+                    params.commands.entity(entity).insert(TextureNeedsAssignment);
+                }),
             continuity: self.continuity,
             scope: Scope::General,
         }
@@ -1304,7 +1341,10 @@ impl SelectAnchorPathBuilder {
     pub fn for_floor(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
-            placement: PathPlacement::new::<Floor<Entity>>(self.placement),
+            placement: PathPlacement::new::<Floor<Entity>>(self.placement)
+                .with_extra(|params, entity| {
+                    params.commands.entity(entity).insert(TextureNeedsAssignment);
+                }),
             continuity: self.continuity,
             scope: Scope::General,
         }

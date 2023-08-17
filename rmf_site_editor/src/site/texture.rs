@@ -15,8 +15,11 @@
  *
 */
 
-use rmf_site_format::{Texture, Affiliation};
+use rmf_site_format::{Texture, Affiliation, FloorMarker, WallMarker, Group};
 use bevy::prelude::*;
+
+#[derive(Component)]
+pub struct TextureNeedsAssignment;
 
 pub fn fetch_image_for_texture(
     mut commands: Commands,
@@ -31,6 +34,68 @@ pub fn fetch_image_for_texture(
             commands.entity(e).insert(image);
         }
     }
+}
+
+pub fn detect_last_selected_texture<T: Component>(
+    mut commands: Commands,
+    parents: Query<&Parent>,
+    mut last_selected: Query<&mut LastSelectedTexture<T>>,
+    changed_affiliations: Query<
+        &Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)
+    >,
+    removed_groups: RemovedComponents<Group>,
+) {
+    if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
+        let Ok(parent) = parents.get(*affiliation) else { return };
+        if let Ok(mut last) = last_selected.get_mut(parent.get()) {
+            last.selection = Some(*affiliation);
+        } else {
+            commands.entity(parent.get()).insert(LastSelectedTexture {
+                selection: Some(*affiliation),
+                marker: std::marker::PhantomData::<T>::default(),
+            });
+        }
+    }
+
+    for group in &removed_groups {
+        for mut last in &mut last_selected {
+            if last.selection.is_some_and(|l| l == group) {
+                last.selection = None;
+            }
+        }
+    }
+}
+
+pub fn apply_last_selected_texture<T: Component>(
+    mut commands: Commands,
+    parents: Query<&Parent>,
+    last_selected: Query<&LastSelectedTexture<T>>,
+    mut unassigned: Query<(Entity, &mut Affiliation<Entity>), (With<TextureNeedsAssignment>, With<T>)>,
+) {
+    for (e, mut affiliation) in &mut unassigned {
+        let mut search = e;
+        let last = loop {
+            if let Ok(last) = last_selected.get(search) {
+                break Some(last);
+            }
+
+            if let Ok(parent) = parents.get(search) {
+                search = parent.get();
+            } else {
+                break None;
+            }
+        };
+        if let Some(last) = last {
+            affiliation.0 = last.selection;
+        }
+        commands.entity(e).remove::<TextureNeedsAssignment>();
+    }
+}
+
+#[derive(Component)]
+pub struct LastSelectedTexture<T>{
+    selection: Option<Entity>,
+    marker: std::marker::PhantomData<T>,
 }
 
 // Helper function for entities that need to access their affiliated texture

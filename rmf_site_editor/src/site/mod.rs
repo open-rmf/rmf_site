@@ -222,6 +222,14 @@ impl Plugin for SitePlugin {
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(fetch_image_for_texture)
+                    .with_system(detect_last_selected_texture::<FloorMarker>)
+                    .with_system(apply_last_selected_texture::<FloorMarker>
+                        .after(detect_last_selected_texture::<FloorMarker>)
+                    )
+                    .with_system(detect_last_selected_texture::<WallMarker>)
+                    .with_system(apply_last_selected_texture::<WallMarker>
+                        .after(detect_last_selected_texture::<WallMarker>)
+                    )
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
