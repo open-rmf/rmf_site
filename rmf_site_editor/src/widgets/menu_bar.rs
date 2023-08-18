@@ -47,6 +47,7 @@ impl Menu {
 
 /// Create a new menu item
 #[derive(Component)]
+#[non_exhaustive]
 pub enum MenuItem {
     Text(String),
 }
@@ -75,14 +76,21 @@ impl FromWorld for FileMenu {
     }
 }
 
+#[non_exhaustive]
 pub enum MenuEvent {
     MenuClickEvent(Entity),
 }
 
 impl MenuEvent {
-    pub fn check_source(&self, evt: &Entity) -> bool {
-        let MenuEvent::MenuClickEvent(sent) = self;
-        sent == evt
+    pub fn clicked(&self) -> bool {
+        matches!(self, Self::MenuClickEvent(_))
+    }
+
+    pub fn source(&self) -> Entity {
+        match self {
+            Self::MenuClickEvent(entity) => *entity
+        }
+
     }
 }
 
@@ -123,8 +131,8 @@ fn render_sub_menu(
     if !skip_top_label {
         ui.menu_button(&menu.get(), |ui| {
             let Ok(child_items) = children.get(*entity) else {
-            return;
-        };
+                return;
+            };
 
             for child in child_items.iter() {
                 render_sub_menu(
@@ -140,8 +148,8 @@ fn render_sub_menu(
         });
     } else {
         let Ok(child_items) = children.get(*entity) else {
-        return;
-    };
+            return;
+        };
 
         for child in child_items.iter() {
             render_sub_menu(
