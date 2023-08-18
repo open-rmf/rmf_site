@@ -33,6 +33,7 @@ use occupancy::OccupancyPlugin;
 pub mod demo_world;
 pub mod log;
 mod recency;
+use recency::*;
 mod shapes;
 use log::LogHistoryPlugin;
 
@@ -73,8 +74,10 @@ pub struct CommandLineArgs {
 pub enum AppState {
     MainMenu,
     SiteEditor,
+    SiteVisualizer,
     //WarehouseGenerator,
     WorkcellEditor,
+    SiteDrawingEditor,
 }
 
 pub struct OpenedMapFile(std::path::PathBuf);
