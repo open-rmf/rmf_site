@@ -33,7 +33,12 @@ impl Default for PixelsPerMeter {
 
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Drawing {
-    #[serde(flatten)]
+    // Even though round trip flattening is supposed to work after
+    // https://github.com/ron-rs/ron/pull/455, it seems it currently fails
+    // in ron, even forcing a dependency on that commit.
+    // TODO(luca) investigate further, come up with a minimum example,
+    // open an upstream issue and link it here for reference.
+    // #[serde(flatten)]
     pub properties: DrawingProperties,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
