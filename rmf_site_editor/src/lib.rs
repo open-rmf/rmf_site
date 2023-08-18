@@ -24,8 +24,8 @@ mod settings;
 use settings::*;
 mod save;
 use save::*;
-mod widgets;
-use widgets::*;
+pub mod widgets;
+use widgets::{menu_bar::MenuPluginManager, *};
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -193,6 +193,7 @@ impl Plugin for SiteEditor {
             .add_plugin(StandardUiLayout)
             .add_plugin(AnimationPlugin)
             .add_plugin(OccupancyPlugin)
-            .add_plugin(WorkspacePlugin);
+            .add_plugin(WorkspacePlugin)
+            .add_plugin(MenuPluginManager);
     }
 }
