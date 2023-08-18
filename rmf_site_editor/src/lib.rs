@@ -30,7 +30,7 @@ use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
-mod demo_world;
+pub mod demo_world;
 pub mod log;
 mod recency;
 mod shapes;
