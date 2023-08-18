@@ -14,15 +14,15 @@ use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
-mod aabb;
-mod animate;
+pub mod aabb;
+pub mod animate;
 
-mod keyboard;
+pub mod keyboard;
 use keyboard::*;
 
-mod settings;
+pub mod settings;
 use settings::*;
-mod save;
+pub mod save;
 use save::*;
 pub mod widgets;
 use widgets::{menu_bar::MenuPluginManager, *};
@@ -30,28 +30,28 @@ use widgets::{menu_bar::MenuPluginManager, *};
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
-mod demo_world;
-mod log;
+pub mod demo_world;
+pub mod log;
 mod recency;
 use recency::*;
 mod shapes;
 use log::LogHistoryPlugin;
 
-mod main_menu;
+pub mod main_menu;
 use main_menu::Autoload;
-mod site;
+pub mod site;
 // mod warehouse_generator;
-mod workcell;
+pub mod workcell;
 use workcell::WorkcellEditorPlugin;
-mod interaction;
+pub mod interaction;
 
-mod workspace;
+pub mod workspace;
 use workspace::*;
 
-mod sdf_loader;
+pub mod sdf_loader;
 
-mod site_asset_io;
-mod urdf_loader;
+pub mod site_asset_io;
+pub mod urdf_loader;
 use sdf_loader::*;
 
 use aabb::AabbUpdatePlugin;
@@ -61,13 +61,13 @@ use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
-struct CommandLineArgs {
+pub struct CommandLineArgs {
     /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
     /// Exclude this argument to get the main menu.
-    filename: Option<String>,
+    pub filename: Option<String>,
     /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
-    import: Option<String>,
+    pub import: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -97,7 +97,7 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
     }
 }
 
-fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
+pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
     // todo: be more sophisticated
     let is_elite = adapter_info.name.contains("NVIDIA");
     if is_elite {
