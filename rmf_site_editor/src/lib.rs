@@ -97,7 +97,7 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
     }
 }
 
-fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
+pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
     // todo: be more sophisticated
     let is_elite = adapter_info.name.contains("NVIDIA");
     if is_elite {
