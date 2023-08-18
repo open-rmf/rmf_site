@@ -211,7 +211,7 @@ pub fn add_floor_visuals(
         (
             Entity,
             &Path<Entity>,
-            &Texture,
+            &Affiliation<Entity>,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
             Option<&Parent>,
@@ -219,14 +219,16 @@ pub fn add_floor_visuals(
         Added<FloorMarker>,
     >,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
-    asset_server: Res<AssetServer>,
 ) {
-    for (e, new_floor, texture, rank, vis, parent) in &floors {
-        let mesh = make_floor_mesh(e, new_floor, texture, &anchors);
+    for (e, new_floor, texture_source, rank, vis, parent) in &floors {
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+
+        let mesh = make_floor_mesh(e, new_floor, &texture, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
         let default_vis = parent
@@ -234,7 +236,7 @@ pub fn add_floor_visuals(
             .flatten();
         let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
         let material = materials.add(StandardMaterial {
-            base_color_texture: Some(asset_server.load(&String::from(&texture.source))),
+            base_color_texture,
             base_color,
             alpha_mode,
             ..default()
@@ -268,24 +270,10 @@ pub fn add_floor_visuals(
     }
 }
 
-pub fn update_changed_floor(
-    changed_path: Query<
-        (Entity, &FloorSegments, &Path<Entity>, &Texture),
-        (Changed<Path<Entity>>, With<FloorMarker>),
-    >,
+pub fn update_changed_floor_ranks(
     changed_rank: Query<(Entity, &RecencyRank<FloorMarker>), Changed<RecencyRank<FloorMarker>>>,
-    anchors: AnchorParams,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
-    for (e, segments, path, texture) in &changed_path {
-        if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = mesh_assets.add(make_floor_mesh(e, path, texture, &anchors));
-        }
-        // TODO(MXG): Update texture once we support textures
-    }
-
     for (e, rank) in &changed_rank {
         if let Ok(mut tf) = transforms.get_mut(e) {
             tf.translation.z = floor_height(Some(rank));
@@ -293,9 +281,10 @@ pub fn update_changed_floor(
     }
 }
 
-pub fn update_floor_for_moved_anchors(
-    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Texture), With<FloorMarker>>,
+pub fn update_floors_for_moved_anchors(
+    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -308,34 +297,48 @@ pub fn update_floor_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, segments, path, texture)) = floors.get(*dependent).ok() {
+            if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
+                let (_, texture) = from_texture_source(texture_source, &textures);
                 if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, texture, &anchors));
+                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors));
                 }
             }
         }
     }
 }
 
-pub fn update_floor_for_changed_texture(
+pub fn update_floors(
+    floors: Query<(&FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     changed_floors: Query<
-        (Entity, &FloorSegments, &Path<Entity>, &Texture),
-        (Changed<Texture>, With<FloorMarker>),
+        Entity,
+        (
+            With<FloorMarker>,
+            Or<(Changed<Affiliation<Entity>>, Changed<Path<Entity>>)>,
+        ),
+    >,
+    changed_texture_sources: Query<
+        &Members,
+        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
     >,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     material_handles: Query<&Handle<StandardMaterial>>,
     anchors: AnchorParams,
-    asset_server: Res<AssetServer>,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
 ) {
-    for (e, segment, path, texture) in &changed_floors {
+    for e in changed_floors.iter().chain(
+        changed_texture_sources
+            .iter()
+            .flat_map(|members| members.iter().cloned()),
+    ) {
+        let Ok((segment, path, texture_source)) = floors.get(e) else { continue };
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
-                *mesh = meshes.add(make_floor_mesh(e, path, texture, &anchors));
+                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors));
                 if let Some(mut material) = materials.get_mut(material) {
-                    material.base_color_texture =
-                        Some(asset_server.load(&String::from(&texture.source)));
+                    material.base_color_texture = base_color_texture;
                 }
             }
         }

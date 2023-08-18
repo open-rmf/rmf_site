@@ -36,6 +36,9 @@ pub use inspect_edge::*;
 pub mod inspect_fiducial;
 pub use inspect_fiducial::*;
 
+pub mod inspect_group;
+pub use inspect_group::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -96,13 +99,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Original, SiteID,
+        EdgeLabels, LayerVisibility, Members, Original, SiteID,
     },
     widgets::AppEvents,
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, RichText, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -120,8 +123,9 @@ pub struct InspectorParams<'w, 's> {
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
-    pub textures: Query<'w, 's, &'static Texture>,
     pub layer: InspectorLayerParams<'w, 's>,
+    pub texture: InspectTextureAffiliationParams<'w, 's>,
+    pub groups: InspectGroupParams<'w, 's>,
     pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
@@ -400,15 +404,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
-            if let Ok(texture) = self.params.textures.get(selection) {
-                if let Some(new_texture) = InspectTexture::new(texture, default_file).show(ui) {
-                    self.events
-                        .change_more
-                        .texture
-                        .send(Change::new(new_texture, selection));
-                }
-                ui.add_space(10.0);
-            }
+            InspectTextureAffiliation::new(
+                selection,
+                default_file,
+                &self.params.texture,
+                self.events,
+            )
+            .show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
@@ -578,6 +580,40 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
+                ui.separator();
+                let empty = String::new();
+                let name = self
+                    .params
+                    .component
+                    .names
+                    .get(*group)
+                    .map(|n| &n.0)
+                    .unwrap_or(&empty);
+
+                ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
+                ui.add_space(5.0);
+                InspectGroup::new(
+                    *group,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
+            }
+
+            if self.params.groups.is_group.contains(selection) {
+                InspectGroup::new(
+                    selection,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
             }
         } else {
             ui.label("Nothing selected");

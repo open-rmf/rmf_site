@@ -102,18 +102,26 @@ pub fn update_fiducial_usage_tracker(
         .iter()
         .chain(changed_fiducial.iter().map(|p| p.get()))
     {
-        let Ok((_, mut tracker)) = unused_fiducial_trackers.get_mut(e) else { continue };
+        let Ok((_, mut tracker)) = unused_fiducial_trackers.get_mut(e) else {
+            continue;
+        };
         reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
     }
 
     for changed_group in &changed_fiducial_groups {
-        let Ok((_, name, site)) = fiducial_groups.get(changed_group) else { continue };
+        let Ok((_, name, site)) = fiducial_groups.get(changed_group) else {
+            continue;
+        };
         for (e, mut tracker) in &mut unused_fiducial_trackers {
             if tracker.site == site.get() {
                 tracker.unused.insert(changed_group, name.0.clone());
-                let Ok(scope_children) = children.get(e) else { continue };
+                let Ok(scope_children) = children.get(e) else {
+                    continue;
+                };
                 for child in scope_children {
-                    let Ok(affiliation) = fiducials.get(*child) else { continue };
+                    let Ok(affiliation) = fiducials.get(*child) else {
+                        continue;
+                    };
                     if let Some(group) = affiliation.0 {
                         if changed_group == group {
                             tracker.unused.remove(&changed_group);
@@ -132,7 +140,9 @@ pub fn update_fiducial_usage_tracker(
     }
 
     for (changed_fiducial, parent) in &changed_fiducials {
-        let Ok((e, mut tracker)) = unused_fiducial_trackers.get_mut(parent.get()) else { continue };
+        let Ok((e, mut tracker)) = unused_fiducial_trackers.get_mut(parent.get()) else {
+            continue;
+        };
         reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
     }
 
@@ -177,9 +187,13 @@ fn reset_fiducial_usage(
         }
     }
 
-    let Ok(scope_children) = children.get(entity) else { return };
+    let Ok(scope_children) = children.get(entity) else {
+        return;
+    };
     for child in scope_children {
-        let Ok(affiliation) = fiducials.get(*child) else { continue };
+        let Ok(affiliation) = fiducials.get(*child) else {
+            continue;
+        };
         if let Some(group) = affiliation.0 {
             tracker.unused.remove(&group);
             if let Ok((_, name, _)) = fiducial_groups.get(group) {
@@ -192,6 +206,7 @@ fn reset_fiducial_usage(
 pub fn add_fiducial_visuals(
     mut commands: Commands,
     fiducials: Query<(Entity, &Point<Entity>, Option<&Transform>), Added<FiducialMarker>>,
+    fiducial_groups: Query<Entity, (Added<FiducialMarker>, With<Group>)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
 ) {
@@ -212,6 +227,10 @@ pub fn add_fiducial_visuals(
             .insert(ComputedVisibility::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
+    }
+
+    for e in &fiducial_groups {
+        commands.entity(e).insert(Category::FiducialGroup);
     }
 }
 

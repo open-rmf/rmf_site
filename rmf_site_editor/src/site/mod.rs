@@ -48,6 +48,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod group;
+pub use group::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -98,6 +101,9 @@ pub use site::*;
 
 pub mod site_visualizer;
 pub use site_visualizer::*;
+
+pub mod texture;
+pub use texture::*;
 
 pub mod util;
 pub use util::*;
@@ -160,6 +166,7 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
+            .add_event::<MergeGroups>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
@@ -215,6 +222,17 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_tentative_formats)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(update_drawing_children_to_pixel_coordinates)
+                    .with_system(fetch_image_for_texture)
+                    .with_system(detect_last_selected_texture::<FloorMarker>)
+                    .with_system(
+                        apply_last_selected_texture::<FloorMarker>
+                            .after(detect_last_selected_texture::<FloorMarker>),
+                    )
+                    .with_system(detect_last_selected_texture::<WallMarker>)
+                    .with_system(
+                        apply_last_selected_texture::<WallMarker>
+                            .after(detect_last_selected_texture::<WallMarker>),
+                    )
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -253,9 +271,9 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_door)
                     .with_system(update_door_for_moved_anchors)
                     .with_system(add_floor_visuals)
-                    .with_system(update_changed_floor)
-                    .with_system(update_floor_for_moved_anchors)
-                    .with_system(update_floor_for_changed_texture)
+                    .with_system(update_floors)
+                    .with_system(update_floors_for_moved_anchors)
+                    .with_system(update_floors)
                     .with_system(update_floor_visibility)
                     .with_system(update_drawing_visibility)
                     .with_system(add_lane_visuals)
@@ -292,6 +310,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_constraint_for_changed_labels)
                     .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
+                    .with_system(update_affiliations)
+                    .with_system(update_members_of_groups.after(update_affiliations))
                     .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
@@ -301,9 +321,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_drawing_rank)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
-                    .with_system(update_wall_edge)
-                    .with_system(update_wall_for_moved_anchors)
-                    .with_system(update_wall_for_changed_texture)
+                    .with_system(update_walls_for_moved_anchors)
+                    .with_system(update_walls)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(align_site_drawings)
                     .with_system(export_lights),

@@ -20,6 +20,7 @@ use crate::{Recall, RefTrait};
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const DEFAULT_LEVEL_HEIGHT: f32 = 3.0;
 
@@ -475,12 +476,12 @@ impl<T: RefTrait> Default for Affiliation<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Affiliation<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Affiliation<Entity> {
-        Affiliation(self.0.map(|a| *id_to_entity.get(&a).unwrap()))
+impl<T: RefTrait> Affiliation<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Affiliation<U>, T> {
+        if let Some(x) = self.0 {
+            Ok(Affiliation(Some(id_map.get(&x).ok_or(x)?.clone())))
+        } else {
+            Ok(Affiliation(None))
+        }
     }
 }

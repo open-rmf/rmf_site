@@ -102,7 +102,7 @@ pub fn dispatch_save_events(
                     if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
                         file
                     } else {
-                        let Some(file) =  FileDialog::new().save_file() else {
+                        let Some(file) = FileDialog::new().save_file() else {
                             continue;
                         };
                         file

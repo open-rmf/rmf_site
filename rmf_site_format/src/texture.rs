@@ -17,7 +17,7 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
@@ -32,4 +32,16 @@ pub struct Texture {
     pub width: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub height: Option<f32>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct TextureGroup {
+    pub name: NameInSite,
+    // The flatten attribute currently does not work correctly for the .ron
+    // format, so we cannot use it for now.
+    // #[serde(flatten)]
+    pub texture: Texture,
+    #[serde(skip)]
+    pub group: Group,
 }

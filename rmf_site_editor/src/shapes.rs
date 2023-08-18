@@ -1111,14 +1111,8 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
         let p0 = Vec3::new(p0[0], p0[1], 0.0);
         let p1 = Vec3::new(p1[0], p1[1], 0.0);
         let p2 = Vec3::new(p2[0], p2[1], 0.0);
-        let v0 = match (p1 - p0).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
-        let v1 = match (p2 - p1).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
+        let v0 = (p1 - p0).normalize_or_zero();
+        let v1 = (p2 - p1).normalize_or_zero();
 
         // n: normal
         let n = Vec3::Z;
@@ -1279,7 +1273,9 @@ pub(crate) fn make_finite_grid(
 
     let mut polylines: HashMap<u32, Polyline> = HashMap::new();
     let mut result = {
-        let Some(width) = weights.values().last().copied() else { return Vec::new() };
+        let Some(width) = weights.values().last().copied() else {
+            return Vec::new();
+        };
         let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
 
         for (sign, x_axis_color, y_axis_color) in [
@@ -1308,7 +1304,9 @@ pub(crate) fn make_finite_grid(
     for n in 1..=count {
         let d = n as f32 * scale;
         let polylines = {
-            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else { continue };
+            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
+                continue;
+            };
             polylines.entry(*weight_key).or_default()
         };
 
