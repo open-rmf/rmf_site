@@ -20,7 +20,7 @@ use crate::{
     CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters,
 };
 
-use bevy::prelude::{EventWriter, Res, Children, Query, Entity};
+use bevy::prelude::{EventWriter, Res, Children, Query, Entity, Parent, Without};
 use bevy_egui::{
     egui::{self, epaint::ahash::HashSet, Button, Ui},
     EguiContext,
@@ -31,7 +31,7 @@ fn render_sub_menu(
     ui: &mut Ui,
     entity: &Entity,
     children: &Query<&Children>,
-    menus: &Query<&Menu>,
+    menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<&MenuItem>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool
@@ -48,7 +48,7 @@ fn render_sub_menu(
         return;
     }
 
-    let Ok(menu) = menus.get(*entity) else {
+    let Ok((menu, _)) = menus.get(*entity) else {
         return;
     };  
 
@@ -79,8 +79,9 @@ pub fn top_menu_bar(
     file_events: &mut FileEvents,
     params: &mut VisibilityParameters,
     file_menu: &Res<FileMenu>,
+    top_level_components: &Query<(), Without<Parent>>,
     children: &Query<&Children>,
-    menus: &Query<&Menu>,
+    menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<&MenuItem>,
     extension_events: &mut EventWriter<MenuEvent>,
 ) {
@@ -204,6 +205,12 @@ pub fn top_menu_bar(
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
             });
+
+            for (_, entity) in menus.iter().filter(|(_, entity)| {
+                top_level_components.contains(*entity) && *entity != file_menu.get()
+            }) {
+                render_sub_menu(ui, &entity, children, menus, menu_items, extension_events, false);
+            };
         });
     });
 }

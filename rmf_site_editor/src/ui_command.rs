@@ -10,6 +10,9 @@ pub struct Menu {
 }
 
 impl Menu {
+    pub fn from_title(text: String) -> Self {
+        Self {text}
+    }
     pub fn get(&self) -> String {
         self.text.clone()
     }

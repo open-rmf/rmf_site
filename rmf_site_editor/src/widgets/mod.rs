@@ -289,7 +289,8 @@ fn site_ui_layout(
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
     children: Query<&Children>,
-    menus: Query<&Menu>,
+    top_level_components: Query<(), Without<Parent>>,
+    menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
     mut extension_events: EventWriter<MenuEvent>
 ) {
@@ -357,6 +358,7 @@ fn site_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
+        &top_level_components,
         &children,
         &menus,
         &menu_items,
@@ -398,7 +400,8 @@ fn site_drawing_ui_layout(
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
     children: Query<&Children>,
-    menus: Query<&Menu>,
+    top_level_components: Query<(), Without<Parent>>,
+    menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
     mut extension_events: EventWriter<MenuEvent>,
 ) {
@@ -452,6 +455,7 @@ fn site_drawing_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
+        &top_level_components,
         &children,
         &menus,
         &menu_items,
@@ -483,8 +487,9 @@ fn site_visualizer_ui_layout(
     mut events: AppEvents,
     levels: LevelParams,
     file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
-    menus: Query<&Menu>,
+    menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
     mut extension_events: EventWriter<MenuEvent>
 ) {
@@ -539,6 +544,7 @@ fn site_visualizer_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
+        &top_level_components,
         &children,
         &menus,
         &menu_items,
@@ -571,8 +577,9 @@ fn workcell_ui_layout(
     mut events: AppEvents,
     mut extension_events: EventWriter<MenuEvent>,
     file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
-    menus: Query<&Menu>,
+    menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
 ) {
     egui::SidePanel::right("right_panel")
@@ -612,6 +619,7 @@ fn workcell_ui_layout(
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
+        &top_level_components,
         &children,
         &menus,
         &menu_items,
