@@ -15,8 +15,8 @@
  *
 */
 
-use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
 use crate::site::DefaultFile;
+use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 

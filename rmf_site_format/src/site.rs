@@ -35,7 +35,7 @@ impl Default for SiteProperties {
     fn default() -> Self {
         Self {
             name: NameOfSite("new_site".to_owned()),
-            geographic_offset: GeographicComponent::default()
+            geographic_offset: GeographicComponent::default(),
         }
     }
 }

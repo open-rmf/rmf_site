@@ -146,28 +146,24 @@ impl OSMTile {
             let (lat2, lon2) = self.get_sw_corner();
             if let Ok(res1) = self.get_transform_from_lat_lon(lat1, lon1) {
                 if let Ok(res2) = self.get_transform_from_lat_lon(lat2, lon2) {
-                    (res1-res2).length()
-                }
-                else {
+                    (res1 - res2).length()
+                } else {
                     haversine_distance(lat1, lon1, lat2, lon2) * 1000.0
                 }
-            }    
-            else {
-                haversine_distance(lat1, lon1, lat2, lon2)* 1000.0
+            } else {
+                haversine_distance(lat1, lon1, lat2, lon2) * 1000.0
             }
         };
         let dx = {
             let (lat2, lon2) = self.get_ne_corner();
             if let Ok(res1) = self.get_transform_from_lat_lon(lat1, lon1) {
                 if let Ok(res2) = self.get_transform_from_lat_lon(lat2, lon2) {
-                    (res1-res2).length()
-                }
-                else {
+                    (res1 - res2).length()
+                } else {
                     haversine_distance(lat1, lon1, lat2, lon2) * 1000.0
                 }
-            }    
-            else {
-                haversine_distance(lat1, lon1, lat2, lon2)* 1000.0
+            } else {
+                haversine_distance(lat1, lon1, lat2, lon2) * 1000.0
             }
         };
         (dy, dx)
