@@ -17,26 +17,25 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{collections::BTreeMap, hash::Hash, io};
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct SiteProperties {
-    pub name: String,
-
     #[serde(skip_serializing_if = "Option::is_none")]
     pub geographic_offset: Option<GeographicOffset>,
+    pub name: NameOfSite,
 }
 
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
-            name: "new_site".to_string(),
             geographic_offset: None,
+            name: NameOfSite("new_site".to_owned()),
         }
     }
 }
@@ -55,6 +54,12 @@ pub struct Site {
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
+    /// The fiducial groups that exist in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducial_groups: BTreeMap<u32, FiducialGroup>,
+    /// The fiducial instances that exist in Cartesian space
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     /// Properties of each lift
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lifts: BTreeMap<u32, Lift<u32>>,
@@ -65,6 +70,11 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct NameOfSite(pub String);
 
 fn default_style_config() -> Style {
     Style::new()
@@ -106,7 +116,7 @@ impl Site {
     }
 }
 
-pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static {}
+pub trait RefTrait: Ord + Eq + Copy + Send + Sync + Hash + 'static {}
 
 impl RefTrait for u32 {}
 

@@ -84,13 +84,16 @@ impl NavGraph {
                     }
                 }
 
-                levels.insert(level.properties.name.clone(), NavLevel { lanes, vertices });
+                levels.insert(
+                    level.properties.name.clone().0,
+                    NavLevel { lanes, vertices },
+                );
             }
 
             graphs.push((
                 graph.name.0.clone(),
                 Self {
-                    building_name: site.properties.name.clone(),
+                    building_name: site.properties.name.clone().0,
                     levels,
                 },
             ))
