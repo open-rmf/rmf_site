@@ -373,19 +373,27 @@ fn calculate_scale_gradient(
     }
 
     for vars_i in AllVariables::new(u) {
-        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else {
+            continue;
+        };
         for vars_j in AllVariables::except(vars_i.level, u) {
-            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else {
+                continue;
+            };
             for (k, phi_ki) in fiducials_i.iter().enumerate() {
                 let Some(phi_ki) = phi_ki else { continue };
-                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else {
+                    continue;
+                };
                 let f_ki = vars_i.transform(*phi_ki);
                 let f_kj = vars_j.transform(*phi_kj);
 
                 for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
                     let m = m + k + 1;
                     let Some(phi_mi) = phi_mi else { continue };
-                    let Some(Some(phi_mj)) = fiducials_j.get(m) else { continue };
+                    let Some(Some(phi_mj)) = fiducials_j.get(m) else {
+                        continue;
+                    };
                     let f_mi = vars_i.transform(*phi_mi);
                     let f_mj = vars_j.transform(*phi_mj);
                     let df_i = f_ki - f_mi;
@@ -446,19 +454,27 @@ fn traverse_yaws<F: FnMut(usize, f64, usize, f64)>(
     mut f: F,
 ) {
     for vars_i in AllVariables::new(u) {
-        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else {
+            continue;
+        };
         for vars_j in AllVariables::after(vars_i.level, u) {
-            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else {
+                continue;
+            };
             for (k, phi_ki) in fiducials_i.iter().enumerate() {
                 let Some(phi_ki) = phi_ki else { continue };
-                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else {
+                    continue;
+                };
                 let f_ki = vars_i.transform(*phi_ki);
                 let f_kj = vars_j.transform(*phi_kj);
 
                 for (m, phi_mi) in fiducials_i[k + 1..].iter().enumerate() {
                     let m = m + k + 1;
                     let Some(phi_mi) = phi_mi else { continue };
-                    let Some(Some(phi_mj)) = fiducials_j.get(m) else { continue };
+                    let Some(Some(phi_mj)) = fiducials_j.get(m) else {
+                        continue;
+                    };
                     let f_mi = vars_i.transform(*phi_mi);
                     let f_mj = vars_j.transform(*phi_mj);
                     let df_i = f_ki - f_mi;
@@ -511,12 +527,18 @@ fn traverse_locations<F: FnMut(usize, DVec2, usize, DVec2)>(
     mut f: F,
 ) {
     for vars_i in AllVariables::new(u) {
-        let Some(fiducials_i) = fiducials.get(vars_i.level) else { continue };
+        let Some(fiducials_i) = fiducials.get(vars_i.level) else {
+            continue;
+        };
         for vars_j in AllVariables::after(vars_i.level, u) {
-            let Some(fiducials_j) = fiducials.get(vars_j.level) else { continue };
+            let Some(fiducials_j) = fiducials.get(vars_j.level) else {
+                continue;
+            };
             for (k, phi_ki) in fiducials_i.iter().enumerate() {
                 let Some(phi_ki) = phi_ki else { continue };
-                let Some(Some(phi_kj)) = fiducials_j.get(k) else { continue };
+                let Some(Some(phi_kj)) = fiducials_j.get(k) else {
+                    continue;
+                };
                 let f_ki = vars_i.transform(*phi_ki);
                 let f_kj = vars_j.transform(*phi_kj);
                 f(vars_i.level, f_ki, vars_j.level, f_kj);

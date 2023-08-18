@@ -11,6 +11,10 @@ name = "librmf_site_editor"
 path = "src/main.rs"
 name = "rmf_site_editor"
 
+[[example]]
+name = "extending_site_editor"
+path = "examples/extending_menu.rs"
+
 [dependencies]
 bevy_egui = "0.19"
 bevy_mod_picking = "0.11"

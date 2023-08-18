@@ -36,6 +36,9 @@ pub use inspect_edge::*;
 pub mod inspect_fiducial;
 pub use inspect_fiducial::*;
 
+pub mod inspect_group;
+pub use inspect_group::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -81,6 +84,9 @@ pub use inspect_scale::*;
 pub mod inspect_side;
 pub use inspect_side::*;
 
+pub mod inspect_texture;
+pub use inspect_texture::*;
+
 pub mod inspect_value;
 pub use inspect_value::*;
 
@@ -93,13 +99,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Original, SiteID,
+        EdgeLabels, LayerVisibility, Members, Original, SiteID,
     },
     widgets::AppEvents,
-    AppState, CurrentWorkspace,
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, ImageButton, RichText, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -118,6 +124,8 @@ pub struct InspectorParams<'w, 's> {
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
+    pub texture: InspectTextureAffiliationParams<'w, 's>,
+    pub groups: InspectGroupParams<'w, 's>,
     pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
@@ -217,6 +225,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(mut self, ui: &mut Ui) {
+        let default_file = self
+            .events
+            .request
+            .current_workspace
+            .root
+            .map(|e| self.params.default_file.get(e).ok())
+            .flatten();
+
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
             if self.params.anchor_params.anchors.contains(selection) {
@@ -388,6 +404,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
+            InspectTextureAffiliation::new(
+                selection,
+                default_file,
+                &self.params.texture,
+                self.events,
+            )
+            .show(ui);
+
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
                 if let Some(new_motion) = InspectMotionWidget::new(motion, recall).show(ui) {
@@ -464,13 +488,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {
-                let default_file = self
-                    .events
-                    .request
-                    .current_workspace
-                    .root
-                    .map(|e| self.params.default_file.get(e).ok())
-                    .flatten();
                 if let Some(new_asset_source) =
                     InspectAssetSource::new(source, recall, default_file).show(ui)
                 {
@@ -520,6 +537,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .show(ui)
                 {
                     self.events
+                        .change_more
                         .distance
                         .send(Change::new(Distance(new_distance), selection));
                 }
@@ -562,6 +580,40 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
+                ui.separator();
+                let empty = String::new();
+                let name = self
+                    .params
+                    .component
+                    .names
+                    .get(*group)
+                    .map(|n| &n.0)
+                    .unwrap_or(&empty);
+
+                ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
+                ui.add_space(5.0);
+                InspectGroup::new(
+                    *group,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
+            }
+
+            if self.params.groups.is_group.contains(selection) {
+                InspectGroup::new(
+                    selection,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
             }
         } else {
             ui.label("Nothing selected");

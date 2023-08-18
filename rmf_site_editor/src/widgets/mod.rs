@@ -26,8 +26,8 @@ use crate::{
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
-        SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
+        PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -43,6 +43,9 @@ use create::*;
 
 pub mod menu_bar;
 use menu_bar::*;
+
+pub mod view_groups;
+use view_groups::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -66,7 +69,7 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget, SearchForFiducial};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture};
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -106,6 +109,8 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
+            .init_resource::<SearchForTexture>()
+            .init_resource::<GroupViewModes>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -158,6 +163,10 @@ pub struct ChangeEvents<'w, 's> {
 pub struct MoreChangeEvents<'w, 's> {
     pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
+    pub search_for_texture: ResMut<'w, SearchForTexture>,
+    pub distance: EventWriter<'w, 's, Change<Distance>>,
+    pub texture: EventWriter<'w, 's, Change<Texture>>,
+    pub merge_groups: EventWriter<'w, 's, MergeGroups>,
 }
 
 #[derive(SystemParam)]
@@ -258,6 +267,13 @@ pub struct VisibilityParameters<'w, 's> {
     resources: VisibilityResources<'w, 's>,
 }
 
+#[derive(SystemParam)]
+pub struct MenuParams<'w, 's> {
+    menus: Query<'w, 's, (&'static Menu, Entity)>,
+    menu_items: Query<'w, 's, &'static MenuItem>,
+    extension_events: EventWriter<'w, 's, MenuEvent>,
+}
+
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -275,8 +291,6 @@ pub struct AppEvents<'w, 's> {
     pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
-    // TODO(luca) put this into change once the 16 size limit is lifted in bevy 0.10
-    pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
 }
 
@@ -290,7 +304,12 @@ fn site_ui_layout(
     lights: LightParams,
     nav_graphs: NavGraphParams,
     layers: LayersParams,
+    mut groups: GroupParams,
     mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    top_level_components: Query<(), Without<Parent>>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -333,6 +352,12 @@ fn site_ui_layout(
                                 CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
+                        CollapsingHeader::new("Groups")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewGroups::new(&mut groups, &mut events).show(ui);
+                            });
+                        ui.separator();
                         CollapsingHeader::new("Lights")
                             .default_open(false)
                             .show(ui, |ui| {
@@ -355,6 +380,10 @@ fn site_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
     );
 
     egui::TopBottomPanel::bottom("log_console")
@@ -399,6 +428,10 @@ fn site_drawing_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    top_level_components: Query<(), Without<Parent>>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -449,6 +482,10 @@ fn site_drawing_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -472,9 +509,12 @@ fn site_drawing_ui_layout(
 fn site_visualizer_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    inspector_params: InspectorParams,
     mut events: AppEvents,
     levels: LevelParams,
+    file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
+    children: Query<&Children>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -526,6 +566,10 @@ fn site_visualizer_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
     );
 
     let egui_context = egui_context.ctx_mut();
@@ -552,6 +596,10 @@ fn workcell_ui_layout(
     inspector_params: InspectorParams,
     create_params: CreateParams,
     mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
+    children: Query<&Children>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -589,6 +637,10 @@ fn workcell_ui_layout(
         &mut egui_context,
         &mut events.file_events,
         &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
     );
 
     if events.new_model.asset_gallery_status.show {

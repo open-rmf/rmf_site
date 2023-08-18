@@ -17,8 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -192,16 +193,15 @@ impl Recall for RecallReverseLane {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Lane<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Lane<Entity> {
-        Lane {
-            anchors: self.anchors.to_ecs(id_to_entity),
+impl<T: RefTrait> Lane<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Lane<U>, T> {
+        Ok(Lane {
+            anchors: self.anchors.convert(id_map)?,
             forward: self.forward.clone(),
             reverse: self.reverse.clone(),
-            graphs: self.graphs.to_ecs(id_to_entity),
+            graphs: self.graphs.convert(id_map)?,
             marker: Default::default(),
-        }
+        })
     }
 }
 

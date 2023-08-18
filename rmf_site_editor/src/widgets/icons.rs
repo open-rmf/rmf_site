@@ -55,6 +55,7 @@ pub struct Icons {
     pub edit: Icon,
     pub exit: Icon,
     pub trash: Icon,
+    pub merge: Icon,
     pub confirm: Icon,
     pub add: Icon,
     pub reject: Icon,
@@ -79,6 +80,7 @@ impl FromWorld for Icons {
         let edit = IconBuilder::new("textures/edit.png", &asset_server);
         let exit = IconBuilder::new("textures/exit.png", &asset_server);
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
+        let merge = IconBuilder::new("textures/merge.png", &asset_server);
         let confirm = IconBuilder::new("textures/confirm.png", &asset_server);
         let add = IconBuilder::new("textures/add.png", &asset_server);
         let reject = IconBuilder::new("textures/reject.png", &asset_server);
@@ -104,6 +106,7 @@ impl FromWorld for Icons {
             edit: edit.build(&mut egui_context),
             exit: exit.build(&mut egui_context),
             trash: trash.build(&mut egui_context),
+            merge: merge.build(&mut egui_context),
             confirm: confirm.build(&mut egui_context),
             add: add.build(&mut egui_context),
             reject: reject.build(&mut egui_context),

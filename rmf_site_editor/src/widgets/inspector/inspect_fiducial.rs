@@ -25,7 +25,7 @@ use bevy_egui::egui::{ComboBox, ImageButton, Ui};
 #[derive(Resource, Default)]
 pub struct SearchForFiducial(pub String);
 
-enum SearchResult {
+pub(crate) enum SearchResult {
     Empty,
     Current,
     NoMatch,
@@ -34,7 +34,7 @@ enum SearchResult {
 }
 
 impl SearchResult {
-    fn consider(&mut self, entity: Entity) {
+    pub(crate) fn consider(&mut self, entity: Entity) {
         match self {
             Self::NoMatch => {
                 *self = SearchResult::Match(entity);
@@ -46,7 +46,7 @@ impl SearchResult {
         }
     }
 
-    fn conflict(&mut self, text: &'static str) {
+    pub(crate) fn conflict(&mut self, text: &'static str) {
         match self {
             // If we already found a match then don't change the behavior
             Self::Match(_) | Self::Current | Self::Conflict(_) | Self::Empty => {}
@@ -85,8 +85,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let Ok((affiliation, parent)) = self.params.fiducials.get(self.entity) else { return };
-        let Ok(tracker) = self.params.usage.get(parent.get()) else { return };
+        let Ok((affiliation, parent)) = self.params.fiducials.get(self.entity) else {
+            return;
+        };
+        let Ok(tracker) = self.params.usage.get(parent.get()) else {
+            return;
+        };
 
         ui.separator();
         ui.label("Affiliation");
@@ -109,7 +113,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
             let mut result = SearchResult::NoMatch;
             let mut any_partial_matches = false;
 
-            if *search == "" {
+            if search.is_empty() {
                 // An empty string should not be used
                 result = SearchResult::Empty;
             }
@@ -231,14 +235,11 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
         let mut new_affiliation = affiliation.clone();
         ui.horizontal(|ui| {
             if ui
-                .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
-                .on_hover_text("Remove this fiducial from its group")
+                .add(ImageButton::new(self.params.icons.exit.egui(), [18., 18.]))
+                .on_hover_text("Remove this fiducial from its current group")
                 .clicked()
             {
-                self.events
-                    .change_more
-                    .affiliation
-                    .send(Change::new(Affiliation(None), self.entity));
+                new_affiliation = Affiliation(None);
             }
             ComboBox::from_id_source("fiducial_affiliation")
                 .selected_text(selected_text)

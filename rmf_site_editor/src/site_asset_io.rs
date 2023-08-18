@@ -159,10 +159,6 @@ impl SiteAssetIo {
 
     fn add_bundled_assets(&mut self) {
         self.bundled_assets.insert(
-            "textures/default.png".to_owned(),
-            include_bytes!("../../assets/textures/default.png").to_vec(),
-        );
-        self.bundled_assets.insert(
             "textures/select.png".to_owned(),
             include_bytes!("../../assets/textures/select.png").to_vec(),
         );
@@ -173,6 +169,10 @@ impl SiteAssetIo {
         self.bundled_assets.insert(
             "textures/trash.png".to_owned(),
             include_bytes!("../../assets/textures/trash.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/merge.png".to_owned(),
+            include_bytes!("../../assets/textures/merge.png").to_vec(),
         );
         self.bundled_assets.insert(
             "textures/confirm.png".to_owned(),

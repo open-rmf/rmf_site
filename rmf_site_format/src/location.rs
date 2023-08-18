@@ -17,8 +17,9 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub enum LocationTag {
@@ -83,18 +84,14 @@ impl Default for LocationTags {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Location<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Location<Entity> {
-        Location {
-            anchor: Point(*id_to_entity.get(&self.anchor).unwrap()),
+impl<T: RefTrait> Location<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Location<U>, T> {
+        Ok(Location {
+            anchor: self.anchor.convert(id_map)?,
             tags: self.tags.clone(),
             name: self.name.clone(),
-            graphs: self.graphs.to_ecs(id_to_entity),
-        }
+            graphs: self.graphs.convert(id_map)?,
+        })
     }
 }
 

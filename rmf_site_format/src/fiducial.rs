@@ -17,8 +17,9 @@
 
 use crate::{Affiliation, Group, NameInSite, Point, RefTrait};
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 /// Mark a point within a drawing or level to serve as a ground truth relative
 /// to other drawings and levels.
@@ -59,17 +60,13 @@ impl FiducialGroup {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct FiducialMarker;
 
-#[cfg(feature = "bevy")]
-impl Fiducial<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Fiducial<Entity> {
-        Fiducial {
-            anchor: self.anchor.to_ecs(id_to_entity),
-            affiliation: self.affiliation.to_ecs(id_to_entity),
+impl<T: RefTrait> Fiducial<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Fiducial<U>, T> {
+        Ok(Fiducial {
+            anchor: self.anchor.convert(id_map)?,
+            affiliation: self.affiliation.convert(id_map)?,
             marker: Default::default(),
-        }
+        })
     }
 }
 

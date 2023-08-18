@@ -186,6 +186,8 @@ pub fn update_lift_cabin(
                             wall[1],
                             params.thickness(),
                             DEFAULT_LEVEL_HEIGHT / 3.0,
+                            None,
+                            None,
                         )
                     })
                     .fold(MeshBuffer::default(), |sum, next| sum.merge_with(next))
