@@ -101,17 +101,17 @@ impl Site {
         ron::ser::to_string_pretty(self, style)
     }
 
-    pub fn from_reader<R: io::Read>(reader: R) -> ron::Result<Self> {
+    pub fn from_reader<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
         // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
         // belong to the same level.
         ron::de::from_reader(reader)
     }
 
-    pub fn from_str<'a>(s: &'a str) -> ron::Result<Self> {
+    pub fn from_str<'a>(s: &'a str) -> ron::error::SpannedResult<Self> {
         ron::de::from_str(s)
     }
 
-    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::Result<Self> {
+    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
 }
@@ -122,3 +122,17 @@ impl RefTrait for u32 {}
 
 #[cfg(feature = "bevy")]
 impl RefTrait for Entity {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::legacy::building_map::BuildingMap;
+
+    #[test]
+    fn serde_roundtrip() {
+        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site_string = map.to_site().unwrap().to_string().unwrap();
+        Site::from_str(&site_string).unwrap();
+    }
+}

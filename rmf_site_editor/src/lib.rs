@@ -24,8 +24,8 @@ mod settings;
 use settings::*;
 mod save;
 use save::*;
-mod widgets;
-use widgets::*;
+pub mod widgets;
+use widgets::{menu_bar::MenuPluginManager, *};
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -128,86 +128,94 @@ pub fn run(command_line_args: Vec<String>) {
         }
     }
 
-    #[cfg(target_arch = "wasm32")]
-    {
-        app.add_plugins(
-            DefaultPlugins
-                .build()
-                .disable::<LogPlugin>()
-                .set(WindowPlugin {
-                    window: WindowDescriptor {
-                        title: "RMF Site Editor".to_owned(),
-                        canvas: Some(String::from("#rmf_site_editor_canvas")),
-                        ..default()
-                    },
-                    ..default()
-                })
-                .set(ImagePlugin {
-                    default_sampler: SamplerDescriptor {
-                        address_mode_u: AddressMode::Repeat,
-                        address_mode_v: AddressMode::Repeat,
-                        address_mode_w: AddressMode::Repeat,
-                        ..Default::default()
-                    },
-                })
-                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-        )
-        .add_system_set(
-            SystemSet::new()
-                .with_run_criteria(FixedTimestep::step(0.5))
-                .with_system(check_browser_window_size),
-        );
-    }
+    app.add_plugin(SiteEditor);
+    app.run();
+}
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        app.add_plugins(
-            DefaultPlugins
-                .build()
-                .disable::<LogPlugin>()
-                .set(WindowPlugin {
-                    window: WindowDescriptor {
-                        title: "RMF Site Editor".to_owned(),
-                        width: 1600.,
-                        height: 900.,
-                        ..default()
-                    },
-                    ..default()
-                })
-                .set(ImagePlugin {
-                    default_sampler: SamplerDescriptor {
-                        address_mode_u: AddressMode::Repeat,
-                        address_mode_v: AddressMode::Repeat,
-                        address_mode_w: AddressMode::Repeat,
-                        ..Default::default()
-                    },
-                })
-                .set(LogPlugin {
-                    filter: "bevy_asset=error,wgpu=error".to_string(),
-                    ..default()
-                })
-                .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-        );
-    }
+pub struct SiteEditor;
 
-    app.init_resource::<Settings>()
-        .add_startup_system(init_settings)
-        .insert_resource(DirectionalLightShadowMap { size: 2048 })
-        .add_plugin(LogHistoryPlugin)
-        .add_plugin(AabbUpdatePlugin)
-        .add_plugin(EguiPlugin)
-        .add_plugin(KeyboardInputPlugin)
-        .add_plugin(SavePlugin)
-        .add_plugin(SdfPlugin)
-        .add_state(AppState::MainMenu)
-        .add_plugin(MainMenuPlugin)
-        // .add_plugin(WarehouseGeneratorPlugin)
-        .add_plugin(WorkcellEditorPlugin)
-        .add_plugin(SitePlugin)
-        .add_plugin(InteractionPlugin)
-        .add_plugin(StandardUiLayout)
-        .add_plugin(AnimationPlugin)
-        .add_plugin(OccupancyPlugin)
-        .add_plugin(WorkspacePlugin)
-        .run();
+impl Plugin for SiteEditor {
+    fn build(&self, app: &mut App) {
+        #[cfg(target_arch = "wasm32")]
+        {
+            app.add_plugins(
+                DefaultPlugins
+                    .build()
+                    .disable::<LogPlugin>()
+                    .set(WindowPlugin {
+                        window: WindowDescriptor {
+                            title: "RMF Site Editor".to_owned(),
+                            canvas: Some(String::from("#rmf_site_editor_canvas")),
+                            ..default()
+                        },
+                        ..default()
+                    })
+	            .set(ImagePlugin {
+	                default_sampler: SamplerDescriptor {
+                            address_mode_u: AddressMode::Repeat,
+                            address_mode_v: AddressMode::Repeat,
+                            address_mode_w: AddressMode::Repeat,
+                            ..Default::default()
+	                },
+	            })
+                    .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+            )
+            .add_system_set(
+                SystemSet::new()
+                    .with_run_criteria(FixedTimestep::step(0.5))
+                    .with_system(check_browser_window_size),
+            );
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            app.add_plugins(
+                DefaultPlugins
+                    .build()
+                    .disable::<LogPlugin>()
+                    .set(WindowPlugin {
+                        window: WindowDescriptor {
+                            title: "RMF Site Editor".to_owned(),
+                            width: 1600.,
+                            height: 900.,
+                            ..default()
+                        },
+                        ..default()
+                    })
+                    .set(ImagePlugin {
+                        default_sampler: SamplerDescriptor {
+                            address_mode_u: AddressMode::Repeat,
+                            address_mode_v: AddressMode::Repeat,
+                            address_mode_w: AddressMode::Repeat,
+                            ..Default::default()
+                        },
+                    })
+                    .set(LogPlugin {
+                        filter: "bevy_asset=error,wgpu=error".to_string(),
+                        ..default()
+                    })
+                    .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
+            );
+        }
+        app.init_resource::<Settings>()
+            .add_startup_system(init_settings)
+            .insert_resource(DirectionalLightShadowMap { size: 2048 })
+            .add_plugin(LogHistoryPlugin)
+            .add_plugin(AabbUpdatePlugin)
+            .add_plugin(EguiPlugin)
+            .add_plugin(KeyboardInputPlugin)
+            .add_plugin(SavePlugin)
+            .add_plugin(SdfPlugin)
+            .add_state(AppState::MainMenu)
+            .add_plugin(MainMenuPlugin)
+            // .add_plugin(WarehouseGeneratorPlugin)
+            .add_plugin(WorkcellEditorPlugin)
+            .add_plugin(SitePlugin)
+            .add_plugin(InteractionPlugin)
+            .add_plugin(StandardUiLayout)
+            .add_plugin(AnimationPlugin)
+            .add_plugin(OccupancyPlugin)
+            .add_plugin(WorkspacePlugin)
+            .add_plugin(MenuPluginManager);
+    }
 }
