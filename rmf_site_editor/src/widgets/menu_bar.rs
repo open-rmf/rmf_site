@@ -15,17 +15,18 @@
  *
 */
 
-use crate::{
-    CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters,
-};
+use crate::{CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters};
 
-use bevy::prelude::{EventWriter, Res, Children, Query, Entity, Parent, Without, Component, Resource, FromWorld, World, Plugin, App};
+use bevy::prelude::{
+    App, Children, Component, Entity, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
+    Without, World,
+};
 use bevy_egui::{
     egui::{self, epaint::ahash::HashSet, Button, Ui},
     EguiContext,
 };
 
-/// This component represents a menu. Menus and menu items 
+/// This component represents a menu. Menus and menu items
 /// can be arranged in trees using bevy's own parent-child system.
 #[derive(Component)]
 pub struct Menu {
@@ -35,7 +36,7 @@ pub struct Menu {
 impl Menu {
     /// Create a new menu from the title
     pub fn from_title(text: String) -> Self {
-        Self {text}
+        Self { text }
     }
 
     /// Retrieve the menu name
@@ -47,14 +48,14 @@ impl Menu {
 /// Create a new menu item
 #[derive(Component)]
 pub enum MenuItem {
-    Text(String)
+    Text(String),
 }
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
 pub struct FileMenu {
     /// Map of menu items
-    menu_item: Entity
+    menu_item: Entity,
 }
 
 impl FileMenu {
@@ -65,10 +66,12 @@ impl FileMenu {
 
 impl FromWorld for FileMenu {
     fn from_world(world: &mut World) -> Self {
-        let menu_item = world.spawn(Menu { text: "File".to_string() }).id();
-        Self {
-            menu_item
-        }
+        let menu_item = world
+            .spawn(Menu {
+                text: "File".to_string(),
+            })
+            .id();
+        Self { menu_item }
     }
 }
 
@@ -87,11 +90,9 @@ pub struct MenuPluginManager;
 
 impl Plugin for MenuPluginManager {
     fn build(&self, app: &mut App) {
-        app.add_event::<MenuEvent>()
-            .init_resource::<FileMenu>();
+        app.add_event::<MenuEvent>().init_resource::<FileMenu>();
     }
 }
-
 
 /// Helper function to render a submenu starting at the entity.
 fn render_sub_menu(
@@ -101,9 +102,9 @@ fn render_sub_menu(
     menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<&MenuItem>,
     extension_events: &mut EventWriter<MenuEvent>,
-    skip_top_label: bool
+    skip_top_label: bool,
 ) {
-    if let Ok(e) =  menu_items.get(*entity) {
+    if let Ok(e) = menu_items.get(*entity) {
         // Draw ui
         match e {
             MenuItem::Text(title) => {
@@ -117,28 +118,43 @@ fn render_sub_menu(
 
     let Ok((menu, _)) = menus.get(*entity) else {
         return;
-    };  
+    };
 
     if !skip_top_label {
-    ui.menu_button(&menu.get(), |ui| {
-        let Ok(child_items) = children.get(*entity) else {
+        ui.menu_button(&menu.get(), |ui| {
+            let Ok(child_items) = children.get(*entity) else {
             return;
         };
 
-        for child in child_items.iter() {
-            render_sub_menu(ui, child, children, menus, menu_items, extension_events, false);
-        }
-    });
-}
-else {
-    let Ok(child_items) = children.get(*entity) else {
+            for child in child_items.iter() {
+                render_sub_menu(
+                    ui,
+                    child,
+                    children,
+                    menus,
+                    menu_items,
+                    extension_events,
+                    false,
+                );
+            }
+        });
+    } else {
+        let Ok(child_items) = children.get(*entity) else {
         return;
     };
 
-    for child in child_items.iter() {
-        render_sub_menu(ui, child, children, menus, menu_items, extension_events, false);
+        for child in child_items.iter() {
+            render_sub_menu(
+                ui,
+                child,
+                children,
+                menus,
+                menu_items,
+                extension_events,
+                false,
+            );
+        }
     }
-}
 }
 
 pub fn top_menu_bar(
@@ -181,8 +197,16 @@ pub fn top_menu_bar(
                 {
                     file_events.load_workspace.send(LoadWorkspace::Dialog);
                 }
-                
-                render_sub_menu(ui, &file_menu.get(), children, menus, menu_items, extension_events, true);
+
+                render_sub_menu(
+                    ui,
+                    &file_menu.get(),
+                    children,
+                    menus,
+                    menu_items,
+                    extension_events,
+                    true,
+                );
             });
             ui.menu_button("View", |ui| {
                 if ui
@@ -276,8 +300,16 @@ pub fn top_menu_bar(
             for (_, entity) in menus.iter().filter(|(_, entity)| {
                 top_level_components.contains(*entity) && *entity != file_menu.get()
             }) {
-                render_sub_menu(ui, &entity, children, menus, menu_items, extension_events, false);
-            };
+                render_sub_menu(
+                    ui,
+                    &entity,
+                    children,
+                    menus,
+                    menu_items,
+                    extension_events,
+                    false,
+                );
+            }
         });
     });
 }

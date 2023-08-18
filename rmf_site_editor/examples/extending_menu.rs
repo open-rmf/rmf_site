@@ -1,5 +1,5 @@
 use bevy::prelude::*;
-use librmf_site_editor::{SiteEditor, widgets::menu_bar::*};
+use librmf_site_editor::{widgets::menu_bar::*, SiteEditor};
 
 #[derive(Debug, Default)]
 struct MyMenuPlugin;
@@ -7,7 +7,7 @@ struct MyMenuPlugin;
 #[derive(Debug, Resource)]
 struct MyMenuHandler {
     unique_export: Entity,
-    custom_nested_menu: Entity
+    custom_nested_menu: Entity,
 }
 
 impl FromWorld for MyMenuHandler {
@@ -15,25 +15,40 @@ impl FromWorld for MyMenuHandler {
         // This is all it takes to register a new menu item
         // We need to keep track of the entity in order to make
         // sure that we can check the callback
-        let unique_export = world.spawn(MenuItem::Text("My unique export".to_string())).id();
-        
+        let unique_export = world
+            .spawn(MenuItem::Text("My unique export".to_string()))
+            .id();
+
         // Make it a child of the "File Menu"
         let file_header = world.resource::<FileMenu>().get();
-        world.entity_mut(file_header).push_children(&[unique_export]);
+        world
+            .entity_mut(file_header)
+            .push_children(&[unique_export]);
 
         // For top level menus simply spawn a menu with no parent
-        let menu = world.spawn(Menu::from_title("My Awesome Menu".to_string())).id();
-        
-        // We can use bevy's parent-child system to handle nesting
-        let sub_menu = world.spawn(Menu::from_title("My Awesome sub menu".to_string())).id();
-        world.entity_mut(menu).push_children(&[sub_menu]);
-        
-        // Finally we can create a custom action
-        let custom_nested_menu = world.spawn(MenuItem::Text("My Awesome Action".to_string())).id();
-        world.entity_mut(sub_menu).push_children(&[custom_nested_menu]);
+        let menu = world
+            .spawn(Menu::from_title("My Awesome Menu".to_string()))
+            .id();
 
-        // Track the entity so that we know when to handle events from it in 
-        Self { unique_export, custom_nested_menu }
+        // We can use bevy's parent-child system to handle nesting
+        let sub_menu = world
+            .spawn(Menu::from_title("My Awesome sub menu".to_string()))
+            .id();
+        world.entity_mut(menu).push_children(&[sub_menu]);
+
+        // Finally we can create a custom action
+        let custom_nested_menu = world
+            .spawn(MenuItem::Text("My Awesome Action".to_string()))
+            .id();
+        world
+            .entity_mut(sub_menu)
+            .push_children(&[custom_nested_menu]);
+
+        // Track the entity so that we know when to handle events from it in
+        Self {
+            unique_export,
+            custom_nested_menu,
+        }
     }
 }
 

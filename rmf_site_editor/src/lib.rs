@@ -25,7 +25,7 @@ use settings::*;
 mod save;
 use save::*;
 pub mod widgets;
-use widgets::{*, menu_bar::MenuPluginManager};
+use widgets::{menu_bar::MenuPluginManager, *};
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;

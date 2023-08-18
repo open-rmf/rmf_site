@@ -291,7 +291,7 @@ fn site_ui_layout(
     top_level_components: Query<(), Without<Parent>>,
     menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -490,7 +490,7 @@ fn site_visualizer_ui_layout(
     children: Query<&Children>,
     menus: Query<(&Menu, Entity)>,
     menu_items: Query<&MenuItem>,
-    mut extension_events: EventWriter<MenuEvent>
+    mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -547,7 +547,7 @@ fn site_visualizer_ui_layout(
         &children,
         &menus,
         &menu_items,
-        &mut extension_events
+        &mut extension_events,
     );
 
     let egui_context = egui_context.ctx_mut();
