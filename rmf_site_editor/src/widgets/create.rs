@@ -212,6 +212,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     }
                                 }
                                 AppState::WorkcellEditor => {
+                                    if ui.button("Browse fuel").clicked() {
+                                        self.events.new_model.asset_gallery_status.show = true;
+                                    }
                                     if ui.button("Spawn visual").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {

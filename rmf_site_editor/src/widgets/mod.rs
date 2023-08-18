@@ -591,6 +591,15 @@ fn workcell_ui_layout(
         &mut events.visibility_parameters,
     );
 
+    if events.new_model.asset_gallery_status.show {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                NewModel::new(&mut events).show(ui);
+            });
+    }
+
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
