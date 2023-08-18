@@ -15,12 +15,8 @@
  *
 */
 
-use crate::{log::*, site::*, widgets::AppEvents};
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::{
-    egui::{self, CollapsingHeader, Color32, FontId, RichText, Ui},
-    EguiContext,
-};
+use crate::{log::*, widgets::AppEvents};
+use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText, Ui};
 
 pub struct ConsoleWidget<'a, 'w2, 's2> {
     events: &'a mut AppEvents<'w2, 's2>,
@@ -139,13 +135,33 @@ fn print_log(ui: &mut egui::Ui, element: &LogHistoryElement) {
             LogCategory::Error => Color32::RED,
             LogCategory::Bevy => Color32::LIGHT_BLUE,
         };
+
+        let mut truncated = false;
+        let msg = if element.log.message.len() > 80 {
+            truncated = true;
+            &element.log.message[..80]
+        } else {
+            &element.log.message
+        };
+
+        let msg = if let Some(nl) = msg.find("\n") {
+            truncated = true;
+            &msg[..nl]
+        } else {
+            msg
+        };
+
         ui.label(RichText::new(element.log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
-        if ui
-            .selectable_label(false, element.log.message.to_string())
-            .clicked()
-        {
+        if ui.selectable_label(false, msg).clicked() {
             ui.output().copied_text = element.log.category.to_string() + &element.log.message;
+        }
+
+        if truncated {
+            ui.label(" [...]").on_hover_text(
+                "Some of the message is hidden. Click on it to copy the \
+                    full text to your clipboard.",
+            );
         }
     });
 }

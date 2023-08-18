@@ -14,15 +14,15 @@ use bevy::{time::FixedTimestep, window::Windows};
 
 extern crate web_sys;
 
-pub mod aabb;
-pub mod animate;
+mod aabb;
+mod animate;
 
-pub mod keyboard;
+mod keyboard;
 use keyboard::*;
 
-pub mod settings;
+mod settings;
 use settings::*;
-pub mod save;
+mod save;
 use save::*;
 pub mod widgets;
 use widgets::{menu_bar::MenuPluginManager, *};
@@ -30,28 +30,28 @@ use widgets::{menu_bar::MenuPluginManager, *};
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 
-pub mod demo_world;
-pub mod log;
+mod demo_world;
+mod log;
 mod recency;
 use recency::*;
 mod shapes;
 use log::LogHistoryPlugin;
 
-pub mod main_menu;
+mod main_menu;
 use main_menu::Autoload;
-pub mod site;
+mod site;
 // mod warehouse_generator;
-pub mod workcell;
+mod workcell;
 use workcell::WorkcellEditorPlugin;
-pub mod interaction;
+mod interaction;
 
-pub mod workspace;
+mod workspace;
 use workspace::*;
 
-pub mod sdf_loader;
+mod sdf_loader;
 
-pub mod site_asset_io;
-pub mod urdf_loader;
+mod site_asset_io;
+mod urdf_loader;
 use sdf_loader::*;
 
 use aabb::AabbUpdatePlugin;
@@ -60,14 +60,16 @@ use interaction::InteractionPlugin;
 use site::SitePlugin;
 use site_asset_io::SiteAssetIoPlugin;
 
+use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
-pub struct CommandLineArgs {
+struct CommandLineArgs {
     /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
     /// Exclude this argument to get the main menu.
-    pub filename: Option<String>,
+    filename: Option<String>,
     /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
-    pub import: Option<String>,
+    import: Option<String>,
 }
 
 #[derive(Clone, Eq, PartialEq, Debug, Hash)]
@@ -97,7 +99,7 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
     }
 }
 
-pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
+fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
     // todo: be more sophisticated
     let is_elite = adapter_info.name.contains("NVIDIA");
     if is_elite {
@@ -148,6 +150,14 @@ impl Plugin for SiteEditor {
                         },
                         ..default()
                     })
+                    .set(ImagePlugin {
+                        default_sampler: SamplerDescriptor {
+                            address_mode_u: AddressMode::Repeat,
+                            address_mode_v: AddressMode::Repeat,
+                            address_mode_w: AddressMode::Repeat,
+                            ..Default::default()
+                        },
+                    })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             )
             .add_system_set(
@@ -170,6 +180,18 @@ impl Plugin for SiteEditor {
                             height: 900.,
                             ..default()
                         },
+                        ..default()
+                    })
+                    .set(ImagePlugin {
+                        default_sampler: SamplerDescriptor {
+                            address_mode_u: AddressMode::Repeat,
+                            address_mode_v: AddressMode::Repeat,
+                            address_mode_w: AddressMode::Repeat,
+                            ..Default::default()
+                        },
+                    })
+                    .set(LogPlugin {
+                        filter: "bevy_asset=error,wgpu=error".to_string(),
                         ..default()
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
