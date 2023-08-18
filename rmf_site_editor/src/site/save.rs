@@ -1070,7 +1070,7 @@ pub fn generate_site(
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties: SiteProperties { name: name_of_site },
+        properties: SiteProperties { name: name_of_site, ..default() },
         levels,
         lifts,
         fiducials,
