@@ -88,9 +88,8 @@ impl MenuEvent {
 
     pub fn source(&self) -> Entity {
         match self {
-            Self::MenuClickEvent(entity) => *entity
+            Self::MenuClickEvent(entity) => *entity,
         }
-
     }
 }
 
