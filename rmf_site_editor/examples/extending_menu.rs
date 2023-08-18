@@ -57,7 +57,7 @@ impl FromWorld for MyMenuHandler {
 /// handle.
 fn watch_unique_export_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandler>) {
     for event in reader.iter() {
-        if event.check_source(&menu_handle.unique_export) {
+        if event.clicked() && event.source() == menu_handle.unique_export {
             println!("Doing our epic export");
         }
     }
@@ -68,7 +68,7 @@ fn watch_unique_export_click(mut reader: EventReader<MenuEvent>, menu_handle: Re
 /// handle.
 fn watch_submenu_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMenuHandler>) {
     for event in reader.iter() {
-        if event.check_source(&menu_handle.custom_nested_menu) {
+        if event.clicked() && event.source() == menu_handle.custom_nested_menu {
             println!("Submenu clicked");
         }
     }
