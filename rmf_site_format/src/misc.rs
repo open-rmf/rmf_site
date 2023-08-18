@@ -15,7 +15,7 @@
  *
 */
 
-use crate::Recall;
+use crate::{Recall, RefTrait};
 #[cfg(feature = "bevy")]
 use bevy::prelude::*;
 use glam::{Quat, Vec2, Vec3};
@@ -125,7 +125,7 @@ impl RectFace {
     }
 }
 
-#[derive(Serialize, Deserialize, Deref, DerefMut, PartialEq, Clone, Debug)]
+#[derive(Serialize, Deserialize, Deref, DerefMut, PartialEq, Clone, Copy, Debug)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct Scale(pub Vec3);
 
@@ -250,12 +250,16 @@ impl Rotation {
 
 #[cfg(feature = "bevy")]
 impl Rotation {
-    pub fn as_yaw(&self) -> Self {
+    pub fn yaw(&self) -> Angle {
         match self {
-            Self::Yaw(_) => self.clone(),
-            Self::EulerExtrinsicXYZ([_, _, yaw]) => Self::Yaw(*yaw),
-            Self::Quat(_) => Self::Yaw(Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0)),
+            Self::Yaw(yaw) => *yaw,
+            Self::EulerExtrinsicXYZ([_, _, yaw]) => *yaw,
+            Self::Quat(_) => Angle::Rad(self.as_bevy_quat().to_euler(EulerRot::ZYX).0),
         }
+    }
+
+    pub fn as_yaw(&self) -> Self {
+        Self::Yaw(self.yaw())
     }
 
     pub fn as_euler_extrinsic_xyz(&self) -> Self {
@@ -441,3 +445,42 @@ pub struct Pending;
 #[derive(Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct Original<T>(pub T);
+
+/// Marks that an entity represents a group
+#[derive(Clone, Copy, Debug, Default)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Group;
+
+/// Affiliates an entity with a group.
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Affiliation<T: RefTrait>(pub Option<T>);
+
+impl<T: RefTrait> From<T> for Affiliation<T> {
+    fn from(value: T) -> Self {
+        Affiliation(Some(value))
+    }
+}
+
+impl<T: RefTrait> From<Option<T>> for Affiliation<T> {
+    fn from(value: Option<T>) -> Self {
+        Affiliation(value)
+    }
+}
+
+impl<T: RefTrait> Default for Affiliation<T> {
+    fn default() -> Self {
+        Affiliation(None)
+    }
+}
+
+#[cfg(feature = "bevy")]
+impl Affiliation<u32> {
+    pub fn to_ecs(
+        &self,
+        id_to_entity: &std::collections::HashMap<u32, Entity>,
+    ) -> Affiliation<Entity> {
+        Affiliation(self.0.map(|a| *id_to_entity.get(&a).unwrap()))
+    }
+}
