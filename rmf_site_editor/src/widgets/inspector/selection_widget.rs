@@ -28,6 +28,7 @@ pub struct SelectionWidget<'a, 'w, 's> {
     site_id: Option<SiteID>,
     icons: &'a Icons,
     events: &'a mut AppEvents<'w, 's>,
+    as_selected: bool,
 }
 
 impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
@@ -42,7 +43,13 @@ impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
             site_id,
             icons,
             events,
+            as_selected: false,
         }
+    }
+
+    pub fn as_selected(mut self, as_selected: bool) -> Self {
+        self.as_selected = as_selected;
+        self
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -51,11 +58,13 @@ impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
             None => "*".to_string(),
         };
 
-        let response = ui.add(Button::image_and_text(
-            self.icons.select.egui(),
-            [18., 18.],
-            text,
-        ));
+        let icon = if self.as_selected {
+            self.icons.selected.egui()
+        } else {
+            self.icons.select.egui()
+        };
+
+        let response = ui.add(Button::image_and_text(icon, [18., 18.], text));
 
         if response.clicked() {
             self.events.request.select.send(Select(Some(self.entity)));

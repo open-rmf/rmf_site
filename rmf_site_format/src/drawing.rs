@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::BTreeMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -30,17 +31,45 @@ impl Default for PixelsPerMeter {
     }
 }
 
-// TODO(MXG): Consider adding NameInSite field
+#[derive(Default, Serialize, Deserialize, Debug, Clone)]
+pub struct Drawing {
+    // Even though round trip flattening is supposed to work after
+    // https://github.com/ron-rs/ron/pull/455, it seems it currently fails
+    // in ron, even forcing a dependency on that commit.
+    // TODO(luca) investigate further, come up with a minimum example,
+    // open an upstream issue and link it here for reference.
+    // #[serde(flatten)]
+    pub properties: DrawingProperties,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub anchors: BTreeMap<u32, Anchor>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub measurements: BTreeMap<u32, Measurement<u32>>,
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Drawing {
+pub struct DrawingProperties {
+    pub name: NameInSite,
     pub source: AssetSource,
     pub pose: Pose,
     pub pixels_per_meter: PixelsPerMeter,
-    #[serde(skip)]
-    pub marker: DrawingMarker,
+    #[serde(
+        default = "PreferredSemiTransparency::for_drawing",
+        skip_serializing_if = "PreferredSemiTransparency::is_default_for_drawing"
+    )]
+    pub preferred_semi_transparency: PreferredSemiTransparency,
 }
 
-#[derive(Clone, Copy, Debug, Default)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct DrawingMarker;
+impl Default for DrawingProperties {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            source: Default::default(),
+            pose: Default::default(),
+            pixels_per_meter: Default::default(),
+            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+        }
+    }
+}

@@ -125,7 +125,7 @@ pub fn dispatch_save_events(
                         format: event.format.clone(),
                     });
                 }
-                AppState::SiteEditor => {
+                AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                     save_site.send(SaveSite {
                         site: ws_root,
                         to_file: path,

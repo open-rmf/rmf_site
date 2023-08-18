@@ -33,6 +33,12 @@ pub use inspect_door::*;
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
+pub mod inspect_fiducial;
+pub use inspect_fiducial::*;
+
+pub mod inspect_group;
+pub use inspect_group::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -78,19 +84,28 @@ pub use inspect_scale::*;
 pub mod inspect_side;
 pub use inspect_side::*;
 
+pub mod inspect_texture;
+pub use inspect_texture::*;
+
 pub mod inspect_value;
 pub use inspect_value::*;
 
 pub mod selection_widget;
 pub use selection_widget::*;
 
+use super::move_layer::MoveLayer;
+
 use crate::{
     interaction::{Selection, SpawnPreview},
-    site::{Category, Change, EdgeLabels, FloorVisibility, Original, SiteID},
+    site::{
+        AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
+        EdgeLabels, LayerVisibility, Members, Original, SiteID,
+    },
     widgets::AppEvents,
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{RichText, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -103,11 +118,15 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
+    pub drawing: InspectDrawingParams<'w, 's>,
     // TODO(luca) move to new systemparam, reached 16 limit on main one
     pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
+    pub texture: InspectTextureAffiliationParams<'w, 's>,
+    pub groups: InspectGroupParams<'w, 's>,
+    pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
 // NOTE: We may need to split this struct into multiple structs if we ever need
@@ -143,9 +162,39 @@ pub struct InspectorComponentParams<'w, 's> {
 }
 
 #[derive(SystemParam)]
+pub struct InspectDrawingParams<'w, 's> {
+    pub distance: Query<'w, 's, &'static Distance>,
+    pub fiducial: InspectFiducialParams<'w, 's>,
+}
+
+#[derive(SystemParam)]
 pub struct InspectorLayerParams<'w, 's> {
-    pub floors: Query<'w, 's, Option<&'static FloorVisibility>, With<FloorMarker>>,
-    pub drawings: Query<'w, 's, (), With<DrawingMarker>>,
+    pub floors: Query<
+        'w,
+        's,
+        (
+            Option<&'static LayerVisibility>,
+            &'static PreferredSemiTransparency,
+        ),
+        With<FloorMarker>,
+    >,
+    pub drawings: Query<
+        'w,
+        's,
+        (
+            Option<&'static LayerVisibility>,
+            &'static PreferredSemiTransparency,
+        ),
+        With<DrawingMarker>,
+    >,
+    pub levels: Query<
+        'w,
+        's,
+        (
+            &'static GlobalFloorVisibility,
+            &'static GlobalDrawingVisibility,
+        ),
+    >,
 }
 
 pub struct InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -176,6 +225,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(mut self, ui: &mut Ui) {
+        let default_file = self
+            .events
+            .request
+            .current_workspace
+            .root
+            .map(|e| self.params.default_file.get(e).ok())
+            .flatten();
+
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
             if self.params.anchor_params.anchors.contains(selection) {
@@ -192,6 +249,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 .show(ui);
                 ui.add_space(10.0);
             }
+
+            InspectFiducialWidget::new(selection, &self.params.drawing.fiducial, &mut self.events)
+                .show(ui);
 
             if let Ok(name) = self.params.component.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {
@@ -213,19 +273,95 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(floor_vis) = self.params.layer.floors.get(selection) {
+            if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
                 ui.horizontal(|ui| {
-                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
-                        .as_floor(floor_vis.copied())
-                        .show(ui);
+                    MoveLayer::new(
+                        selection,
+                        &mut self.events.layers.floors,
+                        &self.events.layers.icons,
+                    )
+                    .show(ui);
+                });
+                ui.horizontal(|ui| {
+                    InspectLayer::new(
+                        selection,
+                        &self.params.anchor_params.icons,
+                        self.events,
+                        floor_vis.copied(),
+                        alpha.0,
+                        true,
+                    )
+                    .show(ui);
                 });
             }
 
-            if self.params.layer.drawings.contains(selection) {
+            if let Ok((drawing_vis, alpha)) = self.params.layer.drawings.get(selection) {
                 ui.horizontal(|ui| {
-                    InspectLayer::new(selection, &self.params.anchor_params.icons, self.events)
-                        .show(ui);
+                    MoveLayer::new(
+                        selection,
+                        &mut self.events.layers.drawings,
+                        &self.events.layers.icons,
+                    )
+                    .show(ui);
                 });
+                ui.horizontal(|ui| {
+                    InspectLayer::new(
+                        selection,
+                        &self.params.anchor_params.icons,
+                        self.events,
+                        drawing_vis.copied(),
+                        alpha.0,
+                        false,
+                    )
+                    .show(ui);
+                });
+            }
+
+            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
+                if *self.events.app_state.current() == AppState::SiteEditor {
+                    ui.add_space(10.0);
+                    if ui
+                        .add(Button::image_and_text(
+                            self.events.layers.icons.edit.egui(),
+                            [18., 18.],
+                            "Edit Drawing",
+                        ))
+                        .clicked()
+                    {
+                        self.events
+                            .layers
+                            .begin_edit_drawing
+                            .send(BeginEditDrawing(selection));
+                    }
+                }
+                ui.add_space(10.0);
+                if ui
+                    .add(Button::image_and_text(
+                        self.events.layers.icons.alignment.egui(),
+                        [18., 18.],
+                        "Align Drawings",
+                    ))
+                    .on_hover_text(
+                        "Align all drawings in the site based on their fiducials and measurements",
+                    )
+                    .clicked()
+                {
+                    if let Some(site) = self.events.request.current_workspace.root {
+                        self.events.align_site.send(AlignSiteDrawings(site));
+                    }
+                }
+                ui.add_space(10.0);
+                if let Some(new_ppm) =
+                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
+                        .clamp_range(0.0001..=std::f32::INFINITY)
+                        .tooltip("How many image pixels per meter".to_string())
+                        .show(ui)
+                {
+                    self.events
+                        .change
+                        .pixels_per_meter
+                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                }
             }
 
             if let Ok((edge, original, labels, category)) =
@@ -267,6 +403,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(new_tags, selection));
                 }
             }
+
+            InspectTextureAffiliation::new(
+                selection,
+                default_file,
+                &self.params.texture,
+                self.events,
+            )
+            .show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
@@ -344,7 +488,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {
-                if let Some(new_asset_source) = InspectAssetSource::new(source, recall).show(ui) {
+                if let Some(new_asset_source) =
+                    InspectAssetSource::new(source, recall, default_file).show(ui)
+                {
                     self.events
                         .change
                         .asset_source
@@ -380,17 +526,20 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
-                if let Some(new_ppm) =
-                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
-                        .clamp_range(0.0001..=std::f32::INFINITY)
-                        .tooltip("How many image pixels per meter".to_string())
+            if let Ok(distance) = self.params.drawing.distance.get(selection) {
+                if let Some(new_distance) =
+                    InspectOptionF32::new("Distance".to_string(), distance.0, 10.0)
+                        .clamp_range(0.0..=10000.0)
+                        .min_decimals(2)
+                        .max_decimals(2)
+                        .speed(0.01)
+                        .suffix(" m".to_string())
                         .show(ui)
                 {
                     self.events
-                        .change
-                        .pixels_per_meter
-                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
+                        .change_more
+                        .distance
+                        .send(Change::new(Distance(new_distance), selection));
                 }
                 ui.add_space(10.0);
             }
@@ -431,6 +580,40 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(SpawnPreview::new(Some(selection)));
                 }
                 ui.add_space(10.0);
+            }
+
+            if let Ok(Affiliation(Some(group))) = self.params.groups.affiliation.get(selection) {
+                ui.separator();
+                let empty = String::new();
+                let name = self
+                    .params
+                    .component
+                    .names
+                    .get(*group)
+                    .map(|n| &n.0)
+                    .unwrap_or(&empty);
+
+                ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
+                ui.add_space(5.0);
+                InspectGroup::new(
+                    *group,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
+            }
+
+            if self.params.groups.is_group.contains(selection) {
+                InspectGroup::new(
+                    selection,
+                    selection,
+                    default_file,
+                    &self.params.groups,
+                    self.events,
+                )
+                .show(ui);
             }
         } else {
             ui.label("Nothing selected");

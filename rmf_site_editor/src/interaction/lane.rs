@@ -43,18 +43,18 @@ pub fn update_lane_visual_cues(
     site_assets: Res<SiteAssets>,
     cursor: Res<Cursor>,
 ) {
-    for (hovering, selected, pieces, mut tf) in &mut lanes {
-        if hovering.is_hovered {
+    for (hovered, selected, pieces, mut tf) in &mut lanes {
+        if hovered.is_hovered {
             set_visibility(cursor.frame, &mut visibility, false);
         }
 
-        let (m, h, v) = if hovering.cue() && selected.cue() {
+        let (m, h, v) = if hovered.cue() && selected.cue() {
             (
                 &site_assets.hover_select_material,
                 HOVERED_LANE_OFFSET,
                 true,
             )
-        } else if hovering.cue() {
+        } else if hovered.cue() {
             (&site_assets.hover_material, HOVERED_LANE_OFFSET, true)
         } else if selected.cue() {
             (&site_assets.select_material, SELECTED_LANE_OFFSET, true)
