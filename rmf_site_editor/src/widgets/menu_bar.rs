@@ -16,15 +16,82 @@
 */
 
 use crate::{
-    ui_command::{MenuEvent, FileMenu, MenuItem, Menu},
     CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters,
 };
 
-use bevy::prelude::{EventWriter, Res, Children, Query, Entity, Parent, Without};
+use bevy::prelude::{EventWriter, Res, Children, Query, Entity, Parent, Without, Component, Resource, FromWorld, World, Plugin, App};
 use bevy_egui::{
     egui::{self, epaint::ahash::HashSet, Button, Ui},
     EguiContext,
 };
+
+/// This component represents a menu. Menus and menu items 
+/// can be arranged in trees using bevy's own parent-child system.
+#[derive(Component)]
+pub struct Menu {
+    text: String,
+}
+
+impl Menu {
+    /// Create a new menu from the title
+    pub fn from_title(text: String) -> Self {
+        Self {text}
+    }
+
+    /// Retrieve the menu name
+    fn get(&self) -> String {
+        self.text.clone()
+    }
+}
+
+/// Create a new menu item
+#[derive(Component)]
+pub enum MenuItem {
+    Text(String)
+}
+
+/// This resource provides the root entity for the file menu
+#[derive(Resource)]
+pub struct FileMenu {
+    /// Map of menu items
+    menu_item: Entity
+}
+
+impl FileMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for FileMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world.spawn(Menu { text: "File".to_string() }).id();
+        Self {
+            menu_item
+        }
+    }
+}
+
+pub enum MenuEvent {
+    MenuClickEvent(Entity),
+}
+
+impl MenuEvent {
+    pub fn check_source(&self, evt: &Entity) -> bool {
+        let MenuEvent::MenuClickEvent(sent) = self;
+        sent == evt
+    }
+}
+
+pub struct MenuPluginManager;
+
+impl Plugin for MenuPluginManager {
+    fn build(&self, app: &mut App) {
+        app.add_event::<MenuEvent>()
+            .init_resource::<FileMenu>();
+    }
+}
+
 
 /// Helper function to render a submenu starting at the entity.
 fn render_sub_menu(

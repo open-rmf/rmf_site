@@ -24,8 +24,8 @@ mod settings;
 use settings::*;
 mod save;
 use save::*;
-mod widgets;
-use widgets::*;
+pub mod widgets;
+use widgets::{*, menu_bar::MenuPluginManager};
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
@@ -47,9 +47,6 @@ mod interaction;
 
 mod workspace;
 use workspace::*;
-
-pub mod ui_command;
-use ui_command::*;
 
 mod sdf_loader;
 

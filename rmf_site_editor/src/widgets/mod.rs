@@ -29,7 +29,6 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle,
         SaveNavGraphs, SiteState, ToggleLiftDoorAvailability,
     },
-    ui_command::{MenuEvent, FileMenu, Menu, MenuItem},
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
