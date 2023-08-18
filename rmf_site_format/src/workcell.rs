@@ -347,60 +347,63 @@ impl Workcell {
     pub fn to_urdf(&self) -> Result<urdf_rs::Robot, WorkcellToUrdfError> {
         let workcell = self;
 
-        let visuals_and_parents: Vec<(urdf_rs::Visual, _)> = workcell
-            .visuals
-            .iter()
-            .map(|v| {
-                let visual = &v.1.bundle;
-                let visual = urdf_rs::Visual {
-                    name: Some(visual.name.clone()),
-                    origin: visual.pose.into(),
-                    geometry: visual.geometry.clone().into(),
-                    material: None,
-                };
-                (visual, v.1.parent)
-            })
-            .collect();
         let mut parent_to_visuals = HashMap::new();
-        visuals_and_parents.iter().for_each(|(visual, parent)| {
+        for (_, visual) in workcell.visuals.iter() {
+            let parent = visual.parent;
+            let visual = &visual.bundle;
+            let visual = urdf_rs::Visual {
+                name: Some(visual.name.clone()),
+                origin: visual.pose.into(),
+                geometry: visual.geometry.clone().into(),
+                material: None,
+            };
             parent_to_visuals
-                .entry(*parent)
+                .entry(parent)
                 .or_insert_with(Vec::new)
-                .push(visual.clone());
-        });
+                .push(visual);
+        }
 
-        let collisions_and_parents: Vec<(urdf_rs::Collision, _)> = workcell
-            .collisions
-            .iter()
-            .map(|c| {
-                let collision = &c.1.bundle;
-                let collision = urdf_rs::Collision {
-                    name: Some(collision.name.clone()),
-                    origin: collision.pose.into(),
-                    geometry: collision.geometry.clone().into(),
-                };
-                (collision, c.1.parent)
-            })
-            .collect();
         let mut parent_to_collisions = HashMap::new();
-        collisions_and_parents
-            .iter()
-            .for_each(|(collision, parent)| {
-                parent_to_collisions
-                    .entry(*parent)
-                    .or_insert_with(Vec::new)
-                    .push(collision.clone());
-            });
+        for (_, collision) in workcell.collisions.iter() {
+            let parent = collision.parent;
+            let collision = &collision.bundle;
+            let collision = urdf_rs::Collision {
+                name: Some(collision.name.clone()),
+                origin: collision.pose.into(),
+                geometry: collision.geometry.clone().into(),
+            };
+            parent_to_collisions
+                .entry(parent)
+                .or_insert_with(Vec::new)
+                .push(collision);
+        }
 
-        let links = workcell
+        let mut frame_data: Vec<_> = workcell
             .frames
             .iter()
-            .map(|f| {
-                let frame = &f.1.bundle;
+            .map(|(frame_id, frame)| {
+                let frame = &frame.bundle;
+                (frame_id, frame)
+            })
+            .collect();
+        let dummy_frame = Frame {
+            anchor: Anchor::Pose3D(Pose {
+                rot: Rotation::Quat([0.0, 0.0, 0.0, 0.0]),
+                trans: [0.0, 0.0, 0.0],
+            }),
+            name: Some(NameInWorkcell(String::from("world"))),
+            mesh_constraint: None,
+            marker: FrameMarker,
+        };
+        let dummy_frame_id: u32 = 0;
+        frame_data.insert(0, (&dummy_frame_id, &dummy_frame));
 
+        let links = frame_data
+            .iter()
+            .map(|(frame_id, frame)| {
                 let name = match &frame.name {
                     Some(name) => name.0.clone(),
-                    None => format!("frame_{}", f.0),
+                    None => format!("frame_{}", &frame_id),
                 };
 
                 let pose = if let Anchor::Pose3D(p) = frame.anchor {
@@ -423,15 +426,12 @@ impl Workcell {
                     mass: urdf_rs::Mass { value: 0.0 },
                 };
 
-                let parent = &f.1.parent;
                 let collision = parent_to_collisions
-                    .get(parent)
-                    .map(|collisions| collisions.clone())
+                    .get(frame_id)
+                    .cloned()
                     .unwrap_or_default();
-                let visual = parent_to_visuals
-                    .get(parent)
-                    .map(|visuals| visuals.clone())
-                    .unwrap_or_default();
+
+                let visual = parent_to_visuals.get(frame_id).cloned().unwrap_or_default();
 
                 Ok(urdf_rs::Link {
                     name,
@@ -448,13 +448,15 @@ impl Workcell {
             joints: vec![],
             materials: vec![],
         };
-        return Ok(robot);
+        Ok(robot)
     }
 
     pub fn to_urdf_string(&self) -> Result<String, WorkcellToUrdfError> {
         let urdf = self.to_urdf()?;
         match urdf_rs::write_to_string(&urdf) {
-            Ok(string) => Ok(string),
+            Ok(string) => Ok(string
+                .replace("<Robot", "<robot")
+                .replace("</Robot", "</robot")),
             Err(e) => Err(WorkcellToUrdfError::WriteToStringError(e)),
         }
     }
