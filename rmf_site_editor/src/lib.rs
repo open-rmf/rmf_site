@@ -150,14 +150,14 @@ impl Plugin for SiteEditor {
                         },
                         ..default()
                     })
-	            .set(ImagePlugin {
-	                default_sampler: SamplerDescriptor {
+                    .set(ImagePlugin {
+                        default_sampler: SamplerDescriptor {
                             address_mode_u: AddressMode::Repeat,
                             address_mode_v: AddressMode::Repeat,
                             address_mode_w: AddressMode::Repeat,
                             ..Default::default()
-	                },
-	            })
+                        },
+                    })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             )
             .add_system_set(

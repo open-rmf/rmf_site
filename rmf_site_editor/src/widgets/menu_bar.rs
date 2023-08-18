@@ -16,8 +16,7 @@
 */
 
 use crate::{
-    CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace,
-    VisibilityParameters, MenuParams,
+    CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace, VisibilityParameters,
 };
 
 use bevy::prelude::{
