@@ -1,7 +1,7 @@
 use super::{level::Level, lift::Lift, PortingError, Result};
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
     Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
     Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
     NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
@@ -202,6 +202,7 @@ impl BuildingMap {
             let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
             let mut feature_info = HashMap::new();
+            let mut primary_drawing_info = None;
             if !level.drawing.filename.is_empty() {
                 let primary_drawing_id = site_id.next().unwrap();
                 let drawing_name = Path::new(&level.drawing.filename)
@@ -231,6 +232,7 @@ impl BuildingMap {
                     pose.trans[2] as f64,
                     DVec2::new(pose.trans[0] as f64, pose.trans[1] as f64),
                 );
+                primary_drawing_info = Some((primary_drawing_id, drawing_tf));
 
                 for fiducial in &level.fiducials {
                     let anchor_id = site_id.next().unwrap();
@@ -425,6 +427,22 @@ impl BuildingMap {
                         if let Some(drawing) = drawings.get_mut(&info.in_drawing) {
                             if let Some(fiducial) = drawing.fiducials.get_mut(&info.fiducial_id) {
                                 fiducial.affiliation = Affiliation(Some(fiducial_group_id));
+                            }
+                            // Add a level anchor to pin this feature
+                            if let Some((primary_drawing_id, drawing_tf)) = primary_drawing_info {
+                                if info.in_drawing == primary_drawing_id {
+                                    let anchor_tf = drawing
+                                        .anchors
+                                        .get(&info.on_anchor)
+                                        .unwrap()
+                                        .translation_for_category(Category::General);
+                                    let drawing_coords =
+                                        DVec2::new(anchor_tf[0] as f64, anchor_tf[1] as f64);
+                                    cartesian_fiducials
+                                        .entry(fiducial_group_id)
+                                        .or_default()
+                                        .push(drawing_tf.transform_point2(drawing_coords));
+                                }
                             }
                         }
                     }
