@@ -22,9 +22,14 @@ use bevy::prelude::{
     Without, World,
 };
 use bevy_egui::{
-    egui::{self, epaint::ahash::HashSet, Button, Ui},
+    egui::{self, Button, Ui},
     EguiContext,
 };
+
+/// Adding this to an entity to an entity with the MenuItem component
+/// will grey out and disable a MenuItem.
+#[derive(Component)]
+pub struct MenuDisabled;
 
 /// This component represents a menu. Menus and menu items
 /// can be arranged in trees using bevy's own parent-child system.
@@ -76,6 +81,32 @@ impl FromWorld for FileMenu {
     }
 }
 
+
+/// This resource provides the root entity for the tool menu
+#[derive(Resource)]
+pub struct ToolMenu {
+    /// Map of menu items
+    menu_item: Entity,
+}
+
+impl ToolMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for ToolMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world
+            .spawn(Menu {
+                text: "Tool".to_string(),
+            })
+            .id();
+        Self { menu_item }
+    }
+}
+
+
 #[non_exhaustive]
 pub enum MenuEvent {
     MenuClickEvent(Entity),
@@ -97,7 +128,9 @@ pub struct MenuPluginManager;
 
 impl Plugin for MenuPluginManager {
     fn build(&self, app: &mut App) {
-        app.add_event::<MenuEvent>().init_resource::<FileMenu>();
+        app.add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>();
     }
 }
 
@@ -107,15 +140,15 @@ fn render_sub_menu(
     entity: &Entity,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<&MenuItem>,
+    menu_items: &Query<(&MenuItem, Option<&MenuDisabled>)>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
-    if let Ok(e) = menu_items.get(*entity) {
+    if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
             MenuItem::Text(title) => {
-                if ui.add(Button::new(title)).clicked() {
+                if ui.add_enabled(disabled.is_none(), Button::new(title)).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -172,7 +205,7 @@ pub fn top_menu_bar(
     top_level_components: &Query<(), Without<Parent>>,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<&MenuItem>,
+    menu_items: &Query<(&MenuItem, Option<&MenuDisabled>)>,
     extension_events: &mut EventWriter<MenuEvent>,
 ) {
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {

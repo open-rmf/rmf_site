@@ -26,8 +26,7 @@ use crate::{
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GeoReferenceMoveEvent, GeoReferenceSelectAnchorEvent, GeoReferenceSetReferenceEvent,
-        GeoReferenceViewReferenceEvent, GeoreferenceEventWriter, GlobalDrawingVisibility,
+        GeoreferenceEventWriter, GlobalDrawingVisibility,
         GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
@@ -104,6 +103,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
+            .add_plugin(MenuPluginManager)
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -298,7 +298,7 @@ fn site_ui_layout(
     children: Query<&Children>,
     top_level_components: Query<(), Without<Parent>>,
     menus: Query<(&Menu, Entity)>,
-    menu_items: Query<&MenuItem>,
+    menu_items: Query<(&MenuItem, Option<&MenuDisabled>)>,
     mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
@@ -409,7 +409,7 @@ fn site_drawing_ui_layout(
     children: Query<&Children>,
     top_level_components: Query<(), Without<Parent>>,
     menus: Query<(&Menu, Entity)>,
-    menu_items: Query<&MenuItem>,
+    menu_items: Query<(&MenuItem, Option<&MenuDisabled>)>,
     mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
@@ -497,7 +497,7 @@ fn site_visualizer_ui_layout(
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
     menus: Query<(&Menu, Entity)>,
-    menu_items: Query<&MenuItem>,
+    menu_items: Query<(&MenuItem, Option<&MenuDisabled>)>,
     mut extension_events: EventWriter<MenuEvent>,
 ) {
     egui::SidePanel::right("right_panel")
@@ -587,7 +587,7 @@ fn workcell_ui_layout(
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
     menus: Query<(&Menu, Entity)>,
-    menu_items: Query<&MenuItem>,
+    menu_items: Query<(&MenuItem, Option<&MenuDisabled>)>,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
