@@ -25,8 +25,7 @@ use crate::{
     recency::ChangeRank,
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
-        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GeoreferenceEventWriter, GlobalDrawingVisibility,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing, GlobalDrawingVisibility,
         GlobalFloorVisibility, LayerVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
         ToggleLiftDoorAvailability,
     },
@@ -174,11 +173,6 @@ pub struct FileEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct ToolEvents<'w, 's> {
-    pub georeference: GeoreferenceEventWriter<'w, 's>,
-}
-
-#[derive(SystemParam)]
 pub struct PanelResources<'w, 's> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
@@ -271,7 +265,6 @@ pub struct AppEvents<'w, 's> {
     pub change: ChangeEvents<'w, 's>,
     pub change_more: MoreChangeEvents<'w, 's>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
-    pub tool_events: ToolEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,

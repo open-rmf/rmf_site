@@ -205,7 +205,6 @@ impl Plugin for SitePlugin {
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
-            .add_plugin(OSMViewPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
             .add_system(load_site)
