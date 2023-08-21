@@ -57,7 +57,7 @@ use sdf_loader::*;
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use site::{SitePlugin, OSMViewPlugin};
+use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;

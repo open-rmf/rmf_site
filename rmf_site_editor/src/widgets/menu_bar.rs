@@ -81,7 +81,6 @@ impl FromWorld for FileMenu {
     }
 }
 
-
 /// This resource provides the root entity for the tool menu
 #[derive(Resource)]
 pub struct ToolMenu {
@@ -105,7 +104,6 @@ impl FromWorld for ToolMenu {
         Self { menu_item }
     }
 }
-
 
 #[non_exhaustive]
 pub enum MenuEvent {
@@ -148,7 +146,10 @@ fn render_sub_menu(
         // Draw ui
         match e {
             MenuItem::Text(title) => {
-                if ui.add_enabled(disabled.is_none(), Button::new(title)).clicked() {
+                if ui
+                    .add_enabled(disabled.is_none(), Button::new(title))
+                    .clicked()
+                {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }

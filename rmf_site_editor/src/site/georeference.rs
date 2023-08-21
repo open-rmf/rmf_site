@@ -12,8 +12,9 @@ use utm::*;
 use crate::{
     generate_map_tiles,
     interaction::{camera_controls, MoveTo, Selected},
+    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu},
     workspace::CurrentWorkspace,
-    OSMTile, widgets::menu_bar::{MenuItem, ToolMenu, Menu, MenuEvent, MenuDisabled},
+    OSMTile,
 };
 
 const MAX_ZOOM: i32 = 19;
@@ -35,7 +36,6 @@ pub struct GeoReferenceMoveEvent;
 #[derive(Component, Clone, Eq, PartialEq, Hash)]
 pub struct MapTile(OSMTile);
 
-
 #[derive(Default)]
 struct ReferenceWindow {
     lat: f32,
@@ -51,11 +51,11 @@ fn set_reference(
     mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
-    for event in geo_eve    properties.0 = Some(GeographicOffset {
-        anchor: (window.lat, window.lon),
-        zoom: 15,
-        visible: true,
-    });
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.set_reference {
+            window.visible = true;
+        }
+    }
     if !window.visible {
         return;
     }
@@ -109,8 +109,10 @@ pub struct UTMReferenceWindow {
 }
 
 pub fn detect_new_geographic_component(
-    geographic_comp: Query<(Entity, &GeographicComponent),
-        Or<(Added<GeographicComponent>, Changed<GeographicComponent>)>>,
+    geographic_comp: Query<
+        (Entity, &GeographicComponent),
+        Or<(Added<GeographicComponent>, Changed<GeographicComponent>)>,
+    >,
     current_ws: Res<CurrentWorkspace>,
     osm_menu: Res<OSMMenu>,
     mut command: Commands,
@@ -125,9 +127,10 @@ pub fn detect_new_geographic_component(
 
         if comp.0.is_none() {
             command.entity(osm_menu.view_reference).insert(MenuDisabled);
-        }
-        else {
-            command.entity(osm_menu.view_reference).remove::<MenuDisabled>();
+        } else {
+            command
+                .entity(osm_menu.view_reference)
+                .remove::<MenuDisabled>();
         }
     }
 }
@@ -140,7 +143,6 @@ pub fn view_reference(
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
 ) {
-
     for event in geo_events.iter() {
         if event.clicked() && event.source() == osm_menu.view_reference {
             window.visible = true;
@@ -151,7 +153,6 @@ pub fn view_reference(
         return;
     }
 
-   
     if let Some((_, properties)) = site_properties
         .iter()
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
@@ -198,6 +199,7 @@ pub fn set_resolution(
 
             egui::Window::new("Tile Resolution")
                 .resizable(false)
+                .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(30.0, -30.0))
                 .show(egui_context.ctx_mut(), |ui| {
                     ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
                 });
@@ -247,7 +249,6 @@ pub fn world_to_latlon(
     world_coordinates: Vec3,
     anchor: (f32, f32),
 ) -> Result<(f64, f64), WSG84ToLatLonError> {
-
     let mut zone = lat_lon_to_zone_number(anchor.0.into(), anchor.1.into());
     let Some(mut zone_letter) = lat_to_zone_letter(anchor.0.into()) else {
         return Err(WSG84ToLatLonError::ZoneLetterOutOfRange)
@@ -471,14 +472,17 @@ impl FromWorld for OSMMenu {
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))
             .id();
-        world.entity_mut(sub_menu).push_children(&[set_reference, view_reference]);
+        world
+            .entity_mut(sub_menu)
+            .push_children(&[set_reference, view_reference]);
 
         let tool_header = world.resource::<ToolMenu>().get();
-        world
-            .entity_mut(tool_header)
-            .push_children(&[sub_menu]);
+        world.entity_mut(tool_header).push_children(&[sub_menu]);
 
-        OSMMenu { set_reference, view_reference }
+        OSMMenu {
+            set_reference,
+            view_reference,
+        }
     }
 }
 
