@@ -17,15 +17,16 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Floor<T: RefTrait> {
     pub anchors: Path<T>,
     #[serde(default, skip_serializing_if = "is_default")]
-    pub texture: Texture,
+    pub texture: Affiliation<T>,
     #[serde(
         default = "PreferredSemiTransparency::for_floor",
         skip_serializing_if = "PreferredSemiTransparency::is_default_for_floor"
@@ -39,27 +40,14 @@ pub struct Floor<T: RefTrait> {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct FloorMarker;
 
-#[cfg(feature = "bevy")]
-impl Floor<Entity> {
-    pub fn to_u32(&self, anchors: Path<u32>) -> Floor<u32> {
-        Floor {
-            anchors,
-            texture: self.texture.clone(),
+impl<T: RefTrait> Floor<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Floor<U>, T> {
+        Ok(Floor {
+            anchors: self.anchors.convert(id_map)?,
+            texture: self.texture.convert(id_map)?,
             preferred_semi_transparency: PreferredSemiTransparency::for_floor(),
             marker: Default::default(),
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl Floor<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Floor<Entity> {
-        Floor {
-            anchors: self.anchors.to_ecs(id_to_entity),
-            texture: self.texture.clone(),
-            preferred_semi_transparency: PreferredSemiTransparency::for_floor(),
-            marker: Default::default(),
-        }
+        })
     }
 }
 
@@ -67,7 +55,7 @@ impl<T: RefTrait> From<Path<T>> for Floor<T> {
     fn from(path: Path<T>) -> Self {
         Floor {
             anchors: path,
-            texture: Default::default(),
+            texture: Affiliation(None),
             preferred_semi_transparency: PreferredSemiTransparency::for_floor(),
             marker: Default::default(),
         }

@@ -26,7 +26,7 @@ use lyon::{
     path::Path as LyonPath,
     tessellation::{geometry_builder::simple_builder, *},
 };
-use rmf_site_format::{FloorMarker, Path};
+use rmf_site_format::{FloorMarker, Path, Texture};
 
 pub const FALLBACK_FLOOR_SIZE: f32 = 0.1;
 pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
@@ -65,7 +65,12 @@ fn make_fallback_floor_mesh_near_path(
     return make_fallback_floor_mesh_at_avg(positions);
 }
 
-fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorParams) -> Mesh {
+fn make_floor_mesh(
+    entity: Entity,
+    anchor_path: &Path<Entity>,
+    texture: &Texture,
+    anchors: &AnchorParams,
+) -> Mesh {
     if anchor_path.len() == 0 {
         return Mesh::new(PrimitiveTopology::TriangleList);
     } else if anchor_path.len() == 1 {
@@ -144,9 +149,15 @@ fn make_floor_mesh(entity: Entity, anchor_path: &Path<Entity>, anchors: &AnchorP
         }
     }
 
+    let texture_width = texture.width.unwrap_or(1.0);
+    let texture_height = texture.height.unwrap_or(1.0);
     let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(|v| [v.x, v.y, 0.]).collect();
     let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(|_| [0., 0., 1.]).collect();
-    let uv: Vec<[f32; 2]> = buffers.vertices.iter().map(|v| [v.x, v.y]).collect();
+    let uv: Vec<[f32; 2]> = buffers
+        .vertices
+        .iter()
+        .map(|v| [v.x / texture_width, v.y / texture_height])
+        .collect();
     for i in 0..buffers.indices.len() / 3 {
         let i1 = 3 * i + 1;
         let i2 = 3 * i + 2;
@@ -166,10 +177,10 @@ fn floor_height(rank: Option<&RecencyRank<FloorMarker>>) -> f32 {
 }
 
 #[inline]
-fn floor_material(
+fn floor_transparency(
     specific: Option<&LayerVisibility>,
     general: Option<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
-) -> StandardMaterial {
+) -> (Color, AlphaMode) {
     let alpha = specific
         .copied()
         .unwrap_or_else(|| {
@@ -186,7 +197,12 @@ fn floor_material(
         })
         .alpha();
 
-    Color::rgba(0.3, 0.3, 0.3, alpha).into()
+    let alpha_mode = if alpha < 1.0 {
+        AlphaMode::Blend
+    } else {
+        AlphaMode::Opaque
+    };
+    (*Color::default().set_a(alpha), alpha_mode)
 }
 
 pub fn add_floor_visuals(
@@ -195,6 +211,7 @@ pub fn add_floor_visuals(
         (
             Entity,
             &Path<Entity>,
+            &Affiliation<Entity>,
             Option<&RecencyRank<FloorMarker>>,
             Option<&LayerVisibility>,
             Option<&Parent>,
@@ -202,31 +219,39 @@ pub fn add_floor_visuals(
         Added<FloorMarker>,
     >,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
 ) {
-    for (e, new_floor, rank, vis, parent) in &floors {
-        let mesh = make_floor_mesh(e, new_floor, &anchors);
+    for (e, new_floor, texture_source, rank, vis, parent) in &floors {
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+
+        let mesh = make_floor_mesh(e, new_floor, &texture, &anchors);
         let mut cmd = commands.entity(e);
         let height = floor_height(rank);
-        let default = parent
+        let default_vis = parent
             .map(|p| default_floor_vis.get(p.get()).ok())
             .flatten();
-        let material = materials.add(floor_material(vis, default));
+        let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
+        let material = materials.add(StandardMaterial {
+            base_color_texture,
+            base_color,
+            alpha_mode,
+            ..default()
+        });
 
         let mesh_entity_id = cmd
             .insert(SpatialBundle {
                 transform: Transform::from_xyz(0.0, 0.0, height),
-                ..Default::default()
+                ..default()
             })
             .add_children(|p| {
                 p.spawn(PbrBundle {
                     mesh: meshes.add(mesh),
-                    // TODO(MXG): load the user-specified texture when one is given
                     material,
-                    ..Default::default()
+                    ..default()
                 })
                 .insert(Selectable::new(e))
                 .id()
@@ -245,24 +270,10 @@ pub fn add_floor_visuals(
     }
 }
 
-pub fn update_changed_floor(
-    changed_path: Query<
-        (Entity, &FloorSegments, &Path<Entity>),
-        (Changed<Path<Entity>>, With<FloorMarker>),
-    >,
+pub fn update_changed_floor_ranks(
     changed_rank: Query<(Entity, &RecencyRank<FloorMarker>), Changed<RecencyRank<FloorMarker>>>,
-    anchors: AnchorParams,
-    mut mesh_assets: ResMut<Assets<Mesh>>,
     mut transforms: Query<&mut Transform>,
-    mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
-    for (e, segments, path) in &changed_path {
-        if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-            *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
-        }
-        // TODO(MXG): Update texture once we support textures
-    }
-
     for (e, rank) in &changed_rank {
         if let Ok(mut tf) = transforms.get_mut(e) {
             tf.translation.z = floor_height(Some(rank));
@@ -270,9 +281,10 @@ pub fn update_changed_floor(
     }
 }
 
-pub fn update_floor_for_moved_anchors(
-    floors: Query<(Entity, &FloorSegments, &Path<Entity>), With<FloorMarker>>,
+pub fn update_floors_for_moved_anchors(
+    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -285,9 +297,48 @@ pub fn update_floor_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, segments, path)) = floors.get(*dependent).ok() {
+            if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
+                let (_, texture) = from_texture_source(texture_source, &textures);
                 if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &anchors));
+                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors));
+                }
+            }
+        }
+    }
+}
+
+pub fn update_floors(
+    floors: Query<(&FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
+    changed_floors: Query<
+        Entity,
+        (
+            With<FloorMarker>,
+            Or<(Changed<Affiliation<Entity>>, Changed<Path<Entity>>)>,
+        ),
+    >,
+    changed_texture_sources: Query<
+        &Members,
+        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
+    material_handles: Query<&Handle<StandardMaterial>>,
+    anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+) {
+    for e in changed_floors.iter().chain(
+        changed_texture_sources
+            .iter()
+            .flat_map(|members| members.iter().cloned()),
+    ) {
+        let Ok((segment, path, texture_source)) = floors.get(e) else { continue };
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+        if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
+            if let Ok(material) = material_handles.get(segment.mesh) {
+                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors));
+                if let Some(mut material) = materials.get_mut(material) {
+                    material.base_color_texture = base_color_texture;
                 }
             }
         }
@@ -310,10 +361,12 @@ fn iter_update_floor_visibility<'a>(
     for (vis, parent, segments) in iter {
         if let Ok(handle) = material_handles.get(segments.mesh) {
             if let Some(mat) = material_assets.get_mut(handle) {
-                let default = parent
+                let default_vis = parent
                     .map(|p| default_floor_vis.get(p.get()).ok())
                     .flatten();
-                *mat = floor_material(vis, default);
+                let (base_color, alpha_mode) = floor_transparency(vis, default_vis);
+                mat.base_color = base_color;
+                mat.alpha_mode = alpha_mode;
             }
         }
     }

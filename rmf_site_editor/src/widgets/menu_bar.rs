@@ -15,7 +15,9 @@
  *
 */
 
-use crate::{CreateNewWorkspace, FileEvents, LoadWorkspace, SaveWorkspace, VisibilityParameters};
+use crate::{
+    CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace, VisibilityParameters,
+};
 
 use bevy::prelude::{
     App, Children, Component, Entity, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
@@ -205,9 +207,7 @@ pub fn top_menu_bar(
     file_menu: &Res<FileMenu>,
     top_level_components: &Query<(), Without<Parent>>,
     children: &Query<&Children>,
-    menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<(&MenuItem, Option<&MenuDisabled>)>,
-    extension_events: &mut EventWriter<MenuEvent>,
+    menu_params: &mut MenuParams,
 ) {
     egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
         egui::menu::bar(ui, |ui| {
@@ -243,9 +243,9 @@ pub fn top_menu_bar(
                     ui,
                     &file_menu.get(),
                     children,
-                    menus,
-                    menu_items,
-                    extension_events,
+                    &menu_params.menus,
+                    &menu_params.menu_items,
+                    &mut menu_params.extension_events,
                     true,
                 );
             });
@@ -338,16 +338,16 @@ pub fn top_menu_bar(
                 }
             });
 
-            for (_, entity) in menus.iter().filter(|(_, entity)| {
+            for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {
                 top_level_components.contains(*entity) && *entity != file_menu.get()
             }) {
                 render_sub_menu(
                     ui,
                     &entity,
                     children,
-                    menus,
-                    menu_items,
-                    extension_events,
+                    &menu_params.menus,
+                    &menu_params.menu_items,
+                    &mut menu_params.extension_events,
                     false,
                 );
             }

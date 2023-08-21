@@ -65,17 +65,25 @@ pub enum SiteGenerationError {
 // TODO(@mxgrey): Remove this when we no longer need to de-parent drawings while
 // editing them.
 fn assemble_edited_drawing(world: &mut World) {
-    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
     level.push_children(&[c.drawing]);
 }
 
 /// Revert the drawing back to the root so it can continue to be edited.
 fn disassemble_edited_drawing(world: &mut World) {
-    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else { return };
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
     let Some(c) = c.target() else { return };
-    let Some(mut level) = world.get_entity_mut(c.level) else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
     level.remove_children(&[c.drawing]);
 }
 
@@ -111,7 +119,12 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         Query<
             Entity,
             (
-                Or<(With<Anchor>, With<FiducialMarker>, With<MeasurementMarker>)>,
+                Or<(
+                    With<Anchor>,
+                    With<FiducialMarker>,
+                    With<MeasurementMarker>,
+                    With<Group>,
+                )>,
                 Without<Pending>,
             ),
         >,
@@ -285,7 +298,7 @@ fn generate_levels(
             (
                 &Path<Entity>,
                 Option<&Original<Path<Entity>>>,
-                &Texture,
+                &Affiliation<Entity>,
                 &PreferredSemiTransparency,
                 &SiteID,
                 &Parent,
@@ -330,7 +343,7 @@ fn generate_levels(
             (
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
-                &Texture,
+                &Affiliation<Entity>,
                 &SiteID,
                 &Parent,
             ),
@@ -525,11 +538,17 @@ fn generate_levels(
         if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_path(&path)?;
+                let texture = if let Affiliation(Some(e)) = texture {
+                    Affiliation(Some(get_group_id(*e)?))
+                } else {
+                    Affiliation(None)
+                };
+
                 level.floors.insert(
                     id.0,
                     Floor {
                         anchors,
-                        texture: texture.clone(),
+                        texture,
                         preferred_semi_transparency: preferred_alpha.clone(),
                         marker: FloorMarker,
                     },
@@ -592,11 +611,17 @@ fn generate_levels(
         if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
+                let texture = if let Affiliation(Some(e)) = texture {
+                    Affiliation(Some(get_group_id(*e)?))
+                } else {
+                    Affiliation(None)
+                };
+
                 level.walls.insert(
                     id.0,
                     Wall {
                         anchors,
-                        texture: texture.clone(),
+                        texture,
                         marker: WallMarker,
                     },
                 );
@@ -866,6 +891,37 @@ fn generate_fiducial_groups(
     Ok(fiducial_groups)
 }
 
+fn generate_texture_groups(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, TextureGroup>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&NameInSite, &Texture, &SiteID), With<Group>>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (q_groups, q_children) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut texture_groups = BTreeMap::new();
+    for child in children {
+        let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
+        texture_groups.insert(
+            site_id.0,
+            TextureGroup {
+                name: name.clone(),
+                texture: texture.clone(),
+                group: Default::default(),
+            },
+        );
+    }
+
+    Ok(texture_groups)
+}
+
 fn generate_nav_graphs(
     world: &mut World,
     site: Entity,
@@ -1054,6 +1110,7 @@ pub fn generate_site(
     let lifts = generate_lifts(world, site)?;
     let fiducials = generate_fiducials(world, site)?;
     let fiducial_groups = generate_fiducial_groups(world, site)?;
+    let textures = generate_texture_groups(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
@@ -1078,6 +1135,7 @@ pub fn generate_site(
         lifts,
         fiducials,
         fiducial_groups,
+        textures,
         navigation: Navigation {
             guided: Guided {
                 graphs: nav_graphs,

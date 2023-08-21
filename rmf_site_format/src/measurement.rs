@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -59,18 +60,14 @@ impl Measurement<Entity> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Measurement<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> Measurement<Entity> {
-        Measurement {
-            anchors: self.anchors.to_ecs(id_to_entity),
+impl<T: RefTrait> Measurement<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Measurement<U>, T> {
+        Ok(Measurement {
+            anchors: self.anchors.convert(id_map)?,
             distance: self.distance,
             label: self.label.clone(),
             marker: Default::default(),
-        }
+        })
     }
 }
 
