@@ -24,10 +24,11 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
-        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
-        PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
+        ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
+        ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
+        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, SiteState, Texture,
+        ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -236,9 +237,10 @@ pub struct VisibilityEvents<'w, 's> {
     pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
     pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
     pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
-    pub models: EventWriter<'w, 's, SetCategoryVisibility<ModelMarker>>,
     pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
     pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
+    pub visuals: EventWriter<'w, 's, SetCategoryVisibility<VisualMeshMarker>>,
+    pub collisions: EventWriter<'w, 's, SetCategoryVisibility<CollisionMeshMarker>>,
 }
 
 #[derive(SystemParam)]
@@ -251,9 +253,10 @@ pub struct VisibilityResources<'w, 's> {
     pub locations: Res<'w, CategoryVisibility<LocationTags>>,
     pub fiducials: Res<'w, CategoryVisibility<FiducialMarker>>,
     pub constraints: Res<'w, CategoryVisibility<ConstraintMarker>>,
-    pub models: Res<'w, CategoryVisibility<ModelMarker>>,
     pub measurements: Res<'w, CategoryVisibility<MeasurementMarker>>,
     pub walls: Res<'w, CategoryVisibility<WallMarker>>,
+    pub visuals: Res<'w, CategoryVisibility<VisualMeshMarker>>,
+    pub collisions: Res<'w, CategoryVisibility<CollisionMeshMarker>>,
     _ignore: Query<'w, 's, ()>,
 }
 
