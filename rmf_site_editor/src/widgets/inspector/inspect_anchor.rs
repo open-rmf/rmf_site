@@ -155,22 +155,18 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
                                 if !self.is_dependency {
                                     ui.label("Latitude");
-                                
-                                ui.add(DragValue::new(&mut lat).speed(1e-16));
-
-                                
+                                    ui.add(DragValue::new(&mut lat).speed(1e-16));
                                     ui.label("Longitude");
-                                
-                                ui.add(DragValue::new(&mut lon).speed(1e-16));
+                                    ui.add(DragValue::new(&mut lon).speed(1e-16));
 
-                                if old_lat != lat || old_lon != lon {
-                                    self.events.request.move_to.send(MoveTo {
-                                        entity: self.anchor,
-                                        transform: Transform::from_translation(latlon_to_world(
-                                            lat as f32, lon as f32, offset.anchor,
-                                        )),
-                                    });
-                                }
+                                    if old_lat != lat || old_lon != lon {
+                                        self.events.request.move_to.send(MoveTo {
+                                            entity: self.anchor,
+                                            transform: Transform::from_translation(latlon_to_world(
+                                                lat as f32, lon as f32, offset.anchor,
+                                            )),
+                                        });
+                                    }
                                 }
                             }
                         });

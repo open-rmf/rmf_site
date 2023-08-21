@@ -61,8 +61,8 @@ use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;
-pub use osm_slippy_map::*;
 use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+pub use osm_slippy_map::*;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
