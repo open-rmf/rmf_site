@@ -453,19 +453,13 @@ impl Workcell {
 
     pub fn to_urdf_string(&self) -> Result<String, WorkcellToUrdfError> {
         let urdf = self.to_urdf()?;
-        match urdf_rs::write_to_string(&urdf) {
-            Ok(string) => Ok(string
-                .replace("<Robot", "<robot")
-                .replace("</Robot", "</robot")),
-            Err(e) => Err(WorkcellToUrdfError::WriteToStringError(e)),
-        }
+        urdf_rs::write_to_string(&urdf).map_err(|e| WorkcellToUrdfError::WriteToStringError(e))
     }
 
     pub fn to_urdf_writer(&self, mut writer: impl io::Write) -> Result<(), std::io::Error> {
-        let urdf = match self.to_urdf_string() {
-            Ok(urdf) => urdf,
-            Err(e) => return Err(std::io::Error::new(std::io::ErrorKind::Other, e)),
-        };
+        let urdf = self
+            .to_urdf_string()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
         writer.write_all(urdf.as_bytes())
     }
 
