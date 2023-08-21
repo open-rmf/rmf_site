@@ -26,7 +26,7 @@ use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
     Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, MeshPrimitive, Model,
-    ModelMarker, NameInSite, Pose, Rotation, Scale, WorkcellCollisionMarker, WorkcellVisualMarker,
+    ModelMarker, NameInSite, Pose, Rotation, Scale,
 };
 
 /// An empty component to mark this entity as a visual mesh
@@ -205,8 +205,8 @@ pub fn handle_new_mesh_primitives(
         &Selectable,
         Or<(
             With<ModelMarker>,
-            With<WorkcellVisualMarker>,
-            With<WorkcellCollisionMarker>,
+            With<VisualMeshMarker>,
+            With<CollisionMeshMarker>,
         )>,
     >,
     mut meshes: ResMut<Assets<Mesh>>,

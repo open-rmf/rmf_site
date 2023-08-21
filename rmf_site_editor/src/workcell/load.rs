@@ -19,7 +19,10 @@ use std::collections::HashMap;
 use std::path::PathBuf;
 
 use crate::{
-    site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState},
+    site::{
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion, SiteState,
+        VisualMeshMarker,
+    },
     workcell::ChangeCurrentWorkcell,
     WorkspaceMarker,
 };
@@ -28,7 +31,6 @@ use std::collections::HashSet;
 
 use rmf_site_format::{
     Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
-    WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 
 pub struct LoadWorkcell {
@@ -62,7 +64,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn((SiteID(*id), WorkcellVisualMarker));
+        let cmd = commands.spawn((SiteID(*id), VisualMeshMarker));
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
@@ -74,7 +76,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let cmd = commands.spawn((SiteID(*id), WorkcellCollisionMarker));
+        let cmd = commands.spawn((SiteID(*id), CollisionMeshMarker));
         let e = cmd.id();
         parented_collision.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function

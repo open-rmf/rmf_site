@@ -218,14 +218,6 @@ impl Default for Geometry {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct WorkcellVisualMarker;
-
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct WorkcellCollisionMarker;
-
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct WorkcellModel {
     pub name: String,
@@ -245,7 +237,6 @@ impl WorkcellModel {
                 ));
             }
             Geometry::Mesh { filename, scale } => {
-                println!("Setting pose of {:?} to {:?}", filename, self.pose);
                 let scale = Scale(scale.unwrap_or_default());
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
                 commands.insert((
