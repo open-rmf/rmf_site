@@ -110,7 +110,7 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
@@ -127,7 +127,7 @@ pub fn add_tags_to_lift(
             if let Some(current_site) = current_workspace.to_site(&open_sites) {
                 commands.entity(current_site).add_child(e);
             } else {
-                println!("Could not find a current site to put a newly created lift inside of!");
+                error!("Could not find a current site to put a newly created lift inside of!");
             }
         }
 
@@ -159,7 +159,7 @@ pub fn update_lift_cabin(
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    levels: Query<(Entity, &Parent), With<LevelProperties>>,
+    levels: Query<(Entity, &Parent), With<LevelElevation>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -170,7 +170,8 @@ pub fn update_lift_cabin(
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, .. } = params.aabb();
-                let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
+                let cabin_tf =
+                    Transform::from_translation(Vec3::new(center.x, center.y, FLOOR_LAYER_START));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0 * params.thickness(),
                     params.width + 2.0 * params.thickness(),
@@ -185,6 +186,8 @@ pub fn update_lift_cabin(
                             wall[1],
                             params.thickness(),
                             DEFAULT_LEVEL_HEIGHT / 3.0,
+                            None,
+                            None,
                         )
                     })
                     .fold(MeshBuffer::default(), |sum, next| sum.merge_with(next))
@@ -348,9 +351,9 @@ pub fn update_lift_door_availability(
     mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
-    new_levels: Query<(), Added<LevelProperties>>,
-    all_levels: Query<(), With<LevelProperties>>,
-    removed_levels: RemovedComponents<LevelProperties>,
+    new_levels: Query<(), Added<LevelElevation>>,
+    all_levels: Query<(), With<LevelElevation>>,
+    removed_levels: RemovedComponents<LevelElevation>,
     parents: Query<&Parent>,
 ) {
     for toggle in toggles.iter() {
@@ -363,8 +366,8 @@ pub fn update_lift_door_availability(
             if !all_levels.contains(toggle.on_level) {
                 // If we're being asked to toggle availability on for something
                 // that isn't a level, then ignore this request.
-                println!(
-                    "DEV ERROR: Asking to turn on lift {:?} door {:?} availability \
+                error!(
+                    "Asking to turn on lift {:?} door {:?} availability \
                     for a level {:?} that does not exist.",
                     toggle.for_lift, toggle.cabin_door, toggle.on_level,
                 );
@@ -531,8 +534,8 @@ pub fn update_lift_door_availability(
             let e_lift = match parents.get(e_door) {
                 Ok(e_lift) => e_lift,
                 Err(_) => {
-                    println!(
-                        "DEV ERROR: Unable to find parent for lift door \
+                    error!(
+                        "Unable to find parent for lift door \
                         {e_door:?} while handling a removed level"
                     );
                     continue;
@@ -541,7 +544,7 @@ pub fn update_lift_door_availability(
             let (mut cabin, _, _) = match lifts.get_mut(e_lift.get()) {
                 Ok(cabin) => cabin,
                 Err(_) => {
-                    println!("DEV ERROR: Unable to find cabin for lift {e_lift:?}");
+                    error!("Unable to find cabin for lift {e_lift:?}");
                     continue;
                 }
             };

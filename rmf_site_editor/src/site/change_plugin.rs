@@ -90,8 +90,8 @@ fn update_changed_values<T: Component + Clone + Debug>(
                     .entity(change.for_element)
                     .insert(change.to_value.clone());
             } else {
-                println!(
-                    "DEV ERROR: Unable to change {} data to {:?} for entity {:?} \
+                error!(
+                    "Unable to change {} data to {:?} for entity {:?} \
                     because the entity does not have that type",
                     std::any::type_name::<T>(),
                     change.to_value,

@@ -35,7 +35,7 @@ pub fn change_workcell(
 ) {
     if let Some(cmd) = change_current_workcell.iter().last() {
         if open_workcells.get(cmd.root).is_err() {
-            println!(
+            error!(
                 "Requested workspace change to an entity that is not an open workcell: {:?}",
                 cmd.root
             );
