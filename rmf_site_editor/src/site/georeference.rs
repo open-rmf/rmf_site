@@ -217,12 +217,12 @@ fn spawn_tile(
     zoom: i32,
 ) {
     let tile = OSMTile::from_latlon(zoom, coordinates.0, coordinates.1);
-    let tile_size = tile.tile_size();
 
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-        tile_size.0,
-        tile_size.1,
-    ))));
+    let Some(mesh) = tile.get_quad_mesh() else {
+        error!("Could not retrieve meshshape");
+        return;
+    };
+    let quad_handle = meshes.add(mesh);
 
     let texture_handle: Handle<Image> = asset_server.load(String::from(
         &AssetSource::OSMSlippyMap(tile.zoom(), coordinates.0, coordinates.1),

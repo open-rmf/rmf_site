@@ -17,7 +17,10 @@
 
 use std::{f32::consts::PI, io::Write, path::PathBuf};
 
-use bevy::prelude::Vec2;
+use bevy::{
+    prelude::{Mesh, Vec2},
+    render::{mesh::Indices, render_resource::PrimitiveTopology},
+};
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
 
 use crate::site_asset_io::cache_path;
@@ -74,6 +77,57 @@ impl OSMTile {
     pub fn zoom(&self) -> i32 {
         self.zoom
     }
+
+    pub fn get_quad_mesh(&self) -> Option<Mesh> {
+        let nw = self.get_nw_corner();
+        let Ok(nw) = self.get_transform_from_lat_lon(nw.0, nw.1) else {
+            println!("Failed to get nw {:?}", nw);
+            return None;
+        };
+
+        let ne = self.get_ne_corner();
+        let Ok(ne) = self.get_transform_from_lat_lon(ne.0, ne.1) else {
+            println!("Failed to get ne {:?}", ne);
+            return None;
+        };
+
+        let sw = self.get_sw_corner();
+        let Ok(sw) = self.get_transform_from_lat_lon(sw.0, sw.1) else {
+            println!("Failed to get sw {:?}", sw);
+            return None;
+        };
+
+        let se = self.get_se_corner();
+        let Ok(se) = self.get_transform_from_lat_lon(se.0, se.1) else {
+            println!("Failed to get se {:?}", se);
+            return None;
+        };
+
+        let extent_x = self.tile_size().0 / 2.0;
+        let extent_y = self.tile_size().1 / 2.0;
+
+        let (u_left, u_right) = (0.0, 1.0);
+        let vertices = [
+            ([sw.x, sw.y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),
+            ([nw.x, nw.y, 0.0], [0.0, 0.0, 1.0], [u_left, 0.0]),
+            ([ne.x, ne.y, 0.0], [0.0, 0.0, 1.0], [u_right, 0.0]),
+            ([se.x, se.y, 0.0], [0.0, 0.0, 1.0], [u_right, 1.0]),
+        ];
+
+        let indices = Indices::U32(vec![0, 2, 1, 0, 3, 2]);
+
+        let positions: Vec<_> = vertices.iter().map(|(p, _, _)| *p).collect();
+        let normals: Vec<_> = vertices.iter().map(|(_, n, _)| *n).collect();
+        let uvs: Vec<_> = vertices.iter().map(|(_, _, uv)| *uv).collect();
+
+        let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
+        mesh.set_indices(Some(indices));
+        mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, positions);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+        mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, uvs);
+        Some(mesh)
+    }
+
     /// Returns the northwest corner
     pub fn get_nw_corner(&self) -> (f32, f32) {
         let n = 2f32.powi(self.zoom);
@@ -203,6 +257,7 @@ impl OSMTile {
             }
         }
 
+        // TODO(arjoc): make configurable
         let uri = format!(
             "https://tile.openstreetmap.org/{}/{}/{}.png",
             self.zoom, self.xtile, self.ytile
