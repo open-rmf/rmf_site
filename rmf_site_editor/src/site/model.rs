@@ -84,10 +84,7 @@ pub fn update_model_scenes(
         (Changed<TentativeModelFormat>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
-    loading_models: Query<
-        (Entity, &TentativeModelFormat, &PendingSpawning, &Scale),
-        With<ModelMarker>,
-    >,
+    loading_models: Query<(Entity, &PendingSpawning, &Scale), With<ModelMarker>>,
     spawned_models: Query<
         Entity,
         (
@@ -103,6 +100,7 @@ pub fn update_model_scenes(
     gltfs: Res<Assets<Gltf>>,
     urdfs: Res<Assets<UrdfRoot>>,
     sdfs: Res<Assets<SdfRoot>>,
+    trashcan: Res<ModelTrashcan>,
 ) {
     fn spawn_model(
         e: Entity,
@@ -154,7 +152,7 @@ pub fn update_model_scenes(
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, tentative_format, h, scale) in loading_models.iter() {
+    for (e, h, scale) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
                 Some(commands.entity(e).add_children(|parent| {
@@ -213,14 +211,15 @@ pub fn update_model_scenes(
             } else {
                 None
             };
+
             if let Some(id) = model_id {
                 commands
                     .entity(e)
                     .insert(ModelSceneRoot)
                     .insert(Selectable::new(e));
-                commands.entity(e).remove::<PendingSpawning>();
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
+            commands.entity(e).remove::<PendingSpawning>();
         }
     }
 
@@ -230,8 +229,7 @@ pub fn update_model_scenes(
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
-                    commands.entity(scene_entity).despawn_recursive();
-                    commands.entity(e).remove_children(&[scene_entity]);
+                    commands.entity(scene_entity).set_parent(trashcan.0);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
@@ -284,11 +282,12 @@ pub fn update_model_tentative_formats(
                     *tentative_format = fmt;
                     commands.entity(e).remove::<PendingSpawning>();
                 } else {
-                    println!(
-                        "WARNING: Model with source {} not found",
-                        String::from(source)
-                    );
-                    commands.entity(e).remove::<TentativeModelFormat>();
+                    warn!("Model with source {} not found", String::from(source));
+                    commands
+                        .entity(e)
+                        .remove::<TentativeModelFormat>()
+                        .remove::<PreventDeletion>()
+                        .remove::<PendingSpawning>();
                 }
             }
             _ => {}
@@ -305,6 +304,37 @@ pub fn update_model_scales(
             if let Ok(mut tf) = transforms.get_mut(scene) {
                 tf.scale = **scale;
             }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Trashcan;
+
+/// The current data structures of models may have nested structures where we
+/// spawn "models" within the descendant tree of another model. This can lead to
+/// situations where we might try to delete the descendant tree of a model while
+/// also modifying one of those descendants. Bevy's current implementation of
+/// such commands leads to panic when attempting to modify a despawned entity.
+/// To deal with this we defer deleting model descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct ModelTrashcan(Entity);
+
+impl FromWorld for ModelTrashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn(Trashcan).id())
+    }
+}
+
+pub fn clear_model_trashcan(
+    mut commands: Commands,
+    trashcans: Query<&Children, (With<Trashcan>, Changed<Children>)>,
+) {
+    for trashcan in &trashcans {
+        for trash in trashcan {
+            commands.entity(*trash).despawn_recursive();
         }
     }
 }
@@ -343,7 +373,7 @@ pub fn make_models_selectable(
             if let Ok(mesh_handle) = mesh_handles.get(e) {
                 if let Some(mesh) = mesh_assets.get_mut(mesh_handle) {
                     if mesh.generate_outline_normals().is_err() {
-                        println!(
+                        warn!(
                             "WARNING: Unable to generate outline normals for \
                             a model mesh"
                         );

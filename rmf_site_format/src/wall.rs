@@ -17,15 +17,16 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Entity};
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Wall<T: RefTrait> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if = "is_default")]
-    pub texture: Texture,
+    pub texture: Affiliation<T>,
     #[serde(skip)]
     pub marker: WallMarker,
 }
@@ -34,25 +35,13 @@ pub struct Wall<T: RefTrait> {
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct WallMarker;
 
-#[cfg(feature = "bevy")]
-impl Wall<Entity> {
-    pub fn to_u32(&self, anchors: Edge<u32>) -> Wall<u32> {
-        Wall {
-            anchors,
-            texture: self.texture.clone(),
+impl<T: RefTrait> Wall<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Wall<U>, T> {
+        Ok(Wall {
+            anchors: self.anchors.convert(id_map)?,
+            texture: self.texture.convert(id_map)?,
             marker: Default::default(),
-        }
-    }
-}
-
-#[cfg(feature = "bevy")]
-impl Wall<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Wall<Entity> {
-        Wall {
-            anchors: self.anchors.to_ecs(id_to_entity),
-            texture: self.texture.clone(),
-            marker: Default::default(),
-        }
+        })
     }
 }
 
@@ -60,7 +49,7 @@ impl<T: RefTrait> From<Edge<T>> for Wall<T> {
     fn from(anchors: Edge<T>) -> Self {
         Self {
             anchors,
-            texture: Default::default(),
+            texture: Affiliation(None),
             marker: Default::default(),
         }
     }

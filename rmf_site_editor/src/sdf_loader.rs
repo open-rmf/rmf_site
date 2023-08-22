@@ -75,7 +75,7 @@ async fn load_model<'a, 'b>(
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
-                let path = load_context.path().clone().to_str().unwrap().to_string();
+                let path = load_context.path().to_str().unwrap().to_string();
                 let sdf_root = SdfRoot { model, path };
                 load_context.set_default_asset(LoadedAsset::new(sdf_root));
                 Ok(())

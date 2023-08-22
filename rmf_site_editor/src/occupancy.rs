@@ -18,7 +18,7 @@
 use crate::{
     interaction::ComputedVisualCue,
     shapes::*,
-    site::{Category, LevelProperties, SiteAssets, SiteProperties, LANE_LAYER_START},
+    site::{Category, LevelElevation, NameOfSite, SiteAssets, LANE_LAYER_START},
 };
 use bevy::{
     math::{swizzles::*, Affine3A, Mat3A, Vec2, Vec3A},
@@ -156,8 +156,8 @@ fn calculate_grid(
         Option<&ComputedVisualCue>,
     )>,
     parents: Query<&Parent>,
-    levels: Query<Entity, With<LevelProperties>>,
-    sites: Query<(), With<SiteProperties>>,
+    levels: Query<Entity, With<LevelElevation>>,
+    sites: Query<(), With<NameOfSite>>,
     mut meshes: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
@@ -176,7 +176,7 @@ fn calculate_grid(
         let levels_of_sites = get_levels_of_sites(&levels, &parents);
 
         let physical_entities = collect_physical_entities(&bodies, &meta);
-        println!("Checking {:?} physical entities", physical_entities.len());
+        info!("Checking {:?} physical entities", physical_entities.len());
         for e in &physical_entities {
             let (_, mesh, aabb, tf) = match bodies.get(*e) {
                 Ok(body) => body,
@@ -210,7 +210,7 @@ fn calculate_grid(
                 let indices = match mesh.indices() {
                     Some(Indices::U32(indices)) => indices,
                     _ => {
-                        println!(
+                        warn!(
                             "Unexpected index set for mesh of {e:?}:\n{:?}",
                             mesh.indices()
                         );
@@ -243,7 +243,7 @@ fn calculate_grid(
 
         let finish_time = Instant::now();
         let delta = finish_time - start_time;
-        println!("Occupancy calculation time: {}", delta.as_secs_f32());
+        info!("Occupancy calculation time: {}", delta.as_secs_f32());
 
         for grid in &grids {
             commands.entity(grid).despawn_recursive();
@@ -296,7 +296,7 @@ fn calculate_grid(
 }
 
 fn get_levels_of_sites(
-    levels: &Query<Entity, With<LevelProperties>>,
+    levels: &Query<Entity, With<LevelElevation>>,
     parents: &Query<&Parent>,
 ) -> HashMap<Entity, Vec<Entity>> {
     let mut levels_of_sites: HashMap<Entity, Vec<Entity>> = HashMap::new();
@@ -312,8 +312,8 @@ fn get_levels_of_sites(
 fn get_group(
     e: Entity,
     parents: &Query<&Parent>,
-    levels: &Query<Entity, With<LevelProperties>>,
-    sites: &Query<(), With<SiteProperties>>,
+    levels: &Query<Entity, With<LevelElevation>>,
+    sites: &Query<(), With<NameOfSite>>,
 ) -> Group {
     let mut e_meta = e;
     loop {

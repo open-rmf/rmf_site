@@ -17,6 +17,7 @@
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
+use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
@@ -24,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -38,6 +39,10 @@ pub struct ChangeCurrentWorkspace {
 /// Used as an event to command that a new workspace should be created, behavior will depend on
 /// what app mode the editor is currently in
 pub struct CreateNewWorkspace;
+
+/// Apply this component to all workspace types
+#[derive(Component)]
+pub struct WorkspaceMarker;
 
 /// Used as an event to command that a workspace should be loaded. This will spawn a file open
 /// dialog (in non-wasm) with allowed extensions depending on the app state
@@ -67,13 +72,15 @@ impl WorkspaceData {
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
         } else {
-            println!("Unrecognized file type {:?}", filename);
+            error!("Unrecognized file type {:?}", filename);
             None
         }
     }
 }
 
 /// Used as a resource that keeps track of the current workspace
+// TODO(@mxgrey): Consider a workspace stack, e.g. so users can temporarily edit
+// a workcell inside of a site and then revert back into the site.
 #[derive(Clone, Copy, Debug, Default, Resource)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
@@ -102,7 +109,7 @@ impl Default for LoadWorkspaceChannels {
 pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-    pub fn to_site(self, open_sites: &Query<Entity, With<SiteProperties>>) -> Option<Entity> {
+    pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
     }
@@ -134,11 +141,16 @@ pub fn dispatch_new_workspace_events(
     if let Some(_cmd) = new_workspace.iter().last() {
         match state.current() {
             AppState::MainMenu => {
-                println!("DEV ERROR: Sent generic change workspace while in main menu");
+                error!("Sent generic change workspace while in main menu");
             }
-            AppState::SiteEditor => {
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+                let mut levels = BTreeMap::new();
+                levels.insert(0, Level::default());
                 load_site.send(LoadSite {
-                    site: Site::default(),
+                    site: Site {
+                        levels,
+                        ..default()
+                    },
                     focus: true,
                     default_file: None,
                 });
@@ -155,7 +167,6 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut commands: Commands,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
@@ -223,7 +234,7 @@ fn handle_workspace_data(
 ) {
     match workspace_data {
         WorkspaceData::LegacyBuilding(data) => {
-            println!("Opening legacy building map file");
+            info!("Opening legacy building map file");
             match BuildingMap::from_bytes(&data) {
                 Ok(building) => {
                     match building.to_site() {
@@ -238,17 +249,17 @@ fn handle_workspace_data(
                             interaction_state.set(InteractionState::Enable).ok();
                         }
                         Err(err) => {
-                            println!("Failed converting to site {:?}", err);
+                            error!("Failed converting to site {:?}", err);
                         }
                     }
                 }
                 Err(err) => {
-                    println!("Failed loading legacy building {:?}", err);
+                    error!("Failed loading legacy building {:?}", err);
                 }
             }
         }
         WorkspaceData::Site(data) => {
-            println!("Opening site file");
+            info!("Opening site file");
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
@@ -261,12 +272,12 @@ fn handle_workspace_data(
                     interaction_state.set(InteractionState::Enable).ok();
                 }
                 Err(err) => {
-                    println!("Failed loading site {:?}", err);
+                    error!("Failed loading site {:?}", err);
                 }
             }
         }
         WorkspaceData::Workcell(data) => {
-            println!("Opening workcell file");
+            info!("Opening workcell file");
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
@@ -279,7 +290,7 @@ fn handle_workspace_data(
                     interaction_state.set(InteractionState::Enable).ok();
                 }
                 Err(err) => {
-                    println!("Failed loading workcell {:?}", err);
+                    error!("Failed loading workcell {:?}", err);
                 }
             }
         }
@@ -288,7 +299,6 @@ fn handle_workspace_data(
 
 /// Handles the file opening events
 fn workspace_file_load_complete(
-    mut commands: Commands,
     mut app_state: ResMut<State<AppState>>,
     mut interaction_state: ResMut<State<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,

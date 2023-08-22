@@ -17,7 +17,11 @@
 
 use crate::{
     interaction::{Select, Selection},
-    site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
+    log::Log,
+    site::{
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
+        SiteUpdateStage,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -84,8 +88,9 @@ struct DeletionParams<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
-    levels: Query<'w, 's, Entity, With<LevelProperties>>,
+    levels: Query<'w, 's, Entity, With<LevelElevation>>,
     select: EventWriter<'w, 's, Select>,
+    log: EventWriter<'w, 's, Log>,
 }
 
 pub struct DeletionPlugin;
@@ -128,16 +133,16 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
     for descendent in &all_descendents {
         if let Ok(prevent) = params.preventions.get(*descendent) {
             if *descendent == element {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Element {:?} cannot be deleted because: {}",
                     element,
                     prevent
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             } else {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Element {:?} is an ancestor of {:?} which cannot be \
                     deleted because: {}",
                     element,
@@ -146,7 +151,7 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             }
             return;
         }
@@ -155,20 +160,20 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
             for dep in dependents.iter() {
                 if !all_descendents.contains(dep) {
                     if *descendent == element {
-                        println!(
+                        params.log.send(Log::hint(format!(
                             "Cannot delete {:?} because it has {} dependents. \
                             Only elements with no outside dependents can be \
                             deleted.",
                             element,
                             dependents.len(),
-                        );
+                        )));
                     } else {
-                        println!(
+                        params.log.send(Log::hint(format!(
                             "Element {:?} is an ancestor of {:?} \
                             which cannot be deleted because {:?} depends \
                             on it.",
                             element, descendent, dep,
-                        );
+                        )));
                     }
                     return;
                 }
@@ -238,16 +243,16 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
     while let Some(top) = queue.pop() {
         if let Ok(prevent) = params.preventions.get(top) {
             if top == element {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Cannot delete {:?} because: {}",
                     element,
                     prevent
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                );
+                )));
             } else {
-                println!(
+                params.log.send(Log::hint(format!(
                     "Cannot delete {:?} because we would need to also delete \
                     {:?} which cannot be deleted because: {}",
                     element,
@@ -256,7 +261,7 @@ fn recursive_dependent_delete(element: Entity, params: &mut DeletionParams) {
                         .reason
                         .as_ref()
                         .unwrap_or(&"<.. no reason given>".to_string()),
-                )
+                )));
             }
             return;
         }
@@ -343,8 +348,9 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
                     .commands
                     .spawn(SpatialBundle::default())
                     .insert(LevelProperties {
-                        elevation: 0.0,
-                        name: "<Unnamed>".to_string(),
+                        name: NameInSite("<Unnamed>".to_owned()),
+                        elevation: LevelElevation(0.0),
+                        ..default()
                     })
                     .insert(Category::Level)
                     .id();

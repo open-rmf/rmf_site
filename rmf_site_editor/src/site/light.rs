@@ -27,7 +27,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, LevelProperties, Light, LightKind, Pose};
+use rmf_site_format::{Category, LevelElevation, Light, LightKind, NameInSite, Pose};
 use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
@@ -67,7 +67,7 @@ pub fn add_physical_lights(
             if let Some(current_level) = **current_level {
                 commands.entity(current_level).add_child(e);
             } else {
-                println!("DEV ERROR: No current level to assign light {e:?}");
+                error!("No current level to assign light {e:?}");
             }
         }
     }
@@ -143,14 +143,14 @@ pub struct ExportLights(pub std::path::PathBuf);
 pub fn export_lights(
     mut exports: EventReader<ExportLights>,
     lights: Query<(&Pose, &LightKind, &Parent)>,
-    levels: Query<&LevelProperties>,
+    levels: Query<&NameInSite>,
 ) {
     for export in exports.iter() {
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
-            if let Ok(level) = levels.get(parent.get()) {
+            if let Ok(name) = levels.get(parent.get()) {
                 lights_per_level
-                    .entry(level.name.clone())
+                    .entry(name.0.clone())
                     .or_default()
                     .push(Light {
                         pose: pose.clone(),
@@ -162,7 +162,7 @@ pub fn export_lights(
         let out_file = match std::fs::File::create(export.0.clone()) {
             Ok(out_file) => out_file,
             Err(err) => {
-                println!(
+                error!(
                     "Failed to create file {:?} for exporting lights: {}",
                     export.0, err,
                 );
@@ -173,12 +173,12 @@ pub fn export_lights(
         let mut root: BTreeMap<String, HashMap<String, Vec<Light>>> = BTreeMap::new();
         for (level, lights) in lights_per_level {
             let mut lights_map: HashMap<String, Vec<Light>> = HashMap::new();
-            lights_map.insert("lights".to_string(), lights);
+            lights_map.insert("lights".to_owned(), lights);
             root.insert(level, lights_map);
         }
 
         if let Err(err) = serde_yaml::to_writer(out_file, &root) {
-            println!("Error while exporting lights: {err}");
+            error!("Error while exporting lights: {err}");
         }
     }
 }

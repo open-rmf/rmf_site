@@ -17,26 +17,35 @@
 
 use crate::{
     interaction::{
-        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
+        CategoryVisibility, ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
+        SetCategoryVisibility, SpawnPreview,
     },
+    log::LogHistory,
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AssociatedGraphs, Change, ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel,
-        Delete, ExportLights, FloorVisibility, PhysicalLightToggle, SaveNavGraphs, SiteState,
-        ToggleLiftDoorAvailability,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
+        PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader, Sense},
+    egui::{self, Button, CollapsingHeader},
     EguiContext,
 };
 use rmf_site_format::*;
 
 pub mod create;
-use create::CreateWidget;
+use create::*;
+
+pub mod menu_bar;
+use menu_bar::*;
+
+pub mod view_groups;
+use view_groups::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -53,11 +62,14 @@ use view_nav_graphs::*;
 pub mod view_occupancy;
 use view_occupancy::*;
 
+pub mod console;
+pub use console::*;
+
 pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget};
+use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture};
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -65,6 +77,19 @@ pub use move_layer::*;
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct PendingDrawing {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+}
+
+#[derive(Resource, Clone, Default)]
+pub struct PendingModel {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+    pub scale: Scale,
 }
 
 #[derive(Default)]
@@ -77,6 +102,11 @@ impl Plugin for StandardUiLayout {
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<PendingDrawing>()
+            .init_resource::<PendingModel>()
+            .init_resource::<SearchForFiducial>()
+            .init_resource::<SearchForTexture>()
+            .init_resource::<GroupViewModes>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
             .add_system_set(
                 SystemSet::on_update(AppState::SiteEditor)
@@ -85,6 +115,14 @@ impl Plugin for StandardUiLayout {
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteDrawingEditor)
+                    .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
+            )
+            .add_system_set(
+                SystemSet::on_update(AppState::SiteVisualizer)
+                    .with_system(site_visualizer_ui_layout.label(UiUpdateLabel::DrawUi)),
             )
             .add_system_set_to_stage(
                 CoreStage::PostUpdate,
@@ -108,11 +146,23 @@ pub struct ChangeEvents<'w, 's> {
     pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
     pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
     pub light: EventWriter<'w, 's, Change<LightKind>>,
-    pub level_props: EventWriter<'w, 's, Change<LevelProperties>>,
+    pub level_elevation: EventWriter<'w, 's, Change<LevelElevation>>,
     pub color: EventWriter<'w, 's, Change<DisplayColor>>,
     pub visibility: EventWriter<'w, 's, Change<Visibility>>,
     pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
     pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
+}
+
+// We split out this new struct to deal with the 16 field limitation on
+// SystemParams.
+#[derive(SystemParam)]
+pub struct MoreChangeEvents<'w, 's> {
+    pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+    pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
+    pub search_for_texture: ResMut<'w, SearchForTexture>,
+    pub distance: EventWriter<'w, 's, Change<Distance>>,
+    pub texture: EventWriter<'w, 's, Change<Texture>>,
+    pub merge_groups: EventWriter<'w, 's, MergeGroups>,
 }
 
 #[derive(SystemParam)]
@@ -136,6 +186,9 @@ pub struct PanelResources<'w, 's> {
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
     pub occupancy: ResMut<'w, OccupancyDisplay>,
+    pub log_history: ResMut<'w, LogHistory>,
+    pub pending_model: ResMut<'w, PendingModel>,
+    pub pending_drawings: ResMut<'w, PendingDrawing>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -164,8 +217,57 @@ pub struct LayerEvents<'w, 's> {
     pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
     pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub change_floor_vis: EventWriter<'w, 's, Change<FloorVisibility>>,
-    pub global_floor_vis: ResMut<'w, FloorVisibility>,
+    pub layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
+    pub preferred_alpha: EventWriter<'w, 's, Change<PreferredSemiTransparency>>,
+    pub global_floor_vis: EventWriter<'w, 's, Change<GlobalFloorVisibility>>,
+    pub global_drawing_vis: EventWriter<'w, 's, Change<GlobalDrawingVisibility>>,
+    pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
+    pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
+    pub icons: Res<'w, Icons>,
+}
+
+#[derive(SystemParam)]
+pub struct VisibilityEvents<'w, 's> {
+    pub doors: EventWriter<'w, 's, SetCategoryVisibility<DoorMarker>>,
+    pub floors: EventWriter<'w, 's, SetCategoryVisibility<FloorMarker>>,
+    pub lanes: EventWriter<'w, 's, SetCategoryVisibility<LaneMarker>>,
+    pub lift_cabins: EventWriter<'w, 's, SetCategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: EventWriter<'w, 's, SetCategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
+    pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
+    pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
+    pub models: EventWriter<'w, 's, SetCategoryVisibility<ModelMarker>>,
+    pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
+    pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
+}
+
+#[derive(SystemParam)]
+pub struct VisibilityResources<'w, 's> {
+    pub doors: Res<'w, CategoryVisibility<DoorMarker>>,
+    pub floors: Res<'w, CategoryVisibility<FloorMarker>>,
+    pub lanes: Res<'w, CategoryVisibility<LaneMarker>>,
+    pub lift_cabins: Res<'w, CategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: Res<'w, CategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: Res<'w, CategoryVisibility<LocationTags>>,
+    pub fiducials: Res<'w, CategoryVisibility<FiducialMarker>>,
+    pub constraints: Res<'w, CategoryVisibility<ConstraintMarker>>,
+    pub models: Res<'w, CategoryVisibility<ModelMarker>>,
+    pub measurements: Res<'w, CategoryVisibility<MeasurementMarker>>,
+    pub walls: Res<'w, CategoryVisibility<WallMarker>>,
+    _ignore: Query<'w, 's, ()>,
+}
+
+#[derive(SystemParam)]
+pub struct VisibilityParameters<'w, 's> {
+    events: VisibilityEvents<'w, 's>,
+    resources: VisibilityResources<'w, 's>,
+}
+
+#[derive(SystemParam)]
+pub struct MenuParams<'w, 's> {
+    menus: Query<'w, 's, (&'static Menu, Entity)>,
+    menu_items: Query<'w, 's, &'static MenuItem>,
+    extension_events: EventWriter<'w, 's, MenuEvent>,
 }
 
 /// We collect all the events into its own SystemParam because we are not
@@ -176,29 +278,37 @@ pub struct LayerEvents<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w, 's>,
+    pub change_more: MoreChangeEvents<'w, 's>,
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
-    pub app_state: Res<'w, State<AppState>>,
-    pub pending_asset_sources:
-        Query<'w, 's, (Entity, &'static AssetSource, &'static Scale), With<Pending>>,
+    pub app_state: ResMut<'w, State<AppState>>,
+    pub visibility_parameters: VisibilityParameters<'w, 's>,
+    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
 }
 
 fn site_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
     layers: LayersParams,
+    mut groups: GroupParams,
     mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    top_level_components: Query<(), Without<Parent>>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
+        .default_width(300.0)
         .show(egui_context.ctx_mut(), |ui| {
             egui::ScrollArea::both()
                 .auto_shrink([false, false])
@@ -207,7 +317,9 @@ fn site_ui_layout(
                         CollapsingHeader::new("Levels")
                             .default_open(true)
                             .show(ui, |ui| {
-                                ViewLevels::new(&levels, &mut events).show(ui);
+                                ViewLevels::new(&levels, &mut events)
+                                    .for_editing_visibility()
+                                    .show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Navigation Graphs")
@@ -232,7 +344,13 @@ fn site_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(false)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Groups")
+                            .default_open(false)
+                            .show(ui, |ui| {
+                                ViewGroups::new(&mut groups, &mut events).show(ui);
                             });
                         ui.separator();
                         CollapsingHeader::new("Lights")
@@ -246,49 +364,199 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
+                        if ui.add(Button::new("Building preview")).clicked() {
+                            events.app_state.set(AppState::SiteVisualizer).ok();
+                        }
                     });
                 });
         });
 
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
-        egui::menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    events.file_events.new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_default_file());
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog());
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    events
-                        .file_events
-                        .load_workspace
-                        .send(LoadWorkspace::Dialog);
-                }
-            });
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
+    );
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
-    });
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn site_drawing_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    inspector_params: InspectorParams,
+    create_params: CreateParams,
+    mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    children: Query<&Children>,
+    top_level_components: Query<(), Without<Parent>>,
+    mut menu_params: MenuParams,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Inspect")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        CollapsingHeader::new("Create")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                CreateWidget::new(&create_params, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        if ui
+                            .add(Button::image_and_text(
+                                events.layers.icons.exit.egui(),
+                                [18., 18.],
+                                "Return to site editor",
+                            ))
+                            .clicked()
+                        {
+                            events
+                                .layers
+                                .finish_edit_drawing
+                                .send(FinishEditDrawing(None));
+                        }
+                    });
+                });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
+
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
+    );
+
+    let egui_context = egui_context.ctx_mut();
+    let ui_has_focus = egui_context.wants_pointer_input()
+        || egui_context.wants_keyboard_input()
+        || egui_context.is_pointer_over_area();
+
+    if let Some(picking_blocker) = &mut picking_blocker {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        if events.request.hover.is_empty() {
+            events.request.hover.send(Hover(None));
+        }
+    }
+}
+
+fn site_visualizer_ui_layout(
+    mut egui_context: ResMut<EguiContext>,
+    mut picking_blocker: Option<ResMut<PickingBlockers>>,
+    mut events: AppEvents,
+    levels: LevelParams,
+    file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
+    children: Query<&Children>,
+    mut menu_params: MenuParams,
+) {
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .default_width(300.0)
+        .show(egui_context.ctx_mut(), |ui| {
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    ui.vertical(|ui| {
+                        CollapsingHeader::new("Levels")
+                            .default_open(true)
+                            .show(ui, |ui| {
+                                ViewLevels::new(&levels, &mut events).show(ui);
+                            });
+                        ui.separator();
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.alignment.egui(),
+                            [18., 18.],
+                            "Align Drawings",
+                        ))
+                            .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+                            .clicked()
+                        {
+                            if let Some(site) = events.request.current_workspace.root {
+                                events.align_site.send(AlignSiteDrawings(site));
+                            }
+                        }
+                        if ui.add(Button::image_and_text(
+                            events.layers.icons.exit.egui(),
+                            [18., 18.],
+                            "Return to site editor"
+                        )).clicked() {
+                            events.app_state.set(AppState::SiteEditor).ok();
+                        }
+                    });
+                });
+        });
+
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
+        });
+
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
+    );
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -312,7 +580,12 @@ fn workcell_ui_layout(
     mut egui_context: ResMut<EguiContext>,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
+    create_params: CreateParams,
     mut events: AppEvents,
+    file_menu: Res<FileMenu>,
+    top_level_components: Query<(), Without<Parent>>,
+    children: Query<&Children>,
+    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -330,61 +603,31 @@ fn workcell_ui_layout(
                         CollapsingHeader::new("Create")
                             .default_open(true)
                             .show(ui, |ui| {
-                                CreateWidget::new(&mut events).show(ui);
+                                CreateWidget::new(&create_params, &mut events).show(ui);
                             });
                         ui.separator();
                     });
                 });
         });
 
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
-        egui::menu::bar(ui, |ui| {
-            ui.menu_button("File", |ui| {
-                if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {
-                    events.file_events.new_workspace.send(CreateNewWorkspace);
-                }
-                #[cfg(not(target_arch = "wasm32"))]
-                {
-                    if ui
-                        .add(Button::new("Save").shortcut_text("Ctrl+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_default_file());
-                    }
-                    if ui
-                        .add(Button::new("Save As").shortcut_text("Ctrl+Shift+S"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog());
-                    }
-                    if ui
-                        .add(Button::new("Export urdf").shortcut_text("Ctrl+E"))
-                        .clicked()
-                    {
-                        events
-                            .file_events
-                            .save
-                            .send(SaveWorkspace::new().to_dialog().to_urdf());
-                    }
-                }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    events
-                        .file_events
-                        .load_workspace
-                        .send(LoadWorkspace::Dialog);
-                }
-            });
+    egui::TopBottomPanel::bottom("log_console")
+        .resizable(true)
+        .min_height(30.)
+        .max_height(300.)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.add_space(10.0);
+            ConsoleWidget::new(&mut events).show(ui);
         });
-    });
+
+    top_menu_bar(
+        &mut egui_context,
+        &mut events.file_events,
+        &mut events.visibility_parameters,
+        &file_menu,
+        &top_level_components,
+        &children,
+        &mut menu_params,
+    );
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

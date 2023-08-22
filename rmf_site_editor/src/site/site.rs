@@ -17,7 +17,7 @@
 
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
-use rmf_site_format::{LevelProperties, SiteProperties};
+use rmf_site_format::{LevelElevation, LevelProperties, NameInSite, NameOfSite};
 
 /// Used as an event to command that a new site should be made the current one
 #[derive(Clone, Copy, Debug)]
@@ -49,10 +49,10 @@ pub fn change_site(
     mut current_level: ResMut<CurrentLevel>,
     cached_levels: Query<&CachedLevel>,
     mut visibility: Query<&mut Visibility>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     children: Query<&Children>,
     parents: Query<&Parent>,
-    levels: Query<Entity, With<LevelProperties>>,
+    levels: Query<Entity, With<LevelElevation>>,
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
@@ -62,7 +62,7 @@ pub fn change_site(
 
     if let Some(cmd) = change_current_site.iter().last() {
         if open_sites.get(cmd.site).is_err() {
-            println!(
+            warn!(
                 "Requested workspace change to an entity that is not an open site: {:?}",
                 cmd.site
             );
@@ -76,7 +76,7 @@ pub fn change_site(
                 .filter(|parent| parent.get() == cmd.site)
                 .is_none()
             {
-                println!(
+                warn!(
                     "Requested level change to an entity {:?} that is not a level of the requested site {:?}",
                     chosen_level,
                     cmd.site,
@@ -119,8 +119,10 @@ pub fn change_site(
                         let new_level = commands.entity(cmd.site).add_children(|site| {
                             site.spawn(SpatialBundle::default())
                                 .insert(LevelProperties {
-                                    name: "<unnamed level>".to_string(),
-                                    elevation: 0.,
+                                    name: NameInSite("<unnamed level>".to_owned()),
+                                    elevation: LevelElevation(0.),
+                                    global_floor_visibility: default(),
+                                    global_drawing_visibility: default(),
                                 })
                                 .id()
                         });
