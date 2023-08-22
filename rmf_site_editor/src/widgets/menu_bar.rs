@@ -57,6 +57,7 @@ impl Menu {
 #[non_exhaustive]
 pub enum MenuItem {
     Text(String),
+    CheckBox(String, bool)
 }
 
 /// This resource provides the root entity for the file menu
@@ -107,6 +108,30 @@ impl FromWorld for ToolMenu {
     }
 }
 
+/// This resource provides the root entity for the tool menu
+#[derive(Resource)]
+pub struct ViewMenu {
+    /// Map of menu items
+    menu_item: Entity,
+}
+
+impl ViewMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for ViewMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world
+            .spawn(Menu {
+                text: "View".to_string(),
+            })
+            .id();
+        Self { menu_item }
+    }
+}
+
 #[non_exhaustive]
 pub enum MenuEvent {
     MenuClickEvent(Entity),
@@ -130,7 +155,8 @@ impl Plugin for MenuPluginManager {
     fn build(&self, app: &mut App) {
         app.add_event::<MenuEvent>()
             .init_resource::<FileMenu>()
-            .init_resource::<ToolMenu>();
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
     }
 }
 
@@ -140,7 +166,7 @@ fn render_sub_menu(
     entity: &Entity,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<(&MenuItem, Option<&MenuDisabled>)>,
+    menu_items: &Query<(&mut MenuItem, Option<&MenuDisabled>)>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
@@ -152,6 +178,12 @@ fn render_sub_menu(
                     .add_enabled(disabled.is_none(), Button::new(title))
                     .clicked()
                 {
+                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                }
+            },
+            MenuItem::CheckBox(title, mut value) => {
+                if ui.add_enabled(disabled.is_none(),
+                    egui::Checkbox::new(&mut value, title)).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -336,6 +368,15 @@ pub fn top_menu_bar(
                 {
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
+                render_sub_menu(
+                    ui,
+                    &menu_params.view_menu.get(),
+                    children,
+                    &menu_params.menus,
+                    &menu_params.menu_items,
+                    &mut menu_params.extension_events,
+                    true,
+                );
             });
 
             for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {

@@ -267,8 +267,9 @@ pub struct VisibilityParameters<'w, 's> {
 #[derive(SystemParam)]
 pub struct MenuParams<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
-    menu_items: Query<'w, 's, (&'static MenuItem, Option<&'static MenuDisabled>)>,
+    menu_items: Query<'w, 's, (&'static mut MenuItem, Option<&'static MenuDisabled>)>,
     extension_events: EventWriter<'w, 's, MenuEvent>,
+    view_menu: Res<'w, ViewMenu>
 }
 
 /// We collect all the events into its own SystemParam because we are not
