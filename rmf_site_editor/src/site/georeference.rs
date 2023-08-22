@@ -123,12 +123,12 @@ pub fn detect_new_geographic_component(
     let Some(ws_entity) = current_ws.root else {
         return;
     };
-    
+
     let Ok(comp) = geographic_comp.get(ws_entity) else {
         return;
     };
 
-    if let Some(comp) = comp.0  {
+    if let Some(comp) = comp.0 {
         command
             .entity(osm_menu.view_reference)
             .remove::<MenuDisabled>();
@@ -148,11 +148,14 @@ pub fn detect_new_geographic_component(
         };
 
         *value = comp.visible;
-    }
-    else {
+    } else {
         command.entity(osm_menu.view_reference).insert(MenuDisabled);
-        command.entity(osm_menu.satellite_map_check_button).insert(MenuDisabled);
-        command.entity(osm_menu.settings_reference).insert(MenuDisabled);
+        command
+            .entity(osm_menu.satellite_map_check_button)
+            .insert(MenuDisabled);
+        command
+            .entity(osm_menu.settings_reference)
+            .insert(MenuDisabled);
 
         let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
             return;
@@ -164,7 +167,6 @@ pub fn detect_new_geographic_component(
 
         *value = false;
     }
-    
 }
 
 /// Keeps visibility in check
@@ -173,8 +175,8 @@ pub fn handle_visibility_change(
     osm_menu: Res<OSMMenu>,
     current_ws: Res<CurrentWorkspace>,
     mut geographic_comp: Query<&mut GeographicComponent>,
-    checkbox_state: Query<&MenuItem>)
-{
+    checkbox_state: Query<&MenuItem>,
+) {
     let Some(current_ws) = current_ws.root else {
         return;
     };
@@ -195,7 +197,7 @@ pub fn handle_visibility_change(
             let MenuItem::CheckBox(_, _) = item else {
                 continue;
             };
-            comp.visible = !comp.visible; 
+            comp.visible = !comp.visible;
         }
     }
 }
@@ -530,7 +532,6 @@ pub struct OSMMenu {
 
 impl FromWorld for OSMMenu {
     fn from_world(world: &mut World) -> Self {
-        
         // Tools menu
         let set_reference = world
             .spawn(MenuItem::Text("Set Reference".to_string()))
@@ -538,31 +539,34 @@ impl FromWorld for OSMMenu {
         let view_reference = world
             .spawn(MenuItem::Text("View Reference".to_string()))
             .id();
-        let settings_reference = world
-            .spawn(MenuItem::Text("Settings".to_string()))
-            .id();
+        let settings_reference = world.spawn(MenuItem::Text("Settings".to_string())).id();
 
         let sub_menu = world
             .spawn(Menu::from_title("Geographic Offset".to_string()))
             .id();
-        world
-            .entity_mut(sub_menu)
-            .push_children(&[set_reference, view_reference, settings_reference]);
+        world.entity_mut(sub_menu).push_children(&[
+            set_reference,
+            view_reference,
+            settings_reference,
+        ]);
 
         let tool_header = world.resource::<ToolMenu>().get();
         world.entity_mut(tool_header).push_children(&[sub_menu]);
 
         // Checkbox
         let view_header = world.resource::<ViewMenu>().get();
-        let satellite_map_check_button = world.spawn(MenuItem::CheckBox(
-            "Satellite Map".to_string(), false)).id();
-        world.entity_mut(view_header).push_children(&[satellite_map_check_button]);
+        let satellite_map_check_button = world
+            .spawn(MenuItem::CheckBox("Satellite Map".to_string(), false))
+            .id();
+        world
+            .entity_mut(view_header)
+            .push_children(&[satellite_map_check_button]);
 
         OSMMenu {
             set_reference,
             view_reference,
             settings_reference,
-            satellite_map_check_button
+            satellite_map_check_button,
         }
     }
 }

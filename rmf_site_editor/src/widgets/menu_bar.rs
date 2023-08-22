@@ -57,7 +57,7 @@ impl Menu {
 #[non_exhaustive]
 pub enum MenuItem {
     Text(String),
-    CheckBox(String, bool)
+    CheckBox(String, bool),
 }
 
 /// This resource provides the root entity for the file menu
@@ -180,10 +180,12 @@ fn render_sub_menu(
                 {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
-            },
+            }
             MenuItem::CheckBox(title, mut value) => {
-                if ui.add_enabled(disabled.is_none(),
-                    egui::Checkbox::new(&mut value, title)).clicked() {
+                if ui
+                    .add_enabled(disabled.is_none(), egui::Checkbox::new(&mut value, title))
+                    .clicked()
+                {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -380,7 +382,8 @@ pub fn top_menu_bar(
             });
 
             for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {
-                top_level_components.contains(*entity) && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
+                top_level_components.contains(*entity)
+                    && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
                     ui,
