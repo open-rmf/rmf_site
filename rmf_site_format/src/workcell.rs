@@ -15,7 +15,7 @@
  *
 */
 
-use std::collections::{BTreeMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 
 use crate::*;
@@ -89,7 +89,14 @@ pub struct Mass(f32);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Inertia {}
+pub struct Inertia {
+    pub ixx: f32,
+    pub ixy: f32,
+    pub ixz: f32,
+    pub iyy: f32,
+    pub iyz: f32,
+    pub izz: f32,
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
@@ -99,23 +106,53 @@ pub struct Inertial {
     pub inertia: Inertia,
 }
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Link {
-    pub name: NameInWorkcell,
-    pub inertial: Inertial,
-    #[serde(skip)]
-    pub marker: LinkMarker,
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum JointType {
+    Fixed,
+    Revolute,
+    Prismatic,
 }
 
-#[derive(Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct LinkMarker;
+pub struct JointLimit {
+    pub lower: f32,
+    pub upper: f32,
+    pub effort: f32,
+    pub velocity: f32,
+}
+
+impl From<&urdf_rs::JointLimit> for JointLimit {
+    fn from(limit: &urdf_rs::JointLimit) -> Self {
+        Self {
+            lower: limit.lower as f32,
+            upper: limit.upper as f32,
+            effort: limit.effort as f32,
+            velocity: limit.velocity as f32,
+        }
+    }
+}
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Bundle))]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct JointAxis([f32; 3]);
+
+impl From<&urdf_rs::Axis> for JointAxis {
+    fn from(axis: &urdf_rs::Axis) -> Self {
+        Self(axis.xyz.map(|t| t as f32))
+    }
+}
+
+// TODO(luca) create a to_bevy impl function to spawn the components
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Joint {
     pub name: NameInWorkcell,
+    pub joint_type: JointType,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub limit: Option<JointLimit>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub axis: Option<JointAxis>,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
@@ -277,7 +314,11 @@ pub struct Workcell {
     pub visuals: BTreeMap<u32, Parented<u32, WorkcellModel>>,
     /// Collisions, key is their id, used for hierarchy
     pub collisions: BTreeMap<u32, Parented<u32, WorkcellModel>>,
-    // TODO(luca) Joints
+    /// Inertials, key is their id, used for hierarchy
+    pub inertials: BTreeMap<u32, Parented<u32, Inertial>>,
+    /// Joints, key is their id, used for hierarchy. They must have a frame as a parent and a frame
+    /// as a child
+    pub joints: BTreeMap<u32, Parented<u32, Joint>>,
 }
 
 impl Workcell {
@@ -344,21 +385,28 @@ impl From<&urdf_rs::Geometry> for Geometry {
     }
 }
 
-impl From<&urdf_rs::Link> for Link {
-    fn from(link: &urdf_rs::Link) -> Self {
+impl From<&urdf_rs::Inertia> for Inertia {
+    fn from(inertia: &urdf_rs::Inertia) -> Self {
         Self {
-            name: NameInWorkcell(link.name.clone()),
-            inertial: Inertial {
-                origin: Pose {
-                    trans: link.inertial.origin.xyz.0.map(|v| v as f32),
-                    rot: Rotation::EulerExtrinsicXYZ(
-                        link.inertial.origin.rpy.map(|v| Angle::Rad(v as f32)),
-                    ),
-                },
-                mass: Mass(link.inertial.mass.value as f32),
-                inertia: Inertia::default(),
+            ixx: inertia.ixx as f32,
+            ixy: inertia.ixy as f32,
+            ixz: inertia.ixz as f32,
+            iyy: inertia.iyy as f32,
+            iyz: inertia.iyz as f32,
+            izz: inertia.izz as f32,
+        }
+    }
+}
+
+impl From<&urdf_rs::Inertial> for Inertial {
+    fn from(inertial: &urdf_rs::Inertial) -> Self {
+        Self {
+            origin: Pose {
+                trans: inertial.origin.xyz.0.map(|v| v as f32),
+                rot: Rotation::EulerExtrinsicXYZ(inertial.origin.rpy.map(|v| Angle::Rad(v as f32))),
             },
-            marker: LinkMarker,
+            mass: Mass(inertial.mass.value as f32),
+            inertia: (&inertial.inertia).into(),
         }
     }
 }
@@ -388,5 +436,133 @@ impl From<&urdf_rs::Visual> for WorkcellModel {
 impl From<&urdf_rs::Collision> for WorkcellModel {
     fn from(collision: &urdf_rs::Collision) -> Self {
         WorkcellModel::from_urdf_data(&collision.origin, &collision.name, &collision.geometry)
+    }
+}
+
+impl From<&urdf_rs::Robot> for Workcell {
+    fn from(urdf: &urdf_rs::Robot) -> Self {
+        let mut frame_name_to_id = HashMap::new();
+        let root_id = 0_u32;
+        let mut cur_id = 1u32..;
+        // Keep track of which frames have a parent, add the ones that don't as a root child
+        let mut root_frames = HashSet::new();
+        let mut frames = BTreeMap::new();
+        let mut visuals = BTreeMap::new();
+        let mut collisions = BTreeMap::new();
+        let mut inertials = BTreeMap::new();
+        let mut joints = BTreeMap::new();
+        // Populate here
+        for link in &urdf.links {
+            let inertial = Inertial::from(&link.inertial);
+            // Add a frame with the link's name, then the inertial data as a child
+            let frame_id = cur_id.next().unwrap();
+            let inertial_id = cur_id.next().unwrap();
+            frame_name_to_id.insert(link.name.clone(), frame_id);
+            root_frames.insert(frame_id);
+            // Pose and parent will be overwritten by joints, if needed
+            frames.insert(
+                frame_id,
+                Parented {
+                    parent: root_id,
+                    bundle: Frame {
+                        anchor: Anchor::Pose3D(Pose::default()),
+                        name: Some(NameInWorkcell(link.name.clone())),
+                        mesh_constraint: Default::default(),
+                        marker: Default::default(),
+                    },
+                },
+            );
+            inertials.insert(
+                inertial_id,
+                Parented {
+                    parent: frame_id,
+                    bundle: inertial,
+                },
+            );
+            for visual in &link.visual {
+                let model = WorkcellModel::from(visual);
+                let visual_id = cur_id.next().unwrap();
+                visuals.insert(
+                    visual_id,
+                    Parented {
+                        parent: frame_id,
+                        bundle: model,
+                    },
+                );
+            }
+            for collision in &link.collision {
+                let model = WorkcellModel::from(collision);
+                let collision_id = cur_id.next().unwrap();
+                collisions.insert(
+                    collision_id,
+                    Parented {
+                        parent: frame_id,
+                        bundle: model,
+                    },
+                );
+            }
+        }
+        for joint in &urdf.joints {
+            // TODO(luca) should this if let failure return a broken reference error?
+            if let Some(parent) = frame_name_to_id.get(&joint.parent.link) {
+                if let Some(child) = frame_name_to_id.get(&joint.child.link) {
+                    // In urdf, joint origin represents the coordinates of the joint in the
+                    // parent frame. The child is always in the origin of the joint
+                    let parent_pose = Pose {
+                        trans: joint.origin.xyz.map(|t| t as f32),
+                        rot: Rotation::EulerExtrinsicXYZ(
+                            joint.origin.rpy.map(|t| Angle::Rad(t as f32)),
+                        ),
+                    };
+                    let joint = match joint.joint_type {
+                        urdf_rs::JointType::Revolute => Joint {
+                            name: NameInWorkcell(joint.name.clone()),
+                            joint_type: JointType::Revolute,
+                            limit: Some((&joint.limit).into()),
+                            axis: Some((&joint.axis).into()),
+                        },
+                        urdf_rs::JointType::Prismatic => Joint {
+                            name: NameInWorkcell(joint.name.clone()),
+                            joint_type: JointType::Prismatic,
+                            limit: Some((&joint.limit).into()),
+                            axis: Some((&joint.axis).into()),
+                        },
+                        urdf_rs::JointType::Fixed => Joint {
+                            name: NameInWorkcell(joint.name.clone()),
+                            joint_type: JointType::Prismatic,
+                            limit: None,
+                            axis: None,
+                        },
+                        _ => {
+                            todo!("Unimplemented joint type {:?}", joint.joint_type);
+                        }
+                    };
+                    let joint_id = cur_id.next().unwrap();
+                    // Reassign the child parenthood and pose to the joint
+                    let child_frame = frames.get_mut(child).unwrap();
+                    child_frame.parent = joint_id;
+                    child_frame.bundle.anchor = Anchor::Pose3D(parent_pose);
+                    joints.insert(
+                        joint_id,
+                        Parented {
+                            parent: *parent,
+                            bundle: joint,
+                        },
+                    );
+                }
+            }
+        }
+
+        Workcell {
+            properties: WorkcellProperties {
+                name: urdf.name.clone(),
+            },
+            id: root_id,
+            frames,
+            visuals,
+            collisions,
+            inertials,
+            joints,
+        }
     }
 }

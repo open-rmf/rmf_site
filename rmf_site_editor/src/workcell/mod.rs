@@ -30,9 +30,6 @@ pub use save::*;
 pub mod workcell;
 pub use workcell::*;
 
-pub mod urdf;
-pub use urdf::*;
-
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -104,8 +101,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(make_models_selectable)
                     .with_system(handle_workcell_keyboard_input)
                     .with_system(handle_new_mesh_primitives)
-                    .with_system(change_workcell.before(load_workcell))
-                    .with_system(handle_new_urdf_roots),
+                    .with_system(change_workcell.before(load_workcell)),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)

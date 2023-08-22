@@ -62,7 +62,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn((SiteID(*id), WorkcellVisualMarker));
+        let cmd = commands.spawn((SiteID(*id), WorkcellVisualMarker, Category::Visual));
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
@@ -74,7 +74,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let cmd = commands.spawn((SiteID(*id), WorkcellCollisionMarker));
+        let cmd = commands.spawn((SiteID(*id), WorkcellCollisionMarker, Category::Collision));
         let e = cmd.id();
         parented_collision.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
@@ -110,6 +110,36 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         }
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_anchor.parent)
+            .or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
+    for (id, parented_inertial) in &workcell.inertials {
+        let e = commands
+            .spawn(SpatialBundle::VISIBLE_IDENTITY)
+            .insert(parented_inertial.bundle.clone())
+            .insert(Category::Inertial)
+            .insert(SiteID(*id))
+            .id();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_inertial.parent)
+            .or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
+    for (id, parented_joint) in &workcell.joints {
+        let joint = &parented_joint.bundle;
+        let e = commands
+            .spawn(SpatialBundle::VISIBLE_IDENTITY)
+            .insert(Category::Joint)
+            .insert(SiteID(*id))
+            .insert(joint.name.clone())
+            .insert(joint.joint_type.clone())
+            .id();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_joint.parent)
             .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);

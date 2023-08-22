@@ -60,6 +60,7 @@ pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     Site(Vec<u8>),
     Workcell(Vec<u8>),
+    WorkcellUrdf(Vec<u8>),
 }
 
 impl WorkspaceData {
@@ -71,6 +72,8 @@ impl WorkspaceData {
             Some(WorkspaceData::Site(data))
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
+        } else if filename.ends_with("urdf") {
+            Some(WorkspaceData::WorkcellUrdf(data))
         } else {
             error!("Unrecognized file type {:?}", filename);
             None
@@ -291,6 +294,31 @@ fn handle_workspace_data(
                 }
                 Err(err) => {
                     error!("Failed loading workcell {:?}", err);
+                }
+            }
+        }
+        WorkspaceData::WorkcellUrdf(data) => {
+            info!("Importing urdf workcell");
+            let Ok(utf) = std::str::from_utf8(data) else {
+                error!("Failed converting urdf bytes to string");
+                return;
+            };
+            match urdf_rs::read_from_string(utf) {
+                Ok(urdf) => {
+                    // TODO(luca) make this function return a result and this a match statement
+                    let workcell = Workcell::from(&urdf);
+                    dbg!(&workcell);
+                    // Switch state
+                    app_state.set(AppState::WorkcellEditor).ok();
+                    load_workcell.send(LoadWorkcell {
+                        workcell,
+                        focus: true,
+                        default_file: file,
+                    });
+                    interaction_state.set(InteractionState::Enable).ok();
+                }
+                Err(err) => {
+                    error!("Failed loading urdf workcell {:?}", err);
                 }
             }
         }

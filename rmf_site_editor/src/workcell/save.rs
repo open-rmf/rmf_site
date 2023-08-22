@@ -56,7 +56,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
             (
                 Or<(
                     With<Anchor>,
-                    With<LinkMarker>,
+                    With<Inertia>,
                     With<WorkcellVisualMarker>,
                     With<WorkcellCollisionMarker>,
                 )>,
