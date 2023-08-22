@@ -1153,7 +1153,7 @@ pub fn save_site(world: &mut World) {
         let path_str = match path.to_str() {
             Some(s) => s,
             None => {
-                error!("Unable to save file: Invalid path");
+                error!("Unable to save file: Invalid path [{path:?}]");
                 continue;
             }
         };
