@@ -307,7 +307,6 @@ fn handle_workspace_data(
                 Ok(urdf) => {
                     // TODO(luca) make this function return a result and this a match statement
                     let workcell = Workcell::from(&urdf);
-                    dbg!(&workcell);
                     // Switch state
                     app_state.set(AppState::WorkcellEditor).ok();
                     load_workcell.send(LoadWorkcell {

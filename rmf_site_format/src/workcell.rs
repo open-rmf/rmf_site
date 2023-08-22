@@ -282,8 +282,7 @@ impl WorkcellModel {
                 ));
             }
             Geometry::Mesh { filename, scale } => {
-                println!("Setting pose of {:?} to {:?}", filename, self.pose);
-                let scale = Scale(scale.unwrap_or_default());
+                let scale = Scale(scale.unwrap_or(Vec3::ONE));
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
                 commands.insert((
                     NameInWorkcell(self.name.clone()),
