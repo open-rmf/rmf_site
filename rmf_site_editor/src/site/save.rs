@@ -1165,7 +1165,7 @@ pub fn save_site(world: &mut World) {
             path = path.with_extension("site.ron");
         }
         info!("Saving to {}", path.display());
-        let f = match std::fs::File::create(path) {
+        let f = match std::fs::File::create(path.clone()) {
             Ok(f) => f,
             Err(err) => {
                 error!("Unable to save file: {err}");
@@ -1183,6 +1183,7 @@ pub fn save_site(world: &mut World) {
 
         match site.to_writer(f) {
             Ok(()) => {
+                world.entity_mut(save_event.site).insert(DefaultFile(path));
                 info!("Save successful");
             }
             Err(err) => {
