@@ -12,7 +12,7 @@ use utm::*;
 use crate::{
     generate_map_tiles,
     interaction::{camera_controls, MoveTo, Selected},
-    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu},
+    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu, ViewMenu},
     workspace::CurrentWorkspace,
     OSMTile,
 };
@@ -108,11 +108,14 @@ pub struct UTMReferenceWindow {
     visible: bool,
 }
 
+/// Synchronizes menu when opening new files and changing items in
+/// with GeographicComponents.
 pub fn detect_new_geographic_component(
     geographic_comp: Query<
-        (Entity, &GeographicComponent),
+        &GeographicComponent,
         Or<(Added<GeographicComponent>, Changed<GeographicComponent>)>,
     >,
+    mut checkbox_state: Query<&mut MenuItem>,
     current_ws: Res<CurrentWorkspace>,
     osm_menu: Res<OSMMenu>,
     mut command: Commands,
@@ -120,17 +123,79 @@ pub fn detect_new_geographic_component(
     let Some(ws_entity) = current_ws.root else {
         return;
     };
-    for (entity, comp) in &geographic_comp {
-        if ws_entity != entity {
-            continue;
-        }
+    
+    let Ok(comp) = geographic_comp.get(ws_entity) else {
+        return;
+    };
 
-        if comp.0.is_none() {
-            command.entity(osm_menu.view_reference).insert(MenuDisabled);
-        } else {
-            command
-                .entity(osm_menu.view_reference)
-                .remove::<MenuDisabled>();
+    if let Some(comp) = comp.0  {
+        command
+            .entity(osm_menu.view_reference)
+            .remove::<MenuDisabled>();
+        command
+            .entity(osm_menu.satellite_map_check_button)
+            .remove::<MenuDisabled>();
+        command
+            .entity(osm_menu.settings_reference)
+            .remove::<MenuDisabled>();
+
+        let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
+            return;
+        };
+
+        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+            return;
+        };
+
+        *value = comp.visible;
+    }
+    else {
+        command.entity(osm_menu.view_reference).insert(MenuDisabled);
+        command.entity(osm_menu.satellite_map_check_button).insert(MenuDisabled);
+        command.entity(osm_menu.settings_reference).insert(MenuDisabled);
+
+        let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
+            return;
+        };
+
+        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+            return;
+        };
+
+        *value = false;
+    }
+    
+}
+
+/// Keeps visibility in check
+pub fn handle_visibility_change(
+    mut geo_events: EventReader<MenuEvent>,
+    osm_menu: Res<OSMMenu>,
+    current_ws: Res<CurrentWorkspace>,
+    mut geographic_comp: Query<&mut GeographicComponent>,
+    checkbox_state: Query<&MenuItem>)
+{
+    let Some(current_ws) = current_ws.root else {
+        return;
+    };
+
+    let Ok(mut comp) = geographic_comp.get_mut(current_ws) else {
+        return;
+    };
+
+    let Some(ref mut comp) = comp.0 else {
+        return;
+    };
+
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.satellite_map_check_button {
+            let Ok(item) = checkbox_state.get(osm_menu.satellite_map_check_button) else {
+                continue;
+            };
+            let MenuItem::CheckBox(_, _) = item else {
+                continue;
+            };
+            comp.visible = !comp.visible; 
         }
     }
 }
@@ -192,7 +257,7 @@ pub fn set_resolution(
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
         .nth(0)
     {
-        if let Some(mut offset) = properties.0.as_mut() {
+        if let Some(offset) = properties.0.as_mut() {
             if !offset.visible {
                 return;
             }
@@ -259,7 +324,8 @@ pub fn world_to_latlon(
 
     // A really wrong way of measuring stuff. TODO: Handle case where easting
     // and northing are out of bounds. TBH I have no idea how to correctly
-    // handle such cases.
+    // handle such cases. Ideally we should use proj, but proj is not supported on
+    // WASM.
     while northing < 0. {
         northing = 10000000. + northing;
         zone_letter = (zone_letter as u8 - 1) as char;
@@ -458,15 +524,22 @@ fn test_groundplane() {
 pub struct OSMMenu {
     set_reference: Entity,
     view_reference: Entity,
+    settings_reference: Entity,
+    satellite_map_check_button: Entity,
 }
 
 impl FromWorld for OSMMenu {
     fn from_world(world: &mut World) -> Self {
+        
+        // Tools menu
         let set_reference = world
             .spawn(MenuItem::Text("Set Reference".to_string()))
             .id();
         let view_reference = world
             .spawn(MenuItem::Text("View Reference".to_string()))
+            .id();
+        let settings_reference = world
+            .spawn(MenuItem::Text("Settings".to_string()))
             .id();
 
         let sub_menu = world
@@ -474,14 +547,22 @@ impl FromWorld for OSMMenu {
             .id();
         world
             .entity_mut(sub_menu)
-            .push_children(&[set_reference, view_reference]);
+            .push_children(&[set_reference, view_reference, settings_reference]);
 
         let tool_header = world.resource::<ToolMenu>().get();
         world.entity_mut(tool_header).push_children(&[sub_menu]);
 
+        // Checkbox
+        let view_header = world.resource::<ViewMenu>().get();
+        let satellite_map_check_button = world.spawn(MenuItem::CheckBox(
+            "Satellite Map".to_string(), false)).id();
+        world.entity_mut(view_header).push_children(&[satellite_map_check_button]);
+
         OSMMenu {
             set_reference,
             view_reference,
+            settings_reference,
+            satellite_map_check_button
         }
     }
 }
@@ -500,6 +581,7 @@ impl Plugin for OSMViewPlugin {
             .add_system_to_stage("WindowUI", view_reference)
             .add_system_to_stage("WindowUI", set_resolution)
             .add_system(render_map_tiles)
-            .add_system(detect_new_geographic_component);
+            .add_system(handle_visibility_change.before("update_menu"))
+            .add_system(detect_new_geographic_component.label("update_menu"));
     }
 }

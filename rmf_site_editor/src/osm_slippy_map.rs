@@ -103,9 +103,6 @@ impl OSMTile {
             return None;
         };
 
-        let extent_x = self.tile_size().0 / 2.0;
-        let extent_y = self.tile_size().1 / 2.0;
-
         let (u_left, u_right) = (0.0, 1.0);
         let vertices = [
             ([sw.x, sw.y, 0.0], [0.0, 0.0, 1.0], [u_left, 1.0]),

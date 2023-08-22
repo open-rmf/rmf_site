@@ -380,7 +380,7 @@ pub fn top_menu_bar(
             });
 
             for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {
-                top_level_components.contains(*entity) && *entity != file_menu.get()
+                top_level_components.contains(*entity) && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
                     ui,
