@@ -18,29 +18,36 @@
 use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::Change,
-    AppEvents, AppState,
+    site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall},
+    AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank,
 };
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{
-    AssetSource, Geometry, Model, Pending, RecallAssetSource, Scale, WorkcellModel,
+    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending, RecallAssetSource,
+    Scale, WorkcellModel,
 };
 
-pub struct CreateWidget<'a, 'w, 's> {
-    pub events: &'a mut AppEvents<'w, 's>,
+#[derive(SystemParam)]
+pub struct CreateParams<'w, 's> {
+    pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
 
-impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
-    pub fn new(events: &'a mut AppEvents<'w, 's>) -> Self {
-        Self { events }
+pub struct CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub params: &'a CreateParams<'w1, 's1>,
+    pub events: &'a mut AppEvents<'w2, 's2>,
+}
+
+impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
+    pub fn new(params: &'a CreateParams<'w1, 's1>, events: &'a mut AppEvents<'w2, 's2>) -> Self {
+        Self { params, events }
     }
 
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
             match self.events.app_state.current() {
-                AppState::MainMenu => {
+                AppState::MainMenu | AppState::SiteVisualizer => {
                     return;
                 }
                 AppState::SiteEditor => {
@@ -79,7 +86,56 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                             SelectAnchor::create_new_path().for_floor().into(),
                         ));
                     }
+                    if ui.button("Fiducial").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_new_point().for_site_fiducial().into(),
+                        ));
+                    }
 
+                    ui.add_space(10.0);
+                    CollapsingHeader::new("New drawing")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            let default_file = self
+                                .events
+                                .request
+                                .current_workspace
+                                .root
+                                .map(|e| self.params.default_file.get(e).ok())
+                                .flatten();
+                            if let Some(new_asset_source) = InspectAssetSource::new(
+                                &self.events.display.pending_drawings.source,
+                                &self.events.display.pending_drawings.recall_source,
+                                default_file,
+                            )
+                            .show(ui)
+                            {
+                                self.events
+                                    .display
+                                    .pending_drawings
+                                    .recall_source
+                                    .remember(&new_asset_source);
+                                self.events.display.pending_drawings.source = new_asset_source;
+                            }
+                            ui.add_space(5.0);
+                            if ui.button("Add Drawing").clicked() {
+                                self.events
+                                    .commands
+                                    .spawn(DrawingBundle::new(DrawingProperties {
+                                        source: self.events.display.pending_drawings.source.clone(),
+                                        ..default()
+                                    }));
+                            }
+                        });
+                }
+                AppState::SiteDrawingEditor => {
+                    if ui.button("Fiducial").clicked() {
+                        self.events.request.change_mode.send(ChangeMode::To(
+                            SelectAnchor::create_new_point()
+                                .for_drawing_fiducial()
+                                .into(),
+                        ));
+                    }
                     if ui.button("Measurement").clicked() {
                         self.events.request.change_mode.send(ChangeMode::To(
                             SelectAnchor::create_one_new_edge().for_measurement().into(),
@@ -94,39 +150,55 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                     }
                 }
             }
-            if let Ok((e, source, scale)) = self.events.pending_asset_sources.get_single() {
-                // TODO(luca) actual recall
-                ui.add_space(10.0);
-                CollapsingHeader::new("New model")
-                    .default_open(false)
-                    .show(ui, |ui| {
-                        if let Some(new_asset_source) =
-                            InspectAssetSource::new(source, &RecallAssetSource::default()).show(ui)
-                        {
-                            self.events
-                                .change
-                                .asset_source
-                                .send(Change::new(new_asset_source, e));
-                        }
-                        ui.add_space(5.0);
-                        if let Some(new_scale) = InspectScale::new(scale).show(ui) {
-                            self.events
-                                .workcell_change
-                                .scale
-                                .send(Change::new(new_scale, e));
-                        }
-                        ui.add_space(5.0);
-                        match self.events.app_state.current() {
-                            AppState::MainMenu => {
-                                unreachable!();
+            match self.events.app_state.current() {
+                AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
+                AppState::SiteEditor | AppState::WorkcellEditor => {
+                    ui.add_space(10.0);
+                    CollapsingHeader::new("New model")
+                        .default_open(false)
+                        .show(ui, |ui| {
+                            let default_file = self
+                                .events
+                                .request
+                                .current_workspace
+                                .root
+                                .map(|e| self.params.default_file.get(e).ok())
+                                .flatten();
+                            if let Some(new_asset_source) = InspectAssetSource::new(
+                                &self.events.display.pending_model.source,
+                                &self.events.display.pending_model.recall_source,
+                                default_file,
+                            )
+                            .show(ui)
+                            {
+                                self.events
+                                    .display
+                                    .pending_model
+                                    .recall_source
+                                    .remember(&new_asset_source);
+                                self.events.display.pending_model.source = new_asset_source;
                             }
-                            AppState::SiteEditor => {
-                                if let Ok((_e, source, _scale)) =
-                                    self.events.pending_asset_sources.get_single()
-                                {
+                            ui.add_space(5.0);
+                            if let Some(new_scale) =
+                                InspectScale::new(&self.events.display.pending_model.scale).show(ui)
+                            {
+                                self.events.display.pending_model.scale = new_scale;
+                            }
+                            ui.add_space(5.0);
+                            match self.events.app_state.current() {
+                                AppState::MainMenu
+                                | AppState::SiteDrawingEditor
+                                | AppState::SiteVisualizer => {}
+                                AppState::SiteEditor => {
                                     if ui.button("Spawn model").clicked() {
                                         let model = Model {
-                                            source: source.clone(),
+                                            source: self
+                                                .events
+                                                .display
+                                                .pending_model
+                                                .source
+                                                .clone(),
+                                            scale: self.events.display.pending_model.scale,
                                             ..default()
                                         };
                                         self.events.request.change_mode.send(ChangeMode::To(
@@ -136,20 +208,19 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         ));
                                     }
                                 }
-                            }
-                            AppState::WorkcellEditor => {
-                                if let Ok((_e, source, scale)) =
-                                    self.events.pending_asset_sources.get_single()
-                                {
+                                AppState::WorkcellEditor => {
                                     if ui.button("Spawn visual").clicked() {
-                                        let model = Model {
-                                            source: source.clone(),
-                                            ..default()
-                                        };
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: source.into(),
-                                                scale: Some(**scale),
+                                                filename: (&self
+                                                    .events
+                                                    .display
+                                                    .pending_model
+                                                    .source)
+                                                    .into(),
+                                                scale: Some(
+                                                    *self.events.display.pending_model.scale,
+                                                ),
                                             },
                                             ..default()
                                         };
@@ -160,14 +231,17 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                         ));
                                     }
                                     if ui.button("Spawn collision").clicked() {
-                                        let model = Model {
-                                            source: source.clone(),
-                                            ..default()
-                                        };
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: source.into(),
-                                                scale: Some(**scale),
+                                                filename: (&self
+                                                    .events
+                                                    .display
+                                                    .pending_model
+                                                    .source)
+                                                    .into(),
+                                                scale: Some(
+                                                    *self.events.display.pending_model.scale,
+                                                ),
                                             },
                                             ..default()
                                         };
@@ -180,16 +254,8 @@ impl<'a, 'w, 's> CreateWidget<'a, 'w, 's> {
                                     ui.add_space(10.0);
                                 }
                             }
-                        }
-                    });
-            } else if self.events.pending_asset_sources.is_empty() {
-                // Spawn one
-                let source = AssetSource::Search("OpenRobotics/AdjTable".to_string());
-                self.events
-                    .commands
-                    .spawn(source.clone())
-                    .insert(Scale::default())
-                    .insert(Pending);
+                        });
+                }
             }
         });
     }

@@ -27,7 +27,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, LevelProperties, Light, LightKind, Pose};
+use rmf_site_format::{Category, LevelElevation, Light, LightKind, NameInSite, Pose};
 use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
@@ -143,14 +143,14 @@ pub struct ExportLights(pub std::path::PathBuf);
 pub fn export_lights(
     mut exports: EventReader<ExportLights>,
     lights: Query<(&Pose, &LightKind, &Parent)>,
-    levels: Query<&LevelProperties>,
+    levels: Query<&NameInSite>,
 ) {
     for export in exports.iter() {
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
-            if let Ok(level) = levels.get(parent.get()) {
+            if let Ok(name) = levels.get(parent.get()) {
                 lights_per_level
-                    .entry(level.name.clone())
+                    .entry(name.0.clone())
                     .or_default()
                     .push(Light {
                         pose: pose.clone(),
@@ -173,7 +173,7 @@ pub fn export_lights(
         let mut root: BTreeMap<String, HashMap<String, Vec<Light>>> = BTreeMap::new();
         for (level, lights) in lights_per_level {
             let mut lights_map: HashMap<String, Vec<Light>> = HashMap::new();
-            lights_map.insert("lights".to_string(), lights);
+            lights_map.insert("lights".to_owned(), lights);
             root.insert(level, lights_map);
         }
 

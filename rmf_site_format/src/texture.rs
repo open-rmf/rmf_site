@@ -17,36 +17,31 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Bundle, Component};
 use serde::{Deserialize, Serialize};
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum TextureSource {
-    Filename(String),
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub struct CustomTexture {
-    pub source: TextureSource,
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct Texture {
+    pub source: AssetSource,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub alpha: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub rotation: Option<Angle>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub scale: Option<f32>,
+    pub width: Option<f32>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub offset: Option<(f32, f32)>,
+    pub height: Option<f32>,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum Texture {
-    Default,
-    Custom(CustomTexture),
-}
-
-impl Default for Texture {
-    fn default() -> Self {
-        Texture::Default
-    }
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct TextureGroup {
+    pub name: NameInSite,
+    // The flatten attribute currently does not work correctly for the .ron
+    // format, so we cannot use it for now.
+    // #[serde(flatten)]
+    pub texture: Texture,
+    #[serde(skip)]
+    pub group: Group,
 }
