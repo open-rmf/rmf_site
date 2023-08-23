@@ -19,7 +19,4 @@ repos:
     rev: master
     hooks:
     -   id: fmt
-    # cargo-check is failing to recognize From<&str> for AssetSource, causing a
-    # false positive in its error detection.
-    # TODO(@mxgrey): Attempt to re-enable this at a later time.
-    # -   id: cargo-check
+    -   id: cargo-check
