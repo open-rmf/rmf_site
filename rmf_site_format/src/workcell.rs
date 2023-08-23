@@ -27,7 +27,7 @@ use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use bevy::reflect::TypeUuid;
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
-use urdf_rs::Robot;
+use thiserror::Error as ThisError;
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -320,7 +320,139 @@ pub struct Workcell {
     pub joints: BTreeMap<u32, Parented<u32, Joint>>,
 }
 
+#[derive(Debug, ThisError)]
+pub enum UrdfImportError {
+    #[error("a joint refers to a non existing link [{0}]")]
+    BrokenJointReference(String),
+    // TODO(luca) Add urdf_rs::JointType to this error, it doesn't implement Display
+    #[error("unsupported joint type found")]
+    UnsupportedJointType,
+}
+
 impl Workcell {
+    pub fn from_urdf(urdf: &urdf_rs::Robot) -> Result<Self, UrdfImportError> {
+        let mut frame_name_to_id = HashMap::new();
+        let root_id = 0_u32;
+        let mut cur_id = 1u32..;
+        let mut frames = BTreeMap::new();
+        let mut visuals = BTreeMap::new();
+        let mut collisions = BTreeMap::new();
+        let mut inertials = BTreeMap::new();
+        let mut joints = BTreeMap::new();
+        // Populate here
+        for link in &urdf.links {
+            let inertial = Inertial::from(&link.inertial);
+            // Add a frame with the link's name, then the inertial data as a child
+            let frame_id = cur_id.next().unwrap();
+            let inertial_id = cur_id.next().unwrap();
+            frame_name_to_id.insert(link.name.clone(), frame_id);
+            // Pose and parent will be overwritten by joints, if needed
+            frames.insert(
+                frame_id,
+                Parented {
+                    parent: root_id,
+                    bundle: Frame {
+                        anchor: Anchor::Pose3D(Pose::default()),
+                        name: Some(NameInWorkcell(link.name.clone())),
+                        mesh_constraint: Default::default(),
+                        marker: Default::default(),
+                    },
+                },
+            );
+            inertials.insert(
+                inertial_id,
+                Parented {
+                    parent: frame_id,
+                    bundle: inertial,
+                },
+            );
+            for visual in &link.visual {
+                let model = WorkcellModel::from(visual);
+                let visual_id = cur_id.next().unwrap();
+                visuals.insert(
+                    visual_id,
+                    Parented {
+                        parent: frame_id,
+                        bundle: model,
+                    },
+                );
+            }
+            for collision in &link.collision {
+                let model = WorkcellModel::from(collision);
+                let collision_id = cur_id.next().unwrap();
+                collisions.insert(
+                    collision_id,
+                    Parented {
+                        parent: frame_id,
+                        bundle: model,
+                    },
+                );
+            }
+        }
+        for joint in &urdf.joints {
+            let parent = frame_name_to_id.get(&joint.parent.link).ok_or(
+                UrdfImportError::BrokenJointReference(joint.parent.link.clone()),
+            )?;
+            let child = frame_name_to_id.get(&joint.child.link).ok_or(
+                UrdfImportError::BrokenJointReference(joint.child.link.clone()),
+            )?;
+            // In urdf, joint origin represents the coordinates of the joint in the
+            // parent frame. The child is always in the origin of the joint
+            let parent_pose = Pose {
+                trans: joint.origin.xyz.map(|t| t as f32),
+                rot: Rotation::EulerExtrinsicXYZ(joint.origin.rpy.map(|t| Angle::Rad(t as f32))),
+            };
+            let joint = match joint.joint_type {
+                urdf_rs::JointType::Revolute => Joint {
+                    name: NameInWorkcell(joint.name.clone()),
+                    joint_type: JointType::Revolute,
+                    limit: Some((&joint.limit).into()),
+                    axis: Some((&joint.axis).into()),
+                },
+                urdf_rs::JointType::Prismatic => Joint {
+                    name: NameInWorkcell(joint.name.clone()),
+                    joint_type: JointType::Prismatic,
+                    limit: Some((&joint.limit).into()),
+                    axis: Some((&joint.axis).into()),
+                },
+                urdf_rs::JointType::Fixed => Joint {
+                    name: NameInWorkcell(joint.name.clone()),
+                    joint_type: JointType::Prismatic,
+                    limit: None,
+                    axis: None,
+                },
+                _ => {
+                    return Err(UrdfImportError::UnsupportedJointType);
+                }
+            };
+            let joint_id = cur_id.next().unwrap();
+            // Reassign the child parenthood and pose to the joint
+            // If the frame didn't exist we would have returned an error when populating child
+            // hence this is safe.
+            let child_frame = frames.get_mut(child).unwrap();
+            child_frame.parent = joint_id;
+            child_frame.bundle.anchor = Anchor::Pose3D(parent_pose);
+            joints.insert(
+                joint_id,
+                Parented {
+                    parent: *parent,
+                    bundle: joint,
+                },
+            );
+        }
+
+        Ok(Workcell {
+            properties: WorkcellProperties {
+                name: urdf.name.clone(),
+            },
+            id: root_id,
+            frames,
+            visuals,
+            collisions,
+            inertials,
+            joints,
+        })
+    }
     pub fn to_writer<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
         serde_json::ser::to_writer_pretty(writer, self)
     }
@@ -347,7 +479,7 @@ impl Workcell {
     derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)
 )]
 #[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
-pub struct UrdfRoot(pub Robot);
+pub struct UrdfRoot(pub urdf_rs::Robot);
 
 // TODO(luca) feature gate urdf support
 impl From<&urdf_rs::Geometry> for Geometry {
@@ -435,133 +567,5 @@ impl From<&urdf_rs::Visual> for WorkcellModel {
 impl From<&urdf_rs::Collision> for WorkcellModel {
     fn from(collision: &urdf_rs::Collision) -> Self {
         WorkcellModel::from_urdf_data(&collision.origin, &collision.name, &collision.geometry)
-    }
-}
-
-impl From<&urdf_rs::Robot> for Workcell {
-    fn from(urdf: &urdf_rs::Robot) -> Self {
-        let mut frame_name_to_id = HashMap::new();
-        let root_id = 0_u32;
-        let mut cur_id = 1u32..;
-        // Keep track of which frames have a parent, add the ones that don't as a root child
-        let mut root_frames = HashSet::new();
-        let mut frames = BTreeMap::new();
-        let mut visuals = BTreeMap::new();
-        let mut collisions = BTreeMap::new();
-        let mut inertials = BTreeMap::new();
-        let mut joints = BTreeMap::new();
-        // Populate here
-        for link in &urdf.links {
-            let inertial = Inertial::from(&link.inertial);
-            // Add a frame with the link's name, then the inertial data as a child
-            let frame_id = cur_id.next().unwrap();
-            let inertial_id = cur_id.next().unwrap();
-            frame_name_to_id.insert(link.name.clone(), frame_id);
-            root_frames.insert(frame_id);
-            // Pose and parent will be overwritten by joints, if needed
-            frames.insert(
-                frame_id,
-                Parented {
-                    parent: root_id,
-                    bundle: Frame {
-                        anchor: Anchor::Pose3D(Pose::default()),
-                        name: Some(NameInWorkcell(link.name.clone())),
-                        mesh_constraint: Default::default(),
-                        marker: Default::default(),
-                    },
-                },
-            );
-            inertials.insert(
-                inertial_id,
-                Parented {
-                    parent: frame_id,
-                    bundle: inertial,
-                },
-            );
-            for visual in &link.visual {
-                let model = WorkcellModel::from(visual);
-                let visual_id = cur_id.next().unwrap();
-                visuals.insert(
-                    visual_id,
-                    Parented {
-                        parent: frame_id,
-                        bundle: model,
-                    },
-                );
-            }
-            for collision in &link.collision {
-                let model = WorkcellModel::from(collision);
-                let collision_id = cur_id.next().unwrap();
-                collisions.insert(
-                    collision_id,
-                    Parented {
-                        parent: frame_id,
-                        bundle: model,
-                    },
-                );
-            }
-        }
-        for joint in &urdf.joints {
-            // TODO(luca) should this if let failure return a broken reference error?
-            if let Some(parent) = frame_name_to_id.get(&joint.parent.link) {
-                if let Some(child) = frame_name_to_id.get(&joint.child.link) {
-                    // In urdf, joint origin represents the coordinates of the joint in the
-                    // parent frame. The child is always in the origin of the joint
-                    let parent_pose = Pose {
-                        trans: joint.origin.xyz.map(|t| t as f32),
-                        rot: Rotation::EulerExtrinsicXYZ(
-                            joint.origin.rpy.map(|t| Angle::Rad(t as f32)),
-                        ),
-                    };
-                    let joint = match joint.joint_type {
-                        urdf_rs::JointType::Revolute => Joint {
-                            name: NameInWorkcell(joint.name.clone()),
-                            joint_type: JointType::Revolute,
-                            limit: Some((&joint.limit).into()),
-                            axis: Some((&joint.axis).into()),
-                        },
-                        urdf_rs::JointType::Prismatic => Joint {
-                            name: NameInWorkcell(joint.name.clone()),
-                            joint_type: JointType::Prismatic,
-                            limit: Some((&joint.limit).into()),
-                            axis: Some((&joint.axis).into()),
-                        },
-                        urdf_rs::JointType::Fixed => Joint {
-                            name: NameInWorkcell(joint.name.clone()),
-                            joint_type: JointType::Prismatic,
-                            limit: None,
-                            axis: None,
-                        },
-                        _ => {
-                            todo!("Unimplemented joint type {:?}", joint.joint_type);
-                        }
-                    };
-                    let joint_id = cur_id.next().unwrap();
-                    // Reassign the child parenthood and pose to the joint
-                    let child_frame = frames.get_mut(child).unwrap();
-                    child_frame.parent = joint_id;
-                    child_frame.bundle.anchor = Anchor::Pose3D(parent_pose);
-                    joints.insert(
-                        joint_id,
-                        Parented {
-                            parent: *parent,
-                            bundle: joint,
-                        },
-                    );
-                }
-            }
-        }
-
-        Workcell {
-            properties: WorkcellProperties {
-                name: urdf.name.clone(),
-            },
-            id: root_id,
-            frames,
-            visuals,
-            collisions,
-            inertials,
-            joints,
-        }
     }
 }

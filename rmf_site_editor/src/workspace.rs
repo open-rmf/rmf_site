@@ -306,15 +306,21 @@ fn handle_workspace_data(
             match urdf_rs::read_from_string(utf) {
                 Ok(urdf) => {
                     // TODO(luca) make this function return a result and this a match statement
-                    let workcell = Workcell::from(&urdf);
-                    // Switch state
-                    app_state.set(AppState::WorkcellEditor).ok();
-                    load_workcell.send(LoadWorkcell {
-                        workcell,
-                        focus: true,
-                        default_file: file,
-                    });
-                    interaction_state.set(InteractionState::Enable).ok();
+                    match Workcell::from_urdf(&urdf) {
+                        Ok(workcell) => {
+                            // Switch state
+                            app_state.set(AppState::WorkcellEditor).ok();
+                            load_workcell.send(LoadWorkcell {
+                                workcell,
+                                focus: true,
+                                default_file: file,
+                            });
+                            interaction_state.set(InteractionState::Enable).ok();
+                        }
+                        Err(err) => {
+                            error!("Failed converting urdf to workcell {:?}", err);
+                        }
+                    }
                 }
                 Err(err) => {
                     error!("Failed loading urdf workcell {:?}", err);
