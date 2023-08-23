@@ -167,7 +167,6 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-            .insert_resource(FloorVisibility::default())
             .init_resource::<PointAsset>()
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
