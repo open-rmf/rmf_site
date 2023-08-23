@@ -29,7 +29,6 @@ use bevy::reflect::TypeUuid;
 use glam::{EulerRot, Vec3};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
-use urdf_rs::{Collision, Robot, Visual};
 
 /// Helper structure to serialize / deserialize entities with parents
 #[derive(Serialize, Deserialize, Clone, Debug)]
@@ -426,12 +425,9 @@ impl Workcell {
                     mass: urdf_rs::Mass { value: 0.0 },
                 };
 
-                let collision = parent_to_collisions
-                    .get(frame_id)
-                    .cloned()
-                    .unwrap_or_default();
+                let collision = parent_to_collisions.remove(frame_id).unwrap_or_default();
 
-                let visual = parent_to_visuals.get(frame_id).cloned().unwrap_or_default();
+                let visual = parent_to_visuals.remove(frame_id).unwrap_or_default();
 
                 Ok(urdf_rs::Link {
                     name,
@@ -481,7 +477,7 @@ impl Workcell {
     derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)
 )]
 #[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
-pub struct UrdfRoot(pub Robot);
+pub struct UrdfRoot(pub urdf_rs::Robot);
 
 // TODO(luca) feature gate urdf support
 impl From<&urdf_rs::Geometry> for Geometry {
