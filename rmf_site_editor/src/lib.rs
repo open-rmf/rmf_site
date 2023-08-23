@@ -210,6 +210,7 @@ impl Plugin for SiteEditor {
             .add_plugin(SavePlugin)
             .add_plugin(SdfPlugin)
             .add_state(AppState::MainMenu)
+            .add_state_to_stage(CoreStage::PreUpdate, AppState::MainMenu)
             .add_plugin(MainMenuPlugin)
             // .add_plugin(WarehouseGeneratorPlugin)
             .add_plugin(WorkcellEditorPlugin)
