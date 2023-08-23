@@ -115,6 +115,16 @@ pub enum JointType {
     Prismatic,
 }
 
+impl From<&JointType> for urdf_rs::JointType {
+    fn from(joint_type: &JointType) -> Self {
+        match joint_type {
+            JointType::Fixed => urdf_rs::JointType::Fixed,
+            JointType::Revolute => urdf_rs::JointType::Revolute,
+            JointType::Prismatic => urdf_rs::JointType::Prismatic,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct JointLimit {
@@ -135,6 +145,17 @@ impl From<&urdf_rs::JointLimit> for JointLimit {
     }
 }
 
+impl From<&JointLimit> for urdf_rs::JointLimit {
+    fn from(limit: &JointLimit) -> Self {
+        Self {
+            lower: limit.lower as f64,
+            upper: limit.upper as f64,
+            effort: limit.effort as f64,
+            velocity: limit.velocity as f64,
+        }
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct JointAxis([f32; 3]);
@@ -142,6 +163,14 @@ pub struct JointAxis([f32; 3]);
 impl From<&urdf_rs::Axis> for JointAxis {
     fn from(axis: &urdf_rs::Axis) -> Self {
         Self(axis.xyz.map(|t| t as f32))
+    }
+}
+
+impl From<&JointAxis> for urdf_rs::Axis {
+    fn from(axis: &JointAxis) -> Self {
+        Self {
+            xyz: urdf_rs::Vec3(axis.0.map(|v| v as f64)),
+        }
     }
 }
 
@@ -401,6 +430,10 @@ pub enum WorkcellToUrdfError {
     InvalidAnchorType(Anchor),
     #[error("Urdf error: {0}")]
     WriteToStringError(#[from] urdf_rs::UrdfError),
+    #[error("Broken reference: {0}")]
+    BrokenReference(u32),
+    #[error("Frame {0} referred by joint {1} has no name, this is not allowed in URDF")]
+    MissingJointFrameName(u32, u32),
 }
 
 impl Workcell {
@@ -569,7 +602,7 @@ impl Workcell {
                 .push(collision);
         }
 
-        let mut frame_data: Vec<_> = workcell
+        let mut frame_data: HashMap<_, _> = workcell
             .frames
             .iter()
             .map(|(frame_id, frame)| {
@@ -587,39 +620,28 @@ impl Workcell {
             marker: FrameMarker,
         };
         let dummy_frame_id: u32 = 0;
-        frame_data.insert(0, (&dummy_frame_id, &dummy_frame));
+        frame_data.insert(&dummy_frame_id, &dummy_frame);
 
-        let links = frame_data
+        let links = self
+            .inertials
             .iter()
-            .map(|(frame_id, frame)| {
+            .map(|(inertial_id, parented_inertial)| {
+                // The name comes from the parent
+                let frame_id = parented_inertial.parent;
+                let frame =
+                    frame_data
+                        .get(&frame_id)
+                        .ok_or(WorkcellToUrdfError::BrokenReference(
+                            parented_inertial.parent,
+                        ))?;
                 let name = match &frame.name {
                     Some(name) => name.0.clone(),
                     None => format!("frame_{}", &frame_id),
                 };
 
-                let pose = if let Anchor::Pose3D(p) = frame.anchor {
-                    p.into()
-                } else {
-                    return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor.clone()));
-                };
-                let inertial = urdf_rs::Inertial {
-                    origin: pose,
-                    inertia: {
-                        urdf_rs::Inertia {
-                            ixx: 0.0,
-                            ixy: 0.0,
-                            ixz: 0.0,
-                            iyy: 0.0,
-                            iyz: 0.0,
-                            izz: 0.0,
-                        }
-                    },
-                    mass: urdf_rs::Mass { value: 0.0 },
-                };
-
-                let collision = parent_to_collisions.remove(frame_id).unwrap_or_default();
-
-                let visual = parent_to_visuals.remove(frame_id).unwrap_or_default();
+                let inertial = urdf_rs::Inertial::from(&parented_inertial.bundle);
+                let collision = parent_to_collisions.remove(&frame_id).unwrap_or_default();
+                let visual = parent_to_visuals.remove(&frame_id).unwrap_or_default();
 
                 Ok(urdf_rs::Link {
                     name,
@@ -628,12 +650,44 @@ impl Workcell {
                     visual,
                 })
             })
-            .collect::<Result<Vec<_>, _>>()?;
+            .collect::<Result<Vec<_>, WorkcellToUrdfError>>()?;
+
+        let joints = self.joints
+            .iter()
+            .map(|(joint_id, parented_joint)| {
+                let joint_parent = parented_joint.parent;
+                let joint = &parented_joint.bundle;
+                // The pose of the joint is the pose of the frame that has it as its parent
+                let parent_frame = self.frames.get(&joint_parent).ok_or(WorkcellToUrdfError::BrokenReference(joint_parent))?;
+                let (child_frame_id, child_frame) = self.frames.iter().find(|(id, frame)| frame.parent == *joint_id).ok_or(WorkcellToUrdfError::BrokenReference(*joint_id))?;
+                let parent_name = parent_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(joint_parent, *joint_id))?;
+                let child_name = child_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(*child_frame_id, *joint_id))?;
+                let Anchor::Pose3D(pose) = child_frame.bundle.anchor else {
+                    return Err(WorkcellToUrdfError::InvalidAnchorType(child_frame.bundle.anchor.clone()));
+                };
+                Ok(urdf_rs::Joint {
+                    name: joint.name.0.clone(),
+                    joint_type: (&joint.joint_type).into(),
+                    origin: pose.into(),
+                    parent: urdf_rs::LinkName {
+                        link: parent_name.0
+                    },
+                    child: urdf_rs::LinkName {
+                        link: child_name.0
+                    },
+                    axis: joint.axis.as_ref().map(|axis| urdf_rs::Axis::from(axis)).unwrap_or_default(),
+                    limit: joint.limit.as_ref().map(|limit| urdf_rs::JointLimit::from(limit)).unwrap_or_default(),
+                    dynamics: None,
+                    mimic: None,
+                    safety_controller: None,
+                })
+            })
+            .collect::<Result<Vec<_>, WorkcellToUrdfError>>()?;
 
         let robot = urdf_rs::Robot {
             name: workcell.properties.name.clone(),
             links,
-            joints: vec![],
+            joints,
             materials: vec![],
         };
         Ok(robot)
@@ -732,6 +786,33 @@ impl From<&urdf_rs::Inertial> for Inertial {
     }
 }
 
+impl From<&Inertial> for urdf_rs::Inertial {
+    fn from(inertial: &Inertial) -> Self {
+        let rot = inertial.origin.rot.as_euler_extrinsic_xyz();
+        let Rotation::EulerExtrinsicXYZ(rpy) = rot else {
+            // We just converted above so this is effectively unreachable
+            unreachable!();
+        };
+        Self {
+            origin: urdf_rs::Pose {
+                xyz: urdf_rs::Vec3(inertial.origin.trans.map(|v| v as f64)),
+                rpy: urdf_rs::Vec3(rpy.map(|v| v.radians() as f64)),
+            },
+            mass: urdf_rs::Mass {
+                value: inertial.mass.0 as f64,
+            },
+            inertia: urdf_rs::Inertia {
+                ixx: inertial.inertia.ixx as f64,
+                ixy: inertial.inertia.ixy as f64,
+                ixz: inertial.inertia.ixz as f64,
+                iyy: inertial.inertia.iyy as f64,
+                iyz: inertial.inertia.iyz as f64,
+                izz: inertial.inertia.izz as f64,
+            },
+        }
+    }
+}
+
 impl WorkcellModel {
     fn from_urdf_data(
         pose: &urdf_rs::Pose,
@@ -757,5 +838,19 @@ impl From<&urdf_rs::Visual> for WorkcellModel {
 impl From<&urdf_rs::Collision> for WorkcellModel {
     fn from(collision: &urdf_rs::Collision) -> Self {
         WorkcellModel::from_urdf_data(&collision.origin, &collision.name, &collision.geometry)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn urdf_roundtrip() {
+        let urdf = urdf_rs::read_file("test/05-visual.urdf").unwrap();
+        let workcell = Workcell::from_urdf(&urdf).unwrap();
+        // TODO(luca) test for equality here in key components
+        let new_urdf = workcell.to_urdf().unwrap();
+        // TODO(luca) test for equality here
     }
 }
