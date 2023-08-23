@@ -136,7 +136,7 @@ pub fn detect_new_geographic_component(
             .entity(osm_menu.satellite_map_check_button)
             .remove::<MenuDisabled>();
         command
-            .entity(osm_menu.settings_reference)
+            .entity(osm_menu.settings_panel)
             .remove::<MenuDisabled>();
 
         let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
@@ -153,9 +153,7 @@ pub fn detect_new_geographic_component(
         command
             .entity(osm_menu.satellite_map_check_button)
             .insert(MenuDisabled);
-        command
-            .entity(osm_menu.settings_reference)
-            .insert(MenuDisabled);
+        command.entity(osm_menu.settings_panel).insert(MenuDisabled);
 
         let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
             return;
@@ -249,27 +247,47 @@ pub fn view_reference(
     }
 }
 
-pub fn set_resolution(
+#[derive(Default)]
+struct SettingsWindow {
+    visible: bool,
+}
+
+fn settings(
+    mut geo_events: EventReader<MenuEvent>,
     current_ws: Res<CurrentWorkspace>,
-    mut site_properties: Query<(Entity, &mut GeographicComponent)>,
+    osm_menu: Res<OSMMenu>,
+    mut site_properties: Query<&mut GeographicComponent>,
     mut egui_context: ResMut<EguiContext>,
+    mut settings_window: Local<SettingsWindow>,
 ) {
-    if let Some((_, mut properties)) = site_properties
-        .iter_mut()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
-        .nth(0)
-    {
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.settings_panel {
+            settings_window.visible = true;
+        }
+    }
+
+    if !settings_window.visible {
+        return;
+    }
+
+    let Some(current_ws) = current_ws.root else {
+        return;
+    };
+
+    if let Ok(mut properties) = site_properties.get_mut(current_ws) {
         if let Some(offset) = properties.0.as_mut() {
             if !offset.visible {
                 return;
             }
 
-            egui::Window::new("Tile Resolution")
-                .resizable(false)
-                .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(30.0, -30.0))
-                .show(egui_context.ctx_mut(), |ui| {
-                    ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
-                });
+            egui::Window::new("Settings").show(egui_context.ctx_mut(), |ui| {
+                ui.label("Tile Resolution");
+                ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
+
+                if ui.button("Ok").clicked() {
+                    settings_window.visible = false;
+                }
+            });
         }
     }
 }
@@ -526,7 +544,7 @@ fn test_groundplane() {
 pub struct OSMMenu {
     set_reference: Entity,
     view_reference: Entity,
-    settings_reference: Entity,
+    settings_panel: Entity,
     satellite_map_check_button: Entity,
 }
 
@@ -565,7 +583,7 @@ impl FromWorld for OSMMenu {
         OSMMenu {
             set_reference,
             view_reference,
-            settings_reference,
+            settings_panel: settings_reference,
             satellite_map_check_button,
         }
     }
@@ -583,7 +601,7 @@ impl Plugin for OSMViewPlugin {
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
-            .add_system_to_stage("WindowUI", set_resolution)
+            .add_system_to_stage("WindowUI", settings)
             .add_system(render_map_tiles)
             .add_system(handle_visibility_change.before("update_menu"))
             .add_system(detect_new_geographic_component.label("update_menu"));
