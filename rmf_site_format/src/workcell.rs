@@ -18,6 +18,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::io;
 
+use crate::misc::Rotation;
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
@@ -25,7 +26,7 @@ use bevy::ecs::system::EntityCommands;
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, SpatialBundle};
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
-use glam::Vec3;
+use glam::{EulerRot, Vec3};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
 
@@ -349,6 +350,59 @@ pub enum UrdfImportError {
     UnsupportedJointType,
 }
 
+impl From<Pose> for urdf_rs::Pose {
+    fn from(pose: Pose) -> Self {
+        urdf_rs::Pose {
+            rpy: match pose.rot {
+                Rotation::EulerExtrinsicXYZ(arr) => urdf_rs::Vec3(arr.map(|v| v.radians().into())),
+                Rotation::Yaw(v) => urdf_rs::Vec3([0.0, 0.0, v.radians().into()]),
+                Rotation::Quat([x, y, z, w]) => {
+                    let (z, y, x) = glam::quat(x, y, z, w).to_euler(EulerRot::ZYX);
+                    urdf_rs::Vec3([x as f64, y as f64, z as f64])
+                }
+            },
+            xyz: urdf_rs::Vec3(pose.trans.map(|v| v as f64)),
+        }
+    }
+}
+
+impl From<Geometry> for urdf_rs::Geometry {
+    fn from(geometry: Geometry) -> Self {
+        match geometry {
+            Geometry::Mesh { filename, scale } => urdf_rs::Geometry::Mesh {
+                filename,
+                scale: scale.map(|v| urdf_rs::Vec3([v.x as f64, v.y as f64, v.z as f64])),
+            },
+            Geometry::Primitive(MeshPrimitive::Box { size: [x, y, z] }) => urdf_rs::Geometry::Box {
+                size: urdf_rs::Vec3([x as f64, y as f64, z as f64]),
+            },
+            Geometry::Primitive(MeshPrimitive::Cylinder { radius, length }) => {
+                urdf_rs::Geometry::Cylinder {
+                    radius: radius as f64,
+                    length: length as f64,
+                }
+            }
+            Geometry::Primitive(MeshPrimitive::Capsule { radius, length }) => {
+                urdf_rs::Geometry::Capsule {
+                    radius: radius as f64,
+                    length: length as f64,
+                }
+            }
+            Geometry::Primitive(MeshPrimitive::Sphere { radius }) => urdf_rs::Geometry::Sphere {
+                radius: radius as f64,
+            },
+        }
+    }
+}
+
+#[derive(Debug, ThisError)]
+pub enum WorkcellToUrdfError {
+    #[error("Invalid anchor type {0:?}")]
+    InvalidAnchorType(Anchor),
+    #[error("Urdf error: {0}")]
+    WriteToStringError(#[from] urdf_rs::UrdfError),
+}
+
 impl Workcell {
     pub fn from_urdf(urdf: &urdf_rs::Robot) -> Result<Self, UrdfImportError> {
         let mut frame_name_to_id = HashMap::new();
@@ -479,6 +533,122 @@ impl Workcell {
 
     pub fn to_string(&self) -> serde_json::Result<String> {
         serde_json::ser::to_string_pretty(self)
+    }
+
+    pub fn to_urdf(&self) -> Result<urdf_rs::Robot, WorkcellToUrdfError> {
+        let workcell = self;
+
+        let mut parent_to_visuals = HashMap::new();
+        for (_, visual) in workcell.visuals.iter() {
+            let parent = visual.parent;
+            let visual = &visual.bundle;
+            let visual = urdf_rs::Visual {
+                name: Some(visual.name.clone()),
+                origin: visual.pose.into(),
+                geometry: visual.geometry.clone().into(),
+                material: None,
+            };
+            parent_to_visuals
+                .entry(parent)
+                .or_insert_with(Vec::new)
+                .push(visual);
+        }
+
+        let mut parent_to_collisions = HashMap::new();
+        for (_, collision) in workcell.collisions.iter() {
+            let parent = collision.parent;
+            let collision = &collision.bundle;
+            let collision = urdf_rs::Collision {
+                name: Some(collision.name.clone()),
+                origin: collision.pose.into(),
+                geometry: collision.geometry.clone().into(),
+            };
+            parent_to_collisions
+                .entry(parent)
+                .or_insert_with(Vec::new)
+                .push(collision);
+        }
+
+        let mut frame_data: Vec<_> = workcell
+            .frames
+            .iter()
+            .map(|(frame_id, frame)| {
+                let frame = &frame.bundle;
+                (frame_id, frame)
+            })
+            .collect();
+        let dummy_frame = Frame {
+            anchor: Anchor::Pose3D(Pose {
+                rot: Rotation::Quat([0.0, 0.0, 0.0, 0.0]),
+                trans: [0.0, 0.0, 0.0],
+            }),
+            name: Some(NameInWorkcell(String::from("world"))),
+            mesh_constraint: None,
+            marker: FrameMarker,
+        };
+        let dummy_frame_id: u32 = 0;
+        frame_data.insert(0, (&dummy_frame_id, &dummy_frame));
+
+        let links = frame_data
+            .iter()
+            .map(|(frame_id, frame)| {
+                let name = match &frame.name {
+                    Some(name) => name.0.clone(),
+                    None => format!("frame_{}", &frame_id),
+                };
+
+                let pose = if let Anchor::Pose3D(p) = frame.anchor {
+                    p.into()
+                } else {
+                    return Err(WorkcellToUrdfError::InvalidAnchorType(frame.anchor.clone()));
+                };
+                let inertial = urdf_rs::Inertial {
+                    origin: pose,
+                    inertia: {
+                        urdf_rs::Inertia {
+                            ixx: 0.0,
+                            ixy: 0.0,
+                            ixz: 0.0,
+                            iyy: 0.0,
+                            iyz: 0.0,
+                            izz: 0.0,
+                        }
+                    },
+                    mass: urdf_rs::Mass { value: 0.0 },
+                };
+
+                let collision = parent_to_collisions.remove(frame_id).unwrap_or_default();
+
+                let visual = parent_to_visuals.remove(frame_id).unwrap_or_default();
+
+                Ok(urdf_rs::Link {
+                    name,
+                    inertial,
+                    collision,
+                    visual,
+                })
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let robot = urdf_rs::Robot {
+            name: workcell.properties.name.clone(),
+            links,
+            joints: vec![],
+            materials: vec![],
+        };
+        Ok(robot)
+    }
+
+    pub fn to_urdf_string(&self) -> Result<String, WorkcellToUrdfError> {
+        let urdf = self.to_urdf()?;
+        urdf_rs::write_to_string(&urdf).map_err(|e| WorkcellToUrdfError::WriteToStringError(e))
+    }
+
+    pub fn to_urdf_writer(&self, mut writer: impl io::Write) -> Result<(), std::io::Error> {
+        let urdf = self
+            .to_urdf_string()
+            .map_err(|e| std::io::Error::new(std::io::ErrorKind::Other, e))?;
+        writer.write_all(urdf.as_bytes())
     }
 
     pub fn from_reader<R: io::Read>(reader: R) -> serde_json::Result<Self> {

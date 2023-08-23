@@ -263,9 +263,14 @@ pub fn save_workcell(world: &mut World) {
                     error!("Save failed: {err}");
                 }
             },
-            ExportFormat::Urdf => {
-                info!("Saving to urdf");
-            }
+            ExportFormat::Urdf => match workcell.to_urdf_writer(f) {
+                Ok(()) => {
+                    info!("Save successful");
+                }
+                Err(err) => {
+                    error!("Save failed: {err}");
+                }
+            },
         }
     }
 }
