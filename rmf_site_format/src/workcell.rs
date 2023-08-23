@@ -22,7 +22,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::ecs::system::EntityCommands;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, SpatialBundle};
 #[cfg(feature = "bevy")]
 use bevy::reflect::TypeUuid;
 use glam::Vec3;
@@ -153,6 +153,26 @@ pub struct Joint {
     pub limit: Option<JointLimit>,
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub axis: Option<JointAxis>,
+}
+
+// TODO(luca) should commands implementation be in rmf_site_editor instead of rmf_site_format?
+/// Custom spawning implementation since bundles don't allow options
+#[cfg(feature = "bevy")]
+impl Joint {
+    pub fn add_bevy_components(&self, mut commands: EntityCommands) {
+        commands.insert((
+            SpatialBundle::VISIBLE_IDENTITY,
+            Category::Joint,
+            self.name.clone(),
+            self.joint_type.clone(),
+        ));
+        if let Some(limit) = &self.limit {
+            commands.insert(limit.clone());
+        }
+        if let Some(axis) = &self.axis {
+            commands.insert(axis.clone());
+        }
+    }
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]

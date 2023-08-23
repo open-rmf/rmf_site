@@ -131,13 +131,9 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
 
     for (id, parented_joint) in &workcell.joints {
         let joint = &parented_joint.bundle;
-        let e = commands
-            .spawn(SpatialBundle::VISIBLE_IDENTITY)
-            .insert(Category::Joint)
-            .insert(SiteID(*id))
-            .insert(joint.name.clone())
-            .insert(joint.joint_type.clone())
-            .id();
+        let mut cmd = commands.spawn(SiteID(*id));
+        let e = cmd.id();
+        joint.add_bevy_components(cmd);
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_joint.parent)
             .or_default();
