@@ -158,15 +158,18 @@ pub fn handle_model_loaded_events(
             } else {
                 None
             };
+
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
-                cmd.insert(ModelSceneRoot)
-                    .remove::<(PreventDeletion, PendingSpawning)>();
+                cmd.insert(ModelSceneRoot);
                 if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
                     cmd.insert(Selectable::new(e));
                 }
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
+            commands
+                .entity(e)
+                .remove::<(PreventDeletion, PendingSpawning)>();
         }
     }
 }
@@ -179,6 +182,7 @@ pub fn update_model_scenes(
     >,
     asset_server: Res<AssetServer>,
     mut current_scenes: Query<&mut ModelScene>,
+    trashcan: Res<ModelTrashcan>,
 ) {
     fn spawn_model(
         e: Entity,
@@ -224,7 +228,7 @@ pub fn update_model_scenes(
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
-                    commands.entity(scene_entity).despawn_recursive();
+                    commands.entity(scene_entity).set_parent(trashcan.0);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
@@ -316,6 +320,37 @@ pub fn update_model_scales(
             if let Ok(mut tf) = transforms.get_mut(scene) {
                 tf.scale = **scale;
             }
+        }
+    }
+}
+
+#[derive(Component)]
+pub struct Trashcan;
+
+/// The current data structures of models may have nested structures where we
+/// spawn "models" within the descendant tree of another model. This can lead to
+/// situations where we might try to delete the descendant tree of a model while
+/// also modifying one of those descendants. Bevy's current implementation of
+/// such commands leads to panic when attempting to modify a despawned entity.
+/// To deal with this we defer deleting model descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct ModelTrashcan(Entity);
+
+impl FromWorld for ModelTrashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn(Trashcan).id())
+    }
+}
+
+pub fn clear_model_trashcan(
+    mut commands: Commands,
+    trashcans: Query<&Children, (With<Trashcan>, Changed<Children>)>,
+) {
+    for trashcan in &trashcans {
+        for trash in trashcan {
+            commands.entity(*trash).despawn_recursive();
         }
     }
 }

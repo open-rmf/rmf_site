@@ -162,6 +162,7 @@ impl Plugin for SitePlugin {
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
             .init_resource::<UpdateFuelCacheChannels>()
+            .init_resource::<ModelTrashcan>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -266,6 +267,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_category_to_graphs)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
+                    .with_system(clear_model_trashcan)
                     .with_system(add_physical_lights),
             )
             .add_system_set_to_stage(
