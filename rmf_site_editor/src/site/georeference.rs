@@ -5,13 +5,14 @@ use bevy_egui::{
 };
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{Anchor, AssetSource, GeographicOffset, SiteProperties};
+use rmf_site_format::{Anchor, AssetSource, GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
 use utm::*;
 
 use crate::{
     generate_map_tiles,
     interaction::{camera_controls, MoveTo, Selected},
+    widgets::menu_bar::{Menu, MenuDisabled, MenuEvent, MenuItem, ToolMenu, ViewMenu},
     workspace::CurrentWorkspace,
     OSMTile,
 };
@@ -32,131 +33,8 @@ pub struct GeoReferenceViewReferenceEvent;
 #[derive(Debug, Clone)]
 pub struct GeoReferenceMoveEvent;
 
-#[derive(SystemParam)]
-pub struct GeoreferenceEventWriter<'w, 's> {
-    pub select_anchor: EventWriter<'w, 's, GeoReferenceSelectAnchorEvent>,
-    pub set_reference: EventWriter<'w, 's, GeoReferenceSetReferenceEvent>,
-    pub view_reference: EventWriter<'w, 's, GeoReferenceViewReferenceEvent>,
-    pub move_anchor: EventWriter<'w, 's, GeoReferenceMoveEvent>,
-}
-
-enum SelectionMode {
-    AnchorSelected(Entity),
-    AnchorSelect,
-    NoSelection,
-}
-
-impl Default for SelectionMode {
-    fn default() -> Self {
-        SelectionMode::NoSelection
-    }
-}
-
 #[derive(Component, Clone, Eq, PartialEq, Hash)]
 pub struct MapTile(OSMTile);
-
-fn selection_mode_labels(mode: &SelectionMode) -> String {
-    match mode {
-        SelectionMode::AnchorSelected(entity) => {
-            format!("Anchor {:?}", entity)
-        }
-        SelectionMode::AnchorSelect => "Click the anchor you want to use".to_owned(),
-        SelectionMode::NoSelection => "Select Anchor".to_owned(),
-    }
-}
-
-#[derive(Default, Resource)]
-pub struct GeoReferencePanelState {
-    enabled: bool,
-    latitude: f32,
-    longitude: f32,
-    selection_mode: SelectionMode,
-}
-
-#[derive(Default)]
-struct MoveAnchor {
-    anchor: SelectionMode,
-    lat: f32,
-    lon: f32,
-    visible: bool,
-}
-
-fn move_anchor(
-    selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
-    geo_events: EventReader<GeoReferenceMoveEvent>,
-    current_ws: Res<CurrentWorkspace>,
-    site_properties: Query<(Entity, &SiteProperties)>,
-    mut window: Local<MoveAnchor>,
-    mut egui_context: ResMut<EguiContext>,
-    mut move_commands: EventWriter<MoveTo>,
-) {
-    if geo_events.is_empty() && !window.visible {
-        return;
-    }
-
-    if !window.visible {
-        window.visible = true;
-    }
-
-    if let Some((_, properties)) = site_properties
-        .iter()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
-        .nth(0)
-    {
-        if let Some(offset) = properties.geographic_offset {
-            let offset = offset.anchor;
-            let selected: Vec<_> = selected_anchors
-                .iter()
-                .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
-                .collect();
-
-            egui::Window::new("Move anchor").show(egui_context.ctx_mut(), |ui| {
-                if ui.button(selection_mode_labels(&window.anchor)).clicked() {
-                    if selected.len() == 0 {
-                        window.anchor = SelectionMode::AnchorSelect;
-                    } else {
-                        window.anchor = SelectionMode::AnchorSelected(selected[0].3);
-                        let translation = selected[0].2.translation();
-                        let (lat, lon) = world_to_latlon(translation, offset).unwrap();
-                        window.lat = lat as f32;
-                        window.lon = lon as f32;
-                    }
-                }
-                ui.horizontal(|ui| {
-                    ui.label("Latitude: ");
-                    ui.add(egui::DragValue::new(&mut window.lat).speed(1e-16));
-                });
-                ui.horizontal(|ui| {
-                    ui.label("Latitude: ");
-                    ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
-                });
-                if ui
-                    .add_enabled(selected.len() > 0, egui::Button::new("Move"))
-                    .clicked()
-                {
-                    let move_cmd = MoveTo {
-                        entity: selected[0].3,
-                        transform: Transform::from_translation(latlon_to_world(
-                            window.lat, window.lon, offset,
-                        )),
-                    };
-                    move_commands.send(move_cmd);
-                }
-                if ui.button("Close").clicked() {
-                    window.visible = false;
-                }
-            });
-
-            if selected.len() != 0 && matches!(window.anchor, SelectionMode::AnchorSelect) {
-                window.anchor = SelectionMode::AnchorSelected(selected[0].3);
-                let translation = selected[0].2.translation();
-                let (lat, lon) = world_to_latlon(translation, offset).unwrap();
-                window.lat = lat as f32;
-                window.lon = lon as f32;
-            }
-        }
-    }
-}
 
 #[derive(Default)]
 struct ReferenceWindow {
@@ -166,13 +44,19 @@ struct ReferenceWindow {
 }
 
 fn set_reference(
-    geo_events: EventReader<GeoReferenceSetReferenceEvent>,
+    mut geo_events: EventReader<MenuEvent>,
+    osm_menu: Res<OSMMenu>,
     current_ws: Res<CurrentWorkspace>,
     mut egui_context: ResMut<EguiContext>,
-    mut site_properties: Query<(Entity, &mut SiteProperties)>,
+    mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
-    if geo_events.is_empty() && !window.visible {
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.set_reference {
+            window.visible = true;
+        }
+    }
+    if !window.visible {
         return;
     }
 
@@ -199,11 +83,18 @@ fn set_reference(
                 ui.add(egui::DragValue::new(&mut window.lon).speed(1e-16));
             });
             if ui.button("Set reference").clicked() {
-                properties.geographic_offset = Some(GeographicOffset {
-                    anchor: (window.lat, window.lon),
-                    zoom: 15,
-                    visible: true,
-                });
+
+                if window.lat <= 90.0 && window.lat >= -90.0 &&
+                    window.lon <= 180.0 && window.lon >= -180.0 {
+                    properties.0 = Some(GeographicOffset {
+                        anchor: (window.lat, window.lon),
+                        zoom: 15,
+                        visible: true,
+                    });
+                }
+                else {
+                    error!("Longitude must be in [-90, 90] range and Latitude must be in [-180, 180] range.");
+                }
             }
             if ui.button("Close").clicked() {
                 window.visible = false;
@@ -217,25 +108,122 @@ pub struct UTMReferenceWindow {
     visible: bool,
 }
 
+/// Synchronizes menu when opening new files and changing items in
+/// with GeographicComponents.
+pub fn detect_new_geographic_component(
+    geographic_comp: Query<
+        &GeographicComponent,
+        Or<(Added<GeographicComponent>, Changed<GeographicComponent>)>,
+    >,
+    mut checkbox_state: Query<&mut MenuItem>,
+    current_ws: Res<CurrentWorkspace>,
+    osm_menu: Res<OSMMenu>,
+    mut command: Commands,
+) {
+    let Some(ws_entity) = current_ws.root else {
+        return;
+    };
+
+    let Ok(comp) = geographic_comp.get(ws_entity) else {
+        return;
+    };
+
+    if let Some(comp) = comp.0 {
+        command
+            .entity(osm_menu.view_reference)
+            .remove::<MenuDisabled>();
+        command
+            .entity(osm_menu.satellite_map_check_button)
+            .remove::<MenuDisabled>();
+        command
+            .entity(osm_menu.settings_panel)
+            .remove::<MenuDisabled>();
+
+        let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
+            return;
+        };
+
+        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+            return;
+        };
+
+        *value = comp.visible;
+    } else {
+        command.entity(osm_menu.view_reference).insert(MenuDisabled);
+        command
+            .entity(osm_menu.satellite_map_check_button)
+            .insert(MenuDisabled);
+        command.entity(osm_menu.settings_panel).insert(MenuDisabled);
+
+        let Ok(mut checkbox) = checkbox_state.get_mut(osm_menu.satellite_map_check_button) else {
+            return;
+        };
+
+        let MenuItem::CheckBox(_, ref mut value) = checkbox.as_mut() else {
+            return;
+        };
+
+        *value = false;
+    }
+}
+
+/// Keeps visibility in check
+pub fn handle_visibility_change(
+    mut geo_events: EventReader<MenuEvent>,
+    osm_menu: Res<OSMMenu>,
+    current_ws: Res<CurrentWorkspace>,
+    mut geographic_comp: Query<&mut GeographicComponent>,
+    checkbox_state: Query<&MenuItem>,
+) {
+    let Some(current_ws) = current_ws.root else {
+        return;
+    };
+
+    let Ok(mut comp) = geographic_comp.get_mut(current_ws) else {
+        return;
+    };
+
+    let Some(ref mut comp) = comp.0 else {
+        return;
+    };
+
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.satellite_map_check_button {
+            let Ok(item) = checkbox_state.get(osm_menu.satellite_map_check_button) else {
+                continue;
+            };
+            let MenuItem::CheckBox(_, _) = item else {
+                continue;
+            };
+            comp.visible = !comp.visible;
+        }
+    }
+}
+
 pub fn view_reference(
-    geo_events: EventReader<GeoReferenceViewReferenceEvent>,
+    mut geo_events: EventReader<MenuEvent>,
+    osm_menu: Res<OSMMenu>,
     mut egui_context: ResMut<EguiContext>,
     current_ws: Res<CurrentWorkspace>,
-    site_properties: Query<(Entity, &SiteProperties)>,
+    site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
 ) {
-    if geo_events.is_empty() && !window.visible {
-        return;
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.view_reference {
+            window.visible = true;
+        }
     }
 
-    window.visible = true;
+    if !window.visible {
+        return;
+    }
 
     if let Some((_, properties)) = site_properties
         .iter()
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
         .nth(0)
     {
-        if let Some(offset) = properties.geographic_offset {
+        if let Some(offset) = properties.0 {
             egui::Window::new("View Geographic Reference").show(egui_context.ctx_mut(), |ui| {
                 ui.label(format!(
                     "Offset is at {}°, {}°",
@@ -251,128 +239,55 @@ pub fn view_reference(
                     utm_offset.1,
                     utm_offset.0
                 ));
+                if ui.button("Close").clicked() {
+                    window.visible = false;
+                }
             });
         }
     }
 }
 
-pub fn add_georeference(
-    selected_anchors: Query<(&Anchor, &Selected, &GlobalTransform, Entity)>,
-    mut panel_state: Local<GeoReferencePanelState>,
-    mut egui_context: ResMut<EguiContext>,
-    mut geo_events: EventReader<GeoReferenceSelectAnchorEvent>,
-    current_ws: Res<CurrentWorkspace>,
-    mut site_properties: Query<(Entity, &mut SiteProperties)>,
-) {
-    if let Some((_, mut properties)) = site_properties
-        .iter_mut()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
-        .nth(0)
-    {
-        if let Some(offset) = properties.geographic_offset {
-            for _event in geo_events.iter() {
-                panel_state.enabled = true;
-            }
-
-            let selected: Vec<_> = selected_anchors
-                .iter()
-                .filter(|(_anchor, selected, _transform, _entity)| selected.is_selected)
-                .collect();
-
-            if panel_state.enabled {
-                // Draw UI
-                egui::Window::new("Geographic Reference").show(egui_context.ctx_mut(), |ui| {
-                    ui.horizontal(|ui| {
-                        ui.label("Reference Anchor: ");
-                        if ui
-                            .button(selection_mode_labels(&panel_state.selection_mode))
-                            .clicked()
-                        {
-                            if selected.len() == 0 {
-                                panel_state.selection_mode = SelectionMode::AnchorSelect;
-                            } else {
-                                panel_state.selection_mode =
-                                    SelectionMode::AnchorSelected(selected[0].3);
-                                let translation = selected[0].2.translation();
-                                let (lat, lon) =
-                                    world_to_latlon(translation, offset.anchor).unwrap();
-                                println!("Anchor at {:?}", (lat, lon));
-                                panel_state.latitude = lat as f32;
-                                panel_state.longitude = lon as f32;
-                            }
-                        }
-                        ui.label("Latitude: ");
-                        ui.add(egui::DragValue::new(&mut panel_state.latitude).speed(1e-16));
-                        ui.label("Longitude: ");
-                        ui.add(egui::DragValue::new(&mut panel_state.longitude).speed(1e-16));
-                        if ui.button("Make Reference").clicked() {
-                            // Recalculate reference point
-                            if selected.len() == 1 {
-                                let global_transform = selected[0].2;
-                                let translation = global_transform.translation();
-                                let zone = lat_lon_to_zone_number(
-                                    panel_state.latitude as f64,
-                                    panel_state.longitude as f64,
-                                );
-                                let (northing, easting, _) = to_utm_wgs84(
-                                    panel_state.latitude as f64,
-                                    panel_state.longitude as f64,
-                                    zone,
-                                );
-                                let utm_origin = (
-                                    easting - translation.x as f64,
-                                    northing - translation.x as f64,
-                                );
-                                let (lat, lon) = wsg84_utm_to_lat_lon(
-                                    utm_origin.0,
-                                    utm_origin.1,
-                                    zone,
-                                    lat_to_zone_letter(panel_state.latitude.into()).unwrap(),
-                                )
-                                .unwrap();
-
-                                properties.geographic_offset =
-                                    Some(GeographicOffset::from_latlon((lat as f32, lon as f32)));
-                            }
-                        }
-                    });
-
-                    if selected.len() != 0
-                        && matches!(panel_state.selection_mode, SelectionMode::AnchorSelect)
-                    {
-                        panel_state.selection_mode = SelectionMode::AnchorSelected(selected[0].3);
-                        let translation = selected[0].2.translation();
-                        let (lat, lon) = world_to_latlon(translation, offset.anchor).unwrap();
-                        panel_state.latitude = lat as f32;
-                        panel_state.longitude = lon as f32;
-                    }
-                });
-            }
-        }
-    }
+#[derive(Default)]
+struct SettingsWindow {
+    visible: bool,
 }
 
-pub fn set_resolution(
+fn settings(
+    mut geo_events: EventReader<MenuEvent>,
     current_ws: Res<CurrentWorkspace>,
-    mut site_properties: Query<(Entity, &mut SiteProperties)>,
+    osm_menu: Res<OSMMenu>,
+    mut site_properties: Query<&mut GeographicComponent>,
     mut egui_context: ResMut<EguiContext>,
+    mut settings_window: Local<SettingsWindow>,
 ) {
-    if let Some((_, mut properties)) = site_properties
-        .iter_mut()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
-        .nth(0)
-    {
-        if let Some(mut offset) = properties.geographic_offset.as_mut() {
+    for event in geo_events.iter() {
+        if event.clicked() && event.source() == osm_menu.settings_panel {
+            settings_window.visible = true;
+        }
+    }
+
+    if !settings_window.visible {
+        return;
+    }
+
+    let Some(current_ws) = current_ws.root else {
+        return;
+    };
+
+    if let Ok(mut properties) = site_properties.get_mut(current_ws) {
+        if let Some(offset) = properties.0.as_mut() {
             if !offset.visible {
                 return;
             }
 
-            egui::Window::new("Tile Resolution")
-                .resizable(false)
-                .anchor(egui::Align2::LEFT_BOTTOM, egui::vec2(30.0, -30.0))
-                .show(egui_context.ctx_mut(), |ui| {
-                    ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
-                });
+            egui::Window::new("Settings").show(egui_context.ctx_mut(), |ui| {
+                ui.label("Tile Resolution");
+                ui.add(egui::Slider::new(&mut offset.zoom, MIN_ZOOM..=MAX_ZOOM));
+
+                if ui.button("Ok").clicked() {
+                    settings_window.visible = false;
+                }
+            });
         }
     }
 }
@@ -387,12 +302,12 @@ fn spawn_tile(
     zoom: i32,
 ) {
     let tile = OSMTile::from_latlon(zoom, coordinates.0, coordinates.1);
-    let tile_size = tile.tile_size();
 
-    let quad_handle = meshes.add(Mesh::from(shape::Quad::new(Vec2::new(
-        tile_size.0,
-        tile_size.1,
-    ))));
+    let Some(mesh) = tile.get_quad_mesh() else {
+        error!("Could not retrieve meshshape");
+        return;
+    };
+    let quad_handle = meshes.add(mesh);
 
     let texture_handle: Handle<Image> = asset_server.load(String::from(
         &AssetSource::OSMSlippyMap(tile.zoom(), coordinates.0, coordinates.1),
@@ -420,21 +335,24 @@ pub fn world_to_latlon(
     anchor: (f32, f32),
 ) -> Result<(f64, f64), WSG84ToLatLonError> {
     let mut zone = lat_lon_to_zone_number(anchor.0.into(), anchor.1.into());
-    let mut zone_letter = lat_to_zone_letter(anchor.0.into());
+    let Some(mut zone_letter) = lat_to_zone_letter(anchor.0.into()) else {
+        return Err(WSG84ToLatLonError::ZoneLetterOutOfRange)
+    };
     let utm_offset = to_utm_wgs84(anchor.0.into(), anchor.1.into(), zone);
     let mut easting = world_coordinates.x as f64 + utm_offset.1;
     let mut northing = world_coordinates.y as f64 + utm_offset.0;
 
     // A really wrong way of measuring stuff. TODO: Handle case where easting
     // and northing are out of bounds. TBH I have no idea how to correctly
-    // handle such cases.
+    // handle such cases. Ideally we should use proj, but proj is not supported on
+    // WASM.
     while northing < 0. {
         northing = 10000000. + northing;
-        zone_letter = Some((zone_letter.unwrap() as u8 - 1) as char);
+        zone_letter = (zone_letter as u8 - 1) as char;
     }
     while northing > 10000000. {
         northing = northing - 10000000.;
-        zone_letter = Some((zone_letter.unwrap() as u8 + 1) as char);
+        zone_letter = (zone_letter as u8 + 1) as char;
     }
 
     while easting < 100000. {
@@ -446,7 +364,7 @@ pub fn world_to_latlon(
         easting -= 1000000.;
         zone -= 1;
     }
-    return wsg84_utm_to_lat_lon(easting, northing, zone, zone_letter.unwrap());
+    return wsg84_utm_to_lat_lon(easting, northing, zone, zone_letter);
 }
 
 pub fn latlon_to_world(lat: f32, lon: f32, anchor: (f32, f32)) -> Vec3 {
@@ -466,15 +384,15 @@ pub struct RenderSettings {
 }
 
 pub fn render_map_tiles(
-    mut map_tiles: Query<(Entity, &MapTile)>,
-    mut cameras: Query<(&Camera, &GlobalTransform)>,
+    map_tiles: Query<(Entity, &MapTile)>,
+    cameras: Query<(&Camera, &GlobalTransform)>,
     camera_controls: Res<CameraControls>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     asset_server: Res<AssetServer>,
     current_ws: Res<CurrentWorkspace>,
     mut commands: Commands,
-    site_properties: Query<(Entity, &SiteProperties)>,
+    site_properties: Query<(Entity, &GeographicComponent)>,
     mut render_settings: Local<RenderSettings>,
 ) {
     if let Some((_, site_properties)) = site_properties
@@ -482,7 +400,7 @@ pub fn render_map_tiles(
         .filter(|(entity, _)| *entity == current_ws.root.unwrap())
         .nth(0)
     {
-        if let Some(geo_offset) = site_properties.geographic_offset {
+        if let Some(geo_offset) = site_properties.0 {
             let offset = geo_offset.anchor;
 
             // if theres a change in offset rerender all tiles
@@ -553,10 +471,13 @@ pub fn render_map_tiles(
                         .map(|x| x.y)
                         .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
 
-                    // TODO(arjo): Gracefully handle unwrap
-                    let latlon_start =
-                        world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset).unwrap();
-                    let latlon_end = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset).unwrap();
+                    let Ok(latlon_start) =
+                        world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset) else {
+                            return;
+                        };
+                    let Ok(latlon_end) = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset) else {
+                            return;
+                        };
 
                     let mut num_tiles = existing_tiles.len();
                     for tile in generate_map_tiles(
@@ -619,6 +540,55 @@ fn test_groundplane() {
     assert!(ray_groundplane_intersection(&Some(ray)).length() < 1e-5);
 }
 
+#[derive(Debug, Resource)]
+pub struct OSMMenu {
+    set_reference: Entity,
+    view_reference: Entity,
+    settings_panel: Entity,
+    satellite_map_check_button: Entity,
+}
+
+impl FromWorld for OSMMenu {
+    fn from_world(world: &mut World) -> Self {
+        // Tools menu
+        let set_reference = world
+            .spawn(MenuItem::Text("Set Reference".to_string()))
+            .id();
+        let view_reference = world
+            .spawn(MenuItem::Text("View Reference".to_string()))
+            .id();
+        let settings_reference = world.spawn(MenuItem::Text("Settings".to_string())).id();
+
+        let sub_menu = world
+            .spawn(Menu::from_title("Geographic Offset".to_string()))
+            .id();
+        world.entity_mut(sub_menu).push_children(&[
+            set_reference,
+            view_reference,
+            settings_reference,
+        ]);
+
+        let tool_header = world.resource::<ToolMenu>().get();
+        world.entity_mut(tool_header).push_children(&[sub_menu]);
+
+        // Checkbox
+        let view_header = world.resource::<ViewMenu>().get();
+        let satellite_map_check_button = world
+            .spawn(MenuItem::CheckBox("Satellite Map".to_string(), false))
+            .id();
+        world
+            .entity_mut(view_header)
+            .push_children(&[satellite_map_check_button]);
+
+        OSMMenu {
+            set_reference,
+            view_reference,
+            settings_panel: settings_reference,
+            satellite_map_check_button,
+        }
+    }
+}
+
 pub struct OSMViewPlugin;
 
 impl Plugin for OSMViewPlugin {
@@ -626,13 +596,14 @@ impl Plugin for OSMViewPlugin {
         app.add_event::<GeoReferenceViewReferenceEvent>()
             .add_event::<GeoReferenceSelectAnchorEvent>()
             .add_event::<GeoReferenceSetReferenceEvent>()
+            .init_resource::<OSMMenu>()
             .add_event::<GeoReferenceMoveEvent>()
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
-            .add_system_to_stage("WindowUI", add_georeference)
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
-            .add_system_to_stage("WindowUI", move_anchor)
-            .add_system_to_stage("WindowUI", set_resolution)
-            .add_system(render_map_tiles);
+            .add_system_to_stage("WindowUI", settings)
+            .add_system(render_map_tiles)
+            .add_system(handle_visibility_change.before("update_menu"))
+            .add_system(detect_new_geographic_component.label("update_menu"));
     }
 }

@@ -116,7 +116,6 @@ impl SiteAssetIo {
         // Expected format: OrgName/ModelName/FileName.ext
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
-        let name_buf = PathBuf::from(name);
         let binding = name.clone();
         let mut tokens = binding.split("/");
         let org_name = match tokens.next() {
@@ -156,20 +155,52 @@ impl SiteAssetIo {
 
     fn add_bundled_assets(&mut self) {
         self.bundled_assets.insert(
-            "textures/default.png".to_owned(),
-            include_bytes!("../../assets/textures/default.png").to_vec(),
-        );
-        self.bundled_assets.insert(
             "textures/select.png".to_owned(),
             include_bytes!("../../assets/textures/select.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/selected.png".to_owned(),
+            include_bytes!("../../assets/textures/selected.png").to_vec(),
         );
         self.bundled_assets.insert(
             "textures/trash.png".to_owned(),
             include_bytes!("../../assets/textures/trash.png").to_vec(),
         );
         self.bundled_assets.insert(
+            "textures/merge.png".to_owned(),
+            include_bytes!("../../assets/textures/merge.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/confirm.png".to_owned(),
+            include_bytes!("../../assets/textures/confirm.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/add.png".to_owned(),
+            include_bytes!("../../assets/textures/add.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/reject.png".to_owned(),
+            include_bytes!("../../assets/textures/reject.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/search.png".to_owned(),
+            include_bytes!("../../assets/textures/search.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/empty.png".to_owned(),
+            include_bytes!("../../assets/textures/empty.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/alignment.png".to_owned(),
+            include_bytes!("../../assets/textures/alignment.png").to_vec(),
+        );
+        self.bundled_assets.insert(
             "textures/edit.png".to_owned(),
             include_bytes!("../../assets/textures/edit.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/exit.png".to_owned(),
+            include_bytes!("../../assets/textures/exit.png").to_vec(),
         );
         self.bundled_assets.insert(
             "textures/up.png".to_owned(),

@@ -17,15 +17,20 @@
 
 use crate::{
     interaction::*,
-    site::{Anchor, AnchorBundle, Category, Dependents, Original, PathBehavior, Pending},
+    site::{
+        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, Dependents,
+        DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
+    },
     CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    ConstraintDependents, Door, Edge, Floor, Lane, LiftProperties, Location, Measurement,
-    MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, Path, Point, Pose, Side,
-    SiteProperties, Wall, WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
+    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, NameOfSite, Path,
+    PixelsPerMeter, Point, Pose, Side, Wall, WorkcellCollisionMarker, WorkcellModel,
+    WorkcellVisualMarker,
 };
+use std::collections::HashSet;
 use std::sync::Arc;
 
 const SELECT_ANCHOR_MODE_LABEL: &'static str = "select_anchor";
@@ -372,6 +377,25 @@ impl EdgePlacement {
         })
     }
 
+    fn with_extra<F>(self: Arc<Self>, f: F) -> Arc<Self>
+    where
+        F: Fn(&mut SelectAnchorPlacementParams, Entity) + Send + Sync + 'static,
+    {
+        let mut result = match Arc::try_unwrap(self) {
+            Ok(r) => r,
+            Err(r) => (*r).clone(),
+        };
+        let base = result.create;
+        result.create = Arc::new(
+            move |params: &mut SelectAnchorPlacementParams, edge: Edge<Entity>| {
+                let entity = base(params, edge);
+                f(params, entity);
+                entity
+            },
+        );
+        Arc::new(result)
+    }
+
     fn update_dependencies(
         mut anchor_selection: Option<&mut AnchorSelection>,
         target: Entity,
@@ -583,6 +607,10 @@ impl Placement for EdgePlacement {
         target: Entity,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<Transition, ()> {
+        // Restore visibility to anchors that were hidden in this mode
+        for e in params.hidden_entities.drawing_anchors.drain() {
+            set_visibility(e, &mut params.visibility, true);
+        }
         if continuity.replacing().is_some() {
             // Restore the target to its original and then quit
             if let Ok((mut edge, original)) = params.edges.get_mut(target) {
@@ -801,6 +829,25 @@ impl PathPlacement {
                     .remove::<Original<Path<Entity>>>();
             }),
         })
+    }
+
+    fn with_extra<F>(self: Arc<Self>, f: F) -> Arc<Self>
+    where
+        F: Fn(&mut SelectAnchorPlacementParams, Entity) + Send + Sync + 'static,
+    {
+        let mut result = match Arc::try_unwrap(self) {
+            Ok(r) => r,
+            Err(r) => (*r).clone(),
+        };
+        let base = result.create;
+        result.create = Arc::new(
+            move |params: &mut SelectAnchorPlacementParams, path: Path<Entity>| {
+                let entity = base(params, path);
+                f(params, entity);
+                entity
+            },
+        );
+        Arc::new(result)
     }
 
     fn at_index(&self, index: usize) -> Arc<Self> {
@@ -1043,6 +1090,13 @@ impl Placement for PathPlacement {
     }
 }
 
+#[derive(Resource, Default)]
+pub struct HiddenSelectAnchorEntities {
+    /// All drawing anchors, hidden when users draw level entities such as walls, lanes, floors to
+    /// make sure they don't connect to drawing anchors
+    pub drawing_anchors: HashSet<Entity>,
+}
+
 #[derive(SystemParam)]
 pub struct SelectAnchorPlacementParams<'w, 's> {
     edges: Query<
@@ -1057,12 +1111,16 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
     models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
+    children: Query<'w, 's, &'static mut Children>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
     constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
+    drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
+    hidden_entities: ResMut<'w, HiddenSelectAnchorEntities>,
+    fiducials: Query<'w, 's, (), With<FiducialMarker>>,
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
@@ -1134,6 +1192,9 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         );
         set_visibility(self.cursor.frame_placement, &mut self.visibility, false);
         self.cursor.set_model_preview(&mut self.commands, None);
+        for e in self.hidden_entities.drawing_anchors.drain() {
+            set_visibility(e, &mut self.visibility, true);
+        }
     }
 }
 
@@ -1158,14 +1219,21 @@ impl SelectAnchorEdgeBuilder {
             target: self.for_element,
             placement: EdgePlacement::new::<Measurement<Entity>>(self.placement),
             continuity: self.continuity,
-            scope: Scope::General,
+            scope: Scope::Drawing,
         }
     }
 
     pub fn for_wall(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
-            placement: EdgePlacement::new::<Wall<Entity>>(self.placement),
+            placement: EdgePlacement::new::<Wall<Entity>>(self.placement).with_extra(
+                |params, entity| {
+                    params
+                        .commands
+                        .entity(entity)
+                        .insert(TextureNeedsAssignment);
+                },
+            ),
             continuity: self.continuity,
             scope: Scope::General,
         }
@@ -1216,6 +1284,24 @@ impl SelectAnchorPointBuilder {
         }
     }
 
+    pub fn for_site_fiducial(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: PointPlacement::new::<Fiducial<Entity>>(),
+            continuity: self.continuity,
+            scope: Scope::Site,
+        }
+    }
+
+    pub fn for_drawing_fiducial(self) -> SelectAnchor {
+        SelectAnchor {
+            target: self.for_element,
+            placement: PointPlacement::new::<Fiducial<Entity>>(),
+            continuity: self.continuity,
+            scope: Scope::Drawing,
+        }
+    }
+
     pub fn for_model(self, model: Model) -> SelectAnchor3D {
         SelectAnchor3D {
             bundle: PlaceableObject::Model(model),
@@ -1263,7 +1349,14 @@ impl SelectAnchorPathBuilder {
     pub fn for_floor(self) -> SelectAnchor {
         SelectAnchor {
             target: self.for_element,
-            placement: PathPlacement::new::<Floor<Entity>>(self.placement),
+            placement: PathPlacement::new::<Floor<Entity>>(self.placement).with_extra(
+                |params, entity| {
+                    params
+                        .commands
+                        .entity(entity)
+                        .insert(TextureNeedsAssignment);
+                },
+            ),
             continuity: self.continuity,
             scope: Scope::General,
         }
@@ -1274,6 +1367,7 @@ type PlacementArc = Arc<dyn Placement + Send + Sync>;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 pub enum Scope {
+    Drawing,
     General,
     Site,
 }
@@ -1840,7 +1934,8 @@ pub fn handle_select_anchor_mode(
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
+    current_drawing: Res<CurrentEditDrawing>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor(request) => request.clone(),
@@ -1883,6 +1978,23 @@ pub fn handle_select_anchor_mode(
                 &mut params.visibility,
                 true,
             );
+        }
+
+        match request.scope {
+            Scope::General | Scope::Site => {
+                // If we are working with normal level or site requests, hide all drawing anchors
+                for anchor in params.anchors.iter().filter(|(e, _)| {
+                    params
+                        .parents
+                        .get(*e)
+                        .is_ok_and(|p| params.drawings.get(**p).is_ok())
+                }) {
+                    set_visibility(anchor.0, &mut params.visibility, false);
+                    params.hidden_entities.drawing_anchors.insert(anchor.0);
+                }
+            }
+            // Nothing to hide, it's done by the drawing editor plugin
+            Scope::Drawing => {}
         }
 
         // If we are creating a new object, then we should deselect anything
@@ -1970,14 +2082,36 @@ pub fn handle_select_anchor_mode(
                 }
             };
 
-            let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
-            if request.scope.is_site() {
-                if let Some(site) = workspace.to_site(&open_sites) {
+            let new_anchor = match request.scope {
+                Scope::Site => {
+                    let site = workspace.to_site(&open_sites).expect("No current site??");
+                    let new_anchor = params.commands.spawn(AnchorBundle::at_transform(tf)).id();
                     params.commands.entity(site).add_child(new_anchor);
-                } else {
-                    panic!("No current site??");
+                    new_anchor
                 }
-            }
+                Scope::Drawing => {
+                    let drawing_entity = current_drawing
+                        .target()
+                        .expect("No drawing while spawning drawing anchor")
+                        .drawing;
+                    let (parent, ppm) = params
+                        .drawings
+                        .get(drawing_entity)
+                        .expect("Entity being edited is not a drawing");
+                    // We also need to have a transform such that the anchor will spawn in the
+                    // right spot
+                    let pose = compute_parent_inverse_pose(&tf, &transforms, parent);
+                    let ppm = ppm.0;
+                    let new_anchor = params
+                        .commands
+                        .spawn(AnchorBundle::new([pose.trans[0], pose.trans[1]].into()))
+                        .insert(Transform::from_scale(Vec3::new(ppm, ppm, 1.0)))
+                        .set_parent(parent)
+                        .id();
+                    new_anchor
+                }
+                Scope::General => params.commands.spawn(AnchorBundle::at_transform(tf)).id(),
+            };
 
             request = match request.next(AnchorSelection::new(new_anchor), &mut params) {
                 Some(next_mode) => next_mode,

@@ -84,6 +84,18 @@ impl ProjectionMode {
     }
 }
 
+pub struct ChangeProjectionMode(pub ProjectionMode);
+
+impl ChangeProjectionMode {
+    pub fn to_perspective() -> ChangeProjectionMode {
+        ChangeProjectionMode(ProjectionMode::Perspective)
+    }
+
+    pub fn to_orthographic() -> ChangeProjectionMode {
+        ChangeProjectionMode(ProjectionMode::Orthographic)
+    }
+}
+
 #[derive(Debug, Clone, Reflect, Resource)]
 pub struct CameraControls {
     mode: ProjectionMode,
@@ -156,6 +168,23 @@ impl CameraControls {
         headlights_on: bool,
     ) {
         self.use_perspective(!choice, cameras, visibilities, headlights_on);
+    }
+
+    pub fn use_mode(
+        &mut self,
+        mode: ProjectionMode,
+        cameras: &mut Query<&mut Camera>,
+        visibilities: &mut Query<&mut Visibility>,
+        headlights_on: bool,
+    ) {
+        match mode {
+            ProjectionMode::Perspective => {
+                self.use_perspective(true, cameras, visibilities, headlights_on);
+            }
+            ProjectionMode::Orthographic => {
+                self.use_orthographic(true, cameras, visibilities, headlights_on);
+            }
+        }
     }
 
     pub fn mode(&self) -> ProjectionMode {
@@ -335,10 +364,21 @@ fn camera_controls(
     mut previous_mouse_location: ResMut<MouseLocation>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
+    mut bevy_cameras: Query<&mut Camera>,
     mut visibility: Query<&mut Visibility>,
     headlight_toggle: Res<HeadlightToggle>,
     picking_blockers: Res<PickingBlockers>,
+    mut change_mode: EventReader<ChangeProjectionMode>,
 ) {
+    if let Some(mode) = change_mode.iter().last() {
+        controls.use_mode(
+            mode.0,
+            &mut bevy_cameras,
+            &mut visibility,
+            headlight_toggle.0,
+        );
+    }
+
     if headlight_toggle.is_changed() {
         controls.toggle_lights(headlight_toggle.0, &mut visibility);
     }
@@ -494,6 +534,7 @@ impl Plugin for CameraControlsPlugin {
         app.insert_resource(MouseLocation::default())
             .init_resource::<CameraControls>()
             .init_resource::<HeadlightToggle>()
+            .add_event::<ChangeProjectionMode>()
             .add_system(camera_controls);
     }
 }

@@ -18,18 +18,24 @@
 use crate::{
     interaction::Hover,
     recency::ChangeRank,
-    site::{Change, Cycle, FloorVisibility, SiteID},
-    widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayer},
+    site::{
+        BeginEditDrawing, Change, LayerVisibility, PreferredSemiTransparency, SiteID,
+        VisibilityCycle,
+    },
+    widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayerButton},
 };
 use bevy::prelude::*;
-use bevy_egui::egui::{ImageButton, Ui};
+use bevy_egui::egui::{DragValue, ImageButton, Ui};
 
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
     pub icons: &'a Icons,
-    /// Outer Option: Is this a floor?
-    /// Inner Option: Does the floor have a custom visibility setting?
-    pub floor_vis: Option<Option<FloorVisibility>>,
+    /// Does the layer have a custom visibility setting?
+    pub layer_vis: Option<LayerVisibility>,
+    pub default_alpha: f32,
+    // TODO(luca) make this an enum
+    pub is_floor: bool,
+    pub as_selected: bool,
     /// Outer Option: Can this be selected?
     /// Inner Option: Does this have a SiteID?
     pub site_id: Option<Option<SiteID>>,
@@ -37,97 +43,107 @@ pub struct InspectLayer<'a, 'w, 's> {
 }
 
 impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
-    pub fn new(entity: Entity, icons: &'a Icons, events: &'a mut AppEvents<'w, 's>) -> Self {
+    pub fn new(
+        entity: Entity,
+        icons: &'a Icons,
+        events: &'a mut AppEvents<'w, 's>,
+        layer_vis: Option<LayerVisibility>,
+        default_alpha: f32,
+        is_floor: bool,
+    ) -> Self {
         Self {
             entity,
             icons,
             events,
-            floor_vis: None,
+            layer_vis,
+            default_alpha,
+            is_floor,
+            as_selected: false,
             site_id: None,
         }
     }
-
     pub fn with_selecting(mut self, site_id: Option<SiteID>) -> Self {
         self.site_id = Some(site_id);
         self
     }
 
-    pub fn as_floor(mut self, floor_vis: Option<FloorVisibility>) -> Self {
-        self.floor_vis = Some(floor_vis);
+    pub fn as_selected(mut self, as_selected: bool) -> Self {
+        self.as_selected = as_selected;
         self
     }
 
     pub fn show(self, ui: &mut Ui) {
-        if let Some(vis) = self.floor_vis {
-            let icon = self.icons.floor_visibility_of(vis);
-            let resp = ui
-                .add(ImageButton::new(icon, [18., 18.]))
-                .on_hover_text(format!("Change to {}", vis.next().label()));
-            if resp.hovered() {
-                self.events.request.hover.send(Hover(Some(self.entity)));
-            }
-            if resp.clicked() {
-                match vis.next() {
-                    Some(v) => {
-                        self.events
-                            .layers
-                            .change_floor_vis
-                            .send(Change::new(v, self.entity).or_insert());
-                    }
-                    None => {
-                        self.events
-                            .commands
-                            .entity(self.entity)
-                            .remove::<FloorVisibility>();
-                    }
+        if let Some(site_id) = self.site_id {
+            SelectionWidget::new(self.entity, site_id, self.icons, self.events)
+                .as_selected(self.as_selected)
+                .show(ui);
+
+            if !self.is_floor {
+                let response = ui
+                    .add(ImageButton::new(
+                        self.events.layers.icons.edit.egui(),
+                        [18., 18.],
+                    ))
+                    .on_hover_text("Edit Drawing");
+
+                if response.hovered() {
+                    self.events.request.hover.send(Hover(Some(self.entity)));
+                }
+
+                if response.clicked() {
+                    self.events
+                        .layers
+                        .begin_edit_drawing
+                        .send(BeginEditDrawing(self.entity));
                 }
             }
         }
 
-        if self.floor_vis.is_some() {
-            Self::move_layers(
-                self.entity,
-                &self.icons,
-                &mut self.events.layers.floors,
-                &mut self.events.request.hover,
-                ui,
-            );
-        } else {
-            Self::move_layers(
-                self.entity,
-                &self.icons,
-                &mut self.events.layers.drawings,
-                &mut self.events.request.hover,
-                ui,
-            );
-        };
-
-        if let Some(site_id) = self.site_id {
-            SelectionWidget::new(self.entity, site_id, self.icons, self.events).show(ui);
+        let icon = self.icons.layer_visibility_of(self.layer_vis);
+        let resp = ui
+            .add(ImageButton::new(icon, [18., 18.]))
+            .on_hover_text(format!(
+                "Change to {}",
+                self.layer_vis.next(self.default_alpha).label()
+            ));
+        if resp.hovered() {
+            self.events.request.hover.send(Hover(Some(self.entity)));
         }
-    }
+        if resp.clicked() {
+            match self.layer_vis.next(self.default_alpha) {
+                Some(v) => {
+                    self.events
+                        .layers
+                        .layer_vis
+                        .send(Change::new(v, self.entity).or_insert());
+                }
+                None => {
+                    self.events
+                        .commands
+                        .entity(self.entity)
+                        .remove::<LayerVisibility>();
+                }
+            }
+        }
 
-    fn move_layers<T: Component>(
-        entity: Entity,
-        icons: &Icons,
-        mover: &mut EventWriter<'w, 's, ChangeRank<T>>,
-        hover: &mut ResMut<'w, Events<Hover>>,
-        ui: &mut Ui,
-    ) {
-        MoveLayer::to_top(entity, mover, icons)
-            .with_hover(hover)
-            .show(ui);
-
-        MoveLayer::up(entity, mover, icons)
-            .with_hover(hover)
-            .show(ui);
-
-        MoveLayer::down(entity, mover, icons)
-            .with_hover(hover)
-            .show(ui);
-
-        MoveLayer::to_bottom(entity, mover, icons)
-            .with_hover(hover)
-            .show(ui);
+        if let Some(LayerVisibility::Alpha(mut alpha)) = self.layer_vis {
+            if ui
+                .add(
+                    DragValue::new(&mut alpha)
+                        .clamp_range(0_f32..=1_f32)
+                        .speed(0.01),
+                )
+                .changed()
+            {
+                self.events
+                    .layers
+                    .layer_vis
+                    .send(Change::new(LayerVisibility::Alpha(alpha), self.entity));
+                self.events
+                    .layers
+                    .preferred_alpha
+                    .send(Change::new(PreferredSemiTransparency(alpha), self.entity));
+            }
+        }
     }
 }

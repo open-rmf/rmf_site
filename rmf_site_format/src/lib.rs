@@ -15,6 +15,8 @@
  *
 */
 
+pub mod alignment;
+
 pub mod agent;
 pub use agent::*;
 
@@ -26,6 +28,9 @@ pub use asset_source::*;
 
 pub mod category;
 pub use category::*;
+
+pub mod constraint;
+pub use constraint::*;
 
 pub mod dock;
 pub use dock::*;
@@ -47,6 +52,9 @@ pub use floor::*;
 
 pub mod lane;
 pub use lane::*;
+
+pub mod layer;
+pub use layer::*;
 
 pub mod location;
 pub use location::*;

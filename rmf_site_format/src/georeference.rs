@@ -1,6 +1,7 @@
-use std::default;
-
 use serde::{Deserialize, Serialize};
+
+#[cfg(feature = "bevy")]
+use bevy::prelude::*;
 
 /// Geographic Offset for the
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
@@ -13,6 +14,17 @@ pub struct GeographicOffset {
 
     /// Visibility of the map
     pub visible: bool,
+}
+
+#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, Default)]
+#[serde(transparent)]
+pub struct GeographicComponent(pub Option<GeographicOffset>);
+
+impl GeographicComponent {
+    pub fn is_none(&self) -> bool {
+        self.0.is_none()
+    }
 }
 
 impl GeographicOffset {
