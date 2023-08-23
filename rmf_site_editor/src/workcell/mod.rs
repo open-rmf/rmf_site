@@ -40,8 +40,9 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        handle_new_mesh_primitives, make_models_selectable, update_anchor_transforms,
-        update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
+        clear_model_trashcan, handle_new_mesh_primitives, handle_new_sdf_roots,
+        make_models_selectable, update_anchor_transforms, update_model_scales, update_model_scenes,
+        update_model_tentative_formats, update_transforms_for_changed_poses,
     },
 };
 
@@ -97,11 +98,17 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(add_wireframe_to_meshes)
                     .with_system(update_constraint_dependents)
                     .with_system(update_model_scenes)
+                    .with_system(update_model_scales)
                     .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)
                     .with_system(handle_workcell_keyboard_input)
                     .with_system(handle_new_mesh_primitives)
-                    .with_system(change_workcell.before(load_workcell)),
+                    .with_system(change_workcell.before(load_workcell))
+                    .with_system(handle_new_sdf_roots),
+            )
+            .add_system_set_to_stage(
+                CoreStage::PreUpdate,
+                SystemSet::on_update(AppState::WorkcellEditor).with_system(clear_model_trashcan),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
