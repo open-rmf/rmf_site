@@ -38,15 +38,22 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
             let binding = p.clone();
             *p = if let Some(stripped) = uri.strip_prefix("model://") {
                 // Get the org name from context, model name from this and combine
-                let org_name = binding.split("/").next().unwrap();
-                org_name.to_owned() + "/" + stripped
+                if let Some(org_name) = binding.split("/").next() {
+                    org_name.to_owned() + "/" + stripped
+                } else {
+                    error!(
+                        "Unable to extract organization name from asset source [{}]",
+                        uri
+                    );
+                    "".into()
+                }
             } else if let Some(path_idx) = binding.rfind("/") {
                 // It's a path relative to this model, remove file and append uri
                 let (model_path, _model_name) = binding.split_at(path_idx);
                 model_path.to_owned() + "/" + uri
             } else {
-                println!(
-                    "WARNING: Invalid model found path is {} and model uri is {}",
+                error!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
                     path, uri
                 );
                 "".into()
@@ -60,22 +67,26 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 // models that are placed in different folders or are in fuel, but should work for
                 // most local, self contained, models.
                 // Get the org name from context, model name from this and combine
-                let model_folder = binding.rsplitn(3, "/").skip(2).next().unwrap();
-                model_folder.to_owned() + "/" + stripped
+                if let Some(model_folder) = binding.rsplitn(3, "/").skip(2).next() {
+                    model_folder.to_owned() + "/" + stripped
+                } else {
+                    error!("Unable to extract model folder from asset source [{}]", uri);
+                    "".into()
+                }
             } else if let Some(path_idx) = binding.rfind("/") {
                 // It's a path relative to this model, remove file and append uri
                 let (model_path, _model_name) = binding.split_at(path_idx);
                 model_path.to_owned() + "/" + uri
             } else {
-                println!(
-                    "WARNING: Invalid model found path is {} and model uri is {}",
+                error!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
                     path, uri
                 );
                 "".into()
             };
         }
         AssetSource::Bundled(_) | AssetSource::Package(_) => {
-            println!("WARNING: Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
+            warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
         }
     }
     asset_source

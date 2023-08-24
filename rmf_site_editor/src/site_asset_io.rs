@@ -65,8 +65,18 @@ impl SiteAssetIo {
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
             let mut req = surf::get(remote_url.clone());
-            if let Some(key) = &(*FUEL_API_KEY.lock().unwrap()) {
-                req = req.header("Private-token", key.clone());
+            match FUEL_API_KEY.lock() {
+                Ok(key) => {
+                    if let Some(key) = key.clone() {
+                        req = req.header("Private-token", key);
+                    }
+                }
+                Err(_) => {
+                    return Err(AssetIoError::Io(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Lock poisoning detected when reading fuel API key, please set it again."),
+                    )));
+                }
             }
             let bytes = req.recv_bytes().await.map_err(|e| {
                 AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
