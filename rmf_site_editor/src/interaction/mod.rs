@@ -16,9 +16,9 @@
 */
 
 use crate::site::{
-    update_anchor_transforms, ConstraintMarker, DoorMarker, FiducialMarker, FloorMarker,
-    LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker, ModelMarker,
-    SiteUpdateStage, WallMarker,
+    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
+    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
+    ModelMarker, SiteUpdateStage, VisualMeshMarker, WallMarker,
 };
 
 pub mod anchor;
@@ -153,18 +153,23 @@ impl Plugin for InteractionPlugin {
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
-            .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<LaneMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<LaneMarker>::visible(true))
             // TODO(luca) unify the two Lift plugins into a single one?
-            .add_plugin(CategoryVisibilityPlugin::<LiftCabin<Entity>>::default())
-            .add_plugin(CategoryVisibilityPlugin::<LiftCabinDoorMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<LocationTags>::default())
-            .add_plugin(CategoryVisibilityPlugin::<FiducialMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<ConstraintMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<ModelMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::default())
-            .add_plugin(CategoryVisibilityPlugin::<WallMarker>::default())
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(
+                true,
+            ))
+            .add_plugin(CategoryVisibilityPlugin::<LocationTags>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<FiducialMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<ConstraintMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(
+                false,
+            ))
+            .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
             .add_plugin(CameraControlsPlugin)
             .add_plugin(ModelPreviewPlugin)
             .add_system_set(

@@ -177,7 +177,13 @@ pub fn handle_model_loaded_events(
 pub fn update_model_scenes(
     mut commands: Commands,
     changed_models: Query<
-        (Entity, &AssetSource, &Pose, &TentativeModelFormat),
+        (
+            Entity,
+            &AssetSource,
+            &Pose,
+            &TentativeModelFormat,
+            Option<&Visibility>,
+        ),
         (Changed<TentativeModelFormat>, With<ModelMarker>),
     >,
     asset_server: Res<AssetServer>,
@@ -190,6 +196,7 @@ pub fn update_model_scenes(
         pose: &Pose,
         asset_server: &AssetServer,
         tentative_format: &TentativeModelFormat,
+        has_visibility: bool,
         commands: &mut Commands,
     ) {
         let mut commands = commands.entity(e);
@@ -199,11 +206,23 @@ pub fn update_model_scenes(
                 format: tentative_format.clone(),
                 entity: None,
             })
-            .insert(SpatialBundle {
-                transform: pose.transform(),
-                ..default()
-            })
+            .insert(TransformBundle::from_transform(pose.transform()))
             .insert(Category::Model);
+
+        if !has_visibility {
+            // NOTE: We separate this out because for CollisionMeshMarker
+            // entities their visibility will be set by the CategoryVisibility
+            // plugin, which will (usually) set visibility to false. If we
+            // always inserted a true Visibiltiy then we would override the
+            // CategoryVisibility setting. This kind of multiple-source-of-truth
+            // conflict should be resolved by having a more sound way of building
+            // new entities and/or using a dependency tracker as proposed here:
+            // https://github.com/open-rmf/rmf_site/issues/173
+            commands.insert(VisibilityBundle {
+                visibility: Visibility::VISIBLE,
+                ..default()
+            });
+        }
 
         // For search assets, look at subfolders and iterate through file formats
         // TODO(luca) This will also iterate for non search assets, fix
@@ -223,7 +242,7 @@ pub fn update_model_scenes(
     }
 
     // update changed models
-    for (e, source, pose, tentative_format) in changed_models.iter() {
+    for (e, source, pose, tentative_format, vis_option) in changed_models.iter() {
         if let Ok(current_scene) = current_scenes.get_mut(e) {
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
@@ -238,6 +257,7 @@ pub fn update_model_scenes(
                     pose,
                     &asset_server,
                     tentative_format,
+                    vis_option.is_some(),
                     &mut commands,
                 );
             }
@@ -249,6 +269,7 @@ pub fn update_model_scenes(
                 pose,
                 &asset_server,
                 tentative_format,
+                vis_option.is_some(),
                 &mut commands,
             );
         }
