@@ -100,7 +100,11 @@ pub fn reload_failed_models_with_new_api_key(
 ) {
     if let Some(key) = api_key_events.iter().last() {
         info!("New API Key set, attempting to re-download failed models");
-        *FUEL_API_KEY.lock().unwrap() = Some((**key).clone());
+        let mut key_guard = match FUEL_API_KEY.lock() {
+            Ok(key) => key,
+            Err(poisoned) => poisoned.into_inner(),
+        };
+        *key_guard = Some((**key).clone());
         for e in &failed_models {
             commands.entity(e).insert(TentativeModelFormat::default());
         }

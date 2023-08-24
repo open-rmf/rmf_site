@@ -71,7 +71,9 @@ impl SiteAssetIo {
                         req = req.header("Private-token", key);
                     }
                 }
-                Err(_) => {
+                Err(poisoned_key) => {
+                    // Reset the key to None
+                    *poisoned_key.into_inner() = None;
                     return Err(AssetIoError::Io(io::Error::new(
                         io::ErrorKind::Other,
                         format!("Lock poisoning detected when reading fuel API key, please set it again."),
@@ -93,9 +95,10 @@ impl SiteAssetIo {
                     )));
                 }
                 Err(_) => {
-                    // This is okay. When a GET from fuel was successful, it
-                    // will not return a JSON that can be interpreted as a
-                    // FuelErrorMsg
+                    // This is actually the happy path. When a GET from fuel was
+                    // successful, it will not return a JSON that can be
+                    // interpreted as a FuelErrorMsg, so our attempt to parse an
+                    // error message will fail.
                 }
             }
 
