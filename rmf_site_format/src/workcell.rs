@@ -113,6 +113,7 @@ pub enum JointType {
     Fixed,
     Revolute,
     Prismatic,
+    Continuous,
 }
 
 impl From<&JointType> for urdf_rs::JointType {
@@ -121,6 +122,7 @@ impl From<&JointType> for urdf_rs::JointType {
             JointType::Fixed => urdf_rs::JointType::Fixed,
             JointType::Revolute => urdf_rs::JointType::Revolute,
             JointType::Prismatic => urdf_rs::JointType::Prismatic,
+            JointType::Continuous => urdf_rs::JointType::Continuous,
         }
     }
 }
@@ -528,6 +530,12 @@ impl Workcell {
                     limit: None,
                     axis: None,
                 },
+                urdf_rs::JointType::Continuous => Joint {
+                    name: NameInWorkcell(joint.name.clone()),
+                    joint_type: JointType::Continuous,
+                    limit: None,
+                    axis: None,
+                },
                 _ => {
                     return Err(UrdfImportError::UnsupportedJointType);
                 }
@@ -569,10 +577,8 @@ impl Workcell {
     }
 
     pub fn to_urdf(&self) -> Result<urdf_rs::Robot, WorkcellToUrdfError> {
-        let workcell = self;
-
         let mut parent_to_visuals = HashMap::new();
-        for (_, visual) in workcell.visuals.iter() {
+        for (_, visual) in self.visuals.iter() {
             let parent = visual.parent;
             let visual = &visual.bundle;
             let visual = urdf_rs::Visual {
@@ -588,7 +594,7 @@ impl Workcell {
         }
 
         let mut parent_to_collisions = HashMap::new();
-        for (_, collision) in workcell.collisions.iter() {
+        for (_, collision) in self.collisions.iter() {
             let parent = collision.parent;
             let collision = &collision.bundle;
             let collision = urdf_rs::Collision {
@@ -602,64 +608,130 @@ impl Workcell {
                 .push(collision);
         }
 
-        let mut frame_data: HashMap<_, _> = workcell
+        // If the workcell has a single frame child we can use the child as the base link.
+        // Otherwise, we will need to spawn a new base link to contain all the workcell children
+        let workcell_child_frames = self
             .frames
             .iter()
-            .map(|(frame_id, frame)| {
-                let frame = &frame.bundle;
-                (frame_id, frame)
-            })
-            .collect();
-        let dummy_frame = Frame {
-            anchor: Anchor::Pose3D(Pose {
-                rot: Rotation::Quat([0.0, 0.0, 0.0, 0.0]),
-                trans: [0.0, 0.0, 0.0],
-            }),
-            name: Some(NameInWorkcell(String::from("world"))),
-            mesh_constraint: None,
-            marker: FrameMarker,
+            .filter(|(_, frame)| frame.parent == self.id);
+        let num_children = workcell_child_frames.clone().count();
+        let mut frames = if num_children != 1 {
+            // TODO(luca) remove hardcoding of base link name, it might in some cases create
+            // duplicates
+            let mut frames = self.frames.clone();
+            let dummy_frame = Frame {
+                anchor: Anchor::Pose3D(Pose {
+                    rot: Rotation::Quat([0.0, 0.0, 0.0, 0.0]),
+                    trans: [0.0, 0.0, 0.0],
+                }),
+                name: Some(NameInWorkcell(String::from("world"))),
+                mesh_constraint: None,
+                marker: FrameMarker,
+            };
+            frames.insert(
+                self.id,
+                Parented {
+                    // Root has no parent, use placeholder of max u32
+                    parent: u32::MAX,
+                    bundle: dummy_frame,
+                },
+            );
+            frames
+        } else {
+            // Flatten the hierarchy by making the only child the new workcell base link
+            self.frames.clone()
         };
-        let dummy_frame_id: u32 = 0;
-        frame_data.insert(&dummy_frame_id, &dummy_frame);
 
-        let links = self
-            .inertials
+        let highest_site_id = frames
             .iter()
-            .map(|(inertial_id, parented_inertial)| {
-                // The name comes from the parent
-                let frame_id = parented_inertial.parent;
-                let frame =
-                    frame_data
-                        .get(&frame_id)
-                        .ok_or(WorkcellToUrdfError::BrokenReference(
-                            parented_inertial.parent,
-                        ))?;
-                let name = match &frame.name {
+            .map(|(id, _)| id)
+            .chain(self.joints.iter().map(|(id, _)| id))
+            .chain(self.visuals.iter().map(|(id, _)| id))
+            .chain(self.collisions.iter().map(|(id, _)| id))
+            .chain(self.inertials.iter().map(|(id, _)| id))
+            .max()
+            .cloned()
+            .unwrap();
+        let mut next_site_id = highest_site_id..;
+        next_site_id.next().unwrap();
+        let mut additional_joints = BTreeMap::new();
+
+        // Preprocess frames by adding a fixed joint between frames that are directly connected
+        let mut new_parents = HashMap::new();
+        for (frame_id, parented_frame) in frames.iter() {
+            let parent_id = parented_frame.parent;
+            // Avoid creating joints for the root link
+            if parent_id == u32::MAX {
+                continue;
+            }
+            if let Some(parent_frame) = frames.get(&parent_id) {
+                let joint_id = next_site_id.next().unwrap();
+                additional_joints.insert(
+                    joint_id,
+                    Parented {
+                        parent: parent_id,
+                        bundle: Joint {
+                            name: NameInWorkcell(format!(
+                                "hierarchy_fixed_joint_{0}",
+                                additional_joints.len()
+                            )),
+                            joint_type: JointType::Fixed,
+                            limit: None,
+                            axis: None,
+                        },
+                    },
+                );
+                // Now set the child's parent to the joint
+                new_parents.insert(*frame_id, joint_id);
+            }
+        }
+
+        for (frame_id, new_parent) in new_parents.iter() {
+            if let Some(frame) = frames.get_mut(frame_id) {
+                frame.parent = *new_parent;
+            }
+        }
+
+        let mut joints = self.joints.clone();
+        joints.append(&mut additional_joints);
+
+        let mut parent_to_inertials = HashMap::new();
+        for (_, inertial) in self.inertials.iter() {
+            let parent = inertial.parent;
+            let inertial = &inertial.bundle;
+            let inertial = urdf_rs::Inertial::from(inertial);
+            parent_to_inertials.insert(parent, inertial);
+        }
+
+        let links = frames
+            .iter()
+            .map(|(frame_id, parented_frame)| {
+                let name = match &parented_frame.bundle.name {
                     Some(name) => name.0.clone(),
                     None => format!("frame_{}", &frame_id),
                 };
 
-                let inertial = urdf_rs::Inertial::from(&parented_inertial.bundle);
+                let inertial = parent_to_inertials.remove(&frame_id).unwrap_or_default();
                 let collision = parent_to_collisions.remove(&frame_id).unwrap_or_default();
                 let visual = parent_to_visuals.remove(&frame_id).unwrap_or_default();
 
-                Ok(urdf_rs::Link {
+                urdf_rs::Link {
                     name,
                     inertial,
                     collision,
                     visual,
-                })
+                }
             })
-            .collect::<Result<Vec<_>, WorkcellToUrdfError>>()?;
+            .collect::<Vec<_>>();
 
-        let joints = self.joints
+        let joints = joints
             .iter()
             .map(|(joint_id, parented_joint)| {
                 let joint_parent = parented_joint.parent;
                 let joint = &parented_joint.bundle;
                 // The pose of the joint is the pose of the frame that has it as its parent
                 let parent_frame = self.frames.get(&joint_parent).ok_or(WorkcellToUrdfError::BrokenReference(joint_parent))?;
-                let (child_frame_id, child_frame) = self.frames.iter().find(|(id, frame)| frame.parent == *joint_id).ok_or(WorkcellToUrdfError::BrokenReference(*joint_id))?;
+                let (child_frame_id, child_frame) = self.frames.iter().find(|(_, frame)| frame.parent == *joint_id).ok_or(WorkcellToUrdfError::BrokenReference(*joint_id))?;
                 let parent_name = parent_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(joint_parent, *joint_id))?;
                 let child_name = child_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(*child_frame_id, *joint_id))?;
                 let Anchor::Pose3D(pose) = child_frame.bundle.anchor else {
@@ -685,7 +757,7 @@ impl Workcell {
             .collect::<Result<Vec<_>, WorkcellToUrdfError>>()?;
 
         let robot = urdf_rs::Robot {
-            name: workcell.properties.name.clone(),
+            name: self.properties.name.clone(),
             links,
             joints,
             materials: vec![],
@@ -847,8 +919,11 @@ mod tests {
 
     #[test]
     fn urdf_roundtrip() {
-        let urdf = urdf_rs::read_file("test/05-visual.urdf").unwrap();
+        let urdf = urdf_rs::read_file("test/07-physics.urdf").unwrap();
         let workcell = Workcell::from_urdf(&urdf).unwrap();
+        assert_eq!(workcell.visuals.len(), 16);
+        assert_eq!(workcell.collisions.len(), 16);
+        assert_eq!(workcell.frames.len(), 16);
         // TODO(luca) test for equality here in key components
         let new_urdf = workcell.to_urdf().unwrap();
         // TODO(luca) test for equality here
