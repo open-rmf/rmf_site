@@ -75,6 +75,9 @@ use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTe
 pub mod move_layer;
 pub use move_layer::*;
 
+pub mod new_model;
+pub use new_model::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
@@ -102,6 +105,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
+            .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
@@ -287,6 +291,7 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
+    pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
@@ -392,6 +397,15 @@ fn site_ui_layout(
             ui.add_space(10.0);
             ConsoleWidget::new(&mut events).show(ui);
         });
+
+    if events.new_model.asset_gallery_status.show {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                NewModel::new(&mut events).show(ui);
+            });
+    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -631,6 +645,15 @@ fn workcell_ui_layout(
         &children,
         &mut menu_params,
     );
+
+    if events.new_model.asset_gallery_status.show {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                NewModel::new(&mut events).show(ui);
+            });
+    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

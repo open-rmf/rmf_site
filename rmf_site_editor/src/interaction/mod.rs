@@ -57,6 +57,9 @@ pub use light::*;
 pub mod mode;
 pub use mode::*;
 
+pub mod model_preview;
+pub use model_preview::*;
+
 pub mod outline;
 pub use outline::*;
 
@@ -168,6 +171,7 @@ impl Plugin for InteractionPlugin {
             .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
             .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
             .add_plugin(CameraControlsPlugin)
+            .add_plugin(ModelPreviewPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(make_lift_doormat_gizmo)

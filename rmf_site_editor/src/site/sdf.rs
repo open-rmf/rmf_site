@@ -37,21 +37,67 @@ pub struct VisualMeshMarker;
 #[derive(Component, Debug, Clone, Default)]
 pub struct CollisionMeshMarker;
 
-// TODO(luca) reduce chances for panic and do proper error handling here
+// TODO(luca) cleanup this, there are many ways models are referenced and have to be resolved in
+// SDF between local, fuel and cached paths so the logic becomes quite complicated.
 fn compute_model_source(path: &str, uri: &str) -> AssetSource {
-    let binding = path.strip_prefix("search://").unwrap();
-    if let Some(stripped) = uri.strip_prefix("model://") {
-        // Get the org name from context, model name from this and combine
-        let org_name = binding.split("/").next().unwrap();
-        let path = org_name.to_owned() + "/" + stripped;
-        AssetSource::Remote(path)
-    } else if let Some(path_idx) = binding.rfind("/") {
-        // It's a path relative to this model, remove file and append uri
-        let (model_path, _model_name) = binding.split_at(path_idx);
-        AssetSource::Remote(model_path.to_owned() + "/" + uri)
-    } else {
-        AssetSource::Remote("".into())
+    let mut asset_source = AssetSource::from(path);
+    match asset_source {
+        AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
+            let binding = p.clone();
+            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+                // Get the org name from context, model name from this and combine
+                if let Some(org_name) = binding.split("/").next() {
+                    org_name.to_owned() + "/" + stripped
+                } else {
+                    error!(
+                        "Unable to extract organization name from asset source [{}]",
+                        uri
+                    );
+                    "".into()
+                }
+            } else if let Some(path_idx) = binding.rfind("/") {
+                // It's a path relative to this model, remove file and append uri
+                let (model_path, _model_name) = binding.split_at(path_idx);
+                model_path.to_owned() + "/" + uri
+            } else {
+                error!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
+                    path, uri
+                );
+                "".into()
+            };
+        }
+        AssetSource::Local(ref mut p) => {
+            let binding = p.clone();
+            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+                // Search for a model with the requested name in the same folder as the sdf file
+                // Note that this will not play well if the requested model shares files with other
+                // models that are placed in different folders or are in fuel, but should work for
+                // most local, self contained, models.
+                // Get the org name from context, model name from this and combine
+                if let Some(model_folder) = binding.rsplitn(3, "/").skip(2).next() {
+                    model_folder.to_owned() + "/" + stripped
+                } else {
+                    error!("Unable to extract model folder from asset source [{}]", uri);
+                    "".into()
+                }
+            } else if let Some(path_idx) = binding.rfind("/") {
+                // It's a path relative to this model, remove file and append uri
+                let (model_path, _model_name) = binding.split_at(path_idx);
+                model_path.to_owned() + "/" + uri
+            } else {
+                error!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
+                    path, uri
+                );
+                "".into()
+            };
+        }
+        AssetSource::Bundled(_) | AssetSource::Package(_) => {
+            warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
+        }
     }
+    asset_source
 }
 
 fn parse_scale(scale: &Option<Vector3d>) -> Scale {
