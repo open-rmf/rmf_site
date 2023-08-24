@@ -210,6 +210,14 @@ pub fn update_model_scenes(
             .insert(Category::Model);
 
         if !has_visibility {
+            // NOTE: We separate this out because for CollisionMeshMarker
+            // entities their visibility will be set by the CategoryVisibility
+            // plugin, which will (usually) set visibility to false. If we
+            // always inserted a true Visibiltiy then we would override the
+            // CategoryVisibility setting. This kind of multiple-source-of-truth
+            // conflict should be resolved by having a more sound way of building
+            // new entities and/or using a dependency tracker as proposed here:
+            // https://github.com/open-rmf/rmf_site/issues/173
             commands.insert(VisibilityBundle {
                 visibility: Visibility::VISIBLE,
                 ..default()
