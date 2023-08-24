@@ -206,10 +206,7 @@ pub fn update_model_scenes(
                 format: tentative_format.clone(),
                 entity: None,
             })
-            .insert(SpatialBundle {
-                transform: pose.transform(),
-                ..default()
-            })
+            .insert(TransformBundle::from_transform(pose.transform()))
             .insert(Category::Model);
 
         if !has_visibility {
