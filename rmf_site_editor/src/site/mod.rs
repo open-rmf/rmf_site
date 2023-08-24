@@ -48,6 +48,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod fuel_cache;
+pub use fuel_cache::*;
+
 pub mod group;
 pub use group::*;
 
@@ -154,9 +157,11 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+            .init_resource::<FuelClient>()
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
+            .init_resource::<UpdateFuelCacheChannels>()
             .init_resource::<ModelTrashcan>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
@@ -167,6 +172,8 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
+            .add_event::<UpdateFuelCache>()
+            .add_event::<SetFuelApiKey>()
             .add_event::<MergeGroups>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
@@ -308,6 +315,7 @@ impl Plugin for SitePlugin {
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
+                    .with_system(handle_model_loaded_events)
                     .with_system(update_constraint_for_moved_anchors)
                     .with_system(update_constraint_for_changed_labels)
                     .with_system(update_changed_constraint)
@@ -317,12 +325,16 @@ impl Plugin for SitePlugin {
                     .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
+                    .with_system(propagate_model_render_layers)
                     .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
+                    .with_system(handle_update_fuel_cache_requests)
+                    .with_system(read_update_fuel_cache_results)
+                    .with_system(reload_failed_models_with_new_api_key)
                     .with_system(update_walls_for_moved_anchors)
                     .with_system(update_walls)
                     .with_system(update_transforms_for_changed_poses)
