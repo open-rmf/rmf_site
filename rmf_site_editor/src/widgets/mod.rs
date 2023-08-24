@@ -373,7 +373,11 @@ fn site_ui_layout(
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
                         if ui.add(Button::new("Building preview")).clicked() {
-                            events.app_state.set(AppState::SiteVisualizer).ok();
+                            if let Err(err) =
+                                events.app_state.overwrite_set(AppState::SiteVisualizer)
+                            {
+                                error!("Failed to switch to full site visualization: {err}");
+                            }
                         }
                     });
                 });
@@ -550,7 +554,9 @@ fn site_visualizer_ui_layout(
                             [18., 18.],
                             "Return to site editor"
                         )).clicked() {
-                            events.app_state.set(AppState::SiteEditor).ok();
+                            if let Err(err) = events.app_state.overwrite_set(AppState::SiteEditor) {
+                                error!("Failed to return to site editor: {err}");
+                            }
                         }
                     });
                 });
