@@ -334,9 +334,13 @@ impl AssetIo for SiteAssetIo {
                 self.fetch_asset(remote_url, asset_name)
             }
 
-            AssetSource::OSMSlippyMap(zoom, lat, lon) => {
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
                 return Box::pin(async move {
-                    let tile = OSMTile::from_latlon(zoom, lat, lon);
+                    let tile = OSMTile::from_latlon(zoom, latitude, longitude);
                     tile.get_map_image().await.map_err(|e| {
                         AssetIoError::Io(io::Error::new(
                             io::ErrorKind::Other,

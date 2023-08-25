@@ -175,7 +175,6 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
-            .add_event::<GeoReferenceSelectAnchorEvent>()
             .add_event::<UpdateFuelCache>()
             .add_event::<SetFuelApiKey>()
             .add_event::<MergeGroups>()

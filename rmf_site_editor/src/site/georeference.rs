@@ -21,18 +21,6 @@ const MAX_ZOOM: i32 = 19;
 const MIN_ZOOM: i32 = 12;
 const MAX_TILES: usize = 50;
 
-#[derive(Debug, Clone)]
-pub struct GeoReferenceSelectAnchorEvent {}
-
-#[derive(Debug, Clone)]
-pub struct GeoReferenceSetReferenceEvent;
-
-#[derive(Debug, Clone)]
-pub struct GeoReferenceViewReferenceEvent;
-
-#[derive(Debug, Clone)]
-pub struct GeoReferenceMoveEvent;
-
 #[derive(Component, Clone, Eq, PartialEq, Hash)]
 pub struct MapTile(OSMTile);
 
@@ -309,9 +297,11 @@ fn spawn_tile(
     };
     let quad_handle = meshes.add(mesh);
 
-    let texture_handle: Handle<Image> = asset_server.load(String::from(
-        &AssetSource::OSMSlippyMap(tile.zoom(), coordinates.0, coordinates.1),
-    ));
+    let texture_handle: Handle<Image> = asset_server.load(String::from(&AssetSource::OSMTile {
+        zoom: tile.zoom(),
+        latitude: coordinates.0,
+        longitude: coordinates.1,
+    }));
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
@@ -593,11 +583,7 @@ pub struct OSMViewPlugin;
 
 impl Plugin for OSMViewPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<GeoReferenceViewReferenceEvent>()
-            .add_event::<GeoReferenceSelectAnchorEvent>()
-            .add_event::<GeoReferenceSetReferenceEvent>()
-            .init_resource::<OSMMenu>()
-            .add_event::<GeoReferenceMoveEvent>()
+        app.init_resource::<OSMMenu>()
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)

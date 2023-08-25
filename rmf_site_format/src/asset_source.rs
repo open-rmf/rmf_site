@@ -30,7 +30,11 @@ pub enum AssetSource {
     Search(String),
     Bundled(String),
     Package(String),
-    OSMSlippyMap(i32, f32, f32),
+    OSMTile {
+        zoom: i32,
+        latitude: f32,
+        longitude: f32,
+    },
 }
 
 impl AssetSource {
@@ -41,7 +45,11 @@ impl AssetSource {
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
-            Self::OSMSlippyMap(_, _, _) => "Map",
+            Self::OSMTile {
+                zoom: _,
+                latitude: _,
+                longitude: _,
+            } => "Map",
         }
     }
 
@@ -111,7 +119,7 @@ impl From<&str> for AssetSource {
             return AssetSource::Bundled(path);
         } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
-        } else if let Some(path) = path.strip_prefix("map://").map(|p| p.to_string()) {
+        } else if let Some(path) = path.strip_prefix("osm-tile://").map(|p| p.to_string()) {
             if let Some(path) = path.strip_suffix(".png") {
                 let coordinates: Result<Vec<_>, _> =
                     path.split(",").map(|f| f.parse::<f32>()).collect();
@@ -127,11 +135,11 @@ impl From<&str> for AssetSource {
                             return AssetSource::default();
                         }
 
-                        return AssetSource::OSMSlippyMap(
-                            coordinates[0] as i32,
-                            coordinates[1],
-                            coordinates[2],
-                        );
+                        return AssetSource::OSMTile {
+                            zoom: coordinates[0] as i32,
+                            latitude: coordinates[1],
+                            longitude: coordinates[2],
+                        };
                     }
                 }
             } else {
@@ -151,8 +159,12 @@ impl From<&AssetSource> for String {
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
-            AssetSource::OSMSlippyMap(zoom, lat, lon) => {
-                format!("map://{},{},{}.png", zoom, lat, lon)
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                format!("osm-tile://{},{},{}.png", zoom, latitude, longitude)
             }
         }
     }
@@ -192,8 +204,12 @@ impl Recall for RecallAssetSource {
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
             }
-            AssetSource::OSMSlippyMap(zoom, lat, lon) => {
-                self.map = Some((*zoom, *lat, *lon));
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                self.map = Some((*zoom, *latitude, *longitude));
             }
         }
     }
