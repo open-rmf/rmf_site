@@ -29,6 +29,7 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
         PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
     },
+    workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -287,6 +288,8 @@ pub struct AppEvents<'w, 's> {
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+    // TODO(luca) bundle this in requests once the 16 size limit is lifted in bevy 0.11
+    pub create_joint: EventWriter<'w, 's, CreateJoint>,
 }
 
 fn site_ui_layout(

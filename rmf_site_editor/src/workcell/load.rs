@@ -27,7 +27,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
+    Category, ConstraintDependents, FrameMarker, MeshConstraint, NameInWorkcell, SiteID, Workcell,
     WorkcellCollisionMarker, WorkcellVisualMarker,
 };
 
@@ -89,6 +89,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         let e = commands
             .spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
             .insert(SiteID(*id))
+            .insert(FrameMarker)
             .id();
         if let Some(c) = &parented_anchor.bundle.mesh_constraint {
             let model_entity = *id_to_entity

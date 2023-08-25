@@ -18,10 +18,11 @@
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
     site::{
-        Anchor, AssociatedGraphs, Category, Change, Dependents, LocationTags, MeshConstraint,
-        SiteID, Subordinate,
+        Anchor, AssociatedGraphs, Category, Change, Dependents, JointType, LocationTags,
+        MeshConstraint, SiteID, Subordinate,
     },
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
+    workcell::CreateJoint,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
@@ -42,6 +43,7 @@ pub struct InspectAnchorParams<'w, 's> {
     >,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
+    pub joints: Query<'w, 's, Entity, With<JointType>>,
 }
 
 pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -192,6 +194,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
                                 // Parent reassigning widget
                                 ui.label("Parent");
+                                // If the parent is not a joint, add a joint creation widget
+                                if self.params.joints.get(parent.get()).is_err() {
+                                    if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
+                                        println!("Adding joint");
+                                        self.events.create_joint.send(CreateJoint {
+                                            parent: parent.get(),
+                                            child: self.anchor,
+                                        });
+                                    }
+                                }
                                 SelectionWidget::new(
                                     parent.get(),
                                     self.params.site_id.get(parent.get()).ok().cloned(),

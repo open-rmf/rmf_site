@@ -15,6 +15,9 @@
  *
 */
 
+pub mod joint;
+pub use joint::*;
+
 pub mod load;
 pub use load::*;
 
@@ -88,6 +91,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_plugin(WireframePlugin)
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             .add_plugin(RapierDebugRenderPlugin::default())
+            .add_event::<CreateJoint>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
@@ -99,6 +103,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(update_constraint_dependents)
                     .with_system(update_model_scenes)
                     .with_system(update_model_scales)
+                    .with_system(handle_create_joint_events)
                     .with_system(update_model_tentative_formats)
                     .with_system(make_models_selectable)
                     .with_system(handle_workcell_keyboard_input)

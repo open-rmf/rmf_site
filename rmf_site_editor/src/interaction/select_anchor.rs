@@ -25,10 +25,10 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
-    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, NameOfSite, Path,
-    PixelsPerMeter, Point, Pose, Side, Wall, WorkcellCollisionMarker, WorkcellModel,
-    WorkcellVisualMarker,
+    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, FrameMarker, Lane,
+    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
+    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall,
+    WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -2319,7 +2319,8 @@ pub fn handle_select_anchor_3d_mode(
                             params
                                 .commands
                                 .entity(id)
-                                .insert(AnchorBundle::new(Anchor::Pose3D(pose)));
+                                .insert(AnchorBundle::new(Anchor::Pose3D(pose)))
+                                .insert(FrameMarker);
                             parent
                         };
                         parent
