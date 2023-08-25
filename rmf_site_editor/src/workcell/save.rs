@@ -55,7 +55,8 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
             Entity,
             (
                 Or<(
-                    With<Anchor>,
+                    With<FrameMarker>,
+                    With<JointType>,
                     With<Inertia>,
                     With<VisualMeshMarker>,
                     With<CollisionMeshMarker>,
@@ -98,6 +99,7 @@ pub fn generate_workcell(
             ),
             Without<Pending>,
         >,
+        Query<(Entity, &Pose, &Mass, &Inertia, &SiteID, &Parent), Without<Pending>>,
         Query<
             (
                 Entity,
@@ -114,14 +116,35 @@ pub fn generate_workcell(
                 Without<Pending>,
             ),
         >,
+        Query<
+            (
+                Entity,
+                &JointType,
+                Option<&JointAxis>,
+                Option<&JointLimit>,
+                &NameInWorkcell,
+                &SiteID,
+                &Parent,
+            ),
+            Without<Pending>,
+        >,
         Query<&VisualMeshMarker>,
         Query<&CollisionMeshMarker>,
         Query<&SiteID>,
         Query<&WorkcellProperties>,
         Query<&Parent>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_visuals, q_collisions, q_site_id, q_properties, q_parents) =
-        state.get(world);
+    let (
+        q_anchors,
+        q_inertials,
+        q_models,
+        q_joints,
+        q_visuals,
+        q_collisions,
+        q_site_id,
+        q_properties,
+        q_parents,
+    ) = state.get(world);
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
@@ -162,7 +185,7 @@ pub fn generate_workcell(
             workcell.visuals.insert(
                 id.0,
                 Parented {
-                    parent: parent,
+                    parent,
                     bundle: WorkcellModel {
                         name: name.0.clone(),
                         geometry: geom,
@@ -175,7 +198,7 @@ pub fn generate_workcell(
             workcell.collisions.insert(
                 id.0,
                 Parented {
-                    parent: parent,
+                    parent,
                     bundle: WorkcellModel {
                         name: name.0.clone(),
                         geometry: geom,
@@ -213,12 +236,63 @@ pub fn generate_workcell(
         workcell.frames.insert(
             id.0,
             Parented {
-                parent: parent,
+                parent,
                 bundle: Frame {
                     anchor: anchor.clone(),
                     name: name.cloned(),
                     mesh_constraint: constraint,
                     marker: FrameMarker,
+                },
+            },
+        );
+    }
+
+    for (e, pose, mass, inertia, id, parent) in &q_inertials {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => parent.0,
+            Err(_) => {
+                error!("Parent not found for inertial {:?}", parent.get());
+                continue;
+            }
+        };
+
+        workcell.inertials.insert(
+            id.0,
+            Parented {
+                parent,
+                bundle: Inertial {
+                    origin: pose.clone(),
+                    mass: mass.clone(),
+                    inertia: inertia.clone(),
+                },
+            },
+        );
+    }
+
+    for (e, joint_type, joint_axis, joint_limit, name, id, parent) in &q_joints {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => parent.0,
+            Err(_) => {
+                error!("Parent not found for joint {:?}", parent.get());
+                continue;
+            }
+        };
+
+        workcell.joints.insert(
+            id.0,
+            Parented {
+                parent,
+                bundle: Joint {
+                    name: name.clone(),
+                    joint_type: joint_type.clone(),
+                    limit: joint_limit.cloned(),
+                    axis: joint_axis.cloned(),
                 },
             },
         );
