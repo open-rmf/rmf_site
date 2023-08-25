@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Intrinsic LLC
+ * Copyright (C) 2023 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -81,25 +81,21 @@ impl OSMTile {
     pub fn get_quad_mesh(&self) -> Option<Mesh> {
         let nw = self.get_nw_corner();
         let Ok(nw) = self.get_transform_from_lat_lon(nw.0, nw.1) else {
-            println!("Failed to get nw {:?}", nw);
             return None;
         };
 
         let ne = self.get_ne_corner();
         let Ok(ne) = self.get_transform_from_lat_lon(ne.0, ne.1) else {
-            println!("Failed to get ne {:?}", ne);
             return None;
         };
 
         let sw = self.get_sw_corner();
         let Ok(sw) = self.get_transform_from_lat_lon(sw.0, sw.1) else {
-            println!("Failed to get sw {:?}", sw);
             return None;
         };
 
         let se = self.get_se_corner();
         let Ok(se) = self.get_transform_from_lat_lon(se.0, se.1) else {
-            println!("Failed to get se {:?}", se);
             return None;
         };
 
