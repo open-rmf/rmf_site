@@ -144,7 +144,6 @@ fn spawn_geometry(
                     source: compute_model_source(sdf_path, &mesh.uri),
                     pose,
                     is_static: IsStatic(is_static),
-                    constraints: ConstraintDependents::default(),
                     scale: parse_scale(&mesh.scale),
                     marker: ModelMarker,
                 })

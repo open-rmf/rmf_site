@@ -486,6 +486,7 @@ impl<T: RefTrait> LiftProperties<T> {
             is_static: self.is_static,
             initial_level: InitialLevel(
                 self.initial_level
+                    .0
                     .map(|id| id_map.get(&id).unwrap())
                     .copied(),
             ),

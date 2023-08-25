@@ -13,7 +13,7 @@ serde_yaml = "0.8.23"
 serde_json = "*"
 ron = "0.8"
 thiserror = "*"
-glam = "0.22"
+glam = { version = "0.22", features = ["serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 bevy = { version = "0.9", optional = true }
 urdf-rs = "0.7"
