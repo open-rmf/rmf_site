@@ -18,9 +18,10 @@
 use bevy::prelude::*;
 use std::collections::{HashMap, HashSet};
 
+use crate::site::{CollisionMeshMarker, VisualMeshMarker};
+
 use rmf_site_format::{
-    Anchor, Angle, Category, Link, MeshPrimitive, Pose, Rotation, UrdfRoot,
-    WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    Anchor, Angle, Category, Link, MeshPrimitive, Pose, Rotation, UrdfRoot, WorkcellModel,
 };
 
 use urdf_rs::JointType;
@@ -48,15 +49,14 @@ pub fn handle_new_urdf_roots(mut commands: Commands, new_urdfs: Query<(Entity, &
             root_links.insert(link_entity);
             for visual in &link.visual {
                 let model = WorkcellModel::from(visual);
-                let cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellVisualMarker));
+                let cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, VisualMeshMarker));
                 let id = cmd.id();
                 model.add_bevy_components(cmd);
                 commands.entity(link_entity).add_child(id);
             }
             for collision in &link.collision {
                 let model = WorkcellModel::from(collision);
-                let cmd =
-                    commands.spawn((SpatialBundle::VISIBLE_IDENTITY, WorkcellCollisionMarker));
+                let cmd = commands.spawn((SpatialBundle::VISIBLE_IDENTITY, CollisionMeshMarker));
                 let id = cmd.id();
                 model.add_bevy_components(cmd);
                 commands.entity(link_entity).add_child(id);

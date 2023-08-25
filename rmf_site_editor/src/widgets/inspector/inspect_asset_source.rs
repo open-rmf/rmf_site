@@ -15,7 +15,9 @@
  *
 */
 
+use crate::site::DefaultFile;
 use bevy_egui::egui::{ComboBox, Ui};
+use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -24,11 +26,20 @@ use rfd::FileDialog;
 pub struct InspectAssetSource<'a> {
     pub source: &'a AssetSource,
     pub recall: &'a RecallAssetSource,
+    pub default_file: Option<&'a DefaultFile>,
 }
 
 impl<'a> InspectAssetSource<'a> {
-    pub fn new(source: &'a AssetSource, recall: &'a RecallAssetSource) -> Self {
-        Self { source, recall }
+    pub fn new(
+        source: &'a AssetSource,
+        recall: &'a RecallAssetSource,
+        default_file: Option<&'a DefaultFile>,
+    ) -> Self {
+        Self {
+            source,
+            recall,
+            default_file,
+        }
     }
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
@@ -60,13 +71,55 @@ impl<'a> InspectAssetSource<'a> {
         });
         match &mut new_source {
             AssetSource::Local(name) => {
+                let is_relative = if let Some(default_file) = self.default_file {
+                    let path = std::path::Path::new(name);
+                    let mut is_relative = path.is_relative();
+                    if ui.checkbox(&mut is_relative, "Relative").clicked() {
+                        if is_relative {
+                            let parent_dir = default_file
+                                .0
+                                .parent()
+                                .map(|p| p.to_str())
+                                .flatten()
+                                .unwrap_or("");
+                            if let Some(new_path) = diff_paths(path, parent_dir) {
+                                if let Some(new_path) = new_path.to_str() {
+                                    *name = new_path.to_owned();
+                                }
+                            }
+                        } else {
+                            if let Some(new_path) = default_file.with_file_name(path).to_str() {
+                                *name = new_path.to_owned();
+                            }
+                        }
+                    }
+                    is_relative
+                } else {
+                    false
+                };
+
                 ui.horizontal(|ui| {
                     // Button to load from file, disabled for wasm since there are no local files
                     #[cfg(not(target_arch = "wasm32"))]
                     if ui.button("Browse").clicked() {
                         if let Some(file) = FileDialog::new().pick_file() {
                             if let Some(src) = file.to_str() {
-                                *name = String::from(src);
+                                if let (Some(default_file), true) = (self.default_file, is_relative)
+                                {
+                                    let parent_dir = default_file
+                                        .0
+                                        .parent()
+                                        .map(|p| p.to_str())
+                                        .flatten()
+                                        .unwrap_or("");
+                                    if let Some(buf) = diff_paths(src, parent_dir) {
+                                        *name = buf.to_str().unwrap_or(src).to_owned();
+                                    } else {
+                                        *name = src.to_owned();
+                                    }
+                                } else {
+                                    *name = src.to_owned();
+                                }
                             }
                         };
                     }

@@ -84,13 +84,16 @@ impl NavGraph {
                     }
                 }
 
-                levels.insert(level.properties.name.clone(), NavLevel { lanes, vertices });
+                levels.insert(
+                    level.properties.name.clone().0,
+                    NavLevel { lanes, vertices },
+                );
             }
 
             graphs.push((
                 graph.name.0.clone(),
                 Self {
-                    building_name: site.properties.name.clone(),
+                    building_name: site.properties.name.clone().0,
                     levels,
                 },
             ))
@@ -172,13 +175,19 @@ impl NavVertexProperties {
             None => return props,
         };
         props.name = location.name.0.clone();
-        props.is_charger = location.tags.iter().find(|t| t.is_charger()).is_some();
+        props.is_charger = location.tags.0.iter().find(|t| t.is_charger()).is_some();
         props.is_holding_point = location
             .tags
+            .0
             .iter()
             .find(|t| t.is_holding_point())
             .is_some();
-        props.is_parking_spot = location.tags.iter().find(|t| t.is_parking_spot()).is_some();
+        props.is_parking_spot = location
+            .tags
+            .0
+            .iter()
+            .find(|t| t.is_parking_spot())
+            .is_some();
 
         props
     }
