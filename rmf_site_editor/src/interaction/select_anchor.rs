@@ -18,8 +18,9 @@
 use crate::{
     interaction::*,
     site::{
-        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, Dependents,
-        DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
+        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, CollisionMeshMarker,
+        Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
+        VisualMeshMarker,
     },
     CurrentWorkspace,
 };
@@ -27,8 +28,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
     Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, FrameMarker, Lane,
     LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
-    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall,
-    WorkcellCollisionMarker, WorkcellModel, WorkcellVisualMarker,
+    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -1313,7 +1313,7 @@ impl SelectAnchorPointBuilder {
 
     pub fn for_visual(self, model: WorkcellModel) -> SelectAnchor3D {
         SelectAnchor3D {
-            bundle: PlaceableObject::WorkcellVisual(model),
+            bundle: PlaceableObject::VisualMesh(model),
             parent: None,
             target: self.for_element,
             continuity: self.continuity,
@@ -1322,7 +1322,7 @@ impl SelectAnchorPointBuilder {
 
     pub fn for_collision(self, model: WorkcellModel) -> SelectAnchor3D {
         SelectAnchor3D {
-            bundle: PlaceableObject::WorkcellCollision(model),
+            bundle: PlaceableObject::CollisionMesh(model),
             parent: None,
             target: self.for_element,
             continuity: self.continuity,
@@ -1693,8 +1693,8 @@ impl SelectAnchor {
 enum PlaceableObject {
     Model(Model),
     Anchor,
-    WorkcellVisual(WorkcellModel),
-    WorkcellCollision(WorkcellModel),
+    VisualMesh(WorkcellModel),
+    CollisionMesh(WorkcellModel),
 }
 
 #[derive(Clone)]
@@ -2253,7 +2253,7 @@ pub fn handle_select_anchor_3d_mode(
                     .cursor
                     .set_model_preview(&mut params.commands, Some(m.clone()));
             }
-            PlaceableObject::WorkcellVisual(ref m) | PlaceableObject::WorkcellCollision(ref m) => {
+            PlaceableObject::VisualMesh(ref m) | PlaceableObject::CollisionMesh(ref m) => {
                 // Spawn the model as a child of the cursor
                 params
                     .cursor
@@ -2332,25 +2332,25 @@ pub fn handle_select_anchor_3d_mode(
                         params.commands.entity(id).insert(model);
                         parent
                     }
-                    PlaceableObject::WorkcellVisual(ref a) => {
+                    PlaceableObject::VisualMesh(ref a) => {
                         let mut model = a.clone();
                         let parent = request
                             .parent
                             .unwrap_or(workspace.root.expect("No workspace"));
                         model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         let mut cmd = params.commands.entity(id);
-                        cmd.insert(WorkcellVisualMarker);
+                        cmd.insert(VisualMeshMarker);
                         model.add_bevy_components(cmd);
                         parent
                     }
-                    PlaceableObject::WorkcellCollision(ref a) => {
+                    PlaceableObject::CollisionMesh(ref a) => {
                         let mut model = a.clone();
                         let parent = request
                             .parent
                             .unwrap_or(workspace.root.expect("No workspace"));
                         model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         let mut cmd = params.commands.entity(id);
-                        cmd.insert(WorkcellCollisionMarker);
+                        cmd.insert(CollisionMeshMarker);
                         model.add_bevy_components(cmd);
                         parent
                     }

@@ -43,9 +43,11 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        clear_model_trashcan, handle_new_mesh_primitives, handle_new_sdf_roots,
-        make_models_selectable, update_anchor_transforms, update_model_scales, update_model_scenes,
-        update_model_tentative_formats, update_transforms_for_changed_poses,
+        clear_model_trashcan, handle_model_loaded_events, handle_new_mesh_primitives,
+        handle_new_sdf_roots, handle_update_fuel_cache_requests, make_models_selectable,
+        propagate_model_render_layers, read_update_fuel_cache_results,
+        reload_failed_models_with_new_api_key, update_anchor_transforms, update_model_scales,
+        update_model_scenes, update_model_tentative_formats, update_transforms_for_changed_poses,
     },
 };
 
@@ -101,11 +103,16 @@ impl Plugin for WorkcellEditorPlugin {
                 SystemSet::on_update(AppState::WorkcellEditor)
                     .with_system(add_wireframe_to_meshes)
                     .with_system(update_constraint_dependents)
+                    .with_system(handle_model_loaded_events)
                     .with_system(update_model_scenes)
                     .with_system(update_model_scales)
                     .with_system(handle_create_joint_events)
                     .with_system(update_model_tentative_formats)
+                    .with_system(propagate_model_render_layers)
                     .with_system(make_models_selectable)
+                    .with_system(handle_update_fuel_cache_requests)
+                    .with_system(read_update_fuel_cache_results)
+                    .with_system(reload_failed_models_with_new_api_key)
                     .with_system(handle_workcell_keyboard_input)
                     .with_system(handle_new_mesh_primitives)
                     .with_system(change_workcell.before(load_workcell))

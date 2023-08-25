@@ -70,8 +70,8 @@ pub enum MeshElement {
 
 /// Attached to Model entities to keep track of constraints attached to them,
 /// for change detection and hierarchy propagation
-#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg(feature = "bevy")]
+#[derive(Component, Deref, DerefMut, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
@@ -307,14 +307,6 @@ impl Default for Geometry {
     }
 }
 
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct WorkcellVisualMarker;
-
-#[derive(Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct WorkcellCollisionMarker;
-
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 pub struct WorkcellModel {
     pub name: String,
@@ -338,7 +330,7 @@ impl WorkcellModel {
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
                 commands.insert((
                     NameInWorkcell(self.name.clone()),
-                    AssetSource::from(filename),
+                    AssetSource::from(filename.as_str()),
                     self.pose.clone(),
                     ConstraintDependents::default(),
                     scale,

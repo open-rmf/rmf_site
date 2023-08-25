@@ -322,7 +322,6 @@ fn generate_levels(
                 &AssetSource,
                 &Pose,
                 &IsStatic,
-                &ConstraintDependents,
                 &Scale,
                 &SiteID,
                 &Parent,
@@ -571,7 +570,7 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_static, constraint_dependents, scale, id, parent) in &q_models {
+    for (name, source, pose, is_static, scale, id, parent) in &q_models {
         if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
@@ -581,7 +580,6 @@ fn generate_levels(
                         source: source.clone(),
                         pose: pose.clone(),
                         is_static: is_static.clone(),
-                        constraints: constraint_dependents.clone(),
                         scale: scale.clone(),
                         marker: ModelMarker,
                     },

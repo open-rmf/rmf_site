@@ -243,13 +243,19 @@ fn handle_workspace_data(
                     match building.to_site() {
                         Ok(site) => {
                             // Switch state
-                            app_state.set(AppState::SiteEditor).ok();
+                            if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
+                                error!("Failed to open the site edit mode: {err}");
+                            }
                             load_site.send(LoadSite {
                                 site,
                                 focus: true,
                                 default_file: file,
                             });
-                            interaction_state.set(InteractionState::Enable).ok();
+                            if let Err(err) =
+                                interaction_state.overwrite_set(InteractionState::Enable)
+                            {
+                                error!("Failed to turn on interaction: {err}");
+                            }
                         }
                         Err(err) => {
                             error!("Failed converting to site {:?}", err);
@@ -266,13 +272,17 @@ fn handle_workspace_data(
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
-                    app_state.set(AppState::SiteEditor).ok();
+                    if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
+                        error!("Failed to open the site edit mode: {err}");
+                    }
                     load_site.send(LoadSite {
                         site,
                         focus: true,
                         default_file: file,
                     });
-                    interaction_state.set(InteractionState::Enable).ok();
+                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                        error!("Failed to turn on interaction: {err}");
+                    }
                 }
                 Err(err) => {
                     error!("Failed loading site {:?}", err);
@@ -284,13 +294,17 @@ fn handle_workspace_data(
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
-                    app_state.set(AppState::WorkcellEditor).ok();
+                    if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
+                        error!("Failed to open the workcell edit mode: {err}");
+                    }
                     load_workcell.send(LoadWorkcell {
                         workcell,
                         focus: true,
                         default_file: file,
                     });
-                    interaction_state.set(InteractionState::Enable).ok();
+                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                        error!("Failed to turn on interaction: {err}");
+                    }
                 }
                 Err(err) => {
                     error!("Failed loading workcell {:?}", err);
