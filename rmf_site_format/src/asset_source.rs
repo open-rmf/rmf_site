@@ -18,8 +18,9 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::Component;
+use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -43,6 +44,40 @@ impl AssetSource {
             Self::OSMSlippyMap(_, _, _) => "Map",
         }
     }
+
+    /// Returns true if the asset source is a local file with a relative path.
+    pub fn is_local_relative(&self) -> bool {
+        if let Self::Local(asset_path) = self {
+            return Path::new(asset_path).is_relative();
+        }
+
+        return false;
+    }
+
+    /// If the AssetSource contains a relative local path, this will migrate its
+    /// relativity from `old_path` to `new_path`. For any other path type, this
+    /// function simply returns Ok. It will return Err if diff_paths was not
+    /// able to calculate how to make the asset path relative to the new path or
+    /// if the result could not be converted back to a string.
+    pub fn migrate_relative_path(
+        &mut self,
+        old_reference_path: &PathBuf,
+        new_reference_path: &PathBuf,
+    ) -> Result<(), ()> {
+        if let Self::Local(asset_path) = self {
+            if Path::new(asset_path).is_relative() {
+                println!("Changing path for [{asset_path:?}]");
+                let new_path = diff_paths(
+                    &old_reference_path.with_file_name(asset_path.clone()),
+                    new_reference_path,
+                )
+                .ok_or(())?;
+                *asset_path = new_path.to_str().ok_or(())?.to_owned();
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl Default for AssetSource {
@@ -54,8 +89,8 @@ impl Default for AssetSource {
 // Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
 impl From<&Path> for AssetSource {
     fn from(path: &Path) -> Self {
-        if let Some(path) = path.to_str().and_then(|p| Some(String::from(p))) {
-            AssetSource::from(&path)
+        if let Some(path) = path.to_str() {
+            AssetSource::from(path)
         } else {
             AssetSource::default()
         }
@@ -63,8 +98,8 @@ impl From<&Path> for AssetSource {
 }
 
 // Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&String> for AssetSource {
-    fn from(path: &String) -> Self {
+impl From<&str> for AssetSource {
+    fn from(path: &str) -> Self {
         // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
         if let Some(path) = path.strip_prefix("rmf-server://").map(|p| p.to_string()) {
             return AssetSource::Remote(path);

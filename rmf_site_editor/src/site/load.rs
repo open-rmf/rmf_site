@@ -367,7 +367,9 @@ pub fn load_site(
             change_current_site.send(ChangeCurrentSite { site, level: None });
 
             if *site_display_state.current() == SiteState::Off {
-                site_display_state.set(SiteState::Display).ok();
+                if let Err(err) = site_display_state.overwrite_set(SiteState::Display) {
+                    error!("Failed to turn the site display on: {err}");
+                }
             }
         }
     }

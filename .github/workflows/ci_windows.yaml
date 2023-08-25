@@ -24,7 +24,12 @@ jobs:
         rustup target add x86_64-pc-windows-msvc
       shell: powershell
 
-    - name: build
+    - name: build rmf_site_format
+      run: |
+        cd rmf_site_format
+        cargo build
+
+    - name: build rmf_site_editor
       run: |
         rustc -Vv
         cargo -V

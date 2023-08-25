@@ -10,6 +10,7 @@ use std::fs;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
 use crate::{urdf_loader::UrdfPlugin, OSMTile};
 use urdf_rs::utils::expand_package_path;
@@ -29,7 +30,9 @@ struct SiteAssetIo {
 }
 
 const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
-const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+pub const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+
+pub static FUEL_API_KEY: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Deserialize)]
 struct FuelErrorMsg {
@@ -61,12 +64,25 @@ impl SiteAssetIo {
         asset_name: String,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let bytes = surf::get(remote_url.clone())
-                .recv_bytes()
-                .await
-                .map_err(|e| {
-                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                })?;
+            let mut req = surf::get(remote_url.clone());
+            match FUEL_API_KEY.lock() {
+                Ok(key) => {
+                    if let Some(key) = key.clone() {
+                        req = req.header("Private-token", key);
+                    }
+                }
+                Err(poisoned_key) => {
+                    // Reset the key to None
+                    *poisoned_key.into_inner() = None;
+                    return Err(AssetIoError::Io(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Lock poisoning detected when reading fuel API key, please set it again."),
+                    )));
+                }
+            }
+            let bytes = req.recv_bytes().await.map_err(|e| {
+                AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+            })?;
 
             match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
                 Ok(error) => {
@@ -79,9 +95,10 @@ impl SiteAssetIo {
                     )));
                 }
                 Err(_) => {
-                    // This is okay. When a GET from fuel was successful, it
-                    // will not return a JSON that can be interpreted as a
-                    // FuelErrorMsg
+                    // This is actually the happy path. When a GET from fuel was
+                    // successful, it will not return a JSON that can be
+                    // interpreted as a FuelErrorMsg, so our attempt to parse an
+                    // error message will fail.
                 }
             }
 
@@ -285,7 +302,6 @@ impl AssetIo for SiteAssetIo {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
-                // For SDF Only:
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
@@ -298,14 +314,6 @@ impl AssetIo for SiteAssetIo {
                     }
                 }
 
-                if !asset_name.ends_with(".sdf") {
-                    return Box::pin(async move {
-                        Err(AssetIoError::Io(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Asset {} not found", asset_name),
-                        )))
-                    });
-                }
                 // Try local cache
                 #[cfg(not(target_arch = "wasm32"))]
                 {

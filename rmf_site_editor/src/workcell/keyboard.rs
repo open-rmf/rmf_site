@@ -18,19 +18,9 @@
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
 
-use rmf_site_format::{WorkcellCollisionMarker, WorkcellVisualMarker};
-
 pub fn handle_workcell_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     mut egui_context: ResMut<EguiContext>,
-    mut visuals: Query<
-        &mut Visibility,
-        (With<WorkcellVisualMarker>, Without<WorkcellCollisionMarker>),
-    >,
-    mut collisions: Query<
-        &mut Visibility,
-        (With<WorkcellCollisionMarker>, Without<WorkcellVisualMarker>),
-    >,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -41,6 +31,7 @@ pub fn handle_workcell_keyboard_input(
         return;
     }
 
+    /*
     if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
         if keyboard_input.just_pressed(KeyCode::V) {
             info!("Toggling visuals");
@@ -56,4 +47,5 @@ pub fn handle_workcell_keyboard_input(
             }
         }
     }
+    */
 }

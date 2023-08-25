@@ -141,7 +141,7 @@ fn switch_edit_drawing_mode(
                 error!("Cannot change transform of drawing editor view");
             }
 
-            if let Some(err) = app_state.set(AppState::SiteDrawingEditor).err() {
+            if let Some(err) = app_state.overwrite_set(AppState::SiteDrawingEditor).err() {
                 error!("Unable to switch to drawing editor mode: {err:?}");
             }
 
@@ -173,11 +173,11 @@ fn switch_edit_drawing_mode(
             }
 
             if is_site.contains(w) {
-                if let Some(err) = app_state.set(AppState::SiteEditor).err() {
+                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
                     error!("Failed to switch back to site editing mode: {err:?}");
                 }
             } else if is_workcell.contains(w) {
-                if let Some(err) = app_state.set(AppState::WorkcellEditor).err() {
+                if let Some(err) = app_state.overwrite_set(AppState::WorkcellEditor).err() {
                     error!("Failed to switch back to workcell editing mode: {err:?}");
                 }
             } else {
@@ -186,7 +186,7 @@ fn switch_edit_drawing_mode(
                     "Unable to identify the type for the current workspace \
                     {w:?}, so we will default to site editing mode",
                 );
-                if let Some(err) = app_state.set(AppState::SiteEditor).err() {
+                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
                     error!("Failed to switch back to site editing mode: {err:?}");
                 }
             }

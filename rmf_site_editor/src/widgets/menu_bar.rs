@@ -356,13 +356,25 @@ pub fn top_menu_bar(
                         .send((!params.resources.measurements.0).into());
                 }
                 if ui
-                    .checkbox(&mut params.resources.models.0.clone(), "Models")
+                    .checkbox(
+                        &mut params.resources.collisions.0.clone(),
+                        "Collision meshes",
+                    )
                     .clicked()
                 {
                     params
                         .events
-                        .models
-                        .send((!params.resources.models.0).into());
+                        .collisions
+                        .send((!params.resources.collisions.0).into());
+                }
+                if ui
+                    .checkbox(&mut params.resources.visuals.0.clone(), "Visual meshes")
+                    .clicked()
+                {
+                    params
+                        .events
+                        .visuals
+                        .send((!params.resources.visuals.0).into());
                 }
                 if ui
                     .checkbox(&mut params.resources.walls.0.clone(), "Walls")

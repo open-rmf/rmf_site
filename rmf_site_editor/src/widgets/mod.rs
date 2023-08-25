@@ -24,10 +24,11 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
-        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
-        PhysicalLightToggle, SaveNavGraphs, SiteState, Texture, ToggleLiftDoorAvailability,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
+        ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
+        ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
+        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, SiteState, Texture,
+        ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
@@ -74,6 +75,9 @@ use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTe
 pub mod move_layer;
 pub use move_layer::*;
 
+pub mod new_model;
+pub use new_model::*;
+
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
 pub enum UiUpdateLabel {
     DrawUi,
@@ -101,6 +105,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
+            .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
@@ -237,9 +242,10 @@ pub struct VisibilityEvents<'w, 's> {
     pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
     pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
     pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
-    pub models: EventWriter<'w, 's, SetCategoryVisibility<ModelMarker>>,
     pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
     pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
+    pub visuals: EventWriter<'w, 's, SetCategoryVisibility<VisualMeshMarker>>,
+    pub collisions: EventWriter<'w, 's, SetCategoryVisibility<CollisionMeshMarker>>,
 }
 
 #[derive(SystemParam)]
@@ -252,9 +258,10 @@ pub struct VisibilityResources<'w, 's> {
     pub locations: Res<'w, CategoryVisibility<LocationTags>>,
     pub fiducials: Res<'w, CategoryVisibility<FiducialMarker>>,
     pub constraints: Res<'w, CategoryVisibility<ConstraintMarker>>,
-    pub models: Res<'w, CategoryVisibility<ModelMarker>>,
     pub measurements: Res<'w, CategoryVisibility<MeasurementMarker>>,
     pub walls: Res<'w, CategoryVisibility<WallMarker>>,
+    pub visuals: Res<'w, CategoryVisibility<VisualMeshMarker>>,
+    pub collisions: Res<'w, CategoryVisibility<CollisionMeshMarker>>,
     _ignore: Query<'w, 's, ()>,
 }
 
@@ -286,6 +293,7 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w, 's>,
     pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
+    pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
@@ -367,7 +375,11 @@ fn site_ui_layout(
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
                         if ui.add(Button::new("Building preview")).clicked() {
-                            events.app_state.set(AppState::SiteVisualizer).ok();
+                            if let Err(err) =
+                                events.app_state.overwrite_set(AppState::SiteVisualizer)
+                            {
+                                error!("Failed to switch to full site visualization: {err}");
+                            }
                         }
                     });
                 });
@@ -391,6 +403,15 @@ fn site_ui_layout(
             ui.add_space(10.0);
             ConsoleWidget::new(&mut events).show(ui);
         });
+
+    if events.new_model.asset_gallery_status.show {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                NewModel::new(&mut events).show(ui);
+            });
+    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -535,7 +556,9 @@ fn site_visualizer_ui_layout(
                             [18., 18.],
                             "Return to site editor"
                         )).clicked() {
-                            events.app_state.set(AppState::SiteEditor).ok();
+                            if let Err(err) = events.app_state.overwrite_set(AppState::SiteEditor) {
+                                error!("Failed to return to site editor: {err}");
+                            }
                         }
                     });
                 });
@@ -630,6 +653,15 @@ fn workcell_ui_layout(
         &children,
         &mut menu_params,
     );
+
+    if events.new_model.asset_gallery_status.show {
+        egui::SidePanel::left("left_panel")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                NewModel::new(&mut events).show(ui);
+            });
+    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

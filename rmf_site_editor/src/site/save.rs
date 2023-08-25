@@ -322,7 +322,6 @@ fn generate_levels(
                 &AssetSource,
                 &Pose,
                 &IsStatic,
-                &ConstraintDependents,
                 &Scale,
                 &SiteID,
                 &Parent,
@@ -571,7 +570,7 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_static, constraint_dependents, scale, id, parent) in &q_models {
+    for (name, source, pose, is_static, scale, id, parent) in &q_models {
         if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
@@ -581,7 +580,6 @@ fn generate_levels(
                         source: source.clone(),
                         pose: pose.clone(),
                         is_static: is_static.clone(),
-                        constraints: constraint_dependents.clone(),
                         scale: scale.clone(),
                         marker: ModelMarker,
                     },
@@ -1098,6 +1096,59 @@ fn generate_graph_rankings(
         .collect()
 }
 
+fn migrate_relative_paths(
+    site: Entity,
+    new_path: &PathBuf,
+    world: &mut World,
+    // In((new_path, site)): In<(&PathBuf, Entity)>,
+    // mut assets: Query<(Entity, &mut AssetSource)>,
+    // mut default_files: Query<&mut DefaultFile>,
+    // mut commands: Commands,
+    // parents: Query<&Parent>,
+) {
+    let old_path = if let Some(mut default_file) = world.get_mut::<DefaultFile>(site) {
+        let old_path = default_file.0.clone();
+        default_file.0 = new_path.clone();
+        old_path
+    } else {
+        world.entity_mut(site).insert(DefaultFile(new_path.clone()));
+        // If there was not already a default file then there is no way to
+        // migrate relative paths because they had no reference path to actually
+        // be relative to.
+        return;
+    };
+
+    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&Parent>)> =
+        SystemState::new(world);
+
+    let (mut assets, parents) = state.get_mut(world);
+
+    for (mut e, mut source) in &mut assets {
+        let asset_entity = e;
+        if !source.is_local_relative() {
+            continue;
+        }
+
+        loop {
+            if e == site {
+                if source.migrate_relative_path(&old_path, new_path).is_err() {
+                    error!(
+                        "Failed to migrate relative path for {asset_entity:?}: {:?}",
+                        *source,
+                    );
+                    break;
+                }
+            }
+
+            if let Ok(parent) = parents.get(e) {
+                e = parent.get();
+            } else {
+                break;
+            }
+        }
+    }
+}
+
 pub fn generate_site(
     world: &mut World,
     site: Entity,
@@ -1152,18 +1203,32 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let path = save_event.to_file;
-        info!(
-            "Saving to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
-        let f = match std::fs::File::create(path) {
+        let mut new_path = save_event.to_file;
+        let path_str = match new_path.to_str() {
+            Some(s) => s,
+            None => {
+                error!("Unable to save file: Invalid path [{new_path:?}]");
+                continue;
+            }
+        };
+        if path_str.ends_with(".building.yaml") {
+            warn!("Detected old file format, converting to new format");
+            new_path = path_str.replace(".building.yaml", ".site.ron").into();
+        } else if !path_str.ends_with("site.ron") {
+            info!("Appending .site.ron to {}", new_path.display());
+            new_path = new_path.with_extension("site.ron");
+        }
+        info!("Saving to {}", new_path.display());
+        let f = match std::fs::File::create(new_path.clone()) {
             Ok(f) => f,
             Err(err) => {
                 error!("Unable to save file: {err}");
                 continue;
             }
         };
+
+        let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+        migrate_relative_paths(save_event.site, &new_path, world);
 
         let site = match generate_site(world, save_event.site) {
             Ok(site) => site,
@@ -1178,6 +1243,9 @@ pub fn save_site(world: &mut World) {
                 info!("Save successful");
             }
             Err(err) => {
+                if let Some(old_default_path) = old_default_path {
+                    world.entity_mut(save_event.site).insert(old_default_path);
+                }
                 error!("Save failed: {err}");
             }
         }
