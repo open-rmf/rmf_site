@@ -15,12 +15,12 @@
  *
 */
 
-use crate::interaction::*;
+use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
 use rmf_site_format::{
-    DoorType, FloorMarker, LiftCabin, LightKind, LocationTags, MeasurementMarker, ModelMarker,
-    PhysicalCameraProperties, WallMarker,
+    ConstraintMarker, DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
+    MeasurementMarker, ModelMarker, PhysicalCameraProperties, WallMarker,
 };
 use smallvec::SmallVec;
 
@@ -108,6 +108,10 @@ impl OutlineVisualization {
     }
 }
 
+/// Use this to temporarily prevent objects from being highlighted.
+#[derive(Component)]
+pub struct SuppressOutline;
+
 pub fn add_outline_visualization(
     mut commands: Commands,
     new_entities: Query<
@@ -117,7 +121,10 @@ pub fn add_outline_visualization(
             Added<DoorType>,
             Added<LiftCabin<Entity>>,
             Added<MeasurementMarker>,
+            Added<ConstraintMarker>,
+            Added<FiducialMarker>,
             Added<FloorMarker>,
+            Added<DrawingMarker>,
             Added<ModelMarker>,
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
@@ -136,13 +143,27 @@ pub fn add_outline_visualization(
 pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
-        (Entity, &Hovered, &Selected, &OutlineVisualization),
-        Or<(Changed<Hovered>, Changed<Selected>)>,
+        (
+            Entity,
+            &Hovered,
+            &Selected,
+            &OutlineVisualization,
+            Option<&SuppressOutline>,
+        ),
+        Or<(
+            Changed<Hovered>,
+            Changed<Selected>,
+            Changed<SuppressOutline>,
+        )>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovered, selected, vis) in &outlinable {
-        let color = vis.color(hovered, selected);
+    for (e, hovered, selected, vis, suppress) in &outlinable {
+        let color = if suppress.is_some() {
+            None
+        } else {
+            vis.color(hovered, selected)
+        };
         let layers = vis.layers(hovered, selected);
         let depth = vis.depth();
         let root = vis.root().unwrap_or(e);

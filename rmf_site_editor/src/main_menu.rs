@@ -88,7 +88,7 @@ fn egui_ui(
                 // warehouse generator.
                 // if ui.button("Warehouse generator").clicked() {
                 //     info!("Entering warehouse generator");
-                //     _app_state.set(AppState::WarehouseGenerator).unwrap();
+                //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
                 // }
             });
 

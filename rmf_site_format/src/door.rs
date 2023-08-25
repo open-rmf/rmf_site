@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
@@ -384,15 +385,14 @@ impl Door<Entity> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Door<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Door<Entity> {
-        Door {
-            anchors: self.anchors.to_ecs(id_to_entity),
+impl<T: RefTrait> Door<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Door<U>, T> {
+        Ok(Door {
+            anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
             kind: self.kind.clone(),
             marker: Default::default(),
-        }
+        })
     }
 }
 

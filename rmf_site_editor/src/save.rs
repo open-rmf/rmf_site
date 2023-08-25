@@ -102,7 +102,7 @@ pub fn dispatch_save_events(
                     if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
                         file
                     } else {
-                        let Some(file) =  FileDialog::new().save_file() else {
+                        let Some(file) = FileDialog::new().save_file() else {
                             continue;
                         };
                         file
@@ -125,7 +125,7 @@ pub fn dispatch_save_events(
                         format: event.format.clone(),
                     });
                 }
-                AppState::SiteEditor => {
+                AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                     save_site.send(SaveSite {
                         site: ws_root,
                         to_file: path,
