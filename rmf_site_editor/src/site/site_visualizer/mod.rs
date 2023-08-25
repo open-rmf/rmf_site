@@ -77,12 +77,16 @@ fn update_level_elevation(
 
 fn disable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
     info!("Entering site visualizer");
-    interaction_state.set(InteractionState::Disable).ok();
+    if let Err(err) = interaction_state.overwrite_set(InteractionState::Disable) {
+        error!("Failed to disable interactions: {err}");
+    }
 }
 
 fn enable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
     info!("Exiting site visualizer");
-    interaction_state.set(InteractionState::Enable).ok();
+    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+        error!("Failed to enable interactions: {err}");
+    }
 }
 
 impl Plugin for SiteVisualizerPlugin {

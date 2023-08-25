@@ -156,7 +156,9 @@ pub fn load_workcell(
 
             // TODO(luca) get rid of SiteState
             if *site_display_state.current() == SiteState::Display {
-                site_display_state.set(SiteState::Off).ok();
+                if let Err(err) = site_display_state.overwrite_set(SiteState::Off) {
+                    error!("Failed to turn the site display off: {err}");
+                }
             }
         }
     }
