@@ -53,7 +53,7 @@ pub fn handle_create_joint_events(
             limit: None,
             axis: None,
         };
-        let mut cmd = commands.spawn_empty();
+        let mut cmd = commands.spawn(Dependents::single(req.child));
         let joint_id = cmd.id();
         joint.add_bevy_components(cmd);
         // Now place the joint between the parent and child in the hierarchy

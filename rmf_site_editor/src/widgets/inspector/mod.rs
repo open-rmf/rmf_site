@@ -39,6 +39,9 @@ pub use inspect_fiducial::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
+pub mod inspect_joint;
+pub use inspect_joint::*;
+
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -117,6 +120,7 @@ pub struct InspectorParams<'w, 's> {
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
+    pub joints: InspectJointParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
     pub drawing: InspectDrawingParams<'w, 's>,
     // TODO(luca) move to new systemparam, reached 16 limit on main one
@@ -525,6 +529,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 .show(ui);
                 ui.add_space(10.0);
             }
+
+            InspectJointWidget::new(selection, &self.params.joints, &mut self.events).show(ui);
 
             if let Ok(distance) = self.params.drawing.distance.get(selection) {
                 if let Some(new_distance) =

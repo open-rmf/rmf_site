@@ -213,6 +213,11 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
             .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
             .add_plugin(ChangePlugin::<Affiliation<Entity>>::default())
+            .add_plugin(ChangePlugin::<JointType>::default())
+            // TODO(luca) since JointLimit and JointAxis are optional we should have a recall
+            // plugin as well
+            .add_plugin(ChangePlugin::<JointLimit>::default())
+            .add_plugin(ChangePlugin::<JointAxis>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())

@@ -107,13 +107,25 @@ pub struct Inertial {
     pub inertia: Inertia,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub enum JointType {
     Fixed,
     Revolute,
     Prismatic,
     Continuous,
+}
+
+impl JointType {
+    pub fn label(&self) -> String {
+        match &self {
+            JointType::Fixed => "Fixed",
+            JointType::Revolute => "Revolute",
+            JointType::Prismatic => "Prismatic",
+            JointType::Continuous => "Continuous",
+        }
+        .to_string()
+    }
 }
 
 impl From<&JointType> for urdf_rs::JointType {
@@ -518,7 +530,7 @@ impl Workcell {
                 },
                 urdf_rs::JointType::Fixed => Joint {
                     name: NameInWorkcell(joint.name.clone()),
-                    joint_type: JointType::Prismatic,
+                    joint_type: JointType::Fixed,
                     limit: None,
                     axis: None,
                 },

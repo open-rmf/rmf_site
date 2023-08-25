@@ -26,9 +26,9 @@ use crate::{
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
         ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
-        ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
-        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, SiteState, Texture,
-        ToggleLiftDoorAvailability, VisualMeshMarker,
+        ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility, JointAxis,
+        JointLimit, JointType, LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs,
+        SiteState, Texture, ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
@@ -168,6 +168,9 @@ pub struct MoreChangeEvents<'w, 's> {
     pub search_for_texture: ResMut<'w, SearchForTexture>,
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub texture: EventWriter<'w, 's, Change<Texture>>,
+    pub joint_type: EventWriter<'w, 's, Change<JointType>>,
+    pub joint_limit: EventWriter<'w, 's, Change<JointLimit>>,
+    pub joint_axis: EventWriter<'w, 's, Change<JointAxis>>,
     pub merge_groups: EventWriter<'w, 's, MergeGroups>,
 }
 
