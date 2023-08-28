@@ -398,6 +398,7 @@ pub fn make_models_selectable(
         let Some((selectable, render_layers)) = AncestorIter::new(&parents, model_scene_root)
             .filter_map(|p| scene_roots.get(p).ok())
             .last()
+            .or_else(|| scene_roots.get(model_scene_root).ok())
             else {
                 continue;
         };
