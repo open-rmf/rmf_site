@@ -27,12 +27,15 @@ pub use ron::ser::PrettyConfig as Style;
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct SiteProperties {
     pub name: NameOfSite,
+    #[serde(skip_serializing_if = "GeographicComponent::is_none")]
+    pub geographic_offset: GeographicComponent,
 }
 
 impl Default for SiteProperties {
     fn default() -> Self {
         Self {
             name: NameOfSite("new_site".to_owned()),
+            geographic_offset: GeographicComponent::default(),
         }
     }
 }

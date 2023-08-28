@@ -51,6 +51,9 @@ pub use floor::*;
 pub mod fuel_cache;
 pub use fuel_cache::*;
 
+pub mod georeference;
+pub use georeference::*;
+
 pub mod group;
 pub use group::*;
 

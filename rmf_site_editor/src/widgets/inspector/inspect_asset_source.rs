@@ -16,7 +16,7 @@
 */
 
 use crate::site::DefaultFile;
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
@@ -44,6 +44,8 @@ impl<'a> InspectAssetSource<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
+
+        let osm_string = "OpenStreetMaps".to_string();
         // TODO(luca) implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
@@ -51,6 +53,11 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Search(name) => name,
             AssetSource::Bundled(name) => name,
             AssetSource::Package(path) => path,
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => &osm_string,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -137,6 +144,18 @@ impl<'a> InspectAssetSource<'a> {
             }
             AssetSource::Package(path) => {
                 ui.text_edit_singleline(path);
+            }
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                ui.horizontal(|ui| {
+                    ui.add(Label::new("Latitude"));
+                    ui.add(DragValue::new(latitude).speed(1e-8));
+                    ui.add(Label::new("Longitude"));
+                    ui.add(DragValue::new(longitude).speed(1e-8));
+                });
             }
         }
         if &new_source != self.source {
