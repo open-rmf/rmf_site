@@ -19,3 +19,6 @@ bevy = { version = "0.9", optional = true }
 # We depend on a bugfix released specifically in 0.7.3
 urdf-rs = "0.7.3"
 pathdiff = "*"
+
+[dev-dependencies]
+float_eq = "1.0"

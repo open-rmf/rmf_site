@@ -401,6 +401,15 @@ impl From<Pose> for urdf_rs::Pose {
     }
 }
 
+impl From<&urdf_rs::Pose> for Pose {
+    fn from(pose: &urdf_rs::Pose) -> Self {
+        Pose {
+            trans: pose.xyz.map(|t| t as f32),
+            rot: Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32))),
+        }
+    }
+}
+
 impl From<Geometry> for urdf_rs::Geometry {
     fn from(geometry: Geometry) -> Self {
         match geometry {
@@ -509,13 +518,7 @@ impl Workcell {
             let child = frame_name_to_id.get(&joint.child.link).ok_or(
                 UrdfImportError::BrokenJointReference(joint.child.link.clone()),
             )?;
-            // In urdf, joint origin represents the coordinates of the joint in the
-            // parent frame. The child is always in the origin of the joint
-            let parent_pose = Pose {
-                trans: joint.origin.xyz.map(|t| t as f32),
-                rot: Rotation::EulerExtrinsicXYZ(joint.origin.rpy.map(|t| Angle::Rad(t as f32))),
-            };
-            let joint = match joint.joint_type {
+            let joint_bundle = match joint.joint_type {
                 urdf_rs::JointType::Revolute => Joint {
                     name: NameInWorkcell(joint.name.clone()),
                     joint_type: JointType::Revolute,
@@ -550,12 +553,14 @@ impl Workcell {
             // hence this is safe.
             let child_frame = frames.get_mut(child).unwrap();
             child_frame.parent = joint_id;
-            child_frame.bundle.anchor = Anchor::Pose3D(parent_pose);
+            // In urdf, joint origin represents the coordinates of the joint in the
+            // parent frame. The child is always in the origin of the joint
+            child_frame.bundle.anchor = Anchor::Pose3D((&joint.origin).into());
             joints.insert(
                 joint_id,
                 Parented {
                     parent: *parent,
-                    bundle: joint,
+                    bundle: joint_bundle,
                 },
             );
         }
@@ -852,10 +857,7 @@ impl From<&urdf_rs::Inertia> for Inertia {
 impl From<&urdf_rs::Inertial> for Inertial {
     fn from(inertial: &urdf_rs::Inertial) -> Self {
         Self {
-            origin: Pose {
-                trans: inertial.origin.xyz.0.map(|v| v as f32),
-                rot: Rotation::EulerExtrinsicXYZ(inertial.origin.rpy.map(|v| Angle::Rad(v as f32))),
-            },
+            origin: (&inertial.origin).into(),
             mass: Mass(inertial.mass.value as f32),
             inertia: (&inertial.inertia).into(),
         }
@@ -864,16 +866,8 @@ impl From<&urdf_rs::Inertial> for Inertial {
 
 impl From<&Inertial> for urdf_rs::Inertial {
     fn from(inertial: &Inertial) -> Self {
-        let rot = inertial.origin.rot.as_euler_extrinsic_xyz();
-        let Rotation::EulerExtrinsicXYZ(rpy) = rot else {
-            // We just converted above so this is effectively unreachable
-            unreachable!();
-        };
         Self {
-            origin: urdf_rs::Pose {
-                xyz: urdf_rs::Vec3(inertial.origin.trans.map(|v| v as f64)),
-                rpy: urdf_rs::Vec3(rpy.map(|v| v.radians() as f64)),
-            },
+            origin: inertial.origin.into(),
             mass: urdf_rs::Mass {
                 value: inertial.mass.0 as f64,
             },
@@ -895,12 +889,10 @@ impl WorkcellModel {
         name: &Option<String>,
         geometry: &urdf_rs::Geometry,
     ) -> Self {
-        let trans = pose.xyz.map(|t| t as f32);
-        let rot = Rotation::EulerExtrinsicXYZ(pose.rpy.map(|t| Angle::Rad(t as f32)));
         WorkcellModel {
             name: name.clone().unwrap_or_default(),
             geometry: geometry.into(),
-            pose: Pose { trans, rot },
+            pose: pose.into(),
         }
     }
 }
@@ -920,6 +912,63 @@ impl From<&urdf_rs::Collision> for WorkcellModel {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use float_eq::{assert_float_eq, float_eq};
+
+    fn frame_by_name(
+        frames: &BTreeMap<u32, Parented<u32, Frame>>,
+        name: &str,
+    ) -> Option<(u32, Parented<u32, Frame>)> {
+        frames
+            .iter()
+            .find(|(_, parented_frame)| {
+                parented_frame.bundle.name == Some(NameInWorkcell(name.to_string()))
+            })
+            .map(|(id, f)| (*id, f.clone()))
+    }
+
+    fn element_by_parent<T: Clone>(
+        models: &BTreeMap<u32, Parented<u32, T>>,
+        parent: u32,
+    ) -> Option<(u32, Parented<u32, T>)> {
+        models
+            .iter()
+            .find(|(_, parented_element)| parented_element.parent == parent)
+            .map(|(id, e)| (*id, e.clone()))
+    }
+
+    fn is_pose_eq(p1: &Pose, p2: &Pose) -> bool {
+        if !p1
+            .trans
+            .iter()
+            .zip(p2.trans.iter())
+            .map(|(t1, t2)| float_eq!(t1, t2, abs <= 1e-6))
+            .all(|eq| eq)
+        {
+            return false;
+        }
+        match (
+            p1.rot.as_euler_extrinsic_xyz(),
+            p2.rot.as_euler_extrinsic_xyz(),
+        ) {
+            (Rotation::EulerExtrinsicXYZ(r1), Rotation::EulerExtrinsicXYZ(r2)) => r1
+                .iter()
+                .zip(r2.iter())
+                .map(|(a1, a2)| float_eq!(a1.radians(), a2.radians(), abs <= 1e-6))
+                .all(|eq| eq),
+            _ => false,
+        }
+    }
+
+    fn is_inertial_eq(i1: &Inertial, i2: &Inertial) -> bool {
+        is_pose_eq(&i1.origin, &i2.origin)
+            && float_eq!(i1.mass.0, i2.mass.0, abs <= 1e6)
+            && float_eq!(i1.inertia.ixx, i2.inertia.ixx, abs <= 1e6)
+            && float_eq!(i1.inertia.ixy, i2.inertia.ixy, abs <= 1e6)
+            && float_eq!(i1.inertia.ixz, i2.inertia.ixz, abs <= 1e6)
+            && float_eq!(i1.inertia.iyy, i2.inertia.iyy, abs <= 1e6)
+            && float_eq!(i1.inertia.iyz, i2.inertia.iyz, abs <= 1e6)
+            && float_eq!(i1.inertia.izz, i2.inertia.izz, abs <= 1e6)
+    }
 
     #[test]
     fn urdf_roundtrip() {
@@ -928,8 +977,117 @@ mod tests {
         assert_eq!(workcell.visuals.len(), 16);
         assert_eq!(workcell.collisions.len(), 16);
         assert_eq!(workcell.frames.len(), 16);
-        // TODO(luca) test for equality here in key components
+        assert_eq!(workcell.joints.len(), 15);
+        assert_eq!(workcell.properties.name, "physics");
+        // Test that we convert poses from joints to frames
+        let (right_leg_id, right_leg) = frame_by_name(&workcell.frames, "right_leg").unwrap();
+        let target_right_leg_pose = Pose {
+            trans: [0.0, -0.22, 0.25],
+            rot: Default::default(),
+        };
+        assert!(right_leg
+            .bundle
+            .anchor
+            .is_close(&Anchor::Pose3D(target_right_leg_pose), 1e-6));
+        // Test that we can parse parenthood and properties of visuals and collisions correctly
+        let (_, right_leg_visual) = element_by_parent(&workcell.visuals, right_leg_id).unwrap();
+        let target_right_leg_model_pose = Pose {
+            trans: [0.0, 0.0, -0.3],
+            rot: Rotation::EulerExtrinsicXYZ([
+                Angle::Rad(0.0),
+                Angle::Rad(1.57075),
+                Angle::Rad(0.0),
+            ]),
+        };
+        assert!(is_pose_eq(
+            &right_leg_visual.bundle.pose,
+            &target_right_leg_model_pose
+        ));
+        assert!(matches!(
+            right_leg_visual.bundle.geometry,
+            Geometry::Primitive(MeshPrimitive::Box { .. })
+        ));
+        let (_, right_leg_collision) =
+            element_by_parent(&workcell.collisions, right_leg_id).unwrap();
+        assert!(is_pose_eq(
+            &right_leg_collision.bundle.pose,
+            &target_right_leg_model_pose
+        ));
+        assert!(matches!(
+            right_leg_collision.bundle.geometry,
+            Geometry::Primitive(MeshPrimitive::Box { .. })
+        ));
+        // Test inertial parenthood and parsing
+        let (_, right_leg_inertial) = element_by_parent(&workcell.inertials, right_leg_id).unwrap();
+        assert_float_eq!(right_leg_inertial.bundle.mass.0, 10.0, abs <= 1e6);
+        let target_right_leg_inertial = Inertial {
+            origin: Pose::default(),
+            mass: Mass(10.0),
+            inertia: Inertia {
+                ixx: 1.0,
+                ixy: 0.0,
+                ixz: 0.0,
+                iyy: 1.0,
+                iyz: 0.0,
+                izz: 1.0,
+            },
+        };
+        assert!(is_inertial_eq(
+            &right_leg_inertial.bundle,
+            &target_right_leg_inertial
+        ));
+        // Test joint parenthood and parsing
+        let (_, right_leg_joint) = element_by_parent(&workcell.joints, right_leg_id).unwrap();
+        assert_eq!(right_leg_joint.bundle.joint_type, JointType::Fixed);
+        assert_eq!(
+            right_leg_joint.bundle.name,
+            NameInWorkcell("right_base_joint".to_string())
+        );
+        // Test that the new urdf contains the same data
         let new_urdf = workcell.to_urdf().unwrap();
-        // TODO(luca) test for equality here
+        assert_eq!(new_urdf.name, "physics");
+        assert_eq!(new_urdf.links.len(), 16);
+        assert_eq!(new_urdf.joints.len(), 15);
+        // Check that link information is preserved
+        let right_leg_link = new_urdf
+            .links
+            .iter()
+            .find(|l| l.name == "right_leg")
+            .unwrap();
+        assert!(is_inertial_eq(
+            &(&right_leg_link.inertial).into(),
+            &target_right_leg_inertial
+        ));
+        assert_eq!(right_leg_link.visual.len(), 1);
+        assert_eq!(right_leg_link.collision.len(), 1);
+        let right_leg_visual = right_leg_link.visual.get(0).unwrap();
+        let right_leg_collision = right_leg_link.collision.get(0).unwrap();
+        assert!(is_pose_eq(
+            &(&right_leg_visual.origin).into(),
+            &target_right_leg_model_pose
+        ));
+        assert!(is_pose_eq(
+            &(&right_leg_collision.origin).into(),
+            &target_right_leg_model_pose
+        ));
+        assert!(matches!(
+            right_leg_visual.geometry,
+            urdf_rs::Geometry::Box { .. }
+        ));
+        assert!(matches!(
+            right_leg_collision.geometry,
+            urdf_rs::Geometry::Box { .. }
+        ));
+        // Check that joint origin is preserved
+        let right_leg_joint = new_urdf
+            .joints
+            .iter()
+            .find(|l| l.name == "base_to_right_leg")
+            .unwrap();
+        assert!(is_pose_eq(
+            &(&right_leg_joint.origin).into(),
+            &target_right_leg_pose
+        ));
+        assert_eq!(right_leg_joint.joint_type, urdf_rs::JointType::Fixed);
     }
 }
