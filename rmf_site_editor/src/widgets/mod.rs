@@ -110,6 +110,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
+            .add_plugin(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
             .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
@@ -273,8 +274,9 @@ pub struct VisibilityParameters<'w, 's> {
 #[derive(SystemParam)]
 pub struct MenuParams<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
-    menu_items: Query<'w, 's, &'static MenuItem>,
+    menu_items: Query<'w, 's, (&'static mut MenuItem, Option<&'static MenuDisabled>)>,
     extension_events: EventWriter<'w, 's, MenuEvent>,
+    view_menu: Res<'w, ViewMenu>,
 }
 
 /// We collect all the events into its own SystemParam because we are not

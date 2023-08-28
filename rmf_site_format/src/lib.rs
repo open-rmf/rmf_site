@@ -110,6 +110,9 @@ pub use wall::*;
 pub mod workcell;
 pub use workcell::*;
 
+pub mod georeference;
+pub use georeference::*;
+
 mod is_default;
 pub(crate) use is_default::*;
 

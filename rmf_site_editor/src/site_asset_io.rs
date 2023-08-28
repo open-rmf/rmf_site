@@ -12,7 +12,7 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::urdf_loader::UrdfPlugin;
+use crate::{urdf_loader::UrdfPlugin, OSMTile};
 use urdf_rs::utils::expand_package_path;
 
 use rmf_site_format::AssetSource;
@@ -332,6 +332,22 @@ impl AssetIo for SiteAssetIo {
                 // It cannot be found locally, so let's try to fetch it from the
                 // remote server
                 self.fetch_asset(remote_url, asset_name)
+            }
+
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                return Box::pin(async move {
+                    let tile = OSMTile::from_latlon(zoom, latitude, longitude);
+                    tile.get_map_image().await.map_err(|e| {
+                        AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Unable to load map: {e}"),
+                        ))
+                    })
+                });
             }
         }
     }
