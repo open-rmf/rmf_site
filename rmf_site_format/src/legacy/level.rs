@@ -1,32 +1,15 @@
 use super::{
-    super::Light, door::Door, fiducial::Fiducial, floor::Floor, lane::Lane,
-    measurement::Measurement, model::Model, physical_camera::PhysicalCamera, vertex::Vertex,
-    wall::Wall,
+    super::alignment::Alignment, super::Light, door::Door, fiducial::Fiducial, floor::Floor,
+    lane::Lane, measurement::Measurement, model::Model, physical_camera::PhysicalCamera,
+    vertex::Vertex, wall::Wall,
 };
-use glam::{DAffine2, DVec2};
+use glam::DVec2;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
 
 #[derive(Deserialize, Serialize, Clone, Default)]
 pub struct LevelDrawing {
     pub filename: String,
-}
-
-#[derive(Debug, Clone, Copy)]
-pub struct Alignment {
-    pub translation: DVec2,
-    pub rotation: f64,
-    pub scale: f64,
-}
-
-impl Alignment {
-    pub fn to_affine(&self) -> DAffine2 {
-        DAffine2::from_scale_angle_translation(
-            DVec2::splat(self.scale),
-            self.rotation,
-            self.translation,
-        )
-    }
 }
 
 #[derive(Deserialize, Serialize, Clone, Debug)]

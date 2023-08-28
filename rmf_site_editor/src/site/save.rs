@@ -42,6 +42,8 @@ pub enum SiteGenerationError {
     InvalidSiteEntity(Entity),
     #[error("an object has a reference to an anchor that does not exist")]
     BrokenAnchorReference(Entity),
+    #[error("an object has a reference to a group that does not exist")]
+    BrokenAffiliation(Entity),
     #[error("an object has a reference to a level that does not exist")]
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a nav graph that does not exist")]
@@ -58,6 +60,33 @@ pub enum SiteGenerationError {
     InvalidLiftDoorReference { door: Entity, anchor: Entity },
 }
 
+/// This is used when a drawing is being edited to fix its parenting before we
+/// attempt to save the site.
+// TODO(@mxgrey): Remove this when we no longer need to de-parent drawings while
+// editing them.
+fn assemble_edited_drawing(world: &mut World) {
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
+    let Some(c) = c.target() else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
+    level.push_children(&[c.drawing]);
+}
+
+/// Revert the drawing back to the root so it can continue to be edited.
+fn disassemble_edited_drawing(world: &mut World) {
+    let Some(c) = world.get_resource::<CurrentEditDrawing>().copied() else {
+        return;
+    };
+    let Some(c) = c.target() else { return };
+    let Some(mut level) = world.get_entity_mut(c.level) else {
+        return;
+    };
+    level.remove_children(&[c.drawing]);
+}
+
 /// Look through all the elements that we will be saving and assign a SiteID
 /// component to any elements that do not have one already.
 fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGenerationError> {
@@ -69,10 +98,8 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                     With<Anchor>,
                     With<DoorType>,
                     With<DrawingMarker>,
-                    With<FiducialMarker>,
                     With<FloorMarker>,
                     With<LightKind>,
-                    With<MeasurementMarker>,
                     With<ModelMarker>,
                     With<PhysicalCameraProperties>,
                     With<WallMarker>,
@@ -87,15 +114,37 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 Without<Pending>,
             ),
         >,
-        Query<Entity, (With<LevelProperties>, Without<Pending>)>,
+        Query<Entity, (With<LevelElevation>, Without<Pending>)>,
         Query<Entity, (With<LiftCabin<Entity>>, Without<Pending>)>,
+        Query<
+            Entity,
+            (
+                Or<(
+                    With<Anchor>,
+                    With<FiducialMarker>,
+                    With<MeasurementMarker>,
+                    With<Group>,
+                )>,
+                Without<Pending>,
+            ),
+        >,
+        Query<(), With<DrawingMarker>>,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
     )> = SystemState::new(world);
 
-    let (level_children, nav_graph_elements, levels, lifts, sites, site_ids, children) =
-        state.get_mut(world);
+    let (
+        level_children,
+        nav_graph_elements,
+        levels,
+        lifts,
+        drawing_children,
+        drawings,
+        sites,
+        site_ids,
+        children,
+    ) = state.get_mut(world);
 
     let mut new_entities = Vec::new();
 
@@ -115,14 +164,34 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
                 new_entities.push(level);
             }
 
-            if let Ok(children) = children.get(level) {
-                for child in children {
+            if let Ok(current_level_children) = children.get(level) {
+                for child in current_level_children {
                     if level_children.contains(*child) {
                         if !site_ids.contains(*child) {
                             new_entities.push(*child);
                         }
+
+                        if drawings.contains(*child) {
+                            if let Ok(drawing_children) = children.get(*child) {
+                                for child in drawing_children {
+                                    if !site_ids.contains(*child) {
+                                        new_entities.push(*child);
+                                    }
+                                }
+                            }
+                        }
                     }
                 }
+            }
+        }
+
+        if let Ok(e) = drawing_children.get(*site_child) {
+            // Sites can contain anchors and fiducials but should not contain
+            // measurements, so this query doesn't make perfect sense to use
+            // here, but it shouldn't be harmful and it saves us from writing
+            // yet another query.
+            if !site_ids.contains(e) {
+                new_entities.push(e);
             }
         }
 
@@ -191,6 +260,7 @@ fn generate_levels(
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
         Query<(&Anchor, &SiteID, &Parent)>,
+        Query<&SiteID, With<Group>>,
         Query<
             (
                 &Edge<Entity>,
@@ -207,8 +277,8 @@ fn generate_levels(
                 &NameInSite,
                 &AssetSource,
                 &Pose,
-                &IsPrimary,
                 &PixelsPerMeter,
+                &PreferredSemiTransparency,
                 &SiteID,
                 &Parent,
                 &Children,
@@ -219,7 +289,7 @@ fn generate_levels(
             (
                 &Point<Entity>,
                 Option<&Original<Point<Entity>>>,
-                &Label,
+                &Affiliation<Entity>,
                 &SiteID,
             ),
             (With<FiducialMarker>, Without<Pending>),
@@ -237,7 +307,8 @@ fn generate_levels(
             (
                 &Path<Entity>,
                 Option<&Original<Path<Entity>>>,
-                &Texture,
+                &Affiliation<Entity>,
+                &PreferredSemiTransparency,
                 &SiteID,
                 &Parent,
             ),
@@ -260,7 +331,6 @@ fn generate_levels(
                 &AssetSource,
                 &Pose,
                 &IsStatic,
-                &ConstraintDependents,
                 &Scale,
                 &SiteID,
                 &Parent,
@@ -281,7 +351,7 @@ fn generate_levels(
             (
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
-                &Texture,
+                &Affiliation<Entity>,
                 &SiteID,
                 &Parent,
             ),
@@ -289,7 +359,10 @@ fn generate_levels(
         >,
         Query<
             (
-                &LevelProperties,
+                &NameInSite,
+                &LevelElevation,
+                &GlobalFloorVisibility,
+                &GlobalDrawingVisibility,
                 &SiteID,
                 &Parent,
                 Option<&RecencyRanking<FloorMarker>>,
@@ -302,6 +375,7 @@ fn generate_levels(
 
     let (
         q_anchors,
+        q_groups,
         q_doors,
         q_drawings,
         q_fiducials,
@@ -317,12 +391,27 @@ fn generate_levels(
     ) = state.get(world);
 
     let mut levels = BTreeMap::new();
-    for (properties, level_id, parent, floor_ranking, drawing_ranking) in &q_levels {
+    for (
+        name,
+        elevation,
+        floor_vis,
+        drawing_vis,
+        level_id,
+        parent,
+        floor_ranking,
+        drawing_ranking,
+    ) in &q_levels
+    {
         if parent.get() == site {
             levels.insert(
                 level_id.0,
                 Level::new(
-                    properties.clone(),
+                    LevelProperties {
+                        name: name.clone(),
+                        elevation: elevation.clone(),
+                        global_floor_visibility: floor_vis.clone(),
+                        global_drawing_visibility: drawing_vis.clone(),
+                    },
                     RankingsInLevel {
                         floors: floor_ranking
                             .map(|r| r.to_u32(&q_site_ids))
@@ -343,6 +432,13 @@ fn generate_levels(
         Ok(site_id.0)
     };
 
+    let get_group_id = |entity| {
+        q_groups
+            .get(entity)
+            .map(|id| id.0)
+            .map_err(|_| SiteGenerationError::BrokenAffiliation(entity))
+    };
+
     let get_anchor_id_edge = |edge: &Edge<Entity>| {
         let left = get_anchor_id(edge.left())?;
         let right = get_anchor_id(edge.right())?;
@@ -360,7 +456,7 @@ fn generate_levels(
     };
 
     for (anchor, id, parent) in &q_anchors {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.anchors.insert(id.0, anchor.clone());
             }
@@ -369,7 +465,7 @@ fn generate_levels(
 
     for (edge, o_edge, name, kind, id, parent) in &q_doors {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
                 level.doors.insert(
@@ -385,8 +481,9 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_primary, pixels_per_meter, id, parent, children) in &q_drawings {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+    for (name, source, pose, pixels_per_meter, preferred_alpha, id, parent, children) in &q_drawings
+    {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let mut measurements = BTreeMap::new();
                 let mut fiducials = BTreeMap::new();
@@ -408,14 +505,19 @@ fn generate_levels(
                             },
                         );
                     }
-                    if let Ok((point, o_point, label, id)) = q_fiducials.get(*e) {
+                    if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
                         let point = o_point.map(|x| &x.0).unwrap_or(point);
                         let anchor = Point(get_anchor_id(point.0)?);
+                        let affiliation = if let Affiliation(Some(e)) = affiliation {
+                            Affiliation(Some(get_group_id(*e)?))
+                        } else {
+                            Affiliation(None)
+                        };
                         fiducials.insert(
                             id.0,
                             Fiducial {
                                 anchor,
-                                label: label.clone(),
+                                affiliation,
                                 marker: FiducialMarker,
                             },
                         );
@@ -424,43 +526,39 @@ fn generate_levels(
                 level.drawings.insert(
                     id.0,
                     Drawing {
-                        name: name.clone(),
+                        properties: DrawingProperties {
+                            name: name.clone(),
+                            source: source.clone(),
+                            pose: pose.clone(),
+                            pixels_per_meter: pixels_per_meter.clone(),
+                            preferred_semi_transparency: preferred_alpha.clone(),
+                        },
                         anchors,
                         fiducials,
                         measurements,
-                        source: source.clone(),
-                        pose: pose.clone(),
-                        is_primary: is_primary.clone(),
-                        pixels_per_meter: pixels_per_meter.clone(),
                     },
                 );
             }
         }
     }
 
-    for (edge, o_edge, constraint_id, parent) in &q_constraints {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-                let edge = get_anchor_id_edge(edge)?;
-
-                level
-                    .constraints
-                    .insert(constraint_id.0, Constraint::from(edge));
-            }
-        }
-    }
-
-    for (path, o_path, texture, id, parent) in &q_floors {
+    for (path, o_path, texture, preferred_alpha, id, parent) in &q_floors {
         let path = o_path.map(|x| &x.0).unwrap_or(path);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_path(&path)?;
+                let texture = if let Affiliation(Some(e)) = texture {
+                    Affiliation(Some(get_group_id(*e)?))
+                } else {
+                    Affiliation(None)
+                };
+
                 level.floors.insert(
                     id.0,
                     Floor {
                         anchors,
-                        texture: texture.clone(),
+                        texture,
+                        preferred_semi_transparency: preferred_alpha.clone(),
                         marker: FloorMarker,
                     },
                 );
@@ -469,7 +567,7 @@ fn generate_levels(
     }
 
     for (kind, pose, id, parent) in &q_lights {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.lights.insert(
                     id.0,
@@ -482,8 +580,8 @@ fn generate_levels(
         }
     }
 
-    for (name, source, pose, is_static, constraint_dependents, scale, id, parent) in &q_models {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+    for (name, source, pose, is_static, scale, id, parent) in &q_models {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.models.insert(
                     id.0,
@@ -492,7 +590,6 @@ fn generate_levels(
                         source: source.clone(),
                         pose: pose.clone(),
                         is_static: is_static.clone(),
-                        constraints: constraint_dependents.clone(),
                         scale: scale.clone(),
                         marker: ModelMarker,
                     },
@@ -502,7 +599,7 @@ fn generate_levels(
     }
 
     for (name, pose, properties, id, parent) in &q_physical_cameras {
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 level.physical_cameras.insert(
                     id.0,
@@ -519,14 +616,20 @@ fn generate_levels(
 
     for (edge, o_edge, texture, id, parent) in &q_walls {
         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, level_id, _, _, _)) = q_levels.get(parent.get()) {
+        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
             if let Some(level) = levels.get_mut(&level_id.0) {
                 let anchors = get_anchor_id_edge(edge)?;
+                let texture = if let Affiliation(Some(e)) = texture {
+                    Affiliation(Some(get_group_id(*e)?))
+                } else {
+                    Affiliation(None)
+                };
+
                 level.walls.insert(
                     id.0,
                     Wall {
                         anchors,
-                        texture: texture.clone(),
+                        texture,
                         marker: WallMarker,
                     },
                 );
@@ -561,7 +664,7 @@ fn generate_lifts(
     let mut state: SystemState<(
         Query<(&SiteID, &Anchor), Without<Pending>>,
         QueryLiftDoor,
-        Query<&SiteID, (With<LevelProperties>, Without<Pending>)>,
+        Query<&SiteID, (With<LevelElevation>, Without<Pending>)>,
         QueryLift,
         Query<Entity, With<CabinAnchorGroup>>,
         Query<&Parent, Without<Pending>>,
@@ -719,6 +822,112 @@ fn generate_lifts(
     }
 
     return Ok(lifts);
+}
+
+fn generate_fiducials(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, Fiducial<u32>>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<&SiteID, (With<Anchor>, Without<Pending>)>,
+        Query<&SiteID, (With<Group>, Without<Pending>)>,
+        Query<
+            (&Point<Entity>, &Affiliation<Entity>, &SiteID),
+            (With<FiducialMarker>, Without<Pending>),
+        >,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (q_anchor_ids, q_group_ids, q_fiducials, q_children) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut fiducials = BTreeMap::new();
+    for child in children {
+        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
+        let anchor = q_anchor_ids
+            .get(point.0)
+            .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
+            .0;
+        let anchor = Point(anchor);
+        let affiliation = if let Some(e) = affiliation.0 {
+            let group_id = q_group_ids
+                .get(e)
+                .map_err(|_| SiteGenerationError::BrokenAffiliation(e))?
+                .0;
+            Affiliation(Some(group_id))
+        } else {
+            Affiliation(None)
+        };
+
+        fiducials.insert(
+            site_id.0,
+            Fiducial {
+                anchor,
+                affiliation,
+                marker: Default::default(),
+            },
+        );
+    }
+
+    Ok(fiducials)
+}
+
+fn generate_fiducial_groups(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, FiducialGroup>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&NameInSite, &SiteID), (With<Group>, With<FiducialMarker>)>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (q_groups, q_children) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut fiducial_groups = BTreeMap::new();
+    for child in children {
+        let Ok((name, site_id)) = q_groups.get(*child) else { continue };
+        fiducial_groups.insert(site_id.0, FiducialGroup::new(name.clone()));
+    }
+
+    Ok(fiducial_groups)
+}
+
+fn generate_texture_groups(
+    world: &mut World,
+    parent: Entity,
+) -> Result<BTreeMap<u32, TextureGroup>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(&NameInSite, &Texture, &SiteID), With<Group>>,
+        Query<&Children>,
+    )> = SystemState::new(world);
+
+    let (q_groups, q_children) = state.get(world);
+
+    let Ok(children) = q_children.get(parent) else {
+        return Ok(BTreeMap::new());
+    };
+
+    let mut texture_groups = BTreeMap::new();
+    for child in children {
+        let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
+        texture_groups.insert(
+            site_id.0,
+            TextureGroup {
+                name: name.clone(),
+                texture: texture.clone(),
+                group: Default::default(),
+            },
+        );
+    }
+
+    Ok(texture_groups)
 }
 
 fn generate_nav_graphs(
@@ -897,58 +1106,97 @@ fn generate_graph_rankings(
         .collect()
 }
 
-fn generate_site_properties(
-    world: &mut World,
+fn migrate_relative_paths(
     site: Entity,
-) -> Result<SiteProperties<u32>, SiteGenerationError> {
-    let mut state: SystemState<Query<&SiteID>> = SystemState::new(world);
-    let site_id = state.get(world);
-    let props = world
-        .get::<SiteProperties<Entity>>(site)
-        .ok_or(SiteGenerationError::InvalidSiteEntity(site))?;
-
-    let properties = SiteProperties {
-        name: props.name.clone(),
-        filtered_issues: props
-            .filtered_issues
-            .iter()
-            .map(|key| {
-                let entities = key
-                    .entities
-                    .iter()
-                    .map(|e| site_id.get(*e).unwrap().0)
-                    .collect();
-                IssueKey {
-                    entities,
-                    kind: key.kind,
-                }
-            })
-            .collect(),
-        filtered_issue_kinds: props.filtered_issue_kinds.clone(),
+    new_path: &PathBuf,
+    world: &mut World,
+    // In((new_path, site)): In<(&PathBuf, Entity)>,
+    // mut assets: Query<(Entity, &mut AssetSource)>,
+    // mut default_files: Query<&mut DefaultFile>,
+    // mut commands: Commands,
+    // parents: Query<&Parent>,
+) {
+    let old_path = if let Some(mut default_file) = world.get_mut::<DefaultFile>(site) {
+        let old_path = default_file.0.clone();
+        default_file.0 = new_path.clone();
+        old_path
+    } else {
+        world.entity_mut(site).insert(DefaultFile(new_path.clone()));
+        // If there was not already a default file then there is no way to
+        // migrate relative paths because they had no reference path to actually
+        // be relative to.
+        return;
     };
-    Ok(properties)
+
+    let mut state: SystemState<(Query<(Entity, &mut AssetSource)>, Query<&Parent>)> =
+        SystemState::new(world);
+
+    let (mut assets, parents) = state.get_mut(world);
+
+    for (mut e, mut source) in &mut assets {
+        let asset_entity = e;
+        if !source.is_local_relative() {
+            continue;
+        }
+
+        loop {
+            if e == site {
+                if source.migrate_relative_path(&old_path, new_path).is_err() {
+                    error!(
+                        "Failed to migrate relative path for {asset_entity:?}: {:?}",
+                        *source,
+                    );
+                    break;
+                }
+            }
+
+            if let Ok(parent) = parents.get(e) {
+                e = parent.get();
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 pub fn generate_site(
     world: &mut World,
     site: Entity,
 ) -> Result<rmf_site_format::Site, SiteGenerationError> {
+    assemble_edited_drawing(world);
+
     assign_site_ids(world, site)?;
     let anchors = collect_site_anchors(world, site);
     let levels = generate_levels(world, site)?;
     let lifts = generate_lifts(world, site)?;
+    let fiducials = generate_fiducials(world, site)?;
+    let fiducial_groups = generate_fiducial_groups(world, site)?;
+    let textures = generate_texture_groups(world, site)?;
     let nav_graphs = generate_nav_graphs(world, site)?;
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
-    let properties = generate_site_properties(world, site)?;
 
+    let name_of_site = match world.get::<NameOfSite>(site) {
+        Some(props) => props.clone(),
+        None => {
+            return Err(SiteGenerationError::InvalidSiteEntity(site));
+        }
+    };
+
+    disassemble_edited_drawing(world);
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties,
+        properties: SiteProperties {
+            name: name_of_site,
+            ..default()
+        },
         levels,
         lifts,
+        fiducials,
+        fiducial_groups,
+        textures,
         navigation: Navigation {
             guided: Guided {
                 graphs: nav_graphs,
@@ -965,18 +1213,32 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
-        let path = save_event.to_file;
-        info!(
-            "Saving to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
-        let f = match std::fs::File::create(path) {
+        let mut new_path = save_event.to_file;
+        let path_str = match new_path.to_str() {
+            Some(s) => s,
+            None => {
+                error!("Unable to save file: Invalid path [{new_path:?}]");
+                continue;
+            }
+        };
+        if path_str.ends_with(".building.yaml") {
+            warn!("Detected old file format, converting to new format");
+            new_path = path_str.replace(".building.yaml", ".site.ron").into();
+        } else if !path_str.ends_with("site.ron") {
+            info!("Appending .site.ron to {}", new_path.display());
+            new_path = new_path.with_extension("site.ron");
+        }
+        info!("Saving to {}", new_path.display());
+        let f = match std::fs::File::create(new_path.clone()) {
             Ok(f) => f,
             Err(err) => {
                 error!("Unable to save file: {err}");
                 continue;
             }
         };
+
+        let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+        migrate_relative_paths(save_event.site, &new_path, world);
 
         let site = match generate_site(world, save_event.site) {
             Ok(site) => site,
@@ -991,6 +1253,9 @@ pub fn save_site(world: &mut World) {
                 info!("Save successful");
             }
             Err(err) => {
+                if let Some(old_default_path) = old_default_path {
+                    world.entity_mut(save_event.site).insert(old_default_path);
+                }
                 error!("Save failed: {err}");
             }
         }

@@ -116,7 +116,7 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
@@ -165,7 +165,7 @@ pub fn update_lift_cabin(
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    levels: Query<(Entity, &Parent), With<LevelProperties>>,
+    levels: Query<(Entity, &Parent), With<LevelElevation>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -176,7 +176,8 @@ pub fn update_lift_cabin(
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, .. } = params.aabb();
-                let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
+                let cabin_tf =
+                    Transform::from_translation(Vec3::new(center.x, center.y, FLOOR_LAYER_START));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0 * params.thickness(),
                     params.width + 2.0 * params.thickness(),
@@ -191,6 +192,8 @@ pub fn update_lift_cabin(
                             wall[1],
                             params.thickness(),
                             DEFAULT_LEVEL_HEIGHT / 3.0,
+                            None,
+                            None,
                         )
                     })
                     .fold(MeshBuffer::default(), |sum, next| sum.merge_with(next))
@@ -354,9 +357,9 @@ pub fn update_lift_door_availability(
     mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
-    new_levels: Query<(), Added<LevelProperties>>,
-    all_levels: Query<(), With<LevelProperties>>,
-    removed_levels: RemovedComponents<LevelProperties>,
+    new_levels: Query<(), Added<LevelElevation>>,
+    all_levels: Query<(), With<LevelElevation>>,
+    removed_levels: RemovedComponents<LevelElevation>,
     parents: Query<&Parent>,
 ) {
     for toggle in toggles.iter() {

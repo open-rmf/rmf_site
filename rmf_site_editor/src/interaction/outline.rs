@@ -15,7 +15,7 @@
  *
 */
 
-use crate::interaction::*;
+use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
 use rmf_site_format::{
@@ -81,17 +81,20 @@ impl OutlineVisualization {
         }
     }
 
-    // A strange issue is causing outlines to diverge at certain camera angles
-    // for objects that use the Flat depth. The issue doesn't seem to happen
-    // for objects with Real depth, so we are switching most objects to use the
-    // Real outline setting. However, I don't think this looks good for certain
-    // types of objects so we will keep the Flat setting for them and accept
-    // that certain camera angles can make their outline look strange.
-    //
-    // The relevant upstream issue is being tracked here: https://github.com/komadori/bevy_mod_outline/issues/14
+    // Flat outlines look better but are subject to glitches in wasm, use a feature flag to use
+    // Real outline depth in wasm and flat in other platforms.
+    // Tracking issue here https://github.com/komadori/bevy_mod_outline/issues/19
+    // TODO(luca) revisit once issue is solved
     pub fn depth(&self) -> SetOutlineDepth {
-        SetOutlineDepth::Flat {
-            model_origin: Vec3::ZERO,
+        #[cfg(target_arch = "wasm32")]
+        {
+            SetOutlineDepth::Real
+        }
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            SetOutlineDepth::Flat {
+                model_origin: Vec3::ZERO,
+            }
         }
     }
 
@@ -105,6 +108,10 @@ impl OutlineVisualization {
     }
 }
 
+/// Use this to temporarily prevent objects from being highlighted.
+#[derive(Component)]
+pub struct SuppressOutline;
+
 pub fn add_outline_visualization(
     mut commands: Commands,
     new_entities: Query<
@@ -117,6 +124,7 @@ pub fn add_outline_visualization(
             Added<ConstraintMarker>,
             Added<FiducialMarker>,
             Added<FloorMarker>,
+            Added<DrawingMarker>,
             Added<ModelMarker>,
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
@@ -135,13 +143,27 @@ pub fn add_outline_visualization(
 pub fn update_outline_visualization(
     mut commands: Commands,
     outlinable: Query<
-        (Entity, &Hovered, &Selected, &OutlineVisualization),
-        Or<(Changed<Hovered>, Changed<Selected>)>,
+        (
+            Entity,
+            &Hovered,
+            &Selected,
+            &OutlineVisualization,
+            Option<&SuppressOutline>,
+        ),
+        Or<(
+            Changed<Hovered>,
+            Changed<Selected>,
+            Changed<SuppressOutline>,
+        )>,
     >,
     descendants: Query<(Option<&Children>, Option<&ComputedVisualCue>)>,
 ) {
-    for (e, hovered, selected, vis) in &outlinable {
-        let color = vis.color(hovered, selected);
+    for (e, hovered, selected, vis, suppress) in &outlinable {
+        let color = if suppress.is_some() {
+            None
+        } else {
+            vis.color(hovered, selected)
+        };
         let layers = vis.layers(hovered, selected);
         let depth = vis.depth();
         let root = vis.root().unwrap_or(e);

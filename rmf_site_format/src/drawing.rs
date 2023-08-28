@@ -31,23 +31,46 @@ impl Default for PixelsPerMeter {
     }
 }
 
-/// Denote whether it is a primary drawing or not, primary drawings will be kept as a constant
-/// reference when scaling other drawings in the level
-#[derive(Serialize, Deserialize, Debug, Default, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct IsPrimary(pub bool);
-
 #[derive(Default, Serialize, Deserialize, Debug, Clone)]
 pub struct Drawing {
-    pub name: NameInSite,
+    // Even though round trip flattening is supposed to work after
+    // https://github.com/ron-rs/ron/pull/455, it seems it currently fails
+    // in ron, even forcing a dependency on that commit.
+    // TODO(luca) investigate further, come up with a minimum example,
+    // open an upstream issue and link it here for reference.
+    // #[serde(flatten)]
+    pub properties: DrawingProperties,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub measurements: BTreeMap<u32, Measurement<u32>>,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct DrawingProperties {
+    pub name: NameInSite,
     pub source: AssetSource,
     pub pose: Pose,
     pub is_primary: IsPrimary,
     pub pixels_per_meter: PixelsPerMeter,
+    #[serde(
+        default = "PreferredSemiTransparency::for_drawing",
+        skip_serializing_if = "PreferredSemiTransparency::is_default_for_drawing"
+    )]
+    pub preferred_semi_transparency: PreferredSemiTransparency,
+}
+
+impl Default for DrawingProperties {
+    fn default() -> Self {
+        Self {
+            name: Default::default(),
+            source: Default::default(),
+            pose: Default::default(),
+            pixels_per_meter: Default::default(),
+            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+        }
+    }
 }

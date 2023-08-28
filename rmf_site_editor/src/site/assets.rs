@@ -44,7 +44,6 @@ pub struct SiteAssets {
     pub level_anchor_mesh: Handle<Mesh>,
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
-    pub wall_material: Handle<StandardMaterial>,
     pub lift_wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
@@ -57,9 +56,6 @@ pub struct SiteAssets {
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let wall_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/default.png".to_string(),
-        )));
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -110,11 +106,6 @@ impl FromWorld for SiteAssets {
             alpha_mode: AlphaMode::Blend,
             depth_bias: 1.0,
             // unlit: true,
-            unlit: false,
-            ..default()
-        });
-        let wall_material = materials.add(StandardMaterial {
-            base_color_texture: Some(wall_texture),
             unlit: false,
             ..default()
         });
@@ -193,8 +184,18 @@ impl FromWorld for SiteAssets {
         );
         let location_mesh = meshes.add(
             Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
-                    .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
+                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
+                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                ),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
+        let fiducial_mesh = meshes.add(
+            Mesh::from(
+                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4).transform_by(
+                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                ),
             )
             .with_generated_outline_normals()
             .unwrap(),
@@ -238,7 +239,6 @@ impl FromWorld for SiteAssets {
             passive_anchor_material,
             unassigned_anchor_material,
             preview_anchor_material,
-            wall_material,
             lift_wall_material,
             door_body_material,
             translucent_black,

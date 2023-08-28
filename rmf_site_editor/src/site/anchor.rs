@@ -164,8 +164,9 @@ pub fn assign_orphan_anchors_to_parent(
             // No level is currently assigned, so we should create one.
             let new_level_id = commands
                 .spawn(LevelProperties {
-                    name: "<Unnamed>".to_string(),
-                    elevation: 0.,
+                    name: NameInSite("<Unnamed>".to_owned()),
+                    elevation: LevelElevation(0.),
+                    ..default()
                 })
                 .insert(Category::Level)
                 .id();

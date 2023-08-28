@@ -141,7 +141,7 @@ impl Default for LogHistory {
         {
             let fmt_layer = tracing_subscriber::fmt::Layer::default();
             let subscriber = subscriber.with(fmt_layer);
-            tracing::subscriber::set_global_default(subscriber);
+            tracing::subscriber::set_global_default(subscriber).ok();
         }
         #[cfg(target_arch = "wasm32")]
         {

@@ -18,9 +18,9 @@
 use crate::{
     interaction::{
         camera_controls::{CameraControls, HeadlightToggle},
-        ChangeMode, InteractionMode, Selection,
+        ChangeMode, ChangeProjectionMode, InteractionMode, Selection,
     },
-    site::{AlignLevelDrawings, AlignSiteDrawings, CurrentLevel, Delete},
+    site::{AlignSiteDrawings, CurrentLevel, Delete},
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -47,7 +47,6 @@ impl Plugin for KeyboardInputPlugin {
 // TODO(luca) get rid of this once 16 parameters limit is lifted in bevy 0.10
 #[derive(SystemParam)]
 struct KeyboardParams<'w, 's> {
-    align_drawings: EventWriter<'w, 's, AlignLevelDrawings>,
     align_site: EventWriter<'w, 's, AlignSiteDrawings>,
     current_workspace: Res<'w, CurrentWorkspace>,
 }
@@ -56,17 +55,14 @@ fn handle_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
-    mut camera_controls: ResMut<CameraControls>,
-    mut cameras: Query<&mut Camera>,
-    mut visibilities: Query<&mut Visibility>,
     mut egui_context: ResMut<EguiContext>,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
+    mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     current_level: Res<CurrentLevel>,
-    headlight_toggle: Res<HeadlightToggle>,
     mut debug_mode: ResMut<DebugMode>,
     mut params: KeyboardParams,
 ) {
@@ -80,11 +76,11 @@ fn handle_keyboard_input(
     }
 
     if keyboard_input.just_pressed(KeyCode::F2) {
-        camera_controls.use_orthographic(true, &mut cameras, &mut visibilities, headlight_toggle.0);
+        change_camera_mode.send(ChangeProjectionMode::to_orthographic());
     }
 
     if keyboard_input.just_pressed(KeyCode::F3) {
-        camera_controls.use_perspective(true, &mut cameras, &mut visibilities, headlight_toggle.0);
+        change_camera_mode.send(ChangeProjectionMode::to_perspective());
     }
 
     if keyboard_input.just_pressed(KeyCode::Escape) {
@@ -117,14 +113,8 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::T) {
-            if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
-                if let Some(site) = params.current_workspace.root {
-                    params.align_site.send(AlignSiteDrawings(site));
-                }
-            } else {
-                if let Some(level) = **current_level {
-                    params.align_drawings.send(AlignLevelDrawings(level));
-                }
+            if let Some(site) = params.current_workspace.root {
+                params.align_site.send(AlignSiteDrawings(site));
             }
         }
 

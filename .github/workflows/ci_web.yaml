@@ -31,5 +31,10 @@ jobs:
 
     - uses: actions/checkout@v3
 
-    - name: build
+    - name: build rmf_site_format
+      run: |
+        cd rmf_site_format
+        cargo build
+
+    - name: build rmf_site_editor
       run: scripts/build-web.sh

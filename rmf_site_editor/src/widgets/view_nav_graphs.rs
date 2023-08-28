@@ -16,12 +16,16 @@
 */
 
 use crate::{
+    interaction::Selection,
     recency::RecencyRanking,
     site::{
-        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NavGraph, NavGraphMarker,
-        SaveNavGraphs, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+        Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NameOfSite, NavGraph,
+        NavGraphMarker, SaveNavGraphs, SiteID, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{inspector::color_edit, AppEvents, Icons, MoveLayer},
+    widgets::{
+        inspector::{color_edit, selection_widget::SelectionWidget},
+        AppEvents, Icons, MoveLayerButton,
+    },
     Autoload, CurrentWorkspace,
 };
 use bevy::{
@@ -72,10 +76,12 @@ pub struct NavGraphParams<'w, 's> {
             &'static NameInSite,
             &'static DisplayColor,
             &'static Visibility,
+            Option<&'static SiteID>,
         ),
         With<NavGraphMarker>,
     >,
     pub icons: Res<'w, Icons>,
+    pub selection: Res<'w, Selection>,
 }
 
 pub struct ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
@@ -88,7 +94,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
         Self { params, events }
     }
 
-    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<SiteProperties<Entity>>>) {
+    pub fn show(self, ui: &mut Ui, open_sites: &Query<Entity, With<NameOfSite>>) {
         let ranking = match self.events.request.current_workspace.root {
             Some(c) => match self.params.ranking.get(c) {
                 Ok(r) => r,
@@ -144,9 +150,13 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             }
         });
 
+        let mut selected_graph = None;
         for e in ranking.iter().rev() {
             let e = *e;
-            let (name, color, vis) = match self.params.graphs.get(e) {
+            if self.params.selection.0.is_some_and(|sel| sel == e) {
+                selected_graph = Some(e);
+            }
+            let (name, color, vis, site_id) = match self.params.graphs.get(e) {
                 Ok(g) => g,
                 Err(_) => continue,
             };
@@ -177,15 +187,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                     }
                 }
 
-                MoveLayer::to_top(e, &mut self.events.layers.nav_graphs, &self.params.icons)
-                    .show(ui);
-
-                MoveLayer::up(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
-
-                MoveLayer::down(e, &mut self.events.layers.nav_graphs, &self.params.icons).show(ui);
-
-                MoveLayer::to_bottom(e, &mut self.events.layers.nav_graphs, &self.params.icons)
-                    .show(ui);
+                SelectionWidget::new(e, site_id.copied(), &self.params.icons, self.events).show(ui);
 
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
@@ -203,6 +205,26 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                         .name
                         .send(Change::new(NameInSite(new_name), e));
                 }
+            });
+        }
+
+        if let Some(e) = selected_graph {
+            ui.horizontal(|ui| {
+                MoveLayerButton::to_top(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
+
+                MoveLayerButton::up(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
+
+                MoveLayerButton::down(e, &mut self.events.layers.nav_graphs, &self.params.icons)
+                    .show(ui);
+
+                MoveLayerButton::to_bottom(
+                    e,
+                    &mut self.events.layers.nav_graphs,
+                    &self.params.icons,
+                )
+                .show(ui);
             });
         }
 
@@ -297,7 +319,7 @@ pub fn resolve_nav_graph_import_export_files(
     mut nav_graph_display: ResMut<NavGraphDisplay>,
     mut save_nav_graphs: EventWriter<SaveNavGraphs>,
     mut import_nav_graphs: EventWriter<ImportNavGraphs>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     if 'resolved: {

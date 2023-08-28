@@ -37,8 +37,8 @@ pub fn assign_orphan_constraints_to_parent(
     constraints: Query<(Entity, &Edge<Entity>), (Without<Parent>, With<ConstraintMarker>)>,
     current_workspace: Res<CurrentWorkspace>,
     parents: Query<&Parent>,
-    levels: Query<Entity, With<LevelProperties>>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    levels: Query<Entity, With<LevelElevation>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for (e, edge) in &constraints {
@@ -164,7 +164,7 @@ pub fn update_constraint_for_changed_labels(
     dependents: Query<&Dependents>,
     fiducials: Query<Entity, With<FiducialMarker>>,
     constraints: Query<(Entity, &Edge<Entity>, &Parent), With<ConstraintMarker>>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     let get_fiducial_label = |e: Entity| -> Option<&Label> {
         let fiducial = dependents

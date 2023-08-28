@@ -17,16 +17,15 @@
 
 use bevy::prelude::*;
 
-use crate::site::SiteState;
+use crate::interaction::InteractionState;
 use std::fmt::Debug;
 
 #[derive(Resource, Clone, Debug)]
 pub struct CategoryVisibility<T: Component + Clone + Debug>(pub bool, std::marker::PhantomData<T>);
 
-// Initialized to true (visible) by default
-impl<T: Component + Clone + Debug> Default for CategoryVisibility<T> {
-    fn default() -> Self {
-        Self(true, Default::default())
+impl<T: Component + Clone + Debug> CategoryVisibility<T> {
+    pub fn visible(visible: bool) -> Self {
+        Self(visible, Default::default())
     }
 }
 
@@ -41,19 +40,27 @@ impl<T: Component + Clone + Debug> From<bool> for SetCategoryVisibility<T> {
     }
 }
 
-#[derive(Default)]
 pub struct CategoryVisibilityPlugin<T: Component + Clone + Debug> {
+    visible: bool,
     _ignore: std::marker::PhantomData<T>,
+}
+
+impl<T: Component + Clone + Debug> CategoryVisibilityPlugin<T> {
+    pub fn visible(visible: bool) -> Self {
+        Self {
+            visible,
+            _ignore: Default::default(),
+        }
+    }
 }
 
 impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
     fn build(&self, app: &mut App) {
         app.add_event::<SetCategoryVisibility<T>>()
-            .init_resource::<CategoryVisibility<T>>()
+            .insert_resource(CategoryVisibility::<T>::visible(self.visible))
             // TODO(luca) Check that this is at the right stage
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(SiteState::Display)
+            .add_system_set(
+                SystemSet::on_update(InteractionState::Enable)
                     .with_system(set_category_visibility::<T>)
                     .with_system(set_category_visibility_for_new_entity::<T>),
             );
@@ -76,10 +83,20 @@ fn set_category_visibility<T: Component + Clone + Debug>(
 }
 
 fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
+    mut commands: Commands,
     category_visibility: Res<CategoryVisibility<T>>,
-    mut visibilities: Query<&mut Visibility, Added<T>>,
+    mut visibilities: Query<(Entity, Option<&mut Visibility>), Added<T>>,
 ) {
-    for mut vis in &mut visibilities {
-        vis.is_visible = category_visibility.0;
+    for (e, mut vis) in &mut visibilities {
+        if let Some(mut vis) = vis {
+            vis.is_visible = category_visibility.0;
+        } else {
+            commands.entity(e).insert(VisibilityBundle {
+                visibility: Visibility {
+                    is_visible: category_visibility.0,
+                },
+                ..default()
+            });
+        }
     }
 }

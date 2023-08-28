@@ -48,6 +48,15 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod fuel_cache;
+pub use fuel_cache::*;
+
+pub mod georeference;
+pub use georeference::*;
+
+pub mod group;
+pub use group::*;
+
 pub mod lane;
 pub use lane::*;
 
@@ -102,6 +111,9 @@ pub use site::*;
 pub mod site_visualizer;
 pub use site_visualizer::*;
 
+pub mod texture;
+pub use texture::*;
+
 pub mod util;
 pub use util::*;
 
@@ -152,13 +164,12 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
-            .insert_resource(GlobalFloorVisibility::default())
-            .insert_resource(GlobalDrawingVisibility::default())
+            .init_resource::<FuelClient>()
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
             .init_resource::<PhysicalLightToggle>()
-            .init_resource::<DrawingSemiTransparency>()
-            .init_resource::<FloorSemiTransparency>()
+            .init_resource::<UpdateFuelCacheChannels>()
+            .init_resource::<ModelTrashcan>()
             .add_event::<LoadSite>()
             .add_event::<ImportNavGraphs>()
             .add_event::<ChangeCurrentSite>()
@@ -168,14 +179,16 @@ impl Plugin for SitePlugin {
             .add_event::<ExportLights>()
             .add_event::<ConsiderAssociatedGraph>()
             .add_event::<ConsiderLocationTag>()
-            .add_event::<AlignLevelDrawings>()
-            .add_event::<AlignSiteDrawings>()
+            .add_event::<UpdateFuelCache>()
+            .add_event::<SetFuelApiKey>()
+            .add_event::<MergeGroups>()
             .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
             .add_plugin(ChangePlugin::<Motion>::default())
             .add_plugin(RecallPlugin::<RecallMotion>::default())
             .add_plugin(ChangePlugin::<ReverseLane>::default())
             .add_plugin(RecallPlugin::<RecallReverseLane>::default())
+            .add_plugin(ChangePlugin::<NameOfSite>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<NameInWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
@@ -183,11 +196,12 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<IsPrimary>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Distance>::default())
+            .add_plugin(ChangePlugin::<Texture>::default())
             .add_plugin(ChangePlugin::<Label>::default())
             .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
-            .add_plugin(ChangePlugin::<LevelProperties>::default())
+            .add_plugin(ChangePlugin::<LevelElevation>::default())
             .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
             .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
             .add_plugin(ChangePlugin::<AssetSource>::default())
@@ -203,17 +217,16 @@ impl Plugin for SitePlugin {
             .add_plugin(RecallPlugin::<RecallLocationTags>::default())
             .add_plugin(ChangePlugin::<Visibility>::default())
             .add_plugin(ChangePlugin::<LayerVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalFloorVisibility>::default())
+            .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
+            .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
+            .add_plugin(ChangePlugin::<Affiliation<Entity>>::default())
             .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
             .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
             .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
-            .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
-            .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
-            .add_issue_type(&FIDUCIAL_WITHOUT_LABEL_ISSUE_UUID, "Fiducial without label")
-            .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
-            .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -224,12 +237,18 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
                     .with_system(update_drawing_pixels_per_meter)
-                    .with_system(check_for_duplicated_door_names)
-                    .with_system(check_for_duplicated_lift_names)
-                    .with_system(check_for_duplicated_dock_names)
-                    .with_system(check_for_fiducials_without_label)
-                    .with_system(check_for_close_unconnected_anchors)
                     .with_system(update_drawing_children_to_pixel_coordinates)
+                    .with_system(fetch_image_for_texture)
+                    .with_system(detect_last_selected_texture::<FloorMarker>)
+                    .with_system(
+                        apply_last_selected_texture::<FloorMarker>
+                            .after(detect_last_selected_texture::<FloorMarker>),
+                    )
+                    .with_system(detect_last_selected_texture::<WallMarker>)
+                    .with_system(
+                        apply_last_selected_texture::<WallMarker>
+                            .after(detect_last_selected_texture::<WallMarker>),
+                    )
                     .with_system(update_material_for_display_color),
             )
             .add_system_set(
@@ -245,6 +264,7 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_constraints_to_parent)
                     .with_system(assign_orphan_levels_to_site)
                     .with_system(assign_orphan_nav_elements_to_site)
+                    .with_system(assign_orphan_fiducials_to_parent)
                     .with_system(assign_orphan_elements_to_level::<DoorMarker>)
                     .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
                     .with_system(assign_orphan_elements_to_level::<FloorMarker>)
@@ -252,8 +272,10 @@ impl Plugin for SitePlugin {
                     .with_system(assign_orphan_elements_to_level::<ModelMarker>)
                     .with_system(assign_orphan_elements_to_level::<PhysicalCameraProperties>)
                     .with_system(assign_orphan_elements_to_level::<WallMarker>)
+                    .with_system(add_category_to_graphs)
                     .with_system(add_tags_to_lift)
                     .with_system(add_material_for_display_colors)
+                    .with_system(clear_model_trashcan)
                     .with_system(add_physical_lights),
             )
             .add_system_set_to_stage(
@@ -266,8 +288,9 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_door)
                     .with_system(update_door_for_moved_anchors)
                     .with_system(add_floor_visuals)
-                    .with_system(update_changed_floor)
-                    .with_system(update_floor_for_moved_anchors)
+                    .with_system(update_floors)
+                    .with_system(update_floors_for_moved_anchors)
+                    .with_system(update_floors)
                     .with_system(update_floor_visibility)
                     .with_system(update_drawing_visibility)
                     .with_system(add_lane_visuals)
@@ -278,6 +301,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_changed_lane)
                     .with_system(update_lane_for_moved_anchor)
                     .with_system(remove_association_for_deleted_graphs)
+                    .with_system(add_unused_fiducial_tracker)
+                    .with_system(update_fiducial_usage_tracker)
                     .with_system(
                         update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
                     )
@@ -298,25 +323,30 @@ impl Plugin for SitePlugin {
                     .with_system(add_measurement_visuals)
                     .with_system(update_changed_measurement)
                     .with_system(update_measurement_for_moved_anchors)
+                    .with_system(handle_model_loaded_events)
                     .with_system(update_constraint_for_moved_anchors)
                     .with_system(update_constraint_for_changed_labels)
                     .with_system(update_changed_constraint)
                     .with_system(update_model_scenes)
+                    .with_system(update_affiliations)
+                    .with_system(update_members_of_groups.after(update_affiliations))
                     .with_system(handle_new_sdf_roots)
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
+                    .with_system(propagate_model_render_layers)
                     .with_system(handle_new_mesh_primitives)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)
                     .with_system(add_physical_camera_visuals)
                     .with_system(add_wall_visual)
-                    .with_system(update_wall_edge)
-                    .with_system(update_wall_for_moved_anchors)
+                    .with_system(handle_update_fuel_cache_requests)
+                    .with_system(read_update_fuel_cache_results)
+                    .with_system(reload_failed_models_with_new_api_key)
+                    .with_system(update_walls_for_moved_anchors)
+                    .with_system(update_walls)
                     .with_system(update_transforms_for_changed_poses)
-                    .with_system(align_level_drawings)
                     .with_system(align_site_drawings)
-                    .with_system(clear_old_issues_on_new_validate_event)
                     .with_system(export_lights),
             );
     }

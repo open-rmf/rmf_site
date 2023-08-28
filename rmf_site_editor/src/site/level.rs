@@ -20,7 +20,7 @@ use crate::CurrentWorkspace;
 use bevy::prelude::*;
 
 pub fn update_level_visibility(
-    mut levels: Query<(Entity, &mut Visibility), With<LevelProperties>>,
+    mut levels: Query<(Entity, &mut Visibility), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
 ) {
     if current_level.is_changed() {
@@ -32,8 +32,8 @@ pub fn update_level_visibility(
 
 pub fn assign_orphan_levels_to_site(
     mut commands: Commands,
-    new_levels: Query<Entity, (Without<Parent>, Added<LevelProperties>)>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    new_levels: Query<Entity, (Without<Parent>, Added<LevelElevation>)>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
     if let Some(site) = current_workspace.to_site(&open_sites) {

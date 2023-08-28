@@ -19,7 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, Query, With};
 use serde::{Deserialize, Serialize};
-use std::collections::BTreeSet;
+use std::collections::{BTreeSet, HashMap};
 
 pub const DEFAULT_NAV_GRAPH_COLORS: [[f32; 4]; 8] = [
     [1.0, 0.5, 0.3, 1.0],
@@ -112,27 +112,22 @@ impl<T: RefTrait> Default for AssociatedGraphs<T> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl AssociatedGraphs<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> AssociatedGraphs<Entity> {
-        match self {
+impl<T: RefTrait> AssociatedGraphs<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<AssociatedGraphs<U>, T> {
+        let result = match self {
             Self::All => AssociatedGraphs::All,
-            Self::Only(set) => AssociatedGraphs::Only(Self::set_to_ecs(set, id_to_entity)),
-            Self::AllExcept(set) => {
-                AssociatedGraphs::AllExcept(Self::set_to_ecs(set, id_to_entity))
-            }
-        }
+            Self::Only(set) => AssociatedGraphs::Only(Self::convert_set(set, id_map)?),
+            Self::AllExcept(set) => AssociatedGraphs::AllExcept(Self::convert_set(set, id_map)?),
+        };
+        Ok(result)
     }
 
-    fn set_to_ecs(
-        set: &BTreeSet<u32>,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> BTreeSet<Entity> {
+    fn convert_set<U: RefTrait>(
+        set: &BTreeSet<T>,
+        id_map: &HashMap<T, U>,
+    ) -> Result<BTreeSet<U>, T> {
         set.iter()
-            .map(|g| id_to_entity.get(g).unwrap().clone())
+            .map(|g| id_map.get(g).cloned().ok_or(*g))
             .collect()
     }
 }

@@ -50,7 +50,7 @@ fn should_display_lane(
     edge: &Edge<Entity>,
     associated: &AssociatedGraphs<Entity>,
     parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
+    levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
@@ -75,7 +75,7 @@ pub fn assign_orphan_nav_elements_to_site(
         ),
     >,
     current_workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties<Entity>>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for e in &elements {
@@ -90,7 +90,7 @@ pub fn add_lane_visuals(
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
@@ -242,7 +242,7 @@ pub fn update_changed_lane(
     >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
     current_level: Res<CurrentLevel>,
@@ -310,7 +310,7 @@ pub fn update_visibility_for_lanes(
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     lanes_with_changed_association: Query<

@@ -25,7 +25,7 @@ use crate::site::LoadSite;
 use crate::workcell::LoadWorkcell;
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -39,6 +39,10 @@ pub struct ChangeCurrentWorkspace {
 /// Used as an event to command that a new workspace should be created, behavior will depend on
 /// what app mode the editor is currently in
 pub struct CreateNewWorkspace;
+
+/// Apply this component to all workspace types
+#[derive(Component)]
+pub struct WorkspaceMarker;
 
 /// Used as an event to command that a workspace should be loaded. This will spawn a file open
 /// dialog (in non-wasm) with allowed extensions depending on the app state
@@ -75,6 +79,8 @@ impl WorkspaceData {
 }
 
 /// Used as a resource that keeps track of the current workspace
+// TODO(@mxgrey): Consider a workspace stack, e.g. so users can temporarily edit
+// a workcell inside of a site and then revert back into the site.
 #[derive(Clone, Copy, Debug, Default, Resource)]
 pub struct CurrentWorkspace {
     pub root: Option<Entity>,
@@ -103,10 +109,7 @@ impl Default for LoadWorkspaceChannels {
 pub struct RecallWorkspace(Option<Entity>);
 
 impl CurrentWorkspace {
-    pub fn to_site(
-        self,
-        open_sites: &Query<Entity, With<SiteProperties<Entity>>>,
-    ) -> Option<Entity> {
+    pub fn to_site(self, open_sites: &Query<Entity, With<NameOfSite>>) -> Option<Entity> {
         let site_entity = self.root?;
         open_sites.get(site_entity).ok()
     }
@@ -237,13 +240,19 @@ fn handle_workspace_data(
                     match building.to_site() {
                         Ok(site) => {
                             // Switch state
-                            app_state.set(AppState::SiteEditor).ok();
+                            if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
+                                error!("Failed to open the site edit mode: {err}");
+                            }
                             load_site.send(LoadSite {
                                 site,
                                 focus: true,
                                 default_file: file,
                             });
-                            interaction_state.set(InteractionState::Enable).ok();
+                            if let Err(err) =
+                                interaction_state.overwrite_set(InteractionState::Enable)
+                            {
+                                error!("Failed to turn on interaction: {err}");
+                            }
                         }
                         Err(err) => {
                             error!("Failed converting to site {:?}", err);
@@ -260,13 +269,17 @@ fn handle_workspace_data(
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
-                    app_state.set(AppState::SiteEditor).ok();
+                    if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
+                        error!("Failed to open the site edit mode: {err}");
+                    }
                     load_site.send(LoadSite {
                         site,
                         focus: true,
                         default_file: file,
                     });
-                    interaction_state.set(InteractionState::Enable).ok();
+                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                        error!("Failed to turn on interaction: {err}");
+                    }
                 }
                 Err(err) => {
                     error!("Failed loading site {:?}", err);
@@ -278,13 +291,17 @@ fn handle_workspace_data(
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
-                    app_state.set(AppState::WorkcellEditor).ok();
+                    if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
+                        error!("Failed to open the workcell edit mode: {err}");
+                    }
                     load_workcell.send(LoadWorkcell {
                         workcell,
                         focus: true,
                         default_file: file,
                     });
-                    interaction_state.set(InteractionState::Enable).ok();
+                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                        error!("Failed to turn on interaction: {err}");
+                    }
                 }
                 Err(err) => {
                     error!("Failed loading workcell {:?}", err);
