@@ -93,13 +93,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Bundled(_)
-        | AssetSource::Package(_)
-        | AssetSource::OSMTile {
-            latitude: _,
-            longitude: _,
-            zoom: _,
-        } => {
+        AssetSource::Bundled(_) | AssetSource::Package(_) | AssetSource::OSMTile { .. } => {
             warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
         }
     }
