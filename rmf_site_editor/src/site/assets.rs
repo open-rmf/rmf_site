@@ -200,14 +200,6 @@ impl FromWorld for SiteAssets {
             .with_generated_outline_normals()
             .unwrap(),
         );
-        let fiducial_mesh = meshes.add(
-            Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4)
-                    .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
-            )
-            .with_generated_outline_normals()
-            .unwrap(),
-        );
         let physical_camera_mesh = meshes.add(
             make_physical_camera_mesh()
                 .with_generated_outline_normals()

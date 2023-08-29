@@ -301,15 +301,6 @@ fn generate_levels(
         >,
         Query<
             (
-                &Edge<Entity>,
-                Option<&Original<Edge<Entity>>>,
-                &SiteID,
-                &Parent,
-            ),
-            (With<ConstraintMarker>, Without<Pending>),
-        >,
-        Query<
-            (
                 &Path<Entity>,
                 Option<&Original<Path<Entity>>>,
                 &Affiliation<Entity>,
@@ -384,7 +375,6 @@ fn generate_levels(
         q_doors,
         q_drawings,
         q_fiducials,
-        q_constraints,
         q_floors,
         q_lights,
         q_measurements,

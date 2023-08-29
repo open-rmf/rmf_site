@@ -59,19 +59,6 @@ pub struct DrawingMarker;
 
 pub const DRAWING_LAYER_START: f32 = 0.0;
 
-// Semi transparency for drawings, more opaque than floors to make them visible
-const DEFAULT_DRAWING_SEMI_TRANSPARENCY: f32 = 0.5;
-
-/// Resource used to set what the alpha value for partially transparent drawings should be
-#[derive(Clone, Resource, Deref, DerefMut)]
-pub struct DrawingSemiTransparency(f32);
-
-impl Default for DrawingSemiTransparency {
-    fn default() -> Self {
-        DrawingSemiTransparency(DEFAULT_DRAWING_SEMI_TRANSPARENCY)
-    }
-}
-
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DrawingSegments {
     leaf: Entity,
