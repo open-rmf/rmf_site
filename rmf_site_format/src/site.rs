@@ -35,9 +35,9 @@ pub struct SiteProperties<T: RefTrait> {
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
     pub geographic_offset: GeographicComponent,
     // TODO(luca) group these into an IssueFilters?
-    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    #[serde(skip_serializing_if = "FilteredIssues::is_empty")]
     pub filtered_issues: FilteredIssues<T>,
-    #[serde(skip_serializing_if = "BTreeSet::is_empty")]
+    #[serde(skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
@@ -53,6 +53,10 @@ impl<T: RefTrait> Default for FilteredIssues<T> {
 }
 
 impl<T: RefTrait> FilteredIssues<T> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
     pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<FilteredIssues<U>, T> {
         let mut issues = BTreeSet::new();
         for issue in self.0.iter() {
@@ -73,6 +77,12 @@ impl<T: RefTrait> FilteredIssues<T> {
 #[derive(Serialize, Deserialize, Debug, Clone, Default)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
+
+impl FilteredIssueKinds {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
 
 impl<T: RefTrait> Default for SiteProperties<T> {
     fn default() -> Self {
