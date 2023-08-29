@@ -127,7 +127,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
             ui.label("Active issues");
             // Now show the issues
             ScrollArea::vertical()
-                .max_height(300.0)
+                .max_height(600.0)
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     let mut issue_still_exists = false;
@@ -186,6 +186,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
 
             if ui.add(Button::new("Validate")).clicked() {
                 self.params.validate_event.send(ValidateWorkspace(root));
+            }
+            if ui.add(Button::new("Close")).clicked() {
+                state.show = false;
             }
         });
         *self.events.file_events.diagnostic_window = state;
