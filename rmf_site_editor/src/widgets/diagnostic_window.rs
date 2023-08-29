@@ -16,7 +16,7 @@
 */
 
 use crate::inspector::SelectionWidget;
-use crate::site::{IssueKey, SiteID, SiteProperties};
+use crate::site::{FilteredIssueKinds, FilteredIssues, IssueKey, SiteID};
 use crate::{AppEvents, Icons, Issue};
 use crate::{IssueDictionary, ValidateWorkspace};
 use bevy::ecs::system::SystemParam;
@@ -33,7 +33,14 @@ pub struct DiagnosticWindowState {
 pub struct DiagnosticParams<'w, 's> {
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
-    pub site_properties: Query<'w, 's, &'static mut SiteProperties<Entity>>,
+    pub filters: Query<
+        'w,
+        's,
+        (
+            &'static mut FilteredIssues<Entity>,
+            &'static mut FilteredIssueKinds,
+        ),
+    >,
     pub validate_event: EventWriter<'w, 's, ValidateWorkspace>,
     pub issue_dictionary: Res<'w, IssueDictionary>,
     pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
@@ -53,14 +60,15 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
     }
 
     pub fn show(self, ctx: &Context) {
-        //let state = &mut self.events.top_menu_events.diagnostic_window;
-        let mut state = (*self.events.top_menu_events.diagnostic_window).clone();
+        //let state = &mut self.events.file_events.diagnostic_window;
+        let mut state = (*self.events.file_events.diagnostic_window).clone();
         let Some(root) = self.events.request.current_workspace.root else {
             return;
         };
         // TODO(luca) remove this once we want this to work for other types of workspaces, such as
         // workcells
-        let Ok(mut props) = self.params.site_properties.get_mut(root) else {
+        let Ok((mut filtered_issues, mut filtered_issue_kinds)) = self.params.filters.get_mut(root)
+        else {
             return;
         };
         Window::new("Validate Site")
@@ -68,11 +76,11 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
             .show(ctx, |ui| {
                 ui.collapsing("Filters", |ui| {
                     for (uuid, name) in self.params.issue_dictionary.iter() {
-                        let mut show_category = !props.filtered_issue_kinds.contains(uuid);
+                        let mut show_category = !filtered_issue_kinds.contains(uuid);
                         if ui.add(Checkbox::new(&mut show_category, name)).clicked() {
                             match show_category {
-                                true => props.filtered_issue_kinds.remove(uuid),
-                                false => props.filtered_issue_kinds.insert(*uuid),
+                                true => filtered_issue_kinds.remove(uuid),
+                                false => filtered_issue_kinds.insert(*uuid),
                             };
                         }
                     }
@@ -80,7 +88,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
 
                 ui.collapsing("Suppressed issues", |ui| {
                     let mut clear_suppressions = Vec::new();
-                    for (idx, issue) in props.filtered_issues.iter().enumerate() {
+                    for (idx, issue) in filtered_issues.iter().enumerate() {
                         ui.horizontal(|ui| {
                             let issue_type = self
                                 .params
@@ -114,7 +122,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                         ui.add_space(10.0);
                     }
                     for c in clear_suppressions.iter() {
-                        props.filtered_issues.remove(c);
+                        filtered_issues.remove(c);
                     }
                 });
 
@@ -129,8 +137,8 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                             ui.label("No issues found");
                         }
                         for (issue, parent) in &self.params.issues {
-                            if props.filtered_issue_kinds.contains(&issue.key.kind)
-                                || props.filtered_issues.contains(&issue.key)
+                            if filtered_issue_kinds.contains(&issue.key.kind)
+                                || filtered_issues.contains(&issue.key)
                                 || **parent != root
                             {
                                 continue;
@@ -146,7 +154,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                                     .on_hover_text("Suppress this issue")
                                     .clicked()
                                 {
-                                    props.filtered_issues.insert(issue.key.clone());
+                                    filtered_issues.insert(issue.key.clone());
                                     issue_still_exists = false;
                                 }
                                 if ui
@@ -185,6 +193,6 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                     self.params.validate_event.send(ValidateWorkspace(root));
                 }
             });
-        *self.events.top_menu_events.diagnostic_window = state;
+        *self.events.file_events.diagnostic_window = state;
     }
 }

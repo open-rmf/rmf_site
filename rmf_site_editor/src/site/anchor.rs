@@ -18,7 +18,7 @@
 use crate::{site::*, Issue, ValidateWorkspace};
 use bevy::{prelude::*, render::primitives::Sphere, utils::Uuid};
 use itertools::Itertools;
-use rmf_site_format::{Anchor, LevelProperties, LiftCabin};
+use rmf_site_format::{Anchor, LevelElevation, LiftCabin};
 use std::collections::HashMap;
 
 #[derive(Bundle, Debug)]
@@ -191,7 +191,7 @@ pub fn check_for_close_unconnected_anchors(
     parents: Query<&Parent>,
     anchors: AnchorParams,
     anchor_entities: Query<Entity, With<Anchor>>,
-    levels: Query<Entity, With<LevelProperties>>,
+    levels: Query<Entity, With<LevelElevation>>,
     dependents: Query<&Dependents>,
 ) {
     const ISSUE_HINT: &str = "Pair of anchors that are very close but not connected was found, \

@@ -542,19 +542,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .send(Change::new(Distance(new_distance), selection));
                 }
                 ui.add_space(10.0);
-                match self.events.app_state.current() {
-                    AppState::SiteEditor => {
-                        if ui.add(Button::new("Drawing editor")).clicked() {
-                            self.events.app_state.set(AppState::SiteDrawingEditor).ok();
-                        }
-                    }
-                    AppState::SiteDrawingEditor => {
-                        if ui.add(Button::new("Scale drawing")).clicked() {
-                            self.events.scale_drawing.send(ScaleDrawing(selection));
-                        }
-                    }
-                    _ => {}
-                }
             }
 
             if let Ok(camera_properties) = self

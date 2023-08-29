@@ -1176,14 +1176,6 @@ impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
         Ok(())
     }
 
-    fn get_visible_drawing(&self) -> Option<(Entity, &PixelsPerMeter)> {
-        self.drawings.iter().find(|(e, _)| {
-            self.visibility
-                .get(*e)
-                .is_ok_and(|vis| vis.is_visible == true)
-        })
-    }
-
     /// Use this when exiting SelectAnchor mode
     fn cleanup(&mut self) {
         self.cursor
@@ -2169,25 +2161,7 @@ pub fn handle_select_anchor_mode(
             .filter(|s| anchors.contains(*s))
         {
             request = match request.next(AnchorSelection::existing(new_selection), &mut params) {
-                Some(next_mode) => {
-                    // We need to hide anchors connected to this drawing to force the user to
-                    // connect different drawing
-                    if matches!(request.scope, Scope::MultipleDrawings) {
-                        params
-                            .parents
-                            .get(new_selection)
-                            .and_then(|p| params.children.get(**p))
-                            .map(|children| {
-                                for c in children.iter().filter(|c| params.anchors.get(**c).is_ok())
-                                {
-                                    set_visibility(*c, &mut params.visibility, false);
-                                    params.hidden_entities.selected_drawing_anchors.insert(*c);
-                                }
-                            })
-                            .ok();
-                    }
-                    next_mode
-                }
+                Some(next_mode) => next_mode,
                 None => {
                     params.cleanup();
                     *mode = InteractionMode::Inspect;

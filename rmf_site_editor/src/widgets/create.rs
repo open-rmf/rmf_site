@@ -259,7 +259,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     }
                                     ui.add_space(10.0);
                                 }
-                                ui.add_space(10.0);
                             }
                         });
                 }

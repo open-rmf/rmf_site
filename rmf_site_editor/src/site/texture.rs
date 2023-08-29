@@ -49,7 +49,9 @@ pub fn detect_last_selected_texture<T: Component>(
     removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
-        let Ok(parent) = parents.get(*affiliation) else { return };
+        let Ok(parent) = parents.get(*affiliation) else {
+            return;
+        };
         if let Ok(mut last) = last_selected.get_mut(parent.get()) {
             last.selection = Some(*affiliation);
         } else {

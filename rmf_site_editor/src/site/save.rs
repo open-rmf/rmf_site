@@ -19,7 +19,10 @@ use bevy::{
     ecs::{event::Events, system::SystemState},
     prelude::*,
 };
-use std::{collections::BTreeMap, path::PathBuf};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    path::PathBuf,
+};
 use thiserror::Error as ThisError;
 
 use crate::{recency::RecencyRanking, site::*};
@@ -48,6 +51,8 @@ pub enum SiteGenerationError {
     BrokenLevelReference(Entity),
     #[error("an object has a reference to a nav graph that does not exist")]
     BrokenNavGraphReference(Entity),
+    #[error("an issue has a reference to an object that does not exist")]
+    BrokenIssueReference(Entity),
     #[error("lift {0} is missing its anchor group")]
     BrokenLift(u32),
     #[error(
@@ -846,7 +851,9 @@ fn generate_fiducials(
 
     let mut fiducials = BTreeMap::new();
     for child in children {
-        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else { continue };
+        let Ok((point, affiliation, site_id)) = q_fiducials.get(*child) else {
+            continue;
+        };
         let anchor = q_anchor_ids
             .get(point.0)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(point.0))?
@@ -892,7 +899,9 @@ fn generate_fiducial_groups(
 
     let mut fiducial_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, site_id)) = q_groups.get(*child) else { continue };
+        let Ok((name, site_id)) = q_groups.get(*child) else {
+            continue;
+        };
         fiducial_groups.insert(site_id.0, FiducialGroup::new(name.clone()));
     }
 
@@ -916,7 +925,9 @@ fn generate_texture_groups(
 
     let mut texture_groups = BTreeMap::new();
     for child in children {
-        let Ok((name, texture, site_id)) = q_groups.get(*child) else { continue };
+        let Ok((name, texture, site_id)) = q_groups.get(*child) else {
+            continue;
+        };
         texture_groups.insert(
             site_id.0,
             TextureGroup {
@@ -1106,6 +1117,49 @@ fn generate_graph_rankings(
         .collect()
 }
 
+fn generate_site_properties(
+    world: &mut World,
+    site: Entity,
+) -> Result<SiteProperties<u32>, SiteGenerationError> {
+    let mut state: SystemState<(
+        Query<(
+            &NameOfSite,
+            &FilteredIssues<Entity>,
+            &FilteredIssueKinds,
+            &GeographicComponent,
+        )>,
+        Query<&SiteID>,
+    )> = SystemState::new(world);
+
+    let (q_properties, q_ids) = state.get(world);
+
+    let Ok((name, issues, issue_kinds, geographic_offset)) = q_properties.get(site) else {
+        return Err(SiteGenerationError::InvalidSiteEntity(site));
+    };
+
+    let mut converted_issues = BTreeSet::new();
+    for issue in issues.iter() {
+        let mut entities = BTreeSet::new();
+        for e in issue.entities.iter() {
+            let id = q_ids
+                .get(*e)
+                .map_err(|_| SiteGenerationError::BrokenIssueReference(*e))?;
+            entities.insert(**id);
+        }
+        converted_issues.insert(IssueKey {
+            entities,
+            kind: issue.kind.clone(),
+        });
+    }
+
+    Ok(SiteProperties {
+        name: name.clone(),
+        geographic_offset: geographic_offset.clone(),
+        filtered_issues: FilteredIssues(converted_issues),
+        filtered_issue_kinds: issue_kinds.clone(),
+    })
+}
+
 fn migrate_relative_paths(
     site: Entity,
     new_path: &PathBuf,
@@ -1176,22 +1230,13 @@ pub fn generate_site(
     let lanes = generate_lanes(world, site)?;
     let locations = generate_locations(world, site)?;
     let graph_ranking = generate_graph_rankings(world, site)?;
-
-    let name_of_site = match world.get::<NameOfSite>(site) {
-        Some(props) => props.clone(),
-        None => {
-            return Err(SiteGenerationError::InvalidSiteEntity(site));
-        }
-    };
+    let properties = generate_site_properties(world, site)?;
 
     disassemble_edited_drawing(world);
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties: SiteProperties {
-            name: name_of_site,
-            ..default()
-        },
+        properties,
         levels,
         lifts,
         fiducials,

@@ -51,9 +51,6 @@ use view_groups::*;
 pub mod diagnostic_window;
 use diagnostic_window::*;
 
-pub mod menu_bar;
-use menu_bar::*;
-
 pub mod view_layers;
 use view_layers::*;
 
@@ -113,6 +110,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<LightDisplay>()
             .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<DiagnosticWindowState>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
@@ -186,7 +184,7 @@ pub struct WorkcellChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct TopMenuEvents<'w, 's> {
+pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
@@ -298,7 +296,7 @@ pub struct AppEvents<'w, 's> {
     pub workcell_change: WorkcellChangeEvents<'w, 's>,
     pub display: PanelResources<'w, 's>,
     pub request: Requests<'w, 's>,
-    pub top_menu_events: TopMenuEvents<'w, 's>,
+    pub file_events: FileEvents<'w, 's>,
     pub layers: LayerEvents<'w, 's>,
     pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
@@ -402,6 +400,8 @@ fn site_ui_layout(
         &children,
         &mut menu_params,
     );
+
+    DiagnosticWindow::new(&mut events, &mut diagnostic_params).show(egui_context.ctx_mut());
 
     egui::TopBottomPanel::bottom("log_console")
         .resizable(true)

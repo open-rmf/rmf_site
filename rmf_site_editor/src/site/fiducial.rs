@@ -17,7 +17,8 @@
 
 use crate::interaction::VisualCue;
 use crate::site::*;
-use bevy::prelude::*;
+use crate::{Issue, ValidateWorkspace};
+use bevy::{prelude::*, utils::Uuid};
 use std::collections::HashMap;
 
 #[derive(Component)]
@@ -286,6 +287,41 @@ pub fn update_fiducial_for_moved_anchors(
                     .point_in_parent_frame_of(point.0, Category::Fiducial, e)
                     .unwrap();
                 tf.translation = position;
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of fiducials without affiliation
+pub const FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x242a655f67cc4d4f9176ed5d64cd87f0u128);
+
+// When triggered by a validation request event, check if there are fiducials without affiliation,
+// generate an issue if that is the case
+pub fn check_for_fiducials_without_affiliation(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    fiducial_affiliations: Query<(Entity, &Affiliation<Entity>), With<FiducialMarker>>,
+) {
+    const ISSUE_HINT: &str = "Fiducial affiliations are used by the site editor to map matching \
+                            fiducials between different floors or drawings and calculate their \
+                            relative transform, fiducials without affiliation are ignored";
+    for root in validate_events.iter() {
+        for (e, affiliation) in &fiducial_affiliations {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+                if affiliation.0.is_none() {
+                    let issue = Issue {
+                        key: IssueKey {
+                            entities: [e].into(),
+                            kind: FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
+                        },
+                        brief: format!("Fiducial without affiliation found"),
+                        hint: ISSUE_HINT.to_string(),
+                    };
+                    let id = commands.spawn(issue).id();
+                    commands.entity(**root).add_child(id);
+                }
             }
         }
     }
