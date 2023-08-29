@@ -35,9 +35,9 @@ pub struct SiteProperties<T: RefTrait> {
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
     pub geographic_offset: GeographicComponent,
     // TODO(luca) group these into an IssueFilters?
-    #[serde(skip_serializing_if = "FilteredIssues::is_empty")]
+    #[serde(default, skip_serializing_if = "FilteredIssues::is_empty")]
     pub filtered_issues: FilteredIssues<T>,
-    #[serde(skip_serializing_if = "FilteredIssueKinds::is_empty")]
+    #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
     pub filtered_issue_kinds: FilteredIssueKinds,
 }
 

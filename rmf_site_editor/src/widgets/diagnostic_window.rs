@@ -21,7 +21,7 @@ use crate::{AppEvents, Icons, Issue};
 use crate::{IssueDictionary, ValidateWorkspace};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Window};
+use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Ui};
 
 #[derive(Resource, Debug, Clone, Default)]
 pub struct DiagnosticWindowState {
@@ -59,7 +59,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
         Self { events, params }
     }
 
-    pub fn show(self, ctx: &Context) {
+    pub fn show(self, ui: &mut Ui) {
         //let state = &mut self.events.file_events.diagnostic_window;
         let mut state = (*self.events.file_events.diagnostic_window).clone();
         let Some(root) = self.events.request.current_workspace.root else {
@@ -71,128 +71,123 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
         else {
             return;
         };
-        Window::new("Validate Site")
-            .open(&mut state.show)
-            .show(ctx, |ui| {
-                ui.collapsing("Filters", |ui| {
-                    for (uuid, name) in self.params.issue_dictionary.iter() {
-                        let mut show_category = !filtered_issue_kinds.contains(uuid);
-                        if ui.add(Checkbox::new(&mut show_category, name)).clicked() {
-                            match show_category {
-                                true => filtered_issue_kinds.remove(uuid),
-                                false => filtered_issue_kinds.insert(*uuid),
-                            };
-                        }
+        ui.vertical(|ui| {
+            ui.collapsing("Filters", |ui| {
+                for (uuid, name) in self.params.issue_dictionary.iter() {
+                    let mut show_category = !filtered_issue_kinds.contains(uuid);
+                    if ui.add(Checkbox::new(&mut show_category, name)).clicked() {
+                        match show_category {
+                            true => filtered_issue_kinds.remove(uuid),
+                            false => filtered_issue_kinds.insert(*uuid),
+                        };
                     }
-                });
-
-                ui.collapsing("Suppressed issues", |ui| {
-                    let mut clear_suppressions = Vec::new();
-                    for (idx, issue) in filtered_issues.iter().enumerate() {
-                        ui.horizontal(|ui| {
-                            let issue_type = self
-                                .params
-                                .issue_dictionary
-                                .get(&issue.kind)
-                                .cloned()
-                                .unwrap_or("Unknown Type".to_owned());
-                            ui.label(issue_type);
-                            if ui
-                                .add(ImageButton::new(self.params.icons.trash.egui(), [16., 16.]))
-                                .on_hover_text("Remove this suppression")
-                                .clicked()
-                            {
-                                clear_suppressions.push(issue.clone());
-                            }
-                        });
-                        Grid::new(format!("diagnostic_suppressed_affected_entities_{}", idx)).show(
-                            ui,
-                            |ui| {
-                                for e in &issue.entities {
-                                    SelectionWidget::new(
-                                        *e,
-                                        self.params.site_id.get(*e).ok().cloned(),
-                                        self.params.icons.as_ref(),
-                                        self.events,
-                                    )
-                                    .show(ui);
-                                }
-                            },
-                        );
-                        ui.add_space(10.0);
-                    }
-                    for c in clear_suppressions.iter() {
-                        filtered_issues.remove(c);
-                    }
-                });
-
-                ui.label("Active issues");
-                // Now show the issues
-                ScrollArea::vertical()
-                    .max_height(300.0)
-                    .auto_shrink([false, false])
-                    .show(ui, |ui| {
-                        let mut issue_still_exists = false;
-                        if self.params.issues.is_empty() {
-                            ui.label("No issues found");
-                        }
-                        for (issue, parent) in &self.params.issues {
-                            if filtered_issue_kinds.contains(&issue.key.kind)
-                                || filtered_issues.contains(&issue.key)
-                                || **parent != root
-                            {
-                                continue;
-                            }
-                            let mut sel = state.selected.as_ref().is_some_and(|k| *k == issue.key);
-                            issue_still_exists |= sel;
-                            ui.horizontal(|ui| {
-                                if ui
-                                    .add(ImageButton::new(
-                                        self.params.icons.hide.egui(),
-                                        [16., 16.],
-                                    ))
-                                    .on_hover_text("Suppress this issue")
-                                    .clicked()
-                                {
-                                    filtered_issues.insert(issue.key.clone());
-                                    issue_still_exists = false;
-                                }
-                                if ui
-                                    .toggle_value(&mut sel, &issue.brief)
-                                    .on_hover_text(&issue.hint)
-                                    .clicked()
-                                {
-                                    state.selected = sel.then(|| issue.key.clone());
-                                    issue_still_exists = sel;
-                                }
-                            });
-                        }
-                        if !issue_still_exists {
-                            state.selected = None;
-                        }
-                    });
-                ui.add_space(10.0);
-
-                // Spawn widgets for selected issue
-                if let Some(sel) = &state.selected {
-                    ui.label("Affected entities");
-                    Grid::new("diagnostic_affected_entities").show(ui, |ui| {
-                        for e in &sel.entities {
-                            SelectionWidget::new(
-                                *e,
-                                self.params.site_id.get(*e).ok().cloned(),
-                                self.params.icons.as_ref(),
-                                self.events,
-                            )
-                            .show(ui);
-                        }
-                    });
-                }
-
-                if ui.add(Button::new("Validate")).clicked() {
-                    self.params.validate_event.send(ValidateWorkspace(root));
                 }
             });
+
+            ui.collapsing("Suppressed issues", |ui| {
+                let mut clear_suppressions = Vec::new();
+                for (idx, issue) in filtered_issues.iter().enumerate() {
+                    ui.horizontal(|ui| {
+                        let issue_type = self
+                            .params
+                            .issue_dictionary
+                            .get(&issue.kind)
+                            .cloned()
+                            .unwrap_or("Unknown Type".to_owned());
+                        ui.label(issue_type);
+                        if ui
+                            .add(ImageButton::new(self.params.icons.trash.egui(), [16., 16.]))
+                            .on_hover_text("Remove this suppression")
+                            .clicked()
+                        {
+                            clear_suppressions.push(issue.clone());
+                        }
+                    });
+                    Grid::new(format!("diagnostic_suppressed_affected_entities_{}", idx)).show(
+                        ui,
+                        |ui| {
+                            for e in &issue.entities {
+                                SelectionWidget::new(
+                                    *e,
+                                    self.params.site_id.get(*e).ok().cloned(),
+                                    self.params.icons.as_ref(),
+                                    self.events,
+                                )
+                                .show(ui);
+                            }
+                        },
+                    );
+                    ui.add_space(10.0);
+                }
+                for c in clear_suppressions.iter() {
+                    filtered_issues.remove(c);
+                }
+            });
+
+            ui.label("Active issues");
+            // Now show the issues
+            ScrollArea::vertical()
+                .max_height(300.0)
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    let mut issue_still_exists = false;
+                    if self.params.issues.is_empty() {
+                        ui.label("No issues found");
+                    }
+                    for (issue, parent) in &self.params.issues {
+                        if filtered_issue_kinds.contains(&issue.key.kind)
+                            || filtered_issues.contains(&issue.key)
+                            || **parent != root
+                        {
+                            continue;
+                        }
+                        let mut sel = state.selected.as_ref().is_some_and(|k| *k == issue.key);
+                        issue_still_exists |= sel;
+                        ui.horizontal(|ui| {
+                            if ui
+                                .add(ImageButton::new(self.params.icons.hide.egui(), [16., 16.]))
+                                .on_hover_text("Suppress this issue")
+                                .clicked()
+                            {
+                                filtered_issues.insert(issue.key.clone());
+                                issue_still_exists = false;
+                            }
+                            if ui
+                                .toggle_value(&mut sel, &issue.brief)
+                                .on_hover_text(&issue.hint)
+                                .clicked()
+                            {
+                                state.selected = sel.then(|| issue.key.clone());
+                                issue_still_exists = sel;
+                            }
+                        });
+                    }
+                    if !issue_still_exists {
+                        state.selected = None;
+                    }
+                });
+            ui.add_space(10.0);
+
+            // Spawn widgets for selected issue
+            if let Some(sel) = &state.selected {
+                ui.label("Affected entities");
+                Grid::new("diagnostic_affected_entities").show(ui, |ui| {
+                    for e in &sel.entities {
+                        SelectionWidget::new(
+                            *e,
+                            self.params.site_id.get(*e).ok().cloned(),
+                            self.params.icons.as_ref(),
+                            self.events,
+                        )
+                        .show(ui);
+                    }
+                });
+            }
+
+            if ui.add(Button::new("Validate")).clicked() {
+                self.params.validate_event.send(ValidateWorkspace(root));
+            }
+        });
         *self.events.file_events.diagnostic_window = state;
     }
 }

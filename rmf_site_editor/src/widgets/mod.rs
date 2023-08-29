@@ -401,8 +401,6 @@ fn site_ui_layout(
         &mut menu_params,
     );
 
-    DiagnosticWindow::new(&mut events, &mut diagnostic_params).show(egui_context.ctx_mut());
-
     egui::TopBottomPanel::bottom("log_console")
         .resizable(true)
         .min_height(30.)
@@ -412,8 +410,16 @@ fn site_ui_layout(
             ConsoleWidget::new(&mut events).show(ui);
         });
 
+    if events.file_events.diagnostic_window.show {
+        egui::SidePanel::left("diagnostic_window")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                DiagnosticWindow::new(&mut events, &mut diagnostic_params).show(ui);
+            });
+    }
     if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("left_panel")
+        egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .exact_width(320.0)
             .show(egui_context.ctx_mut(), |ui| {
@@ -663,7 +669,7 @@ fn workcell_ui_layout(
     );
 
     if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("left_panel")
+        egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .exact_width(320.0)
             .show(egui_context.ctx_mut(), |ui| {
