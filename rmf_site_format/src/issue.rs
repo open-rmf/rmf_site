@@ -16,8 +16,6 @@
 */
 
 use crate::RefTrait;
-#[cfg(feature = "bevy")]
-use bevy::prelude::Entity;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeSet;
 use uuid::Uuid;
@@ -28,21 +26,4 @@ pub struct IssueKey<T: RefTrait> {
     pub entities: BTreeSet<T>,
     /// Uuid of the type of issue
     pub kind: Uuid,
-}
-
-#[cfg(feature = "bevy")]
-impl IssueKey<u32> {
-    pub fn to_ecs(
-        &self,
-        id_to_entity: &std::collections::HashMap<u32, Entity>,
-    ) -> IssueKey<Entity> {
-        IssueKey {
-            entities: self
-                .entities
-                .iter()
-                .map(|e| *id_to_entity.get(e).unwrap())
-                .collect(),
-            kind: self.kind.clone(),
-        }
-    }
 }
