@@ -24,9 +24,14 @@ use bevy::prelude::{
     Without, World,
 };
 use bevy_egui::{
-    egui::{self, epaint::ahash::HashSet, Button, Ui},
+    egui::{self, Button, Ui},
     EguiContext,
 };
+
+/// Adding this to an entity to an entity with the MenuItem component
+/// will grey out and disable a MenuItem.
+#[derive(Component)]
+pub struct MenuDisabled;
 
 /// This component represents a menu. Menus and menu items
 /// can be arranged in trees using bevy's own parent-child system.
@@ -52,6 +57,7 @@ impl Menu {
 #[non_exhaustive]
 pub enum MenuItem {
     Text(String),
+    CheckBox(String, bool),
 }
 
 /// This resource provides the root entity for the file menu
@@ -72,6 +78,54 @@ impl FromWorld for FileMenu {
         let menu_item = world
             .spawn(Menu {
                 text: "File".to_string(),
+            })
+            .id();
+        Self { menu_item }
+    }
+}
+
+/// This resource provides the root entity for the tool menu
+#[derive(Resource)]
+pub struct ToolMenu {
+    /// Map of menu items
+    menu_item: Entity,
+}
+
+impl ToolMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for ToolMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world
+            .spawn(Menu {
+                text: "Tool".to_string(),
+            })
+            .id();
+        Self { menu_item }
+    }
+}
+
+/// This resource provides the root entity for the tool menu
+#[derive(Resource)]
+pub struct ViewMenu {
+    /// Map of menu items
+    menu_item: Entity,
+}
+
+impl ViewMenu {
+    pub fn get(&self) -> Entity {
+        return self.menu_item;
+    }
+}
+
+impl FromWorld for ViewMenu {
+    fn from_world(world: &mut World) -> Self {
+        let menu_item = world
+            .spawn(Menu {
+                text: "View".to_string(),
             })
             .id();
         Self { menu_item }
@@ -99,7 +153,10 @@ pub struct MenuPluginManager;
 
 impl Plugin for MenuPluginManager {
     fn build(&self, app: &mut App) {
-        app.add_event::<MenuEvent>().init_resource::<FileMenu>();
+        app.add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
     }
 }
 
@@ -109,15 +166,26 @@ fn render_sub_menu(
     entity: &Entity,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<&MenuItem>,
+    menu_items: &Query<(&mut MenuItem, Option<&MenuDisabled>)>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
-    if let Ok(e) = menu_items.get(*entity) {
+    if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
             MenuItem::Text(title) => {
-                if ui.add(Button::new(title)).clicked() {
+                if ui
+                    .add_enabled(disabled.is_none(), Button::new(title))
+                    .clicked()
+                {
+                    extension_events.send(MenuEvent::MenuClickEvent(*entity));
+                }
+            }
+            MenuItem::CheckBox(title, mut value) => {
+                if ui
+                    .add_enabled(disabled.is_none(), egui::Checkbox::new(&mut value, title))
+                    .clicked()
+                {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
@@ -314,10 +382,20 @@ pub fn top_menu_bar(
                 {
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
+                render_sub_menu(
+                    ui,
+                    &menu_params.view_menu.get(),
+                    children,
+                    &menu_params.menus,
+                    &menu_params.menu_items,
+                    &mut menu_params.extension_events,
+                    true,
+                );
             });
 
             for (_, entity) in menu_params.menus.iter().filter(|(_, entity)| {
-                top_level_components.contains(*entity) && *entity != file_menu.get()
+                top_level_components.contains(*entity)
+                    && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
                     ui,

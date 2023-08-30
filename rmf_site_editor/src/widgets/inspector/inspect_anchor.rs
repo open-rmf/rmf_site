@@ -18,8 +18,8 @@
 use crate::{
     interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
     site::{
-        Anchor, AssociatedGraphs, Category, Change, Dependents, JointType, LocationTags,
-        MeshConstraint, SiteID, Subordinate,
+        latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
+        GeographicComponent, JointType, LocationTags, MeshConstraint, SiteID, Subordinate,
     },
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
     workcell::CreateJoint,
@@ -44,6 +44,7 @@ pub struct InspectAnchorParams<'w, 's> {
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub joints: Query<'w, 's, Entity, With<JointType>>,
+    pub geographic_offset: Query<'w, 's, &'static GeographicComponent>,
 }
 
 pub struct InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
@@ -119,26 +120,58 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 });
             } else {
                 match anchor {
-                    Anchor::Translate2D(anchor) => {
-                        if !self.is_dependency {
-                            ui.label("x");
-                        }
-                        let mut x = tf.translation.x;
-                        ui.add(DragValue::new(&mut x).speed(0.01));
-                        // TODO(MXG): Make the drag speed a user-defined setting
+                    Anchor::Translate2D(_anchor) => {
+                        ui.vertical(|ui| {
+                            ui.horizontal( |ui|  {
+                                if !self.is_dependency {
+                                    ui.label("x");
+                                }
+                                let mut x = tf.translation.x;
+                                ui.add(DragValue::new(&mut x).speed(0.01));
+                                // TODO(MXG): Make the drag speed a user-defined setting
 
-                        if !self.is_dependency {
-                            ui.label("y");
-                        }
-                        let mut y = tf.translation.y;
-                        ui.add(DragValue::new(&mut y).speed(0.01));
+                                if !self.is_dependency {
+                                    ui.label("y");
+                                }
+                                let mut y = tf.translation.y;
+                                ui.add(DragValue::new(&mut y).speed(0.01));
 
-                        if x != tf.translation.x || y != tf.translation.y {
-                            self.events.request.move_to.send(MoveTo {
-                                entity: self.anchor,
-                                transform: Transform::from_translation([x, y, 0.0].into()),
+                                if x != tf.translation.x || y != tf.translation.y {
+                                    self.events.request.move_to.send(MoveTo {
+                                        entity: self.anchor,
+                                        transform: Transform::from_translation([x, y, 0.0].into()),
+                                    });
+                                }
                             });
-                        }
+
+                            for comp in &self.params.geographic_offset {
+                                let Some(offset) = comp.0 else {
+                                    continue;
+                                };
+                                let Ok((mut lat, mut  lon))= world_to_latlon(tf.translation, offset.anchor) else {
+                                    continue;
+                                };
+
+                                let old_lat = lat.clone();
+                                let old_lon = lon.clone();
+
+                                if !self.is_dependency {
+                                    ui.label("Latitude");
+                                    ui.add(DragValue::new(&mut lat).speed(1e-16));
+                                    ui.label("Longitude");
+                                    ui.add(DragValue::new(&mut lon).speed(1e-16));
+
+                                    if old_lat != lat || old_lon != lon {
+                                        self.events.request.move_to.send(MoveTo {
+                                            entity: self.anchor,
+                                            transform: Transform::from_translation(latlon_to_world(
+                                                lat as f32, lon as f32, offset.anchor,
+                                            )),
+                                        });
+                                    }
+                                }
+                            }
+                        });
                     }
                     Anchor::CategorizedTranslate2D(anchor) => {
                         todo!("Categorized translate inspector not implemented yet");
@@ -197,7 +230,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 // If the parent is not a joint, add a joint creation widget
                                 if self.params.joints.get(parent.get()).is_err() {
                                     if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
-                                        println!("Adding joint");
                                         self.events.create_joint.send(CreateJoint {
                                             parent: parent.get(),
                                             child: self.anchor,

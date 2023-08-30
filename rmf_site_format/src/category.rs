@@ -50,6 +50,7 @@ pub enum Category {
     Drawing,
     Constraint,
     Workcell,
+    GeoReference,
     NavigationGraph,
     Visual,
 }
@@ -80,6 +81,7 @@ impl Category {
             Self::Drawing => "Drawing",
             Self::Constraint => "Constraint",
             Self::Workcell => "Workcell",
+            Self::GeoReference => "Georeference",
             Self::NavigationGraph => "Navigation Graph",
             Self::Visual => "Visual",
         }

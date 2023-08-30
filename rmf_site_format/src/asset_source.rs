@@ -30,6 +30,11 @@ pub enum AssetSource {
     Search(String),
     Bundled(String),
     Package(String),
+    OSMTile {
+        zoom: i32,
+        latitude: f32,
+        longitude: f32,
+    },
 }
 
 impl AssetSource {
@@ -40,6 +45,11 @@ impl AssetSource {
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
+            Self::OSMTile {
+                zoom: _,
+                latitude: _,
+                longitude: _,
+            } => "Map",
         }
     }
 
@@ -109,6 +119,33 @@ impl From<&str> for AssetSource {
             return AssetSource::Bundled(path);
         } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
+        } else if let Some(path) = path.strip_prefix("osm-tile://").map(|p| p.to_string()) {
+            if let Some(path) = path.strip_suffix(".png") {
+                let coordinates: Result<Vec<_>, _> =
+                    path.split(",").map(|f| f.parse::<f32>()).collect();
+
+                match coordinates {
+                    Err(_) => {
+                        println!("Invalid map coordinates {}", path);
+                        return AssetSource::default();
+                    }
+                    Ok(coordinates) => {
+                        if coordinates.len() != 3 {
+                            println!("Invalid map coordinates {}", path);
+                            return AssetSource::default();
+                        }
+
+                        return AssetSource::OSMTile {
+                            zoom: coordinates[0] as i32,
+                            latitude: coordinates[1],
+                            longitude: coordinates[2],
+                        };
+                    }
+                }
+            } else {
+                println!("Invalid map coordinates {}", path);
+                return AssetSource::default();
+            }
         }
         AssetSource::default()
     }
@@ -122,11 +159,18 @@ impl From<&AssetSource> for String {
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                format!("osm-tile://{},{},{}.png", zoom, latitude, longitude)
+            }
         }
     }
 }
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
 pub struct RecallAssetSource {
     pub filename: Option<String>,
@@ -134,7 +178,11 @@ pub struct RecallAssetSource {
     pub search_name: Option<String>,
     pub bundled_name: Option<String>,
     pub package_path: Option<String>,
+    pub map: Option<(i32, f32, f32)>,
 }
+
+//TODO(arjo) This is a slippery slope
+impl Eq for RecallAssetSource {}
 
 impl Recall for RecallAssetSource {
     type Source = AssetSource;
@@ -155,6 +203,13 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
+            }
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                self.map = Some((*zoom, *latitude, *longitude));
             }
         }
     }

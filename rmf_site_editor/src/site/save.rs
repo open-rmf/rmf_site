@@ -259,7 +259,8 @@ fn generate_levels(
     site: Entity,
 ) -> Result<BTreeMap<u32, Level>, SiteGenerationError> {
     let mut state: SystemState<(
-        Query<(&Anchor, &SiteID, &Parent)>,
+        Query<&Children, With<NameOfSite>>,
+        Query<(&Anchor, &SiteID)>,
         Query<&SiteID, With<Group>>,
         Query<
             (
@@ -268,7 +269,6 @@ fn generate_levels(
                 &NameInSite,
                 &DoorType,
                 &SiteID,
-                &Parent,
             ),
             Without<Pending>,
         >,
@@ -280,7 +280,6 @@ fn generate_levels(
                 &PixelsPerMeter,
                 &PreferredSemiTransparency,
                 &SiteID,
-                &Parent,
                 &Children,
             ),
             (With<DrawingMarker>, Without<Pending>),
@@ -301,11 +300,10 @@ fn generate_levels(
                 &Affiliation<Entity>,
                 &PreferredSemiTransparency,
                 &SiteID,
-                &Parent,
             ),
             (With<FloorMarker>, Without<Pending>),
         >,
-        Query<(&LightKind, &Pose, &SiteID, &Parent)>,
+        Query<(&LightKind, &Pose, &SiteID)>,
         Query<
             (
                 &Edge<Entity>,
@@ -317,34 +315,16 @@ fn generate_levels(
             (With<MeasurementMarker>, Without<Pending>),
         >,
         Query<
-            (
-                &NameInSite,
-                &AssetSource,
-                &Pose,
-                &IsStatic,
-                &Scale,
-                &SiteID,
-                &Parent,
-            ),
+            (&NameInSite, &AssetSource, &Pose, &IsStatic, &Scale, &SiteID),
             (With<ModelMarker>, Without<Pending>),
         >,
-        Query<
-            (
-                &NameInSite,
-                &Pose,
-                &PhysicalCameraProperties,
-                &SiteID,
-                &Parent,
-            ),
-            Without<Pending>,
-        >,
+        Query<(&NameInSite, &Pose, &PhysicalCameraProperties, &SiteID), Without<Pending>>,
         Query<
             (
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
                 &Affiliation<Entity>,
                 &SiteID,
-                &Parent,
             ),
             (With<WallMarker>, Without<Pending>),
         >,
@@ -355,7 +335,7 @@ fn generate_levels(
                 &GlobalFloorVisibility,
                 &GlobalDrawingVisibility,
                 &SiteID,
-                &Parent,
+                &Children,
                 Option<&RecencyRanking<FloorMarker>>,
                 Option<&RecencyRanking<DrawingMarker>>,
             ),
@@ -365,6 +345,7 @@ fn generate_levels(
     )> = SystemState::new(world);
 
     let (
+        q_site_children,
         q_anchors,
         q_groups,
         q_doors,
@@ -380,43 +361,8 @@ fn generate_levels(
         q_site_ids,
     ) = state.get(world);
 
-    let mut levels = BTreeMap::new();
-    for (
-        name,
-        elevation,
-        floor_vis,
-        drawing_vis,
-        level_id,
-        parent,
-        floor_ranking,
-        drawing_ranking,
-    ) in &q_levels
-    {
-        if parent.get() == site {
-            levels.insert(
-                level_id.0,
-                Level::new(
-                    LevelProperties {
-                        name: name.clone(),
-                        elevation: elevation.clone(),
-                        global_floor_visibility: floor_vis.clone(),
-                        global_drawing_visibility: drawing_vis.clone(),
-                    },
-                    RankingsInLevel {
-                        floors: floor_ranking
-                            .map(|r| r.to_u32(&q_site_ids))
-                            .unwrap_or(Vec::new()),
-                        drawings: drawing_ranking
-                            .map(|r| r.to_u32(&q_site_ids))
-                            .unwrap_or(Vec::new()),
-                    },
-                ),
-            );
-        }
-    }
-
     let get_anchor_id = |entity| {
-        let (_, site_id, _) = q_anchors
+        let (_, site_id) = q_anchors
             .get(entity)
             .map_err(|_| SiteGenerationError::BrokenAnchorReference(entity))?;
         Ok(site_id.0)
@@ -445,188 +391,193 @@ fn generate_levels(
         Ok(Path(anchor_ids))
     };
 
-    for (anchor, id, parent) in &q_anchors {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                level.anchors.insert(id.0, anchor.clone());
-            }
-        }
-    }
-
-    for (edge, o_edge, name, kind, id, parent) in &q_doors {
-        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_edge(edge)?;
-                level.doors.insert(
-                    id.0,
-                    Door {
-                        anchors,
+    let mut levels = BTreeMap::new();
+    if let Ok(site_children) = q_site_children.get(site) {
+        for c in site_children.iter() {
+            if let Ok((
+                name,
+                elevation,
+                floor_vis,
+                drawing_vis,
+                level_id,
+                level_children,
+                floor_ranking,
+                drawing_ranking,
+            )) = q_levels.get(*c)
+            {
+                let mut level = Level::new(
+                    LevelProperties {
                         name: name.clone(),
-                        kind: kind.clone(),
-                        marker: DoorMarker,
+                        elevation: elevation.clone(),
+                        global_floor_visibility: floor_vis.clone(),
+                        global_drawing_visibility: drawing_vis.clone(),
+                    },
+                    RankingsInLevel {
+                        floors: floor_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
+                        drawings: drawing_ranking
+                            .map(|r| r.to_u32(&q_site_ids))
+                            .unwrap_or(Vec::new()),
                     },
                 );
-            }
-        }
-    }
-
-    for (name, source, pose, pixels_per_meter, preferred_alpha, id, parent, children) in &q_drawings
-    {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let mut measurements = BTreeMap::new();
-                let mut fiducials = BTreeMap::new();
-                let mut anchors = BTreeMap::new();
-                for e in children.iter() {
-                    if let Ok((anchor, anchor_id, _)) = q_anchors.get(*e) {
-                        anchors.insert(anchor_id.0, anchor.clone());
+                for c in level_children.iter() {
+                    if let Ok((anchor, id)) = q_anchors.get(*c) {
+                        level.anchors.insert(id.0, anchor.clone());
                     }
-                    if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(*e) {
+                    if let Ok((edge, o_edge, name, kind, id)) = q_doors.get(*c) {
                         let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                         let anchors = get_anchor_id_edge(edge)?;
-                        measurements.insert(
+                        level.doors.insert(
                             id.0,
-                            Measurement {
+                            Door {
                                 anchors,
-                                distance: distance.clone(),
-                                label: label.clone(),
-                                marker: MeasurementMarker,
+                                name: name.clone(),
+                                kind: kind.clone(),
+                                marker: DoorMarker,
                             },
                         );
                     }
-                    if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
-                        let point = o_point.map(|x| &x.0).unwrap_or(point);
-                        let anchor = Point(get_anchor_id(point.0)?);
-                        let affiliation = if let Affiliation(Some(e)) = affiliation {
+                    if let Ok((
+                        name,
+                        source,
+                        pose,
+                        pixels_per_meter,
+                        preferred_alpha,
+                        id,
+                        children,
+                    )) = q_drawings.get(*c)
+                    {
+                        let mut measurements = BTreeMap::new();
+                        let mut fiducials = BTreeMap::new();
+                        let mut anchors = BTreeMap::new();
+                        for e in children.iter() {
+                            if let Ok((anchor, anchor_id)) = q_anchors.get(*e) {
+                                anchors.insert(anchor_id.0, anchor.clone());
+                            }
+                            if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(*e)
+                            {
+                                let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+                                let anchors = get_anchor_id_edge(edge)?;
+                                measurements.insert(
+                                    id.0,
+                                    Measurement {
+                                        anchors,
+                                        distance: distance.clone(),
+                                        label: label.clone(),
+                                        marker: MeasurementMarker,
+                                    },
+                                );
+                            }
+                            if let Ok((point, o_point, affiliation, id)) = q_fiducials.get(*e) {
+                                let point = o_point.map(|x| &x.0).unwrap_or(point);
+                                let anchor = Point(get_anchor_id(point.0)?);
+                                let affiliation = if let Affiliation(Some(e)) = affiliation {
+                                    Affiliation(Some(get_group_id(*e)?))
+                                } else {
+                                    Affiliation(None)
+                                };
+                                fiducials.insert(
+                                    id.0,
+                                    Fiducial {
+                                        anchor,
+                                        affiliation,
+                                        marker: FiducialMarker,
+                                    },
+                                );
+                            }
+                        }
+                        level.drawings.insert(
+                            id.0,
+                            Drawing {
+                                properties: DrawingProperties {
+                                    name: name.clone(),
+                                    source: source.clone(),
+                                    pose: pose.clone(),
+                                    pixels_per_meter: pixels_per_meter.clone(),
+                                    preferred_semi_transparency: preferred_alpha.clone(),
+                                },
+                                anchors,
+                                fiducials,
+                                measurements,
+                            },
+                        );
+                    }
+                    if let Ok((path, o_path, texture, preferred_alpha, id)) = q_floors.get(*c) {
+                        let path = o_path.map(|x| &x.0).unwrap_or(path);
+                        let anchors = get_anchor_id_path(&path)?;
+                        let texture = if let Affiliation(Some(e)) = texture {
                             Affiliation(Some(get_group_id(*e)?))
                         } else {
                             Affiliation(None)
                         };
-                        fiducials.insert(
+
+                        level.floors.insert(
                             id.0,
-                            Fiducial {
-                                anchor,
-                                affiliation,
-                                marker: FiducialMarker,
+                            Floor {
+                                anchors,
+                                texture,
+                                preferred_semi_transparency: preferred_alpha.clone(),
+                                marker: FloorMarker,
+                            },
+                        );
+                    }
+                    if let Ok((kind, pose, id)) = q_lights.get(*c) {
+                        level.lights.insert(
+                            id.0,
+                            Light {
+                                pose: pose.clone(),
+                                kind: kind.clone(),
+                            },
+                        );
+                    }
+                    if let Ok((name, source, pose, is_static, scale, id)) = q_models.get(*c) {
+                        level.models.insert(
+                            id.0,
+                            Model {
+                                name: name.clone(),
+                                source: source.clone(),
+                                pose: pose.clone(),
+                                is_static: is_static.clone(),
+                                scale: scale.clone(),
+                                marker: ModelMarker,
+                            },
+                        );
+                    }
+                    if let Ok((name, pose, properties, id)) = q_physical_cameras.get(*c) {
+                        level.physical_cameras.insert(
+                            id.0,
+                            PhysicalCamera {
+                                name: name.clone(),
+                                pose: pose.clone(),
+                                properties: properties.clone(),
+                                previewable: PreviewableMarker,
+                            },
+                        );
+                    }
+                    if let Ok((edge, o_edge, texture, id)) = q_walls.get(*c) {
+                        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
+                        let anchors = get_anchor_id_edge(edge)?;
+                        let texture = if let Affiliation(Some(e)) = texture {
+                            Affiliation(Some(get_group_id(*e)?))
+                        } else {
+                            Affiliation(None)
+                        };
+
+                        level.walls.insert(
+                            id.0,
+                            Wall {
+                                anchors,
+                                texture,
+                                marker: WallMarker,
                             },
                         );
                     }
                 }
-                level.drawings.insert(
-                    id.0,
-                    Drawing {
-                        properties: DrawingProperties {
-                            name: name.clone(),
-                            source: source.clone(),
-                            pose: pose.clone(),
-                            pixels_per_meter: pixels_per_meter.clone(),
-                            preferred_semi_transparency: preferred_alpha.clone(),
-                        },
-                        anchors,
-                        fiducials,
-                        measurements,
-                    },
-                );
+                levels.insert(level_id.0, level);
             }
         }
     }
-
-    for (path, o_path, texture, preferred_alpha, id, parent) in &q_floors {
-        let path = o_path.map(|x| &x.0).unwrap_or(path);
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_path(&path)?;
-                let texture = if let Affiliation(Some(e)) = texture {
-                    Affiliation(Some(get_group_id(*e)?))
-                } else {
-                    Affiliation(None)
-                };
-
-                level.floors.insert(
-                    id.0,
-                    Floor {
-                        anchors,
-                        texture,
-                        preferred_semi_transparency: preferred_alpha.clone(),
-                        marker: FloorMarker,
-                    },
-                );
-            }
-        }
-    }
-
-    for (kind, pose, id, parent) in &q_lights {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                level.lights.insert(
-                    id.0,
-                    Light {
-                        pose: pose.clone(),
-                        kind: kind.clone(),
-                    },
-                );
-            }
-        }
-    }
-
-    for (name, source, pose, is_static, scale, id, parent) in &q_models {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                level.models.insert(
-                    id.0,
-                    Model {
-                        name: name.clone(),
-                        source: source.clone(),
-                        pose: pose.clone(),
-                        is_static: is_static.clone(),
-                        scale: scale.clone(),
-                        marker: ModelMarker,
-                    },
-                );
-            }
-        }
-    }
-
-    for (name, pose, properties, id, parent) in &q_physical_cameras {
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                level.physical_cameras.insert(
-                    id.0,
-                    PhysicalCamera {
-                        name: name.clone(),
-                        pose: pose.clone(),
-                        properties: properties.clone(),
-                        previewable: PreviewableMarker,
-                    },
-                );
-            }
-        }
-    }
-
-    for (edge, o_edge, texture, id, parent) in &q_walls {
-        let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
-        if let Ok((_, _, _, _, level_id, _, _, _)) = q_levels.get(parent.get()) {
-            if let Some(level) = levels.get_mut(&level_id.0) {
-                let anchors = get_anchor_id_edge(edge)?;
-                let texture = if let Affiliation(Some(e)) = texture {
-                    Affiliation(Some(get_group_id(*e)?))
-                } else {
-                    Affiliation(None)
-                };
-
-                level.walls.insert(
-                    id.0,
-                    Wall {
-                        anchors,
-                        texture,
-                        marker: WallMarker,
-                    },
-                );
-            }
-        }
-    }
-
     return Ok(levels);
 }
 
@@ -1178,7 +1129,10 @@ pub fn generate_site(
     return Ok(Site {
         format_version: rmf_site_format::SemVer::default(),
         anchors,
-        properties: SiteProperties { name: name_of_site },
+        properties: SiteProperties {
+            name: name_of_site,
+            ..default()
+        },
         levels,
         lifts,
         fiducials,

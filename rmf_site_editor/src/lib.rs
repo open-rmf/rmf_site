@@ -57,10 +57,12 @@ use sdf_loader::*;
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use site::SitePlugin;
+use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
+pub mod osm_slippy_map;
 use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+pub use osm_slippy_map::*;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
@@ -220,6 +222,6 @@ impl Plugin for SiteEditor {
             .add_plugin(AnimationPlugin)
             .add_plugin(OccupancyPlugin)
             .add_plugin(WorkspacePlugin)
-            .add_plugin(MenuPluginManager);
+            .add_plugin(OSMViewPlugin);
     }
 }
