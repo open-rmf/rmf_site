@@ -27,6 +27,9 @@ pub use keyboard::*;
 pub mod mesh_constraint;
 pub use mesh_constraint::*;
 
+pub mod model;
+pub use model::*;
+
 pub mod save;
 pub use save::*;
 
@@ -101,6 +104,8 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(update_constraint_dependents)
                     .with_system(handle_model_loaded_events)
                     .with_system(update_model_scenes)
+                    .with_system(flatten_loaded_models_hierarchy)
+                    .with_system(replace_name_in_site_components)
                     .with_system(update_model_scales)
                     .with_system(handle_create_joint_events)
                     .with_system(update_model_tentative_formats)

@@ -2299,7 +2299,8 @@ pub fn handle_select_anchor_3d_mode(
                                 entity: parent,
                                 element: element,
                                 relative_pose: pose,
-                            });
+                            })
+                            .insert(FrameMarker);
                             // Add constraint dependent
                             if let Ok(mut parent_deps) =
                                 params.constraint_dependents.get_mut(parent)
@@ -2327,7 +2328,7 @@ pub fn handle_select_anchor_3d_mode(
                     }
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
-                        let parent = workspace.root.expect("No workspace");
+                        let parent = request.parent.unwrap_or(workspace.root.expect("No workspace"));
                         model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
                         params.commands.entity(id).insert(model);
                         parent

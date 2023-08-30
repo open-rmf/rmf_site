@@ -227,15 +227,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
                                 // Parent reassigning widget
                                 ui.label("Parent");
-                                // If the parent is not a joint, add a joint creation widget
-                                if self.params.joints.get(parent.get()).is_err() {
-                                    if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
-                                        self.events.create_joint.send(CreateJoint {
-                                            parent: parent.get(),
-                                            child: self.anchor,
-                                        });
-                                    }
-                                }
                                 SelectionWidget::new(
                                     parent.get(),
                                     self.params.site_id.get(parent.get()).ok().cloned(),
@@ -264,6 +255,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                         .request
                                         .change_mode
                                         .send(ChangeMode::To(request.into()));
+                                }
+                            }
+                            // If the parent is not a joint, add a joint creation widget
+                            if self.params.joints.get(parent.get()).is_err() {
+                                if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
+                                    self.events.create_joint.send(CreateJoint {
+                                        parent: parent.get(),
+                                        child: self.anchor,
+                                    });
                                 }
                             }
                         });

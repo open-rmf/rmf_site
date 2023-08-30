@@ -357,7 +357,7 @@ pub struct Trashcan;
 /// trash can and waiting to despawn them during a later stage after any
 /// modifier commands have been flushed.
 #[derive(Resource)]
-pub struct ModelTrashcan(Entity);
+pub struct ModelTrashcan(pub Entity);
 
 impl FromWorld for ModelTrashcan {
     fn from_world(world: &mut World) -> Self {
