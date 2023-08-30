@@ -15,13 +15,14 @@
  *
 */
 
+use crate::site::ChangePlugin;
 use crate::widgets::{
     diagnostic_window::DiagnosticWindowState,
     menu_bar::{MenuEvent, MenuItem, ToolMenu},
 };
 use bevy::prelude::*;
 use bevy::utils::{HashMap, Uuid};
-use rmf_site_format::IssueKey;
+use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
 
 #[derive(Component, Debug, Clone)]
 pub struct Issue {
@@ -93,6 +94,8 @@ fn handle_diagnostic_window_visibility(
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ValidateWorkspace>()
+            .add_plugin(ChangePlugin::<FilteredIssues<Entity>>::default())
+            .add_plugin(ChangePlugin::<FilteredIssueKinds>::default())
             .init_resource::<IssueDictionary>()
             .init_resource::<IssueMenu>()
             .add_system(handle_diagnostic_window_visibility);

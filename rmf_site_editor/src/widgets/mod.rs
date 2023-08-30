@@ -31,6 +31,7 @@ use crate::{
         ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    ValidateWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -173,6 +174,8 @@ pub struct MoreChangeEvents<'w, 's> {
     pub distance: EventWriter<'w, 's, Change<Distance>>,
     pub texture: EventWriter<'w, 's, Change<Texture>>,
     pub merge_groups: EventWriter<'w, 's, MergeGroups>,
+    pub filtered_issues: EventWriter<'w, 's, Change<FilteredIssues<Entity>>>,
+    pub filtered_issue_kinds: EventWriter<'w, 's, Change<FilteredIssueKinds>>,
 }
 
 #[derive(SystemParam)]
@@ -301,7 +304,9 @@ pub struct AppEvents<'w, 's> {
     pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
+    // TODO(luca) move these to Requests once 16 limit is lifted
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+    pub validate_workspace: EventWriter<'w, 's, ValidateWorkspace>,
 }
 
 fn site_ui_layout(
@@ -313,7 +318,7 @@ fn site_ui_layout(
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
-    mut diagnostic_params: DiagnosticParams,
+    diagnostic_params: DiagnosticParams,
     layers: LayersParams,
     mut groups: GroupParams,
     mut events: AppEvents,
@@ -415,7 +420,7 @@ fn site_ui_layout(
             .resizable(true)
             .exact_width(320.0)
             .show(egui_context.ctx_mut(), |ui| {
-                DiagnosticWindow::new(&mut events, &mut diagnostic_params).show(ui);
+                DiagnosticWindow::new(&mut events, &diagnostic_params).show(ui);
             });
     }
     if events.new_model.asset_gallery_status.show {

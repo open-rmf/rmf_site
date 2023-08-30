@@ -41,7 +41,7 @@ pub struct SiteProperties<T: RefTrait> {
     pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone)]
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct FilteredIssues<T: RefTrait>(pub BTreeSet<IssueKey<T>>);
 
@@ -74,7 +74,7 @@ impl<T: RefTrait> FilteredIssues<T> {
     }
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Default)]
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
 pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
 
