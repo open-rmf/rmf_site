@@ -24,7 +24,6 @@ bevy_infinite_grid = "0.6"
 bevy_polyline = "0.4"
 bevy_stl = "0.7.0"
 bevy_obj = { git = "https://github.com/luca-della-vedova/bevy_obj", branch = "luca/scene_0.9", features = ["scene"]}
-bevy_rapier3d = "0.20.0"
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
