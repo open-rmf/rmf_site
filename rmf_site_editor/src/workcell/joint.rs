@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::Dependents;
+use crate::site::{Delete, Dependents};
 use bevy::prelude::*;
 use rmf_site_format::{FrameMarker, Joint, JointType, NameInWorkcell};
 
@@ -62,6 +62,18 @@ pub fn handle_create_joint_events(
         if let Ok(mut deps) = dependents.get_mut(req.parent) {
             deps.remove(&req.child);
             deps.insert(joint_id);
+        }
+    }
+}
+
+/// This system cleans up joints which don't have a child anymore because it was despawned
+pub fn cleanup_orphaned_joints(
+    changed_joints: Query<(Entity, &Children), (Changed<Children>, With<JointType>)>,
+    mut delete: EventWriter<Delete>,
+) {
+    for (e, children) in &changed_joints {
+        if children.is_empty() {
+            delete.send(Delete::new(e));
         }
     }
 }

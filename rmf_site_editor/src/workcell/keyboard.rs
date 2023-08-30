@@ -17,10 +17,12 @@
 
 use bevy::prelude::*;
 use bevy_egui::EguiContext;
+use crate::{SaveWorkspace, SaveWorkspaceDestination, ExportFormat};
 
 pub fn handle_workcell_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     mut egui_context: ResMut<EguiContext>,
+    mut save_events: EventWriter<SaveWorkspace>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -31,21 +33,13 @@ pub fn handle_workcell_keyboard_input(
         return;
     }
 
-    /*
     if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
-        if keyboard_input.just_pressed(KeyCode::V) {
-            info!("Toggling visuals");
-            for mut v in visuals.iter_mut() {
-                v.is_visible = !v.is_visible;
-            }
-        }
-
-        if keyboard_input.just_pressed(KeyCode::C) {
-            info!("Toggling collisions");
-            for mut c in collisions.iter_mut() {
-                c.is_visible = !c.is_visible;
-            }
+        if keyboard_input.just_pressed(KeyCode::E) {
+            info!("Exporting URDF");
+            save_events.send(SaveWorkspace {
+                destination: SaveWorkspaceDestination::Dialog,
+                format: ExportFormat::Urdf,
+            });
         }
     }
-    */
 }

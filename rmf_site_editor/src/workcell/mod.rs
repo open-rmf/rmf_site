@@ -108,6 +108,7 @@ impl Plugin for WorkcellEditorPlugin {
                     .with_system(replace_name_in_site_components)
                     .with_system(update_model_scales)
                     .with_system(handle_create_joint_events)
+                    .with_system(cleanup_orphaned_joints)
                     .with_system(update_model_tentative_formats)
                     .with_system(propagate_model_render_layers)
                     .with_system(make_models_selectable)
