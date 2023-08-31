@@ -188,7 +188,6 @@ impl From<&JointAxis> for urdf_rs::Axis {
     }
 }
 
-// TODO(luca) create a to_bevy impl function to spawn the components
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct Joint {
     pub name: NameInWorkcell,
@@ -651,59 +650,6 @@ impl Workcell {
             self.frames.clone()
         };
 
-        let highest_site_id = frames
-            .iter()
-            .map(|(id, _)| id)
-            .chain(self.joints.iter().map(|(id, _)| id))
-            .chain(self.visuals.iter().map(|(id, _)| id))
-            .chain(self.collisions.iter().map(|(id, _)| id))
-            .chain(self.inertials.iter().map(|(id, _)| id))
-            .max()
-            .cloned()
-            .unwrap();
-        let mut next_site_id = highest_site_id..;
-        next_site_id.next().unwrap();
-        let mut additional_joints = BTreeMap::new();
-
-        // Preprocess frames by adding a fixed joint between frames that are directly connected
-        let mut new_parents = HashMap::new();
-        for (frame_id, parented_frame) in frames.iter() {
-            let parent_id = parented_frame.parent;
-            // Avoid creating joints for the root link
-            if parent_id == u32::MAX {
-                continue;
-            }
-            if let Some(parent_frame) = frames.get(&parent_id) {
-                let joint_id = next_site_id.next().unwrap();
-                additional_joints.insert(
-                    joint_id,
-                    Parented {
-                        parent: parent_id,
-                        bundle: Joint {
-                            name: NameInWorkcell(format!(
-                                "hierarchy_fixed_joint_{0}",
-                                additional_joints.len()
-                            )),
-                            joint_type: JointType::Fixed,
-                            limit: None,
-                            axis: None,
-                        },
-                    },
-                );
-                // Now set the child's parent to the joint
-                new_parents.insert(*frame_id, joint_id);
-            }
-        }
-
-        for (frame_id, new_parent) in new_parents.iter() {
-            if let Some(frame) = frames.get_mut(frame_id) {
-                frame.parent = *new_parent;
-            }
-        }
-
-        let mut joints = self.joints.clone();
-        joints.append(&mut additional_joints);
-
         let mut parent_to_inertials = HashMap::new();
         for (_, inertial) in self.inertials.iter() {
             let parent = inertial.parent;
@@ -712,6 +658,8 @@ impl Workcell {
             parent_to_inertials.insert(parent, inertial);
         }
 
+        // TODO(luca) combine multiple frames without a joint inbetween into a single link.
+        // For now as soon as a joint is missing the hierarchy will be broken
         let links = frames
             .iter()
             .map(|(frame_id, parented_frame)| {
@@ -733,7 +681,7 @@ impl Workcell {
             })
             .collect::<Vec<_>>();
 
-        let joints = joints
+        let joints = self.joints
             .iter()
             .map(|(joint_id, parented_joint)| {
                 let joint_parent = parented_joint.parent;
@@ -765,6 +713,7 @@ impl Workcell {
             })
             .collect::<Result<Vec<_>, WorkcellToUrdfError>>()?;
 
+        // TODO(luca) implement materials
         let robot = urdf_rs::Robot {
             name: self.properties.name.clone(),
             links,
