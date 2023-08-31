@@ -27,8 +27,6 @@ pub struct LocationTagMeshes {
     charger: Option<Entity>,
     parking_spot: Option<Entity>,
     holding_point: Option<Entity>,
-    spawn_robot: Option<Entity>,
-    workcell: Option<Entity>,
 }
 
 fn location_halo_tf(tag: &LocationTag) -> Transform {
@@ -100,8 +98,8 @@ pub fn add_location_visuals(
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap();
-            //+ LOCATION_LAYER_HEIGHT * Vec3::Z;
+            .unwrap()
+            + LOCATION_LAYER_HEIGHT * Vec3::Z;
 
         let mut tag_meshes = LocationTagMeshes::default();
         for tag in tags.iter() {
@@ -119,14 +117,8 @@ pub fn add_location_visuals(
                     tag_meshes.holding_point = Some(id);
                     assets.holding_point_material.clone()
                 }
-                LocationTag::SpawnRobot(_) => {
-                    tag_meshes.spawn_robot = Some(id);
-                    assets.robot_material.clone()
-                }
-                LocationTag::Workcell(_) => {
-                    tag_meshes.workcell = Some(id);
-                    assets.workcell_material.clone()
-                }
+                // Workcells and robots are not visualized
+                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
             };
             commands.entity(id).insert(PbrBundle {
                 mesh: assets.location_tag_mesh.clone(),
@@ -241,18 +233,6 @@ pub fn update_location_for_changed_location_tags(
                 tag_meshes.holding_point = None;
             }
         }
-        if let Some(id) = tag_meshes.spawn_robot {
-            if !tags.iter().any(|t| t.spawn_robot().is_some()) {
-                commands.entity(id).despawn_recursive();
-                tag_meshes.spawn_robot = None;
-            }
-        }
-        if let Some(id) = tag_meshes.workcell {
-            if !tags.iter().any(|t| t.workcell().is_some()) {
-                commands.entity(id).despawn_recursive();
-                tag_meshes.workcell = None;
-            }
-        }
         // Spawn the new tags
         for tag in tags.iter() {
             let (id, material) = match tag {
@@ -283,24 +263,8 @@ pub fn update_location_for_changed_location_tags(
                         continue;
                     }
                 }
-                LocationTag::SpawnRobot(_) => {
-                    if tag_meshes.spawn_robot.is_none() {
-                        let id = commands.spawn_empty().id();
-                        tag_meshes.spawn_robot = Some(id);
-                        (id, assets.robot_material.clone())
-                    } else {
-                        continue;
-                    }
-                }
-                LocationTag::Workcell(_) => {
-                    if tag_meshes.workcell.is_none() {
-                        let id = commands.spawn_empty().id();
-                        tag_meshes.workcell = Some(id);
-                        (id, assets.workcell_material.clone())
-                    } else {
-                        continue;
-                    }
-                }
+                // Workcells and robots are not visualized
+                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
             };
             commands.entity(id).insert(PbrBundle {
                 mesh: assets.location_tag_mesh.clone(),

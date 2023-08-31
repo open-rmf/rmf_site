@@ -263,14 +263,6 @@ impl SiteAssetIo {
             "textures/stopwatch.png".to_owned(),
             include_bytes!("../../assets/textures/stopwatch.png").to_vec(),
         );
-        self.bundled_assets.insert(
-            "textures/robot.png".to_owned(),
-            include_bytes!("../../assets/textures/robot.png").to_vec(),
-        );
-        self.bundled_assets.insert(
-            "textures/workcell.png".to_owned(),
-            include_bytes!("../../assets/textures/workcell.png").to_vec(),
-        );
     }
 }
 

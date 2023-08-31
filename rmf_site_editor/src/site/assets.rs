@@ -55,8 +55,6 @@ pub struct SiteAssets {
     pub charger_material: Handle<StandardMaterial>,
     pub holding_point_material: Handle<StandardMaterial>,
     pub parking_material: Handle<StandardMaterial>,
-    pub robot_material: Handle<StandardMaterial>,
-    pub workcell_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
@@ -70,12 +68,6 @@ impl FromWorld for SiteAssets {
         )));
         let parking_texture = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/parking.png".to_string(),
-        )));
-        let robot_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/robot.png".to_string(),
-        )));
-        let workcell_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/workcell.png".to_string(),
         )));
 
         let mut materials = world
@@ -162,8 +154,6 @@ impl FromWorld for SiteAssets {
         let charger_material = materials.add(charger_texture.into());
         let holding_point_material = materials.add(holding_point_texture.into());
         let parking_material = materials.add(parking_texture.into());
-        let robot_material = materials.add(robot_texture.into());
-        let workcell_material = materials.add(workcell_texture.into());
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
@@ -271,8 +261,6 @@ impl FromWorld for SiteAssets {
             charger_material,
             holding_point_material,
             parking_material,
-            robot_material,
-            workcell_material,
         }
     }
 }
