@@ -33,7 +33,7 @@ pub fn handle_workcell_keyboard_input(
         return;
     }
 
-    if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
+    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
         if keyboard_input.just_pressed(KeyCode::E) {
             info!("Exporting URDF");
             save_events.send(SaveWorkspace {
