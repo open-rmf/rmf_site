@@ -1,5 +1,5 @@
 use crate::*;
-use serde::{Serialize, Deserialize};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 #[derive(Serialize, Deserialize, Clone)]
