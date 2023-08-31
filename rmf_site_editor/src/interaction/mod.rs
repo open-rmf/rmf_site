@@ -197,7 +197,6 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_point_visual_cues.after(maintain_selected_entities))
                     .with_system(update_path_visual_cues.after(maintain_selected_entities))
                     .with_system(update_outline_visualization.after(maintain_selected_entities))
-                    .with_system(update_outline_for_new_meshes.after(maintain_selected_entities))
                     .with_system(update_highlight_visualization.after(maintain_selected_entities))
                     .with_system(
                         update_cursor_hover_visualization.after(maintain_selected_entities),

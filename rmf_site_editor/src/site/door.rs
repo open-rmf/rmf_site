@@ -15,7 +15,11 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{
+    interaction::{Hovered, Selectable},
+    shapes::*,
+    site::*,
+};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
@@ -393,7 +397,13 @@ fn update_door_visuals(
 pub fn update_changed_door(
     mut commands: Commands,
     mut doors: Query<
-        (Entity, &Edge<Entity>, &DoorType, &mut DoorSegments),
+        (
+            Entity,
+            &Edge<Entity>,
+            &DoorType,
+            &mut DoorSegments,
+            &mut Hovered,
+        ),
         Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
     >,
     anchors: AnchorParams,
@@ -402,7 +412,8 @@ pub fn update_changed_door(
     mut mesh_assets: ResMut<Assets<Mesh>>,
     assets: Res<SiteAssets>,
 ) {
-    for (entity, edge, kind, mut segments) in &mut doors {
+    for (entity, edge, kind, mut segments, mut hovered) in &mut doors {
+        let old_door_count = segments.body.entities().len();
         if let Some(new_body) = update_door_visuals(
             &mut commands,
             entity,
@@ -416,6 +427,11 @@ pub fn update_changed_door(
             &assets,
         ) {
             segments.body = new_body;
+            if segments.body.entities().len() > old_door_count {
+                // A new door was spawned, trigger hovered change detection to update the outline
+                // for the new mesh
+                hovered.set_changed();
+            }
         }
     }
 }
