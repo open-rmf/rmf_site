@@ -30,7 +30,6 @@ impl<'a> InspectMeshPrimitive<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<MeshPrimitive> {
         let mut new_primitive = self.primitive.clone();
-        // TODO(luca) implement recall plugin
         ui.horizontal(|ui| {
             ui.label("Primitive");
             ComboBox::from_id_source("Mesh Primitive")
@@ -47,15 +46,33 @@ impl<'a> InspectMeshPrimitive<'a> {
                     ui.end_row();
                 });
         });
+        // TODO(luca) Create systems to update meshes when the values are changed
         match &mut new_primitive {
             MeshPrimitive::Box { size } => {
-                ui.add(DragValue::new(&mut size[0]).clamp_range(0_f32..=std::f32::INFINITY));
-                ui.add(DragValue::new(&mut size[1]).clamp_range(0_f32..=std::f32::INFINITY));
-                ui.add(DragValue::new(&mut size[2]).clamp_range(0_f32..=std::f32::INFINITY));
+                ui.label("Size");
+                ui.horizontal(|ui| {
+                    ui.label("X");
+                    ui.add(DragValue::new(&mut size[0]).clamp_range(0_f32..=std::f32::INFINITY));
+                    ui.label("Y");
+                    ui.add(DragValue::new(&mut size[1]).clamp_range(0_f32..=std::f32::INFINITY));
+                    ui.label("Z");
+                    ui.add(DragValue::new(&mut size[2]).clamp_range(0_f32..=std::f32::INFINITY));
+                });
             }
-            MeshPrimitive::Cylinder { radius, length } => {}
-            MeshPrimitive::Capsule { radius, length } => {}
-            MeshPrimitive::Sphere { radius } => {}
+            MeshPrimitive::Cylinder { radius, length } | MeshPrimitive::Capsule { radius, length }=> {
+                ui.horizontal(|ui| {
+                    ui.label("Radius");
+                    ui.add(DragValue::new(radius).clamp_range(0_f32..=std::f32::INFINITY));
+                    ui.label("Length");
+                    ui.add(DragValue::new(length).clamp_range(0_f32..=std::f32::INFINITY));
+                });
+            }
+            MeshPrimitive::Sphere { radius } => {
+                ui.horizontal(|ui| {
+                    ui.label("Radius");
+                    ui.add(DragValue::new(radius).clamp_range(0_f32..=std::f32::INFINITY));
+                });
+            }
         }
         if &new_primitive != self.primitive {
             Some(new_primitive)

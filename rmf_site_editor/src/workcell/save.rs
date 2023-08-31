@@ -109,7 +109,7 @@ pub fn generate_workcell(
                 &Pose,
                 &SiteID,
                 &Parent,
-                &Scale,
+                Option<&Scale>,
             ),
             (
                 Or<(With<VisualMeshMarker>, With<CollisionMeshMarker>)>,
@@ -173,7 +173,7 @@ pub fn generate_workcell(
             // It's a model
             Geometry::Mesh {
                 filename: String::from(source),
-                scale: Some(**scale),
+                scale: scale.map(|s| **s),
             }
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())

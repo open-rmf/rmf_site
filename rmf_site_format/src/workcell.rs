@@ -286,28 +286,44 @@ impl Recall for RecallMeshPrimitive {
 
 impl RecallMeshPrimitive {
     pub fn assume_box(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Box {
-            size: self.box_size.unwrap_or_default(),
+        if matches!(current, MeshPrimitive::Box{..}) {
+            current.clone()
+        } else {
+            MeshPrimitive::Box {
+                size: self.box_size.unwrap_or_default(),
+            }
         }
     }
 
     pub fn assume_cylinder(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Cylinder {
-            radius: self.cylinder_radius.unwrap_or_default(),
-            length: self.cylinder_length.unwrap_or_default(),
+        if matches!(current, MeshPrimitive::Cylinder{..}) {
+            current.clone()
+        } else {
+            MeshPrimitive::Cylinder {
+                radius: self.cylinder_radius.unwrap_or_default(),
+                length: self.cylinder_length.unwrap_or_default(),
+            }
         }
     }
 
     pub fn assume_capsule(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Capsule {
-            radius: self.capsule_radius.unwrap_or_default(),
-            length: self.capsule_length.unwrap_or_default(),
+        if matches!(current, MeshPrimitive::Capsule{..}) {
+            current.clone()
+        } else {
+            MeshPrimitive::Capsule {
+                radius: self.capsule_radius.unwrap_or_default(),
+                length: self.capsule_length.unwrap_or_default(),
+            }
         }
     }
 
     pub fn assume_sphere(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        MeshPrimitive::Sphere {
-            radius: self.sphere_radius.unwrap_or_default(),
+        if matches!(current, MeshPrimitive::Sphere{..}) {
+            current.clone()
+        } else {
+            MeshPrimitive::Sphere {
+                radius: self.sphere_radius.unwrap_or_default(),
+            }
         }
     }
 }
@@ -623,7 +639,7 @@ impl Workcell {
             .iter()
             .filter(|(_, frame)| frame.parent == self.id);
         let num_children = workcell_child_frames.clone().count();
-        let mut frames = if num_children != 1 {
+        let frames = if num_children != 1 {
             // TODO(luca) remove hardcoding of base link name, it might in some cases create
             // duplicates
             let mut frames = self.frames.clone();
