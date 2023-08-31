@@ -520,11 +520,15 @@ pub(crate) fn make_wall_mesh(
     p_end: Vec3,
     thickness: f32,
     height: f32,
+    texture_height: Option<f32>,
+    texture_width: Option<f32>,
 ) -> MeshBuffer {
     let dp = p_end - p_start;
     let length = dp.length();
     let yaw = dp.y.atan2(dp.x);
     let center = (p_start + p_end) / 2.0;
+    let texture_height = texture_height.unwrap_or(height);
+    let texture_width = texture_width.unwrap_or(1.0);
 
     // The default UV coordinates made by bevy do not work well for walls,
     // so we customize them here
@@ -535,30 +539,30 @@ pub(crate) fn make_wall_mesh(
         [0., 0.], // 2
         [0., 0.], // 3
         // Bottom
-        [0., 1.], // 4
-        [0., 1.], // 5
-        [0., 1.], // 6
-        [0., 1.], // 7
+        [0., height / texture_height], // 4
+        [0., height / texture_height], // 5
+        [0., height / texture_height], // 6
+        [0., height / texture_height], // 7
         // Right
-        [length, 1.], // 8
-        [0., 1.],     // 9
-        [0., 0.],     // 10
-        [length, 0.], // 11
+        [length / texture_width, height / texture_height], // 8
+        [0., height / texture_height],                     // 9
+        [0., 0.],                                          // 10
+        [length / texture_width, 0.],                      // 11
         // Left
-        [0., 0.],     // 12
-        [length, 0.], // 13
-        [length, 1.], // 14
-        [0., 1.],     // 15
+        [0., 0.],                                          // 12
+        [length / texture_width, 0.],                      // 13
+        [length / texture_width, height / texture_height], // 14
+        [0., height / texture_height],                     // 15
         // Front
-        [0., 1.],     // 16
-        [length, 1.], // 17
-        [length, 0.], // 18
-        [0., 0.],     // 19
+        [0., height / texture_height],                     // 16
+        [length / texture_width, height / texture_height], // 17
+        [length / texture_width, 0.],                      // 18
+        [0., 0.],                                          // 19
         // Back
-        [length, 0.], // 20
-        [0., 0.],     // 21
-        [0., 1.],     // 22
-        [length, 1.], // 23
+        [length / texture_width, 0.],                      // 20
+        [0., 0.],                                          // 21
+        [0., height / texture_height],                     // 22
+        [length / texture_width, height / texture_height], // 23
     ];
     make_box(length, thickness, height)
         .with_uv(uv)
@@ -1120,14 +1124,8 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
         let p0 = Vec3::new(p0[0], p0[1], 0.0);
         let p1 = Vec3::new(p1[0], p1[1], 0.0);
         let p2 = Vec3::new(p2[0], p2[1], 0.0);
-        let v0 = match (p1 - p0).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
-        let v1 = match (p2 - p1).try_normalize() {
-            Some(v) => v,
-            None => continue,
-        };
+        let v0 = (p1 - p0).normalize_or_zero();
+        let v1 = (p2 - p1).normalize_or_zero();
 
         // n: normal
         let n = Vec3::Z;
@@ -1288,7 +1286,9 @@ pub(crate) fn make_finite_grid(
 
     let mut polylines: HashMap<u32, Polyline> = HashMap::new();
     let mut result = {
-        let Some(width) = weights.values().last().copied() else { return Vec::new() };
+        let Some(width) = weights.values().last().copied() else {
+            return Vec::new();
+        };
         let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
 
         for (sign, x_axis_color, y_axis_color) in [
@@ -1317,7 +1317,9 @@ pub(crate) fn make_finite_grid(
     for n in 1..=count {
         let d = n as f32 * scale;
         let polylines = {
-            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else { continue };
+            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
+                continue;
+            };
             polylines.entry(*weight_key).or_default()
         };
 

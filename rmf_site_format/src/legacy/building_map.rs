@@ -1,15 +1,19 @@
-use super::{level::Level, lift::Lift, PortingError, Result};
+use super::{
+    floor::FloorParameters, level::Level, lift::Lift, wall::WallProperties, PortingError, Result,
+};
 use crate::{
-    legacy::optimization::align_building, Anchor, Angle, AssetSource, AssociatedGraphs,
-    DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingMarker,
-    Fiducial as SiteFiducial, FiducialMarker, Guided, Label, Lane as SiteLane, LaneMarker,
-    Level as SiteLevel, LevelProperties as SiteLevelProperties, Motion, NameInSite, NavGraph,
-    Navigation, OrientationConstraint, PixelsPerMeter, Pose, RankingsInLevel, ReverseLane,
-    Rotation, Site, SiteProperties, DEFAULT_NAV_GRAPH_COLORS,
+    alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
+    Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
+    NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
+    PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
+    Texture as SiteTexture, TextureGroup, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
+use std::path::Path;
 
 #[derive(Deserialize, Serialize, Clone)]
 #[serde(rename_all = "snake_case")]
@@ -49,7 +53,7 @@ impl BuildingMap {
 
     /// Converts a map from the oldest legacy format, which uses pixel coordinates.
     fn from_pixel_coordinates(mut map: BuildingMap) -> BuildingMap {
-        let alignments = align_building(&map);
+        let alignments = align_legacy_building(&map);
 
         let get_delta_yaw = |tf: &DAffine2| {
             DQuat::from_mat3(&DMat3::from_cols(
@@ -65,10 +69,20 @@ impl BuildingMap {
             let alignment = alignments.get(level_name).unwrap();
             let tf = alignment.to_affine();
             level.alignment = Some(alignment.clone());
-            for v in &mut level.vertices {
-                let p = tf.transform_point2(v.to_vec());
-                v.0 = p.x as f64;
-                v.1 = -p.y as f64;
+            // We need to keep the vertices associated with measurements in image coordinates
+            let mut drawing_vertices = HashSet::new();
+            for measurement in &level.measurements {
+                drawing_vertices.insert(measurement.0);
+                drawing_vertices.insert(measurement.1);
+            }
+            for (idx, v) in level.vertices.iter_mut().enumerate() {
+                if drawing_vertices.contains(&idx) {
+                    v.1 = -v.1;
+                } else {
+                    let p = tf.transform_point2(v.to_vec());
+                    v.0 = p.x as f64;
+                    v.1 = -p.y as f64;
+                }
             }
 
             let delta_yaw = get_delta_yaw(&tf);
@@ -98,9 +112,17 @@ impl BuildingMap {
             }
 
             for fiducial in &mut level.fiducials {
-                let p = tf.transform_point2(fiducial.to_vec());
-                fiducial.0 = p.x;
-                fiducial.1 = -p.y;
+                fiducial.1 = -fiducial.1;
+            }
+
+            for feature in &mut level.features {
+                feature.y = -feature.y;
+            }
+
+            for (_, layer) in &mut level.layers {
+                for feature in &mut layer.features {
+                    feature.y = -feature.y;
+                }
             }
         }
 
@@ -126,20 +148,25 @@ impl BuildingMap {
         let mut level_name_to_id = BTreeMap::new();
         let mut lanes = BTreeMap::<u32, SiteLane<u32>>::new();
         let mut locations = BTreeMap::new();
-
+        let mut textures: BTreeMap<u32, SiteTexture> = BTreeMap::new();
+        let mut floor_texture_map: HashMap<FloorParameters, u32> = HashMap::new();
+        let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
         let mut building_id_to_nav_graph_id = HashMap::new();
 
-        for (name, level) in &self.levels {
+        let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
+        let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
+        for (level_name, level) in &self.levels {
+            let level_id = site_id.next().unwrap();
             let mut vertex_to_anchor_id: HashMap<usize, u32> = Default::default();
-            let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
+            let mut level_anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
             for (i, v) in level.vertices.iter().enumerate() {
                 let anchor_id = if v.4.lift_cabin.is_empty() {
                     // This is a regular level anchor, not inside a lift cabin
                     let anchor_id = site_id.next().unwrap();
                     let anchor = [v.0 as f32, v.1 as f32];
-                    anchors.insert(anchor_id, anchor.into());
+                    level_anchors.insert(anchor_id, anchor.into());
                     anchor_id
                 } else {
                     let lift = self
@@ -178,11 +205,20 @@ impl BuildingMap {
 
             let mut rankings = RankingsInLevel::default();
             let mut drawings = BTreeMap::new();
+            let mut feature_info = HashMap::new();
+            let mut primary_drawing_info = None;
             if !level.drawing.filename.is_empty() {
+                let primary_drawing_id = site_id.next().unwrap();
+                let drawing_name = Path::new(&level.drawing.filename)
+                    .file_stem()
+                    .unwrap_or_default()
+                    .to_str()
+                    .unwrap()
+                    .to_string();
                 let (pose, pixels_per_meter) = if let Some(a) = level.alignment {
                     let p = a.translation;
                     let pose = Pose {
-                        trans: [p.x as f32, -p.y as f32, 0.0001 as f32],
+                        trans: [p.x as f32, -p.y as f32, 0.0 as f32],
                         rot: Rotation::Yaw(Angle::Rad(a.rotation as f32)),
                     };
                     (pose, PixelsPerMeter((1.0 / a.scale) as f32))
@@ -190,53 +226,244 @@ impl BuildingMap {
                     (Pose::default(), PixelsPerMeter::default())
                 };
 
-                let id = site_id.next().unwrap();
+                let mut drawing_anchors = BTreeMap::new();
+                let mut drawing_fiducials = BTreeMap::new();
+
+                // Use this transform to create anchors that pin the main
+                // drawing to where it belongs in Cartesian coordinates.
+                let drawing_tf = DAffine2::from_scale_angle_translation(
+                    DVec2::splat(1.0 / pixels_per_meter.0 as f64),
+                    pose.trans[2] as f64,
+                    DVec2::new(pose.trans[0] as f64, pose.trans[1] as f64),
+                );
+                primary_drawing_info = Some((primary_drawing_id, drawing_tf));
+
+                for fiducial in &level.fiducials {
+                    let anchor_id = site_id.next().unwrap();
+                    // Do not add this anchor to the vertex_to_anchor_id map
+                    // because this fiducial is not really recognized as a
+                    // vertex to the building format.
+                    drawing_anchors
+                        .insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
+                    let affiliation = if fiducial.2.is_empty() {
+                        // We assume an empty reference name means this fiducial
+                        // is not really being used.
+                        Affiliation(None)
+                    } else {
+                        let name = &fiducial.2;
+                        let group_id = if let Some((group_id, _)) = fiducial_groups
+                            .iter()
+                            .find(|(_, group)| group.name.0 == *name)
+                        {
+                            // The group already exists
+                            *group_id
+                        } else {
+                            // The group does not exist yet, so let's create it
+                            let group_id = site_id.next().unwrap();
+                            fiducial_groups
+                                .insert(group_id, FiducialGroup::new(NameInSite(name.clone())));
+                            group_id
+                        };
+                        let drawing_coords = DVec2::new(fiducial.0, fiducial.1);
+                        cartesian_fiducials
+                            .entry(group_id)
+                            .or_default()
+                            .push(drawing_tf.transform_point2(drawing_coords));
+
+                        Affiliation(Some(group_id))
+                    };
+                    drawing_fiducials.insert(
+                        site_id.next().unwrap(),
+                        SiteFiducial {
+                            affiliation,
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+                }
+
+                for feature in &level.features {
+                    // Do not add this anchor to the vertex_to_anchor_id map because
+                    // this fiducial is not really recognized as a vertex to the
+                    // building format.
+                    let anchor_id = site_id.next().unwrap();
+                    let fiducial_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
+
+                    drawing_fiducials.insert(
+                        fiducial_id,
+                        SiteFiducial {
+                            affiliation: Default::default(),
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
+                        },
+                    );
+
+                    feature_info.insert(
+                        feature.id.clone(),
+                        FeatureInfo {
+                            fiducial_id,
+                            on_anchor: anchor_id,
+                            in_drawing: primary_drawing_id,
+                            name: (!feature.name.is_empty()).then(|| feature.name.clone()),
+                        },
+                    );
+                }
+
+                let mut measurements = BTreeMap::new();
+                for measurement in &level.measurements {
+                    let mut site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
+                    let edge = &mut site_measurement.anchors;
+                    let (start_anchor, end_anchor) = (
+                        level_anchors.get(&edge.left()).unwrap(),
+                        level_anchors.get(&edge.right()).unwrap(),
+                    );
+                    // Now get the anchors and duplicate them in the drawing
+                    let anchor_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, start_anchor.clone());
+                    *edge.left_mut() = anchor_id;
+                    let anchor_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, end_anchor.clone());
+                    *edge.right_mut() = anchor_id;
+                    measurements.insert(site_id.next().unwrap(), site_measurement);
+                    // TODO(luca) remove original anchors if they have no other dependents
+                    // TODO(MXG): Have rankings for measurements
+                }
+
                 drawings.insert(
-                    id,
+                    primary_drawing_id,
                     SiteDrawing {
-                        source: AssetSource::Local(level.drawing.filename.clone()),
-                        pose,
-                        pixels_per_meter,
-                        marker: DrawingMarker,
+                        properties: DrawingProperties {
+                            name: NameInSite(drawing_name),
+                            source: AssetSource::Local(level.drawing.filename.clone()),
+                            pose,
+                            pixels_per_meter,
+                            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+                        },
+                        anchors: drawing_anchors,
+                        fiducials: drawing_fiducials,
+                        measurements,
                     },
                 );
-                rankings.drawings.insert(0, id);
+                rankings.drawings.push(primary_drawing_id);
             }
 
-            let mut fiducials = BTreeMap::new();
-            for fiducial in &level.fiducials {
-                let anchor_id = site_id.next().unwrap();
-                anchors.insert(anchor_id, [fiducial.0 as f32, fiducial.1 as f32].into());
-                // Do not add this anchor to the vertex_to_anchor_id map because
-                // this fiducial is not really recognized as a vertex to the
-                // building format.
-                fiducials.insert(
-                    site_id.next().unwrap(),
-                    SiteFiducial {
-                        label: if fiducial.2.is_empty() {
-                            Label(None)
-                        } else {
-                            Label(Some(fiducial.2.clone()))
+            for (name, layer) in &level.layers {
+                // TODO(luca) coordinates in site and traffic editor might be different, use
+                // optimization engine instead of parsing
+                let drawing_id = site_id.next().unwrap();
+                let pose = Pose {
+                    trans: [
+                        layer.transform.translation_x as f32,
+                        layer.transform.translation_y as f32,
+                        0.0 as f32,
+                    ],
+                    rot: Rotation::Yaw(Angle::Rad(layer.transform.yaw as f32)),
+                };
+                rankings.drawings.push(drawing_id);
+                let mut drawing_anchors = BTreeMap::new();
+                let mut drawing_fiducials = BTreeMap::new();
+                for feature in &layer.features {
+                    // Do not add this anchor to the vertex_to_anchor_id map because
+                    // this fiducial is not really recognized as a vertex to the
+                    // building format.
+                    let anchor_id = site_id.next().unwrap();
+                    let fiducial_id = site_id.next().unwrap();
+                    drawing_anchors.insert(anchor_id, [feature.x as f32, feature.y as f32].into());
+
+                    drawing_fiducials.insert(
+                        fiducial_id,
+                        SiteFiducial {
+                            affiliation: Default::default(),
+                            anchor: anchor_id.into(),
+                            marker: FiducialMarker,
                         },
-                        anchor: anchor_id.into(),
-                        marker: FiducialMarker,
+                    );
+
+                    feature_info.insert(
+                        feature.id.clone(),
+                        FeatureInfo {
+                            fiducial_id,
+                            on_anchor: anchor_id,
+                            in_drawing: drawing_id,
+                            name: (!feature.name.is_empty()).then(|| feature.name.clone()),
+                        },
+                    );
+                }
+
+                drawings.insert(
+                    drawing_id,
+                    SiteDrawing {
+                        properties: DrawingProperties {
+                            name: NameInSite(name.clone()),
+                            source: AssetSource::Local(layer.filename.clone()),
+                            pose,
+                            pixels_per_meter: PixelsPerMeter((1.0 / layer.transform.scale) as f32),
+                            preferred_semi_transparency: PreferredSemiTransparency::for_drawing(),
+                        },
+                        anchors: drawing_anchors,
+                        fiducials: drawing_fiducials,
+                        measurements: Default::default(),
                     },
                 );
+            }
+
+            for (i, constraint) in level.constraints.iter().enumerate() {
+                let fiducial_group_id = site_id.next().unwrap();
+                let group_name = constraint
+                    .ids
+                    .iter()
+                    .find_map(|id| {
+                        if let Some(info) = feature_info.get(id) {
+                            info.name.clone()
+                        } else {
+                            None
+                        }
+                    })
+                    .unwrap_or_else(|| format!("{}_constraint_{i}", level_name));
+                fiducial_groups.insert(
+                    fiducial_group_id,
+                    FiducialGroup::new(NameInSite(group_name)),
+                );
+
+                for feature_id in &constraint.ids {
+                    if let Some(info) = feature_info.get(feature_id) {
+                        if let Some(drawing) = drawings.get_mut(&info.in_drawing) {
+                            if let Some(fiducial) = drawing.fiducials.get_mut(&info.fiducial_id) {
+                                fiducial.affiliation = Affiliation(Some(fiducial_group_id));
+                            }
+                            // Add a level anchor to pin this feature
+                            if let Some((primary_drawing_id, drawing_tf)) = primary_drawing_info {
+                                if info.in_drawing == primary_drawing_id {
+                                    let anchor_tf = drawing
+                                        .anchors
+                                        .get(&info.on_anchor)
+                                        .unwrap()
+                                        .translation_for_category(Category::General);
+                                    let drawing_coords =
+                                        DVec2::new(anchor_tf[0] as f64, anchor_tf[1] as f64);
+                                    cartesian_fiducials
+                                        .entry(fiducial_group_id)
+                                        .or_default()
+                                        .push(drawing_tf.transform_point2(drawing_coords));
+                                }
+                            }
+                        }
+                    }
+                }
             }
 
             let mut floors = BTreeMap::new();
             for floor in &level.floors {
-                let site_floor = floor.to_site(&vertex_to_anchor_id)?;
+                let site_floor = floor.to_site(
+                    &vertex_to_anchor_id,
+                    &mut textures,
+                    &mut floor_texture_map,
+                    &mut site_id,
+                )?;
                 let id = site_id.next().unwrap();
                 floors.insert(id, site_floor);
-                rankings.floors.insert(0, id);
-            }
-
-            let mut measurements = BTreeMap::new();
-            for measurement in &level.measurements {
-                let site_measurement = measurement.to_site(&vertex_to_anchor_id)?;
-                measurements.insert(site_id.next().unwrap(), site_measurement);
-                // TODO(MXG): Have rankings for measurements
+                rankings.floors.push(id);
             }
 
             let mut models = BTreeMap::new();
@@ -256,28 +483,32 @@ impl BuildingMap {
 
             let mut walls = BTreeMap::new();
             for wall in &level.walls {
-                let site_wall = wall.to_site(&vertex_to_anchor_id)?;
+                let site_wall = wall.to_site(
+                    &vertex_to_anchor_id,
+                    &mut textures,
+                    &mut wall_texture_map,
+                    &mut site_id,
+                )?;
                 walls.insert(site_id.next().unwrap(), site_wall);
             }
 
             let elevation = level.elevation as f32;
 
-            let level_id = site_id.next().unwrap();
-            level_name_to_id.insert(name.clone(), level_id);
+            level_name_to_id.insert(level_name.clone(), level_id);
             levels.insert(
                 level_id,
                 SiteLevel {
                     properties: SiteLevelProperties {
-                        name: name.clone(),
-                        elevation,
+                        name: NameInSite(level_name.clone()),
+                        elevation: LevelElevation(elevation),
+                        global_floor_visibility: Default::default(),
+                        global_drawing_visibility: Default::default(),
                     },
-                    anchors,
+                    anchors: level_anchors,
                     doors,
                     drawings,
-                    fiducials,
                     floors,
                     lights,
-                    measurements,
                     models,
                     physical_cameras,
                     walls,
@@ -375,14 +606,59 @@ impl BuildingMap {
             );
         }
 
+        let cartesian_fiducials: BTreeMap<u32, SiteFiducial<u32>> = cartesian_fiducials
+            .into_iter()
+            .map(|(group_id, locations)| {
+                let p = locations
+                    .iter()
+                    .fold(DVec2::ZERO, |base, next| base + *next)
+                    / locations.len() as f64;
+                let anchor_id = site_id.next().unwrap();
+                site_anchors.insert(anchor_id, [p.x as f32, p.y as f32].into());
+                let fiducial_id = site_id.next().unwrap();
+                (
+                    fiducial_id,
+                    SiteFiducial {
+                        anchor: anchor_id.into(),
+                        affiliation: Affiliation(Some(group_id)),
+                        marker: FiducialMarker,
+                    },
+                )
+            })
+            .collect();
+
+        let textures = textures
+            .into_iter()
+            .map(|(id, texture)| {
+                let name: String = (&texture.source).into();
+                let name = Path::new(&name)
+                    .file_stem()
+                    .map(|s| s.to_str().map(|s| s.to_owned()))
+                    .flatten()
+                    .unwrap_or(name);
+                (
+                    id,
+                    TextureGroup {
+                        name: NameInSite(name),
+                        texture,
+                        group: Default::default(),
+                    },
+                )
+            })
+            .collect();
+
         Ok(Site {
             format_version: Default::default(),
             anchors: site_anchors,
             properties: SiteProperties {
-                name: self.name.clone(),
+                name: NameOfSite(self.name.clone()),
+                ..Default::default()
             },
             levels,
             lifts,
+            fiducial_groups,
+            fiducials: cartesian_fiducials,
+            textures,
             navigation: Navigation {
                 guided: Guided {
                     graphs: nav_graphs,
@@ -394,6 +670,14 @@ impl BuildingMap {
             agents: Default::default(),
         })
     }
+}
+
+struct FeatureInfo {
+    fiducial_id: u32,
+    on_anchor: u32,
+    in_drawing: u32,
+    /// name comes from the `name` field of features, if it has one
+    name: Option<String>,
 }
 
 #[cfg(test)]

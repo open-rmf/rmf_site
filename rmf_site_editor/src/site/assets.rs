@@ -27,6 +27,7 @@ pub struct SiteAssets {
     pub lane_end_outline: Handle<Mesh>,
     pub box_mesh: Handle<Mesh>,
     pub location_mesh: Handle<Mesh>,
+    pub fiducial_mesh: Handle<Mesh>,
     pub physical_camera_mesh: Handle<Mesh>,
     pub unassigned_lane_material: Handle<StandardMaterial>,
     pub passive_anchor_material: Handle<StandardMaterial>,
@@ -39,10 +40,10 @@ pub struct SiteAssets {
     pub select_material: Handle<StandardMaterial>,
     pub hover_select_material: Handle<StandardMaterial>,
     pub measurement_material: Handle<StandardMaterial>,
+    pub fiducial_material: Handle<StandardMaterial>,
     pub level_anchor_mesh: Handle<Mesh>,
     pub lift_anchor_mesh: Handle<Mesh>,
     pub site_anchor_mesh: Handle<Mesh>,
-    pub wall_material: Handle<StandardMaterial>,
     pub lift_wall_material: Handle<StandardMaterial>,
     pub door_body_material: Handle<StandardMaterial>,
     pub translucent_black: Handle<StandardMaterial>,
@@ -61,9 +62,6 @@ pub struct SiteAssets {
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let wall_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/default.png".to_string(),
-        )));
         let charger_texture = asset_server.load(&String::from(&AssetSource::Bundled(
             "textures/battery.png".to_string(),
         )));
@@ -93,6 +91,7 @@ impl FromWorld for SiteAssets {
         // let hover_select_material = materials.add(Color::rgb_u8(177, 178, 255).into());
         // let hover_select_material = materials.add(Color::rgb_u8(214, 28, 78).into());
         let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
+        let fiducial_material = materials.add(Color::rgb(0.1, 0.1, 0.8).into());
         let passive_anchor_material = materials.add(StandardMaterial {
             base_color: Color::rgb(0.4, 0.7, 0.6),
             // unlit: true,
@@ -128,11 +127,6 @@ impl FromWorld for SiteAssets {
             alpha_mode: AlphaMode::Blend,
             depth_bias: 1.0,
             // unlit: true,
-            unlit: false,
-            ..default()
-        });
-        let wall_material = materials.add(StandardMaterial {
-            base_color_texture: Some(wall_texture),
             unlit: false,
             ..default()
         });
@@ -217,8 +211,18 @@ impl FromWorld for SiteAssets {
         );
         let location_mesh = meshes.add(
             Mesh::from(
-                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6)
-                    .transform_by(Affine3A::from_translation(0.00125 * Vec3::Z)),
+                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 6).transform_by(
+                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                ),
+            )
+            .with_generated_outline_normals()
+            .unwrap(),
+        );
+        let fiducial_mesh = meshes.add(
+            Mesh::from(
+                make_icon_halo(1.1 * LANE_WIDTH / 2.0, 0.01, 4).transform_by(
+                    Affine3A::from_translation((0.00125 + LOCATION_LAYER_HEIGHT) * Vec3::Z),
+                ),
             )
             .with_generated_outline_normals()
             .unwrap(),
@@ -242,6 +246,7 @@ impl FromWorld for SiteAssets {
             lane_end_outline,
             box_mesh,
             location_mesh,
+            fiducial_mesh,
             physical_camera_mesh,
             unassigned_lane_material,
             hover_anchor_material,
@@ -251,10 +256,10 @@ impl FromWorld for SiteAssets {
             select_material,
             hover_select_material,
             measurement_material,
+            fiducial_material,
             passive_anchor_material,
             unassigned_anchor_material,
             preview_anchor_material,
-            wall_material,
             lift_wall_material,
             door_body_material,
             translucent_black,

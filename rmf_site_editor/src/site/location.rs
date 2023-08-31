@@ -18,9 +18,9 @@
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
-// TODO(MXG): Consider using recency rankings for Locations so they don't
+// TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.
-const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
+pub const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET;
 
 #[derive(Component, Clone, Default)]
 pub struct LocationTagMeshes {
@@ -46,12 +46,12 @@ fn location_halo_tf(tag: &LocationTag) -> Transform {
     }
 }
 
-// TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
+// TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
     parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
+    levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
@@ -78,7 +78,7 @@ pub fn add_location_visuals(
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
@@ -100,8 +100,8 @@ pub fn add_location_visuals(
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
-            .unwrap()
-            + LOCATION_LAYER_HEIGHT * Vec3::Z;
+            .unwrap();
+            //+ LOCATION_LAYER_HEIGHT * Vec3::Z;
 
         let mut tag_meshes = LocationTagMeshes::default();
         for tag in tags.iter() {
@@ -167,7 +167,7 @@ pub fn update_changed_location(
     >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
@@ -325,7 +325,7 @@ pub fn update_visibility_for_locations(
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     locations_with_changed_association: Query<

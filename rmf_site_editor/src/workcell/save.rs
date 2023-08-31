@@ -19,7 +19,7 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use std::path::PathBuf;
 
-use crate::site::Pending;
+use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
 use crate::ExportFormat;
 
 use thiserror::Error as ThisError;
@@ -57,8 +57,8 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
                 Or<(
                     With<Anchor>,
                     With<LinkMarker>,
-                    With<WorkcellVisualMarker>,
-                    With<WorkcellCollisionMarker>,
+                    With<VisualMeshMarker>,
+                    With<CollisionMeshMarker>,
                 )>,
                 Without<Pending>,
             ),
@@ -110,12 +110,12 @@ pub fn generate_workcell(
                 &Scale,
             ),
             (
-                Or<(With<WorkcellVisualMarker>, With<WorkcellCollisionMarker>)>,
+                Or<(With<VisualMeshMarker>, With<CollisionMeshMarker>)>,
                 Without<Pending>,
             ),
         >,
-        Query<&WorkcellVisualMarker>,
-        Query<&WorkcellCollisionMarker>,
+        Query<&VisualMeshMarker>,
+        Query<&CollisionMeshMarker>,
         Query<&SiteID>,
         Query<&WorkcellProperties>,
         Query<&Parent>,
