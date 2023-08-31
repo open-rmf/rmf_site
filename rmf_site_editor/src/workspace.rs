@@ -323,13 +323,17 @@ fn handle_workspace_data(
                     match Workcell::from_urdf(&urdf) {
                         Ok(workcell) => {
                             // Switch state
-                            app_state.set(AppState::WorkcellEditor).ok();
+                            if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
+                                error!("Failed to open the workcell edit mode: {err}");
+                            }
                             load_workcell.send(LoadWorkcell {
                                 workcell,
                                 focus: true,
                                 default_file: file,
                             });
-                            interaction_state.set(InteractionState::Enable).ok();
+                            if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                                error!("Failed to turn on interaction: {err}");
+                            }
                         }
                         Err(err) => {
                             error!("Failed converting urdf to workcell {:?}", err);
