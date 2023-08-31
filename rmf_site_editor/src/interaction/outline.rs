@@ -20,7 +20,7 @@ use bevy::render::view::RenderLayers;
 use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
 use rmf_site_format::{
     ConstraintMarker, DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
-    MeasurementMarker, ModelMarker, PhysicalCameraProperties, WallMarker,
+    MeasurementMarker, MeshPrimitive, ModelMarker, PhysicalCameraProperties, WallMarker,
 };
 use smallvec::SmallVec;
 
@@ -129,6 +129,7 @@ pub fn add_outline_visualization(
             Added<PhysicalCameraProperties>,
             Added<LightKind>,
             Added<LocationTags>,
+            Added<MeshPrimitive>,
         )>,
     >,
 ) {

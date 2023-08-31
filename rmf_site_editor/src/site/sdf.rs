@@ -273,21 +273,23 @@ pub fn handle_new_mesh_primitives(
                 ..default()
             }),
         };
-        // Parent is the first of ModelMarker and / or WorkcellVisualMarker or
-        // WorkcelLCollisionMarker
-        let child_id = commands
+        // If there is a parent with a Selectable component, use it to make this primitive
+        // point to it. Otherwise set the Selectable to point to itself.
+        let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+            .filter_map(|p| selectables.get(p).ok())
+            .last()
+        {
+            selectable.clone()
+        } else {
+            Selectable::new(e)
+        };
+        commands
             .spawn(PbrBundle {
                 mesh: meshes.add(mesh),
                 material: site_assets.default_mesh_grey_material.clone(),
                 ..default()
             })
-            .id();
-        if let Some(selectable) = AncestorIter::new(&parents, e)
-            .filter_map(|p| selectables.get(p).ok())
-            .last()
-        {
-            commands.entity(child_id).insert(selectable.clone());
-        }
-        commands.entity(e).push_children(&[child_id]);
+            .insert(selectable)
+            .set_parent(e);
     }
 }
