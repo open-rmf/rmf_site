@@ -241,7 +241,6 @@ pub fn update_gizmo_click_start(
     mut selection_blocker: ResMut<SelectionBlockers>,
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
-    touch_input: Res<Touches>,
     transforms: Query<(&Transform, &GlobalTransform)>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
     mut cursor: ResMut<Cursor>,
@@ -282,10 +281,12 @@ pub fn update_gizmo_click_start(
         }
     }
 
-    let clicked = mouse_button_input.just_pressed(MouseButton::Left)
-        || touch_input.iter_just_pressed().next().is_some();
+    // Ignore if button was pressed and released in the same frame, to avoid being stuck in
+    // dragging behavior in cases when the frame rate is low.
+    let clicking = mouse_button_input.just_pressed(MouseButton::Left)
+        && !mouse_button_input.just_released(MouseButton::Left);
 
-    if clicked {
+    if clicking {
         if let GizmoState::Hovering(e) = *gizmo_state {
             click.send(GizmoClicked(e));
             if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {

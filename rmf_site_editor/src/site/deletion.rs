@@ -18,7 +18,10 @@
 use crate::{
     interaction::{Select, Selection},
     log::Log,
-    site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
+    site::{
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
+        SiteUpdateStage,
+    },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -85,7 +88,7 @@ struct DeletionParams<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
-    levels: Query<'w, 's, Entity, With<LevelProperties>>,
+    levels: Query<'w, 's, Entity, With<LevelElevation>>,
     select: EventWriter<'w, 's, Select>,
     log: EventWriter<'w, 's, Log>,
 }
@@ -345,8 +348,9 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
                     .commands
                     .spawn(SpatialBundle::default())
                     .insert(LevelProperties {
-                        elevation: 0.0,
-                        name: "<Unnamed>".to_string(),
+                        name: NameInSite("<Unnamed>".to_owned()),
+                        elevation: LevelElevation(0.0),
+                        ..default()
                     })
                     .insert(Category::Level)
                     .id();

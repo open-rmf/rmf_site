@@ -10,8 +10,9 @@ use std::fs;
 use std::io;
 use std::io::prelude::*;
 use std::path::{Path, PathBuf};
+use std::sync::Mutex;
 
-use crate::urdf_loader::UrdfPlugin;
+use crate::{urdf_loader::UrdfPlugin, OSMTile};
 use urdf_rs::utils::expand_package_path;
 
 use rmf_site_format::AssetSource;
@@ -29,7 +30,9 @@ struct SiteAssetIo {
 }
 
 const FUEL_BASE_URI: &str = "https://fuel.gazebosim.org/1.0";
-const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+pub const MODEL_ENVIRONMENT_VARIABLE: &str = "GZ_SIM_RESOURCE_PATH";
+
+pub static FUEL_API_KEY: Mutex<Option<String>> = Mutex::new(None);
 
 #[derive(Deserialize)]
 struct FuelErrorMsg {
@@ -61,12 +64,25 @@ impl SiteAssetIo {
         asset_name: String,
     ) -> BoxedFuture<'a, Result<Vec<u8>, AssetIoError>> {
         Box::pin(async move {
-            let bytes = surf::get(remote_url.clone())
-                .recv_bytes()
-                .await
-                .map_err(|e| {
-                    AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
-                })?;
+            let mut req = surf::get(remote_url.clone());
+            match FUEL_API_KEY.lock() {
+                Ok(key) => {
+                    if let Some(key) = key.clone() {
+                        req = req.header("Private-token", key);
+                    }
+                }
+                Err(poisoned_key) => {
+                    // Reset the key to None
+                    *poisoned_key.into_inner() = None;
+                    return Err(AssetIoError::Io(io::Error::new(
+                        io::ErrorKind::Other,
+                        format!("Lock poisoning detected when reading fuel API key, please set it again."),
+                    )));
+                }
+            }
+            let bytes = req.recv_bytes().await.map_err(|e| {
+                AssetIoError::Io(io::Error::new(io::ErrorKind::Other, e.to_string()))
+            })?;
 
             match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
                 Ok(error) => {
@@ -79,9 +95,10 @@ impl SiteAssetIo {
                     )));
                 }
                 Err(_) => {
-                    // This is okay. When a GET from fuel was successful, it
-                    // will not return a JSON that can be interpreted as a
-                    // FuelErrorMsg
+                    // This is actually the happy path. When a GET from fuel was
+                    // successful, it will not return a JSON that can be
+                    // interpreted as a FuelErrorMsg, so our attempt to parse an
+                    // error message will fail.
                 }
             }
 
@@ -116,7 +133,6 @@ impl SiteAssetIo {
         // Expected format: OrgName/ModelName/FileName.ext
         // We may need to be a bit magical here because some assets
         // are found in Fuel and others are not.
-        let name_buf = PathBuf::from(name);
         let binding = name.clone();
         let mut tokens = binding.split("/");
         let org_name = match tokens.next() {
@@ -156,20 +172,52 @@ impl SiteAssetIo {
 
     fn add_bundled_assets(&mut self) {
         self.bundled_assets.insert(
-            "textures/default.png".to_owned(),
-            include_bytes!("../../assets/textures/default.png").to_vec(),
-        );
-        self.bundled_assets.insert(
             "textures/select.png".to_owned(),
             include_bytes!("../../assets/textures/select.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/selected.png".to_owned(),
+            include_bytes!("../../assets/textures/selected.png").to_vec(),
         );
         self.bundled_assets.insert(
             "textures/trash.png".to_owned(),
             include_bytes!("../../assets/textures/trash.png").to_vec(),
         );
         self.bundled_assets.insert(
+            "textures/merge.png".to_owned(),
+            include_bytes!("../../assets/textures/merge.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/confirm.png".to_owned(),
+            include_bytes!("../../assets/textures/confirm.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/add.png".to_owned(),
+            include_bytes!("../../assets/textures/add.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/reject.png".to_owned(),
+            include_bytes!("../../assets/textures/reject.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/search.png".to_owned(),
+            include_bytes!("../../assets/textures/search.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/empty.png".to_owned(),
+            include_bytes!("../../assets/textures/empty.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/alignment.png".to_owned(),
+            include_bytes!("../../assets/textures/alignment.png").to_vec(),
+        );
+        self.bundled_assets.insert(
             "textures/edit.png".to_owned(),
             include_bytes!("../../assets/textures/edit.png").to_vec(),
+        );
+        self.bundled_assets.insert(
+            "textures/exit.png".to_owned(),
+            include_bytes!("../../assets/textures/exit.png").to_vec(),
         );
         self.bundled_assets.insert(
             "textures/up.png".to_owned(),
@@ -254,7 +302,6 @@ impl AssetIo for SiteAssetIo {
                 // Order should be:
                 // Relative to the building.yaml location, TODO, relative paths are tricky
                 // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
-                // For SDF Only:
                 // Relative to a cache directory
                 // Attempt to fetch from the server and save it to the cache directory
 
@@ -267,14 +314,6 @@ impl AssetIo for SiteAssetIo {
                     }
                 }
 
-                if !asset_name.ends_with(".sdf") {
-                    return Box::pin(async move {
-                        Err(AssetIoError::Io(io::Error::new(
-                            io::ErrorKind::Other,
-                            format!("Asset {} not found", asset_name),
-                        )))
-                    });
-                }
                 // Try local cache
                 #[cfg(not(target_arch = "wasm32"))]
                 {
@@ -293,6 +332,22 @@ impl AssetIo for SiteAssetIo {
                 // It cannot be found locally, so let's try to fetch it from the
                 // remote server
                 self.fetch_asset(remote_url, asset_name)
+            }
+
+            AssetSource::OSMTile {
+                zoom,
+                latitude,
+                longitude,
+            } => {
+                return Box::pin(async move {
+                    let tile = OSMTile::from_latlon(zoom, latitude, longitude);
+                    tile.get_map_image().await.map_err(|e| {
+                        AssetIoError::Io(io::Error::new(
+                            io::ErrorKind::Other,
+                            format!("Unable to load map: {e}"),
+                        ))
+                    })
+                });
             }
         }
     }

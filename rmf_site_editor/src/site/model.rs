@@ -16,11 +16,12 @@
 */
 
 use crate::{
-    interaction::{DragPlaneBundle, Selectable},
+    interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
     site::{Category, PreventDeletion, SiteAssets},
+    site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     SdfRoot,
 };
-use bevy::{asset::LoadState, gltf::Gltf, prelude::*};
+use bevy::{asset::LoadState, gltf::Gltf, prelude::*, render::view::RenderLayers};
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale, UrdfRoot};
 use smallvec::SmallVec;
@@ -37,6 +38,7 @@ pub struct ModelScene {
 #[derive(Component, Debug, Default, Clone, PartialEq)]
 pub enum TentativeModelFormat {
     #[default]
+    Plain,
     GlbFlat,
     Obj,
     Stl,
@@ -48,6 +50,7 @@ impl TentativeModelFormat {
     pub fn next(&self) -> Option<Self> {
         use TentativeModelFormat::*;
         match self {
+            Plain => Some(GlbFlat),
             GlbFlat => Some(Obj),
             Obj => Some(Stl),
             Stl => Some(GlbFolder),
@@ -61,6 +64,7 @@ impl TentativeModelFormat {
     pub fn to_string(&self, model_name: &str) -> String {
         use TentativeModelFormat::*;
         match self {
+            Plain => "".to_owned(),
             Obj => ("/".to_owned() + model_name + ".obj").into(),
             GlbFlat => ".glb".into(),
             Stl => ".stl".into(),
@@ -77,26 +81,14 @@ pub struct PendingSpawning(HandleUntyped);
 #[derive(Component, Debug, Clone, Copy)]
 pub struct ModelSceneRoot;
 
-pub fn update_model_scenes(
+pub fn handle_model_loaded_events(
     mut commands: Commands,
-    changed_models: Query<
-        (Entity, &AssetSource, &Pose, &TentativeModelFormat),
-        (Changed<TentativeModelFormat>, With<ModelMarker>),
-    >,
-    asset_server: Res<AssetServer>,
     loading_models: Query<
-        (Entity, &TentativeModelFormat, &PendingSpawning, &Scale),
+        (Entity, &PendingSpawning, &Scale, Option<&RenderLayers>),
         With<ModelMarker>,
     >,
-    spawned_models: Query<
-        Entity,
-        (
-            Without<PendingSpawning>,
-            With<ModelMarker>,
-            With<PreventDeletion>,
-        ),
-    >,
     mut current_scenes: Query<&mut ModelScene>,
+    asset_server: Res<AssetServer>,
     site_assets: Res<SiteAssets>,
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
@@ -104,57 +96,10 @@ pub fn update_model_scenes(
     urdfs: Res<Assets<UrdfRoot>>,
     sdfs: Res<Assets<SdfRoot>>,
 ) {
-    fn spawn_model(
-        e: Entity,
-        source: &AssetSource,
-        pose: &Pose,
-        asset_server: &AssetServer,
-        tentative_format: &TentativeModelFormat,
-        commands: &mut Commands,
-    ) {
-        let mut commands = commands.entity(e);
-        commands
-            .insert(ModelScene {
-                source: source.clone(),
-                format: tentative_format.clone(),
-                entity: None,
-            })
-            .insert(SpatialBundle {
-                transform: pose.transform(),
-                ..default()
-            })
-            .insert(Category::Model);
-
-        // For search assets, look at subfolders and iterate through file formats
-        // TODO(luca) This will also iterate for non search assets, fix
-        let asset_source = match source {
-            AssetSource::Search(name) => {
-                let model_name = name.split('/').last().unwrap();
-                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
-            }
-            _ => source.clone(),
-        };
-        let handle = asset_server.load_untyped(&String::from(&asset_source));
-        commands
-            .insert(PreventDeletion::because(
-                "Waiting for model to spawn".to_string(),
-            ))
-            .insert(PendingSpawning(handle));
-    }
-
-    // There is a bug(?) in bevy scenes, which causes panic when a scene is despawned
-    // immediately after it is spawned.
-    // Work around it by checking the `spawned` container BEFORE updating it so that
-    // entities are only despawned at the next frame. This also ensures that entities are
-    // "fully spawned" before despawning.
-    for e in spawned_models.iter() {
-        commands.entity(e).remove::<PreventDeletion>();
-    }
-
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
-    for (e, tentative_format, h, scale) in loading_models.iter() {
+    for (e, h, scale, render_layer) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
                 Some(commands.entity(e).add_children(|parent| {
@@ -213,25 +158,96 @@ pub fn update_model_scenes(
             } else {
                 None
             };
+
             if let Some(id) = model_id {
-                commands
-                    .entity(e)
-                    .insert(ModelSceneRoot)
-                    .insert(Selectable::new(e));
-                commands.entity(e).remove::<PendingSpawning>();
+                let mut cmd = commands.entity(e);
+                cmd.insert(ModelSceneRoot);
+                if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
+                    cmd.insert(Selectable::new(e));
+                }
                 current_scenes.get_mut(e).unwrap().entity = Some(id);
             }
+            commands
+                .entity(e)
+                .remove::<(PreventDeletion, PendingSpawning)>();
         }
+    }
+}
+
+pub fn update_model_scenes(
+    mut commands: Commands,
+    changed_models: Query<
+        (
+            Entity,
+            &AssetSource,
+            &Pose,
+            &TentativeModelFormat,
+            Option<&Visibility>,
+        ),
+        (Changed<TentativeModelFormat>, With<ModelMarker>),
+    >,
+    asset_server: Res<AssetServer>,
+    mut current_scenes: Query<&mut ModelScene>,
+    trashcan: Res<ModelTrashcan>,
+) {
+    fn spawn_model(
+        e: Entity,
+        source: &AssetSource,
+        pose: &Pose,
+        asset_server: &AssetServer,
+        tentative_format: &TentativeModelFormat,
+        has_visibility: bool,
+        commands: &mut Commands,
+    ) {
+        let mut commands = commands.entity(e);
+        commands
+            .insert(ModelScene {
+                source: source.clone(),
+                format: tentative_format.clone(),
+                entity: None,
+            })
+            .insert(TransformBundle::from_transform(pose.transform()))
+            .insert(Category::Model);
+
+        if !has_visibility {
+            // NOTE: We separate this out because for CollisionMeshMarker
+            // entities their visibility will be set by the CategoryVisibility
+            // plugin, which will (usually) set visibility to false. If we
+            // always inserted a true Visibiltiy then we would override the
+            // CategoryVisibility setting. This kind of multiple-source-of-truth
+            // conflict should be resolved by having a more sound way of building
+            // new entities and/or using a dependency tracker as proposed here:
+            // https://github.com/open-rmf/rmf_site/issues/173
+            commands.insert(VisibilityBundle {
+                visibility: Visibility::VISIBLE,
+                ..default()
+            });
+        }
+
+        // For search assets, look at subfolders and iterate through file formats
+        // TODO(luca) This will also iterate for non search assets, fix
+        let asset_source = match source {
+            AssetSource::Search(name) => {
+                let model_name = name.split('/').last().unwrap();
+                AssetSource::Search(name.to_owned() + &tentative_format.to_string(model_name))
+            }
+            _ => source.clone(),
+        };
+        let handle = asset_server.load_untyped(&String::from(&asset_source));
+        commands
+            .insert(PreventDeletion::because(
+                "Waiting for model to spawn".to_string(),
+            ))
+            .insert(PendingSpawning(handle));
     }
 
     // update changed models
-    for (e, source, pose, tentative_format) in changed_models.iter() {
+    for (e, source, pose, tentative_format, vis_option) in changed_models.iter() {
         if let Ok(current_scene) = current_scenes.get_mut(e) {
             // Avoid respawning if spurious change detection was triggered
             if current_scene.source != *source || current_scene.format != *tentative_format {
                 if let Some(scene_entity) = current_scene.entity {
-                    commands.entity(scene_entity).despawn_recursive();
-                    commands.entity(e).remove_children(&[scene_entity]);
+                    commands.entity(scene_entity).set_parent(trashcan.0);
                     commands.entity(e).remove::<ModelSceneRoot>();
                 }
                 // Updated model
@@ -241,6 +257,7 @@ pub fn update_model_scenes(
                     pose,
                     &asset_server,
                     tentative_format,
+                    vis_option.is_some(),
                     &mut commands,
                 );
             }
@@ -252,6 +269,7 @@ pub fn update_model_scenes(
                 pose,
                 &asset_server,
                 tentative_format,
+                vis_option.is_some(),
                 &mut commands,
             );
         }
@@ -272,23 +290,44 @@ pub fn update_model_tentative_formats(
     >,
     asset_server: Res<AssetServer>,
 ) {
+    static SUPPORTED_EXTENSIONS: &[&str] = &["obj", "stl", "sdf", "glb", "gltf"];
     for e in changed_models.iter() {
         // Reset to the first format
         commands.entity(e).insert(TentativeModelFormat::default());
     }
     // Check from the asset server if any format failed, if it did try the next
     for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
-        match asset_server.get_load_state(&h.0) {
-            LoadState::Failed => {
+        if matches!(asset_server.get_load_state(&h.0), LoadState::Failed) {
+            let mut cmd = commands.entity(e);
+            cmd.remove::<PreventDeletion>();
+            // We want to iterate only for search asset types, for others just print an error
+            if matches!(source, AssetSource::Search(_)) {
                 if let Some(fmt) = tentative_format.next() {
                     *tentative_format = fmt;
-                    commands.entity(e).remove::<PendingSpawning>();
-                } else {
-                    warn!("Model with source {} not found", String::from(source));
-                    commands.entity(e).remove::<TentativeModelFormat>();
+                    cmd.remove::<PendingSpawning>();
+                    continue;
                 }
             }
-            _ => {}
+            let path = String::from(source);
+            let model_ext = path
+                .rsplit_once('.')
+                .map(|s| s.1.to_owned())
+                .unwrap_or_else(|| tentative_format.to_string(""));
+            let reason = if !SUPPORTED_EXTENSIONS.iter().any(|e| model_ext.ends_with(e)) {
+                "Format not supported".to_owned()
+            } else {
+                match source {
+                    AssetSource::Search(_) | AssetSource::Remote(_) => format!(
+                        "Model not found, try using an API key if it belongs to \
+                                a private organization, or add its path to the {} \
+                                environment variable",
+                        MODEL_ENVIRONMENT_VARIABLE
+                    ),
+                    _ => "Failed parsing file".to_owned(),
+                }
+            };
+            warn!("Failed loading Model with source {}: {}", path, reason);
+            cmd.remove::<TentativeModelFormat>();
         }
     }
 }
@@ -306,11 +345,42 @@ pub fn update_model_scales(
     }
 }
 
+#[derive(Component)]
+pub struct Trashcan;
+
+/// The current data structures of models may have nested structures where we
+/// spawn "models" within the descendant tree of another model. This can lead to
+/// situations where we might try to delete the descendant tree of a model while
+/// also modifying one of those descendants. Bevy's current implementation of
+/// such commands leads to panic when attempting to modify a despawned entity.
+/// To deal with this we defer deleting model descendants by placing them in the
+/// trash can and waiting to despawn them during a later stage after any
+/// modifier commands have been flushed.
+#[derive(Resource)]
+pub struct ModelTrashcan(Entity);
+
+impl FromWorld for ModelTrashcan {
+    fn from_world(world: &mut World) -> Self {
+        Self(world.spawn(Trashcan).id())
+    }
+}
+
+pub fn clear_model_trashcan(
+    mut commands: Commands,
+    trashcans: Query<&Children, (With<Trashcan>, Changed<Children>)>,
+) {
+    for trashcan in &trashcans {
+        for trash in trashcan {
+            commands.entity(*trash).despawn_recursive();
+        }
+    }
+}
+
 pub fn make_models_selectable(
     mut commands: Commands,
     new_scene_roots: Query<Entity, (Added<ModelSceneRoot>, Without<Pending>)>,
     parents: Query<&Parent>,
-    scene_roots: Query<&Selectable, With<ModelMarker>>,
+    scene_roots: Query<(&Selectable, Option<&RenderLayers>), With<ModelMarker>>,
     all_children: Query<&Children>,
     mesh_handles: Query<&Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
@@ -325,10 +395,16 @@ pub fn make_models_selectable(
         // A root might be a child of another root, for example for SDF models that have multiple
         // submeshes. We need to traverse up to find the highest level scene to use for selecting
         // behavior
-        let selectable = AncestorIter::new(&parents, model_scene_root)
+        let Some((selectable, render_layers)) = AncestorIter::new(&parents, model_scene_root)
             .filter_map(|p| scene_roots.get(p).ok())
             .last()
-            .unwrap_or(scene_roots.get(model_scene_root).unwrap());
+            else {
+                continue;
+        };
+        // If layer should not be visible, don't make it selectable
+        if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
+            continue;
+        }
         queue.push(model_scene_root);
 
         while let Some(e) = queue.pop() {
@@ -352,6 +428,29 @@ pub fn make_models_selectable(
                 for child in children {
                     queue.push(*child);
                 }
+            }
+        }
+    }
+}
+
+/// Assigns the render layer of the root, if present, to all the children
+pub fn propagate_model_render_layers(
+    mut commands: Commands,
+    new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
+    scene_roots: Query<&RenderLayers, With<ModelMarker>>,
+    parents: Query<&Parent>,
+    mesh_entities: Query<Entity, With<Handle<Mesh>>>,
+    children: Query<&Children>,
+) {
+    for e in &new_scene_roots {
+        let Some(render_layers) = AncestorIter::new(&parents, e)
+            .filter_map(|p| scene_roots.get(p).ok())
+            .last() else {
+            continue;
+        };
+        for c in DescendantIter::new(&children, e) {
+            if mesh_entities.get(c).is_ok() {
+                commands.entity(c).insert(render_layers.clone());
             }
         }
     }

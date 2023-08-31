@@ -15,7 +15,11 @@
  *
 */
 
-use crate::site::{update_anchor_transforms, SiteUpdateStage};
+use crate::site::{
+    update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
+    FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
+    ModelMarker, SiteUpdateStage, VisualMeshMarker, WallMarker,
+};
 
 pub mod anchor;
 pub use anchor::*;
@@ -26,6 +30,9 @@ pub use assets::*;
 pub mod camera_controls;
 pub use camera_controls::*;
 
+pub mod category_visibility;
+pub use category_visibility::*;
+
 pub mod cursor;
 pub use cursor::*;
 
@@ -34,6 +41,9 @@ pub use edge::*;
 
 pub mod gizmo;
 pub use gizmo::*;
+
+pub mod highlight;
+pub use highlight::*;
 
 pub mod lane;
 pub use lane::*;
@@ -47,6 +57,9 @@ pub use light::*;
 pub mod mode;
 pub use mode::*;
 
+pub mod model_preview;
+pub use model_preview::*;
+
 pub mod outline;
 pub use outline::*;
 
@@ -58,6 +71,9 @@ pub use picking::*;
 
 pub mod point;
 pub use point::*;
+
+pub mod popup;
+pub use popup::*;
 
 pub mod preview;
 pub use preview::*;
@@ -127,6 +143,7 @@ impl Plugin for InteractionPlugin {
             .init_resource::<Hovering>()
             .init_resource::<GizmoState>()
             .init_resource::<InteractionMode>()
+            .init_resource::<HiddenSelectAnchorEntities>()
             .add_event::<ChangePick>()
             .add_event::<Select>()
             .add_event::<Hover>()
@@ -136,7 +153,25 @@ impl Plugin for InteractionPlugin {
             .add_event::<SpawnPreview>()
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
+            .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<LaneMarker>::visible(true))
+            // TODO(luca) unify the two Lift plugins into a single one?
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(
+                true,
+            ))
+            .add_plugin(CategoryVisibilityPlugin::<LocationTags>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<FiducialMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<ConstraintMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(
+                false,
+            ))
+            .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
+            .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
             .add_plugin(CameraControlsPlugin)
+            .add_plugin(ModelPreviewPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(make_lift_doormat_gizmo)
@@ -151,6 +186,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(handle_select_anchor_mode.after(maintain_selected_entities))
                     .with_system(handle_select_anchor_3d_mode.after(maintain_selected_entities))
                     .with_system(update_anchor_visual_cues.after(maintain_selected_entities))
+                    .with_system(update_popups.after(maintain_selected_entities))
                     .with_system(update_unassigned_anchor_cues)
                     .with_system(update_anchor_cues_for_mode)
                     .with_system(update_anchor_proximity_xray.after(update_cursor_transform))
@@ -162,6 +198,7 @@ impl Plugin for InteractionPlugin {
                     .with_system(update_path_visual_cues.after(maintain_selected_entities))
                     .with_system(update_outline_visualization.after(maintain_selected_entities))
                     .with_system(update_outline_for_new_meshes.after(maintain_selected_entities))
+                    .with_system(update_highlight_visualization.after(maintain_selected_entities))
                     .with_system(
                         update_cursor_hover_visualization.after(maintain_selected_entities),
                     )
@@ -188,8 +225,10 @@ impl Plugin for InteractionPlugin {
                     .with_system(add_point_visual_cues)
                     .with_system(add_path_visual_cues)
                     .with_system(add_outline_visualization)
+                    .with_system(add_highlight_visualization)
                     .with_system(add_cursor_hover_visualization)
-                    .with_system(add_physical_light_visual_cues),
+                    .with_system(add_physical_light_visual_cues)
+                    .with_system(add_popups),
             )
             .add_system_set_to_stage(
                 InteractionUpdateStage::ProcessVisuals,
