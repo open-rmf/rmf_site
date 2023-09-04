@@ -51,11 +51,24 @@ pub struct SiteAssets {
     pub physical_camera_material: Handle<StandardMaterial>,
     pub occupied_material: Handle<StandardMaterial>,
     pub default_mesh_grey_material: Handle<StandardMaterial>,
+    pub location_tag_mesh: Handle<Mesh>,
+    pub charger_material: Handle<StandardMaterial>,
+    pub holding_point_material: Handle<StandardMaterial>,
+    pub parking_material: Handle<StandardMaterial>,
 }
 
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
+        let charger_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/battery.png".to_string(),
+        )));
+        let holding_point_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/stopwatch.png".to_string(),
+        )));
+        let parking_texture = asset_server.load(&String::from(&AssetSource::Bundled(
+            "textures/parking.png".to_string(),
+        )));
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
@@ -138,6 +151,10 @@ impl FromWorld for SiteAssets {
         let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
         let default_mesh_grey_material = materials.add(Color::rgb(0.7, 0.7, 0.7).into());
 
+        let charger_material = materials.add(charger_texture.into());
+        let holding_point_material = materials.add(holding_point_texture.into());
+        let parking_material = materials.add(parking_texture.into());
+
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
             Mesh::from(shape::UVSphere {
@@ -200,6 +217,8 @@ impl FromWorld for SiteAssets {
             .with_generated_outline_normals()
             .unwrap(),
         );
+        let location_tag_mesh =
+            meshes.add(make_location_icon(1.1 * LANE_WIDTH / 2.0, 0.01, 6).into());
         let physical_camera_mesh = meshes.add(
             make_physical_camera_mesh()
                 .with_generated_outline_normals()
@@ -238,6 +257,10 @@ impl FromWorld for SiteAssets {
             physical_camera_material,
             occupied_material,
             default_mesh_grey_material,
+            location_tag_mesh,
+            charger_material,
+            holding_point_material,
+            parking_material,
         }
     }
 }
