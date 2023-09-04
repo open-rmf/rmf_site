@@ -275,42 +275,36 @@ pub fn add_door_visuals(
         let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
             make_door_visuals(e, edge, &anchors, kind);
 
-        let mut commands = commands.entity(e);
-        let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
-            let bodies = door_tfs
-                .iter()
-                .map(|tf| {
-                    parent
-                        .spawn(PbrBundle {
-                            mesh: assets.box_mesh.clone(),
-                            material: assets.door_body_material.clone(),
-                            transform: *tf,
-                            ..default()
-                        })
-                        .insert(Selectable::new(e))
-                        .id()
-                })
-                .collect::<Vec<_>>();
-            let body = DoorBodyType::from_door_type(kind, &bodies);
+        let bodies = door_tfs
+            .iter()
+            .map(|tf| {
+                commands
+                    .spawn(PbrBundle {
+                        mesh: assets.box_mesh.clone(),
+                        material: assets.door_body_material.clone(),
+                        transform: *tf,
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .id()
+            })
+            .collect::<Vec<_>>();
+        let body = DoorBodyType::from_door_type(kind, &bodies);
+        let cue_inner = commands
+            .spawn(PbrBundle {
+                mesh: meshes.add(cue_inner_mesh),
+                material: assets.translucent_white.clone(),
+                ..default()
+            })
+            .id();
 
-            let cue_inner = parent
-                .spawn(PbrBundle {
-                    mesh: meshes.add(cue_inner_mesh),
-                    material: assets.translucent_white.clone(),
-                    ..default()
-                })
-                .id();
-
-            let cue_outline = parent
-                .spawn(PbrBundle {
-                    mesh: meshes.add(cue_outline_mesh),
-                    material: assets.translucent_black.clone(),
-                    ..default()
-                })
-                .id();
-
-            (body, cue_inner, cue_outline)
-        });
+        let cue_outline = commands
+            .spawn(PbrBundle {
+                mesh: meshes.add(cue_outline_mesh),
+                material: assets.translucent_black.clone(),
+                ..default()
+            })
+            .id();
 
         // Level doors for lifts may have already been given a Visibility
         // component upon creation, in which case we should respect whatever
@@ -322,6 +316,7 @@ pub fn add_door_visuals(
         };
 
         commands
+            .entity(e)
             .insert(SpatialBundle {
                 transform: pose_tf,
                 visibility: Visibility { is_visible },
@@ -333,7 +328,9 @@ pub fn add_door_visuals(
                 cue_outline,
             })
             .insert(Category::Door)
-            .insert(EdgeLabels::LeftRight);
+            .insert(EdgeLabels::LeftRight)
+            .push_children(&[cue_inner, cue_outline])
+            .push_children(&bodies);
 
         for anchor in edge.array() {
             if let Ok(mut deps) = dependents.get_mut(anchor) {

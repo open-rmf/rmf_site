@@ -116,18 +116,16 @@ pub fn change_site(
 
                     if !found_level {
                         // Create a new blank level for the user
-                        let new_level = commands.entity(cmd.site).add_children(|site| {
-                            site.spawn(SpatialBundle::default())
-                                .insert(LevelProperties {
-                                    name: NameInSite("<unnamed level>".to_owned()),
-                                    elevation: LevelElevation(0.),
-                                    global_floor_visibility: default(),
-                                    global_drawing_visibility: default(),
-                                })
-                                .id()
-                        });
+                        let new_level = commands.spawn(SpatialBundle::default())
+                            .insert(LevelProperties {
+                                name: NameInSite("<unnamed level>".to_owned()),
+                                elevation: LevelElevation(0.),
+                                global_floor_visibility: default(),
+                                global_drawing_visibility: default(),
+                            })
+                            .id();
 
-                        commands.entity(cmd.site).insert(CachedLevel(new_level));
+                        commands.entity(cmd.site).insert(CachedLevel(new_level)).add_child(new_level);
                         current_level.0 = Some(new_level);
                     }
                 }

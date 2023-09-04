@@ -56,7 +56,7 @@ pub fn add_workcell_visualization(
     for e in new_workcells.iter() {
         let body_mesh = site_assets.site_anchor_mesh.clone();
         let mut entity_commands = commands.entity(e);
-        entity_commands.add_children(|parent| {
+        entity_commands.with_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),

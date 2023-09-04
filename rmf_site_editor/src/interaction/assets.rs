@@ -63,7 +63,7 @@ impl InteractionAssets {
 
     pub fn make_axis(
         &self,
-        command: &mut Commands,
+        commands: &mut Commands,
         // What entity will be moved when this gizmo is dragged
         for_entity_opt: Option<Entity>,
         // What entity should be the parent frame of this gizmo
@@ -73,22 +73,22 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        return command.entity(parent).add_children(|parent| {
-            let mut child_entity = parent.spawn(PbrBundle {
+        let child_entity = commands.spawn(PbrBundle {
                 transform: Transform::from_rotation(rotation)
                     .with_translation(offset)
                     .with_scale(Vec3::splat(scale)),
                 mesh: self.arrow_mesh.clone(),
                 material: material_set.passive.clone(),
                 ..default()
-            });
+            })
+            .id();
 
-            if let Some(for_entity) = for_entity_opt {
-                child_entity
-                    .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
-            }
-            child_entity.id()
-        });
+        if let Some(for_entity) = for_entity_opt {
+            commands.entity(child_entity) 
+                .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
+        }
+        commands.entity(parent).add_child(child_entity);
+        child_entity
     }
 
     pub fn make_draggable_axis(
@@ -121,12 +121,11 @@ impl InteractionAssets {
         anchor: Entity,
         cue: &mut AnchorVisualization,
     ) {
-        let drag_parent = commands.entity(anchor).add_children(|parent| {
-            parent
-                .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline().irregular().always_xray())
-                .id()
-        });
+        let drag_parent = commands
+            .spawn(SpatialBundle::default())
+            .insert(VisualCue::no_outline().irregular().always_xray())
+            .id();
+        commands.entity(anchor).add_child(drag_parent);
 
         let height = 0.0;
         let scale = 0.2;
@@ -167,12 +166,11 @@ impl InteractionAssets {
         cue: &mut AnchorVisualization,
         draggable: bool,
     ) {
-        let drag_parent = commands.entity(anchor).add_children(|parent| {
-            parent
-                .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline().irregular().always_xray())
-                .id()
-        });
+        let drag_parent = commands
+            .spawn(SpatialBundle::default())
+            .insert(VisualCue::no_outline().irregular().always_xray())
+            .id();
+        commands.entity(anchor).add_child(drag_parent);
 
         let for_entity = if draggable { Some(anchor) } else { None };
         let scale = 0.2;
@@ -197,7 +195,7 @@ impl InteractionAssets {
             self.make_axis(commands, for_entity, drag_parent, m, p, r, scale);
         }
 
-        commands.entity(drag_parent).add_children(|parent| {
+        commands.entity(drag_parent).with_children(|parent| {
             for (polyline, material) in &self.centimeter_finite_grid {
                 parent.spawn(PolylineBundle {
                     polyline: polyline.clone(),

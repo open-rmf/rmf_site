@@ -229,7 +229,6 @@ pub fn add_floor_visuals(
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
 
         let mesh = make_floor_mesh(e, new_floor, &texture, &anchors);
-        let mut cmd = commands.entity(e);
         let height = floor_height(rank);
         let default_vis = parent
             .map(|p| default_floor_vis.get(p.get()).ok())
@@ -242,26 +241,27 @@ pub fn add_floor_visuals(
             ..default()
         });
 
-        let mesh_entity_id = cmd
+        let mesh_entity_id = 
+            commands.spawn(PbrBundle {
+                mesh: meshes.add(mesh),
+                material,
+                ..default()
+            })
+            .insert(Selectable::new(e))
+            .id();
+
+        commands.entity(e)
             .insert(SpatialBundle {
                 transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
             })
-            .add_children(|p| {
-                p.spawn(PbrBundle {
-                    mesh: meshes.add(mesh),
-                    material,
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .id()
-            });
+            .insert(FloorSegments {
+                mesh: mesh_entity_id,
+            })
+            .insert(Category::Floor)
+            .insert(PathBehavior::for_floor())
+            .add_child(mesh_entity_id);
 
-        cmd.insert(FloorSegments {
-            mesh: mesh_entity_id,
-        })
-        .insert(Category::Floor)
-        .insert(PathBehavior::for_floor());
 
         for anchor in &new_floor.0 {
             let mut deps = dependents.get_mut(*anchor).unwrap();

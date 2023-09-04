@@ -102,59 +102,59 @@ pub fn handle_model_loaded_events(
     for (e, h, scale, render_layer) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    // Get default scene if present, otherwise index 0
-                    let scene = gltf
-                        .default_scene
-                        .as_ref()
-                        .map(|s| s.clone())
-                        .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-                    parent
-                        .spawn(SceneBundle {
-                            scene,
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id()
-                }))
+                // Get default scene if present, otherwise index 0
+                let scene = gltf
+                    .default_scene
+                    .as_ref()
+                    .map(|s| s.clone())
+                    .unwrap_or(gltf.scenes.get(0).unwrap().clone());
+                let scene_id = commands
+                    .spawn(SceneBundle {
+                        scene,
+                        transform: Transform::from_scale(**scale),
+                        ..default()
+                    })
+                    .id();
+                commands.entity(e).add_child(scene_id);
+                Some(scene_id)
             } else if scenes.contains(&h.typed_weak::<Scene>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    let h_typed = h.0.clone().typed::<Scene>();
-                    parent
-                        .spawn(SceneBundle {
-                            scene: h_typed,
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id()
-                }))
+                let h_typed = h.0.clone().typed::<Scene>();
+                let scene_id = commands
+                    .spawn(SceneBundle {
+                        scene: h_typed,
+                        transform: Transform::from_scale(**scale),
+                        ..default()
+                    })
+                    .id();
+                commands.entity(e).add_child(scene_id);
+                Some(scene_id)
             } else if meshes.contains(&h.typed_weak::<Mesh>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    let h_typed = h.0.clone().typed::<Mesh>();
-                    parent
-                        .spawn(PbrBundle {
-                            mesh: h_typed,
-                            material: site_assets.default_mesh_grey_material.clone(),
-                            transform: Transform::from_scale(**scale),
-                            ..default()
-                        })
-                        .id()
-                }))
+                let h_typed = h.0.clone().typed::<Mesh>();
+                let mesh_id = commands
+                    .spawn(PbrBundle {
+                        mesh: h_typed,
+                        material: site_assets.default_mesh_grey_material.clone(),
+                        transform: Transform::from_scale(**scale),
+                        ..default()
+                    })
+                    .id();
+                commands.entity(e).add_child(mesh_id);
+                Some(mesh_id)
             } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    parent
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
-                        .insert(urdf.clone())
-                        .insert(Category::Workcell)
-                        .id()
-                }))
+                let urdf_id = commands
+                    .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                    .insert(urdf.clone())
+                    .insert(Category::Workcell)
+                    .id();
+                commands.entity(e).add_child(urdf_id);
+                Some(urdf_id)
             } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    parent
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
-                        .insert(sdf.clone())
-                        .id()
-                }))
+                let sdf_id = commands
+                    .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                    .insert(sdf.clone())
+                    .id();
+                commands.entity(e).add_child(sdf_id);
+                Some(sdf_id)
             } else {
                 None
             };

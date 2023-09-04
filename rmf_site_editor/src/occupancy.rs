@@ -276,7 +276,7 @@ fn calculate_grid(
                 );
             }
 
-            commands.entity(level).add_children(|level| {
+            commands.entity(level).with_children(|level| {
                 level
                     .spawn(PbrBundle {
                         mesh: meshes.add(mesh.into()),
