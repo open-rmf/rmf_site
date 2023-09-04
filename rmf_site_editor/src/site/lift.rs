@@ -235,7 +235,7 @@ pub fn update_lift_cabin(
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.
-                                        visibility: Visibility { is_visible: false },
+                                        visibility: Visibility::Invisible,
                                         ..default()
                                     })
                                     .insert(LiftDoormat {
@@ -430,9 +430,12 @@ pub fn update_lift_door_availability(
             if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.insert(toggle.on_level);
                 if let Some(current_level) = **current_level {
-                    commands.entity(cabin_door).insert(Visibility {
-                        is_visible: visits.contains(&current_level),
-                    });
+                    let visibility = if visits.contains(&current_level) {
+                        Visibility::Inherited
+                    } else {
+                        Visibility::Invisible
+                    };
+                    commands.entity(cabin_door).insert(visibility);
                 }
             }
 
@@ -445,7 +448,7 @@ pub fn update_lift_door_availability(
                     commands
                         .entity(anchor)
                         .remove::<Pending>()
-                        .insert(Visibility { is_visible: true });
+                        .insert(Visibility::Inherited);
                 }
             }
         } else {
@@ -467,9 +470,12 @@ pub fn update_lift_door_availability(
             let need_to_remove_door = if let Ok((_, _, mut visits)) = doors.get_mut(cabin_door) {
                 visits.remove(&toggle.on_level);
                 if let Some(current_level) = **current_level {
-                    commands.entity(cabin_door).insert(Visibility {
-                        is_visible: visits.contains(&current_level),
-                    });
+                    let visibility = if visits.contains(&current_level) {
+                        Visibility::Inherited
+                    } else {
+                        Visibility::Invisible
+                    };
+                    commands.entity(cabin_door).insert(visibility);
                 }
                 visits.is_empty()
             } else {
@@ -500,9 +506,12 @@ pub fn update_lift_door_availability(
         // to change.
         if let Some(current_level) = **current_level {
             for (e, _, visits) in &doors {
-                commands.entity(e).insert(Visibility {
-                    is_visible: visits.contains(&current_level),
-                });
+                let visibility = if visits.contains(&current_level) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
+                commands.entity(e).insert(visibility);
             }
         }
     }
@@ -566,7 +575,7 @@ fn remove_door(
     commands
         .entity(cabin_door)
         .insert(Pending)
-        .insert(Visibility { is_visible: false });
+        .insert(Visibility::Invisible);
 
     // Clear out the anchors if nothing besides the cabin door depends on them
     let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
@@ -596,7 +605,7 @@ fn remove_door(
             commands
                 .entity(anchor)
                 .insert(Pending)
-                .insert(Visibility { is_visible: false });
+                .insert(Visibility::Invisible);
         }
     }
 }

@@ -349,13 +349,17 @@ pub fn sync_workspace_visibility(
         // Set visibility of current to target
         if let Some(current_workspace_entity) = current_workspace.root {
             if let Ok(mut v) = visibility.get_mut(current_workspace_entity) {
-                v.is_visible = current_workspace.display;
+                v = if current_workspace.display {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
             }
         }
         // Disable visibility in recall
         if let Some(recall) = recall.0 {
             if let Ok(mut v) = visibility.get_mut(recall) {
-                v.is_visible = false;
+                v = Visibility::Invisible;
             }
         }
         recall.0 = current_workspace.root;

@@ -51,7 +51,7 @@ impl AnchorBundle {
 
     pub fn visible(self, is_visible: bool) -> Self {
         Self {
-            visibility: Visibility { is_visible },
+            visibility: Visibility::Inherited,
             ..self
         }
     }

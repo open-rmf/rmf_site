@@ -102,14 +102,18 @@ pub fn add_lane_visuals(
         }
 
         let (lane_material, height) = graphs.display_style(associated_graphs);
-        let is_visible = should_display_lane(
+        let visibility = if should_display_lane(
             edge,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
             &graphs,
-        );
+        ) {
+            Visibility::Inherited
+        } else {
+            Visibility::Invisible
+        };
 
         let start_anchor = anchors
             .point_in_parent_frame_of(edge.start(), Category::Lane, e)
@@ -143,7 +147,7 @@ pub fn add_lane_visuals(
                 .spawn(PbrBundle {
                     mesh: outline_mesh,
                     transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility { is_visible: false },
+                    visibility: Visibility::Invisible,
                     ..default()
                 })
                 .set_parent(mesh)
@@ -181,7 +185,7 @@ pub fn add_lane_visuals(
             })
             .insert(SpatialBundle {
                 transform: Transform::from_translation([0., 0., LANE_LAYER_START].into()),
-                visibility: Visibility { is_visible },
+                visibility,
                 ..default()
             })
             .insert(Category::Lane)
@@ -235,10 +239,15 @@ pub fn update_changed_lane(
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible =
-            should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
-        if visibility.is_visible != is_visible {
-            visibility.is_visible = is_visible;
+        let new_visibility =
+            if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs)
+        {
+            Visibility::Inherited
+        } else {
+            Visibility::Invisible
+        };
+        if new_visibility != visibility {
+            visibility = new_visibility;
         }
     }
 }
@@ -317,25 +326,34 @@ pub fn update_visibility_for_lanes(
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let is_visible =
-                should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
-            if visibility.is_visible != is_visible {
-                visibility.is_visible = is_visible;
+            let new_visibility =
+                if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs)
+            {
+                Visibility::Inherited
+            } else {
+                Visibility::Invisible
+            };
+            if new_visibility != visibility {
+                new_visibility = visibility;
             }
         }
     } else {
         for (e, _, _) in &lanes_with_changed_association {
             if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
-                let is_visible = should_display_lane(
+                let new_visibility = if should_display_lane(
                     edge,
                     associated,
                     &parents,
                     &levels,
                     &current_level,
                     &graphs,
-                );
-                if visibility.is_visible != is_visible {
-                    visibility.is_visible = is_visible;
+                ) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
+                if new_visibility != visibility {
+                    new_visibility = visibility;
                 }
             }
         }

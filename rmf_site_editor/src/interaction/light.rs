@@ -34,15 +34,15 @@ pub struct LightBodies {
 impl LightBodies {
     fn switch(&self, kind: &LightKind, visibilities: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibilities.get_mut(self.point) {
-            v.is_visible = kind.is_point();
+            v = if kind.is_point() {Visibility::Inherited} else {Visibility::Invisible};
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.spot) {
-            v.is_visible = kind.is_spot();
+            v = if kind.is_spot() {Visibility::Inherited} else {Visibility::Invisible};
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.directional) {
-            v.is_visible = kind.is_directional();
+            v = if kind.is_directional() {Visibility::Inherited} else {Visibility::Invisible};
         }
     }
 }
@@ -67,9 +67,7 @@ pub fn add_physical_light_visual_cues(
 
         let point = commands
             .spawn(SpatialBundle {
-                visibility: Visibility {
-                    is_visible: kind.is_point(),
-                },
+                visibility: if kind.is_point() {Visibility::Inherited} else {Visibility::Invisible},
                 ..default()
             })
             .with_children(|point| {
@@ -95,9 +93,7 @@ pub fn add_physical_light_visual_cues(
 
         let spot = commands
             .spawn(SpatialBundle {
-                visibility: Visibility {
-                    is_visible: kind.is_spot(),
-                },
+                visibility: if kind.is_spot() {Visibility::Inherited} else {Visibility::Invisible},
                 ..default()
             })
             .with_children(|spot| {
@@ -121,9 +117,7 @@ pub fn add_physical_light_visual_cues(
 
         let directional = commands
             .spawn(SpatialBundle {
-                visibility: Visibility {
-                    is_visible: kind.is_directional(),
-                },
+                visibility: if kind.is_directional() {Visibility::Inherited} else {Visibility::Invisible},
                 ..default()
             })
             .with_children(|dir| {

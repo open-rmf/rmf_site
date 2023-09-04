@@ -37,7 +37,7 @@ fn show_all_levels(
     {
         for child in children.iter() {
             if let Ok((mut vis, mut tf, elevation)) = levels.get_mut(*child) {
-                vis.is_visible = true;
+                vis = Visibility::Inherited;
                 tf.translation.z = elevation.0;
             }
         }
@@ -59,7 +59,11 @@ fn hide_all_non_current_levels(
     {
         for child in children.iter() {
             if let Ok((mut vis, mut tf)) = levels.get_mut(*child) {
-                vis.is_visible = Some(*child) == **current_level;
+                vis = if Some(*child) == **current_level {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
                 tf.translation.z = 0.0;
             }
         }

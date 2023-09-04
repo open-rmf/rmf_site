@@ -120,7 +120,7 @@ fn switch_edit_drawing_mode(
             commands
                 .entity(*e)
                 .set_parent(current.editor)
-                .insert(Visibility { is_visible: true })
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited".to_owned(),
@@ -146,7 +146,7 @@ fn switch_edit_drawing_mode(
             }
 
             for mut v in &mut workspace_visibility {
-                v.is_visible = false;
+                v = Visibility::Invisible;
             }
         }
     }
@@ -169,7 +169,11 @@ fn switch_edit_drawing_mode(
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {
-                v.is_visible = current_workspace.display;
+                v = if current_workspace.display {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
             }
 
             if is_site.contains(w) {

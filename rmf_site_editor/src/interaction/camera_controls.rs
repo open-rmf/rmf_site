@@ -133,7 +133,11 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.perspective_camera_entities) {
             for mut visibility in visibilities {
-                visibility.is_visible = choice;
+                visibility = if choice {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Invisible
+                };
             }
         }
 
@@ -145,7 +149,11 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.orthographic_camera_entities) {
             for mut visibility in visibilities {
-                visibility.is_visible = !choice;
+                visibility = if choice {
+                    Visibility::Invisible
+                } else {
+                    Visibility::Inherited
+                };
             }
         }
 
@@ -198,11 +206,19 @@ impl CameraControls {
 
     pub fn toggle_lights(&self, toggle: bool, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.perspective_headlight) {
-            v.is_visible = toggle && self.mode.is_perspective();
+            v = if toggle && self.mode.is_perspective() {
+                Visibility::Inherited
+            } else {
+                Visibility::Invisible
+            };
         }
 
         if let Ok(mut v) = visibility.get_mut(self.orthographic_headlight) {
-            v.is_visible = toggle && self.mode.is_orthographic();
+            v = if toggle && self.mode.is_ortographic() {
+                Visibility::Inherited
+            } else {
+                Visibility::Invisible
+            };
         }
     }
 }

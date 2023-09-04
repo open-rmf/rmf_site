@@ -95,9 +95,13 @@ impl Cursor {
 
     fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.frame) {
-            let visible = self.should_be_visible();
-            if v.is_visible != visible {
-                v.is_visible = visible;
+            let new_visible = if self.should_be_visible() {
+                Visibility::Inherited
+            } else {
+                Visibility::Invisible
+            };
+            if new_visible != visible {
+                new_visible = visible;
             }
         }
     }
@@ -171,7 +175,7 @@ impl FromWorld for Cursor {
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                 mesh: halo_mesh,
                 material: halo_material,
-                visibility: Visibility { is_visible: true },
+                visibility: Visibility::Inherited,
                 ..default()
             })
             .insert(Spinning::default())
@@ -182,7 +186,7 @@ impl FromWorld for Cursor {
             .spawn(PbrBundle {
                 mesh: dagger_mesh,
                 material: dagger_material,
-                visibility: Visibility { is_visible: true },
+                visibility: Visibility::Inherited,
                 ..default()
             })
             .insert(Spinning::default())
@@ -243,7 +247,7 @@ impl FromWorld for Cursor {
                 frame_placement,
             ])
             .insert(SpatialBundle {
-                visibility: Visibility { is_visible: false },
+                visibility: Visibility::Invisible,
                 ..default()
             })
             .id();

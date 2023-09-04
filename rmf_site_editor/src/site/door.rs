@@ -309,17 +309,13 @@ pub fn add_door_visuals(
         // Level doors for lifts may have already been given a Visibility
         // component upon creation, in which case we should respect whatever
         // value was set for it.
-        let is_visible = if let Some(v) = visibility {
-            v.is_visible
-        } else {
-            true
-        };
+        let visibility = visibility.unwrap_or(Visibility::Inherited);
 
         commands
             .entity(e)
             .insert(SpatialBundle {
                 transform: pose_tf,
-                visibility: Visibility { is_visible },
+                visibility,
                 ..default()
             })
             .insert(DoorSegments {
