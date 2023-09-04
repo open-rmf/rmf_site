@@ -352,7 +352,7 @@ pub fn update_visibility_for_locations(
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct ConsiderLocationTag {
     pub tag: Option<LocationTag>,
     pub for_element: Entity,

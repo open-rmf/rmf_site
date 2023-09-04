@@ -96,11 +96,11 @@ pub struct Selection(pub Option<Entity>);
 pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Select(pub Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection

@@ -88,7 +88,7 @@ impl InteractionMode {
 
 #[derive(SystemParam)]
 pub struct BackoutParams<'w, 's> {
-    select: EventWriter<'w, 's, Select>,
+    select: EventWriter<'w, Select>,
     select_anchor: SelectAnchorPlacementParams<'w, 's>,
 }
 
@@ -107,6 +107,7 @@ pub struct BackoutParams<'w, 's> {
 // TODO(MXG): We could enforce this by letting InteractionMode be public but
 // wrapping it in a newtype to store it in the resource. The inner type would
 // be kept private (with read-only access) so only this module can modify it.
+#[derive(Event)]
 pub enum ChangeMode {
     /// Change the mode to the specified value
     To(InteractionMode),

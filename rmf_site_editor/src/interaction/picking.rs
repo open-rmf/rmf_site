@@ -47,7 +47,7 @@ impl Default for PickingBlockers {
 #[derive(Debug, Clone, Copy, Default, Resource)]
 pub struct Picked(pub Option<Entity>);
 
-#[derive(Debug, Clone, Copy, Default)]
+#[derive(Debug, Clone, Copy, Default, Event)]
 pub struct ChangePick {
     pub from: Option<Entity>,
     pub to: Option<Entity>,

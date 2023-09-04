@@ -30,6 +30,7 @@ use rfd::FileHandle;
 #[derive(Component, Clone, Debug, Deref)]
 pub struct DefaultFile(pub PathBuf);
 
+#[derive(Event)]
 pub struct LoadSite {
     /// The site data to load
     pub site: rmf_site_format::Site,
@@ -402,6 +403,7 @@ pub enum ImportNavGraphError {
     MissingCabinAnchorGroup(String),
 }
 
+#[derive(Event)]
 pub struct ImportNavGraphs {
     pub into_site: Entity,
     pub from_site: rmf_site_format::Site,

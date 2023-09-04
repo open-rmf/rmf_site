@@ -33,6 +33,7 @@ use rmf_site_format::{
     Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
 };
 
+#[derive(Event)]
 pub struct LoadWorkcell {
     /// The site data to load
     pub workcell: Workcell,

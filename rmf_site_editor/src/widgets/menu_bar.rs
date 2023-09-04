@@ -20,7 +20,7 @@ use crate::{
 };
 
 use bevy::prelude::{
-    App, Children, Component, Entity, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
+    App, Children, Component, Entity, Event, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
     Without, World,
 };
 use bevy_egui::{
@@ -133,6 +133,7 @@ impl FromWorld for ViewMenu {
 }
 
 #[non_exhaustive]
+#[derive(Event)]
 pub enum MenuEvent {
     MenuClickEvent(Entity),
 }

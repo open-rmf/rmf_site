@@ -25,6 +25,7 @@ use rfd::FileDialog;
 
 use std::path::PathBuf;
 
+#[derive(Event)]
 pub struct SaveWorkspace {
     /// If specified workspace will be saved to requested file, otherwise the default file
     pub destination: SaveWorkspaceDestination,

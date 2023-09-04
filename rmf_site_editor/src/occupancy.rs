@@ -131,6 +131,7 @@ impl GridRange {
     }
 }
 
+#[derive(Event)]
 pub struct CalculateGrid {
     /// How large is each cell
     pub cell_size: f32,

@@ -47,7 +47,7 @@ impl PreventDeletion {
 
 /// This is an event used to delete site elements. Deleting the element is
 /// recursive, so all its children will be deleted along with it.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct Delete {
     pub element: Entity,
     /// If this is true, all dependents of the element or any of its children
@@ -89,8 +89,8 @@ struct DeletionParams<'w, 's> {
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
     levels: Query<'w, 's, Entity, With<LevelElevation>>,
-    select: EventWriter<'w, 's, Select>,
-    log: EventWriter<'w, 's, Log>,
+    select: EventWriter<'w, Select>,
+    log: EventWriter<'w, Log>,
 }
 
 pub struct DeletionPlugin;

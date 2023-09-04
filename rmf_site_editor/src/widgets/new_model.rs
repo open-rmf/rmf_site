@@ -52,8 +52,8 @@ pub struct NewModelParams<'w, 's> {
     // TODO(luca) refactor to see whether we need
     pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
     pub model_preview_camera: Res<'w, ModelPreviewCamera>,
-    pub update_cache: EventWriter<'w, 's, UpdateFuelCache>,
-    pub set_api_key: EventWriter<'w, 's, SetFuelApiKey>,
+    pub update_cache: EventWriter<'w, UpdateFuelCache>,
+    pub set_api_key: EventWriter<'w, SetFuelApiKey>,
 }
 
 pub struct NewModel<'a, 'w, 's> {

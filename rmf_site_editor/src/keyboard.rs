@@ -47,7 +47,7 @@ impl Plugin for KeyboardInputPlugin {
 // TODO(luca) get rid of this once 16 parameters limit is lifted in bevy 0.10
 #[derive(SystemParam)]
 struct KeyboardParams<'w, 's> {
-    align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+    align_site: EventWriter<'w, AlignSiteDrawings>,
     current_workspace: Res<'w, CurrentWorkspace>,
 }
 

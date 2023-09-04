@@ -30,7 +30,7 @@ use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 use crossbeam_channel::{Receiver, Sender};
 
 /// Used as an event to command that a new workspace should be made the current one
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentWorkspace {
     /// What should the current site be
     pub root: Entity,
@@ -38,6 +38,7 @@ pub struct ChangeCurrentWorkspace {
 
 /// Used as an event to command that a new workspace should be created, behavior will depend on
 /// what app mode the editor is currently in
+#[derive(Event)]
 pub struct CreateNewWorkspace;
 
 /// Apply this component to all workspace types
@@ -50,6 +51,7 @@ pub struct WorkspaceMarker;
 // workcells or sites
 // Dialog will spawn a RFD dialog, Path will open a specific path, the others will parse embedded
 // data
+#[derive(Event)]
 pub enum LoadWorkspace {
     Dialog,
     Path(PathBuf),

@@ -28,7 +28,7 @@ use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
 /// Instruction to spawn a preview for the given entity
 /// TODO None to encode "Clear all"
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Event)]
 pub struct SpawnPreview {
     pub entity: Option<Entity>,
 }

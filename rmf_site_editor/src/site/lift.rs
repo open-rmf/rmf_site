@@ -70,7 +70,7 @@ impl LiftDoormat {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ToggleLiftDoorAvailability {
     pub for_lift: Entity,
     pub on_level: Entity,

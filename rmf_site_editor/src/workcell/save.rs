@@ -27,6 +27,7 @@ use thiserror::Error as ThisError;
 use rmf_site_format::*;
 
 /// Event used to trigger saving of the workcell
+#[derive(Event)]
 pub struct SaveWorkcell {
     pub root: Entity,
     pub to_file: PathBuf,

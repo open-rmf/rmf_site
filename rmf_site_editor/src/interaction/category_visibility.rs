@@ -29,6 +29,7 @@ impl<T: Component + Clone + Debug> CategoryVisibility<T> {
     }
 }
 
+#[derive(Event)]
 pub struct SetCategoryVisibility<T: Component + Clone + Debug>(
     pub bool,
     std::marker::PhantomData<T>,

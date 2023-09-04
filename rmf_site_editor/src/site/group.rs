@@ -21,6 +21,7 @@ use bevy::{
 };
 use rmf_site_format::{Affiliation, Group};
 
+#[derive(Event)]
 pub struct MergeGroups {
     pub from_group: Entity,
     pub into_group: Entity,
@@ -69,6 +70,7 @@ pub fn update_members_of_groups(
     }
 }
 
+#[derive(Event)]
 struct ChangeMembership {
     member: Entity,
     group: Option<Entity>,

@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use rmf_site_format::{LevelElevation, LevelProperties, NameInSite, NameOfSite};
 
 /// Used as an event to command that a new site should be made the current one
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentSite {
     /// What should the current site be
     pub site: Entity,

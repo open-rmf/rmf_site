@@ -23,7 +23,7 @@ use std::fmt::Debug;
 /// The Change component is used as an event to indicate that the value of a
 /// component should change for some entity. Using these events instead of
 /// modifying the component directly helps with managing an undo/redo buffer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct Change<T: Component + Clone + Debug> {
     pub to_value: T,
     pub for_element: Entity,

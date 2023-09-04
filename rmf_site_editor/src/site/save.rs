@@ -25,11 +25,13 @@ use thiserror::Error as ThisError;
 use crate::{recency::RecencyRanking, site::*};
 use rmf_site_format::*;
 
+#[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: PathBuf,
 }
 
+#[derive(Event)]
 pub struct SaveNavGraphs {
     pub site: Entity,
     pub to_file: PathBuf,

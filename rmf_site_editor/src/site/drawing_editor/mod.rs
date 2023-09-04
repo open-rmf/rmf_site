@@ -32,11 +32,11 @@ use crate::{
 
 use std::collections::HashSet;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);
 
 /// Command to finish editing a drawing. Use None to command any drawing to finish.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Event)]
 pub struct FinishEditDrawing(pub Option<Entity>);
 
 #[derive(Clone, Copy)]
@@ -72,7 +72,7 @@ impl CurrentEditDrawing {
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
 
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Event)]
 pub struct AlignSiteDrawings(pub Entity);
 
 fn switch_edit_drawing_mode(

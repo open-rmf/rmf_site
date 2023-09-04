@@ -141,49 +141,49 @@ impl Plugin for StandardUiLayout {
 
 #[derive(SystemParam)]
 pub struct ChangeEvents<'w, 's> {
-    pub lane_motion: EventWriter<'w, 's, Change<Motion>>,
-    pub lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
-    pub name: EventWriter<'w, 's, Change<NameInSite>>,
-    pub label: EventWriter<'w, 's, Change<Label>>,
-    pub pose: EventWriter<'w, 's, Change<Pose>>,
-    pub door: EventWriter<'w, 's, Change<DoorType>>,
-    pub lift_cabin: EventWriter<'w, 's, Change<LiftCabin<Entity>>>,
-    pub asset_source: EventWriter<'w, 's, Change<AssetSource>>,
-    pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
-    pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
-    pub light: EventWriter<'w, 's, Change<LightKind>>,
-    pub level_elevation: EventWriter<'w, 's, Change<LevelElevation>>,
-    pub color: EventWriter<'w, 's, Change<DisplayColor>>,
-    pub visibility: EventWriter<'w, 's, Change<Visibility>>,
-    pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
-    pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
+    pub lane_motion: EventWriter<'w, Change<Motion>>,
+    pub lane_reverse: EventWriter<'w, Change<ReverseLane>>,
+    pub name: EventWriter<'w, Change<NameInSite>>,
+    pub label: EventWriter<'w, Change<Label>>,
+    pub pose: EventWriter<'w, Change<Pose>>,
+    pub door: EventWriter<'w, Change<DoorType>>,
+    pub lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
+    pub asset_source: EventWriter<'w, Change<AssetSource>>,
+    pub pixels_per_meter: EventWriter<'w, Change<PixelsPerMeter>>,
+    pub physical_camera_properties: EventWriter<'w, Change<PhysicalCameraProperties>>,
+    pub light: EventWriter<'w, Change<LightKind>>,
+    pub level_elevation: EventWriter<'w, Change<LevelElevation>>,
+    pub color: EventWriter<'w, Change<DisplayColor>>,
+    pub visibility: EventWriter<'w, Change<Visibility>>,
+    pub associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
+    pub location_tags: EventWriter<'w, Change<LocationTags>>,
 }
 
 // We split out this new struct to deal with the 16 field limitation on
 // SystemParams.
 #[derive(SystemParam)]
 pub struct MoreChangeEvents<'w, 's> {
-    pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+    pub affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
     pub search_for_texture: ResMut<'w, SearchForTexture>,
-    pub distance: EventWriter<'w, 's, Change<Distance>>,
-    pub texture: EventWriter<'w, 's, Change<Texture>>,
-    pub merge_groups: EventWriter<'w, 's, MergeGroups>,
+    pub distance: EventWriter<'w, Change<Distance>>,
+    pub texture: EventWriter<'w, Change<Texture>>,
+    pub merge_groups: EventWriter<'w, MergeGroups>,
 }
 
 #[derive(SystemParam)]
 pub struct WorkcellChangeEvents<'w, 's> {
-    pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
-    pub mesh_primitives: EventWriter<'w, 's, Change<MeshPrimitive>>,
-    pub name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
-    pub scale: EventWriter<'w, 's, Change<Scale>>,
+    pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
+    pub mesh_primitives: EventWriter<'w, Change<MeshPrimitive>>,
+    pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
+    pub scale: EventWriter<'w, Change<Scale>>,
 }
 
 #[derive(SystemParam)]
 pub struct FileEvents<'w, 's> {
-    pub save: EventWriter<'w, 's, SaveWorkspace>,
-    pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
-    pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
+    pub save: EventWriter<'w, SaveWorkspace>,
+    pub load_workspace: EventWriter<'w, LoadWorkspace>,
+    pub new_workspace: EventWriter<'w, CreateNewWorkspace>,
 }
 
 #[derive(SystemParam)]
@@ -202,50 +202,50 @@ pub struct PanelResources<'w, 's> {
 pub struct Requests<'w, 's> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
-    pub move_to: EventWriter<'w, 's, MoveTo>,
+    pub move_to: EventWriter<'w, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
     pub current_workspace: ResMut<'w, CurrentWorkspace>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
-    pub delete: EventWriter<'w, 's, Delete>,
-    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub delete: EventWriter<'w, Delete>,
+    pub toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
     pub toggle_headlights: ResMut<'w, HeadlightToggle>,
     pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
-    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
-    pub export_lights: EventWriter<'w, 's, ExportLights>,
-    pub save_nav_graphs: EventWriter<'w, 's, SaveNavGraphs>,
-    pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
-    pub consider_tag: EventWriter<'w, 's, ConsiderLocationTag>,
-    pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
+    pub spawn_preview: EventWriter<'w, SpawnPreview>,
+    pub export_lights: EventWriter<'w, ExportLights>,
+    pub save_nav_graphs: EventWriter<'w, SaveNavGraphs>,
+    pub calculate_grid: EventWriter<'w, CalculateGrid>,
+    pub consider_tag: EventWriter<'w, ConsiderLocationTag>,
+    pub consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
 }
 
 #[derive(SystemParam)]
 pub struct LayerEvents<'w, 's> {
-    pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
-    pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
-    pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
-    pub preferred_alpha: EventWriter<'w, 's, Change<PreferredSemiTransparency>>,
-    pub global_floor_vis: EventWriter<'w, 's, Change<GlobalFloorVisibility>>,
-    pub global_drawing_vis: EventWriter<'w, 's, Change<GlobalDrawingVisibility>>,
-    pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
-    pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
+    pub floors: EventWriter<'w, ChangeRank<FloorMarker>>,
+    pub drawings: EventWriter<'w, ChangeRank<DrawingMarker>>,
+    pub nav_graphs: EventWriter<'w, ChangeRank<NavGraphMarker>>,
+    pub layer_vis: EventWriter<'w, Change<LayerVisibility>>,
+    pub preferred_alpha: EventWriter<'w, Change<PreferredSemiTransparency>>,
+    pub global_floor_vis: EventWriter<'w, Change<GlobalFloorVisibility>>,
+    pub global_drawing_vis: EventWriter<'w, Change<GlobalDrawingVisibility>>,
+    pub begin_edit_drawing: EventWriter<'w, BeginEditDrawing>,
+    pub finish_edit_drawing: EventWriter<'w, FinishEditDrawing>,
     pub icons: Res<'w, Icons>,
 }
 
 #[derive(SystemParam)]
 pub struct VisibilityEvents<'w, 's> {
-    pub doors: EventWriter<'w, 's, SetCategoryVisibility<DoorMarker>>,
-    pub floors: EventWriter<'w, 's, SetCategoryVisibility<FloorMarker>>,
-    pub lanes: EventWriter<'w, 's, SetCategoryVisibility<LaneMarker>>,
-    pub lift_cabins: EventWriter<'w, 's, SetCategoryVisibility<LiftCabin<Entity>>>,
-    pub lift_cabin_doors: EventWriter<'w, 's, SetCategoryVisibility<LiftCabinDoorMarker>>,
-    pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
-    pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
-    pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
-    pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
-    pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
-    pub visuals: EventWriter<'w, 's, SetCategoryVisibility<VisualMeshMarker>>,
-    pub collisions: EventWriter<'w, 's, SetCategoryVisibility<CollisionMeshMarker>>,
+    pub doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
+    pub floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
+    pub lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
+    pub lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: EventWriter<'w, SetCategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: EventWriter<'w, SetCategoryVisibility<LocationTags>>,
+    pub fiducials: EventWriter<'w, SetCategoryVisibility<FiducialMarker>>,
+    pub constraints: EventWriter<'w, SetCategoryVisibility<ConstraintMarker>>,
+    pub measurements: EventWriter<'w, SetCategoryVisibility<MeasurementMarker>>,
+    pub walls: EventWriter<'w, SetCategoryVisibility<WallMarker>>,
+    pub visuals: EventWriter<'w, SetCategoryVisibility<VisualMeshMarker>>,
+    pub collisions: EventWriter<'w, SetCategoryVisibility<CollisionMeshMarker>>,
 }
 
 #[derive(SystemParam)]
@@ -275,7 +275,7 @@ pub struct VisibilityParameters<'w, 's> {
 pub struct MenuParams<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Option<&'static MenuDisabled>)>,
-    extension_events: EventWriter<'w, 's, MenuEvent>,
+    extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }
 
@@ -296,7 +296,7 @@ pub struct AppEvents<'w, 's> {
     pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
-    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
+    pub align_site: EventWriter<'w, AlignSiteDrawings>,
 }
 
 fn site_ui_layout(

@@ -137,7 +137,7 @@ pub fn toggle_physical_lights(
 }
 
 /// Request the light layout to be exported to a file
-#[derive(Clone)]
+#[derive(Clone, Event)]
 pub struct ExportLights(pub std::path::PathBuf);
 
 pub fn export_lights(

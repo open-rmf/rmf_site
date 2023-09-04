@@ -370,7 +370,7 @@ pub fn update_visibility_for_lanes(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct ConsiderAssociatedGraph {
     pub graph: Option<Entity>,
     pub for_element: Entity,

@@ -126,7 +126,7 @@ impl<T: Component> RecencyRank<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct ChangeRank<T: Component> {
     of: Entity,
     by: RankAdjustment,

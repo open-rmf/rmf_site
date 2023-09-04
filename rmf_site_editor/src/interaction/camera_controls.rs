@@ -81,6 +81,7 @@ impl ProjectionMode {
     }
 }
 
+#[derive(Event)]
 pub struct ChangeProjectionMode(pub ProjectionMode);
 
 impl ChangeProjectionMode {
