@@ -74,8 +74,9 @@ pub struct CommandLineArgs {
     pub import: Option<String>,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum AppState {
+    #[default]
     MainMenu,
     SiteEditor,
     SiteVisualizer,

@@ -95,9 +95,10 @@ use bevy_polyline::PolylinePlugin;
 #[derive(Default)]
 pub struct InteractionPlugin;
 
-#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, States)]
 pub enum InteractionState {
     Enable,
+    #[default]
     Disable,
 }
 
