@@ -82,6 +82,7 @@ impl InteractionAssets {
                 material: material_set.passive.clone(),
                 ..default()
             })
+            .set_parent(parent)
             .id();
 
         if let Some(for_entity) = for_entity_opt {
@@ -89,7 +90,6 @@ impl InteractionAssets {
                 .entity(child_entity)
                 .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
         }
-        commands.entity(parent).add_child(child_entity);
         child_entity
     }
 
@@ -126,8 +126,8 @@ impl InteractionAssets {
         let drag_parent = commands
             .spawn(SpatialBundle::default())
             .insert(VisualCue::no_outline().irregular().always_xray())
+            .set_parent(anchor)
             .id();
-        commands.entity(anchor).add_child(drag_parent);
 
         let height = 0.0;
         let scale = 0.2;

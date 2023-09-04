@@ -87,104 +87,109 @@ fn generate_site_entities(
         let anchor_entity = commands
             .spawn(AnchorBundle::new(anchor.clone()))
             .insert(SiteID(*anchor_id))
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*anchor_id, anchor_entity);
         consider_id(*anchor_id);
-        commands.entity(site_id).add_child(anchor_entity);
     }
 
     for (group_id, group) in &site_data.fiducial_groups {
-        let group_entity = commands.spawn(group.clone()).insert(SiteID(*group_id)).id();
+        let group_entity = commands
+            .spawn(group.clone())
+            .insert(SiteID(*group_id))
+            .set_parent(site_id)
+            .id();
         id_to_entity.insert(*group_id, group_entity);
         consider_id(*group_id);
-        commands.entity(site_id).add_child(group_entity);
     }
 
     for (group_id, group) in &site_data.textures {
-        let group_entity = commands.spawn(group.clone()).insert(SiteID(*group_id)).id();
+        let group_entity = commands
+            .spawn(group.clone())
+            .insert(SiteID(*group_id))
+            .set_parent(site_id)
+            .id();
         id_to_entity.insert(*group_id, group_entity);
         consider_id(*group_id);
-        commands.entity(site_id).add_child(group_entity);
     }
 
     for (level_id, level_data) in &site_data.levels {
-        let level_entity = commands.spawn(SiteID(*level_id)).id();
+        let level_entity = commands.spawn(SiteID(*level_id)).set_parent(site_id).id();
 
         for (anchor_id, anchor) in &level_data.anchors {
             let anchor_entity = commands
                 .spawn(AnchorBundle::new(anchor.clone()))
                 .insert(SiteID(*anchor_id))
+                .set_parent(level_entity)
                 .id();
             id_to_entity.insert(*anchor_id, anchor_entity);
             consider_id(*anchor_id);
-            commands.entity(level_entity).add_child(anchor_entity);
         }
 
         for (door_id, door) in &level_data.doors {
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*door_id))
+                .set_parent(level_entity)
                 .id();
             id_to_entity.insert(*door_id, door_entity);
             consider_id(*door_id);
-            commands.entity(level_entity).add_child(door_entity);
         }
 
         for (drawing_id, drawing) in &level_data.drawings {
             let drawing_entity = commands
                 .spawn(DrawingBundle::new(drawing.properties.clone()))
                 .insert(SiteID(*drawing_id))
+                .set_parent(level_entity)
                 .id();
 
             for (anchor_id, anchor) in &drawing.anchors {
                 let anchor_entity = commands
                     .spawn(AnchorBundle::new(anchor.clone()))
                     .insert(SiteID(*anchor_id))
+                    .set_parent(drawing_entity)
                     .id();
                 id_to_entity.insert(*anchor_id, anchor_entity);
                 consider_id(*anchor_id);
-                commands.entity(drawing_entity).add_child(anchor_entity);
             }
 
             for (fiducial_id, fiducial) in &drawing.fiducials {
-                let fiducial_entity = commands
+                commands
                     .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*fiducial_id))
+                    .set_parent(drawing_entity)
                     .id();
                 consider_id(*fiducial_id);
-                commands.entity(drawing_entity).add_child(fiducial_entity);
             }
 
             for (measurement_id, measurement) in &drawing.measurements {
-                let measurement_entity = commands
+                commands
                     .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*measurement_id))
+                    .set_parent(drawing_entity)
                     .id();
                 consider_id(*measurement_id);
-                commands
-                    .entity(drawing_entity)
-                    .add_child(measurement_entity);
             }
 
             consider_id(*drawing_id);
         }
 
         for (floor_id, floor) in &level_data.floors {
-            let floor_entity = commands
+            commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*floor_id))
+                .set_parent(level_entity)
                 .id();
             consider_id(*floor_id);
-            commands.entity(level_entity).add_child(floor_entity);
         }
 
         for (wall_id, wall) in &level_data.walls {
-            let wall_entity = commands
+            commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*wall_id))
+                .set_parent(level_entity)
                 .id();
             consider_id(*wall_id);
-            commands.entity(level_entity).add_child(wall_entity);
         }
 
         commands
@@ -228,11 +233,10 @@ fn generate_site_entities(
             );
         id_to_entity.insert(*level_id, level_entity);
         consider_id(*level_id);
-        commands.entity(site_id).add_child(level_entity);
     }
 
     for (lift_id, lift_data) in &site_data.lifts {
-        let lift_entity = commands.spawn(SiteID(*lift_id)).id();
+        let lift_entity = commands.spawn(SiteID(*lift_id)).set_parent(site_id).id();
 
         commands.entity(lift_entity).with_children(|lift| {
             lift.spawn(SpatialBundle::default())
@@ -253,10 +257,10 @@ fn generate_site_entities(
             let door_entity = commands
                 .spawn(door.convert(&id_to_entity).for_site(site_id)?)
                 .insert(Dependents::single(lift_entity))
+                .set_parent(lift_entity)
                 .id();
             id_to_entity.insert(*door_id, door_entity);
             consider_id(*door_id);
-            commands.entity(lift_entity).add_child(door_entity);
         }
 
         commands.entity(lift_entity).insert(Category::Lift).insert(
@@ -268,17 +272,16 @@ fn generate_site_entities(
 
         id_to_entity.insert(*lift_id, lift_entity);
         consider_id(*lift_id);
-        commands.entity(site_id).add_child(lift_entity);
     }
 
     for (fiducial_id, fiducial) in &site_data.fiducials {
         let fiducial_entity = commands
             .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*fiducial_id))
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*fiducial_id, fiducial_entity);
         consider_id(*fiducial_id);
-        commands.entity(site_id).add_child(fiducial_entity);
     }
 
     for (nav_graph_id, nav_graph_data) in &site_data.navigation.guided.graphs {
@@ -286,30 +289,30 @@ fn generate_site_entities(
             .spawn(SpatialBundle::default())
             .insert(nav_graph_data.clone())
             .insert(SiteID(*nav_graph_id))
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*nav_graph_id, nav_graph);
         consider_id(*nav_graph_id);
-        commands.entity(site_id).add_child(nav_graph);
     }
 
     for (lane_id, lane_data) in &site_data.navigation.guided.lanes {
         let lane = commands
             .spawn(lane_data.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*lane_id))
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*lane_id, lane);
         consider_id(*lane_id);
-        commands.entity(site_id).add_child(lane);
     }
 
     for (location_id, location_data) in &site_data.navigation.guided.locations {
         let location = commands
             .spawn(location_data.convert(&id_to_entity).for_site(site_id)?)
             .insert(SiteID(*location_id))
+            .set_parent(site_id)
             .id();
         id_to_entity.insert(*location_id, location);
         consider_id(*location_id);
-        commands.entity(site_id).add_child(location);
     }
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(

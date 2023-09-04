@@ -125,18 +125,10 @@ pub fn add_lane_visuals(
                 transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
             })
+            .set_parent(e)
             .id();
 
         let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| {
-            let outline = commands
-                .spawn(PbrBundle {
-                    mesh: outline_mesh,
-                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility { is_visible: false },
-                    ..default()
-                })
-                .id();
-
             let mesh = commands
                 .spawn(PbrBundle {
                     mesh: lane_mesh,
@@ -144,10 +136,19 @@ pub fn add_lane_visuals(
                     transform: lane_tf,
                     ..default()
                 })
-                .add_child(outline)
+                .set_parent(layer)
                 .id();
 
-            commands.entity(layer).add_child(mesh);
+            let outline = commands
+                .spawn(PbrBundle {
+                    mesh: outline_mesh,
+                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                    visibility: Visibility { is_visible: false },
+                    ..default()
+                })
+                .set_parent(mesh)
+                .id();
+
             (mesh, outline)
         };
 
@@ -184,8 +185,7 @@ pub fn add_lane_visuals(
                 ..default()
             })
             .insert(Category::Lane)
-            .insert(EdgeLabels::StartEnd)
-            .add_child(layer);
+            .insert(EdgeLabels::StartEnd);
     }
 }
 

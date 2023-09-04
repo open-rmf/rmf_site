@@ -124,12 +124,10 @@ pub fn change_site(
                                 global_floor_visibility: default(),
                                 global_drawing_visibility: default(),
                             })
+                            .set_parent(cmd.site)
                             .id();
 
-                        commands
-                            .entity(cmd.site)
-                            .insert(CachedLevel(new_level))
-                            .add_child(new_level);
+                        commands.entity(cmd.site).insert(CachedLevel(new_level));
                         current_level.0 = Some(new_level);
                     }
                 }

@@ -108,53 +108,58 @@ pub fn handle_model_loaded_events(
                     .as_ref()
                     .map(|s| s.clone())
                     .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-                let scene_id = commands
-                    .spawn(SceneBundle {
-                        scene,
-                        transform: Transform::from_scale(**scale),
-                        ..default()
-                    })
-                    .id();
-                commands.entity(e).add_child(scene_id);
-                Some(scene_id)
+                Some(
+                    commands
+                        .spawn(SceneBundle {
+                            scene,
+                            transform: Transform::from_scale(**scale),
+                            ..default()
+                        })
+                        .set_parent(e)
+                        .id(),
+                )
             } else if scenes.contains(&h.typed_weak::<Scene>()) {
                 let h_typed = h.0.clone().typed::<Scene>();
-                let scene_id = commands
-                    .spawn(SceneBundle {
-                        scene: h_typed,
-                        transform: Transform::from_scale(**scale),
-                        ..default()
-                    })
-                    .id();
-                commands.entity(e).add_child(scene_id);
-                Some(scene_id)
+                Some(
+                    commands
+                        .spawn(SceneBundle {
+                            scene: h_typed,
+                            transform: Transform::from_scale(**scale),
+                            ..default()
+                        })
+                        .set_parent(e)
+                        .id(),
+                )
             } else if meshes.contains(&h.typed_weak::<Mesh>()) {
                 let h_typed = h.0.clone().typed::<Mesh>();
-                let mesh_id = commands
-                    .spawn(PbrBundle {
-                        mesh: h_typed,
-                        material: site_assets.default_mesh_grey_material.clone(),
-                        transform: Transform::from_scale(**scale),
-                        ..default()
-                    })
-                    .id();
-                commands.entity(e).add_child(mesh_id);
-                Some(mesh_id)
+                Some(
+                    commands
+                        .spawn(PbrBundle {
+                            mesh: h_typed,
+                            material: site_assets.default_mesh_grey_material.clone(),
+                            transform: Transform::from_scale(**scale),
+                            ..default()
+                        })
+                        .set_parent(e)
+                        .id(),
+                )
             } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
-                let urdf_id = commands
-                    .spawn(SpatialBundle::VISIBLE_IDENTITY)
-                    .insert(urdf.clone())
-                    .insert(Category::Workcell)
-                    .id();
-                commands.entity(e).add_child(urdf_id);
-                Some(urdf_id)
+                Some(
+                    commands
+                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .insert(urdf.clone())
+                        .insert(Category::Workcell)
+                        .set_parent(e)
+                        .id(),
+                )
             } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
-                let sdf_id = commands
-                    .spawn(SpatialBundle::VISIBLE_IDENTITY)
-                    .insert(sdf.clone())
-                    .id();
-                commands.entity(e).add_child(sdf_id);
-                Some(sdf_id)
+                Some(
+                    commands
+                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .insert(sdf.clone())
+                        .set_parent(e)
+                        .id(),
+                )
             } else {
                 None
             };
