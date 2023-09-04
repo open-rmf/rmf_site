@@ -241,8 +241,8 @@ pub fn add_floor_visuals(
             ..default()
         });
 
-        let mesh_entity_id = 
-            commands.spawn(PbrBundle {
+        let mesh_entity_id = commands
+            .spawn(PbrBundle {
                 mesh: meshes.add(mesh),
                 material,
                 ..default()
@@ -250,7 +250,8 @@ pub fn add_floor_visuals(
             .insert(Selectable::new(e))
             .id();
 
-        commands.entity(e)
+        commands
+            .entity(e)
             .insert(SpatialBundle {
                 transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
@@ -261,7 +262,6 @@ pub fn add_floor_visuals(
             .insert(Category::Floor)
             .insert(PathBehavior::for_floor())
             .add_child(mesh_entity_id);
-
 
         for anchor in &new_floor.0 {
             let mut deps = dependents.get_mut(*anchor).unwrap();

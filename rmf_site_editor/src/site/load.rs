@@ -76,7 +76,8 @@ fn generate_site_entities(
         }
     };
 
-    let site_id = commands.spawn(SpatialBundle::INVISIBLE_IDENTITY)
+    let site_id = commands
+        .spawn(SpatialBundle::INVISIBLE_IDENTITY)
         .insert(Category::Site)
         .insert(site_data.properties.clone())
         .insert(WorkspaceMarker)
@@ -147,11 +148,7 @@ fn generate_site_entities(
 
             for (fiducial_id, fiducial) in &drawing.fiducials {
                 let fiducial_entity = commands
-                    .spawn(
-                        fiducial
-                            .convert(&id_to_entity)
-                            .for_site(site_id)?,
-                    )
+                    .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*fiducial_id))
                     .id();
                 consider_id(*fiducial_id);
@@ -160,15 +157,13 @@ fn generate_site_entities(
 
             for (measurement_id, measurement) in &drawing.measurements {
                 let measurement_entity = commands
-                    .spawn(
-                        measurement
-                            .convert(&id_to_entity)
-                            .for_site(site_id)?,
-                    )
+                    .spawn(measurement.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*measurement_id))
                     .id();
                 consider_id(*measurement_id);
-                commands.entity(drawing_entity).add_child(measurement_entity);
+                commands
+                    .entity(drawing_entity)
+                    .add_child(measurement_entity);
             }
 
             consider_id(*drawing_id);
@@ -192,7 +187,8 @@ fn generate_site_entities(
             commands.entity(level_entity).add_child(wall_entity);
         }
 
-        commands.entity(level_entity)
+        commands
+            .entity(level_entity)
             .insert(SpatialBundle::INVISIBLE_IDENTITY)
             .insert(level_data.properties.clone())
             .insert(Category::Level)
@@ -217,13 +213,11 @@ fn generate_site_entities(
             });
 
         // TODO(MXG): Log when a RecencyRanking fails to load correctly.
-        commands.entity(level_entity)
+        commands
+            .entity(level_entity)
             .insert(
-                RecencyRanking::<FloorMarker>::from_u32(
-                    &level_data.rankings.floors,
-                    &id_to_entity,
-                )
-                .unwrap_or(RecencyRanking::new()),
+                RecencyRanking::<FloorMarker>::from_u32(&level_data.rankings.floors, &id_to_entity)
+                    .unwrap_or(RecencyRanking::new()),
             )
             .insert(
                 RecencyRanking::<DrawingMarker>::from_u32(
@@ -265,14 +259,12 @@ fn generate_site_entities(
             commands.entity(lift_entity).add_child(door_entity);
         }
 
-        commands.entity(lift_entity)
-            .insert(Category::Lift)
-            .insert(
-                lift_data
-                    .properties
-                    .convert(&id_to_entity)
-                    .for_site(site_id)?,
-            );
+        commands.entity(lift_entity).insert(Category::Lift).insert(
+            lift_data
+                .properties
+                .convert(&id_to_entity)
+                .for_site(site_id)?,
+        );
 
         id_to_entity.insert(*lift_id, lift_entity);
         consider_id(*lift_id);
@@ -320,7 +312,6 @@ fn generate_site_entities(
         commands.entity(site_id).add_child(location);
     }
 
-
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,
         &id_to_entity,
@@ -335,7 +326,8 @@ fn generate_site_entities(
         }
     };
 
-    commands.entity(site_id)
+    commands
+        .entity(site_id)
         .insert(nav_graph_rankings)
         .insert(NextSiteID(highest_id + 1));
 

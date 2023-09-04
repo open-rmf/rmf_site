@@ -159,7 +159,9 @@ pub fn handle_loaded_drawing(
                 } else {
                     let leaf = commands.spawn_empty().id();
 
-                    commands.entity(entity).insert(DrawingSegments { leaf })
+                    commands
+                        .entity(entity)
+                        .insert(DrawingSegments { leaf })
                         .insert(SpatialBundle::from_transform(pose.transform().with_scale(
                             Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
                         )))

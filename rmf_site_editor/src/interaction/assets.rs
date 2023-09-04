@@ -73,7 +73,8 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        let child_entity = commands.spawn(PbrBundle {
+        let child_entity = commands
+            .spawn(PbrBundle {
                 transform: Transform::from_rotation(rotation)
                     .with_translation(offset)
                     .with_scale(Vec3::splat(scale)),
@@ -84,7 +85,8 @@ impl InteractionAssets {
             .id();
 
         if let Some(for_entity) = for_entity_opt {
-            commands.entity(child_entity) 
+            commands
+                .entity(child_entity)
                 .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
         }
         commands.entity(parent).add_child(child_entity);

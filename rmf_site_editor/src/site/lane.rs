@@ -120,27 +120,29 @@ pub fn add_lane_visuals(
 
         // Create a "layer" entity that manages the height of the lane,
         // determined by the DisplayHeight of the graph.
-        let layer = commands.spawn(SpatialBundle {
-            transform: Transform::from_xyz(0.0, 0.0, height),
-            ..default()
-        }).id();
-
-        let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| 
-        {
-            let outline = commands
-                    .spawn(PbrBundle {
-                        mesh: outline_mesh,
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id();
-
-            let mesh = commands.spawn(PbrBundle {
-                mesh: lane_mesh,
-                material: lane_material.clone(),
-                transform: lane_tf,
+        let layer = commands
+            .spawn(SpatialBundle {
+                transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
+            })
+            .id();
+
+        let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| {
+            let outline = commands
+                .spawn(PbrBundle {
+                    mesh: outline_mesh,
+                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                    visibility: Visibility { is_visible: false },
+                    ..default()
+                })
+                .id();
+
+            let mesh = commands
+                .spawn(PbrBundle {
+                    mesh: lane_mesh,
+                    material: lane_material.clone(),
+                    transform: lane_tf,
+                    ..default()
                 })
                 .add_child(outline)
                 .id();
@@ -152,19 +154,23 @@ pub fn add_lane_visuals(
         let (start, start_outline) = spawn_lane_mesh_and_outline(
             Transform::from_translation(start_anchor),
             assets.lane_end_mesh.clone(),
-            assets.lane_end_outline.clone());
+            assets.lane_end_outline.clone(),
+        );
 
         let (mid, mid_outline) = spawn_lane_mesh_and_outline(
             line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
             assets.lane_mid_mesh.clone(),
-            assets.lane_mid_outline.clone());
+            assets.lane_mid_outline.clone(),
+        );
 
         let (end, end_outline) = spawn_lane_mesh_and_outline(
             Transform::from_translation(end_anchor),
             assets.lane_end_mesh.clone(),
-            assets.lane_end_outline.clone());
-        
-        commands.entity(e)
+            assets.lane_end_outline.clone(),
+        );
+
+        commands
+            .entity(e)
             .insert(LaneSegments {
                 layer,
                 start,

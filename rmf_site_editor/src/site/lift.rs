@@ -297,10 +297,14 @@ pub fn update_lift_cabin(
                 *cabin_anchor_groups.get_mut(group).unwrap() = cabin_tf;
             }
             None => {
-                let group = commands.spawn(SpatialBundle::from_transform(cabin_tf))
+                let group = commands
+                    .spawn(SpatialBundle::from_transform(cabin_tf))
                     .insert(CabinAnchorGroupBundle::default())
                     .id();
-                commands.entity(e).insert(ChildCabinAnchorGroup(group)).add_child(group);
+                commands
+                    .entity(e)
+                    .insert(ChildCabinAnchorGroup(group))
+                    .add_child(group);
             }
         };
     }

@@ -65,7 +65,7 @@ pub fn add_physical_light_visual_cues(
             headlight_toggle.0 = false;
         }
 
-        let point = commands 
+        let point = commands
             .spawn(SpatialBundle {
                 visibility: Visibility {
                     is_visible: kind.is_point(),

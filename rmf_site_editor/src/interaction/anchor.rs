@@ -46,7 +46,8 @@ pub fn add_anchor_visual_cues(
             _ => site_assets.site_anchor_mesh.clone(),
         };
 
-        let body = commands.spawn(PbrBundle {
+        let body = commands
+            .spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
@@ -54,7 +55,9 @@ pub fn add_anchor_visual_cues(
             .insert(Selectable::new(e))
             .id();
         if subordinate.is_none() {
-            commands.entity(body).insert(DragPlaneBundle::new(e, Vec3::Z));
+            commands
+                .entity(body)
+                .insert(DragPlaneBundle::new(e, Vec3::Z));
         }
 
         let mut entity_commands = commands.entity(e);
