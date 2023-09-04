@@ -16,6 +16,7 @@
 */
 
 use crate::*;
+use crate::misc::Label;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
