@@ -312,6 +312,7 @@ impl Plugin for SitePlugin {
                     )
                     .with_system(update_changed_location)
                     .with_system(update_location_for_moved_anchors)
+                    .with_system(update_location_for_changed_location_tags)
                     .with_system(update_changed_fiducial)
                     .with_system(update_fiducial_for_moved_anchors)
                     .with_system(handle_consider_associated_graph)
