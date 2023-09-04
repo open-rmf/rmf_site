@@ -15,16 +15,24 @@
  *
 */
 
+use crate::site::{Dependents, ModelTrashcan, Pending};
 use bevy::prelude::*;
-use crate::site::{Dependents, Pending, ModelTrashcan};
-use rmf_site_format::{MeshPrimitive, ModelMarker, NameInSite, NameInWorkcell, Pose, WorkcellProperties};
+use rmf_site_format::{
+    MeshPrimitive, ModelMarker, NameInSite, NameInWorkcell, Pose, WorkcellProperties,
+};
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
 /// This doesn't quite work for URDF / workcells since we need to export and edit single visuals
 /// and collisions, hence we process the loaded models to flatten them here
 pub fn flatten_loaded_models_hierarchy(
     mut commands: Commands,
-    new_models: Query<(Entity, &Parent), (Without<Pending>, Or<(Added<ModelMarker>, Added<MeshPrimitive>)>)>,
+    new_models: Query<
+        (Entity, &Parent),
+        (
+            Without<Pending>,
+            Or<(Added<ModelMarker>, Added<MeshPrimitive>)>,
+        ),
+    >,
     all_model_parents: Query<(Entity, &Parent), (With<ModelMarker>, Without<Pending>)>,
     mut poses: Query<&mut Pose>,
     mut dependents: Query<&mut Dependents>,
@@ -33,7 +41,9 @@ pub fn flatten_loaded_models_hierarchy(
 ) {
     for (e, parent) in &new_models {
         // Traverse up the hierarchy to find the first model parent and reassign it
-        if let Some((parent_entity, model_parent)) = AncestorIter::new(&parents, **parent).find_map(|e| all_model_parents.get(e).ok()) {
+        if let Some((parent_entity, model_parent)) =
+            AncestorIter::new(&parents, **parent).find_map(|e| all_model_parents.get(e).ok())
+        {
             let Ok(parent_pose) = poses.get(parent_entity).cloned() else {
                 continue;
             };
@@ -61,7 +71,10 @@ pub fn replace_name_in_site_components(
 ) {
     for (e, name) in &new_names {
         if AncestorIter::new(&parents, e).any(|p| workcells.get(p).is_ok()) {
-            commands.entity(e).insert(NameInWorkcell(name.0.clone())).remove::<NameInSite>();
+            commands
+                .entity(e)
+                .insert(NameInWorkcell(name.0.clone()))
+                .remove::<NameInSite>();
         }
     }
 }

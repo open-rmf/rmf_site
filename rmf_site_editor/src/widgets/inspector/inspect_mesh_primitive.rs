@@ -48,7 +48,8 @@ impl<'a> InspectMeshPrimitive<'a> {
                     ui.label(size[2].to_string());
                 });
             }
-            MeshPrimitive::Cylinder { radius, length } | MeshPrimitive::Capsule { radius, length }=> {
+            MeshPrimitive::Cylinder { radius, length }
+            | MeshPrimitive::Capsule { radius, length } => {
                 ui.horizontal(|ui| {
                     ui.label("Radius:");
                     ui.label(radius.to_string());

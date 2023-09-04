@@ -286,7 +286,7 @@ impl Recall for RecallMeshPrimitive {
 
 impl RecallMeshPrimitive {
     pub fn assume_box(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Box{..}) {
+        if matches!(current, MeshPrimitive::Box { .. }) {
             current.clone()
         } else {
             MeshPrimitive::Box {
@@ -296,7 +296,7 @@ impl RecallMeshPrimitive {
     }
 
     pub fn assume_cylinder(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Cylinder{..}) {
+        if matches!(current, MeshPrimitive::Cylinder { .. }) {
             current.clone()
         } else {
             MeshPrimitive::Cylinder {
@@ -307,7 +307,7 @@ impl RecallMeshPrimitive {
     }
 
     pub fn assume_capsule(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Capsule{..}) {
+        if matches!(current, MeshPrimitive::Capsule { .. }) {
             current.clone()
         } else {
             MeshPrimitive::Capsule {
@@ -318,7 +318,7 @@ impl RecallMeshPrimitive {
     }
 
     pub fn assume_sphere(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Sphere{..}) {
+        if matches!(current, MeshPrimitive::Sphere { .. }) {
             current.clone()
         } else {
             MeshPrimitive::Sphere {

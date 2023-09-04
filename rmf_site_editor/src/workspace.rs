@@ -331,7 +331,9 @@ fn handle_workspace_data(
                                 focus: true,
                                 default_file: file,
                             });
-                            if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
+                            if let Err(err) =
+                                interaction_state.overwrite_set(InteractionState::Enable)
+                            {
                                 error!("Failed to turn on interaction: {err}");
                             }
                         }
