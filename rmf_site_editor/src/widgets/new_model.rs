@@ -47,7 +47,7 @@ pub struct AssetGalleryStatus {
 }
 
 #[derive(SystemParam)]
-pub struct NewModelParams<'w, 's> {
+pub struct NewModelParams<'w> {
     pub fuel_client: ResMut<'w, FuelClient>,
     // TODO(luca) refactor to see whether we need
     pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,

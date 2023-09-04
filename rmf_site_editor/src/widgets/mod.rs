@@ -140,7 +140,7 @@ impl Plugin for StandardUiLayout {
 }
 
 #[derive(SystemParam)]
-pub struct ChangeEvents<'w, 's> {
+pub struct ChangeEvents<'w> {
     pub lane_motion: EventWriter<'w, Change<Motion>>,
     pub lane_reverse: EventWriter<'w, Change<ReverseLane>>,
     pub name: EventWriter<'w, Change<NameInSite>>,
@@ -162,7 +162,7 @@ pub struct ChangeEvents<'w, 's> {
 // We split out this new struct to deal with the 16 field limitation on
 // SystemParams.
 #[derive(SystemParam)]
-pub struct MoreChangeEvents<'w, 's> {
+pub struct MoreChangeEvents<'w> {
     pub affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
     pub search_for_texture: ResMut<'w, SearchForTexture>,
@@ -172,7 +172,7 @@ pub struct MoreChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct WorkcellChangeEvents<'w, 's> {
+pub struct WorkcellChangeEvents<'w> {
     pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
     pub mesh_primitives: EventWriter<'w, Change<MeshPrimitive>>,
     pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
@@ -180,14 +180,14 @@ pub struct WorkcellChangeEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct FileEvents<'w, 's> {
+pub struct FileEvents<'w> {
     pub save: EventWriter<'w, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, CreateNewWorkspace>,
 }
 
 #[derive(SystemParam)]
-pub struct PanelResources<'w, 's> {
+pub struct PanelResources<'w> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
@@ -195,11 +195,10 @@ pub struct PanelResources<'w, 's> {
     pub log_history: ResMut<'w, LogHistory>,
     pub pending_model: ResMut<'w, PendingModel>,
     pub pending_drawings: ResMut<'w, PendingDrawing>,
-    _ignore: Query<'w, 's, ()>,
 }
 
 #[derive(SystemParam)]
-pub struct Requests<'w, 's> {
+pub struct Requests<'w> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
     pub move_to: EventWriter<'w, MoveTo>,
@@ -219,7 +218,7 @@ pub struct Requests<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct LayerEvents<'w, 's> {
+pub struct LayerEvents<'w> {
     pub floors: EventWriter<'w, ChangeRank<FloorMarker>>,
     pub drawings: EventWriter<'w, ChangeRank<DrawingMarker>>,
     pub nav_graphs: EventWriter<'w, ChangeRank<NavGraphMarker>>,
@@ -233,7 +232,7 @@ pub struct LayerEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityEvents<'w, 's> {
+pub struct VisibilityEvents<'w> {
     pub doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
     pub floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
     pub lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
@@ -249,7 +248,7 @@ pub struct VisibilityEvents<'w, 's> {
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityResources<'w, 's> {
+pub struct VisibilityResources<'w> {
     pub doors: Res<'w, CategoryVisibility<DoorMarker>>,
     pub floors: Res<'w, CategoryVisibility<FloorMarker>>,
     pub lanes: Res<'w, CategoryVisibility<LaneMarker>>,
@@ -262,13 +261,12 @@ pub struct VisibilityResources<'w, 's> {
     pub walls: Res<'w, CategoryVisibility<WallMarker>>,
     pub visuals: Res<'w, CategoryVisibility<VisualMeshMarker>>,
     pub collisions: Res<'w, CategoryVisibility<CollisionMeshMarker>>,
-    _ignore: Query<'w, 's, ()>,
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityParameters<'w, 's> {
-    events: VisibilityEvents<'w, 's>,
-    resources: VisibilityResources<'w, 's>,
+pub struct VisibilityParameters<'w> {
+    events: VisibilityEvents<'w>,
+    resources: VisibilityResources<'w>,
 }
 
 #[derive(SystemParam)]
@@ -286,16 +284,16 @@ pub struct MenuParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
-    pub change: ChangeEvents<'w, 's>,
-    pub change_more: MoreChangeEvents<'w, 's>,
-    pub workcell_change: WorkcellChangeEvents<'w, 's>,
-    pub display: PanelResources<'w, 's>,
-    pub request: Requests<'w, 's>,
-    pub file_events: FileEvents<'w, 's>,
-    pub layers: LayerEvents<'w, 's>,
-    pub new_model: NewModelParams<'w, 's>,
+    pub change: ChangeEvents<'w>,
+    pub change_more: MoreChangeEvents<'w>,
+    pub workcell_change: WorkcellChangeEvents<'w>,
+    pub display: PanelResources<'w>,
+    pub request: Requests<'w>,
+    pub file_events: FileEvents<'w>,
+    pub layers: LayerEvents<'w>,
+    pub new_model: NewModelParams<'w>,
     pub app_state: ResMut<'w, State<AppState>>,
-    pub visibility_parameters: VisibilityParameters<'w, 's>,
+    pub visibility_parameters: VisibilityParameters<'w>,
     pub align_site: EventWriter<'w, AlignSiteDrawings>,
 }
 
