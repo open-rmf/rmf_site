@@ -117,6 +117,7 @@ impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<InteractionState>()
             .configure_sets(
+                Update,
                 (
                     SiteUpdateSet::AssignOrphansFlush,
                     InteractionUpdateSet::AddVisuals,
@@ -260,7 +261,7 @@ impl Plugin for InteractionPlugin {
 
 pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>, visible: bool) {
     if let Some(mut visibility) = q_visibility.get_mut(entity).ok() {
-        visibility = if visible {
+        *visibility = if visible {
             Visibility::Inherited
         } else {
             Visibility::Hidden

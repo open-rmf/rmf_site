@@ -100,8 +100,8 @@ impl Cursor {
             } else {
                 Visibility::Hidden
             };
-            if new_visible != v {
-                v = new_visible;
+            if new_visible != *v {
+                *v = new_visible;
             }
         }
     }

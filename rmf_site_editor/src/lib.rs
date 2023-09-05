@@ -149,11 +149,11 @@ impl Plugin for SiteEditor {
                     .build()
                     .disable::<LogPlugin>()
                     .set(WindowPlugin {
-                        window: Window {
+                        priary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
                             canvas: Some(String::from("#rmf_site_editor_canvas")),
                             ..default()
-                        },
+                        }),
                         ..default()
                     })
                     .set(ImagePlugin {
@@ -180,11 +180,11 @@ impl Plugin for SiteEditor {
                     .build()
                     .disable::<LogPlugin>()
                     .set(WindowPlugin {
-                        window: Window {
+                        primary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
                             resolution: (1600., 900.).into(),
                             ..default()
-                        },
+                        }),
                         ..default()
                     })
                     .set(ImagePlugin {

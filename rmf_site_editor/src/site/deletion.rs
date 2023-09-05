@@ -98,8 +98,8 @@ pub struct DeletionPlugin;
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
+                First,
                 (
-                    First,
                     SiteUpdateSet::Deletion,
                     SiteUpdateSet::DeletionFlush,
                 ).chain()

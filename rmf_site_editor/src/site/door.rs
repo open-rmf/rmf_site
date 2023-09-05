@@ -315,7 +315,7 @@ pub fn add_door_visuals(
             .entity(e)
             .insert(SpatialBundle {
                 transform: pose_tf,
-                visibility,
+                visibility: *visibility,
                 ..default()
             })
             .insert(DoorSegments {

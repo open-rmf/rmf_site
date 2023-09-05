@@ -159,20 +159,21 @@ impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app.add_state::<SiteState>()
             .configure_sets(
+                PreUpdate,
                 (
-                    PreUpdate,
                     SiteUpdateSet::ProcessChanges,
                     SiteUpdateSet::ProcessChangesFlush,
                 ).chain()
             ).add_systems(SiteUpdateSet::ProcessChangesFlush, apply_deferred)
             .configure_sets(
+                Update,
                 (
-                    Update,
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
                 ).chain()
             ).add_systems(SiteUpdateSet::AssignOrphansFlush, apply_deferred)
             .configure_sets(
+                Update,
                 (
                     VisibilitySystems::VisibilityPropagate,
                     SiteUpdateSet::BetweenVisibilityAndTransform,

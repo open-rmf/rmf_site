@@ -138,10 +138,7 @@ pub fn update_physical_camera_preview(
                         camera_properties.horizontal_fov.radians() / aspect_ratio;
                 }
             }
-            window.set_resolution(
-                camera_properties.width as f32,
-                camera_properties.height as f32,
-            );
+            window.resolution = (camera_properties.width as f32, camera_properties.height as f32).into();
         }
     }
 }
@@ -153,7 +150,7 @@ pub fn handle_preview_window_close(
 ) {
     for closed in closed_windows.iter() {
         for (e, window) in &preview_windows {
-            if window.0 == closed.id {
+            if window.0 == closed.window {
                 commands.entity(e).remove::<CameraPreviewWindow>();
             }
         }

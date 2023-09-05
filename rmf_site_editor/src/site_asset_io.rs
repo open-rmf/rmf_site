@@ -1,7 +1,7 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError, AssetPlugin, FileType, Metadata},
+    asset::{AssetIo, AssetIoError, AssetPlugin, ChangeWatcher, FileType, Metadata},
     prelude::*,
-    utils::{BoxedFuture, HashMap},
+    utils::{BoxedFuture, Duration, HashMap},
 };
 use dirs;
 use serde::Deserialize;
@@ -392,7 +392,7 @@ impl AssetIo for SiteAssetIo {
         return Ok(());
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.default_io.watch_path_for_changes(path)
+        self.default_io.watch_path_for_changes(path, Some(path.into()))
     }
 
     fn watch_for_changes(&self) -> Result<(), AssetIoError> {
@@ -400,7 +400,7 @@ impl AssetIo for SiteAssetIo {
         return Ok(());
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.default_io.watch_for_changes()
+        self.default_io.watch_for_changes(&ChangeWatcher::with_delay(Duration::from_millis(200)).unwrap())
     }
 }
 

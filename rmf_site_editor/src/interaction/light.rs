@@ -34,15 +34,15 @@ pub struct LightBodies {
 impl LightBodies {
     fn switch(&self, kind: &LightKind, visibilities: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibilities.get_mut(self.point) {
-            v = if kind.is_point() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_point() {Visibility::Inherited} else {Visibility::Hidden};
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.spot) {
-            v = if kind.is_spot() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_spot() {Visibility::Inherited} else {Visibility::Hidden};
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.directional) {
-            v = if kind.is_directional() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_directional() {Visibility::Inherited} else {Visibility::Hidden};
         }
     }
 }

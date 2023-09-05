@@ -134,7 +134,7 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.perspective_camera_entities) {
             for mut visibility in visibilities {
-                visibility = if choice {
+                *visibility = if choice {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -150,7 +150,7 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.orthographic_camera_entities) {
             for mut visibility in visibilities {
-                visibility = if choice {
+                *visibility = if choice {
                     Visibility::Hidden
                 } else {
                     Visibility::Inherited
@@ -207,7 +207,7 @@ impl CameraControls {
 
     pub fn toggle_lights(&self, toggle: bool, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.perspective_headlight) {
-            v = if toggle && self.mode.is_perspective() {
+            *v = if toggle && self.mode.is_perspective() {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
@@ -215,7 +215,7 @@ impl CameraControls {
         }
 
         if let Ok(mut v) = visibility.get_mut(self.orthographic_headlight) {
-            v = if toggle && self.mode.is_ortographic() {
+            *v = if toggle && self.mode.is_orthographic() {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden
@@ -256,7 +256,7 @@ impl FromWorld for CameraControls {
                     },
                     ..default()
                 })
-                .insert(Visibility::VISIBLE)
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(layer))
                 .id()
@@ -268,7 +268,7 @@ impl FromWorld for CameraControls {
                 projection: Projection::Perspective(Default::default()),
                 ..default()
             })
-            .insert(Visibility::VISIBLE)
+            .insert(Visibility::Inherited)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
@@ -320,7 +320,7 @@ impl FromWorld for CameraControls {
                     projection: Projection::Orthographic(ortho_projection.clone()),
                     ..default()
                 })
-                .insert(Visibility::VISIBLE)
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
                 .id()
@@ -336,7 +336,7 @@ impl FromWorld for CameraControls {
                 projection: Projection::Orthographic(ortho_projection),
                 ..default()
             })
-            .insert(Visibility::VISIBLE)
+            .insert(Visibility::Inherited)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,

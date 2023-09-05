@@ -52,7 +52,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
     let root = commands
-        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+        .spawn(SpatialBundle::INHERITED_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))

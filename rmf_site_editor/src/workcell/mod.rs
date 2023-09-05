@@ -122,16 +122,14 @@ impl Plugin for WorkcellEditorPlugin {
                 PreUpdate,
                 clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
-            .add_system(load_workcell)
-            .add_system(save_workcell)
-            .add_system(add_workcell_visualization)
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(update_anchor_transforms)
-                    .with_system(
-                        add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
-                    )
-                    .with_system(update_transforms_for_changed_poses),
+            .add_systems(Update, (load_workcell, save_workcell, add_workcell_visualization))
+            // TODO(luca) restore doing this before transform propagation
+            .add_systems(
+                Update, (
+                    update_anchor_transforms,
+                    add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
+                    update_transforms_for_changed_poses,
+                ).run_if(in_state(AppState::WorkcellEditor))
             );
     }
 }

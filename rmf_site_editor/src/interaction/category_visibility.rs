@@ -60,10 +60,11 @@ impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
         app.add_event::<SetCategoryVisibility<T>>()
             .insert_resource(CategoryVisibility::<T>::visible(self.visible))
             // TODO(luca) Check that this is at the right stage
-            .add_system_set(
-                SystemSet::on_update(InteractionState::Enable)
-                    .with_system(set_category_visibility::<T>)
-                    .with_system(set_category_visibility_for_new_entity::<T>),
+            .add_systems(
+                Update, (
+                    set_category_visibility::<T>,
+                    set_category_visibility_for_new_entity::<T>,
+                ).run_if(in_state(InteractionState::Enable))
             );
     }
 }
@@ -76,7 +77,7 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     if let Some(visibility_event) = events.iter().last() {
         if visibility_event.0 != category_visibility.0 {
             for mut vis in &mut visibilities {
-                vis = if visibility_event.0 {Visibility::Inherited} else {Visibility::Hidden};
+                *vis = if visibility_event.0 {Visibility::Inherited} else {Visibility::Hidden};
             }
             category_visibility.0 = visibility_event.0;
         }
@@ -91,7 +92,7 @@ fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
     for (e, mut vis) in &mut visibilities {
         let visibility = if category_visibility.0 {Visibility::Inherited} else {Visibility::Hidden};
         if let Some(mut vis) = vis {
-            vis = visibility;
+            *vis = visibility;
         } else {
             commands.entity(e).insert(VisibilityBundle {
                 visibility,
