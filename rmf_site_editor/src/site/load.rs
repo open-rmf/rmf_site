@@ -143,27 +143,32 @@ fn generate_site_entities(
                                         consider_id(*anchor_id);
                                     }
                                     for (fiducial_id, fiducial) in &drawing.fiducials {
-                                        drawing_parent
+                                        let fiducial_entity = drawing_parent
                                             .spawn(
                                                 fiducial
                                                     .convert(&id_to_entity)
                                                     .for_site(site_id)?,
                                             )
-                                            .insert(SiteID(*fiducial_id));
+                                            .insert(SiteID(*fiducial_id))
+                                            .id();
+                                        id_to_entity.insert(*fiducial_id, fiducial_entity);
                                         consider_id(*fiducial_id);
                                     }
                                     for (measurement_id, measurement) in &drawing.measurements {
-                                        drawing_parent
+                                        let measurement_entity = drawing_parent
                                             .spawn(
                                                 measurement
                                                     .convert(&id_to_entity)
                                                     .for_site(site_id)?,
                                             )
-                                            .insert(SiteID(*measurement_id));
+                                            .insert(SiteID(*measurement_id))
+                                            .id();
+                                        id_to_entity.insert(*measurement_id, measurement_entity);
                                         consider_id(*measurement_id);
                                     }
                                     Ok(())
                                 })?;
+
                             consider_id(*drawing_id);
                         }
 
