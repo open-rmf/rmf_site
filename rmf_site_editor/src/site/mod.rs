@@ -129,11 +129,6 @@ pub enum SiteState {
     Display,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum SiteUpdateLabel {
-    ProcessChanges,
-}
-
 #[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
 pub enum SiteUpdateSet {
     /// We need a custom stage for assigning orphan elements because the
@@ -152,6 +147,10 @@ pub enum SiteUpdateSet {
     BetweenVisibilityAndTransform,
     /// Flush the set above
     BetweenVisibilityAndTransformFlush,
+    /// Used to force a command flush after the change plugin's process changes
+    ProcessChanges,
+    /// Flush the set above
+    ProcessChangesFlush,
 }
 
 pub struct SitePlugin;
@@ -161,7 +160,13 @@ impl Plugin for SitePlugin {
         app.add_state::<SiteState>()
             .configure_sets(
                 (
-                    // TODO(luca) make sure Update here means UpdateFlush
+                    PreUpdate,
+                    SiteUpdateSet::ProcessChanges,
+                    SiteUpdateSet::ProcessChangesFlush,
+                ).chain()
+            ).add_systems(SiteUpdateSet::ProcessChangesFlush, apply_deferred)
+            .configure_sets(
+                (
                     Update,
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
@@ -170,7 +175,6 @@ impl Plugin for SitePlugin {
             .configure_sets(
                 (
                     VisibilitySystems::VisibilityPropagate,
-                    // TODO(luca) do we need to put a visibility propagate flush here?
                     SiteUpdateSet::BetweenVisibilityAndTransform,
                     SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                     TransformSystem::TransformPropagate,
@@ -248,26 +252,19 @@ impl Plugin for SitePlugin {
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_systems(
-                PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .after(SiteUpdateLabel::ProcessChanges)
-                    .with_system(update_lift_cabin)
-                    .with_system(update_lift_edge)
-                    .with_system(update_model_tentative_formats)
-                    .with_system(update_drawing_pixels_per_meter)
-                    .with_system(update_drawing_children_to_pixel_coordinates)
-                    .with_system(fetch_image_for_texture)
-                    .with_system(detect_last_selected_texture::<FloorMarker>)
-                    .with_system(
-                        apply_last_selected_texture::<FloorMarker>
-                            .after(detect_last_selected_texture::<FloorMarker>),
-                    )
-                    .with_system(detect_last_selected_texture::<WallMarker>)
-                    .with_system(
-                        apply_last_selected_texture::<WallMarker>
-                            .after(detect_last_selected_texture::<WallMarker>),
-                    )
-                    .with_system(update_material_for_display_color),
+                PreUpdate, (
+                    update_lift_cabin,
+                    update_lift_edge,
+                    update_model_tentative_formats,
+                    update_drawing_pixels_per_meter,
+                    update_drawing_children_to_pixel_coordinates,
+                    fetch_image_for_texture,
+                    detect_last_selected_texture::<FloorMarker>,
+                    apply_last_selected_texture::<FloorMarker>.after(detect_last_selected_texture::<FloorMarker>),
+                    detect_last_selected_texture::<WallMarker>,
+                    apply_last_selected_texture::<WallMarker>.after(detect_last_selected_texture::<WallMarker>),
+                    update_material_for_display_color,
+                    ).after(SiteUpdateSet::ProcessChangesFlush).run_if(in_state(SiteState::Display))
             )
             .add_systems(
                 Update, (

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateLabel};
+use crate::site::{SiteState, SiteUpdateSet};
 use crate::AppState;
 use bevy::prelude::*;
 use rmf_site_format::Recall;

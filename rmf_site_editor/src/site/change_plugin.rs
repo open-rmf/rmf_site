@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateLabel};
+use crate::site::{SiteState, SiteUpdateSet};
 use crate::AppState;
 use bevy::prelude::*;
 use std::fmt::Debug;
@@ -66,7 +66,7 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
             .add_system_set_to_stage(
                 PreUpdate,
                 SystemSet::on_update(SiteState::Display)
-                    .label(SiteUpdateLabel::ProcessChanges)
+                    .label(SiteUpdateSet::ProcessChanges)
                     .with_system(update_changed_values::<T>),
             )
             .add_system_set(
