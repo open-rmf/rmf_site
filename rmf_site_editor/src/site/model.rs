@@ -398,8 +398,8 @@ pub fn make_models_selectable(
         let Some((selectable, render_layers)) = AncestorIter::new(&parents, model_scene_root)
             .filter_map(|p| scene_roots.get(p).ok())
             .last()
-            else {
-                continue;
+        else {
+            continue;
         };
         // If layer should not be visible, don't make it selectable
         if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
@@ -445,7 +445,8 @@ pub fn propagate_model_render_layers(
     for e in &new_scene_roots {
         let Some(render_layers) = AncestorIter::new(&parents, e)
             .filter_map(|p| scene_roots.get(p).ok())
-            .last() else {
+            .last()
+        else {
             continue;
         };
         for c in DescendantIter::new(&children, e) {
