@@ -115,6 +115,7 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -245,6 +246,14 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
+            .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
+            .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
+            .add_issue_type(
+                &FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
+                "Fiducial without affiliation",
+            )
+            .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
+            .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_systems(
@@ -254,6 +263,11 @@ impl Plugin for SitePlugin {
                     update_model_tentative_formats,
                     update_drawing_pixels_per_meter,
                     update_drawing_children_to_pixel_coordinates,
+                    check_for_duplicated_door_names,
+                    check_for_duplicated_lift_names,
+                    check_for_duplicated_dock_names,
+                    check_for_fiducials_without_affiliation,
+                    check_for_close_unconnected_anchors,
                     fetch_image_for_texture,
                     detect_last_selected_texture::<FloorMarker>,
                     apply_last_selected_texture::<FloorMarker>.after(detect_last_selected_texture::<FloorMarker>),
@@ -347,6 +361,7 @@ impl Plugin for SitePlugin {
                     update_walls,
                     update_transforms_for_changed_poses,
                     align_site_drawings,
+                    clear_old_issues_on_new_validate_event,
                     export_lights,
                     ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform)
             );

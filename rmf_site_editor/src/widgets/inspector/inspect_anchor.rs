@@ -120,7 +120,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 match anchor {
                     Anchor::Translate2D(_anchor) => {
                         ui.vertical(|ui| {
-                            ui.horizontal( |ui|  {
+                            ui.horizontal(|ui| {
                                 if !self.is_dependency {
                                     ui.label("x");
                                 }
@@ -146,7 +146,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 let Some(offset) = comp.0 else {
                                     continue;
                                 };
-                                let Ok((mut lat, mut  lon))= world_to_latlon(tf.translation, offset.anchor) else {
+                                let Ok((mut lat, mut lon)) =
+                                    world_to_latlon(tf.translation, offset.anchor)
+                                else {
                                     continue;
                                 };
 
@@ -162,9 +164,13 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     if old_lat != lat || old_lon != lon {
                                         self.events.request.move_to.send(MoveTo {
                                             entity: self.anchor,
-                                            transform: Transform::from_translation(latlon_to_world(
-                                                lat as f32, lon as f32, offset.anchor,
-                                            )),
+                                            transform: Transform::from_translation(
+                                                latlon_to_world(
+                                                    lat as f32,
+                                                    lon as f32,
+                                                    offset.anchor,
+                                                ),
+                                            ),
                                         });
                                     }
                                 }

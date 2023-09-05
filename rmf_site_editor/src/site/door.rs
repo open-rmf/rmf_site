@@ -17,14 +17,17 @@
 
 use crate::{
     interaction::{Hovered, Selectable},
+    issue::*,
     shapes::*,
     site::*,
 };
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
+    utils::Uuid,
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use std::collections::{BTreeSet, HashMap};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
@@ -460,6 +463,44 @@ pub fn update_door_for_moved_anchors(
                     &mut mesh_assets,
                     &assets,
                 );
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated door names
+pub const DUPLICATED_DOOR_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x73f641f2a08d4ffd90216eb9bacb4743u128);
+
+// When triggered by a validation request event, check if there are duplicated door names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_door_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
+) {
+    for root in validate_events.iter() {
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &door_names {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: DUPLICATED_DOOR_NAME_ISSUE_UUID,
+                    },
+                    brief: format!("Multiple doors found with the same name {}", name),
+                    hint: "Doors use their names as identifiers with RMF and each door should have a unique \
+                           name, rename the affected doors".to_string()
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(id);
             }
         }
     }

@@ -29,6 +29,8 @@ use widgets::{menu_bar::MenuPluginManager, *};
 
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
+pub mod issue;
+use issue::*;
 
 pub mod demo_world;
 pub mod log;
@@ -229,6 +231,8 @@ impl Plugin for SiteEditor {
             .add_plugin(AnimationPlugin)
             .add_plugin(OccupancyPlugin)
             .add_plugin(WorkspacePlugin)
+            // Note order matters, issue and OSMView plugins must be initialized after the UI
+            .add_plugin(IssuePlugin)
             .add_plugin(OSMViewPlugin);
     }
 }

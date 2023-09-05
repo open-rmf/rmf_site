@@ -70,6 +70,7 @@ pub struct Icons {
     pub alpha: Icon,
     pub hidden: Icon,
     pub global: Icon,
+    pub hide: Icon,
 }
 
 impl FromWorld for Icons {
@@ -95,6 +96,7 @@ impl FromWorld for Icons {
         let alpha = IconBuilder::new("textures/alpha.png", &asset_server);
         let hidden = IconBuilder::new("textures/hidden.png", &asset_server);
         let global = IconBuilder::new("textures/global.png", &asset_server);
+        let hide = IconBuilder::new("textures/hide.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
@@ -122,6 +124,7 @@ impl FromWorld for Icons {
             alpha: alpha.build(&mut egui_context),
             hidden: hidden.build(&mut egui_context),
             global: global.build(&mut egui_context),
+            hide: hide.build(&mut egui_context),
         }
     }
 }

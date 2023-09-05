@@ -326,7 +326,7 @@ pub fn world_to_latlon(
 ) -> Result<(f64, f64), WSG84ToLatLonError> {
     let mut zone = lat_lon_to_zone_number(anchor.0.into(), anchor.1.into());
     let Some(mut zone_letter) = lat_to_zone_letter(anchor.0.into()) else {
-        return Err(WSG84ToLatLonError::ZoneLetterOutOfRange)
+        return Err(WSG84ToLatLonError::ZoneLetterOutOfRange);
     };
     let utm_offset = to_utm_wgs84(anchor.0.into(), anchor.1.into(), zone);
     let mut easting = world_coordinates.x as f64 + utm_offset.1;
@@ -461,13 +461,14 @@ pub fn render_map_tiles(
                         .map(|x| x.y)
                         .fold(-f32::INFINITY, |x, val| if x > val { x } else { val });
 
-                    let Ok(latlon_start) =
-                        world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset) else {
-                            return;
-                        };
-                    let Ok(latlon_end) = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset) else {
-                            return;
-                        };
+                    let Ok(latlon_start) = world_to_latlon(Vec3::new(min_x, min_y, 0.0), offset)
+                    else {
+                        return;
+                    };
+                    let Ok(latlon_end) = world_to_latlon(Vec3::new(max_x, max_y, 0.0), offset)
+                    else {
+                        return;
+                    };
 
                     let mut num_tiles = existing_tiles.len();
                     for tile in generate_map_tiles(

@@ -19,24 +19,90 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, hash::Hash, io};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    hash::Hash,
+    io,
+};
+use uuid::Uuid;
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct SiteProperties {
+pub struct SiteProperties<T: RefTrait> {
     pub name: NameOfSite,
     #[serde(skip_serializing_if = "GeographicComponent::is_none")]
     pub geographic_offset: GeographicComponent,
+    // TODO(luca) group these into an IssueFilters?
+    #[serde(default, skip_serializing_if = "FilteredIssues::is_empty")]
+    pub filtered_issues: FilteredIssues<T>,
+    #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
+    pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
-impl Default for SiteProperties {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct FilteredIssues<T: RefTrait>(pub BTreeSet<IssueKey<T>>);
+
+// TODO(luca) It seems just deriving default results in compile errors
+impl<T: RefTrait> Default for FilteredIssues<T> {
+    fn default() -> Self {
+        Self(BTreeSet::default())
+    }
+}
+
+impl<T: RefTrait> FilteredIssues<T> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<FilteredIssues<U>, T> {
+        let mut issues = BTreeSet::new();
+        for issue in self.0.iter() {
+            let entities = issue
+                .entities
+                .iter()
+                .map(|e| id_map.get(e).cloned().ok_or(*e))
+                .collect::<Result<BTreeSet<_>, _>>()?;
+            issues.insert(IssueKey {
+                entities,
+                kind: issue.kind.clone(),
+            });
+        }
+        Ok(FilteredIssues(issues))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
+
+impl FilteredIssueKinds {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<T: RefTrait> Default for SiteProperties<T> {
     fn default() -> Self {
         Self {
             name: NameOfSite("new_site".to_owned()),
             geographic_offset: GeographicComponent::default(),
+            filtered_issues: FilteredIssues::default(),
+            filtered_issue_kinds: FilteredIssueKinds::default(),
         }
+    }
+}
+
+impl<T: RefTrait> SiteProperties<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<SiteProperties<U>, T> {
+        Ok(SiteProperties {
+            name: self.name.clone(),
+            geographic_offset: self.geographic_offset.clone(),
+            filtered_issues: self.filtered_issues.convert(id_map)?,
+            filtered_issue_kinds: self.filtered_issue_kinds.clone(),
+        })
     }
 }
 
@@ -50,7 +116,7 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
-    pub properties: SiteProperties,
+    pub properties: SiteProperties<u32>,
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
