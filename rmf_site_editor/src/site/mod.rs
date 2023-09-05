@@ -118,6 +118,7 @@ pub mod wall;
 pub use wall::*;
 
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
 pub use rmf_site_format::*;
 
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -227,6 +228,14 @@ impl Plugin for SitePlugin {
             .add_plugin(DeletionPlugin)
             .add_plugin(DrawingEditorPlugin)
             .add_plugin(SiteVisualizerPlugin)
+            .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
+            .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
+            .add_issue_type(
+                &FIDUCIAL_WITHOUT_AFFILIATION_ISSUE_UUID,
+                "Fiducial without affiliation",
+            )
+            .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
+            .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_system_set_to_stage(
@@ -236,6 +245,11 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
+                    .with_system(check_for_duplicated_door_names)
+                    .with_system(check_for_duplicated_lift_names)
+                    .with_system(check_for_duplicated_dock_names)
+                    .with_system(check_for_fiducials_without_affiliation)
+                    .with_system(check_for_close_unconnected_anchors)
                     .with_system(update_drawing_pixels_per_meter)
                     .with_system(update_drawing_children_to_pixel_coordinates)
                     .with_system(fetch_image_for_texture)
@@ -348,6 +362,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_walls)
                     .with_system(update_transforms_for_changed_poses)
                     .with_system(align_site_drawings)
+                    .with_system(clear_old_issues_on_new_validate_event)
                     .with_system(export_lights),
             );
     }

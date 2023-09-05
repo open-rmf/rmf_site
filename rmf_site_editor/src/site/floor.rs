@@ -332,7 +332,9 @@ pub fn update_floors(
             .iter()
             .flat_map(|members| members.iter().cloned()),
     ) {
-        let Ok((segment, path, texture_source)) = floors.get(e) else { continue };
+        let Ok((segment, path, texture_source)) = floors.get(e) else {
+            continue;
+        };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {

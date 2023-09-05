@@ -446,7 +446,8 @@ pub fn propagate_model_render_layers(
     for e in &new_scene_roots {
         let Some(render_layers) = AncestorIter::new(&parents, e)
             .filter_map(|p| scene_roots.get(p).ok())
-            .last() else {
+            .last()
+        else {
             continue;
         };
         for c in DescendantIter::new(&children, e) {

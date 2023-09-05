@@ -252,6 +252,10 @@ impl SiteAssetIo {
             include_bytes!("../../assets/textures/global.png").to_vec(),
         );
         self.bundled_assets.insert(
+            "textures/hide.png".to_owned(),
+            include_bytes!("../../assets/textures/hide.png").to_vec(),
+        );
+        self.bundled_assets.insert(
             "textures/battery.png".to_owned(),
             include_bytes!("../../assets/textures/battery.png").to_vec(),
         );

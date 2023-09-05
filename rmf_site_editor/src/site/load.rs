@@ -80,7 +80,6 @@ fn generate_site_entities(
     let site_id = site_cmd.id();
     site_cmd
         .insert(Category::Site)
-        .insert(site_data.properties.clone())
         .insert(WorkspaceMarker)
         .add_children(|site| {
             for (anchor_id, anchor) in &site_data.anchors {
@@ -144,27 +143,32 @@ fn generate_site_entities(
                                         consider_id(*anchor_id);
                                     }
                                     for (fiducial_id, fiducial) in &drawing.fiducials {
-                                        drawing_parent
+                                        let fiducial_entity = drawing_parent
                                             .spawn(
                                                 fiducial
                                                     .convert(&id_to_entity)
                                                     .for_site(site_id)?,
                                             )
-                                            .insert(SiteID(*fiducial_id));
+                                            .insert(SiteID(*fiducial_id))
+                                            .id();
+                                        id_to_entity.insert(*fiducial_id, fiducial_entity);
                                         consider_id(*fiducial_id);
                                     }
                                     for (measurement_id, measurement) in &drawing.measurements {
-                                        drawing_parent
+                                        let measurement_entity = drawing_parent
                                             .spawn(
                                                 measurement
                                                     .convert(&id_to_entity)
                                                     .for_site(site_id)?,
                                             )
-                                            .insert(SiteID(*measurement_id));
+                                            .insert(SiteID(*measurement_id))
+                                            .id();
+                                        id_to_entity.insert(*measurement_id, measurement_entity);
                                         consider_id(*measurement_id);
                                     }
                                     Ok(())
                                 })?;
+
                             consider_id(*drawing_id);
                         }
 
@@ -302,6 +306,13 @@ fn generate_site_entities(
 
             Ok(())
         })?;
+    // Properties require the id_to_entity map to be fully populated to load suppressed issues
+    site_cmd.insert(
+        site_data
+            .properties
+            .convert(&id_to_entity)
+            .for_site(site_id)?,
+    );
 
     let nav_graph_rankings = match RecencyRanking::<NavGraphMarker>::from_u32(
         &site_data.navigation.guided.ranking,

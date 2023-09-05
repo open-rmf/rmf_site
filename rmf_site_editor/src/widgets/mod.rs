@@ -32,6 +32,7 @@ use crate::{
     },
     workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    ValidateWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -48,6 +49,9 @@ use menu_bar::*;
 
 pub mod view_groups;
 use view_groups::*;
+
+pub mod diagnostic_window;
+use diagnostic_window::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -108,6 +112,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<LightDisplay>()
             .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
+            .init_resource::<DiagnosticWindowState>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
@@ -173,6 +178,8 @@ pub struct MoreChangeEvents<'w, 's> {
     pub joint_limit: EventWriter<'w, 's, Change<JointLimit>>,
     pub joint_axis: EventWriter<'w, 's, Change<JointAxis>>,
     pub merge_groups: EventWriter<'w, 's, MergeGroups>,
+    pub filtered_issues: EventWriter<'w, 's, Change<FilteredIssues<Entity>>>,
+    pub filtered_issue_kinds: EventWriter<'w, 's, Change<FilteredIssueKinds>>,
 }
 
 #[derive(SystemParam)]
@@ -188,6 +195,7 @@ pub struct FileEvents<'w, 's> {
     pub save: EventWriter<'w, 's, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
+    pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
 }
 
 #[derive(SystemParam)]
@@ -300,9 +308,10 @@ pub struct AppEvents<'w, 's> {
     pub new_model: NewModelParams<'w, 's>,
     pub app_state: ResMut<'w, State<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w, 's>,
+    // TODO(luca) move these to Requests once 16 limit is lifted
     pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
-    // TODO(luca) bundle this in requests once the 16 size limit is lifted in bevy 0.11
     pub create_joint: EventWriter<'w, 's, CreateJoint>,
+    pub validate_workspace: EventWriter<'w, 's, ValidateWorkspace>,
 }
 
 fn site_ui_layout(
@@ -314,6 +323,7 @@ fn site_ui_layout(
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
+    diagnostic_params: DiagnosticParams,
     layers: LayersParams,
     mut groups: GroupParams,
     mut events: AppEvents,
@@ -410,8 +420,16 @@ fn site_ui_layout(
             ConsoleWidget::new(&mut events).show(ui);
         });
 
+    if events.file_events.diagnostic_window.show {
+        egui::SidePanel::left("diagnostic_window")
+            .resizable(true)
+            .exact_width(320.0)
+            .show(egui_context.ctx_mut(), |ui| {
+                DiagnosticWindow::new(&mut events, &diagnostic_params).show(ui);
+            });
+    }
     if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("left_panel")
+        egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .exact_width(320.0)
             .show(egui_context.ctx_mut(), |ui| {
@@ -661,7 +679,7 @@ fn workcell_ui_layout(
     );
 
     if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("left_panel")
+        egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .exact_width(320.0)
             .show(egui_context.ctx_mut(), |ui| {

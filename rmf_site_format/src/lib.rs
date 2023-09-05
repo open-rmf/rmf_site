@@ -50,6 +50,9 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod issue;
+pub use issue::*;
+
 pub mod lane;
 pub use lane::*;
 

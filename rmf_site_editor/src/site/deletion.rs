@@ -22,6 +22,7 @@ use crate::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateStage,
     },
+    Issue,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -91,6 +92,7 @@ struct DeletionParams<'w, 's> {
     levels: Query<'w, 's, Entity, With<LevelElevation>>,
     select: EventWriter<'w, 's, Select>,
     log: EventWriter<'w, 's, Log>,
+    issues: Query<'w, 's, (Entity, &'static mut Issue)>,
 }
 
 pub struct DeletionPlugin;
@@ -222,6 +224,13 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
 
         if **params.selection == Some(e) {
             params.select.send(Select(None));
+        }
+    }
+
+    for (e, mut issue) in &mut params.issues {
+        issue.key.entities.remove(&element);
+        if issue.key.entities.is_empty() {
+            params.commands.entity(e).despawn_recursive();
         }
     }
 
