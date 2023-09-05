@@ -25,7 +25,7 @@ pub fn update_level_visibility(
 ) {
     if current_level.is_changed() {
         for (e, mut visibility) in &mut levels {
-            visibility = if Some(e) == **current_level {
+            *visibility = if Some(e) == **current_level {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden

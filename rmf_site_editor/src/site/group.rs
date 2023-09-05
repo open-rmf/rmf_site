@@ -42,7 +42,7 @@ struct LastAffiliation(Option<Entity>);
 pub fn update_affiliations(
     mut affiliations: Query<&mut Affiliation<Entity>>,
     mut merge_groups: EventReader<MergeGroups>,
-    deleted_groups: RemovedComponents<Group>,
+    mut deleted_groups: RemovedComponents<Group>,
 ) {
     for merge in merge_groups.iter() {
         for mut affiliation in &mut affiliations {
@@ -52,7 +52,7 @@ pub fn update_affiliations(
         }
     }
 
-    for deleted in &deleted_groups {
+    for deleted in deleted_groups.iter() {
         for mut affiliation in &mut affiliations {
             if affiliation.0.is_some_and(|a| a == deleted) {
                 affiliation.0 = None;
@@ -77,7 +77,7 @@ struct ChangeMembership {
 }
 
 impl Command for ChangeMembership {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let last = world
             .get_entity(self.member)
             .map(|e| e.get::<LastAffiliation>())

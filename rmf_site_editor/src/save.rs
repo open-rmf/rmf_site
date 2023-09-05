@@ -118,7 +118,7 @@ pub fn dispatch_save_events(
                 }
                 SaveWorkspaceDestination::Path(path) => path.clone(),
             };
-            match app_state.current() {
+            match app_state.get() {
                 AppState::WorkcellEditor => {
                     save_workcell.send(SaveWorkcell {
                         root: ws_root,

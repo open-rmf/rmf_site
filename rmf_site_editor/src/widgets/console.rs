@@ -80,9 +80,8 @@ impl<'a, 'w2, 's2> ConsoleWidget<'a, 'w2, 's2> {
                     );
                     // Copy full log history to clipboard
                     if ui.button("Copy Log History").clicked() {
-                        ui.output().copied_text =
-                            self.events.display.log_history.copy_log_history();
-                    };
+                        ui.output(|o| o.copied_text = self.events.display.log_history.copy_log_history());
+                    }
                     // Slider to adjust display limit
                     // TODO(@mxgrey): Consider allowing this range to
                     // automatically grow/shrink when the selected value
@@ -154,7 +153,7 @@ fn print_log(ui: &mut egui::Ui, element: &LogHistoryElement) {
         ui.label(RichText::new(element.log.category.to_string()).color(category_text_color));
         // Selecting the label allows users to copy log entry to clipboard
         if ui.selectable_label(false, msg).clicked() {
-            ui.output().copied_text = element.log.category.to_string() + &element.log.message;
+            ui.output(|o| o.copied_text = element.log.category.to_string() + &element.log.message);
         }
 
         if truncated {

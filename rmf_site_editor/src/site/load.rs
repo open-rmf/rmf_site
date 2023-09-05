@@ -78,7 +78,7 @@ fn generate_site_entities(
     };
 
     let site_id = commands
-        .spawn(SpatialBundle::INVISIBLE_IDENTITY)
+        .spawn(SpatialBundle::HIDDEN_IDENTITY)
         .insert(Category::Site)
         .insert(site_data.properties.clone())
         .insert(WorkspaceMarker)
@@ -195,7 +195,7 @@ fn generate_site_entities(
 
         commands
             .entity(level_entity)
-            .insert(SpatialBundle::INVISIBLE_IDENTITY)
+            .insert(SpatialBundle::HIDDEN_IDENTITY)
             .insert(level_data.properties.clone())
             .insert(Category::Level)
             .with_children(|level| {

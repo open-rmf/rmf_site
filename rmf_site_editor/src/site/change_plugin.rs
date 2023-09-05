@@ -63,15 +63,13 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
         // TODO(luca) this is duplicated, refactor app states to avoid?
         app.add_event::<Change<T>>()
-            .add_system_set_to_stage(
+            .add_systems(
                 PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .label(SiteUpdateSet::ProcessChanges)
-                    .with_system(update_changed_values::<T>),
+                update_changed_values::<T>.run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::ProcessChanges)
             )
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(update_changed_values::<T>),
+            .add_systems(
+                PreUpdate,
+                update_changed_values::<T>.run_if(in_state(AppState::WorkcellEditor))
             );
     }
 }

@@ -146,7 +146,7 @@ pub fn handle_model_loaded_events(
             } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
                 Some(
                     commands
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .spawn(SpatialBundle::INHERITED_IDENTITY)
                         .insert(urdf.clone())
                         .insert(Category::Workcell)
                         .set_parent(e)
@@ -155,7 +155,7 @@ pub fn handle_model_loaded_events(
             } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
                 Some(
                     commands
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                        .spawn(SpatialBundle::INHERITED_IDENTITY)
                         .insert(sdf.clone())
                         .set_parent(e)
                         .id(),
@@ -224,7 +224,7 @@ pub fn update_model_scenes(
             // new entities and/or using a dependency tracker as proposed here:
             // https://github.com/open-rmf/rmf_site/issues/173
             commands.insert(VisibilityBundle {
-                visibility: Visibility::VISIBLE,
+                visibility: Visibility::Inherited,
                 ..default()
             });
         }

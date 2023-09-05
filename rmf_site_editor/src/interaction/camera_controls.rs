@@ -22,7 +22,7 @@ use bevy::{
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode, WindowOrigin},
+        camera::{Camera, Projection, ScalingMode},
         view::RenderLayers,
     },
     window::PrimaryWindow,

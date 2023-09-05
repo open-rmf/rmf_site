@@ -46,7 +46,7 @@ pub fn detect_last_selected_texture<T: Component>(
     parents: Query<&Parent>,
     mut last_selected: Query<&mut LastSelectedTexture<T>>,
     changed_affiliations: Query<&Affiliation<Entity>, (Changed<Affiliation<Entity>>, With<T>)>,
-    removed_groups: RemovedComponents<Group>,
+    mut removed_groups: RemovedComponents<Group>,
 ) {
     if let Some(Affiliation(Some(affiliation))) = changed_affiliations.iter().last() {
         let Ok(parent) = parents.get(*affiliation) else { return };
@@ -60,7 +60,7 @@ pub fn detect_last_selected_texture<T: Component>(
         }
     }
 
-    for group in &removed_groups {
+    for group in removed_groups.iter() {
         for mut last in &mut last_selected {
             if last.selection.is_some_and(|l| l == group) {
                 last.selection = None;

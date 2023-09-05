@@ -424,8 +424,8 @@ pub fn render_map_tiles(
             }
 
             if let Ok((camera, transform)) = cameras.get(cam_entity) {
-                if let Some((viewport_min, viewport_max)) = camera.logical_viewport_rect() {
-                    let viewport_size = viewport_max - viewport_min;
+                if let Some(Rect {min, max}) = camera.logical_viewport_rect() {
+                    let viewport_size = max - min;
 
                     let top_left_ray =
                         Ray3d::from_screenspace(Vec2::new(0.0, 0.0), camera, transform);

@@ -56,7 +56,7 @@ pub fn change_site(
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
-            v = value;
+            *v = value;
         }
     };
 

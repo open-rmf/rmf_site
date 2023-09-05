@@ -466,7 +466,6 @@ fn generate_levels(
                                     Measurement {
                                         anchors,
                                         distance: distance.clone(),
-                                        label: label.clone(),
                                         marker: MeasurementMarker,
                                     },
                                 );

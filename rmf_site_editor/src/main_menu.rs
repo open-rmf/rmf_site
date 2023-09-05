@@ -110,6 +110,6 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(SystemSet::on_update(AppState::MainMenu).with_system(egui_ui));
+        app.add_systems(Update, egui_ui.run_if(in_state(AppState::MainMenu)));
     }
 }

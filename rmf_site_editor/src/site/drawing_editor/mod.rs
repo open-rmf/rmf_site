@@ -144,7 +144,7 @@ fn switch_edit_drawing_mode(
             app_state.set(AppState::SiteDrawingEditor);
 
             for mut v in &mut workspace_visibility {
-                v = Visibility::Hidden;
+                *v = Visibility::Hidden;
             }
         }
     }
@@ -167,7 +167,7 @@ fn switch_edit_drawing_mode(
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {
-                v = if current_workspace.display {
+                *v = if current_workspace.display {
                     Visibility::Inherited
                 } else {
                     Visibility::Hidden
@@ -251,11 +251,12 @@ impl Plugin for DrawingEditorPlugin {
             .add_event::<FinishEditDrawing>()
             .add_event::<AlignSiteDrawings>()
             .init_resource::<CurrentEditDrawing>()
-            .add_system(switch_edit_drawing_mode)
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteDrawingEditor)
-                    .with_system(assign_drawing_parent_to_new_measurements)
-                    .with_system(make_drawing_default_selected),
+            .add_systems(Update, switch_edit_drawing_mode)
+            .add_systems(
+                Update, (
+                    assign_drawing_parent_to_new_measurements,
+                    make_drawing_default_selected,
+                ).run_if(in_state(AppState::SiteDrawingEditor))
             );
     }
 }

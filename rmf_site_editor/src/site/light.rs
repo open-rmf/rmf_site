@@ -129,7 +129,7 @@ pub fn toggle_physical_lights(
 ) {
     if physical_light_toggle.is_changed() {
         for mut v in &mut physical_lights {
-            v = if physical_light_toggle.0 {
+            *v = if physical_light_toggle.0 {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden

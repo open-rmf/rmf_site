@@ -103,9 +103,9 @@ impl Plugin for DeletionPlugin {
                     SiteUpdateSet::Deletion,
                     SiteUpdateSet::DeletionFlush,
                 ).chain()
-            ).add_systems(SiteUpdateSet::DeletionFlush, apply_deferred)
+            ).add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
-        .add_systems(SiteUpdateSet::Deletion, handle_deletion_requests);
+        .add_systems(Update, handle_deletion_requests.in_set(SiteUpdateSet::Deletion));
     }
 }
 

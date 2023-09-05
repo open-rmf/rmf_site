@@ -35,16 +35,16 @@ where
     fn build(&self, app: &mut App) {
         // TODO(luca) this is duplicated, refactor app states to avoid?
         app.add_systems(
-            PreUpdate,
-            SystemSet::on_update(SiteState::Display)
-                .after(SiteUpdateSet::ProcessChanges)
-                .with_system(add_recaller::<T>)
-                .with_system(update_recaller::<T>),
+            PreUpdate, (
+                add_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
+                update_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
+                ).run_if(in_state(SiteState::Display))
         )
-        .add_system_set(
-            SystemSet::on_update(AppState::WorkcellEditor)
-                .with_system(add_recaller::<T>)
-                .with_system(update_recaller::<T>),
+        .add_systems(
+            PreUpdate, (
+                add_recaller::<T>,
+                update_recaller::<T>,
+            ).run_if(in_state(AppState::WorkcellEditor))
         );
     }
 }

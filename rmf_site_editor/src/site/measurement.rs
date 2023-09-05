@@ -61,7 +61,7 @@ pub fn add_measurement_visuals(
             .id();
 
         if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::VISIBLE_IDENTITY);
+            commands.entity(e).insert(SpatialBundle::INHERITED_IDENTITY);
         }
 
         commands

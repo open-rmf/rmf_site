@@ -186,8 +186,8 @@ pub fn update_changed_location(
         } else {
             Visibility::Hidden
         };
-        if new_visibility != visibility {
-            new_visibility = visibility;
+        if *visibility != new_visibility {
+            *visibility = new_visibility;
         }
     }
 }
@@ -329,8 +329,8 @@ pub fn update_visibility_for_locations(
             } else {
                 Visibility::Hidden
             };
-            if new_visibility != visibility {
-                new_visibility = visibility;
+            if *visibility != new_visibility {
+                *visibility = new_visibility;
             }
         }
     } else {
@@ -348,8 +348,8 @@ pub fn update_visibility_for_locations(
                 } else {
                     Visibility::Hidden
                 };
-                if new_visibility != visibility {
-                    new_visibility = visibility;
+                if *visibility != new_visibility {
+                    *visibility = new_visibility;
                 }
             }
         }

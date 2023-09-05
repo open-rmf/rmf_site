@@ -24,9 +24,6 @@ pub use assets::*;
 pub mod change_plugin;
 pub use change_plugin::*;
 
-pub mod constraint;
-pub use constraint::*;
-
 pub mod deletion;
 pub use deletion::*;
 
@@ -164,14 +161,14 @@ impl Plugin for SitePlugin {
                     SiteUpdateSet::ProcessChanges,
                     SiteUpdateSet::ProcessChangesFlush,
                 ).chain()
-            ).add_systems(SiteUpdateSet::ProcessChangesFlush, apply_deferred)
+            ).add_systems(PreUpdate, apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush))
             .configure_sets(
                 Update,
                 (
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
                 ).chain()
-            ).add_systems(SiteUpdateSet::AssignOrphansFlush, apply_deferred)
+            ).add_systems(Update, apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush))
             .configure_sets(
                 Update,
                 (
@@ -180,7 +177,7 @@ impl Plugin for SitePlugin {
                     SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                     TransformSystem::TransformPropagate,
                 ).chain()
-            ).add_systems(SiteUpdateSet::BetweenVisibilityAndTransformFlush, apply_deferred)
+            ).add_systems(Update, apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush))
             /*
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
@@ -220,8 +217,6 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
             .add_plugin(ChangePlugin::<Distance>::default())
             .add_plugin(ChangePlugin::<Texture>::default())
-            .add_plugin(ChangePlugin::<Label>::default())
-            .add_plugin(RecallPlugin::<RecallLabel>::default())
             .add_plugin(ChangePlugin::<DoorType>::default())
             .add_plugin(RecallPlugin::<RecallDoorType>::default())
             .add_plugin(ChangePlugin::<LevelElevation>::default())
@@ -275,9 +270,8 @@ impl Plugin for SitePlugin {
                 ).run_if(in_state(SiteState::Display))
             )
             .add_systems(
-                SiteUpdateSet::AssignOrphans, (
+                Update, (
                     assign_orphan_anchors_to_parent,
-                    assign_orphan_constraints_to_parent,
                     assign_orphan_levels_to_site,
                     assign_orphan_nav_elements_to_site,
                     assign_orphan_fiducials_to_parent,
@@ -293,10 +287,10 @@ impl Plugin for SitePlugin {
                     add_material_for_display_colors,
                     clear_model_trashcan,
                     add_physical_lights,
-                    ).run_if(in_state(SiteState::Display))
+                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::AssignOrphans)
             )
             .add_systems(
-                SiteUpdateSet::BetweenVisibilityAndTransform, (
+                Update, (
                     update_anchor_transforms,
                     add_door_visuals,
                     update_changed_door,
@@ -310,7 +304,6 @@ impl Plugin for SitePlugin {
                     add_lane_visuals,
                     add_location_visuals,
                     add_fiducial_visuals,
-                    add_constraint_visuals,
                     update_level_visibility,
                     update_changed_lane,
                     update_lane_for_moved_anchor,
@@ -334,9 +327,6 @@ impl Plugin for SitePlugin {
                     update_changed_measurement,
                     update_measurement_for_moved_anchors,
                     handle_model_loaded_events,
-                    update_constraint_for_moved_anchors,
-                    update_constraint_for_changed_labels,
-                    update_changed_constraint,
                     update_model_scenes,
                     update_affiliations,
                     update_members_of_groups.after(update_affiliations),
@@ -358,7 +348,7 @@ impl Plugin for SitePlugin {
                     update_transforms_for_changed_poses,
                     align_site_drawings,
                     export_lights,
-                    ).run_if(in_state(SiteState::Display))
+                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform)
             );
     }
 }

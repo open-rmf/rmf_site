@@ -364,7 +364,7 @@ fn site_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -466,7 +466,7 @@ fn site_drawing_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -550,7 +550,7 @@ fn site_visualizer_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -621,7 +621,7 @@ fn workcell_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,

@@ -16,7 +16,6 @@
 */
 
 use crate::*;
-use crate::misc::Label;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
@@ -28,8 +27,6 @@ pub struct Measurement<T: RefTrait> {
     pub anchors: Edge<T>,
     #[serde(skip_serializing_if = "is_default")]
     pub distance: Distance,
-    #[serde(skip_serializing_if = "is_default")]
-    pub label: Label,
     #[serde(skip)]
     pub marker: MeasurementMarker,
 }
@@ -55,7 +52,6 @@ impl Measurement<Entity> {
         Measurement {
             anchors,
             distance: self.distance,
-            label: self.label.clone(),
             marker: Default::default(),
         }
     }
@@ -66,7 +62,6 @@ impl<T: RefTrait> Measurement<T> {
         Ok(Measurement {
             anchors: self.anchors.convert(id_map)?,
             distance: self.distance,
-            label: self.label.clone(),
             marker: Default::default(),
         })
     }
@@ -77,7 +72,6 @@ impl<T: RefTrait> From<Edge<T>> for Measurement<T> {
         Self {
             anchors,
             distance: Default::default(),
-            label: Default::default(),
             marker: Default::default(),
         }
     }
