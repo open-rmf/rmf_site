@@ -209,7 +209,7 @@ pub fn check_for_close_unconnected_anchors(
                     poses.push((
                         e,
                         anchors
-                            .point_in_parent_frame_of(e, Category::Level, level)
+                            .point_in_parent_frame_of(e, Category::General, level)
                             .expect("Failed fetching anchor pose"),
                     ));
                 }
