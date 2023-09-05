@@ -197,7 +197,7 @@ pub fn check_for_close_unconnected_anchors(
     const ISSUE_HINT: &str = "Pair of anchors that are very close but not connected was found, \
                         review if this is intended and, if it is, suppress the issue";
     // TODO(luca) make this configurable
-    const DISTANCE_THRESHOLD: f32 = 0.5;
+    const DISTANCE_THRESHOLD: f32 = 0.2;
     for root in validate_events.iter() {
         // Key is level id, value is vector of (Entity, Global tf's position)
         let mut anchor_poses: HashMap<Entity, Vec<(Entity, Vec3)>> = HashMap::new();
