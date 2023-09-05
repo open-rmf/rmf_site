@@ -20,7 +20,7 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, Pending, SiteAssets},
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
@@ -275,7 +275,7 @@ pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
-    windows: Res<'w, Windows>,
+    primary_windows: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     camera_controls: Res<'w, CameraControls>,
     cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
@@ -283,7 +283,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Vec3> {
-        let window = self.windows.get_primary()?;
+        let window = self.primary_windows.get_single().ok()?;
         let cursor_position = window.cursor_position()?;
         let e_active_camera = self.camera_controls.active_camera();
         let active_camera = self.cameras.get(e_active_camera).ok()?;

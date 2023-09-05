@@ -25,6 +25,7 @@ use bevy::{
         camera::{Camera, Projection, ScalingMode, WindowOrigin},
         view::RenderLayers,
     },
+    window::PrimaryWindow,
 };
 
 /// RenderLayers are used to inform cameras which entities they should render.
@@ -370,7 +371,7 @@ impl FromWorld for CameraControls {
 }
 
 fn camera_controls(
-    windows: Res<Windows>,
+    primary_windows: Query<&Window, With<PrimaryWindow>>,
     mut ev_cursor_moved: EventReader<CursorMoved>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
@@ -445,7 +446,7 @@ fn camera_controls(
             .get_mut(controls.orthographic_camera_entities[0])
             .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-            if let Some(window) = windows.get_primary() {
+            if let Ok(window) = primary_windows.get_single() {
                 let window_size = Vec2::new(window.width() as f32, window.height() as f32);
                 let aspect_ratio = window_size[0] / window_size[1];
 
@@ -487,7 +488,7 @@ fn camera_controls(
 
             if is_orbiting && cursor_motion.length_squared() > 0. {
                 changed = true;
-                if let Some(window) = windows.get_primary() {
+                if let Ok(window) = primary_windows.get_single() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
                     let delta_x = {
                         let delta = cursor_motion.x / window_size.x * std::f32::consts::PI * 2.0;
@@ -507,7 +508,7 @@ fn camera_controls(
             } else if is_panning && cursor_motion.length_squared() > 0. {
                 changed = true;
                 // make panning distance independent of resolution and FOV,
-                if let Some(window) = windows.get_primary() {
+                if let Ok(window) = primary_windows.get_single() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
 
                     cursor_motion *=
