@@ -62,7 +62,7 @@ fn hide_all_non_current_levels(
                 vis = if Some(*child) == **current_level {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
                 tf.translation.z = 0.0;
             }

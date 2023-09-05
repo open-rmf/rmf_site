@@ -235,7 +235,7 @@ pub fn update_lift_cabin(
                                         // Doormats are not visible by default.
                                         // Other plugins should make them visible
                                         // if using them as a visual cue.
-                                        visibility: Visibility::Invisible,
+                                        visibility: Visibility::Hidden,
                                         ..default()
                                     })
                                     .insert(LiftDoormat {
@@ -433,7 +433,7 @@ pub fn update_lift_door_availability(
                     let visibility = if visits.contains(&current_level) {
                         Visibility::Inherited
                     } else {
-                        Visibility::Invisible
+                        Visibility::Hidden
                     };
                     commands.entity(cabin_door).insert(visibility);
                 }
@@ -473,7 +473,7 @@ pub fn update_lift_door_availability(
                     let visibility = if visits.contains(&current_level) {
                         Visibility::Inherited
                     } else {
-                        Visibility::Invisible
+                        Visibility::Hidden
                     };
                     commands.entity(cabin_door).insert(visibility);
                 }
@@ -509,7 +509,7 @@ pub fn update_lift_door_availability(
                 let visibility = if visits.contains(&current_level) {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
                 commands.entity(e).insert(visibility);
             }
@@ -575,7 +575,7 @@ fn remove_door(
     commands
         .entity(cabin_door)
         .insert(Pending)
-        .insert(Visibility::Invisible);
+        .insert(Visibility::Hidden);
 
     // Clear out the anchors if nothing besides the cabin door depends on them
     let remove_anchors = if let Ok((_, anchors, _)) = doors.get(cabin_door) {
@@ -605,7 +605,7 @@ fn remove_door(
             commands
                 .entity(anchor)
                 .insert(Pending)
-                .insert(Visibility::Invisible);
+                .insert(Visibility::Hidden);
         }
     }
 }

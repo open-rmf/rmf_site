@@ -98,7 +98,7 @@ impl Cursor {
             let new_visible = if self.should_be_visible() {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
             if new_visible != v {
                 v = new_visible;
@@ -247,7 +247,7 @@ impl FromWorld for Cursor {
                 frame_placement,
             ])
             .insert(SpatialBundle {
-                visibility: Visibility::Invisible,
+                visibility: Visibility::Hidden,
                 ..default()
             })
             .id();

@@ -137,7 +137,7 @@ impl CameraControls {
                 visibility = if choice {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
             }
         }
@@ -151,7 +151,7 @@ impl CameraControls {
         if let Ok(visibilities) = visibilities.get_many_mut(self.orthographic_camera_entities) {
             for mut visibility in visibilities {
                 visibility = if choice {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 } else {
                     Visibility::Inherited
                 };
@@ -210,7 +210,7 @@ impl CameraControls {
             v = if toggle && self.mode.is_perspective() {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
         }
 
@@ -218,7 +218,7 @@ impl CameraControls {
             v = if toggle && self.mode.is_ortographic() {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
         }
     }

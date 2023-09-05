@@ -91,7 +91,7 @@ pub fn change_site(
         if let Some(new_level) = cmd.level {
             if let Some(previous_level) = current_level.0 {
                 if previous_level != new_level {
-                    set_visibility(previous_level, Visibility::Invisible);
+                    set_visibility(previous_level, Visibility::Hidden);
                 }
             }
 

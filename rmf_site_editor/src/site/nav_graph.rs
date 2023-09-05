@@ -48,7 +48,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
             AssociatedGraphs::All => self
                 .graphs
                 .iter()
-                .filter(|(_, _, v, _)| !matches!(v, Visibility::Invisible))
+                .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
                 .map(|(_, m, _, d)| (m.clone(), *d)),
             AssociatedGraphs::Only(set) => set
@@ -57,7 +57,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
                     self.graphs
                         .get(**e)
                         .ok()
-                        .filter(|(_, _, v, _)| !matches!(v, Visibility::Invisible))
+                        .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                         .is_some()
                 })
                 .max_by(|a, b| {
@@ -72,7 +72,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
             AssociatedGraphs::AllExcept(set) => self
                 .graphs
                 .iter()
-                .filter(|(e, _, v, _)| !matches!(v, Visibility::Invisible) && !set.contains(e))
+                .filter(|(e, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e))
                 .max_by(|(_, _, _, a), (_, _, _, b)| a.cmp(b))
                 .map(|(_, m, _, d)| (m.clone(), *d)),
         }
@@ -95,7 +95,7 @@ impl<'w, 's> GraphSelect<'w, 's> {
                     || self
                         .graphs
                         .iter()
-                        .find(|(_, _, v, _)| !matches!(v, Visibility::Invisible))
+                        .find(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                         .is_some()
             }
             AssociatedGraphs::Only(set) => {
@@ -107,13 +107,13 @@ impl<'w, 's> GraphSelect<'w, 's> {
                             self.graphs
                                 .get(**e)
                                 .ok()
-                                .filter(|(_, _, v, _)| !matches!(v, Visibility::Invisible))
+                                .filter(|(_, _, v, _)| !matches!(v, Visibility::Hidden))
                                 .is_some()
                         })
                         .is_some()
             }
             AssociatedGraphs::AllExcept(set) => {
-                self.graphs.iter().find(|(e, _, v, _)| !matches!(v, Visibility::Invisible) && !set.contains(e)).is_some()
+                self.graphs.iter().find(|(e, _, v, _)| !matches!(v, Visibility::Hidden) && !set.contains(e)).is_some()
                 // If all graphs are excluded for this lane then we want it to remain
                 // visible but with the unassigned material
                 || self.graphs.iter().find(|(e, _, _, _)| !set.contains(e)).is_none()

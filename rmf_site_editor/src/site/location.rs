@@ -97,7 +97,7 @@ pub fn add_location_visuals(
         ) {
             Visibility::Inherited
         } else {
-            Visibility::Invisible
+            Visibility::Hidden
         };
 
         let position = anchors
@@ -184,7 +184,7 @@ pub fn update_changed_location(
         ) {
             Visibility::Inherited
         } else {
-            Visibility::Invisible
+            Visibility::Hidden
         };
         if new_visibility != visibility {
             new_visibility = visibility;
@@ -327,7 +327,7 @@ pub fn update_visibility_for_locations(
             ) {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
             if new_visibility != visibility {
                 new_visibility = visibility;
@@ -346,7 +346,7 @@ pub fn update_visibility_for_locations(
                 ) {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
                 if new_visibility != visibility {
                     new_visibility = visibility;

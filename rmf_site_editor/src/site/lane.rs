@@ -112,7 +112,7 @@ pub fn add_lane_visuals(
         ) {
             Visibility::Inherited
         } else {
-            Visibility::Invisible
+            Visibility::Hidden
         };
 
         let start_anchor = anchors
@@ -147,7 +147,7 @@ pub fn add_lane_visuals(
                 .spawn(PbrBundle {
                     mesh: outline_mesh,
                     transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                    visibility: Visibility::Invisible,
+                    visibility: Visibility::Hidden,
                     ..default()
                 })
                 .set_parent(mesh)
@@ -244,7 +244,7 @@ pub fn update_changed_lane(
         {
             Visibility::Inherited
         } else {
-            Visibility::Invisible
+            Visibility::Hidden
         };
         if new_visibility != visibility {
             visibility = new_visibility;
@@ -331,7 +331,7 @@ pub fn update_visibility_for_lanes(
             {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
             if new_visibility != visibility {
                 new_visibility = visibility;
@@ -350,7 +350,7 @@ pub fn update_visibility_for_lanes(
                 ) {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
                 if new_visibility != visibility {
                     new_visibility = visibility;

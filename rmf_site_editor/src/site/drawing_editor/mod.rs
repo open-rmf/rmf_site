@@ -146,7 +146,7 @@ fn switch_edit_drawing_mode(
             }
 
             for mut v in &mut workspace_visibility {
-                v = Visibility::Invisible;
+                v = Visibility::Hidden;
             }
         }
     }
@@ -172,7 +172,7 @@ fn switch_edit_drawing_mode(
                 v = if current_workspace.display {
                     Visibility::Inherited
                 } else {
-                    Visibility::Invisible
+                    Visibility::Hidden
                 };
             }
 

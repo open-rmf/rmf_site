@@ -28,7 +28,7 @@ pub fn update_level_visibility(
             visibility = if Some(e) == **current_level {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
         }
     }

@@ -53,7 +53,7 @@ pub fn add_physical_lights(
         // light types
         commands
             .entity(e)
-            .insert(if physical_light_toggle.0 {Visibility::Inherited} else {Visibility::Invisible})
+            .insert(if physical_light_toggle.0 {Visibility::Inherited} else {Visibility::Hidden})
             .insert(ComputedVisibility::default())
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
@@ -132,7 +132,7 @@ pub fn toggle_physical_lights(
             v = if physical_light_toggle.0 {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
         }
     }

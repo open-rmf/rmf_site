@@ -81,7 +81,7 @@ pub fn update_doormats_for_level_change(
             visibility = if Some(doormat.on_level) == current_level.0 {
                 Visibility::Inherited
             } else {
-                Visibility::Invisible
+                Visibility::Hidden
             };
         }
     }

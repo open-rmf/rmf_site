@@ -263,7 +263,7 @@ pub fn set_visibility(entity: Entity, q_visibility: &mut Query<&mut Visibility>,
         visibility = if visible {
             Visibility::Inherited
         } else {
-            Visibility::Invisible
+            Visibility::Hidden
         };
     }
 }

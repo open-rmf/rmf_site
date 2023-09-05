@@ -76,7 +76,7 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     if let Some(visibility_event) = events.iter().last() {
         if visibility_event.0 != category_visibility.0 {
             for mut vis in &mut visibilities {
-                vis = if visibility_event.0 {Visibility::Inherited} else {Visibility::Invisible};
+                vis = if visibility_event.0 {Visibility::Inherited} else {Visibility::Hidden};
             }
             category_visibility.0 = visibility_event.0;
         }
@@ -89,7 +89,7 @@ fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
     mut visibilities: Query<(Entity, Option<&mut Visibility>), Added<T>>,
 ) {
     for (e, mut vis) in &mut visibilities {
-        let visibility = if category_visibility.0 {Visibility::Inherited} else {Visibility::Invisible};
+        let visibility = if category_visibility.0 {Visibility::Inherited} else {Visibility::Hidden};
         if let Some(mut vis) = vis {
             vis = visibility;
         } else {
