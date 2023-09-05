@@ -78,11 +78,6 @@ pub use move_layer::*;
 pub mod new_model;
 pub use new_model::*;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum UiUpdateLabel {
-    DrawUi,
-}
-
 #[derive(Resource, Clone, Default)]
 pub struct PendingDrawing {
     pub source: AssetSource,
@@ -113,28 +108,16 @@ impl Plugin for StandardUiLayout {
             .add_plugin(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
-            .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteEditor)
-                    .with_system(site_ui_layout.label(UiUpdateLabel::DrawUi)),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteDrawingEditor)
-                    .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteVisualizer)
-                    .with_system(site_visualizer_ui_layout.label(UiUpdateLabel::DrawUi)),
-            )
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(resolve_light_export_file)
-                    .with_system(resolve_nav_graph_import_export_files),
+            .add_systems(OnEnter(AppState::MainMenu), init_ui_style)
+            .add_systems(Update, site_ui_layout.run_if(in_state(AppState::SiteEditor)))
+            .add_systems(Update, workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)))
+            .add_systems(Update, site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)))
+            .add_systems(Update, site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)))
+            .add_systems(
+                PostUpdate, (
+                    resolve_light_export_file,
+                    resolve_nav_graph_import_export_files,
+                ).run_if(in_state(SiteState::Display))
             );
     }
 }

@@ -584,6 +584,8 @@ pub struct OSMViewPlugin;
 impl Plugin for OSMViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OSMMenu>()
+            // TODO(luca) restore system ordering here
+            /*
             .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
             .add_system_to_stage("WindowUI", set_reference)
             .add_system_to_stage("WindowUI", view_reference)
@@ -591,5 +593,8 @@ impl Plugin for OSMViewPlugin {
             .add_system(render_map_tiles)
             .add_system(handle_visibility_change.before("update_menu"))
             .add_system(detect_new_geographic_component.label("update_menu"));
+            */
+            .add_systems(Update, (set_reference, view_reference, settings))
+            .add_systems(Update, (render_map_tiles, handle_visibility_change, detect_new_geographic_component));
     }
 }

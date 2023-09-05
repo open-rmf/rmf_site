@@ -134,32 +134,53 @@ pub enum SiteUpdateLabel {
     ProcessChanges,
 }
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, StageLabel)]
-pub enum SiteUpdateStage {
+#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemSet)]
+pub enum SiteUpdateSet {
     /// We need a custom stage for assigning orphan elements because the
     /// commands from CoreStage::Update need to flush before the AssignOrphan
     /// systems are run, and the AssignOrphan commands need to flush before the
     /// PostUpdate systems are run.
     AssignOrphans,
+    /// Force a command flush
+    AssignOrphansFlush,
     /// Use a custom stage for deletions to make sure that all commands are
     /// flushed before and after deleting things.
     Deletion,
+    /// Force a command flush after deletion
+    DeletionFlush,
+    /// Placed between visibility and transform propagation, to avoid one frame delays
+    BetweenVisibilityAndTransform,
+    /// Flush the set above
+    BetweenVisibilityAndTransformFlush,
 }
 
 pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
-        app.add_state(SiteState::Off)
-            .add_stage_after(
-                CoreStage::Update,
-                SiteUpdateStage::AssignOrphans,
-                SystemStage::parallel(),
-            )
+        app.add_state::<SiteState>()
+            .configure_sets(
+                (
+                    UpdateFlush,
+                    SiteUpdateSet::AssignOrphans,
+                    SiteUpdateSet::AssignOrphansFlush,
+                ).chain()
+            ).add_systems(SiteUpdateSet::AssignOrphansFlush, apply_system_buffers)
+            .configure_sets(
+                (
+                    VisibilitySystems::VisibilityPropagate,
+                    // TODO(luca) do we need to put a visibility propagate flush here?
+                    SiteUpdateSet::BetweenVisibilityAndTransform,
+                    SiteUpdateSet::BetweenVisibilityAndTransformFlush,
+                    TransformSystem::TransformPropagate,
+                ).chain()
+            ).add_systems(SiteUpdateSet::BetweenVisibilityAndTransformFlush, apply_system_buffers)
+            /*
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
+            */
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<FuelClient>()
             .init_resource::<SiteAssets>()
@@ -225,8 +246,8 @@ impl Plugin for SitePlugin {
             .add_plugin(SiteVisualizerPlugin)
             .add_system(load_site)
             .add_system(import_nav_graph)
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
+            .add_systems(
+                PreUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .after(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_lift_cabin)
@@ -247,104 +268,98 @@ impl Plugin for SitePlugin {
                     )
                     .with_system(update_material_for_display_color),
             )
-            .add_system_set(
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(save_site)
-                    .with_system(save_nav_graphs)
-                    .with_system(change_site.before(load_site)),
+            .add_systems(
+                Update, (
+                    save_site,
+                    save_nav_graphs,
+                    change_site.before(load_site),
+                ).run_if(in_state(SiteState::Display))
             )
-            .add_system_set_to_stage(
-                SiteUpdateStage::AssignOrphans,
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(assign_orphan_anchors_to_parent)
-                    .with_system(assign_orphan_constraints_to_parent)
-                    .with_system(assign_orphan_levels_to_site)
-                    .with_system(assign_orphan_nav_elements_to_site)
-                    .with_system(assign_orphan_fiducials_to_parent)
-                    .with_system(assign_orphan_elements_to_level::<DoorMarker>)
-                    .with_system(assign_orphan_elements_to_level::<DrawingMarker>)
-                    .with_system(assign_orphan_elements_to_level::<FloorMarker>)
-                    .with_system(assign_orphan_elements_to_level::<LightKind>)
-                    .with_system(assign_orphan_elements_to_level::<ModelMarker>)
-                    .with_system(assign_orphan_elements_to_level::<PhysicalCameraProperties>)
-                    .with_system(assign_orphan_elements_to_level::<WallMarker>)
-                    .with_system(add_category_to_graphs)
-                    .with_system(add_tags_to_lift)
-                    .with_system(add_material_for_display_colors)
-                    .with_system(clear_model_trashcan)
-                    .with_system(add_physical_lights),
+            .add_systems(
+                SiteUpdateSet::AssignOrphans, (
+                    assign_orphan_anchors_to_parent,
+                    assign_orphan_constraints_to_parent,
+                    assign_orphan_levels_to_site,
+                    assign_orphan_nav_elements_to_site,
+                    assign_orphan_fiducials_to_parent,
+                    assign_orphan_elements_to_level::<DoorMarker>,
+                    assign_orphan_elements_to_level::<DrawingMarker>,
+                    assign_orphan_elements_to_level::<FloorMarker>,
+                    assign_orphan_elements_to_level::<LightKind>,
+                    assign_orphan_elements_to_level::<ModelMarker>,
+                    assign_orphan_elements_to_level::<PhysicalCameraProperties>,
+                    assign_orphan_elements_to_level::<WallMarker>,
+                    add_category_to_graphs,
+                    add_tags_to_lift,
+                    add_material_for_display_colors,
+                    clear_model_trashcan,
+                    add_physical_lights,
+                    ).run_if(in_state(SiteState::Display))
             )
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .before(TransformSystem::TransformPropagate)
-                    .after(VisibilitySystems::VisibilityPropagate)
-                    .with_system(update_anchor_transforms)
-                    .with_system(add_door_visuals)
-                    .with_system(update_changed_door)
-                    .with_system(update_door_for_moved_anchors)
-                    .with_system(add_floor_visuals)
-                    .with_system(update_floors)
-                    .with_system(update_floors_for_moved_anchors)
-                    .with_system(update_floors)
-                    .with_system(update_floor_visibility)
-                    .with_system(update_drawing_visibility)
-                    .with_system(add_lane_visuals)
-                    .with_system(add_location_visuals)
-                    .with_system(add_fiducial_visuals)
-                    .with_system(add_constraint_visuals)
-                    .with_system(update_level_visibility)
-                    .with_system(update_changed_lane)
-                    .with_system(update_lane_for_moved_anchor)
-                    .with_system(remove_association_for_deleted_graphs)
-                    .with_system(add_unused_fiducial_tracker)
-                    .with_system(update_fiducial_usage_tracker)
-                    .with_system(
-                        update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
-                    )
-                    .with_system(
-                        update_visibility_for_locations
-                            .after(remove_association_for_deleted_graphs),
-                    )
-                    .with_system(update_changed_location)
-                    .with_system(update_location_for_moved_anchors)
-                    .with_system(update_location_for_changed_location_tags)
-                    .with_system(update_changed_fiducial)
-                    .with_system(update_fiducial_for_moved_anchors)
-                    .with_system(handle_consider_associated_graph)
-                    .with_system(handle_consider_location_tag)
-                    .with_system(update_lift_for_moved_anchors)
-                    .with_system(update_lift_door_availability)
-                    .with_system(update_physical_lights)
-                    .with_system(toggle_physical_lights)
-                    .with_system(add_measurement_visuals)
-                    .with_system(update_changed_measurement)
-                    .with_system(update_measurement_for_moved_anchors)
-                    .with_system(handle_model_loaded_events)
-                    .with_system(update_constraint_for_moved_anchors)
-                    .with_system(update_constraint_for_changed_labels)
-                    .with_system(update_changed_constraint)
-                    .with_system(update_model_scenes)
-                    .with_system(update_affiliations)
-                    .with_system(update_members_of_groups.after(update_affiliations))
-                    .with_system(handle_new_sdf_roots)
-                    .with_system(update_model_scales)
-                    .with_system(make_models_selectable)
-                    .with_system(propagate_model_render_layers)
-                    .with_system(handle_new_mesh_primitives)
-                    .with_system(add_drawing_visuals)
-                    .with_system(handle_loaded_drawing)
-                    .with_system(update_drawing_rank)
-                    .with_system(add_physical_camera_visuals)
-                    .with_system(add_wall_visual)
-                    .with_system(handle_update_fuel_cache_requests)
-                    .with_system(read_update_fuel_cache_results)
-                    .with_system(reload_failed_models_with_new_api_key)
-                    .with_system(update_walls_for_moved_anchors)
-                    .with_system(update_walls)
-                    .with_system(update_transforms_for_changed_poses)
-                    .with_system(align_site_drawings)
-                    .with_system(export_lights),
+            .add_systems(
+                SiteUpdateSet::BetweenVisibilityAndTransform, (
+                    update_anchor_transforms,
+                    add_door_visuals,
+                    update_changed_door,
+                    update_door_for_moved_anchors,
+                    add_floor_visuals,
+                    update_floors,
+                    update_floors_for_moved_anchors,
+                    update_floors,
+                    update_floor_visibility,
+                    update_drawing_visibility,
+                    add_lane_visuals,
+                    add_location_visuals,
+                    add_fiducial_visuals,
+                    add_constraint_visuals,
+                    update_level_visibility,
+                    update_changed_lane,
+                    update_lane_for_moved_anchor,
+                    remove_association_for_deleted_graphs,
+                    add_unused_fiducial_tracker,
+                    update_fiducial_usage_tracker,
+                    update_visibility_for_lanes.after(remove_association_for_deleted_graphs),
+                    update_visibility_for_locations.after(remove_association_for_deleted_graphs),
+                    update_changed_location,
+                    update_location_for_moved_anchors,
+                    update_location_for_changed_location_tags,
+                    update_changed_fiducial,
+                    update_fiducial_for_moved_anchors,
+                    handle_consider_associated_graph,
+                    handle_consider_location_tag,
+                    update_lift_for_moved_anchors,
+                    update_lift_door_availability,
+                    update_physical_lights,
+                    toggle_physical_lights,
+                    add_measurement_visuals,
+                    update_changed_measurement,
+                    update_measurement_for_moved_anchors,
+                    handle_model_loaded_events,
+                    update_constraint_for_moved_anchors,
+                    update_constraint_for_changed_labels,
+                    update_changed_constraint,
+                    update_model_scenes,
+                    update_affiliations,
+                    update_members_of_groups.after(update_affiliations),
+                    handle_new_sdf_roots,
+                    update_model_scales,
+                    make_models_selectable,
+                    propagate_model_render_layers,
+                    handle_new_mesh_primitives,
+                    add_drawing_visuals,
+                    handle_loaded_drawing,
+                    update_drawing_rank,
+                    add_physical_camera_visuals,
+                    add_wall_visual,
+                    handle_update_fuel_cache_requests,
+                    read_update_fuel_cache_results,
+                    reload_failed_models_with_new_api_key,
+                    update_walls_for_moved_anchors,
+                    update_walls,
+                    update_transforms_for_changed_poses,
+                    align_site_drawings,
+                    export_lights,
+                    ).run_if(in_state(SiteState::Display))
             );
     }
 }

@@ -97,13 +97,15 @@ pub struct DeletionPlugin;
 
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_stage_after(
-            CoreStage::First,
-            SiteUpdateStage::Deletion,
-            SystemStage::parallel(),
-        )
+        app.configure_sets(
+                (
+                    FirstFlush,
+                    SiteUpdateSet::Deletion,
+                    SiteUpdateSet::DeletionFlush,
+                ).chain()
+            ).add_systems(SiteUpdateSet::DeletionFlush, apply_system_buffers)
         .add_event::<Delete>()
-        .add_system_to_stage(SiteUpdateStage::Deletion, handle_deletion_requests);
+        .add_systems(SiteUpdateSet::Deletion, handle_deletion_requests);
     }
 }
 

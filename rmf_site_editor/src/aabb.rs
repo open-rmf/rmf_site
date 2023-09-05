@@ -127,10 +127,10 @@ pub struct AabbUpdatePlugin;
 impl Plugin for AabbUpdatePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<EntityMeshMap>()
-            .add_system_to_stage(
-                CoreStage::PostUpdate,
+            .add_systems(
+                PostUpdate,
                 register_bounds.after(VisibilitySystems::CalculateBounds),
             )
-            .add_system_to_stage(CoreStage::PostUpdate, update_bounds);
+            .add_systems(PostUpdate, update_bounds);
     }
 }

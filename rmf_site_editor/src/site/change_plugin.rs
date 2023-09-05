@@ -64,7 +64,7 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
         // TODO(luca) this is duplicated, refactor app states to avoid?
         app.add_event::<Change<T>>()
             .add_system_set_to_stage(
-                CoreStage::PreUpdate,
+                PreUpdate,
                 SystemSet::on_update(SiteState::Display)
                     .label(SiteUpdateLabel::ProcessChanges)
                     .with_system(update_changed_values::<T>),

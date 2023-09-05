@@ -96,38 +96,37 @@ impl Plugin for WorkcellEditorPlugin {
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
-            .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
-            .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(add_wireframe_to_meshes)
-                    .with_system(update_constraint_dependents)
-                    .with_system(handle_model_loaded_events)
-                    .with_system(update_model_scenes)
-                    .with_system(update_model_scales)
-                    .with_system(update_model_tentative_formats)
-                    .with_system(propagate_model_render_layers)
-                    .with_system(make_models_selectable)
-                    .with_system(handle_update_fuel_cache_requests)
-                    .with_system(read_update_fuel_cache_results)
-                    .with_system(reload_failed_models_with_new_api_key)
-                    .with_system(handle_workcell_keyboard_input)
-                    .with_system(handle_new_mesh_primitives)
-                    .with_system(change_workcell.before(load_workcell))
-                    .with_system(handle_new_sdf_roots)
-                    .with_system(handle_new_urdf_roots),
+            .add_systems(OnEnter(AppState::WorkcellEditor), spawn_grid)
+            .add_systems(OnExit(AppState::WorkcellEditor), delete_grid)
+            .add_systems(
+                Update, (
+                    add_wireframe_to_meshes,
+                    update_constraint_dependents,
+                    handle_model_loaded_events,
+                    update_model_scenes,
+                    update_model_scales,
+                    update_model_tentative_formats,
+                    propagate_model_render_layers,
+                    make_models_selectable,
+                    handle_update_fuel_cache_requests,
+                    read_update_fuel_cache_results,
+                    reload_failed_models_with_new_api_key,
+                    handle_workcell_keyboard_input,
+                    handle_new_mesh_primitives,
+                    change_workcell.before(load_workcell),
+                    handle_new_sdf_roots,
+                    handle_new_urdf_roots,
+                    ).run_if(in_state(AppState::WorkcellEditor))
             )
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(AppState::WorkcellEditor).with_system(clear_model_trashcan),
+            .add_systems(
+                PreUpdate,
+                clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
             .add_system(load_workcell)
             .add_system(save_workcell)
             .add_system(add_workcell_visualization)
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
-                    .before(TransformSystem::TransformPropagate)
-                    .after(VisibilitySystems::VisibilityPropagate)
                     .with_system(update_anchor_transforms)
                     .with_system(
                         add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
