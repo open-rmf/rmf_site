@@ -358,7 +358,7 @@ pub fn load_site(
     mut commands: Commands,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
-    mut site_display_state: ResMut<State<SiteState>>,
+    mut site_display_state: ResMut<NextState<SiteState>>,
 ) {
     for cmd in load_sites.iter() {
         let site = match generate_site_entities(&mut commands, &cmd.site) {
@@ -379,12 +379,7 @@ pub fn load_site(
 
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite { site, level: None });
-
-            if *site_display_state.current() == SiteState::Off {
-                if let Err(err) = site_display_state.overwrite_set(SiteState::Display) {
-                    error!("Failed to turn the site display on: {err}");
-                }
-            }
+            site_display_state.set(SiteState::Display);
         }
     }
 }

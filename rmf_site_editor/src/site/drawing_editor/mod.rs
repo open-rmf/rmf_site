@@ -81,7 +81,7 @@ fn switch_edit_drawing_mode(
     mut finish: EventReader<FinishEditDrawing>,
     mut current: ResMut<CurrentEditDrawing>,
     mut workspace_visibility: Query<&mut Visibility, With<WorkspaceMarker>>,
-    mut app_state: ResMut<State<AppState>>,
+    mut app_state: ResMut<NextState<AppState>>,
     mut local_tf: Query<&mut Transform>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     global_tf: Query<&GlobalTransform>,
@@ -141,9 +141,7 @@ fn switch_edit_drawing_mode(
                 error!("Cannot change transform of drawing editor view");
             }
 
-            if let Some(err) = app_state.overwrite_set(AppState::SiteDrawingEditor).err() {
-                error!("Unable to switch to drawing editor mode: {err:?}");
-            }
+            app_state.set(AppState::SiteDrawingEditor);
 
             for mut v in &mut workspace_visibility {
                 v = Visibility::Hidden;
@@ -177,22 +175,16 @@ fn switch_edit_drawing_mode(
             }
 
             if is_site.contains(w) {
-                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
-                    error!("Failed to switch back to site editing mode: {err:?}");
-                }
+                app_state.set(AppState::SiteEditor);
             } else if is_workcell.contains(w) {
-                if let Some(err) = app_state.overwrite_set(AppState::WorkcellEditor).err() {
-                    error!("Failed to switch back to workcell editing mode: {err:?}");
-                }
+                app_state.set(AppState::WorkcellEditor);
             } else {
                 // This logic can probably be improved with an editor mode stack
                 error!(
                     "Unable to identify the type for the current workspace \
                     {w:?}, so we will default to site editing mode",
                 );
-                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
-                    error!("Failed to switch back to site editing mode: {err:?}");
-                }
+                app_state.set(AppState::SiteEditor);
             }
         }
     }

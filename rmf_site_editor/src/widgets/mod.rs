@@ -275,7 +275,8 @@ pub struct AppEvents<'w, 's> {
     pub file_events: FileEvents<'w>,
     pub layers: LayerEvents<'w>,
     pub new_model: NewModelParams<'w>,
-    pub app_state: ResMut<'w, State<AppState>>,
+    pub app_state: Res<'w, State<AppState>>,
+    pub next_app_state: ResMut<'w, NextState<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w>,
     pub align_site: EventWriter<'w, AlignSiteDrawings>,
 }
@@ -356,11 +357,7 @@ fn site_ui_layout(
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
                         if ui.add(Button::new("Building preview")).clicked() {
-                            if let Err(err) =
-                                events.app_state.overwrite_set(AppState::SiteVisualizer)
-                            {
-                                error!("Failed to switch to full site visualization: {err}");
-                            }
+                            events.next_app_state.set(AppState::SiteVisualizer);
                         }
                     });
                 });
@@ -537,9 +534,7 @@ fn site_visualizer_ui_layout(
                             [18., 18.],
                             "Return to site editor"
                         )).clicked() {
-                            if let Err(err) = events.app_state.overwrite_set(AppState::SiteEditor) {
-                                error!("Failed to return to site editor: {err}");
-                            }
+                            events.next_app_state.set(AppState::SiteEditor);
                         }
                     });
                 });

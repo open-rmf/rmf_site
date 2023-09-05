@@ -143,7 +143,7 @@ pub fn load_workcell(
     mut commands: Commands,
     mut load_workcells: EventReader<LoadWorkcell>,
     mut change_current_workcell: EventWriter<ChangeCurrentWorkcell>,
-    mut site_display_state: ResMut<State<SiteState>>,
+    mut site_display_state: ResMut<NextState<SiteState>>,
 ) {
     for cmd in load_workcells.iter() {
         info!("Loading workcell");
@@ -154,13 +154,7 @@ pub fn load_workcell(
 
         if cmd.focus {
             change_current_workcell.send(ChangeCurrentWorkcell { root });
-
-            // TODO(luca) get rid of SiteState
-            if *site_display_state.current() == SiteState::Display {
-                if let Err(err) = site_display_state.overwrite_set(SiteState::Off) {
-                    error!("Failed to turn the site display off: {err}");
-                }
-            }
+            site_display_state.set(SiteState::Off);
         }
     }
 }

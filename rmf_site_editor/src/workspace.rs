@@ -127,10 +127,12 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<LoadWorkspaceChannels>()
-            .add_system(dispatch_new_workspace_events)
-            .add_system(workspace_file_load_complete)
-            .add_system(sync_workspace_visibility)
-            .add_system(dispatch_load_workspace_events);
+            .add_systems(Update, (
+                dispatch_new_workspace_events,
+                workspace_file_load_complete,
+                sync_workspace_visibility,
+                dispatch_load_workspace_events,
+            ));
     }
 }
 
@@ -141,7 +143,7 @@ pub fn dispatch_new_workspace_events(
     mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     if let Some(_cmd) = new_workspace.iter().last() {
-        match state.current() {
+        match state.get() {
             AppState::MainMenu => {
                 error!("Sent generic change workspace while in main menu");
             }
@@ -169,8 +171,8 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut app_state: ResMut<State<AppState>>,
-    mut interaction_state: ResMut<State<InteractionState>>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
@@ -229,8 +231,8 @@ pub fn dispatch_load_workspace_events(
 fn handle_workspace_data(
     file: Option<PathBuf>,
     workspace_data: &WorkspaceData,
-    app_state: &mut ResMut<State<AppState>>,
-    interaction_state: &mut ResMut<State<InteractionState>>,
+    app_state: &mut ResMut<NextState<AppState>>,
+    interaction_state: &mut ResMut<NextState<InteractionState>>,
     load_site: &mut EventWriter<LoadSite>,
     load_workcell: &mut EventWriter<LoadWorkcell>,
 ) {
@@ -242,19 +244,13 @@ fn handle_workspace_data(
                     match building.to_site() {
                         Ok(site) => {
                             // Switch state
-                            if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
-                                error!("Failed to open the site edit mode: {err}");
-                            }
+                            app_state.set(AppState::SiteEditor);
                             load_site.send(LoadSite {
                                 site,
                                 focus: true,
                                 default_file: file,
                             });
-                            if let Err(err) =
-                                interaction_state.overwrite_set(InteractionState::Enable)
-                            {
-                                error!("Failed to turn on interaction: {err}");
-                            }
+                            interaction_state.set(InteractionState::Enable);
                         }
                         Err(err) => {
                             error!("Failed converting to site {:?}", err);
@@ -271,17 +267,13 @@ fn handle_workspace_data(
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
-                    if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
-                        error!("Failed to open the site edit mode: {err}");
-                    }
+                    app_state.set(AppState::SiteEditor);
                     load_site.send(LoadSite {
                         site,
                         focus: true,
                         default_file: file,
                     });
-                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
-                        error!("Failed to turn on interaction: {err}");
-                    }
+                    interaction_state.set(InteractionState::Enable);
                 }
                 Err(err) => {
                     error!("Failed loading site {:?}", err);
@@ -293,17 +285,13 @@ fn handle_workspace_data(
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
-                    if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
-                        error!("Failed to open the workcell edit mode: {err}");
-                    }
+                    app_state.set(AppState::WorkcellEditor);
                     load_workcell.send(LoadWorkcell {
                         workcell,
                         focus: true,
                         default_file: file,
                     });
-                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
-                        error!("Failed to turn on interaction: {err}");
-                    }
+                    interaction_state.set(InteractionState::Enable);
                 }
                 Err(err) => {
                     error!("Failed loading workcell {:?}", err);
@@ -315,8 +303,8 @@ fn handle_workspace_data(
 
 /// Handles the file opening events
 fn workspace_file_load_complete(
-    mut app_state: ResMut<State<AppState>>,
-    mut interaction_state: ResMut<State<InteractionState>>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
