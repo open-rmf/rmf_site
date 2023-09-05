@@ -34,7 +34,7 @@ impl FromWorld for WireframeMenu {
     fn from_world(world: &mut World) -> Self {
         // Tools menu
         let toggle_wireframe = world
-            .spawn(MenuItem::CheckBox("View wireframe".to_string(), false))
+            .spawn(MenuItem::CheckBox("Wireframe".to_string(), false))
             .id();
 
         let view_header = world.resource::<ViewMenu>().get();
