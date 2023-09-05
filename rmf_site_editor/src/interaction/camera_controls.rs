@@ -242,12 +242,12 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(priority, layer)| {
+        .map(|(order, layer)| {
             world
                 .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
                     camera: Camera {
-                        priority,
+                        order,
                         ..default()
                     },
                     camera_3d: Camera3d {
@@ -294,7 +294,7 @@ impl FromWorld for CameraControls {
             .id();
 
         let ortho_projection = OrthographicProjection {
-            window_origin: WindowOrigin::Center,
+            viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::FixedVertical(1.0),
             scale: 10.0,
             ..default()
@@ -305,12 +305,12 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(priority, layer)| {
+        .map(|(order, layer)| {
             world
                 .spawn(Camera3dBundle {
                     camera: Camera {
                         is_active: false,
-                        priority,
+                        order,
                         ..default()
                     },
                     camera_3d: Camera3d {

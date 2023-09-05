@@ -30,9 +30,6 @@ pub use save::*;
 pub mod workcell;
 pub use workcell::*;
 
-pub mod urdf;
-pub use urdf::*;
-
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
@@ -86,10 +83,6 @@ fn add_wireframe_to_meshes(
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
-            .insert_resource(WgpuSettings {
-                features: WgpuFeatures::POLYGON_MODE_LINE,
-                ..default()
-            })
             .add_plugin(WireframePlugin)
             .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
             .add_plugin(RapierDebugRenderPlugin::default())
@@ -115,7 +108,6 @@ impl Plugin for WorkcellEditorPlugin {
                     handle_new_mesh_primitives,
                     change_workcell.before(load_workcell),
                     handle_new_sdf_roots,
-                    handle_new_urdf_roots,
                     ).run_if(in_state(AppState::WorkcellEditor))
             )
             .add_systems(

@@ -149,7 +149,7 @@ impl Plugin for SiteEditor {
                     .build()
                     .disable::<LogPlugin>()
                     .set(WindowPlugin {
-                        priary_window: Some(Window {
+                        primary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
                             canvas: Some(String::from("#rmf_site_editor_canvas")),
                             ..default()
@@ -163,6 +163,13 @@ impl Plugin for SiteEditor {
                             address_mode_w: AddressMode::Repeat,
                             ..Default::default()
                         },
+                    })
+                    .set(RenderPlugin {
+                        wgpu_settings: WgpuSettings {
+                            features: WgpuFeatures::POLYGON_MODE_LINE,
+                            ..default()
+                        },
+                        ..default()
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             )

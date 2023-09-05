@@ -51,6 +51,7 @@ impl FromWorld for ModelPreviewCamera {
                 usage: TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_DST
                     | TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
             },
             ..default()
         };

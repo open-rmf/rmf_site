@@ -111,6 +111,7 @@ pub enum InteractionUpdateSet {
     CommandFlush,
     /// This set happens after the AddVisuals set has flushed
     ProcessVisuals,
+    // TODO(luca) should we have a command flush after process visuals?
 }
 
 impl Plugin for InteractionPlugin {
@@ -124,7 +125,7 @@ impl Plugin for InteractionPlugin {
                     InteractionUpdateSet::CommandFlush,
                     InteractionUpdateSet::ProcessVisuals,
                 ).chain()
-            ).add_systems(InteractionUpdateSet::CommandFlush, apply_deferred)
+            ).add_systems(Update, apply_deferred.in_set(InteractionUpdateSet::CommandFlush))
             /*
             .add_stage_after(
                 SiteUpdateStage::AssignOrphans,
@@ -225,7 +226,7 @@ impl Plugin for InteractionPlugin {
                     handle_preview_window_close,
             ).run_if(in_state(InteractionState::Enable)))
             .add_systems(
-                InteractionUpdateSet::AddVisuals, (
+                Update, (
                     add_anchor_visual_cues,
                     remove_interaction_for_subordinate_anchors,
                     add_lane_visual_cues,
@@ -237,10 +238,10 @@ impl Plugin for InteractionPlugin {
                     add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
-            ).run_if(in_state(InteractionState::Enable)))
+            ).run_if(in_state(InteractionState::Enable)).in_set(InteractionUpdateSet::AddVisuals))
             .add_systems(
-                InteractionUpdateSet::ProcessVisuals,
-                propagate_visual_cues.run_if(in_state(InteractionState::Enable))
+                Update,
+                propagate_visual_cues.run_if(in_state(InteractionState::Enable)).in_set(InteractionUpdateSet::ProcessVisuals)
             )
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
             .add_systems(
