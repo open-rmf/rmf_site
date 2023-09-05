@@ -20,7 +20,7 @@ use crate::{
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
-        SiteUpdateStage,
+        SiteUpdateSet,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -99,11 +99,11 @@ impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
                 (
-                    FirstFlush,
+                    First,
                     SiteUpdateSet::Deletion,
                     SiteUpdateSet::DeletionFlush,
                 ).chain()
-            ).add_systems(SiteUpdateSet::DeletionFlush, apply_system_buffers)
+            ).add_systems(SiteUpdateSet::DeletionFlush, apply_deferred)
         .add_event::<Delete>()
         .add_systems(SiteUpdateSet::Deletion, handle_deletion_requests);
     }

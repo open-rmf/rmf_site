@@ -100,8 +100,8 @@ impl Cursor {
             } else {
                 Visibility::Invisible
             };
-            if new_visible != visible {
-                new_visible = visible;
+            if new_visible != v {
+                v = new_visible;
             }
         }
     }

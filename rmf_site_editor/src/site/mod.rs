@@ -161,11 +161,12 @@ impl Plugin for SitePlugin {
         app.add_state::<SiteState>()
             .configure_sets(
                 (
-                    UpdateFlush,
+                    // TODO(luca) make sure Update here means UpdateFlush
+                    Update,
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
                 ).chain()
-            ).add_systems(SiteUpdateSet::AssignOrphansFlush, apply_system_buffers)
+            ).add_systems(SiteUpdateSet::AssignOrphansFlush, apply_deferred)
             .configure_sets(
                 (
                     VisibilitySystems::VisibilityPropagate,
@@ -174,7 +175,7 @@ impl Plugin for SitePlugin {
                     SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                     TransformSystem::TransformPropagate,
                 ).chain()
-            ).add_systems(SiteUpdateSet::BetweenVisibilityAndTransformFlush, apply_system_buffers)
+            ).add_systems(SiteUpdateSet::BetweenVisibilityAndTransformFlush, apply_deferred)
             /*
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)

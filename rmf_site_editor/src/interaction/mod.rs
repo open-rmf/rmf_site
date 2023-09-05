@@ -18,7 +18,7 @@
 use crate::site::{
     update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-    ModelMarker, SiteUpdateStage, VisualMeshMarker, WallMarker,
+    ModelMarker, SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
 
 pub mod anchor;
@@ -123,7 +123,7 @@ impl Plugin for InteractionPlugin {
                     InteractionUpdateSet::CommandFlush,
                     InteractionUpdateSet::ProcessVisuals,
                 ).chain()
-            ).add_systems(InteractionUpdateSet::CommandFlush, apply_system_buffer)
+            ).add_systems(InteractionUpdateSet::CommandFlush, apply_deferred)
             /*
             .add_stage_after(
                 SiteUpdateStage::AssignOrphans,
