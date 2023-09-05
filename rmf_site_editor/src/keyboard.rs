@@ -105,7 +105,7 @@ fn handle_keyboard_input(
     // Ctrl keybindings
     if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
         if keyboard_input.just_pressed(KeyCode::S) {
-            if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
+            if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
                 save_workspace.send(SaveWorkspace::new().to_dialog());
             } else {
                 save_workspace.send(SaveWorkspace::new().to_default_file());

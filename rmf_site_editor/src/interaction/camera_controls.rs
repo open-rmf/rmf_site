@@ -404,7 +404,7 @@ fn camera_controls(
     }
 
     let is_shifting =
-        input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
+        input_keyboard.pressed(KeyCode::ShiftLeft) || input_keyboard.pressed(KeyCode::ShiftRight);
     let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
 
     let is_orbiting = input_mouse.pressed(MouseButton::Middle)
