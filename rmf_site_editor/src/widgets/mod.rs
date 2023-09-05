@@ -35,7 +35,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Button, CollapsingHeader},
-    EguiContext,
+    EguiContexts,
 };
 use rmf_site_format::*;
 
@@ -281,7 +281,7 @@ pub struct AppEvents<'w, 's> {
 }
 
 fn site_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
@@ -413,7 +413,7 @@ fn site_ui_layout(
 }
 
 fn site_drawing_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     create_params: CreateParams,
@@ -497,7 +497,7 @@ fn site_drawing_ui_layout(
 }
 
 fn site_visualizer_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     mut events: AppEvents,
     levels: LevelParams,
@@ -583,7 +583,7 @@ fn site_visualizer_ui_layout(
 }
 
 fn workcell_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     create_params: CreateParams,
@@ -662,7 +662,7 @@ fn workcell_ui_layout(
     }
 }
 
-fn init_ui_style(mut egui_context: ResMut<EguiContext>) {
+fn init_ui_style(mut egui_context: EguiContexts) {
     // I think the default egui dark mode text color is too dim, so this changes
     // it to a brighter white.
     let mut visuals = egui::Visuals::dark();

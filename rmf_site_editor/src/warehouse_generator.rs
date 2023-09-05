@@ -42,7 +42,7 @@ pub struct MaterialMap {
 }
 
 fn warehouse_ui(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut ui_data: ResMut<UiData>,
     mut warehouse: ResMut<Warehouse>,
 ) {

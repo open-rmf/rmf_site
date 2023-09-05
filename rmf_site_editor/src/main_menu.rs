@@ -18,7 +18,7 @@
 use super::demo_world::*;
 use crate::{AppState, LoadWorkspace, WorkspaceData};
 use bevy::{app::AppExit, prelude::*, tasks::Task};
-use bevy_egui::{egui, EguiContext};
+use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
 
 #[derive(Resource)]
@@ -39,7 +39,7 @@ impl Autoload {
 }
 
 fn egui_ui(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut _exit: EventWriter<AppExit>,
     mut _load_workspace: EventWriter<LoadWorkspace>,
     mut _app_state: ResMut<State<AppState>>,

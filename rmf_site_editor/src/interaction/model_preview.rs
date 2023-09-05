@@ -16,12 +16,12 @@
 */
 
 use crate::interaction::MODEL_PREVIEW_LAYER;
-use bevy::prelude::*;
+use bevy::{ecs::system::SystemState, prelude::*};
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 use bevy::render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers};
-use bevy_egui::{egui::TextureId, EguiContext};
+use bevy_egui::{egui::TextureId, EguiContexts};
 
 #[derive(Resource)]
 pub struct ModelPreviewCamera {
@@ -57,7 +57,8 @@ impl FromWorld for ModelPreviewCamera {
         preview_image.resize(image_size);
         let mut images = world.get_resource_mut::<Assets<Image>>().unwrap();
         let preview_image = images.add(preview_image);
-        let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
+        let system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut egui_context = system_state.get_mut(&mut world);
         // Attach the bevy image to the egui image
         let egui_handle = egui_context.add_image(preview_image.clone());
         let camera_entity = world

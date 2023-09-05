@@ -16,11 +16,11 @@
 */
 
 use bevy::prelude::*;
-use bevy_egui::EguiContext;
+use bevy_egui::EguiContexts;
 
 pub fn handle_workcell_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

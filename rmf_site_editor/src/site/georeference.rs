@@ -1,7 +1,7 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Slider},
-    EguiContext,
+    EguiContexts,
 };
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
@@ -35,7 +35,7 @@ fn set_reference(
     mut geo_events: EventReader<MenuEvent>,
     osm_menu: Res<OSMMenu>,
     current_ws: Res<CurrentWorkspace>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
@@ -191,7 +191,7 @@ pub fn handle_visibility_change(
 pub fn view_reference(
     mut geo_events: EventReader<MenuEvent>,
     osm_menu: Res<OSMMenu>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     current_ws: Res<CurrentWorkspace>,
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
@@ -245,7 +245,7 @@ fn settings(
     current_ws: Res<CurrentWorkspace>,
     osm_menu: Res<OSMMenu>,
     mut site_properties: Query<&mut GeographicComponent>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut settings_window: Local<SettingsWindow>,
 ) {
     for event in geo_events.iter() {

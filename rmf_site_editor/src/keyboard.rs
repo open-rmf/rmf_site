@@ -24,7 +24,7 @@ use crate::{
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::EguiContext;
+use bevy_egui::EguiContexts;
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
@@ -55,7 +55,7 @@ fn handle_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
