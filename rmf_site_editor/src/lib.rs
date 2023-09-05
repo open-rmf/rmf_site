@@ -56,6 +56,9 @@ pub mod site_asset_io;
 pub mod urdf_loader;
 use sdf_loader::*;
 
+pub mod wireframe;
+use wireframe::*;
+
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
@@ -222,6 +225,7 @@ impl Plugin for SiteEditor {
             .add_plugin(InteractionPlugin)
             .add_plugin(StandardUiLayout)
             .add_plugin(AnimationPlugin)
+            .add_plugin(SiteWireframePlugin)
             .add_plugin(OccupancyPlugin)
             .add_plugin(WorkspacePlugin)
             // Note order matters, issue and OSMView plugins must be initialized after the UI
