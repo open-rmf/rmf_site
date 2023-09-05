@@ -32,11 +32,11 @@ pub struct WireframeMenu {
 
 impl FromWorld for WireframeMenu {
     fn from_world(world: &mut World) -> Self {
-        // Tools menu
         let toggle_wireframe = world
             .spawn(MenuItem::CheckBox("Wireframe".to_string(), false))
             .id();
 
+        // View menu
         let view_header = world.resource::<ViewMenu>().get();
         world
             .entity_mut(view_header)
@@ -52,7 +52,6 @@ fn handle_wireframe_menu_events(
     mut menu_items: Query<&mut MenuItem>,
     wireframe_menu: Res<WireframeMenu>,
     meshes: Query<Entity, With<Handle<Mesh>>>,
-    parents: Query<&Parent>,
     children: Query<&Children>,
     models: Query<Entity, With<ModelMarker>>,
 ) {
