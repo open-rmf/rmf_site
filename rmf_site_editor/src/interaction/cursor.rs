@@ -18,7 +18,7 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, Pending, SiteAssets},
+    site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
@@ -37,6 +37,7 @@ pub struct Cursor {
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
     pub frame_placement: Entity,
+    pub trashcan: Entity,
     pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
@@ -104,10 +105,7 @@ impl Cursor {
 
     fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands
-                .entity(self.frame)
-                .remove_children(&[current_preview]);
-            commands.entity(current_preview).despawn_recursive();
+            commands.entity(current_preview).set_parent(self.trashcan);
         }
     }
 
@@ -248,6 +246,8 @@ impl FromWorld for Cursor {
             })
             .id();
 
+        let trashcan = world.spawn(Trashcan).id();
+
         Self {
             frame: cursor,
             halo,
@@ -255,6 +255,7 @@ impl FromWorld for Cursor {
             level_anchor_placement,
             site_anchor_placement,
             frame_placement,
+            trashcan,
             preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),
