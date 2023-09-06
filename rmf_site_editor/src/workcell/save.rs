@@ -259,11 +259,11 @@ pub fn generate_workcell(
             }
         };
 
-        workcell.inertials.insert(
+        workcell.inertias.insert(
             id.0,
             Parented {
                 parent,
-                bundle: Inertial {
+                bundle: Inertia {
                     center: pose.clone(),
                     mass: mass.clone(),
                     moment: moment.clone(),

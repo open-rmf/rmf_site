@@ -118,15 +118,15 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         id_to_entity.insert(id, e);
     }
 
-    for (id, parented_inertial) in &workcell.inertials {
+    for (id, parented_inertia) in &workcell.inertias {
         let e = commands
             .spawn(SpatialBundle::VISIBLE_IDENTITY)
-            .insert(parented_inertial.bundle.clone())
-            .insert(Category::Inertial)
+            .insert(parented_inertia.bundle.clone())
+            .insert(Category::Inertia)
             .insert(SiteID(*id))
             .id();
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
-            .entry(parented_inertial.parent)
+            .entry(parented_inertia.parent)
             .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);

@@ -101,7 +101,7 @@ pub struct Moment {
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
-pub struct Inertial {
+pub struct Inertia {
     pub center: Pose,
     pub mass: Mass,
     pub moment: Moment,
@@ -384,8 +384,8 @@ pub struct Workcell {
     pub visuals: BTreeMap<u32, Parented<u32, WorkcellModel>>,
     /// Collisions, key is their id, used for hierarchy
     pub collisions: BTreeMap<u32, Parented<u32, WorkcellModel>>,
-    /// Inertials, key is their id, used for hierarchy
-    pub inertials: BTreeMap<u32, Parented<u32, Inertial>>,
+    /// Inertias, key is their id, used for hierarchy
+    pub inertias: BTreeMap<u32, Parented<u32, Inertia>>,
     /// Joints, key is their id, used for hierarchy. They must have a frame as a parent and a frame
     /// as a child
     pub joints: BTreeMap<u32, Parented<u32, Joint>>,
@@ -476,14 +476,14 @@ impl Workcell {
         let mut frames = BTreeMap::new();
         let mut visuals = BTreeMap::new();
         let mut collisions = BTreeMap::new();
-        let mut inertials = BTreeMap::new();
+        let mut inertias = BTreeMap::new();
         let mut joints = BTreeMap::new();
         // Populate here
         for link in &urdf.links {
-            let inertial = Inertial::from(&link.inertial);
-            // Add a frame with the link's name, then the inertial data as a child
+            let inertia = Inertia::from(&link.inertial);
+            // Add a frame with the link's name, then the inertia data as a child
             let frame_id = cur_id.next().unwrap();
-            let inertial_id = cur_id.next().unwrap();
+            let inertia_id = cur_id.next().unwrap();
             frame_name_to_id.insert(link.name.clone(), frame_id);
             // Pose and parent will be overwritten by joints, if needed
             frames.insert(
@@ -498,11 +498,11 @@ impl Workcell {
                     },
                 },
             );
-            inertials.insert(
-                inertial_id,
+            inertias.insert(
+                inertia_id,
                 Parented {
                     parent: frame_id,
-                    bundle: inertial,
+                    bundle: inertia,
                 },
             );
             for visual in &link.visual {
@@ -590,7 +590,7 @@ impl Workcell {
             frames,
             visuals,
             collisions,
-            inertials,
+            inertias,
             joints,
         })
     }
@@ -669,10 +669,10 @@ impl Workcell {
         };
 
         let mut parent_to_inertials = HashMap::new();
-        for (_, inertial) in self.inertials.iter() {
-            let parent = inertial.parent;
-            let inertial = &inertial.bundle;
-            let inertial = urdf_rs::Inertial::from(inertial);
+        for (_, inertia) in self.inertias.iter() {
+            let parent = inertia.parent;
+            let inertia = &inertia.bundle;
+            let inertial = urdf_rs::Inertial::from(inertia);
             parent_to_inertials.insert(parent, inertial);
         }
 
@@ -821,7 +821,7 @@ impl From<&urdf_rs::Inertia> for Moment {
     }
 }
 
-impl From<&urdf_rs::Inertial> for Inertial {
+impl From<&urdf_rs::Inertial> for Inertia {
     fn from(inertial: &urdf_rs::Inertial) -> Self {
         Self {
             center: (&inertial.origin).into(),
@@ -831,20 +831,20 @@ impl From<&urdf_rs::Inertial> for Inertial {
     }
 }
 
-impl From<&Inertial> for urdf_rs::Inertial {
-    fn from(inertial: &Inertial) -> Self {
+impl From<&Inertia> for urdf_rs::Inertial {
+    fn from(inertia: &Inertia) -> Self {
         Self {
-            origin: inertial.center.into(),
+            origin: inertia.center.into(),
             mass: urdf_rs::Mass {
-                value: inertial.mass.0 as f64,
+                value: inertia.mass.0 as f64,
             },
             inertia: urdf_rs::Inertia {
-                ixx: inertial.moment.ixx as f64,
-                ixy: inertial.moment.ixy as f64,
-                ixz: inertial.moment.ixz as f64,
-                iyy: inertial.moment.iyy as f64,
-                iyz: inertial.moment.iyz as f64,
-                izz: inertial.moment.izz as f64,
+                ixx: inertia.moment.ixx as f64,
+                ixy: inertia.moment.ixy as f64,
+                ixz: inertia.moment.ixz as f64,
+                iyy: inertia.moment.iyy as f64,
+                iyz: inertia.moment.iyz as f64,
+                izz: inertia.moment.izz as f64,
             },
         }
     }
@@ -926,7 +926,7 @@ mod tests {
         }
     }
 
-    fn is_inertial_eq(i1: &Inertial, i2: &Inertial) -> bool {
+    fn is_inertia_eq(i1: &Inertia, i2: &Inertia) -> bool {
         is_pose_eq(&i1.origin, &i2.origin)
             && float_eq!(i1.mass.0, i2.mass.0, abs <= 1e6)
             && float_eq!(i1.moment.ixx, i2.moment.ixx, abs <= 1e6)
@@ -984,10 +984,10 @@ mod tests {
             right_leg_collision.bundle.geometry,
             Geometry::Primitive(PrimitiveShape::Box { .. })
         ));
-        // Test inertial parenthood and parsing
-        let (_, right_leg_inertial) = element_by_parent(&workcell.inertials, right_leg_id).unwrap();
-        assert_float_eq!(right_leg_inertial.bundle.mass.0, 10.0, abs <= 1e6);
-        let target_right_leg_inertial = Inertial {
+        // Test inertia parenthood and parsing
+        let (_, right_leg_inertia) = element_by_parent(&workcell.inertias, right_leg_id).unwrap();
+        assert_float_eq!(right_leg_inertia.bundle.mass.0, 10.0, abs <= 1e6);
+        let target_right_leg_inertia = Inertial {
             origin: Pose::default(),
             mass: Mass(10.0),
             moment: Moment {
@@ -999,9 +999,9 @@ mod tests {
                 izz: 1.0,
             },
         };
-        assert!(is_inertial_eq(
-            &right_leg_inertial.bundle,
-            &target_right_leg_inertial
+        assert!(is_inertia_eq(
+            &right_leg_inertia.bundle,
+            &target_right_leg_inertia
         ));
         // Test joint parenthood and parsing
         let (_, right_leg_joint) = element_by_parent(&workcell.joints, right_leg_id).unwrap();
@@ -1021,9 +1021,9 @@ mod tests {
             .iter()
             .find(|l| l.name == "right_leg")
             .unwrap();
-        assert!(is_inertial_eq(
-            &(&right_leg_link.inertial).into(),
-            &target_right_leg_inertial
+        assert!(is_inertia_eq(
+            &(&right_leg_link.inertia).into(),
+            &target_right_leg_inertia
         ));
         assert_eq!(right_leg_link.visual.len(), 1);
         assert_eq!(right_leg_link.collision.len(), 1);
