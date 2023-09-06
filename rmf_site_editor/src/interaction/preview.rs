@@ -49,12 +49,18 @@ fn create_camera_window(
     camera_name: &String,
     camera_properties: &PhysicalCameraProperties,
 ) -> Entity {
-    let window_id = commands.spawn(Window {
-        resolution: (camera_properties.width as f32, camera_properties.height as f32).into(),
-        present_mode: PresentMode::AutoNoVsync,
-        title: "Camera preview: ".to_string() + camera_name,
-        ..default()
-    }).id();
+    let window_id = commands
+        .spawn(Window {
+            resolution: (
+                camera_properties.width as f32,
+                camera_properties.height as f32,
+            )
+                .into(),
+            present_mode: PresentMode::AutoNoVsync,
+            title: "Camera preview: ".to_string() + camera_name,
+            ..default()
+        })
+        .id();
     // Now spawn the camera
     commands
         .entity(entity)
@@ -138,7 +144,11 @@ pub fn update_physical_camera_preview(
                         camera_properties.horizontal_fov.radians() / aspect_ratio;
                 }
             }
-            window.resolution = (camera_properties.width as f32, camera_properties.height as f32).into();
+            window.resolution = (
+                camera_properties.width as f32,
+                camera_properties.height as f32,
+            )
+                .into();
         }
     }
 }

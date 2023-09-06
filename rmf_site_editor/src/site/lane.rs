@@ -241,12 +241,11 @@ pub fn update_changed_lane(
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
         let new_visibility =
-            if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs)
-        {
-            Visibility::Inherited
-        } else {
-            Visibility::Hidden
-        };
+            if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs) {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         if *visibility != new_visibility {
             *visibility = new_visibility;
         }
@@ -327,9 +326,14 @@ pub fn update_visibility_for_lanes(
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let new_visibility =
-                if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs)
-            {
+            let new_visibility = if should_display_lane(
+                edge,
+                associated,
+                &parents,
+                &levels,
+                &current_level,
+                &graphs,
+            ) {
                 Visibility::Inherited
             } else {
                 Visibility::Hidden

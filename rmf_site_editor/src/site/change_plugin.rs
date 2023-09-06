@@ -65,11 +65,13 @@ impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
         app.add_event::<Change<T>>()
             .add_systems(
                 PreUpdate,
-                update_changed_values::<T>.run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::ProcessChanges)
+                update_changed_values::<T>
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::ProcessChanges),
             )
             .add_systems(
                 PreUpdate,
-                update_changed_values::<T>.run_if(in_state(AppState::WorkcellEditor))
+                update_changed_values::<T>.run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 }

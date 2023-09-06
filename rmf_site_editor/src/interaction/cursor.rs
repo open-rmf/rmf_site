@@ -21,7 +21,7 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{RaycastSource, Ray3d};
+use bevy_mod_raycast::{Ray3d, RaycastSource};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -366,7 +366,12 @@ pub fn update_cursor_transform(
                 }
             };
 
-            let (entity, intersection) = match raycast_sources.get_single().ok().map(|s| s.intersections().iter().last()).flatten() {
+            let (entity, intersection) = match raycast_sources
+                .get_single()
+                .ok()
+                .map(|s| s.intersections().iter().last())
+                .flatten()
+            {
                 Some((entity, intersection)) => (entity, intersection),
                 None => {
                     return;

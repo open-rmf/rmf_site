@@ -391,7 +391,11 @@ impl AssetIo for SiteAssetIo {
         self.default_io.is_dir(path)
     }
 
-    fn watch_path_for_changes(&self, to_watch: &Path, to_reload: Option<PathBuf>) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(
+        &self,
+        to_watch: &Path,
+        to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
         #[cfg(target_arch = "wasm32")]
         return Ok(());
 

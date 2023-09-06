@@ -161,15 +161,25 @@ impl Plugin for SitePlugin {
                 (
                     SiteUpdateSet::ProcessChanges,
                     SiteUpdateSet::ProcessChangesFlush,
-                ).chain()
-            ).add_systems(PreUpdate, apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush))
+                )
+                    .chain(),
+            )
+            .add_systems(
+                PreUpdate,
+                apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
+            )
             .configure_sets(
                 Update,
                 (
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
-                ).chain()
-            ).add_systems(Update, apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush))
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
+            )
             .configure_sets(
                 Update,
                 (
@@ -177,8 +187,13 @@ impl Plugin for SitePlugin {
                     SiteUpdateSet::BetweenVisibilityAndTransform,
                     SiteUpdateSet::BetweenVisibilityAndTransformFlush,
                     TransformSystem::TransformPropagate,
-                ).chain()
-            ).add_systems(Update, apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush))
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush),
+            )
             /*
             .add_state_to_stage(CoreStage::First, SiteState::Off)
             .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
@@ -257,7 +272,8 @@ impl Plugin for SitePlugin {
             .add_system(load_site)
             .add_system(import_nav_graph)
             .add_systems(
-                PreUpdate, (
+                PreUpdate,
+                (
                     update_lift_cabin,
                     update_lift_edge,
                     update_model_tentative_formats,
@@ -270,21 +286,24 @@ impl Plugin for SitePlugin {
                     check_for_close_unconnected_anchors,
                     fetch_image_for_texture,
                     detect_last_selected_texture::<FloorMarker>,
-                    apply_last_selected_texture::<FloorMarker>.after(detect_last_selected_texture::<FloorMarker>),
+                    apply_last_selected_texture::<FloorMarker>
+                        .after(detect_last_selected_texture::<FloorMarker>),
                     detect_last_selected_texture::<WallMarker>,
-                    apply_last_selected_texture::<WallMarker>.after(detect_last_selected_texture::<WallMarker>),
+                    apply_last_selected_texture::<WallMarker>
+                        .after(detect_last_selected_texture::<WallMarker>),
                     update_material_for_display_color,
-                    ).after(SiteUpdateSet::ProcessChangesFlush).run_if(in_state(SiteState::Display))
+                )
+                    .after(SiteUpdateSet::ProcessChangesFlush)
+                    .run_if(in_state(SiteState::Display)),
             )
             .add_systems(
-                Update, (
-                    save_site,
-                    save_nav_graphs,
-                    change_site.before(load_site),
-                ).run_if(in_state(SiteState::Display))
+                Update,
+                (save_site, save_nav_graphs, change_site.before(load_site))
+                    .run_if(in_state(SiteState::Display)),
             )
             .add_systems(
-                Update, (
+                Update,
+                (
                     assign_orphan_anchors_to_parent,
                     assign_orphan_levels_to_site,
                     assign_orphan_nav_elements_to_site,
@@ -301,10 +320,13 @@ impl Plugin for SitePlugin {
                     add_material_for_display_colors,
                     clear_model_trashcan,
                     add_physical_lights,
-                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::AssignOrphans)
+                )
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::AssignOrphans),
             )
             .add_systems(
-                Update, (
+                Update,
+                (
                     add_wall_visual,
                     handle_update_fuel_cache_requests,
                     read_update_fuel_cache_results,
@@ -315,9 +337,13 @@ impl Plugin for SitePlugin {
                     align_site_drawings,
                     clear_old_issues_on_new_validate_event,
                     export_lights,
-                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+                )
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+            )
             .add_systems(
-                Update, (
+                Update,
+                (
                     update_anchor_transforms,
                     add_door_visuals,
                     update_changed_door,
@@ -334,9 +360,13 @@ impl Plugin for SitePlugin {
                     update_level_visibility,
                     update_changed_lane,
                     update_lane_for_moved_anchor,
-                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+                )
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+            )
             .add_systems(
-                Update, (
+                Update,
+                (
                     remove_association_for_deleted_graphs,
                     add_unused_fiducial_tracker,
                     update_fiducial_usage_tracker,
@@ -353,9 +383,13 @@ impl Plugin for SitePlugin {
                     update_lift_door_availability,
                     update_physical_lights,
                     toggle_physical_lights,
-                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+                )
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
+            )
             .add_systems(
-                Update, (
+                Update,
+                (
                     add_measurement_visuals,
                     update_changed_measurement,
                     update_measurement_for_moved_anchors,
@@ -372,7 +406,9 @@ impl Plugin for SitePlugin {
                     handle_loaded_drawing,
                     update_drawing_rank,
                     add_physical_camera_visuals,
-                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform)
+                )
+                    .run_if(in_state(SiteState::Display))
+                    .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
             );
     }
 }

@@ -253,10 +253,12 @@ impl Plugin for DrawingEditorPlugin {
             .init_resource::<CurrentEditDrawing>()
             .add_systems(Update, switch_edit_drawing_mode)
             .add_systems(
-                Update, (
+                Update,
+                (
                     assign_drawing_parent_to_new_measurements,
                     make_drawing_default_selected,
-                ).run_if(in_state(AppState::SiteDrawingEditor))
+                )
+                    .run_if(in_state(AppState::SiteDrawingEditor)),
             );
     }
 }

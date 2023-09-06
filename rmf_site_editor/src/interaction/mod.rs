@@ -89,7 +89,7 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_mod_picking::{DefaultPickingPlugins, backend::prelude::PickSet};
+use bevy_mod_picking::{backend::prelude::PickSet, DefaultPickingPlugins};
 use bevy_mod_raycast::update_raycast;
 use bevy_polyline::PolylinePlugin;
 
@@ -128,8 +128,13 @@ impl Plugin for InteractionPlugin {
                     InteractionUpdateSet::AddVisuals,
                     InteractionUpdateSet::CommandFlush,
                     InteractionUpdateSet::ProcessVisuals,
-                ).chain()
-            ).add_systems(Update, apply_deferred.in_set(InteractionUpdateSet::CommandFlush))
+                )
+                    .chain(),
+            )
+            .add_systems(
+                Update,
+                apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
+            )
             /*
             .add_stage_after(
                 SiteUpdateStage::AssignOrphans,
@@ -192,7 +197,8 @@ impl Plugin for InteractionPlugin {
             .add_plugin(CameraControlsPlugin)
             .add_plugin(ModelPreviewPlugin)
             .add_systems(
-                PreUpdate, (
+                PreUpdate,
+                (
                     make_lift_doormat_gizmo,
                     update_doormats_for_level_change,
                     update_cursor_transform,
@@ -210,10 +216,13 @@ impl Plugin for InteractionPlugin {
                     update_anchor_cues_for_mode,
                     update_anchor_proximity_xray.after(update_cursor_transform),
                     remove_deleted_supports_from_visual_cues,
-            ).run_if(in_state(InteractionState::Enable)))
+                )
+                    .run_if(in_state(InteractionState::Enable)),
+            )
             // Split the above because of a compile error when the tuple is too large
             .add_systems(
-                PreUpdate, (
+                PreUpdate,
+                (
                     make_model_previews_not_selectable,
                     update_lane_visual_cues.after(maintain_selected_entities),
                     update_edge_visual_cues.after(maintain_selected_entities),
@@ -232,9 +241,12 @@ impl Plugin for InteractionPlugin {
                     update_physical_camera_preview,
                     dirty_changed_lifts,
                     handle_preview_window_close,
-            ).run_if(in_state(InteractionState::Enable)))
+                )
+                    .run_if(in_state(InteractionState::Enable)),
+            )
             .add_systems(
-                Update, (
+                Update,
+                (
                     add_anchor_visual_cues,
                     remove_interaction_for_subordinate_anchors,
                     add_lane_visual_cues,
@@ -246,26 +258,34 @@ impl Plugin for InteractionPlugin {
                     add_cursor_hover_visualization,
                     add_physical_light_visual_cues,
                     add_popups,
-            ).run_if(in_state(InteractionState::Enable)).in_set(InteractionUpdateSet::AddVisuals))
+                )
+                    .run_if(in_state(InteractionState::Enable))
+                    .in_set(InteractionUpdateSet::AddVisuals),
+            )
             .add_systems(
                 Update,
-                propagate_visual_cues.run_if(in_state(InteractionState::Enable)).in_set(InteractionUpdateSet::ProcessVisuals)
+                propagate_visual_cues
+                    .run_if(in_state(InteractionState::Enable))
+                    .in_set(InteractionUpdateSet::ProcessVisuals),
             )
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
             .add_systems(
-                PostUpdate, (
+                PostUpdate,
+                (
                     move_anchor.before(update_anchor_transforms),
                     move_pose,
                     make_gizmos_pickable,
-                    ).run_if(in_state(InteractionState::Enable))
+                )
+                    .run_if(in_state(InteractionState::Enable)),
             )
             .add_systems(
-                First, (
+                First,
+                (
                     update_picked.after(PickSet::PostFocus),
                     update_interaction_mode,
                     // TODO(luca) check in which stage to place this
                     update_raycast::<SiteRaycastSet>,
-                )
+                ),
             );
     }
 }

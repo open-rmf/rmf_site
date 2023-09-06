@@ -424,7 +424,7 @@ pub fn render_map_tiles(
             }
 
             if let Ok((camera, transform)) = cameras.get(cam_entity) {
-                if let Some(Rect {min, max}) = camera.logical_viewport_rect() {
+                if let Some(Rect { min, max }) = camera.logical_viewport_rect() {
                     let viewport_size = max - min;
 
                     let top_left_ray =
@@ -596,6 +596,13 @@ impl Plugin for OSMViewPlugin {
             .add_system(detect_new_geographic_component.label("update_menu"));
             */
             .add_systems(Update, (set_reference, view_reference, settings))
-            .add_systems(Update, (render_map_tiles, handle_visibility_change, detect_new_geographic_component));
+            .add_systems(
+                Update,
+                (
+                    render_map_tiles,
+                    handle_visibility_change,
+                    detect_new_geographic_component,
+                ),
+            );
     }
 }

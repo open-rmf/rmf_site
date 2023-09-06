@@ -92,7 +92,8 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(OnEnter(AppState::WorkcellEditor), spawn_grid)
             .add_systems(OnExit(AppState::WorkcellEditor), delete_grid)
             .add_systems(
-                Update, (
+                Update,
+                (
                     add_wireframe_to_meshes,
                     update_constraint_dependents,
                     handle_model_loaded_events,
@@ -108,20 +109,26 @@ impl Plugin for WorkcellEditorPlugin {
                     handle_new_mesh_primitives,
                     change_workcell.before(load_workcell),
                     handle_new_sdf_roots,
-                    ).run_if(in_state(AppState::WorkcellEditor))
+                )
+                    .run_if(in_state(AppState::WorkcellEditor)),
             )
             .add_systems(
                 PreUpdate,
                 clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
-            .add_systems(Update, (load_workcell, save_workcell, add_workcell_visualization))
+            .add_systems(
+                Update,
+                (load_workcell, save_workcell, add_workcell_visualization),
+            )
             // TODO(luca) restore doing this before transform propagation
             .add_systems(
-                Update, (
+                Update,
+                (
                     update_anchor_transforms,
                     add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
                     update_transforms_for_changed_poses,
-                ).run_if(in_state(AppState::WorkcellEditor))
+                )
+                    .run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 }

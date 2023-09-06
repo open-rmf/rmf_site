@@ -100,14 +100,15 @@ pub struct DeletionPlugin;
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
         app.configure_sets(
-                First,
-                (
-                    SiteUpdateSet::Deletion,
-                    SiteUpdateSet::DeletionFlush,
-                ).chain()
-            ).add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
+            First,
+            (SiteUpdateSet::Deletion, SiteUpdateSet::DeletionFlush).chain(),
+        )
+        .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
-        .add_systems(Update, handle_deletion_requests.in_set(SiteUpdateSet::Deletion));
+        .add_systems(
+            Update,
+            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
+        );
     }
 }
 

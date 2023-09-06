@@ -61,10 +61,12 @@ impl<T: Component + Clone + Debug> Plugin for CategoryVisibilityPlugin<T> {
             .insert_resource(CategoryVisibility::<T>::visible(self.visible))
             // TODO(luca) Check that this is at the right stage
             .add_systems(
-                Update, (
+                Update,
+                (
                     set_category_visibility::<T>,
                     set_category_visibility_for_new_entity::<T>,
-                ).run_if(in_state(InteractionState::Enable))
+                )
+                    .run_if(in_state(InteractionState::Enable)),
             );
     }
 }
@@ -77,7 +79,11 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     if let Some(visibility_event) = events.iter().last() {
         if visibility_event.0 != category_visibility.0 {
             for mut vis in &mut visibilities {
-                *vis = if visibility_event.0 {Visibility::Inherited} else {Visibility::Hidden};
+                *vis = if visibility_event.0 {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
             }
             category_visibility.0 = visibility_event.0;
         }
@@ -90,7 +96,11 @@ fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
     mut visibilities: Query<(Entity, Option<&mut Visibility>), Added<T>>,
 ) {
     for (e, mut vis) in &mut visibilities {
-        let visibility = if category_visibility.0 {Visibility::Inherited} else {Visibility::Hidden};
+        let visibility = if category_visibility.0 {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
         if let Some(mut vis) = vis {
             *vis = visibility;
         } else {

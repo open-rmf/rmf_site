@@ -34,15 +34,27 @@ pub struct LightBodies {
 impl LightBodies {
     fn switch(&self, kind: &LightKind, visibilities: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibilities.get_mut(self.point) {
-            *v = if kind.is_point() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_point() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.spot) {
-            *v = if kind.is_spot() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_spot() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.directional) {
-            *v = if kind.is_directional() {Visibility::Inherited} else {Visibility::Hidden};
+            *v = if kind.is_directional() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 }
@@ -67,7 +79,11 @@ pub fn add_physical_light_visual_cues(
 
         let point = commands
             .spawn(SpatialBundle {
-                visibility: if kind.is_point() {Visibility::Inherited} else {Visibility::Hidden},
+                visibility: if kind.is_point() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
                 ..default()
             })
             .with_children(|point| {
@@ -93,7 +109,11 @@ pub fn add_physical_light_visual_cues(
 
         let spot = commands
             .spawn(SpatialBundle {
-                visibility: if kind.is_spot() {Visibility::Inherited} else {Visibility::Hidden},
+                visibility: if kind.is_spot() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
                 ..default()
             })
             .with_children(|spot| {
@@ -117,7 +137,11 @@ pub fn add_physical_light_visual_cues(
 
         let directional = commands
             .spawn(SpatialBundle {
-                visibility: if kind.is_directional() {Visibility::Inherited} else {Visibility::Hidden},
+                visibility: if kind.is_directional() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
                 ..default()
             })
             .with_children(|dir| {

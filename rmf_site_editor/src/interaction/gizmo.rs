@@ -17,9 +17,9 @@
 
 use crate::interaction::*;
 use bevy::{math::Affine3A, prelude::*};
-use bevy_mod_picking::{prelude::{RaycastPickTarget}};
+use bevy_mod_picking::prelude::RaycastPickTarget;
 //use bevy_mod_picking::prelude::*;
-use bevy_mod_raycast::{RaycastSource, Ray3d};
+use bevy_mod_raycast::{Ray3d, RaycastSource};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -229,7 +229,9 @@ pub struct MoveTo {
 
 pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
     for e in &new_gizmos {
-        commands.entity(e).insert((PickableBundle::default(), RaycastPickTarget::default()));
+        commands
+            .entity(e)
+            .insert((PickableBundle::default(), RaycastPickTarget::default()));
     }
 }
 
@@ -293,7 +295,12 @@ pub fn update_gizmo_click_start(
             let Ok(source) = raycast_sources.get_single() else {
                 return;
             };
-            if let Some(intersection) = source.intersections().iter().last().map(|(_, i)| i.position()) {
+            if let Some(intersection) = source
+                .intersections()
+                .iter()
+                .last()
+                .map(|(_, i)| i.position())
+            {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
                     if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
                         selection_blocker.dragging = true;

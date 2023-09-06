@@ -246,10 +246,7 @@ impl FromWorld for CameraControls {
             world
                 .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
-                    camera: Camera {
-                        order,
-                        ..default()
-                    },
+                    camera: Camera { order, ..default() },
                     camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()

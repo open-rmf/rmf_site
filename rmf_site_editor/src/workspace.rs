@@ -127,12 +127,15 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<LoadWorkspaceChannels>()
-            .add_systems(Update, (
-                dispatch_new_workspace_events,
-                workspace_file_load_complete,
-                sync_workspace_visibility,
-                dispatch_load_workspace_events,
-            ));
+            .add_systems(
+                Update,
+                (
+                    dispatch_new_workspace_events,
+                    workspace_file_load_complete,
+                    sync_workspace_visibility,
+                    dispatch_load_workspace_events,
+                ),
+            );
     }
 }
 

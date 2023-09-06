@@ -114,15 +114,29 @@ impl Plugin for StandardUiLayout {
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
             .add_systems(OnEnter(AppState::MainMenu), init_ui_style)
-            .add_systems(Update, site_ui_layout.run_if(in_state(AppState::SiteEditor)))
-            .add_systems(Update, workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)))
-            .add_systems(Update, site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)))
-            .add_systems(Update, site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)))
             .add_systems(
-                PostUpdate, (
+                Update,
+                site_ui_layout.run_if(in_state(AppState::SiteEditor)),
+            )
+            .add_systems(
+                Update,
+                workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
+            )
+            .add_systems(
+                Update,
+                site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
+            )
+            .add_systems(
+                Update,
+                site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
+            )
+            .add_systems(
+                PostUpdate,
+                (
                     resolve_light_export_file,
                     resolve_nav_graph_import_export_files,
-                ).run_if(in_state(SiteState::Display))
+                )
+                    .run_if(in_state(SiteState::Display)),
             );
     }
 }

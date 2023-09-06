@@ -91,15 +91,13 @@ fn enable_interaction(mut interaction_state: ResMut<NextState<InteractionState>>
 
 impl Plugin for SiteVisualizerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(AppState::SiteVisualizer), (
-                show_all_levels,
-                disable_interaction,
-            )
+        app.add_systems(
+            OnEnter(AppState::SiteVisualizer),
+            (show_all_levels, disable_interaction),
         )
-        .add_systems(OnExit(AppState::SiteVisualizer), (
-                hide_all_non_current_levels,
-                enable_interaction,
-            )
+        .add_systems(
+            OnExit(AppState::SiteVisualizer),
+            (hide_all_non_current_levels, enable_interaction),
         )
         .add_systems(
             Update,

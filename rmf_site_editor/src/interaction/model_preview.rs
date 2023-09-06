@@ -16,11 +16,11 @@
 */
 
 use crate::interaction::MODEL_PREVIEW_LAYER;
-use bevy::{ecs::system::SystemState, prelude::*};
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
 use bevy::render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers};
+use bevy::{ecs::system::SystemState, prelude::*};
 use bevy_egui::{egui::TextureId, EguiContexts};
 
 #[derive(Resource)]

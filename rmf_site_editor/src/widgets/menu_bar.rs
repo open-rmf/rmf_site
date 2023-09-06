@@ -20,12 +20,10 @@ use crate::{
 };
 
 use bevy::prelude::{
-    App, Children, Component, Entity, Event, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
-    Without, World,
+    App, Children, Component, Entity, Event, EventWriter, FromWorld, Parent, Plugin, Query, Res,
+    Resource, Without, World,
 };
-use bevy_egui::{
-    egui::{self, Button, Context, Ui},
-};
+use bevy_egui::egui::{self, Button, Context, Ui};
 
 /// Adding this to an entity to an entity with the MenuItem component
 /// will grey out and disable a MenuItem.
