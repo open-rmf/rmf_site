@@ -90,7 +90,7 @@ pub struct Mass(f32);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct Inertia {
+pub struct Moment {
     pub ixx: f32,
     pub ixy: f32,
     pub ixz: f32,
@@ -104,7 +104,7 @@ pub struct Inertia {
 pub struct Inertial {
     pub center: Pose,
     pub mass: Mass,
-    pub inertia: Inertia,
+    pub moment: Moment,
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
@@ -808,7 +808,7 @@ impl From<&urdf_rs::Geometry> for Geometry {
     }
 }
 
-impl From<&urdf_rs::Inertia> for Inertia {
+impl From<&urdf_rs::Inertia> for Moment {
     fn from(inertia: &urdf_rs::Inertia) -> Self {
         Self {
             ixx: inertia.ixx as f32,
@@ -826,7 +826,7 @@ impl From<&urdf_rs::Inertial> for Inertial {
         Self {
             center: (&inertial.origin).into(),
             mass: Mass(inertial.mass.value as f32),
-            inertia: (&inertial.inertia).into(),
+            moment: (&inertial.inertia).into(),
         }
     }
 }
@@ -839,12 +839,12 @@ impl From<&Inertial> for urdf_rs::Inertial {
                 value: inertial.mass.0 as f64,
             },
             inertia: urdf_rs::Inertia {
-                ixx: inertial.inertia.ixx as f64,
-                ixy: inertial.inertia.ixy as f64,
-                ixz: inertial.inertia.ixz as f64,
-                iyy: inertial.inertia.iyy as f64,
-                iyz: inertial.inertia.iyz as f64,
-                izz: inertial.inertia.izz as f64,
+                ixx: inertial.moment.ixx as f64,
+                ixy: inertial.moment.ixy as f64,
+                ixz: inertial.moment.ixz as f64,
+                iyy: inertial.moment.iyy as f64,
+                iyz: inertial.moment.iyz as f64,
+                izz: inertial.moment.izz as f64,
             },
         }
     }
@@ -929,12 +929,12 @@ mod tests {
     fn is_inertial_eq(i1: &Inertial, i2: &Inertial) -> bool {
         is_pose_eq(&i1.origin, &i2.origin)
             && float_eq!(i1.mass.0, i2.mass.0, abs <= 1e6)
-            && float_eq!(i1.inertia.ixx, i2.inertia.ixx, abs <= 1e6)
-            && float_eq!(i1.inertia.ixy, i2.inertia.ixy, abs <= 1e6)
-            && float_eq!(i1.inertia.ixz, i2.inertia.ixz, abs <= 1e6)
-            && float_eq!(i1.inertia.iyy, i2.inertia.iyy, abs <= 1e6)
-            && float_eq!(i1.inertia.iyz, i2.inertia.iyz, abs <= 1e6)
-            && float_eq!(i1.inertia.izz, i2.inertia.izz, abs <= 1e6)
+            && float_eq!(i1.moment.ixx, i2.moment.ixx, abs <= 1e6)
+            && float_eq!(i1.moment.ixy, i2.moment.ixy, abs <= 1e6)
+            && float_eq!(i1.moment.ixz, i2.moment.ixz, abs <= 1e6)
+            && float_eq!(i1.moment.iyy, i2.moment.iyy, abs <= 1e6)
+            && float_eq!(i1.moment.iyz, i2.moment.iyz, abs <= 1e6)
+            && float_eq!(i1.moment.izz, i2.moment.izz, abs <= 1e6)
     }
 
     #[test]
@@ -990,7 +990,7 @@ mod tests {
         let target_right_leg_inertial = Inertial {
             origin: Pose::default(),
             mass: Mass(10.0),
-            inertia: Inertia {
+            moment: Moment {
                 ixx: 1.0,
                 ixy: 0.0,
                 ixz: 0.0,

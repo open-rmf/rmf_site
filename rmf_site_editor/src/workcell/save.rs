@@ -57,7 +57,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
                 Or<(
                     With<FrameMarker>,
                     With<JointType>,
-                    With<Inertia>,
+                    With<Moment>,
                     With<VisualMeshMarker>,
                     With<CollisionMeshMarker>,
                 )>,
@@ -99,7 +99,7 @@ pub fn generate_workcell(
             ),
             Without<Pending>,
         >,
-        Query<(Entity, &Pose, &Mass, &Inertia, &SiteID, &Parent), Without<Pending>>,
+        Query<(Entity, &Pose, &Mass, &Moment, &SiteID, &Parent), Without<Pending>>,
         Query<
             (
                 Entity,
@@ -247,7 +247,7 @@ pub fn generate_workcell(
         );
     }
 
-    for (e, pose, mass, inertia, id, parent) in &q_inertials {
+    for (e, pose, mass, moment, id, parent) in &q_inertials {
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -266,7 +266,7 @@ pub fn generate_workcell(
                 bundle: Inertial {
                     center: pose.clone(),
                     mass: mass.clone(),
-                    inertia: inertia.clone(),
+                    moment: moment.clone(),
                 },
             },
         );
