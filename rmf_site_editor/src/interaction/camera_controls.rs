@@ -451,7 +451,7 @@ fn camera_controls(
                     cursor_motion *= 2. / window_size
                         * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
                     let right = -cursor_motion.x * Vec3::X;
-                    let up = -cursor_motion.y * Vec3::Y;
+                    let up = cursor_motion.y * Vec3::Y;
                     ortho_transform.translation += right + up;
                 }
                 if scroll.abs() > 0.0 {
@@ -495,7 +495,7 @@ fn camera_controls(
                             delta
                         }
                     };
-                    let delta_y = -cursor_motion.y / window_size.y * std::f32::consts::PI;
+                    let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI;
                     let yaw = Quat::from_rotation_z(-delta_x);
                     let pitch = Quat::from_rotation_x(-delta_y);
                     persp_transform.rotation = yaw * persp_transform.rotation; // global y
@@ -513,7 +513,7 @@ fn camera_controls(
                             / window_size;
                     // translate by local axes
                     let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
-                    let up = persp_transform.rotation * Vec3::Y * -cursor_motion.y;
+                    let up = persp_transform.rotation * Vec3::Y * cursor_motion.y;
                     // make panning proportional to distance away from center point
                     let translation = (right + up) * controls.orbit_radius;
                     controls.orbit_center += translation;
