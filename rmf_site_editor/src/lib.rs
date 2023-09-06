@@ -175,10 +175,9 @@ impl Plugin for SiteEditor {
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             )
-            .add_system_set(
-                SystemSet::new()
-                    .with_run_criteria(FixedTimestep::step(0.5))
-                    .with_system(check_browser_window_size),
+            .add_systems(
+                Update,
+                check_browser_window_size.run_if(on_timer(std::Duration::from_secs_f32(0.5))),
             );
         }
 
