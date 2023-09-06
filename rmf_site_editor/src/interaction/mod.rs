@@ -89,8 +89,12 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_mod_picking::{PickingPlugin, PickingSystem};
+use bevy_mod_picking::{DefaultPickingPlugins, backend::prelude::PickSet};
+use bevy_mod_raycast::update_raycast;
 use bevy_polyline::PolylinePlugin;
+
+#[derive(Reflect)]
+pub struct SiteRaycastSet;
 
 #[derive(Default)]
 pub struct InteractionPlugin;
@@ -166,7 +170,7 @@ impl Plugin for InteractionPlugin {
             .add_event::<ChangeMode>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
-            .add_plugin(PickingPlugin)
+            .add_plugins(DefaultPickingPlugins)
             .add_plugin(OutlinePlugin)
             .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::visible(true))
             .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::visible(true))
@@ -206,6 +210,10 @@ impl Plugin for InteractionPlugin {
                     update_anchor_cues_for_mode,
                     update_anchor_proximity_xray.after(update_cursor_transform),
                     remove_deleted_supports_from_visual_cues,
+            ).run_if(in_state(InteractionState::Enable)))
+            // Split the above because of a compile error when the tuple is too large
+            .add_systems(
+                PreUpdate, (
                     make_model_previews_not_selectable,
                     update_lane_visual_cues.after(maintain_selected_entities),
                     update_edge_visual_cues.after(maintain_selected_entities),
@@ -253,8 +261,10 @@ impl Plugin for InteractionPlugin {
             )
             .add_systems(
                 First, (
-                    update_picked.after(PickingSystem::UpdateIntersections),
+                    update_picked.after(PickSet::PostFocus),
                     update_interaction_mode,
+                    // TODO(luca) check in which stage to place this
+                    update_raycast::<SiteRaycastSet>,
                 )
             );
     }

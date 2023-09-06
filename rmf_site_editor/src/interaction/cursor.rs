@@ -21,8 +21,7 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_picking::PickingRaycastSet;
-use bevy_mod_raycast::{Intersection, Ray3d};
+use bevy_mod_raycast::{RaycastSource, Ray3d};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -304,17 +303,20 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
 pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
-    intersections: Query<&Intersection<PickingRaycastSet>>,
+    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     models: Query<(), With<ModelMarker>>,
     mut transforms: Query<&mut Transform>,
-    hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
     mut visibility: Query<&mut Visibility>,
 ) {
     match &*mode {
         InteractionMode::Inspect => {
-            let intersection = match intersections.iter().last() {
-                Some(intersection) => intersection,
+            // TODO(luca) this will not work if more than one raycast source exist
+            let Ok(source) = raycast_sources.get_single() else {
+                return;
+            };
+            let intersection = match source.intersections().iter().last() {
+                Some((_, intersection)) => intersection,
                 None => {
                     return;
                 }
@@ -327,7 +329,8 @@ pub fn update_cursor_transform(
                 }
             };
 
-            let ray = match intersection.normal_ray() {
+            // TODO(luca) This was normal_ray before, check direction of inspector normal
+            let ray = match source.get_ray() {
                 Some(ray) => ray,
                 None => {
                     return;
@@ -362,22 +365,26 @@ pub fn update_cursor_transform(
                     return;
                 }
             };
+
+            let (entity, intersection) = match raycast_sources.get_single().ok().map(|s| s.intersections().iter().last()).flatten() {
+                Some((entity, intersection)) => (entity, intersection),
+                None => {
+                    return;
+                }
+            };
             // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
             // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
-            if let Some((Some(triangle), Some(position), Some(normal))) = intersections
-                .iter()
-                .last()
-                .and_then(|data| Some((data.world_triangle(), data.position(), data.normal())))
-            {
+            if let Some(triangle) = intersection.triangle() {
                 // Make sure we are hovering over a model and not anything else (i.e. anchor)
                 match cursor.preview_model {
                     None => {
-                        if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
+                        if models.get(*entity).is_ok() {
                             // Find the closest triangle vertex
                             // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
                             // to area, then populate a MeshConstraint component to be used by downstream
                             // spawning methods
                             // TODO(luca) there must be a better way to find a minimum given predicate in Rust
+                            let position = intersection.position();
                             let triangle_vecs = vec![triangle.v1, triangle.v2];
                             let mut closest_vertex = triangle.v0;
                             let mut closest_dist = position.distance(triangle.v0.into());
@@ -389,7 +396,7 @@ pub fn update_cursor_transform(
                                 }
                             }
                             //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                            let ray = Ray3d::new(closest_vertex.into(), normal);
+                            let ray = Ray3d::new(closest_vertex.into(), intersection.normal());
                             *transform = Transform::from_matrix(
                                 ray.to_aligned_transform([0., 0., 1.].into()),
                             );

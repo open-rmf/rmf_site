@@ -305,6 +305,19 @@ impl Plugin for SitePlugin {
             )
             .add_systems(
                 Update, (
+                    add_wall_visual,
+                    handle_update_fuel_cache_requests,
+                    read_update_fuel_cache_results,
+                    reload_failed_models_with_new_api_key,
+                    update_walls_for_moved_anchors,
+                    update_walls,
+                    update_transforms_for_changed_poses,
+                    align_site_drawings,
+                    clear_old_issues_on_new_validate_event,
+                    export_lights,
+                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+            .add_systems(
+                Update, (
                     update_anchor_transforms,
                     add_door_visuals,
                     update_changed_door,
@@ -321,6 +334,9 @@ impl Plugin for SitePlugin {
                     update_level_visibility,
                     update_changed_lane,
                     update_lane_for_moved_anchor,
+                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+            .add_systems(
+                Update, (
                     remove_association_for_deleted_graphs,
                     add_unused_fiducial_tracker,
                     update_fiducial_usage_tracker,
@@ -337,6 +353,9 @@ impl Plugin for SitePlugin {
                     update_lift_door_availability,
                     update_physical_lights,
                     toggle_physical_lights,
+                    ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform))
+            .add_systems(
+                Update, (
                     add_measurement_visuals,
                     update_changed_measurement,
                     update_measurement_for_moved_anchors,
@@ -353,16 +372,6 @@ impl Plugin for SitePlugin {
                     handle_loaded_drawing,
                     update_drawing_rank,
                     add_physical_camera_visuals,
-                    add_wall_visual,
-                    handle_update_fuel_cache_requests,
-                    read_update_fuel_cache_results,
-                    reload_failed_models_with_new_api_key,
-                    update_walls_for_moved_anchors,
-                    update_walls,
-                    update_transforms_for_changed_poses,
-                    align_site_drawings,
-                    clear_old_issues_on_new_validate_event,
-                    export_lights,
                     ).run_if(in_state(SiteState::Display)).in_set(SiteUpdateSet::BetweenVisibilityAndTransform)
             );
     }

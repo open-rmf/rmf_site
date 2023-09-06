@@ -17,7 +17,9 @@
 
 use crate::{interaction::*, site::Anchor, CurrentWorkspace};
 use bevy::prelude::*;
-use bevy_mod_picking::{PickableMesh, PickingCamera, PickingCameraBundle};
+use bevy_mod_raycast::RaycastSource;
+use bevy_mod_picking::{backend::prelude::Pickable, prelude::RaycastPickCamera};
+//use bevy_mod_picking::prelude::*;
 
 /// A resource to track what kind of picking blockers are currently active
 #[derive(Resource)]
@@ -55,13 +57,13 @@ pub struct ChangePick {
 
 #[derive(Bundle, Default)]
 pub struct PickableBundle {
-    pub pickable_mesh: PickableMesh,
+    pub pickable_mesh: Pickable,
 }
 
 pub fn update_picking_cam(
     mut commands: Commands,
     camera_controls: Res<CameraControls>,
-    picking_cams: Query<Entity, With<PickingCamera>>,
+    picking_cams: Query<Entity, With<RaycastPickCamera>>,
 ) {
     if camera_controls.is_changed() {
         let active_camera = camera_controls.active_camera();
@@ -72,12 +74,12 @@ pub fn update_picking_cam(
             .is_none()
         {
             for cam in picking_cams.iter() {
-                commands.entity(cam).remove::<PickingCameraBundle>();
+                commands.entity(cam).remove::<RaycastPickCamera>();
             }
 
             commands
                 .entity(camera_controls.active_camera())
-                .insert(PickingCameraBundle::default());
+                .insert(RaycastPickCamera::default());
         }
     }
 }
@@ -123,7 +125,7 @@ pub fn update_picked(
     selectable: Query<&Selectable>,
     anchors: Query<&Parent, (With<Anchor>, Without<Preview>)>,
     blockers: Option<Res<PickingBlockers>>,
-    pick_source_query: Query<&PickingCamera>,
+    pick_source_query: Query<&RaycastSource<SiteRaycastSet>>,
     visual_cues: Query<&ComputedVisualCue>,
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
