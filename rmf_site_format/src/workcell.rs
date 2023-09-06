@@ -223,7 +223,7 @@ pub enum Geometry {
     //#[serde(flatten)]
     Primitive(PrimitiveShape),
     Mesh {
-        filename: String,
+        source: AssetSource,
         #[serde(default, skip_serializing_if = "is_default")]
         scale: Option<Vec3>,
     },
@@ -352,12 +352,12 @@ impl WorkcellModel {
                     NameInWorkcell(self.name.clone()),
                 ));
             }
-            Geometry::Mesh { filename, scale } => {
+            Geometry::Mesh { source, scale } => {
                 let scale = Scale(scale.unwrap_or(Vec3::ONE));
                 // TODO(luca) Make a bundle for workcell models to avoid manual insertion here
                 commands.insert((
                     NameInWorkcell(self.name.clone()),
-                    AssetSource::from(filename.as_str()),
+                    source.clone(),
                     self.pose.clone(),
                     ConstraintDependents::default(),
                     scale,
@@ -428,8 +428,8 @@ impl From<&urdf_rs::Pose> for Pose {
 impl From<Geometry> for urdf_rs::Geometry {
     fn from(geometry: Geometry) -> Self {
         match geometry {
-            Geometry::Mesh { filename, scale } => urdf_rs::Geometry::Mesh {
-                filename,
+            Geometry::Mesh { source, scale } => urdf_rs::Geometry::Mesh {
+                filename: (&source).into(),
                 scale: scale.map(|v| urdf_rs::Vec3([v.x as f64, v.y as f64, v.z as f64])),
             },
             Geometry::Primitive(PrimitiveShape::Box { size: [x, y, z] }) => {
@@ -800,7 +800,7 @@ impl From<&urdf_rs::Geometry> for Geometry {
                     .clone()
                     .and_then(|s| Some(Vec3::from_array(s.map(|v| v as f32))));
                 Geometry::Mesh {
-                    filename: filename.clone(),
+                    source: (&**filename).into(),
                     scale,
                 }
             }

@@ -172,7 +172,7 @@ pub fn generate_workcell(
         let geom = if let Some(source) = source {
             // It's a model
             Geometry::Mesh {
-                filename: String::from(source),
+                source: source.clone(),
                 scale: scale.map(|s| **s),
             }
         } else if let Some(primitive) = primitive {
