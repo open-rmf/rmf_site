@@ -311,7 +311,7 @@ pub fn update_visibility_for_locations(
             Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
         ),
     >,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;

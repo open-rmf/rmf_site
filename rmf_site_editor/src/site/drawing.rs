@@ -329,7 +329,7 @@ pub fn update_drawing_visibility(
             Changed<RecencyRank<DrawingMarker>>,
         )>,
     >,
-    removed_vis: RemovedComponents<LayerVisibility>,
+    mut removed_vis: RemovedComponents<LayerVisibility>,
     all_drawings: Query<(
         Option<&LayerVisibility>,
         Option<&Parent>,

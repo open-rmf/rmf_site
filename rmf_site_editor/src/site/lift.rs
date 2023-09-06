@@ -361,7 +361,7 @@ pub fn update_lift_door_availability(
     current_level: Res<CurrentLevel>,
     new_levels: Query<(), Added<LevelElevation>>,
     all_levels: Query<(), With<LevelElevation>>,
-    removed_levels: RemovedComponents<LevelElevation>,
+    mut removed_levels: RemovedComponents<LevelElevation>,
     parents: Query<&Parent>,
 ) {
     for toggle in toggles.iter() {

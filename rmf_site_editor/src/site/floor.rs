@@ -377,7 +377,7 @@ fn iter_update_floor_visibility<'a>(
 // TODO(luca) RemovedComponents is brittle, maybe wrap component in an option?
 pub fn update_floor_visibility(
     changed_floors: Query<Entity, Or<(Changed<LayerVisibility>, Changed<Parent>)>>,
-    removed_vis: RemovedComponents<LayerVisibility>,
+    mut removed_vis: RemovedComponents<LayerVisibility>,
     all_floors: Query<(Option<&LayerVisibility>, Option<&Parent>, &FloorSegments)>,
     material_handles: Query<&Handle<StandardMaterial>>,
     mut material_assets: ResMut<Assets<StandardMaterial>>,

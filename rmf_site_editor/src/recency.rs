@@ -201,8 +201,8 @@ fn update_recency_rankings<T: Component>(
     new_entities: Query<Entity, (Added<T>, Without<SuppressRecencyRank>)>,
     moved_entities: Query<Entity, (Changed<Parent>, With<T>, Without<SuppressRecencyRank>)>,
     newly_suppressed_entities: Query<Entity, (With<T>, Added<SuppressRecencyRank>)>,
-    unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
-    no_longer_relevant: RemovedComponents<T>,
+    mut unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
+    mut no_longer_relevant: RemovedComponents<T>,
     parents: Query<&Parent>,
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {

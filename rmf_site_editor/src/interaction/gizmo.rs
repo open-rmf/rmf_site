@@ -248,7 +248,7 @@ pub fn update_gizmo_click_start(
     mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
     mut click: EventWriter<GizmoClicked>,
-    removed_gizmos: RemovedComponents<Gizmo>,
+    mut removed_gizmos: RemovedComponents<Gizmo>,
 ) {
     for e in removed_gizmos.iter() {
         cursor.remove_blocker(e, &mut visibility);

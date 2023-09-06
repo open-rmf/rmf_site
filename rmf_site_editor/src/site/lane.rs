@@ -276,7 +276,7 @@ pub fn update_lane_for_moved_anchor(
 
 pub fn remove_association_for_deleted_graphs(
     mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     for e in removed.iter() {
         for mut associated in &mut associaged_graphs {
@@ -321,7 +321,7 @@ pub fn update_visibility_for_lanes(
             Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
         ),
     >,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;

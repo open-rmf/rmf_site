@@ -455,7 +455,7 @@ pub fn add_cursor_hover_visualization(
 
 pub fn update_cursor_hover_visualization(
     entities: Query<(Entity, &Hovered), (With<CursorHoverVisualization>, Changed<Hovered>)>,
-    removed: RemovedComponents<CursorHoverVisualization>,
+    mut removed: RemovedComponents<CursorHoverVisualization>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
 ) {
