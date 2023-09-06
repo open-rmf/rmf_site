@@ -264,7 +264,7 @@ pub fn generate_workcell(
             Parented {
                 parent,
                 bundle: Inertial {
-                    origin: pose.clone(),
+                    center: pose.clone(),
                     mass: mass.clone(),
                     inertia: inertia.clone(),
                 },

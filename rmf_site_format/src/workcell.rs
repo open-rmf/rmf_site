@@ -102,7 +102,7 @@ pub struct Inertia {
 #[derive(Serialize, Deserialize, Debug, Default, Clone)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Inertial {
-    pub origin: Pose,
+    pub center: Pose,
     pub mass: Mass,
     pub inertia: Inertia,
 }
@@ -824,7 +824,7 @@ impl From<&urdf_rs::Inertia> for Inertia {
 impl From<&urdf_rs::Inertial> for Inertial {
     fn from(inertial: &urdf_rs::Inertial) -> Self {
         Self {
-            origin: (&inertial.origin).into(),
+            center: (&inertial.origin).into(),
             mass: Mass(inertial.mass.value as f32),
             inertia: (&inertial.inertia).into(),
         }
@@ -834,7 +834,7 @@ impl From<&urdf_rs::Inertial> for Inertial {
 impl From<&Inertial> for urdf_rs::Inertial {
     fn from(inertial: &Inertial) -> Self {
         Self {
-            origin: inertial.origin.into(),
+            origin: inertial.center.into(),
             mass: urdf_rs::Mass {
                 value: inertial.mass.0 as f64,
             },
