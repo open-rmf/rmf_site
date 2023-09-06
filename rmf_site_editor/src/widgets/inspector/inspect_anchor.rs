@@ -19,7 +19,7 @@ use crate::{
     interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
     site::{
         latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
-        GeographicComponent, JointType, LocationTags, MeshConstraint, SiteID, Subordinate,
+        GeographicComponent, JointProperties, LocationTags, MeshConstraint, SiteID, Subordinate,
     },
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
     workcell::CreateJoint,
@@ -43,7 +43,7 @@ pub struct InspectAnchorParams<'w, 's> {
     >,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
-    pub joints: Query<'w, 's, Entity, With<JointType>>,
+    pub joints: Query<'w, 's, Entity, With<JointProperties>>,
     pub geographic_offset: Query<'w, 's, &'static GeographicComponent>,
 }
 

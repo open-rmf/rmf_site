@@ -56,7 +56,7 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
             (
                 Or<(
                     With<FrameMarker>,
-                    With<JointType>,
+                    With<JointProperties>,
                     With<Moment>,
                     With<VisualMeshMarker>,
                     With<CollisionMeshMarker>,
@@ -116,18 +116,7 @@ pub fn generate_workcell(
                 Without<Pending>,
             ),
         >,
-        Query<
-            (
-                Entity,
-                &JointType,
-                Option<&JointAxis>,
-                Option<&JointLimit>,
-                &NameInWorkcell,
-                &SiteID,
-                &Parent,
-            ),
-            Without<Pending>,
-        >,
+        Query<(Entity, &JointProperties, &NameInWorkcell, &SiteID, &Parent), Without<Pending>>,
         Query<&VisualMeshMarker>,
         Query<&CollisionMeshMarker>,
         Query<&SiteID>,
@@ -272,7 +261,7 @@ pub fn generate_workcell(
         );
     }
 
-    for (e, joint_type, joint_axis, joint_limit, name, id, parent) in &q_joints {
+    for (e, properties, name, id, parent) in &q_joints {
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -290,9 +279,7 @@ pub fn generate_workcell(
                 parent,
                 bundle: Joint {
                     name: name.clone(),
-                    joint_type: joint_type.clone(),
-                    limit: joint_limit.cloned(),
-                    axis: joint_axis.cloned(),
+                    properties: properties.clone(),
                 },
             },
         );

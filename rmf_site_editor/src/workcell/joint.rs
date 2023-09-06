@@ -17,7 +17,7 @@
 
 use crate::site::{Delete, Dependents};
 use bevy::prelude::*;
-use rmf_site_format::{FrameMarker, Joint, JointType, NameInWorkcell};
+use rmf_site_format::{FrameMarker, Joint, JointProperties, NameInWorkcell};
 
 /// Event used  to request the creation of a joint between a parent and a child frame
 pub struct CreateJoint {
@@ -49,9 +49,7 @@ pub fn handle_create_joint_events(
         }
         let joint = Joint {
             name: NameInWorkcell("new_joint".into()),
-            joint_type: JointType::Fixed,
-            limit: None,
-            axis: None,
+            properties: JointProperties::Fixed,
         };
         let mut cmd = commands.spawn(Dependents::single(req.child));
         let joint_id = cmd.id();
@@ -68,7 +66,7 @@ pub fn handle_create_joint_events(
 
 /// This system cleans up joints which don't have a child anymore because it was despawned
 pub fn cleanup_orphaned_joints(
-    changed_joints: Query<(Entity, &Children), (Changed<Children>, With<JointType>)>,
+    changed_joints: Query<(Entity, &Children), (Changed<Children>, With<JointProperties>)>,
     mut delete: EventWriter<Delete>,
 ) {
     for (e, children) in &changed_joints {

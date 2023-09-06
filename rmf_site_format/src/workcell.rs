@@ -107,71 +107,7 @@ pub struct Inertia {
     pub moment: Moment,
 }
 
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub enum JointType {
-    Fixed,
-    Revolute,
-    Prismatic,
-    Continuous,
-}
-
-impl JointType {
-    pub fn label(&self) -> String {
-        match &self {
-            JointType::Fixed => "Fixed",
-            JointType::Revolute => "Revolute",
-            JointType::Prismatic => "Prismatic",
-            JointType::Continuous => "Continuous",
-        }
-        .to_string()
-    }
-}
-
-impl From<&JointType> for urdf_rs::JointType {
-    fn from(joint_type: &JointType) -> Self {
-        match joint_type {
-            JointType::Fixed => urdf_rs::JointType::Fixed,
-            JointType::Revolute => urdf_rs::JointType::Revolute,
-            JointType::Prismatic => urdf_rs::JointType::Prismatic,
-            JointType::Continuous => urdf_rs::JointType::Continuous,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct JointLimit {
-    pub lower: f32,
-    pub upper: f32,
-    pub effort: f32,
-    pub velocity: f32,
-}
-
-impl From<&urdf_rs::JointLimit> for JointLimit {
-    fn from(limit: &urdf_rs::JointLimit) -> Self {
-        Self {
-            lower: limit.lower as f32,
-            upper: limit.upper as f32,
-            effort: limit.effort as f32,
-            velocity: limit.velocity as f32,
-        }
-    }
-}
-
-impl From<&JointLimit> for urdf_rs::JointLimit {
-    fn from(limit: &JointLimit) -> Self {
-        Self {
-            lower: limit.lower as f64,
-            upper: limit.upper as f64,
-            effort: limit.effort as f64,
-            velocity: limit.velocity as f64,
-        }
-    }
-}
-
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[derive(Serialize, Deserialize, Debug, Clone)]
 pub struct JointAxis([f32; 3]);
 
 impl From<&urdf_rs::Axis> for JointAxis {
@@ -189,13 +125,133 @@ impl From<&JointAxis> for urdf_rs::Axis {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
+enum RangeLimits {
+    None,
+    Symmetric(f32),
+    Asymmetric {
+        lower: Option<f32>,
+        upper: Option<f32>,
+    },
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct JointLimits {
+    position: RangeLimits,
+    effort: RangeLimits,
+    velocity: RangeLimits,
+}
+
+impl From<&urdf_rs::JointLimit> for JointLimits {
+    fn from(limit: &urdf_rs::JointLimit) -> Self {
+        Self {
+            position: RangeLimits::Asymmetric {
+                lower: Some(limit.lower as f32),
+                upper: Some(limit.upper as f32),
+            },
+            effort: RangeLimits::Symmetric(limit.effort as f32),
+            velocity: RangeLimits::Symmetric(limit.velocity as f32),
+        }
+    }
+}
+
+impl From<&JointLimits> for urdf_rs::JointLimit {
+    fn from(limits: &JointLimits) -> Self {
+        const DEFAULT_EFFORT_LIMIT: f64 = 1e3;
+        const DEFAULT_VELOCITY_LIMIT: f64 = 10.0;
+        fn min_or_default(slice: [Option<f32>; 2], default: f64) -> f64 {
+            let mut vec = slice
+                .iter()
+                .filter_map(|v| v.map(|m| m as f64))
+                .collect::<Vec<_>>();
+            vec.sort_by(|a, b| a.total_cmp(b));
+            vec.first().cloned().unwrap_or(default)
+        }
+        // 0.0 is a valid default in urdf for lower and upper limits
+        let (lower, upper) = match limits.position {
+            RangeLimits::None => (0.0, 0.0),
+            RangeLimits::Symmetric(l) => (l as f64, l as f64),
+            RangeLimits::Asymmetric { lower, upper } => (
+                lower.map(|v| v as f64).unwrap_or_default(),
+                upper.map(|v| v as f64).unwrap_or_default(),
+            ),
+        };
+        let effort = match limits.effort {
+            RangeLimits::None => {
+                println!(
+                    "No effort limit found when exporting to urdf, setting to {}",
+                    DEFAULT_EFFORT_LIMIT
+                );
+                DEFAULT_EFFORT_LIMIT
+            }
+            RangeLimits::Symmetric(l) => l as f64,
+            RangeLimits::Asymmetric { lower, upper } => {
+                let limit = min_or_default([lower, upper], DEFAULT_EFFORT_LIMIT);
+                println!(
+                    "Asymmetric effort limit found when exporting to urdf, setting to {}",
+                    limit
+                );
+                limit
+            }
+        };
+        let velocity = match limits.velocity {
+            RangeLimits::None => {
+                println!(
+                    "No velocity limit found when exporting to urdf, setting to {}",
+                    DEFAULT_VELOCITY_LIMIT
+                );
+                DEFAULT_VELOCITY_LIMIT
+            }
+            RangeLimits::Symmetric(l) => l as f64,
+            RangeLimits::Asymmetric { lower, upper } => {
+                let limit = min_or_default([lower, upper], DEFAULT_VELOCITY_LIMIT);
+                println!(
+                    "Asymmetric velocity limit found when exporting to urdf, setting to {}",
+                    limit
+                );
+                limit
+            }
+        };
+        Self {
+            lower,
+            upper,
+            effort,
+            velocity,
+        }
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct Joint {
     pub name: NameInWorkcell,
-    pub joint_type: JointType,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub limit: Option<JointLimit>,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub axis: Option<JointAxis>,
+    pub properties: JointProperties,
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub enum JointProperties {
+    Fixed,
+    Prismatic(SingleDofJoint),
+    Revolute(SingleDofJoint),
+    Continuous(SingleDofJoint),
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone)]
+pub struct SingleDofJoint {
+    pub limits: JointLimits,
+    pub axis: JointAxis,
+}
+
+impl JointProperties {
+    pub fn label(&self) -> String {
+        match &self {
+            JointProperties::Fixed => "Fixed",
+            JointProperties::Revolute(_) => "Revolute",
+            JointProperties::Prismatic(_) => "Prismatic",
+            JointProperties::Continuous(_) => "Continuous",
+        }
+        .to_string()
+    }
 }
 
 // TODO(luca) should commands implementation be in rmf_site_editor instead of rmf_site_format?
@@ -207,14 +263,8 @@ impl Joint {
             SpatialBundle::VISIBLE_IDENTITY,
             Category::Joint,
             self.name.clone(),
-            self.joint_type.clone(),
+            self.properties.clone(),
         ));
-        if let Some(limit) = &self.limit {
-            commands.insert(limit.clone());
-        }
-        if let Some(axis) = &self.axis {
-            commands.insert(axis.clone());
-        }
     }
 }
 
@@ -535,31 +585,20 @@ impl Workcell {
             let child = frame_name_to_id.get(&joint.child.link).ok_or(
                 UrdfImportError::BrokenJointReference(joint.child.link.clone()),
             )?;
-            let joint_bundle = match joint.joint_type {
-                urdf_rs::JointType::Revolute => Joint {
-                    name: NameInWorkcell(joint.name.clone()),
-                    joint_type: JointType::Revolute,
-                    limit: Some((&joint.limit).into()),
-                    axis: Some((&joint.axis).into()),
-                },
-                urdf_rs::JointType::Prismatic => Joint {
-                    name: NameInWorkcell(joint.name.clone()),
-                    joint_type: JointType::Prismatic,
-                    limit: Some((&joint.limit).into()),
-                    axis: Some((&joint.axis).into()),
-                },
-                urdf_rs::JointType::Fixed => Joint {
-                    name: NameInWorkcell(joint.name.clone()),
-                    joint_type: JointType::Fixed,
-                    limit: None,
-                    axis: None,
-                },
-                urdf_rs::JointType::Continuous => Joint {
-                    name: NameInWorkcell(joint.name.clone()),
-                    joint_type: JointType::Continuous,
-                    limit: None,
-                    axis: None,
-                },
+            let properties = match joint.joint_type {
+                urdf_rs::JointType::Revolute => JointProperties::Revolute(SingleDofJoint {
+                    axis: (&joint.axis).into(),
+                    limits: (&joint.limit).into(),
+                }),
+                urdf_rs::JointType::Prismatic => JointProperties::Prismatic(SingleDofJoint {
+                    axis: (&joint.axis).into(),
+                    limits: (&joint.limit).into(),
+                }),
+                urdf_rs::JointType::Fixed => JointProperties::Fixed,
+                urdf_rs::JointType::Continuous => JointProperties::Continuous(SingleDofJoint {
+                    axis: (&joint.axis).into(),
+                    limits: (&joint.limit).into(),
+                }),
                 _ => {
                     return Err(UrdfImportError::UnsupportedJointType);
                 }
@@ -577,7 +616,10 @@ impl Workcell {
                 joint_id,
                 Parented {
                     parent: *parent,
-                    bundle: joint_bundle,
+                    bundle: Joint {
+                        name: NameInWorkcell(joint.name.clone()),
+                        properties,
+                    },
                 },
             );
         }
@@ -712,9 +754,15 @@ impl Workcell {
                 let Anchor::Pose3D(pose) = child_frame.bundle.anchor else {
                     return Err(WorkcellToUrdfError::InvalidAnchorType(child_frame.bundle.anchor.clone()));
                 };
+                let (joint_type, axis, limit) = match &joint.properties {
+                    JointProperties::Fixed => (urdf_rs::JointType::Fixed, urdf_rs::Axis::default(), urdf_rs::JointLimit::default()),
+                    JointProperties::Revolute(joint) => (urdf_rs::JointType::Revolute, (&joint.axis).into(), (&joint.limits).into()),
+                    JointProperties::Prismatic(joint) => (urdf_rs::JointType::Prismatic, (&joint.axis).into(), (&joint.limits).into()),
+                    JointProperties::Continuous(joint) => (urdf_rs::JointType::Continuous, (&joint.axis).into(), (&joint.limits).into()),
+                };
                 Ok(urdf_rs::Joint {
                     name: joint.name.0.clone(),
-                    joint_type: (&joint.joint_type).into(),
+                    joint_type,
                     origin: pose.into(),
                     parent: urdf_rs::LinkName {
                         link: parent_name.0
@@ -722,8 +770,8 @@ impl Workcell {
                     child: urdf_rs::LinkName {
                         link: child_name.0
                     },
-                    axis: joint.axis.as_ref().map(|axis| urdf_rs::Axis::from(axis)).unwrap_or_default(),
-                    limit: joint.limit.as_ref().map(|limit| urdf_rs::JointLimit::from(limit)).unwrap_or_default(),
+                    axis,
+                    limit,
                     dynamics: None,
                     mimic: None,
                     safety_controller: None,
@@ -927,7 +975,7 @@ mod tests {
     }
 
     fn is_inertia_eq(i1: &Inertia, i2: &Inertia) -> bool {
-        is_pose_eq(&i1.origin, &i2.origin)
+        is_pose_eq(&i1.center, &i2.center)
             && float_eq!(i1.mass.0, i2.mass.0, abs <= 1e6)
             && float_eq!(i1.moment.ixx, i2.moment.ixx, abs <= 1e6)
             && float_eq!(i1.moment.ixy, i2.moment.ixy, abs <= 1e6)
@@ -987,8 +1035,8 @@ mod tests {
         // Test inertia parenthood and parsing
         let (_, right_leg_inertia) = element_by_parent(&workcell.inertias, right_leg_id).unwrap();
         assert_float_eq!(right_leg_inertia.bundle.mass.0, 10.0, abs <= 1e6);
-        let target_right_leg_inertia = Inertial {
-            origin: Pose::default(),
+        let target_right_leg_inertia = Inertia {
+            center: Pose::default(),
             mass: Mass(10.0),
             moment: Moment {
                 ixx: 1.0,
@@ -1005,7 +1053,10 @@ mod tests {
         ));
         // Test joint parenthood and parsing
         let (_, right_leg_joint) = element_by_parent(&workcell.joints, right_leg_id).unwrap();
-        assert_eq!(right_leg_joint.bundle.joint_type, JointType::Fixed);
+        assert!(matches!(
+            right_leg_joint.bundle.properties,
+            JointProperties::Fixed
+        ));
         assert_eq!(
             right_leg_joint.bundle.name,
             NameInWorkcell("right_base_joint".to_string())
@@ -1022,7 +1073,7 @@ mod tests {
             .find(|l| l.name == "right_leg")
             .unwrap();
         assert!(is_inertia_eq(
-            &(&right_leg_link.inertia).into(),
+            &(&right_leg_link.inertial).into(),
             &target_right_leg_inertia
         ));
         assert_eq!(right_leg_link.visual.len(), 1);
@@ -1055,6 +1106,9 @@ mod tests {
             &(&right_leg_joint.origin).into(),
             &target_right_leg_pose
         ));
-        assert_eq!(right_leg_joint.joint_type, urdf_rs::JointType::Fixed);
+        assert!(matches!(
+            right_leg_joint.joint_type,
+            urdf_rs::JointType::Fixed
+        ));
     }
 }

@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Change, Dependents, FrameMarker, JointAxis, JointLimit, JointType, SiteID},
+    site::{Change, Dependents, FrameMarker, JointProperties, SiteID},
     widgets::{inspector::SelectionWidget, AppEvents},
     Icons,
 };
@@ -31,9 +31,7 @@ pub struct InspectJointParams<'w, 's> {
         (
             &'static Parent,
             &'static Dependents,
-            &'static JointType,
-            Option<&'static JointLimit>,
-            Option<&'static JointAxis>,
+            &'static JointProperties,
         ),
     >,
     pub icons: Res<'w, Icons>,
@@ -61,11 +59,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectJointWidget<'a, 'w1, 'w2, 's1, 's2> {
     }
 
     pub fn show(self, ui: &mut Ui) {
-        let Ok((parent, deps, joint_type, joint_limit, joint_axis)) = self.params.joints.get(self.joint) else {
+        let Ok((parent, deps, joint_properties)) = self.params.joints.get(self.joint) else {
             return;
         };
-
-        let mut new_joint_type = joint_type.clone();
 
         ui.label("Parent frame");
         SelectionWidget::new(
@@ -89,26 +85,9 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectJointWidget<'a, 'w1, 'w2, 's1, 's2> {
 
         ui.horizontal(|ui| {
             ui.label("Joint Type");
-            ComboBox::from_id_source("Joint Type")
-                .selected_text(new_joint_type.label())
-                .show_ui(ui, |ui| {
-                    for variant in &[
-                        JointType::Fixed,
-                        JointType::Revolute,
-                        JointType::Prismatic,
-                        JointType::Continuous,
-                    ] {
-                        ui.selectable_value(&mut new_joint_type, *variant, variant.label());
-                    }
-                });
+            // TODO(luca) Make this a ComboBox to edit joint value data
+            ui.label(joint_properties.label());
         });
-
-        if new_joint_type != *joint_type {
-            self.events
-                .change_more
-                .joint_type
-                .send(Change::new(new_joint_type, self.joint));
-        }
         // TODO(luca) add joint limit and joint axis inspectors
     }
 }
