@@ -25,8 +25,8 @@ use crate::SdfRoot;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, MeshPrimitive, Model,
-    ModelMarker, NameInSite, Pose, Rotation, Scale,
+    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, Model, ModelMarker, NameInSite,
+    Pose, PrimitiveShape, Rotation, Scale,
 };
 
 /// An empty component to mark this entity as a visual mesh
@@ -153,7 +153,7 @@ fn spawn_geometry(
             let s = &b.size.0;
             Some(
                 commands
-                    .spawn(MeshPrimitive::Box {
+                    .spawn(PrimitiveShape::Box {
                         size: [s.x as f32, s.y as f32, s.z as f32],
                     })
                     .insert(pose)
@@ -163,7 +163,7 @@ fn spawn_geometry(
         }
         SdfGeometry::Capsule(c) => Some(
             commands
-                .spawn(MeshPrimitive::Capsule {
+                .spawn(PrimitiveShape::Capsule {
                     radius: c.radius as f32,
                     length: c.length as f32,
                 })
@@ -173,7 +173,7 @@ fn spawn_geometry(
         ),
         SdfGeometry::Cylinder(c) => Some(
             commands
-                .spawn(MeshPrimitive::Cylinder {
+                .spawn(PrimitiveShape::Cylinder {
                     radius: c.radius as f32,
                     length: c.length as f32,
                 })
@@ -183,7 +183,7 @@ fn spawn_geometry(
         ),
         SdfGeometry::Sphere(s) => Some(
             commands
-                .spawn(MeshPrimitive::Sphere {
+                .spawn(PrimitiveShape::Sphere {
                     radius: s.radius as f32,
                 })
                 .insert(pose)
@@ -194,7 +194,7 @@ fn spawn_geometry(
     }
 }
 
-// TODO(luca) reduce duplication between sdf -> MeshPrimitive and urdf -> MeshPrimitive
+// TODO(luca) reduce duplication between sdf -> PrimitiveShape and urdf -> PrimitiveShape
 pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &SdfRoot)>) {
     for (e, sdf) in new_sdfs.iter() {
         for link in &sdf.model.link {
@@ -244,7 +244,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
 
 pub fn handle_new_mesh_primitives(
     mut commands: Commands,
-    primitives: Query<(Entity, &MeshPrimitive), Added<MeshPrimitive>>,
+    primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
     parents: Query<&Parent>,
     selectables: Query<
         &Selectable,
@@ -259,16 +259,16 @@ pub fn handle_new_mesh_primitives(
 ) {
     for (e, primitive) in primitives.iter() {
         let mesh = match primitive {
-            MeshPrimitive::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
-            MeshPrimitive::Cylinder { radius, length } => {
+            PrimitiveShape::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            PrimitiveShape::Cylinder { radius, length } => {
                 Mesh::from(make_cylinder(*length, *radius))
             }
-            MeshPrimitive::Capsule { radius, length } => Mesh::from(Capsule {
+            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule {
                 radius: *radius,
                 depth: *length,
                 ..default()
             }),
-            MeshPrimitive::Sphere { radius } => Mesh::from(UVSphere {
+            PrimitiveShape::Sphere { radius } => Mesh::from(UVSphere {
                 radius: *radius,
                 ..default()
             }),

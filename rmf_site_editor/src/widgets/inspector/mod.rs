@@ -63,8 +63,8 @@ pub use inspect_location::*;
 pub mod inspect_mesh_constraint;
 pub use inspect_mesh_constraint::*;
 
-pub mod inspect_mesh_primitive;
-pub use inspect_mesh_primitive::*;
+pub mod inspect_primitive_shape;
+pub use inspect_primitive_shape::*;
 
 pub mod inspect_motion;
 pub use inspect_motion::*;
@@ -124,7 +124,7 @@ pub struct InspectorParams<'w, 's> {
     pub component: InspectorComponentParams<'w, 's>,
     pub drawing: InspectDrawingParams<'w, 's>,
     // TODO(luca) move to new systemparam, reached 16 limit on main one
-    pub mesh_primitives: Query<'w, 's, (&'static MeshPrimitive, &'static RecallMeshPrimitive)>,
+    pub primitive_shapes: Query<'w, 's, (&'static PrimitiveShape, &'static RecallPrimitiveShape)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
@@ -503,13 +503,14 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok((source, recall)) = self.params.mesh_primitives.get(selection) {
-                if let Some(new_mesh_primitive) = InspectMeshPrimitive::new(source, recall).show(ui)
+            if let Ok((source, recall)) = self.params.primitive_shapes.get(selection) {
+                if let Some(new_primitive_shape) =
+                    InspectPrimitiveShape::new(source, recall).show(ui)
                 {
                     self.events
                         .workcell_change
-                        .mesh_primitives
-                        .send(Change::new(new_mesh_primitive, selection));
+                        .primitive_shapes
+                        .send(Change::new(new_primitive_shape, selection));
                 }
                 ui.add_space(10.0);
             }

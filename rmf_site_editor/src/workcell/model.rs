@@ -18,7 +18,7 @@
 use crate::site::{Dependents, ModelTrashcan, Pending};
 use bevy::prelude::*;
 use rmf_site_format::{
-    MeshPrimitive, ModelMarker, NameInSite, NameInWorkcell, Pose, WorkcellProperties,
+    ModelMarker, NameInSite, NameInWorkcell, Pose, PrimitiveShape, WorkcellProperties,
 };
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
@@ -30,7 +30,7 @@ pub fn flatten_loaded_models_hierarchy(
         (Entity, &Parent),
         (
             Without<Pending>,
-            Or<(Added<ModelMarker>, Added<MeshPrimitive>)>,
+            Or<(Added<ModelMarker>, Added<PrimitiveShape>)>,
         ),
     >,
     all_model_parents: Query<(Entity, &Parent), (With<ModelMarker>, Without<Pending>)>,

@@ -221,7 +221,7 @@ impl Joint {
 #[derive(Serialize, Deserialize, Debug, Clone)]
 pub enum Geometry {
     //#[serde(flatten)]
-    Primitive(MeshPrimitive),
+    Primitive(PrimitiveShape),
     Mesh {
         filename: String,
         #[serde(default, skip_serializing_if = "is_default")]
@@ -231,20 +231,20 @@ pub enum Geometry {
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub enum MeshPrimitive {
+pub enum PrimitiveShape {
     Box { size: [f32; 3] },
     Cylinder { radius: f32, length: f32 },
     Capsule { radius: f32, length: f32 },
     Sphere { radius: f32 },
 }
 
-impl MeshPrimitive {
+impl PrimitiveShape {
     pub fn label(&self) -> String {
         match &self {
-            MeshPrimitive::Box { .. } => "Box",
-            MeshPrimitive::Cylinder { .. } => "Cylinder",
-            MeshPrimitive::Capsule { .. } => "Capsule",
-            MeshPrimitive::Sphere { .. } => "Sphere",
+            PrimitiveShape::Box { .. } => "Box",
+            PrimitiveShape::Cylinder { .. } => "Cylinder",
+            PrimitiveShape::Capsule { .. } => "Capsule",
+            PrimitiveShape::Sphere { .. } => "Sphere",
         }
         .to_string()
     }
@@ -252,7 +252,7 @@ impl MeshPrimitive {
 
 #[derive(Clone, Debug, Default, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
-pub struct RecallMeshPrimitive {
+pub struct RecallPrimitiveShape {
     pub box_size: Option<[f32; 3]>,
     pub cylinder_radius: Option<f32>,
     pub cylinder_length: Option<f32>,
@@ -261,67 +261,67 @@ pub struct RecallMeshPrimitive {
     pub sphere_radius: Option<f32>,
 }
 
-impl Recall for RecallMeshPrimitive {
-    type Source = MeshPrimitive;
+impl Recall for RecallPrimitiveShape {
+    type Source = PrimitiveShape;
 
-    fn remember(&mut self, source: &MeshPrimitive) {
+    fn remember(&mut self, source: &PrimitiveShape) {
         match source {
-            MeshPrimitive::Box { size } => {
+            PrimitiveShape::Box { size } => {
                 self.box_size = Some(*size);
             }
-            MeshPrimitive::Cylinder { radius, length } => {
+            PrimitiveShape::Cylinder { radius, length } => {
                 self.cylinder_radius = Some(*radius);
                 self.cylinder_length = Some(*length);
             }
-            MeshPrimitive::Capsule { radius, length } => {
+            PrimitiveShape::Capsule { radius, length } => {
                 self.capsule_radius = Some(*radius);
                 self.capsule_length = Some(*length);
             }
-            MeshPrimitive::Sphere { radius } => {
+            PrimitiveShape::Sphere { radius } => {
                 self.sphere_radius = Some(*radius);
             }
         }
     }
 }
 
-impl RecallMeshPrimitive {
-    pub fn assume_box(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Box { .. }) {
+impl RecallPrimitiveShape {
+    pub fn assume_box(&self, current: &PrimitiveShape) -> PrimitiveShape {
+        if matches!(current, PrimitiveShape::Box { .. }) {
             current.clone()
         } else {
-            MeshPrimitive::Box {
+            PrimitiveShape::Box {
                 size: self.box_size.unwrap_or_default(),
             }
         }
     }
 
-    pub fn assume_cylinder(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Cylinder { .. }) {
+    pub fn assume_cylinder(&self, current: &PrimitiveShape) -> PrimitiveShape {
+        if matches!(current, PrimitiveShape::Cylinder { .. }) {
             current.clone()
         } else {
-            MeshPrimitive::Cylinder {
+            PrimitiveShape::Cylinder {
                 radius: self.cylinder_radius.unwrap_or_default(),
                 length: self.cylinder_length.unwrap_or_default(),
             }
         }
     }
 
-    pub fn assume_capsule(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Capsule { .. }) {
+    pub fn assume_capsule(&self, current: &PrimitiveShape) -> PrimitiveShape {
+        if matches!(current, PrimitiveShape::Capsule { .. }) {
             current.clone()
         } else {
-            MeshPrimitive::Capsule {
+            PrimitiveShape::Capsule {
                 radius: self.capsule_radius.unwrap_or_default(),
                 length: self.capsule_length.unwrap_or_default(),
             }
         }
     }
 
-    pub fn assume_sphere(&self, current: &MeshPrimitive) -> MeshPrimitive {
-        if matches!(current, MeshPrimitive::Sphere { .. }) {
+    pub fn assume_sphere(&self, current: &PrimitiveShape) -> PrimitiveShape {
+        if matches!(current, PrimitiveShape::Sphere { .. }) {
             current.clone()
         } else {
-            MeshPrimitive::Sphere {
+            PrimitiveShape::Sphere {
                 radius: self.sphere_radius.unwrap_or_default(),
             }
         }
@@ -330,7 +330,7 @@ impl RecallMeshPrimitive {
 
 impl Default for Geometry {
     fn default() -> Self {
-        Geometry::Primitive(MeshPrimitive::Box { size: [0.0; 3] })
+        Geometry::Primitive(PrimitiveShape::Box { size: [0.0; 3] })
     }
 }
 
@@ -432,22 +432,24 @@ impl From<Geometry> for urdf_rs::Geometry {
                 filename,
                 scale: scale.map(|v| urdf_rs::Vec3([v.x as f64, v.y as f64, v.z as f64])),
             },
-            Geometry::Primitive(MeshPrimitive::Box { size: [x, y, z] }) => urdf_rs::Geometry::Box {
-                size: urdf_rs::Vec3([x as f64, y as f64, z as f64]),
-            },
-            Geometry::Primitive(MeshPrimitive::Cylinder { radius, length }) => {
+            Geometry::Primitive(PrimitiveShape::Box { size: [x, y, z] }) => {
+                urdf_rs::Geometry::Box {
+                    size: urdf_rs::Vec3([x as f64, y as f64, z as f64]),
+                }
+            }
+            Geometry::Primitive(PrimitiveShape::Cylinder { radius, length }) => {
                 urdf_rs::Geometry::Cylinder {
                     radius: radius as f64,
                     length: length as f64,
                 }
             }
-            Geometry::Primitive(MeshPrimitive::Capsule { radius, length }) => {
+            Geometry::Primitive(PrimitiveShape::Capsule { radius, length }) => {
                 urdf_rs::Geometry::Capsule {
                     radius: radius as f64,
                     length: length as f64,
                 }
             }
-            Geometry::Primitive(MeshPrimitive::Sphere { radius }) => urdf_rs::Geometry::Sphere {
+            Geometry::Primitive(PrimitiveShape::Sphere { radius }) => urdf_rs::Geometry::Sphere {
                 radius: radius as f64,
             },
         }
@@ -775,22 +777,22 @@ pub struct UrdfRoot(pub urdf_rs::Robot);
 impl From<&urdf_rs::Geometry> for Geometry {
     fn from(geom: &urdf_rs::Geometry) -> Self {
         match geom {
-            urdf_rs::Geometry::Box { size } => Geometry::Primitive(MeshPrimitive::Box {
+            urdf_rs::Geometry::Box { size } => Geometry::Primitive(PrimitiveShape::Box {
                 size: (**size).map(|f| f as f32),
             }),
             urdf_rs::Geometry::Cylinder { radius, length } => {
-                Geometry::Primitive(MeshPrimitive::Cylinder {
+                Geometry::Primitive(PrimitiveShape::Cylinder {
                     radius: *radius as f32,
                     length: *length as f32,
                 })
             }
             urdf_rs::Geometry::Capsule { radius, length } => {
-                Geometry::Primitive(MeshPrimitive::Capsule {
+                Geometry::Primitive(PrimitiveShape::Capsule {
                     radius: *radius as f32,
                     length: *length as f32,
                 })
             }
-            urdf_rs::Geometry::Sphere { radius } => Geometry::Primitive(MeshPrimitive::Sphere {
+            urdf_rs::Geometry::Sphere { radius } => Geometry::Primitive(PrimitiveShape::Sphere {
                 radius: *radius as f32,
             }),
             urdf_rs::Geometry::Mesh { filename, scale } => {
@@ -970,7 +972,7 @@ mod tests {
         ));
         assert!(matches!(
             right_leg_visual.bundle.geometry,
-            Geometry::Primitive(MeshPrimitive::Box { .. })
+            Geometry::Primitive(PrimitiveShape::Box { .. })
         ));
         let (_, right_leg_collision) =
             element_by_parent(&workcell.collisions, right_leg_id).unwrap();
@@ -980,7 +982,7 @@ mod tests {
         ));
         assert!(matches!(
             right_leg_collision.bundle.geometry,
-            Geometry::Primitive(MeshPrimitive::Box { .. })
+            Geometry::Primitive(PrimitiveShape::Box { .. })
         ));
         // Test inertial parenthood and parsing
         let (_, right_leg_inertial) = element_by_parent(&workcell.inertials, right_leg_id).unwrap();

@@ -105,7 +105,7 @@ pub fn generate_workcell(
                 Entity,
                 &NameInWorkcell,
                 Option<&AssetSource>,
-                Option<&MeshPrimitive>,
+                Option<&PrimitiveShape>,
                 &Pose,
                 &SiteID,
                 &Parent,

@@ -16,19 +16,19 @@
 */
 
 use bevy_egui::egui::{ComboBox, DragValue, Ui};
-use rmf_site_format::{MeshPrimitive, RecallMeshPrimitive};
+use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
 
-pub struct InspectMeshPrimitive<'a> {
-    pub primitive: &'a MeshPrimitive,
-    pub recall: &'a RecallMeshPrimitive,
+pub struct InspectPrimitiveShape<'a> {
+    pub primitive: &'a PrimitiveShape,
+    pub recall: &'a RecallPrimitiveShape,
 }
 
-impl<'a> InspectMeshPrimitive<'a> {
-    pub fn new(primitive: &'a MeshPrimitive, recall: &'a RecallMeshPrimitive) -> Self {
+impl<'a> InspectPrimitiveShape<'a> {
+    pub fn new(primitive: &'a PrimitiveShape, recall: &'a RecallPrimitiveShape) -> Self {
         Self { primitive, recall }
     }
 
-    pub fn show(self, ui: &mut Ui) -> Option<MeshPrimitive> {
+    pub fn show(self, ui: &mut Ui) -> Option<PrimitiveShape> {
         let mut new_primitive = self.primitive.clone();
         ui.horizontal(|ui| {
             ui.label("Primitive:");
@@ -37,7 +37,7 @@ impl<'a> InspectMeshPrimitive<'a> {
         });
         // TODO(luca) Make these values editable and implement a system to parse changes
         match &mut new_primitive {
-            MeshPrimitive::Box { size } => {
+            PrimitiveShape::Box { size } => {
                 ui.label("Size");
                 ui.horizontal(|ui| {
                     ui.label("X:");
@@ -48,8 +48,8 @@ impl<'a> InspectMeshPrimitive<'a> {
                     ui.label(size[2].to_string());
                 });
             }
-            MeshPrimitive::Cylinder { radius, length }
-            | MeshPrimitive::Capsule { radius, length } => {
+            PrimitiveShape::Cylinder { radius, length }
+            | PrimitiveShape::Capsule { radius, length } => {
                 ui.horizontal(|ui| {
                     ui.label("Radius:");
                     ui.label(radius.to_string());
@@ -57,7 +57,7 @@ impl<'a> InspectMeshPrimitive<'a> {
                     ui.label(length.to_string());
                 });
             }
-            MeshPrimitive::Sphere { radius } => {
+            PrimitiveShape::Sphere { radius } => {
                 ui.horizontal(|ui| {
                     ui.label("Radius:");
                     ui.label(radius.to_string());
