@@ -547,6 +547,6 @@ impl Plugin for CameraControlsPlugin {
             .init_resource::<CameraControls>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_system(camera_controls);
+            .add_systems(Update, camera_controls);
     }
 }

@@ -136,7 +136,7 @@ pub fn run(command_line_args: Vec<String>) {
         }
     }
 
-    app.add_plugin(SiteEditor);
+    app.add_plugins(SiteEditor);
     app.run();
 }
 
@@ -177,7 +177,7 @@ impl Plugin for SiteEditor {
             )
             .add_systems(
                 Update,
-                check_browser_window_size.run_if(on_timer(std::Duration::from_secs_f32(0.5))),
+                (check_browser_window_size).run_if(on_timer(std::Duration::from_secs_f32(0.5))),
             );
         }
 
@@ -213,25 +213,24 @@ impl Plugin for SiteEditor {
         app.init_resource::<Settings>()
             .add_startup_system(init_settings)
             .insert_resource(DirectionalLightShadowMap { size: 2048 })
-            .add_plugin(LogHistoryPlugin)
-            .add_plugin(AabbUpdatePlugin)
-            .add_plugin(EguiPlugin)
-            .add_plugin(KeyboardInputPlugin)
-            .add_plugin(SavePlugin)
-            .add_plugin(SdfPlugin)
             .add_state::<AppState>()
-            //.add_state_to_stage(CoreStage::PreUpdate, AppState::MainMenu)
-            .add_plugin(MainMenuPlugin)
-            // .add_plugin(WarehouseGeneratorPlugin)
-            .add_plugin(WorkcellEditorPlugin)
-            .add_plugin(SitePlugin)
-            .add_plugin(InteractionPlugin)
-            .add_plugin(StandardUiLayout)
-            .add_plugin(AnimationPlugin)
-            .add_plugin(OccupancyPlugin)
-            .add_plugin(WorkspacePlugin)
+            .add_plugins((
+                LogHistoryPlugin,
+                AabbUpdatePlugin,
+                EguiPlugin,
+                KeyboardInputPlugin,
+                SavePlugin,
+                SdfPlugin,
+                MainMenuPlugin,
+                WorkcellEditorPlugin,
+                SitePlugin,
+                InteractionPlugin,
+                StandardUiLayout,
+                AnimationPlugin,
+                OccupancyPlugin,
+                WorkspacePlugin,
+            ))
             // Note order matters, issue and OSMView plugins must be initialized after the UI
-            .add_plugin(IssuePlugin)
-            .add_plugin(OSMViewPlugin);
+            .add_plugins((IssuePlugin, OSMViewPlugin));
     }
 }

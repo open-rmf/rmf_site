@@ -40,7 +40,7 @@ pub struct KeyboardInputPlugin;
 impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
-            .add_system(handle_keyboard_input);
+            .add_systems(Update, handle_keyboard_input);
     }
 }
 

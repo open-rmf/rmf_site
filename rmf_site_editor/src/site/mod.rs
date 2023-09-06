@@ -219,48 +219,54 @@ impl Plugin for SitePlugin {
             .add_event::<UpdateFuelCache>()
             .add_event::<SetFuelApiKey>()
             .add_event::<MergeGroups>()
-            .add_plugin(ChangePlugin::<AssociatedGraphs<Entity>>::default())
-            .add_plugin(RecallPlugin::<RecallAssociatedGraphs<Entity>>::default())
-            .add_plugin(ChangePlugin::<Motion>::default())
-            .add_plugin(RecallPlugin::<RecallMotion>::default())
-            .add_plugin(ChangePlugin::<ReverseLane>::default())
-            .add_plugin(RecallPlugin::<RecallReverseLane>::default())
-            .add_plugin(ChangePlugin::<NameOfSite>::default())
-            .add_plugin(ChangePlugin::<NameInSite>::default())
-            .add_plugin(ChangePlugin::<NameInWorkcell>::default())
-            .add_plugin(ChangePlugin::<Pose>::default())
-            .add_plugin(ChangePlugin::<Scale>::default())
-            .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())
-            .add_plugin(ChangePlugin::<Distance>::default())
-            .add_plugin(ChangePlugin::<Texture>::default())
-            .add_plugin(ChangePlugin::<DoorType>::default())
-            .add_plugin(RecallPlugin::<RecallDoorType>::default())
-            .add_plugin(ChangePlugin::<LevelElevation>::default())
-            .add_plugin(ChangePlugin::<LiftCabin<Entity>>::default())
-            .add_plugin(RecallPlugin::<RecallLiftCabin<Entity>>::default())
-            .add_plugin(ChangePlugin::<AssetSource>::default())
-            .add_plugin(RecallPlugin::<RecallAssetSource>::default())
-            .add_plugin(ChangePlugin::<MeshPrimitive>::default())
-            .add_plugin(RecallPlugin::<RecallMeshPrimitive>::default())
-            .add_plugin(ChangePlugin::<PixelsPerMeter>::default())
-            .add_plugin(ChangePlugin::<PhysicalCameraProperties>::default())
-            .add_plugin(ChangePlugin::<LightKind>::default())
-            .add_plugin(RecallPlugin::<RecallLightKind>::default())
-            .add_plugin(ChangePlugin::<DisplayColor>::default())
-            .add_plugin(ChangePlugin::<LocationTags>::default())
-            .add_plugin(RecallPlugin::<RecallLocationTags>::default())
-            .add_plugin(ChangePlugin::<Visibility>::default())
-            .add_plugin(ChangePlugin::<LayerVisibility>::default())
-            .add_plugin(ChangePlugin::<GlobalFloorVisibility>::default())
-            .add_plugin(ChangePlugin::<GlobalDrawingVisibility>::default())
-            .add_plugin(ChangePlugin::<PreferredSemiTransparency>::default())
-            .add_plugin(ChangePlugin::<Affiliation<Entity>>::default())
-            .add_plugin(RecencyRankingPlugin::<NavGraphMarker>::default())
-            .add_plugin(RecencyRankingPlugin::<FloorMarker>::default())
-            .add_plugin(RecencyRankingPlugin::<DrawingMarker>::default())
-            .add_plugin(DeletionPlugin)
-            .add_plugin(DrawingEditorPlugin)
-            .add_plugin(SiteVisualizerPlugin)
+            .add_plugins((
+                ChangePlugin::<AssociatedGraphs<Entity>>::default(),
+                RecallPlugin::<RecallAssociatedGraphs<Entity>>::default(),
+                ChangePlugin::<Motion>::default(),
+                RecallPlugin::<RecallMotion>::default(),
+                ChangePlugin::<ReverseLane>::default(),
+                RecallPlugin::<RecallReverseLane>::default(),
+                ChangePlugin::<NameOfSite>::default(),
+                ChangePlugin::<NameInSite>::default(),
+                ChangePlugin::<NameInWorkcell>::default(),
+                ChangePlugin::<Pose>::default(),
+                ChangePlugin::<Scale>::default(),
+                ChangePlugin::<MeshConstraint<Entity>>::default(),
+                ChangePlugin::<Distance>::default(),
+                ChangePlugin::<Texture>::default(),
+                ChangePlugin::<DoorType>::default(),
+            ))
+            .add_plugins((
+                RecallPlugin::<RecallDoorType>::default(),
+                ChangePlugin::<LevelElevation>::default(),
+                ChangePlugin::<LiftCabin<Entity>>::default(),
+                RecallPlugin::<RecallLiftCabin<Entity>>::default(),
+                ChangePlugin::<AssetSource>::default(),
+                RecallPlugin::<RecallAssetSource>::default(),
+                ChangePlugin::<MeshPrimitive>::default(),
+                RecallPlugin::<RecallMeshPrimitive>::default(),
+                ChangePlugin::<PixelsPerMeter>::default(),
+                ChangePlugin::<PhysicalCameraProperties>::default(),
+                ChangePlugin::<LightKind>::default(),
+                RecallPlugin::<RecallLightKind>::default(),
+                ChangePlugin::<DisplayColor>::default(),
+                ChangePlugin::<LocationTags>::default(),
+                RecallPlugin::<RecallLocationTags>::default(),
+            ))
+            .add_plugins((
+                ChangePlugin::<Visibility>::default(),
+                ChangePlugin::<LayerVisibility>::default(),
+                ChangePlugin::<GlobalFloorVisibility>::default(),
+                ChangePlugin::<GlobalDrawingVisibility>::default(),
+                ChangePlugin::<PreferredSemiTransparency>::default(),
+                ChangePlugin::<Affiliation<Entity>>::default(),
+                RecencyRankingPlugin::<NavGraphMarker>::default(),
+                RecencyRankingPlugin::<FloorMarker>::default(),
+                RecencyRankingPlugin::<DrawingMarker>::default(),
+                DeletionPlugin,
+                DrawingEditorPlugin,
+                SiteVisualizerPlugin,
+            ))
             .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
             .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")
             .add_issue_type(
@@ -269,8 +275,7 @@ impl Plugin for SitePlugin {
             )
             .add_issue_type(&DUPLICATED_DOCK_NAME_ISSUE_UUID, "Duplicated dock name")
             .add_issue_type(&UNCONNECTED_ANCHORS_ISSUE_UUID, "Unconnected anchors")
-            .add_system(load_site)
-            .add_system(import_nav_graph)
+            .add_systems(Update, (load_site, import_nav_graph))
             .add_systems(
                 PreUpdate,
                 (

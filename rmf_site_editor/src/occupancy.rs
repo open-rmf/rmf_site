@@ -38,7 +38,8 @@ pub struct OccupancyPlugin;
 
 impl Plugin for OccupancyPlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<CalculateGrid>().add_system(calculate_grid);
+        app.add_event::<CalculateGrid>()
+            .add_systems(Update, calculate_grid);
     }
 }
 

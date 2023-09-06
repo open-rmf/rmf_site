@@ -156,7 +156,7 @@ impl Plugin for InteractionPlugin {
             )
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             */
-            .add_plugin(PolylinePlugin)
+            .add_plugins((DefaultPickingPlugins, PolylinePlugin))
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -175,27 +175,23 @@ impl Plugin for InteractionPlugin {
             .add_event::<ChangeMode>()
             .add_event::<GizmoClicked>()
             .add_event::<SpawnPreview>()
-            .add_plugins(DefaultPickingPlugins)
-            .add_plugin(OutlinePlugin)
-            .add_plugin(CategoryVisibilityPlugin::<DoorMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<FloorMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<LaneMarker>::visible(true))
-            // TODO(luca) unify the two Lift plugins into a single one?
-            .add_plugin(CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(
-                true,
+            .add_plugins((
+                OutlinePlugin,
+                CategoryVisibilityPlugin::<DoorMarker>::visible(true),
+                CategoryVisibilityPlugin::<FloorMarker>::visible(true),
+                CategoryVisibilityPlugin::<LaneMarker>::visible(true),
+                CategoryVisibilityPlugin::<LiftCabin<Entity>>::visible(true),
+                CategoryVisibilityPlugin::<LiftCabinDoorMarker>::visible(true),
+                CategoryVisibilityPlugin::<LocationTags>::visible(true),
+                CategoryVisibilityPlugin::<FiducialMarker>::visible(true),
+                CategoryVisibilityPlugin::<ConstraintMarker>::visible(true),
+                CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true),
+                CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
+                CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
+                CategoryVisibilityPlugin::<WallMarker>::visible(true),
+                CameraControlsPlugin,
+                ModelPreviewPlugin,
             ))
-            .add_plugin(CategoryVisibilityPlugin::<LocationTags>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<FiducialMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<ConstraintMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<VisualMeshMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(
-                false,
-            ))
-            .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
-            .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
-            .add_plugin(CameraControlsPlugin)
-            .add_plugin(ModelPreviewPlugin)
             .add_systems(
                 PreUpdate,
                 (

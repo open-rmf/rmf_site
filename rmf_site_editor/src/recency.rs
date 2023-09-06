@@ -190,9 +190,13 @@ pub struct RecencyRankingPlugin<T>(PhantomData<T>);
 
 impl<T: Component> Plugin for RecencyRankingPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<ChangeRank<T>>()
-            .add_system(update_recency_rankings::<T>)
-            .add_system(update_recency_ranks::<T>.after(update_recency_rankings::<T>));
+        app.add_event::<ChangeRank<T>>().add_systems(
+            Update,
+            (
+                update_recency_rankings::<T>,
+                update_recency_ranks::<T>.after(update_recency_rankings::<T>),
+            ),
+        );
     }
 }
 

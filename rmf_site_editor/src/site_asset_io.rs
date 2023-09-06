@@ -428,8 +428,6 @@ impl Plugin for SiteAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io))
-            .add_plugin(bevy_stl::StlPlugin)
-            .add_plugin(bevy_obj::ObjPlugin)
-            .add_plugin(UrdfPlugin);
+            .add_plugins((bevy_stl::StlPlugin, bevy_obj::ObjPlugin, UrdfPlugin));
     }
 }

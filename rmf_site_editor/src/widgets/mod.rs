@@ -110,7 +110,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
-            .add_plugin(MenuPluginManager)
+            .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
             .add_systems(OnEnter(AppState::MainMenu), init_ui_style)

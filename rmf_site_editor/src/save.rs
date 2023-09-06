@@ -83,7 +83,7 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveWorkspace>();
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(dispatch_save_events);
+        app.add_systems(Update, dispatch_save_events);
     }
 }
 
