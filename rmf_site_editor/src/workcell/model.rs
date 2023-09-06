@@ -50,6 +50,9 @@ pub fn flatten_loaded_models_hierarchy(
             let Ok(mut child_pose) = poses.get_mut(e) else {
                 continue;
             };
+            if let Ok(mut parent_dependents) = dependents.get_mut(**model_parent) {
+                parent_dependents.remove(&parent_entity);
+            }
             commands.entity(**model_parent).add_child(e);
             if let Ok(mut deps) = dependents.get_mut(**model_parent) {
                 deps.insert(e);
