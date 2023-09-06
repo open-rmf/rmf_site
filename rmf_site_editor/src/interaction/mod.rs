@@ -272,7 +272,8 @@ impl Plugin for InteractionPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    move_anchor.before(update_anchor_transforms),
+                    // TODO(luca) this was placed before update_anchor_transforms
+                    move_anchor,
                     move_pose,
                     make_gizmos_pickable,
                 )

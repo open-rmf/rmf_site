@@ -146,7 +146,6 @@ pub struct ChangeEvents<'w> {
     pub lane_motion: EventWriter<'w, Change<Motion>>,
     pub lane_reverse: EventWriter<'w, Change<ReverseLane>>,
     pub name: EventWriter<'w, Change<NameInSite>>,
-    pub label: EventWriter<'w, Change<Label>>,
     pub pose: EventWriter<'w, Change<Pose>>,
     pub door: EventWriter<'w, Change<DoorType>>,
     pub lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,

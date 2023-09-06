@@ -54,7 +54,7 @@ fn set_reference(
 
     if let Some((_, mut properties)) = site_properties
         .iter_mut()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if !window.visible {
@@ -208,7 +208,7 @@ pub fn view_reference(
 
     if let Some((_, properties)) = site_properties
         .iter()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if let Some(offset) = properties.0 {
@@ -387,7 +387,7 @@ pub fn render_map_tiles(
 ) {
     if let Some((_, site_properties)) = site_properties
         .iter()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if let Some(geo_offset) = site_properties.0 {

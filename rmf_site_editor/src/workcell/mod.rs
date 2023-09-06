@@ -125,7 +125,7 @@ impl Plugin for WorkcellEditorPlugin {
                 Update,
                 (
                     update_anchor_transforms,
-                    add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
+                    add_anchors_for_new_mesh_constraints,
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
