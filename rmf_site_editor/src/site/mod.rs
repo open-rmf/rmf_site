@@ -345,7 +345,7 @@ impl Plugin for SitePlugin {
                     .with_system(update_model_scales)
                     .with_system(make_models_selectable)
                     .with_system(propagate_model_render_layers)
-                    .with_system(handle_new_mesh_primitives)
+                    .with_system(handle_new_primitive_shapes)
                     .with_system(add_drawing_visuals)
                     .with_system(handle_loaded_drawing)
                     .with_system(update_drawing_rank)

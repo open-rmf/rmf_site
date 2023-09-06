@@ -242,7 +242,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
     }
 }
 
-pub fn handle_new_mesh_primitives(
+pub fn handle_new_primitive_shapes(
     mut commands: Commands,
     primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
     parents: Query<&Parent>,
