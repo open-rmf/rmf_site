@@ -19,7 +19,7 @@ use crate::interaction::*;
 use bevy::{math::Affine3A, prelude::*};
 use bevy_mod_picking::prelude::RaycastPickTarget;
 //use bevy_mod_picking::prelude::*;
-use bevy_mod_raycast::{Ray3d, RaycastSource};
+use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -231,7 +231,7 @@ pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Ad
     for e in &new_gizmos {
         commands
             .entity(e)
-            .insert((PickableBundle::default(), RaycastPickTarget::default()));
+            .insert(RaycastMesh::<SiteRaycastSet>::default());
     }
 }
 

@@ -90,7 +90,7 @@ pub use visual_cue::*;
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_picking::{backend::prelude::PickSet, DefaultPickingPlugins};
-use bevy_mod_raycast::update_raycast;
+use bevy_mod_raycast::{DefaultRaycastingPlugin, RaycastSystem, update_raycast};
 use bevy_polyline::PolylinePlugin;
 
 #[derive(Reflect)]
@@ -157,6 +157,7 @@ impl Plugin for InteractionPlugin {
             .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
             */
             .add_plugins((DefaultPickingPlugins, PolylinePlugin))
+            .add_plugins(DefaultRaycastingPlugin::<SiteRaycastSet>::default())
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -281,7 +282,8 @@ impl Plugin for InteractionPlugin {
                     update_picked.after(PickSet::PostFocus),
                     update_interaction_mode,
                     // TODO(luca) check in which stage to place this
-                    update_raycast::<SiteRaycastSet>,
+                    update_raycast_with_cursor.before(RaycastSystem::BuildRays::<SiteRaycastSet>),
+                    //update_raycast::<SiteRaycastSet>,
                 ),
             );
     }

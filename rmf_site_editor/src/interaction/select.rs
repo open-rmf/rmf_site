@@ -18,6 +18,8 @@
 use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
 use std::collections::HashSet;
+use bevy_mod_picking::prelude::RaycastPickTarget;
+use bevy_mod_raycast::RaycastMesh;
 
 /// This component is put on entities with meshes to mark them as items that can
 /// be interacted with to
@@ -134,7 +136,7 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands.entity(entity).insert(PickableBundle::default());
+        commands.entity(entity).insert(RaycastMesh::<SiteRaycastSet>::default());
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {

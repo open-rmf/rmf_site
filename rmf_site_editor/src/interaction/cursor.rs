@@ -21,7 +21,7 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{Ray3d, RaycastSource};
+use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -484,7 +484,7 @@ pub fn make_model_previews_not_selectable(
     cursor: Res<Cursor>,
 ) {
     if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
-        commands.entity(e).remove::<Selectable>();
-        commands.entity(e).remove::<PickableBundle>();
+        commands.entity(e).remove::<Selectable>()
+            .remove::<RaycastMesh<SiteRaycastSet>>();
     }
 }
