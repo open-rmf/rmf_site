@@ -6,6 +6,7 @@ use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
+#[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
@@ -218,7 +219,7 @@ impl Plugin for SiteEditor {
             );
         }
         app.init_resource::<Settings>()
-            .add_startup_system(init_settings)
+            .add_systems(Startup, init_settings)
             .insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((

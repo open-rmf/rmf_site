@@ -95,7 +95,7 @@ fn set_category_visibility_for_new_entity<T: Component + Clone + Debug>(
     category_visibility: Res<CategoryVisibility<T>>,
     mut visibilities: Query<(Entity, Option<&mut Visibility>), Added<T>>,
 ) {
-    for (e, mut vis) in &mut visibilities {
+    for (e, vis) in &mut visibilities {
         let visibility = if category_visibility.0 {
             Visibility::Inherited
         } else {

@@ -201,8 +201,8 @@ fn restore_edited_drawing(edit: &EditDrawing, commands: &mut Commands) {
 
 fn assign_drawing_parent_to_new_measurements(
     mut commands: Commands,
-    mut changed_measurement: Query<
-        (Entity, &Edge<Entity>, Option<&Parent>),
+    changed_measurement: Query<
+        (Entity, &Edge<Entity>),
         (
             Without<Pending>,
             (With<MeasurementMarker>, Changed<Edge<Entity>>),
@@ -210,15 +210,15 @@ fn assign_drawing_parent_to_new_measurements(
     >,
     parents: Query<&Parent>,
 ) {
-    for (e, edge, mut tf) in &mut changed_measurement {
+    for (e, edge) in &changed_measurement {
         if let (Ok(p0), Ok(p1)) = (parents.get(edge.left()), parents.get(edge.right())) {
             if p0.get() != p1.get() {
-                commands.entity(e).set_parent(p0.get());
-            } else {
                 warn!(
                     "Mismatch in parents of anchors for measurement {e:?}: {:?}, {:?}",
                     p0, p1
                 );
+            } else {
+                commands.entity(e).set_parent(p0.get());
             }
         } else {
             warn!(
