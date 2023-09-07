@@ -74,7 +74,7 @@ pub fn update_picking_cam(
 
             commands
                 .entity(camera_controls.active_camera())
-                .insert(RaycastSource::<SiteRaycastSet>::default());
+                .insert(RaycastSource::<SiteRaycastSet>::new().with_early_exit(false));
         }
     }
 }

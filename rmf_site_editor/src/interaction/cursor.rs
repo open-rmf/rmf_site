@@ -306,6 +306,7 @@ pub fn update_cursor_transform(
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     models: Query<(), With<ModelMarker>>,
     mut transforms: Query<&mut Transform>,
+    hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
     mut visibility: Query<&mut Visibility>,
 ) {
@@ -315,7 +316,7 @@ pub fn update_cursor_transform(
             let Ok(source) = raycast_sources.get_single() else {
                 return;
             };
-            let intersection = match source.intersections().iter().last() {
+            let intersection = match source.get_nearest_intersection() {
                 Some((_, intersection)) => intersection,
                 None => {
                     return;
@@ -360,31 +361,26 @@ pub fn update_cursor_transform(
                 }
             };
 
-            let (entity, intersection) = match raycast_sources
-                .get_single()
-                .ok()
-                .map(|s| s.intersections().iter().last())
-                .flatten()
-            {
-                Some((entity, intersection)) => (entity, intersection),
-                None => {
-                    return;
-                }
+            let Ok(source) = raycast_sources.get_single() else {
+                return;
             };
+
             // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
-            // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
-            if let Some(triangle) = intersection.triangle() {
+            if let Some((_, intersection)) = source.get_nearest_intersection() {
+                let Some(triangle) = intersection.triangle() else {
+                    return;
+                };
                 // Make sure we are hovering over a model and not anything else (i.e. anchor)
                 match cursor.preview_model {
                     None => {
-                        if models.get(*entity).is_ok() {
+                        if hovering.0.and_then(|e| models.get(e).ok()).is_some() {
                             // Find the closest triangle vertex
                             // TODO(luca) Also snap to edges of triangles or just disable altogether and snap
                             // to area, then populate a MeshConstraint component to be used by downstream
                             // spawning methods
                             // TODO(luca) there must be a better way to find a minimum given predicate in Rust
-                            let position = intersection.position();
                             let triangle_vecs = vec![triangle.v1, triangle.v2];
+                            let position = intersection.position();
                             let mut closest_vertex = triangle.v0;
                             let mut closest_dist = position.distance(triangle.v0.into());
                             for v in triangle_vecs {

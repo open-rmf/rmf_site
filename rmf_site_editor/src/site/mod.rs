@@ -181,7 +181,7 @@ impl Plugin for SitePlugin {
                 apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
             )
             .configure_sets(
-                Update,
+                PostUpdate,
                 (
                     VisibilitySystems::VisibilityPropagate,
                     SiteUpdateSet::BetweenVisibilityAndTransform,
@@ -191,7 +191,7 @@ impl Plugin for SitePlugin {
                     .chain(),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush),
             )
             /*
@@ -330,7 +330,7 @@ impl Plugin for SitePlugin {
                     .in_set(SiteUpdateSet::AssignOrphans),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     add_wall_visual,
                     handle_update_fuel_cache_requests,
@@ -347,7 +347,7 @@ impl Plugin for SitePlugin {
                     .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     update_anchor_transforms,
                     add_door_visuals,
@@ -370,7 +370,7 @@ impl Plugin for SitePlugin {
                     .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     remove_association_for_deleted_graphs,
                     add_unused_fiducial_tracker,
@@ -393,7 +393,7 @@ impl Plugin for SitePlugin {
                     .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     add_measurement_visuals,
                     update_changed_measurement,

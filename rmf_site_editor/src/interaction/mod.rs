@@ -193,7 +193,7 @@ impl Plugin for InteractionPlugin {
                 ModelPreviewPlugin,
             ))
             .add_systems(
-                PreUpdate,
+                Update,
                 (
                     make_lift_doormat_gizmo,
                     update_doormats_for_level_change,
