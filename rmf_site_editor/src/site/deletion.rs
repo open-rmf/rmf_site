@@ -106,7 +106,7 @@ impl Plugin for DeletionPlugin {
         .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
         .add_systems(
-            Update,
+            First,
             handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
         );
     }
