@@ -169,20 +169,10 @@ impl Plugin for SitePlugin {
                 apply_deferred.in_set(SiteUpdateSet::ProcessChangesFlush),
             )
             .configure_sets(
-                Update,
+                PostUpdate,
                 (
                     SiteUpdateSet::AssignOrphans,
                     SiteUpdateSet::AssignOrphansFlush,
-                )
-                    .chain(),
-            )
-            .add_systems(
-                Update,
-                apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
-            )
-            .configure_sets(
-                PostUpdate,
-                (
                     VisibilitySystems::VisibilityPropagate,
                     SiteUpdateSet::BetweenVisibilityAndTransform,
                     SiteUpdateSet::BetweenVisibilityAndTransformFlush,
@@ -194,12 +184,10 @@ impl Plugin for SitePlugin {
                 PostUpdate,
                 apply_deferred.in_set(SiteUpdateSet::BetweenVisibilityAndTransformFlush),
             )
-            /*
-            .add_state_to_stage(CoreStage::First, SiteState::Off)
-            .add_state_to_stage(CoreStage::PreUpdate, SiteState::Off)
-            .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
-            .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
-            */
+            .add_systems(
+                PostUpdate,
+                apply_deferred.in_set(SiteUpdateSet::AssignOrphansFlush),
+            )
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
             .init_resource::<FuelClient>()
             .init_resource::<SiteAssets>()
@@ -307,7 +295,7 @@ impl Plugin for SitePlugin {
                     .run_if(in_state(SiteState::Display)),
             )
             .add_systems(
-                Update,
+                PostUpdate,
                 (
                     assign_orphan_anchors_to_parent,
                     assign_orphan_levels_to_site,

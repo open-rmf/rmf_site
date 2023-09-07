@@ -134,27 +134,6 @@ impl Plugin for InteractionPlugin {
                 Update,
                 apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
             )
-            /*
-            .add_stage_after(
-                SiteUpdateStage::AssignOrphans,
-                InteractionUpdateSet::AddVisuals,
-                SystemStage::parallel(),
-            )
-            .add_stage_after(
-                InteractionUpdateSet::AddVisuals,
-                InteractionUpdateSet::ProcessVisuals,
-                SystemStage::parallel(),
-            )
-            .add_state_to_stage(
-                InteractionUpdateSet::AddVisuals,
-                InteractionState::Disable,
-            )
-            .add_state_to_stage(
-                InteractionUpdateSet::ProcessVisuals,
-                InteractionState::Disable,
-            )
-            .add_state_to_stage(CoreStage::PostUpdate, InteractionState::Disable)
-            */
             .add_plugins(PolylinePlugin)
             .add_plugins(DefaultRaycastingPlugin::<SiteRaycastSet>::default())
             .init_resource::<InteractionAssets>()
