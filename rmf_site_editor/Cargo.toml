@@ -60,6 +60,7 @@ surf = { version = "2.3" }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
+surf = { version = "2.3" }
 
 [target.'cfg(target_arch = "wasm32")'.dependencies]
 surf = { version = "2.3", default-features = false, features = ["wasm-client", "encoding"] }
