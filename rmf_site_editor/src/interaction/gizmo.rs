@@ -17,8 +17,6 @@
 
 use crate::interaction::*;
 use bevy::{math::Affine3A, prelude::*};
-use bevy_mod_picking::prelude::RaycastPickTarget;
-//use bevy_mod_picking::prelude::*;
 use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
 use rmf_site_format::Pose;
 

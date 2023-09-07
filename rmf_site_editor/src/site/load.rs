@@ -180,8 +180,7 @@ fn generate_site_entities(
             commands
                 .spawn(floor.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*floor_id))
-                .set_parent(level_entity)
-                .id();
+                .set_parent(level_entity);
             consider_id(*floor_id);
         }
 
@@ -189,8 +188,7 @@ fn generate_site_entities(
             commands
                 .spawn(wall.convert(&id_to_entity).for_site(site_id)?)
                 .insert(SiteID(*wall_id))
-                .set_parent(level_entity)
-                .id();
+                .set_parent(level_entity);
             consider_id(*wall_id);
         }
 

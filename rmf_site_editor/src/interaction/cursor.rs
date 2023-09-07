@@ -329,13 +329,7 @@ pub fn update_cursor_transform(
                 }
             };
 
-            // TODO(luca) This was normal_ray before, check direction of inspector normal
-            let ray = match source.get_ray() {
-                Some(ray) => ray,
-                None => {
-                    return;
-                }
-            };
+            let ray = Ray3d::new(intersection.position(), intersection.normal());
 
             *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
         }
@@ -484,7 +478,9 @@ pub fn make_model_previews_not_selectable(
     cursor: Res<Cursor>,
 ) {
     if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
-        commands.entity(e).remove::<Selectable>()
+        commands
+            .entity(e)
+            .remove::<Selectable>()
             .remove::<RaycastMesh<SiteRaycastSet>>();
     }
 }
