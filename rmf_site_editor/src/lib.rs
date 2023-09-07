@@ -10,7 +10,7 @@ use wasm_bindgen::prelude::*;
 
 // a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
-use bevy::{time::FixedTimestep, window::Windows};
+use bevy::{time::common_conditions::on_timer, window::PrimaryWindow};
 
 extern crate web_sys;
 
@@ -63,7 +63,11 @@ use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;
-use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+use bevy::render::{
+    render_resource::{AddressMode, SamplerDescriptor},
+    settings::{WgpuFeatures, WgpuSettings},
+    RenderPlugin,
+};
 pub use osm_slippy_map::*;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
@@ -90,8 +94,8 @@ pub enum AppState {
 pub struct OpenedMapFile(std::path::PathBuf);
 
 #[cfg(target_arch = "wasm32")]
-fn check_browser_window_size(mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
+fn check_browser_window_size(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
+    let mut window = windows.get_single_mut().unwrap();
     let wasm_window = web_sys::window().unwrap();
     let target_width = wasm_window.inner_width().unwrap().as_f64().unwrap() as f32;
     let target_height = wasm_window.inner_height().unwrap().as_f64().unwrap() as f32;
@@ -100,7 +104,7 @@ fn check_browser_window_size(mut windows: ResMut<Windows>) {
 
     if w_diff > 3. || h_diff > 3. {
         // web_sys::console::log_1(&format!("window = {} {} canvas = {} {}", window.width(), window.height(), target_width, target_height).into());
-        window.set_resolution(target_width, target_height);
+        window.resolution = (target_width, target_height).into();
     }
 }
 
@@ -177,7 +181,7 @@ impl Plugin for SiteEditor {
             )
             .add_systems(
                 Update,
-                (check_browser_window_size).run_if(on_timer(std::Duration::from_secs_f32(0.5))),
+                check_browser_window_size.run_if(on_timer(std::time::Duration::from_secs_f32(0.5))),
             );
         }
 
@@ -203,8 +207,11 @@ impl Plugin for SiteEditor {
                             ..Default::default()
                         },
                     })
-                    .set(LogPlugin {
-                        filter: "bevy_asset=error,wgpu=error".to_string(),
+                    .set(RenderPlugin {
+                        wgpu_settings: WgpuSettings {
+                            features: WgpuFeatures::POLYGON_MODE_LINE,
+                            ..default()
+                        },
                         ..default()
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
