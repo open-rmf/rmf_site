@@ -89,7 +89,7 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_mod_raycast::{update_raycast, DefaultRaycastingPlugin, RaycastSystem};
+use bevy_mod_raycast::{DefaultRaycastingPlugin, RaycastSystem};
 use bevy_polyline::PolylinePlugin;
 
 #[derive(Reflect)]
@@ -196,7 +196,7 @@ impl Plugin for InteractionPlugin {
             )
             // Split the above because of a compile error when the tuple is too large
             .add_systems(
-                PreUpdate,
+                Update,
                 (
                     make_model_previews_not_selectable,
                     update_lane_visual_cues.after(maintain_selected_entities),
@@ -247,8 +247,7 @@ impl Plugin for InteractionPlugin {
             .add_systems(
                 PostUpdate,
                 (
-                    // TODO(luca) this was placed before update_anchor_transforms
-                    move_anchor,
+                    move_anchor.before(update_anchor_transforms),
                     move_pose,
                     make_gizmos_pickable,
                 )
@@ -259,9 +258,7 @@ impl Plugin for InteractionPlugin {
                 (
                     update_picked,
                     update_interaction_mode,
-                    // TODO(luca) check in which stage to place this
                     update_raycast_with_cursor.before(RaycastSystem::BuildRays::<SiteRaycastSet>),
-                    //update_raycast::<SiteRaycastSet>,
                 ),
             );
     }

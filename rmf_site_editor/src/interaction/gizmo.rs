@@ -293,11 +293,7 @@ pub fn update_gizmo_click_start(
             let Ok(source) = raycast_sources.get_single() else {
                 return;
             };
-            if let Some(intersection) = source
-                .intersections()
-                .iter()
-                .last()
-                .map(|(_, i)| i.position())
+            if let Some(intersection) = source.get_nearest_intersection().map(|(_, i)| i.position())
             {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
                     if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
