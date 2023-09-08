@@ -9,12 +9,6 @@ use clap::Parser;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
-// a few more imports needed for wasm32 only
-#[cfg(target_arch = "wasm32")]
-use bevy::{time::common_conditions::on_timer, window::PrimaryWindow};
-
-extern crate web_sys;
-
 pub mod aabb;
 pub mod animate;
 
@@ -94,21 +88,6 @@ pub enum AppState {
 
 pub struct OpenedMapFile(std::path::PathBuf);
 
-#[cfg(target_arch = "wasm32")]
-fn check_browser_window_size(mut windows: Query<&mut Window, With<PrimaryWindow>>) {
-    let mut window = windows.get_single_mut().unwrap();
-    let wasm_window = web_sys::window().unwrap();
-    let target_width = wasm_window.inner_width().unwrap().as_f64().unwrap() as f32;
-    let target_height = wasm_window.inner_height().unwrap().as_f64().unwrap() as f32;
-    let w_diff = (target_width - window.width()).abs();
-    let h_diff = (target_height - window.height()).abs();
-
-    if w_diff > 3. || h_diff > 3. {
-        // web_sys::console::log_1(&format!("window = {} {} canvas = {} {}", window.width(), window.height(), target_width, target_height).into());
-        window.resolution = (target_width, target_height).into();
-    }
-}
-
 pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
     // todo: be more sophisticated
     let is_elite = adapter_info.name.contains("NVIDIA");
@@ -159,6 +138,7 @@ impl Plugin for SiteEditor {
                         primary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
                             canvas: Some(String::from("#rmf_site_editor_canvas")),
+                            fit_canvas_to_parent: true,
                             ..default()
                         }),
                         ..default()
@@ -171,18 +151,7 @@ impl Plugin for SiteEditor {
                             ..Default::default()
                         },
                     })
-                    .set(RenderPlugin {
-                        wgpu_settings: WgpuSettings {
-                            features: WgpuFeatures::POLYGON_MODE_LINE,
-                            ..default()
-                        },
-                        ..default()
-                    })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-            )
-            .add_systems(
-                Update,
-                check_browser_window_size.run_if(on_timer(std::time::Duration::from_secs_f32(0.5))),
             );
         }
 
