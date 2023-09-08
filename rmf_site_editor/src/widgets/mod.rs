@@ -158,12 +158,6 @@ pub struct ChangeEvents<'w> {
     pub visibility: EventWriter<'w, Change<Visibility>>,
     pub associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
     pub location_tags: EventWriter<'w, Change<LocationTags>>,
-}
-
-// We split out this new struct to deal with the 16 field limitation on
-// SystemParams.
-#[derive(SystemParam)]
-pub struct MoreChangeEvents<'w> {
     pub affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
     pub search_for_texture: ResMut<'w, SearchForTexture>,
@@ -219,6 +213,8 @@ pub struct Requests<'w> {
     pub calculate_grid: EventWriter<'w, CalculateGrid>,
     pub consider_tag: EventWriter<'w, ConsiderLocationTag>,
     pub consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
+    pub align_site: EventWriter<'w, AlignSiteDrawings>,
+    pub validate_workspace: EventWriter<'w, ValidateWorkspace>,
 }
 
 #[derive(SystemParam)]
@@ -289,7 +285,6 @@ pub struct MenuParams<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w>,
-    pub change_more: MoreChangeEvents<'w>,
     pub workcell_change: WorkcellChangeEvents<'w>,
     pub display: PanelResources<'w>,
     pub request: Requests<'w>,
@@ -299,9 +294,6 @@ pub struct AppEvents<'w, 's> {
     pub app_state: Res<'w, State<AppState>>,
     pub next_app_state: ResMut<'w, NextState<AppState>>,
     pub visibility_parameters: VisibilityParameters<'w>,
-    // TODO(luca) move these to Requests once 16 limit is lifted
-    pub align_site: EventWriter<'w, AlignSiteDrawings>,
-    pub validate_workspace: EventWriter<'w, ValidateWorkspace>,
 }
 
 fn site_ui_layout(
@@ -558,7 +550,7 @@ fn site_visualizer_ui_layout(
                             .clicked()
                         {
                             if let Some(site) = events.request.current_workspace.root {
-                                events.align_site.send(AlignSiteDrawings(site));
+                                events.request.align_site.send(AlignSiteDrawings(site));
                             }
                         }
                         if ui.add(Button::image_and_text(

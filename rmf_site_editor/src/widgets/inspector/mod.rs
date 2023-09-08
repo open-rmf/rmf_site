@@ -346,7 +346,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .clicked()
                 {
                     if let Some(site) = self.events.request.current_workspace.root {
-                        self.events.align_site.send(AlignSiteDrawings(site));
+                        self.events.request.align_site.send(AlignSiteDrawings(site));
                     }
                 }
                 ui.add_space(10.0);
@@ -525,7 +525,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .show(ui)
                 {
                     self.events
-                        .change_more
+                        .change
                         .distance
                         .send(Change::new(Distance(new_distance), selection));
                 }

@@ -85,7 +85,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         };
         let site = site;
 
-        let search = &mut self.events.change_more.search_for_texture.0;
+        let search = &mut self.events.change.search_for_texture.0;
 
         let mut any_partial_matches = false;
         let mut result = SearchResult::NoMatch;
@@ -187,7 +187,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                             })
                             .set_parent(site)
                             .id();
-                        self.events.change_more.affiliation.send(Change::new(
+                        self.events.change.affiliation.send(Change::new(
                             Affiliation(Some(new_texture_group)),
                             self.entity,
                         ));
@@ -203,7 +203,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                         .clicked()
                     {
                         self.events
-                            .change_more
+                            .change
                             .affiliation
                             .send(Change::new(Affiliation(Some(group)), self.entity));
                     }
@@ -267,7 +267,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
 
         if new_affiliation != *affiliation {
             self.events
-                .change_more
+                .change
                 .affiliation
                 .send(Change::new(new_affiliation, self.entity));
         }

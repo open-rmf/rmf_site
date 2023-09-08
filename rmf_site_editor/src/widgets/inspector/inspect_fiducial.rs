@@ -109,7 +109,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
             get_group_name(*affiliation).unwrap_or_else(|| "<broken reference>".to_owned());
 
         ui.horizontal(|ui| {
-            let search = &mut self.events.change_more.search_for_fiducial.0;
+            let search = &mut self.events.change.search_for_fiducial.0;
             let mut result = SearchResult::NoMatch;
             let mut any_partial_matches = false;
 
@@ -194,7 +194,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                             .set_parent(tracker.site())
                             .id();
                         self.events
-                            .change_more
+                            .change
                             .affiliation
                             .send(Change::new(Affiliation(Some(new_group)), self.entity));
                     }
@@ -209,7 +209,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .clicked()
                     {
                         self.events
-                            .change_more
+                            .change
                             .affiliation
                             .send(Change::new(Affiliation(Some(group)), self.entity));
                     }
@@ -249,7 +249,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
 
                     for (group, name) in tracker.unused() {
-                        if name.contains(&self.events.change_more.search_for_fiducial.0) {
+                        if name.contains(&self.events.change.search_for_fiducial.0) {
                             let select_affiliation = Affiliation(Some(*group));
                             ui.selectable_value(&mut new_affiliation, select_affiliation, name);
                         }
@@ -259,7 +259,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
 
         if new_affiliation != *affiliation {
             self.events
-                .change_more
+                .change
                 .affiliation
                 .send(Change::new(new_affiliation, self.entity));
         }
