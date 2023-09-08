@@ -15,8 +15,6 @@ pub mod animate;
 pub mod keyboard;
 use keyboard::*;
 
-pub mod settings;
-use settings::*;
 pub mod save;
 use save::*;
 pub mod widgets;
@@ -86,15 +84,22 @@ pub enum AppState {
     SiteDrawingEditor,
 }
 
-pub struct OpenedMapFile(std::path::PathBuf);
+impl AppState {
+    pub fn in_site_mode() -> impl Condition<()> {
+        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
+            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
+            AppState::MainMenu | AppState::WorkcellEditor => false,
+        })
+    }
 
-pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
-    // todo: be more sophisticated
-    let is_elite = adapter_info.name.contains("NVIDIA");
-    if is_elite {
-        settings.graphics_quality = GraphicsQuality::Ultra;
-    } else {
-        settings.graphics_quality = GraphicsQuality::Low;
+    pub fn in_displaying_mode() -> impl Condition<()> {
+        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
+            AppState::MainMenu => false,
+            AppState::SiteEditor
+            | AppState::SiteVisualizer
+            | AppState::WorkcellEditor
+            | AppState::SiteDrawingEditor => true,
+        })
     }
 }
 
@@ -187,9 +192,7 @@ impl Plugin for SiteEditor {
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             );
         }
-        app.init_resource::<Settings>()
-            .add_systems(Startup, init_settings)
-            .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((
                 LogHistoryPlugin,

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateSet};
+use crate::site::SiteUpdateSet;
 use crate::AppState;
 use bevy::prelude::*;
 use std::fmt::Debug;
@@ -61,18 +61,12 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
-        // TODO(luca) this is duplicated, refactor app states to avoid?
-        app.add_event::<Change<T>>()
-            .add_systems(
-                PreUpdate,
-                update_changed_values::<T>
-                    .run_if(in_state(SiteState::Display))
-                    .in_set(SiteUpdateSet::ProcessChanges),
-            )
-            .add_systems(
-                PreUpdate,
-                update_changed_values::<T>.run_if(in_state(AppState::WorkcellEditor)),
-            );
+        app.add_event::<Change<T>>().add_systems(
+            PreUpdate,
+            update_changed_values::<T>
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::ProcessChanges),
+        );
     }
 }
 

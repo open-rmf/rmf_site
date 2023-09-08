@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateSet};
+use crate::site::SiteUpdateSet;
 use crate::AppState;
 use bevy::prelude::*;
 use rmf_site_format::Recall;
@@ -33,18 +33,13 @@ where
     T::Source: Component,
 {
     fn build(&self, app: &mut App) {
-        // TODO(luca) this is duplicated, refactor app states to avoid?
         app.add_systems(
             PreUpdate,
             (
                 add_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
                 update_recaller::<T>.after(SiteUpdateSet::ProcessChanges),
             )
-                .run_if(in_state(SiteState::Display)),
-        )
-        .add_systems(
-            PreUpdate,
-            (add_recaller::<T>, update_recaller::<T>).run_if(in_state(AppState::WorkcellEditor)),
+                .run_if(AppState::in_displaying_mode()),
         );
     }
 }

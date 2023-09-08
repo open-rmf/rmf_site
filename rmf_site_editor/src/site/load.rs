@@ -364,7 +364,6 @@ pub fn load_site(
     mut commands: Commands,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
-    mut site_display_state: ResMut<NextState<SiteState>>,
 ) {
     for cmd in load_sites.iter() {
         let site = match generate_site_entities(&mut commands, &cmd.site) {
@@ -385,7 +384,6 @@ pub fn load_site(
 
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite { site, level: None });
-            site_display_state.set(SiteState::Display);
         }
     }
 }

@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use crate::{
     site::{
-        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion, SiteState,
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion,
         VisualMeshMarker,
     },
     workcell::ChangeCurrentWorkcell,
@@ -143,7 +143,6 @@ pub fn load_workcell(
     mut commands: Commands,
     mut load_workcells: EventReader<LoadWorkcell>,
     mut change_current_workcell: EventWriter<ChangeCurrentWorkcell>,
-    mut site_display_state: ResMut<NextState<SiteState>>,
 ) {
     for cmd in load_workcells.iter() {
         info!("Loading workcell");
@@ -154,7 +153,6 @@ pub fn load_workcell(
 
         if cmd.focus {
             change_current_workcell.send(ChangeCurrentWorkcell { root });
-            site_display_state.set(SiteState::Off);
         }
     }
 }

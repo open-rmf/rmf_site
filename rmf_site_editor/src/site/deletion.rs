@@ -22,7 +22,7 @@ use crate::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
         SiteUpdateSet,
     },
-    Issue,
+    AppState, Issue,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -107,7 +107,9 @@ impl Plugin for DeletionPlugin {
         .add_event::<Delete>()
         .add_systems(
             First,
-            handle_deletion_requests.in_set(SiteUpdateSet::Deletion),
+            handle_deletion_requests
+                .in_set(SiteUpdateSet::Deletion)
+                .run_if(AppState::in_displaying_mode()),
         );
     }
 }

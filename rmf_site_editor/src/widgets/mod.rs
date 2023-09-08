@@ -27,7 +27,7 @@ use crate::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
         ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
         ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
-        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, SiteState, Texture,
+        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture,
         ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
@@ -113,7 +113,7 @@ impl Plugin for StandardUiLayout {
             .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
-            .add_systems(OnEnter(AppState::MainMenu), init_ui_style)
+            .add_systems(Startup, init_ui_style)
             .add_systems(
                 Update,
                 site_ui_layout.run_if(in_state(AppState::SiteEditor)),
@@ -136,7 +136,7 @@ impl Plugin for StandardUiLayout {
                     resolve_light_export_file,
                     resolve_nav_graph_import_export_files,
                 )
-                    .run_if(in_state(SiteState::Display)),
+                    .run_if(AppState::in_site_mode()),
             );
     }
 }
