@@ -741,35 +741,63 @@ impl Workcell {
             })
             .collect::<Vec<_>>();
 
-        let joints = self.joints
+        let joints = self
+            .joints
             .iter()
             .map(|(joint_id, parented_joint)| {
                 let joint_parent = parented_joint.parent;
                 let joint = &parented_joint.bundle;
                 // The pose of the joint is the pose of the frame that has it as its parent
-                let parent_frame = self.frames.get(&joint_parent).ok_or(WorkcellToUrdfError::BrokenReference(joint_parent))?;
-                let (child_frame_id, child_frame) = self.frames.iter().find(|(_, frame)| frame.parent == *joint_id).ok_or(WorkcellToUrdfError::BrokenReference(*joint_id))?;
-                let parent_name = parent_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(joint_parent, *joint_id))?;
-                let child_name = child_frame.bundle.name.clone().ok_or(WorkcellToUrdfError::MissingJointFrameName(*child_frame_id, *joint_id))?;
+                let parent_frame = self
+                    .frames
+                    .get(&joint_parent)
+                    .ok_or(WorkcellToUrdfError::BrokenReference(joint_parent))?;
+                let (child_frame_id, child_frame) = self
+                    .frames
+                    .iter()
+                    .find(|(_, frame)| frame.parent == *joint_id)
+                    .ok_or(WorkcellToUrdfError::BrokenReference(*joint_id))?;
+                let parent_name = parent_frame.bundle.name.clone().ok_or(
+                    WorkcellToUrdfError::MissingJointFrameName(joint_parent, *joint_id),
+                )?;
+                let child_name = child_frame.bundle.name.clone().ok_or(
+                    WorkcellToUrdfError::MissingJointFrameName(*child_frame_id, *joint_id),
+                )?;
                 let Anchor::Pose3D(pose) = child_frame.bundle.anchor else {
-                    return Err(WorkcellToUrdfError::InvalidAnchorType(child_frame.bundle.anchor.clone()));
+                    return Err(WorkcellToUrdfError::InvalidAnchorType(
+                        child_frame.bundle.anchor.clone(),
+                    ));
                 };
                 let (joint_type, axis, limit) = match &joint.properties {
-                    JointProperties::Fixed => (urdf_rs::JointType::Fixed, urdf_rs::Axis::default(), urdf_rs::JointLimit::default()),
-                    JointProperties::Revolute(joint) => (urdf_rs::JointType::Revolute, (&joint.axis).into(), (&joint.limits).into()),
-                    JointProperties::Prismatic(joint) => (urdf_rs::JointType::Prismatic, (&joint.axis).into(), (&joint.limits).into()),
-                    JointProperties::Continuous(joint) => (urdf_rs::JointType::Continuous, (&joint.axis).into(), (&joint.limits).into()),
+                    JointProperties::Fixed => (
+                        urdf_rs::JointType::Fixed,
+                        urdf_rs::Axis::default(),
+                        urdf_rs::JointLimit::default(),
+                    ),
+                    JointProperties::Revolute(joint) => (
+                        urdf_rs::JointType::Revolute,
+                        (&joint.axis).into(),
+                        (&joint.limits).into(),
+                    ),
+                    JointProperties::Prismatic(joint) => (
+                        urdf_rs::JointType::Prismatic,
+                        (&joint.axis).into(),
+                        (&joint.limits).into(),
+                    ),
+                    JointProperties::Continuous(joint) => (
+                        urdf_rs::JointType::Continuous,
+                        (&joint.axis).into(),
+                        (&joint.limits).into(),
+                    ),
                 };
                 Ok(urdf_rs::Joint {
                     name: joint.name.0.clone(),
                     joint_type,
                     origin: pose.into(),
                     parent: urdf_rs::LinkName {
-                        link: parent_name.0
+                        link: parent_name.0,
                     },
-                    child: urdf_rs::LinkName {
-                        link: child_name.0
-                    },
+                    child: urdf_rs::LinkName { link: child_name.0 },
                     axis,
                     limit,
                     dynamics: None,

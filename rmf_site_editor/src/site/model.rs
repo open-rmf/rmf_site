@@ -399,8 +399,8 @@ pub fn make_models_selectable(
             .filter_map(|p| scene_roots.get(p).ok())
             .last()
             .or_else(|| scene_roots.get(model_scene_root).ok())
-            else {
-                continue;
+        else {
+            continue;
         };
         // If layer should not be visible, don't make it selectable
         if render_layers.is_some_and(|r| r.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
