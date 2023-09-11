@@ -22,7 +22,7 @@ use crate::{
         Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
         VisualMeshMarker,
     },
-    CurrentWorkspace,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
@@ -2213,6 +2213,7 @@ pub fn handle_select_anchor_3d_mode(
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
+    app_state: Res<State<AppState>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor3D(request) => request.clone(),
@@ -2263,7 +2264,7 @@ pub fn handle_select_anchor_3d_mode(
 
         // Set the request parent to the currently selected element, to spawn new object as
         // children of selected frames
-        if request.begin_creating() {
+        if matches!(app_state.current(), AppState::WorkcellEditor) && request.begin_creating() {
             request.parent = selection.0;
         }
     }
