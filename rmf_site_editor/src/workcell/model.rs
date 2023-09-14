@@ -18,7 +18,7 @@
 use crate::site::{Dependents, ModelTrashcan, Pending};
 use bevy::prelude::*;
 use rmf_site_format::{
-    ModelMarker, NameInSite, NameInWorkcell, Pose, PrimitiveShape, WorkcellProperties,
+    ModelMarker, NameInSite, NameInWorkcell, NameOfWorkcell, Pose, PrimitiveShape,
 };
 
 /// SDFs loaded through site editor wrap all the collisions and visuals into a single Model entity.
@@ -69,7 +69,7 @@ pub fn flatten_loaded_models_hierarchy(
 pub fn replace_name_in_site_components(
     mut commands: Commands,
     new_names: Query<(Entity, &NameInSite), Added<NameInSite>>,
-    workcells: Query<(), With<WorkcellProperties>>,
+    workcells: Query<(), With<NameOfWorkcell>>,
     parents: Query<&Parent>,
 ) {
     for (e, name) in &new_names {

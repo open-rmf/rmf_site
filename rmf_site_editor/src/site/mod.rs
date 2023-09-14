@@ -188,6 +188,7 @@ impl Plugin for SitePlugin {
             .add_plugin(ChangePlugin::<NameOfSite>::default())
             .add_plugin(ChangePlugin::<NameInSite>::default())
             .add_plugin(ChangePlugin::<NameInWorkcell>::default())
+            .add_plugin(ChangePlugin::<NameOfWorkcell>::default())
             .add_plugin(ChangePlugin::<Pose>::default())
             .add_plugin(ChangePlugin::<Scale>::default())
             .add_plugin(ChangePlugin::<MeshConstraint<Entity>>::default())

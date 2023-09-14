@@ -120,7 +120,7 @@ pub fn generate_workcell(
         Query<&VisualMeshMarker>,
         Query<&CollisionMeshMarker>,
         Query<&SiteID>,
-        Query<&WorkcellProperties>,
+        Query<&NameOfWorkcell>,
         Query<&Parent>,
     )> = SystemState::new(world);
     let (
@@ -137,9 +137,7 @@ pub fn generate_workcell(
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
-        Ok(properties) => {
-            workcell.properties = properties.clone();
-        }
+        Ok(name) => workcell.properties.name = name.clone(),
         Err(_) => {
             return Err(WorkcellGenerationError::InvalidWorkcellEntity(root));
         }

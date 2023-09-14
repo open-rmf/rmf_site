@@ -185,6 +185,7 @@ pub struct WorkcellChangeEvents<'w, 's> {
     pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
     pub primitive_shapes: EventWriter<'w, 's, Change<PrimitiveShape>>,
     pub name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
+    pub workcell_name: EventWriter<'w, 's, Change<NameOfWorkcell>>,
     pub scale: EventWriter<'w, 's, Change<Scale>>,
 }
 

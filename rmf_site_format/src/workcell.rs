@@ -74,10 +74,14 @@ pub enum MeshElement {
 #[derive(Component, Deref, DerefMut, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 pub struct ConstraintDependents(pub HashSet<Entity>);
 
-#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
+pub struct NameOfWorkcell(pub String);
+
+#[derive(Serialize, Deserialize, Debug, Default, Clone)]
+#[cfg_attr(feature = "bevy", derive(Bundle))]
 pub struct WorkcellProperties {
-    pub name: String,
+    pub name: NameOfWorkcell,
 }
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
@@ -626,7 +630,7 @@ impl Workcell {
 
         Ok(Workcell {
             properties: WorkcellProperties {
-                name: urdf.name.clone(),
+                name: NameOfWorkcell(urdf.name.clone()),
             },
             id: root_id,
             frames,
@@ -809,7 +813,7 @@ impl Workcell {
 
         // TODO(luca) implement materials
         let robot = urdf_rs::Robot {
-            name: self.properties.name.clone(),
+            name: self.properties.name.0.clone(),
             links,
             joints,
             materials: vec![],
@@ -1021,7 +1025,7 @@ mod tests {
         assert_eq!(workcell.collisions.len(), 16);
         assert_eq!(workcell.frames.len(), 16);
         assert_eq!(workcell.joints.len(), 15);
-        assert_eq!(workcell.properties.name, "physics");
+        assert_eq!(workcell.properties.name.0, "physics");
         // Test that we convert poses from joints to frames
         let (right_leg_id, right_leg) = frame_by_name(&workcell.frames, "right_leg").unwrap();
         let target_right_leg_pose = Pose {

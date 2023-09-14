@@ -126,6 +126,7 @@ pub struct InspectorParams<'w, 's> {
     // TODO(luca) move to new systemparam, reached 16 limit on main one
     pub primitive_shapes: Query<'w, 's, (&'static PrimitiveShape, &'static RecallPrimitiveShape)>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
+    pub workcell_names: Query<'w, 's, &'static NameOfWorkcell>,
     pub scales: Query<'w, 's, &'static Scale>,
     pub layer: InspectorLayerParams<'w, 's>,
     pub texture: InspectTextureAffiliationParams<'w, 's>,
@@ -272,6 +273,16 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .workcell_change
                         .name_in_workcell
+                        .send(Change::new(new_name, selection));
+                }
+                ui.add_space(10.0);
+            }
+
+            if let Ok(name) = self.params.workcell_names.get(selection) {
+                if let Some(new_name) = InspectNameOfWorkcell::new(name).show(ui) {
+                    self.events
+                        .workcell_change
+                        .workcell_name
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);

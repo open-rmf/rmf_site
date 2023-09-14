@@ -53,7 +53,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     let root = commands
         .spawn(SpatialBundle::VISIBLE_IDENTITY)
         .insert(workcell.properties.clone())
-        .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
         .insert(WorkspaceMarker)
