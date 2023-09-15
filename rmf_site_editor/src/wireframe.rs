@@ -82,10 +82,39 @@ fn handle_wireframe_menu_events(
     }
 }
 
+fn add_wireframe_to_new_models(
+    mut commands: Commands,
+    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
+    parents: Query<&Parent>,
+    models: Query<Entity, With<ModelMarker>>,
+    wireframe_menu: Res<WireframeMenu>,
+    menu_items: Query<&MenuItem>,
+    meshes: Query<Entity, With<Handle<Mesh>>>,
+) {
+    let Ok(checkbox) = menu_items.get(wireframe_menu.toggle_wireframe) else {
+        error!("Wireframe button not found");
+        return;
+    };
+    let MenuItem::CheckBox(_, enable) = *checkbox else {
+        error!("Mismatch for wireframe toggle menu type, expected checkbox");
+        return;
+    };
+    if enable {
+        for e in new_meshes.iter() {
+            for ancestor in AncestorIter::new(&parents, e) {
+                if let Ok(_) = models.get(ancestor) {
+                    commands.entity(e).insert(Wireframe);
+                }
+            }
+        }
+    }
+}
+
 impl Plugin for SiteWireframePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WireframeMenu>()
             .add_plugin(WireframePlugin)
-            .add_system(handle_wireframe_menu_events);
+            .add_system(handle_wireframe_menu_events)
+            .add_system(add_wireframe_to_new_models);
     }
 }
