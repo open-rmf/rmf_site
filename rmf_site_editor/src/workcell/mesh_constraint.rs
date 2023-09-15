@@ -15,16 +15,19 @@
  *
 */
 
-use crate::site::AnchorBundle;
+use crate::site::{AnchorBundle, CollisionMeshMarker, VisualMeshMarker};
 use bevy::prelude::*;
-use rmf_site_format::{Anchor, ConstraintDependents, MeshConstraint, ModelMarker, Pose};
+use rmf_site_format::{Anchor, ConstraintDependents, MeshConstraint, Pose};
 
 pub fn update_constraint_dependents(
     updated_models: Query<
         (&ConstraintDependents, &Transform),
-        (Changed<Transform>, With<ModelMarker>),
+        (
+            Changed<Transform>,
+            Or<(With<VisualMeshMarker>, With<CollisionMeshMarker>)>,
+        ),
     >,
-    mut transforms: Query<&mut Transform, Without<ModelMarker>>,
+    mut transforms: Query<&mut Transform, Without<ConstraintDependents>>,
     mesh_constraints: Query<&MeshConstraint<Entity>>,
 ) {
     // TODO(luca) Add widget for parent reassignment in models, otherwise Changed<Parent> will

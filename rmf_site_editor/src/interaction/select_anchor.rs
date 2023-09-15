@@ -2310,6 +2310,11 @@ pub fn handle_select_anchor_3d_mode(
                                 params.constraint_dependents.get_mut(parent)
                             {
                                 parent_deps.0.insert(id);
+                            } else {
+                                params
+                                    .commands
+                                    .entity(parent)
+                                    .insert(ConstraintDependents(HashSet::from([id])));
                             }
                             // Parent to be assigned is the first frame parent of the currently
                             // hovered model
