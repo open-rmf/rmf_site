@@ -185,8 +185,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     Anchor::Pose3D(pose) => {
                         ui.vertical(|ui| {
                             if let Some(c) = mesh_constraint {
-                                // For mesh constraints we only allow rotation and inspection of
-                                // parents
+                                // For mesh constraints we only allow rotation editing
                                 if let Some(new_pose) =
                                     InspectPose::new(&c.relative_pose).for_rotation().show(ui)
                                 {
@@ -204,23 +203,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                             self.anchor,
                                         ));
                                 }
-                                ui.label("Mesh Parent");
-                                SelectionWidget::new(
-                                    c.entity,
-                                    self.params.site_id.get(c.entity).ok().cloned(),
-                                    self.params.icons.as_ref(),
-                                    self.events,
-                                )
-                                .show(ui);
-
-                                ui.label("Frame Parent");
-                                SelectionWidget::new(
-                                    parent.get(),
-                                    self.params.site_id.get(parent.get()).ok().cloned(),
-                                    self.params.icons.as_ref(),
-                                    self.events,
-                                )
-                                .show(ui);
                             } else {
                                 if let Some(new_pose) = InspectPose::new(pose).show(ui) {
                                     // TODO(luca) Using moveto doesn't allow switching between variants of
@@ -229,38 +211,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                         entity: self.anchor,
                                         transform: new_pose.transform(),
                                     });
-                                }
-
-                                // Parent reassigning widget
-                                ui.label("Parent");
-                                SelectionWidget::new(
-                                    parent.get(),
-                                    self.params.site_id.get(parent.get()).ok().cloned(),
-                                    self.params.icons.as_ref(),
-                                    self.events,
-                                )
-                                .show(ui);
-
-                                let assign_response = ui.add(ImageButton::new(
-                                    self.params.icons.edit.egui(),
-                                    [18., 18.],
-                                ));
-
-                                if assign_response.hovered() {
-                                    self.events.request.hover.send(Hover(Some(self.anchor)));
-                                }
-
-                                let parent_replace = assign_response.clicked();
-                                assign_response.on_hover_text("Reassign");
-
-                                if parent_replace {
-                                    let request =
-                                        SelectAnchor3D::replace_point(self.anchor, parent.get())
-                                            .for_anchor(Some(parent.get()));
-                                    self.events
-                                        .request
-                                        .change_mode
-                                        .send(ChangeMode::To(request.into()));
                                 }
                             }
                             // If the parent is not a joint, add a joint creation widget

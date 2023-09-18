@@ -1755,19 +1755,6 @@ impl SelectAnchor3D {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<(), ()> {
         if let Some(target) = self.target {
-            // Change the anchor that the location is attached to.
-            let (e, anchor) = match params.anchors.get_mut(target) {
-                Ok(l) => l,
-                Err(_) => {
-                    error!(
-                        "Unable to get anchor {:?} while \
-                        replacing 3D Anchor.",
-                        target
-                    );
-                    return Err(());
-                }
-            };
-
             // Make sure the selected entity is an anchor
             // TODO(luca) Should this be at the caller level?
             match params.anchors.get(anchor_selection.entity()) {
