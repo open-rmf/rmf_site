@@ -98,7 +98,11 @@ pub fn update_anchor_transforms(
     mut changed_anchors: Query<(&Anchor, &mut Transform), Changed<Anchor>>,
 ) {
     for (anchor, mut tf) in &mut changed_anchors {
-        tf.translation = anchor.local_transform(Category::General).translation;
+        // Only update rotation and translation since scale, for drawing anchors, is managed by
+        // another system.
+        let new_tf = anchor.local_transform(Category::General);
+        tf.translation = new_tf.translation;
+        tf.rotation = new_tf.rotation;
     }
 }
 
