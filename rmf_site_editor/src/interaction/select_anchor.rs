@@ -1779,10 +1779,6 @@ impl SelectAnchor3D {
                         if anchor_selection.entity() != target {
                             // Delete parent and dependent
                             if let Ok(old_parent) = params.parents.get(target) {
-                                params
-                                    .commands
-                                    .entity(**old_parent)
-                                    .remove_children(&[target]);
                                 params.remove_dependent(
                                     target,
                                     **old_parent,
@@ -1796,8 +1792,8 @@ impl SelectAnchor3D {
                             )?;
                             params
                                 .commands
-                                .entity(anchor_selection.entity())
-                                .push_children(&[target]);
+                                .entity(target)
+                                .set_parent(anchor_selection.entity());
                             self.parent = Some(anchor_selection.entity());
                         }
                         return Ok(());
@@ -2277,49 +2273,15 @@ pub fn handle_select_anchor_3d_mode(
                     .id();
                 let parent = match request.bundle {
                     PlaceableObject::Anchor => {
-                        // If parent is a mesh this will be a mesh constraint, otherwise an anchor
-                        let parent = if let Some(parent) =
-                            hovering.0.and_then(|p| params.models.get(p).ok())
-                        {
-                            let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                            let element = find_mesh_element(&params, &cursor_tf, parent);
-                            params
-                                .commands
-                                .entity(id)
-                                .insert(MeshConstraint {
-                                    entity: parent,
-                                    element: element,
-                                    relative_pose: pose,
-                                })
-                                .insert(FrameMarker);
-                            // Add constraint dependent
-                            if let Ok(mut parent_deps) =
-                                params.constraint_dependents.get_mut(parent)
-                            {
-                                parent_deps.0.insert(id);
-                            } else {
-                                params
-                                    .commands
-                                    .entity(parent)
-                                    .insert(ConstraintDependents(HashSet::from([id])));
-                            }
-                            // Parent to be assigned is the first frame parent of the currently
-                            // hovered model
-                            AncestorIter::new(&params.parents, parent)
-                                .find(|&p| params.anchors.get(p).is_ok())
-                                .unwrap_or(workspace.root.expect("No workspace"))
-                        } else {
-                            let parent = request
-                                .parent
-                                .unwrap_or(workspace.root.expect("No workspace"));
-                            let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                            params
-                                .commands
-                                .entity(id)
-                                .insert(AnchorBundle::new(Anchor::Pose3D(pose)))
-                                .insert(FrameMarker);
-                            parent
-                        };
+                        let parent = request
+                            .parent
+                            .unwrap_or(workspace.root.expect("No workspace"));
+                        let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
+                        params
+                            .commands
+                            .entity(id)
+                            .insert(AnchorBundle::new(Anchor::Pose3D(pose)))
+                            .insert(FrameMarker);
                         parent
                     }
                     PlaceableObject::Model(ref a) => {
