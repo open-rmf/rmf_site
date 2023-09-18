@@ -2206,13 +2206,15 @@ pub fn handle_select_anchor_3d_mode(
                     .parent
                     .unwrap_or(workspace.root.expect("No workspace"));
                 let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                let mut cmd = params
-                    .commands
-                    .spawn_empty();
+                let mut cmd = params.commands.spawn_empty();
                 cmd.set_parent(parent);
                 match request.bundle {
                     PlaceableObject::Anchor => {
-                        cmd.insert((AnchorBundle::new(Anchor::Pose3D(pose)), FrameMarker));
+                        cmd.insert((
+                            AnchorBundle::new(Anchor::Pose3D(pose)),
+                            FrameMarker,
+                            NameInWorkcell("Unnamed".to_string()),
+                        ));
                     }
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
@@ -2251,7 +2253,9 @@ pub fn handle_select_anchor_3d_mode(
                     cmd.set_parent(parent);
                     // Anchors store their pose in the Anchor component, other elements in Pose,
                     // set accordingly
-                    let previous_tf = transforms.get(target).expect("Transform not found for entity");
+                    let previous_tf = transforms
+                        .get(target)
+                        .expect("Transform not found for entity");
                     let pose = compute_parent_inverse_pose(&previous_tf, &transforms, parent);
                     if anchors.get(target).is_ok() {
                         cmd.insert(AnchorBundle::new(Anchor::Pose3D(pose)));
