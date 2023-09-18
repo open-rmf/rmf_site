@@ -1777,23 +1777,6 @@ impl SelectAnchor3D {
                 match self.parent {
                     Some(new_parent) => {
                         if anchor_selection.entity() != target {
-                            // Delete parent and dependent
-                            if let Ok(old_parent) = params.parents.get(target) {
-                                params.remove_dependent(
-                                    target,
-                                    **old_parent,
-                                    &mut Some(&mut anchor_selection),
-                                )?;
-                            }
-                            params.add_dependent(
-                                target,
-                                anchor_selection.entity(),
-                                &mut Some(&mut anchor_selection),
-                            )?;
-                            params
-                                .commands
-                                .entity(target)
-                                .set_parent(anchor_selection.entity());
                             self.parent = Some(anchor_selection.entity());
                         }
                         return Ok(());
@@ -1835,58 +1818,10 @@ impl SelectAnchor3D {
         return PreviewResult::Unchanged;
     }
 
-    /// Return Ok if we need to keep the entity, Err if we need to remove it
-    fn placement_backout<'w, 's>(
-        &self,
-        continuity: SelectAnchorContinuity,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<(), ()> {
-        match self.parent {
-            Some(parent) => {
-                if let Ok((e, _anchor)) = params.anchors.get_mut(parent) {
-                    if let Ok(mut deps) = params.dependents.get_mut(e) {
-                        deps.remove(&target);
-                        params.commands.entity(e).remove_children(&[target]);
-                    }
-
-                    if let Some(replacing) = continuity.replacing() {
-                        // Restore the target to the original
-                        if let Ok(mut deps) = params.dependents.get_mut(replacing) {
-                            deps.insert(target);
-                            params.commands.entity(replacing).push_children(&[target]);
-                        }
-
-                        // point.0 = replacing;
-                        params.commands.entity(target).remove::<Pending>();
-                        return Ok(());
-                    } else {
-                        // Delete the location entirely because there is no anchor to
-                        // return it to.
-                        params.commands.entity(target).despawn_recursive();
-                        return Err(());
-                    }
-                } else {
-                    error!(
-                        "Cannot find point for location {target:?} while \
-                        trying to back out of SelectAnchor mode"
-                    );
-                    return Err(());
-                }
-            }
-            None => {
-                return Ok(());
-            }
-        }
-    }
-
     pub fn backout<'w, 's>(
         &self,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> InteractionMode {
-        if let Some(target) = self.target {
-            self.placement_backout(self.continuity, target, params);
-        }
         params.cleanup();
         return InteractionMode::Inspect;
     }
@@ -2300,6 +2235,29 @@ pub fn handle_select_anchor_3d_mode(
                 // Add child and dependent to parent
                 if let Ok(mut deps) = params.dependents.get_mut(parent) {
                     deps.insert(cmd.id());
+                }
+            } else {
+                // We are replacing an anchor, which in this mode refers to changing a parent
+                if let (Some(target), Some(mut parent)) = (request.target, request.parent) {
+                    if let Ok(old_parent) = params.parents.get(target) {
+                        if let Ok(mut deps) = params.dependents.get_mut(**old_parent) {
+                            deps.remove(&target);
+                        }
+                    }
+                    if let Ok(mut deps) = params.dependents.get_mut(parent) {
+                        deps.insert(target);
+                    }
+                    let mut cmd = params.commands.entity(target);
+                    cmd.set_parent(parent);
+                    // Anchors store their pose in the Anchor component, other elements in Pose,
+                    // set accordingly
+                    let previous_tf = transforms.get(target).expect("Transform not found for entity");
+                    let pose = compute_parent_inverse_pose(&previous_tf, &transforms, parent);
+                    if anchors.get(target).is_ok() {
+                        cmd.insert(AnchorBundle::new(Anchor::Pose3D(pose)));
+                    } else {
+                        cmd.insert(pose);
+                    }
                 }
             }
 

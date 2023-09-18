@@ -233,9 +233,7 @@ pub fn maintain_hovered_entities(
             // TODO(luca) refactor to remove this hack
             // Skip if we are in SelectAnchor3D mode
             if let InteractionMode::SelectAnchor3D(mode) = &*mode {
-                if mode.begin_creating() {
-                    return;
-                }
+                return;
             }
             select.send(Select(Some(current_hovered)));
         }
