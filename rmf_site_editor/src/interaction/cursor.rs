@@ -128,9 +128,9 @@ impl Cursor {
     ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
-            let cmd = commands.spawn(Pending);
+            let mut cmd = commands.spawn(Pending);
             let e = cmd.id();
-            model.add_bevy_components(cmd);
+            model.add_bevy_components(&mut cmd);
             commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {

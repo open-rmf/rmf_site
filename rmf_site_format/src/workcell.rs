@@ -262,7 +262,7 @@ impl JointProperties {
 /// Custom spawning implementation since bundles don't allow options
 #[cfg(feature = "bevy")]
 impl Joint {
-    pub fn add_bevy_components(&self, mut commands: EntityCommands) {
+    pub fn add_bevy_components(&self, commands: &mut EntityCommands) {
         commands.insert((
             SpatialBundle::VISIBLE_IDENTITY,
             Category::Joint,
@@ -397,7 +397,7 @@ pub struct WorkcellModel {
 
 #[cfg(feature = "bevy")]
 impl WorkcellModel {
-    pub fn add_bevy_components(&self, mut commands: EntityCommands) {
+    pub fn add_bevy_components(&self, commands: &mut EntityCommands) {
         match &self.geometry {
             Geometry::Primitive(primitive) => {
                 commands.insert((

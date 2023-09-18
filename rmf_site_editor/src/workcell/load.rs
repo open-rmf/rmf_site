@@ -63,9 +63,9 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn((SiteID(*id), VisualMeshMarker, Category::Visual));
+        let mut cmd = commands.spawn((SiteID(*id), VisualMeshMarker, Category::Visual));
         let e = cmd.id();
-        parented_visual.bundle.add_bevy_components(cmd);
+        parented_visual.bundle.add_bevy_components(&mut cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_visual.parent)
@@ -75,9 +75,9 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let cmd = commands.spawn((SiteID(*id), CollisionMeshMarker, Category::Collision));
+        let mut cmd = commands.spawn((SiteID(*id), CollisionMeshMarker, Category::Collision));
         let e = cmd.id();
-        parented_collision.bundle.add_bevy_components(cmd);
+        parented_collision.bundle.add_bevy_components(&mut cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_collision.parent)
@@ -135,7 +135,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         let joint = &parented_joint.bundle;
         let mut cmd = commands.spawn(SiteID(*id));
         let e = cmd.id();
-        joint.add_bevy_components(cmd);
+        joint.add_bevy_components(&mut cmd);
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_joint.parent)
             .or_default();

@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, SelectAnchor3D},
-    site::{FrameMarker, MeshConstraint, NameOfWorkcell, SiteID},
+    site::{NameInWorkcell, MeshConstraint, NameOfWorkcell, SiteID},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -26,7 +26,7 @@ use bevy_egui::egui::{ImageButton, Ui};
 #[derive(SystemParam)]
 pub struct InspectWorkcellParentParams<'w, 's> {
     pub parents: Query<'w, 's, &'static Parent>,
-    pub workcell_elements: Query<'w, 's, Entity, Or<(With<FrameMarker>, With<NameOfWorkcell>)>>,
+    pub workcell_elements: Query<'w, 's, Entity, Or<(With<NameInWorkcell>, With<NameOfWorkcell>)>>,
     pub mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub icons: Res<'w, Icons>,
