@@ -2108,16 +2108,6 @@ fn compute_parent_inverse_pose(
     pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
 }
 
-fn find_mesh_element(
-    params: &SelectAnchorPlacementParams,
-    cursor_tf: &GlobalTransform,
-    hovered: Entity,
-) -> MeshElement {
-    // TODO(luca) Assign a proper vertex id, will need mesh lookup based on
-    // hover status and (expensive) iteration on vertices
-    MeshElement::Vertex(0)
-}
-
 pub fn handle_select_anchor_3d_mode(
     mut mode: ResMut<InteractionMode>,
     anchors: Query<(), With<Anchor>>,
@@ -2206,41 +2196,58 @@ pub fn handle_select_anchor_3d_mode(
                     .parent
                     .unwrap_or(workspace.root.expect("No workspace"));
                 let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                let mut cmd = params.commands.spawn_empty();
-                cmd.set_parent(parent);
-                match request.bundle {
-                    PlaceableObject::Anchor => {
-                        cmd.insert((
+                let id = match request.bundle {
+                    PlaceableObject::Anchor => params
+                        .commands
+                        .spawn((
                             AnchorBundle::new(Anchor::Pose3D(pose)),
                             FrameMarker,
                             NameInWorkcell("Unnamed".to_string()),
-                        ));
-                    }
+                        ))
+                        .id(),
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
-                        model.pose = pose;
-                        cmd.insert(model);
+                        // If we are in workcell mode, add a "base link" frame to the model
+                        if matches!(app_state.current(), AppState::WorkcellEditor) {
+                            let child_id = params.commands.spawn(model).id();
+                            params
+                                .commands
+                                .spawn((
+                                    AnchorBundle::new(Anchor::Pose3D(pose))
+                                        .dependents(Dependents::single(child_id)),
+                                    FrameMarker,
+                                    NameInWorkcell("model_root".to_string()),
+                                ))
+                                .add_child(child_id)
+                                .id()
+                        } else {
+                            model.pose = pose;
+                            params.commands.spawn(model).id()
+                        }
                     }
                     PlaceableObject::VisualMesh(ref a) => {
                         let mut model = a.clone();
                         model.pose = pose;
-                        cmd.insert(VisualMeshMarker);
+                        let mut cmd = params.commands.spawn(VisualMeshMarker);
                         model.add_bevy_components(&mut cmd);
+                        cmd.id()
                     }
                     PlaceableObject::CollisionMesh(ref a) => {
                         let mut model = a.clone();
                         model.pose = pose;
-                        cmd.insert(CollisionMeshMarker);
+                        let mut cmd = params.commands.spawn(CollisionMeshMarker);
                         model.add_bevy_components(&mut cmd);
+                        cmd.id()
                     }
                 };
                 // Add child and dependent to parent
+                params.commands.entity(id).set_parent(parent);
                 if let Ok(mut deps) = params.dependents.get_mut(parent) {
-                    deps.insert(cmd.id());
+                    deps.insert(id);
                 }
             } else {
                 // We are replacing an anchor, which in this mode refers to changing a parent
-                if let (Some(target), Some(mut parent)) = (request.target, request.parent) {
+                if let (Some(target), Some(parent)) = (request.target, request.parent) {
                     if let Ok(old_parent) = params.parents.get(target) {
                         if let Ok(mut deps) = params.dependents.get_mut(**old_parent) {
                             deps.remove(&target);
