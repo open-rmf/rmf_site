@@ -1,0 +1,10 @@
+[package]
+name = "demo_package_exporter"
+version = "0.1.0"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+package_exporter = { path = "../package_exporter"}
+urdf-rs = "0.7.3"
