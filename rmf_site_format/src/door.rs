@@ -19,6 +19,7 @@ use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Entity};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
 
 pub const DEFAULT_DOOR_THICKNESS: f32 = 0.05;
 
@@ -185,12 +186,26 @@ impl From<SingleSwingDoor> for DoorType {
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
 pub struct DoubleSwingDoor {
     pub swing: Swing,
+    /// Length of the left door divided by the length of the right door
+    pub left_right_ratio: f32,
+}
+
+impl DoubleSwingDoor {
+    /// Get the offset from the door center of the point where the doors
+    /// separate. A value of 0.0 means the doors are even. A negative value
+    /// means the left door is smaller while a positive value means the right
+    /// door is smaller.
+    pub fn compute_offset(&self, door_width: f32) -> f32 {
+        let l = self.left_right_ratio * door_width / (self.left_right_ratio + 1.0);
+        return door_width / 2.0 - l;
+    }
 }
 
 impl Default for DoubleSwingDoor {
     fn default() -> Self {
         Self {
             swing: Swing::Forward(Angle::Deg(90.0)),
+            left_right_ratio: 1.0,
         }
     }
 }
@@ -384,15 +399,14 @@ impl Door<Entity> {
     }
 }
 
-#[cfg(feature = "bevy")]
-impl Door<u32> {
-    pub fn to_ecs(&self, id_to_entity: &std::collections::HashMap<u32, Entity>) -> Door<Entity> {
-        Door {
-            anchors: self.anchors.to_ecs(id_to_entity),
+impl<T: RefTrait> Door<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<Door<U>, T> {
+        Ok(Door {
+            anchors: self.anchors.convert(id_map)?,
             name: self.name.clone(),
             kind: self.kind.clone(),
             marker: Default::default(),
-        }
+        })
     }
 }
 

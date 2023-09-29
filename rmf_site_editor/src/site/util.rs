@@ -29,7 +29,7 @@ pub fn line_stroke_transform(p_start: &Vec3, p_end: &Vec3, width: f32) -> Transf
     let tilt = dp.z.atan2(dp.x.abs());
     let center = (*p_start + *p_end) / 2.0;
     Transform {
-        translation: Vec3::new(center.x, center.y, 0.),
+        translation: Vec3::new(center.x, center.y, center.z),
         rotation: Quat::from_euler(EulerRot::ZYX, yaw, -tilt, 0.),
         scale: Vec3::new(length, width, 1.),
         ..default()

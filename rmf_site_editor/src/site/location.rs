@@ -18,16 +18,38 @@
 use crate::{animate::Spinning, interaction::VisualCue, site::*};
 use bevy::prelude::*;
 
-// TODO(MXG): Consider using recency rankings for Locations so they don't
+// TODO(@mxgrey): Consider using recency rankings for Locations so they don't
 // experience z-fighting.
-const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET / 2.0;
+pub const LOCATION_LAYER_HEIGHT: f32 = LANE_LAYER_LIMIT + SELECTED_LANE_OFFSET;
 
-// TODO(MXG): Refactor this implementation with should_display_lane using traits and generics
+#[derive(Component, Clone, Default)]
+pub struct LocationTagMeshes {
+    charger: Option<Entity>,
+    parking_spot: Option<Entity>,
+    holding_point: Option<Entity>,
+}
+
+fn location_halo_tf(tag: &LocationTag) -> Transform {
+    let position = match tag {
+        LocationTag::Charger => 0,
+        LocationTag::ParkingSpot => 1,
+        LocationTag::HoldingPoint => 2,
+        LocationTag::SpawnRobot(_) => 3,
+        LocationTag::Workcell(_) => 4,
+    };
+    Transform {
+        translation: Vec3::new(0., 0., 0.01),
+        rotation: Quat::from_rotation_z((position as f32 / 6.0 * 360.0).to_radians()),
+        ..default()
+    }
+}
+
+// TODO(@mxgrey): Refactor this implementation with should_display_lane using traits and generics
 fn should_display_point(
     point: &Point<Entity>,
     associated: &AssociatedGraphs<Entity>,
     parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
+    levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
@@ -42,16 +64,24 @@ fn should_display_point(
 
 pub fn add_location_visuals(
     mut commands: Commands,
-    locations: Query<(Entity, &Point<Entity>, &AssociatedGraphs<Entity>), Added<LocationTags>>,
+    locations: Query<
+        (
+            Entity,
+            &Point<Entity>,
+            &AssociatedGraphs<Entity>,
+            &LocationTags,
+        ),
+        Added<LocationTags>,
+    >,
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
 ) {
-    for (e, point, associated_graphs) in &locations {
+    for (e, point, associated_graphs, tags) in &locations {
         if let Ok(mut deps) = dependents.get_mut(point.0) {
             deps.insert(e);
         }
@@ -70,6 +100,35 @@ pub fn add_location_visuals(
             .point_in_parent_frame_of(point.0, Category::Location, e)
             .unwrap()
             + LOCATION_LAYER_HEIGHT * Vec3::Z;
+
+        let mut tag_meshes = LocationTagMeshes::default();
+        for tag in tags.iter() {
+            let id = commands.spawn_empty().id();
+            let material = match tag {
+                LocationTag::Charger => {
+                    tag_meshes.charger = Some(id);
+                    assets.charger_material.clone()
+                }
+                LocationTag::ParkingSpot => {
+                    tag_meshes.parking_spot = Some(id);
+                    assets.parking_material.clone()
+                }
+                LocationTag::HoldingPoint => {
+                    tag_meshes.holding_point = Some(id);
+                    assets.holding_point_material.clone()
+                }
+                // Workcells and robots are not visualized
+                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
+            };
+            commands.entity(id).insert(PbrBundle {
+                mesh: assets.location_tag_mesh.clone(),
+                material,
+                transform: location_halo_tf(tag),
+                ..default()
+            });
+            commands.entity(e).add_child(id);
+        }
+
         // TODO(MXG): Put icons on the different visual squares based on the location tags
         commands
             .entity(e)
@@ -82,6 +141,7 @@ pub fn add_location_visuals(
             })
             .insert(Spinning::new(-10.0))
             .insert(Category::Location)
+            .insert(tag_meshes)
             .insert(VisualCue::outline());
     }
 }
@@ -99,7 +159,7 @@ pub fn update_changed_location(
     >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     current_level: Res<CurrentLevel>,
 ) {
@@ -148,6 +208,75 @@ pub fn update_location_for_moved_anchors(
     }
 }
 
+pub fn update_location_for_changed_location_tags(
+    mut commands: Commands,
+    mut locations: Query<(Entity, &LocationTags, &mut LocationTagMeshes), Changed<LocationTags>>,
+    assets: Res<SiteAssets>,
+) {
+    for (e, tags, mut tag_meshes) in &mut locations {
+        // Despawn the removed tags first
+        if let Some(id) = tag_meshes.charger {
+            if !tags.iter().any(|t| t.is_charger()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.charger = None;
+            }
+        }
+        if let Some(id) = tag_meshes.parking_spot {
+            if !tags.iter().any(|t| t.is_parking_spot()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.parking_spot = None;
+            }
+        }
+        if let Some(id) = tag_meshes.holding_point {
+            if !tags.iter().any(|t| t.is_holding_point()) {
+                commands.entity(id).despawn_recursive();
+                tag_meshes.holding_point = None;
+            }
+        }
+        // Spawn the new tags
+        for tag in tags.iter() {
+            let (id, material) = match tag {
+                LocationTag::Charger => {
+                    if tag_meshes.charger.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.charger = Some(id);
+                        (id, assets.charger_material.clone())
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::ParkingSpot => {
+                    if tag_meshes.parking_spot.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.parking_spot = Some(id);
+                        (id, assets.parking_material.clone())
+                    } else {
+                        continue;
+                    }
+                }
+                LocationTag::HoldingPoint => {
+                    if tag_meshes.holding_point.is_none() {
+                        let id = commands.spawn_empty().id();
+                        tag_meshes.holding_point = Some(id);
+                        (id, assets.holding_point_material.clone())
+                    } else {
+                        continue;
+                    }
+                }
+                // Workcells and robots are not visualized
+                LocationTag::SpawnRobot(_) | LocationTag::Workcell(_) => continue,
+            };
+            commands.entity(id).insert(PbrBundle {
+                mesh: assets.location_tag_mesh.clone(),
+                material,
+                transform: location_halo_tf(tag),
+                ..default()
+            });
+            commands.entity(e).add_child(id);
+        }
+    }
+}
+
 pub fn update_visibility_for_locations(
     mut locations: Query<
         (
@@ -160,7 +289,7 @@ pub fn update_visibility_for_locations(
         (With<LocationTags>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     locations_with_changed_association: Query<

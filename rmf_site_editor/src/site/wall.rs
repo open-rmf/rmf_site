@@ -21,13 +21,19 @@ use rmf_site_format::{Edge, WallMarker, DEFAULT_LEVEL_HEIGHT};
 
 pub const DEFAULT_WALL_THICKNESS: f32 = 0.1;
 
-fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Option<Mesh> {
+fn make_wall(
+    entity: Entity,
+    wall: &Edge<Entity>,
+    texture: &Texture,
+    anchors: &AnchorParams,
+) -> Mesh {
+    // TODO(luca) map texture rotation to UV coordinates
     let p_start = anchors
         .point_in_parent_frame_of(wall.start(), Category::Wall, entity)
-        .ok()?;
+        .expect("Failed getting anchor transform");
     let p_end = anchors
         .point_in_parent_frame_of(wall.end(), Category::Wall, entity)
-        .ok()?;
+        .expect("Failed getting anchor transform");
     let (p_start, p_end) = if wall.start() == wall.end() {
         (
             p_start - DEFAULT_WALL_THICKNESS / 2.0 * Vec3::X,
@@ -37,42 +43,49 @@ fn make_wall(entity: Entity, wall: &Edge<Entity>, anchors: &AnchorParams) -> Opt
         (p_start, p_end)
     };
 
-    Some(
-        Mesh::from(make_wall_mesh(
-            p_start,
-            p_end,
-            DEFAULT_WALL_THICKNESS,
-            DEFAULT_LEVEL_HEIGHT,
-        ))
-        .with_generated_outline_normals()
-        .unwrap(),
-    )
+    Mesh::from(make_wall_mesh(
+        p_start,
+        p_end,
+        DEFAULT_WALL_THICKNESS,
+        DEFAULT_LEVEL_HEIGHT,
+        texture.height,
+        texture.width,
+    ))
+    .with_generated_outline_normals()
+    .unwrap()
 }
 
 pub fn add_wall_visual(
     mut commands: Commands,
-    walls: Query<(Entity, &Edge<Entity>), Added<WallMarker>>,
+    walls: Query<(Entity, &Edge<Entity>, &Affiliation<Entity>), Added<WallMarker>>,
     anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
-    assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    for (e, edge) in &walls {
-        if let Some(mesh) = make_wall(e, edge, &anchors) {
-            commands
-                .entity(e)
-                .insert(PbrBundle {
-                    mesh: meshes.add(mesh),
-                    // TODO(MXG): load the user-specified texture when one is given
-                    material: assets.wall_material.clone(),
-                    ..default()
-                })
-                .insert(Selectable::new(e))
-                .insert(Category::Wall)
-                .insert(EdgeLabels::StartEnd);
+    for (e, edge, texture_source) in &walls {
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+        let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
+            (*Color::default().set_a(alpha), AlphaMode::Blend)
         } else {
-            panic!("Anchor was not initialized correctly");
-        }
+            (Color::default(), AlphaMode::Opaque)
+        };
+        commands
+            .entity(e)
+            .insert(PbrBundle {
+                mesh: meshes.add(make_wall(e, edge, &texture, &anchors)),
+                material: materials.add(StandardMaterial {
+                    base_color_texture,
+                    base_color,
+                    alpha_mode,
+                    ..default()
+                }),
+                ..default()
+            })
+            .insert(Selectable::new(e))
+            .insert(Category::Wall)
+            .insert(EdgeLabels::StartEnd);
 
         for anchor in &edge.array() {
             if let Ok(mut deps) = dependents.get_mut(*anchor) {
@@ -82,32 +95,18 @@ pub fn add_wall_visual(
     }
 }
 
-fn update_wall_visuals(
-    entity: Entity,
-    edge: &Edge<Entity>,
-    anchors: &AnchorParams,
-    mesh: &mut Handle<Mesh>,
-    meshes: &mut Assets<Mesh>,
-) {
-    *mesh = meshes.add(make_wall(entity, edge, anchors).unwrap());
-}
-
-pub fn update_wall_edge(
+pub fn update_walls_for_moved_anchors(
     mut walls: Query<
-        (Entity, &Edge<Entity>, &mut Handle<Mesh>),
-        (With<WallMarker>, Changed<Edge<Entity>>),
+        (
+            Entity,
+            &Edge<Entity>,
+            &Affiliation<Entity>,
+            &mut Handle<Mesh>,
+        ),
+        With<WallMarker>,
     >,
     anchors: AnchorParams,
-    mut meshes: ResMut<Assets<Mesh>>,
-) {
-    for (e, edge, mut mesh) in &mut walls {
-        update_wall_visuals(e, edge, &anchors, mesh.as_mut(), meshes.as_mut());
-    }
-}
-
-pub fn update_wall_for_moved_anchors(
-    mut walls: Query<(Entity, &Edge<Entity>, &mut Handle<Mesh>), With<WallMarker>>,
-    anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
     changed_anchors: Query<
         &Dependents,
         (
@@ -119,9 +118,59 @@ pub fn update_wall_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((e, wall, mut mesh)) = walls.get_mut(*dependent).ok() {
-                update_wall_visuals(e, wall, &anchors, mesh.as_mut(), meshes.as_mut());
+            if let Some((e, edge, texture_source, mut mesh)) = walls.get_mut(*dependent).ok() {
+                let (_, texture) = from_texture_source(texture_source, &textures);
+                *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
             }
+        }
+    }
+}
+
+pub fn update_walls(
+    mut walls: Query<
+        (
+            &Edge<Entity>,
+            &Affiliation<Entity>,
+            &mut Handle<Mesh>,
+            &Handle<StandardMaterial>,
+        ),
+        With<WallMarker>,
+    >,
+    changed_walls: Query<
+        Entity,
+        (
+            With<WallMarker>,
+            Or<(Changed<Affiliation<Entity>>, Changed<Edge<Entity>>)>,
+        ),
+    >,
+    changed_texture_sources: Query<
+        &Members,
+        (With<Group>, Or<(Changed<Handle<Image>>, Changed<Texture>)>),
+    >,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+) {
+    for e in changed_walls.iter().chain(
+        changed_texture_sources
+            .iter()
+            .flat_map(|members| members.iter().cloned()),
+    ) {
+        let Ok((edge, texture_source, mut mesh, material)) = walls.get_mut(e) else {
+            continue;
+        };
+        let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
+        *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
+        if let Some(mut material) = materials.get_mut(material) {
+            let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
+                (*Color::default().set_a(alpha), AlphaMode::Blend)
+            } else {
+                (Color::default(), AlphaMode::Opaque)
+            };
+            material.base_color_texture = base_color_texture;
+            material.base_color = base_color;
+            material.alpha_mode = alpha_mode;
         }
     }
 }

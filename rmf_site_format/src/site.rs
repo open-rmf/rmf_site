@@ -17,23 +17,92 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Entity};
+use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 use serde::{Deserialize, Serialize};
-use std::{collections::BTreeMap, io};
+use std::{
+    collections::{BTreeMap, BTreeSet, HashMap},
+    hash::Hash,
+    io,
+};
+use uuid::Uuid;
 
 pub use ron::ser::PrettyConfig as Style;
 
 #[derive(Serialize, Deserialize, Debug, Clone)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct SiteProperties {
-    pub name: String,
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct SiteProperties<T: RefTrait> {
+    pub name: NameOfSite,
+    #[serde(skip_serializing_if = "GeographicComponent::is_none")]
+    pub geographic_offset: GeographicComponent,
+    // TODO(luca) group these into an IssueFilters?
+    #[serde(default, skip_serializing_if = "FilteredIssues::is_empty")]
+    pub filtered_issues: FilteredIssues<T>,
+    #[serde(default, skip_serializing_if = "FilteredIssueKinds::is_empty")]
+    pub filtered_issue_kinds: FilteredIssueKinds,
 }
 
-impl Default for SiteProperties {
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct FilteredIssues<T: RefTrait>(pub BTreeSet<IssueKey<T>>);
+
+// TODO(luca) It seems just deriving default results in compile errors
+impl<T: RefTrait> Default for FilteredIssues<T> {
+    fn default() -> Self {
+        Self(BTreeSet::default())
+    }
+}
+
+impl<T: RefTrait> FilteredIssues<T> {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<FilteredIssues<U>, T> {
+        let mut issues = BTreeSet::new();
+        for issue in self.0.iter() {
+            let entities = issue
+                .entities
+                .iter()
+                .map(|e| id_map.get(e).cloned().ok_or(*e))
+                .collect::<Result<BTreeSet<_>, _>>()?;
+            issues.insert(IssueKey {
+                entities,
+                kind: issue.kind.clone(),
+            });
+        }
+        Ok(FilteredIssues(issues))
+    }
+}
+
+#[derive(Serialize, Deserialize, Debug, Clone, Default, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct FilteredIssueKinds(pub BTreeSet<Uuid>);
+
+impl FilteredIssueKinds {
+    pub fn is_empty(&self) -> bool {
+        self.0.is_empty()
+    }
+}
+
+impl<T: RefTrait> Default for SiteProperties<T> {
     fn default() -> Self {
         Self {
-            name: "new_site".to_string(),
+            name: NameOfSite("new_site".to_owned()),
+            geographic_offset: GeographicComponent::default(),
+            filtered_issues: FilteredIssues::default(),
+            filtered_issue_kinds: FilteredIssueKinds::default(),
         }
+    }
+}
+
+impl<T: RefTrait> SiteProperties<T> {
+    pub fn convert<U: RefTrait>(&self, id_map: &HashMap<T, U>) -> Result<SiteProperties<U>, T> {
+        Ok(SiteProperties {
+            name: self.name.clone(),
+            geographic_offset: self.geographic_offset.clone(),
+            filtered_issues: self.filtered_issues.convert(id_map)?,
+            filtered_issue_kinds: self.filtered_issue_kinds.clone(),
+        })
     }
 }
 
@@ -47,10 +116,19 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub anchors: BTreeMap<u32, Anchor>,
     /// Properties that are tied to the whole site
-    pub properties: SiteProperties,
+    pub properties: SiteProperties<u32>,
     /// Properties of each level
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub levels: BTreeMap<u32, Level>,
+    /// The groups of textures being used in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub textures: BTreeMap<u32, TextureGroup>,
+    /// The fiducial groups that exist in the site
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducial_groups: BTreeMap<u32, FiducialGroup>,
+    /// The fiducial instances that exist in Cartesian space
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub fiducials: BTreeMap<u32, Fiducial<u32>>,
     /// Properties of each lift
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub lifts: BTreeMap<u32, Lift<u32>>,
@@ -61,6 +139,11 @@ pub struct Site {
     #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
     pub agents: BTreeMap<u32, Agent>,
 }
+
+#[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
+#[serde(transparent)]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+pub struct NameOfSite(pub String);
 
 fn default_style_config() -> Style {
     Style::new()
@@ -87,24 +170,38 @@ impl Site {
         ron::ser::to_string_pretty(self, style)
     }
 
-    pub fn from_reader<R: io::Read>(reader: R) -> ron::Result<Self> {
+    pub fn from_reader<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
         // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
         // belong to the same level.
         ron::de::from_reader(reader)
     }
 
-    pub fn from_str<'a>(s: &'a str) -> ron::Result<Self> {
+    pub fn from_str<'a>(s: &'a str) -> ron::error::SpannedResult<Self> {
         ron::de::from_str(s)
     }
 
-    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::Result<Self> {
+    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
 }
 
-pub trait RefTrait: Ord + Eq + Copy + Send + Sync + 'static {}
+pub trait RefTrait: Ord + Eq + Copy + Send + Sync + Hash + 'static {}
 
 impl RefTrait for u32 {}
 
 #[cfg(feature = "bevy")]
 impl RefTrait for Entity {}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::legacy::building_map::BuildingMap;
+
+    #[test]
+    fn serde_roundtrip() {
+        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site_string = map.to_site().unwrap().to_string().unwrap();
+        Site::from_str(&site_string).unwrap();
+    }
+}

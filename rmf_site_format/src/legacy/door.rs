@@ -95,6 +95,7 @@ impl Door {
             .into(),
             DoorType::DoubleSwing | DoorType::DoubleHinged => DoubleSwingDoor {
                 swing: self.to_swing()?,
+                left_right_ratio: 1. / self.2.right_left_ratio.1 as f32,
             }
             .into(),
             DoorType::Unknown => return Err(PortingError::InvalidType(self.2.type_.1.clone())),

@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{recency::RankAdjustment, site::FloorVisibility};
+use crate::{recency::RankAdjustment, site::LayerVisibility};
 use bevy::prelude::*;
 use bevy_egui::{egui::TextureId, EguiContext};
 use rmf_site_format::AssetSource;
@@ -51,8 +51,17 @@ impl Icon {
 #[derive(Clone, Debug, Resource)]
 pub struct Icons {
     pub select: Icon,
+    pub selected: Icon,
     pub edit: Icon,
+    pub exit: Icon,
     pub trash: Icon,
+    pub merge: Icon,
+    pub confirm: Icon,
+    pub add: Icon,
+    pub reject: Icon,
+    pub search: Icon,
+    pub empty: Icon,
+    pub alignment: Icon,
     pub layer_up: Icon,
     pub layer_down: Icon,
     pub layer_to_top: Icon,
@@ -61,14 +70,24 @@ pub struct Icons {
     pub alpha: Icon,
     pub hidden: Icon,
     pub global: Icon,
+    pub hide: Icon,
 }
 
 impl FromWorld for Icons {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let select = IconBuilder::new("textures/select.png", &asset_server);
+        let selected = IconBuilder::new("textures/selected.png", &asset_server);
         let edit = IconBuilder::new("textures/edit.png", &asset_server);
+        let exit = IconBuilder::new("textures/exit.png", &asset_server);
         let trash = IconBuilder::new("textures/trash.png", &asset_server);
+        let merge = IconBuilder::new("textures/merge.png", &asset_server);
+        let confirm = IconBuilder::new("textures/confirm.png", &asset_server);
+        let add = IconBuilder::new("textures/add.png", &asset_server);
+        let reject = IconBuilder::new("textures/reject.png", &asset_server);
+        let search = IconBuilder::new("textures/search.png", &asset_server);
+        let empty = IconBuilder::new("textures/empty.png", &asset_server);
+        let alignment = IconBuilder::new("textures/alignment.png", &asset_server);
         let layer_up = IconBuilder::new("textures/up.png", &asset_server);
         let layer_down = IconBuilder::new("textures/down.png", &asset_server);
         let layer_to_top = IconBuilder::new("textures/to_top.png", &asset_server);
@@ -77,6 +96,7 @@ impl FromWorld for Icons {
         let alpha = IconBuilder::new("textures/alpha.png", &asset_server);
         let hidden = IconBuilder::new("textures/hidden.png", &asset_server);
         let global = IconBuilder::new("textures/global.png", &asset_server);
+        let hide = IconBuilder::new("textures/hide.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
@@ -84,8 +104,17 @@ impl FromWorld for Icons {
         let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
         Self {
             select: select.build(&mut egui_context),
+            selected: selected.build(&mut egui_context),
             edit: edit.build(&mut egui_context),
+            exit: exit.build(&mut egui_context),
             trash: trash.build(&mut egui_context),
+            merge: merge.build(&mut egui_context),
+            confirm: confirm.build(&mut egui_context),
+            add: add.build(&mut egui_context),
+            reject: reject.build(&mut egui_context),
+            search: search.build(&mut egui_context),
+            empty: empty.build(&mut egui_context),
+            alignment: alignment.build(&mut egui_context),
             layer_up: layer_up.build(&mut egui_context),
             layer_down: layer_down.build(&mut egui_context),
             layer_to_top: layer_to_top.build(&mut egui_context),
@@ -94,17 +123,18 @@ impl FromWorld for Icons {
             alpha: alpha.build(&mut egui_context),
             hidden: hidden.build(&mut egui_context),
             global: global.build(&mut egui_context),
+            hide: hide.build(&mut egui_context),
         }
     }
 }
 
 impl Icons {
-    pub fn floor_visibility_of(&self, vis: Option<FloorVisibility>) -> TextureId {
+    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> TextureId {
         match vis {
             Some(v) => match v {
-                FloorVisibility::Opaque => self.opaque.egui(),
-                FloorVisibility::Alpha(_) => self.alpha.egui(),
-                FloorVisibility::Hidden => self.hidden.egui(),
+                LayerVisibility::Opaque => self.opaque.egui(),
+                LayerVisibility::Alpha(_) => self.alpha.egui(),
+                LayerVisibility::Hidden => self.hidden.egui(),
             },
             None => self.global.egui(),
         }

@@ -18,29 +18,31 @@
 use std::collections::HashMap;
 use std::path::PathBuf;
 
-use crate::site::{AnchorBundle, DefaultFile, Dependents, PreventDeletion, SiteState};
-use crate::workcell::ChangeCurrentWorkcell;
+use crate::{
+    site::{
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion, SiteState,
+        VisualMeshMarker,
+    },
+    workcell::ChangeCurrentWorkcell,
+    WorkspaceMarker,
+};
 use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID,
-    WorkcellCollisionMarker, WorkcellVisualMarker,
+    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
 };
 
 pub struct LoadWorkcell {
     /// The site data to load
-    pub workcell: rmf_site_format::Workcell,
+    pub workcell: Workcell,
     /// Should the application switch focus to this new site
     pub focus: bool,
     /// Set if the workcell was loaded from a file
     pub default_file: Option<PathBuf>,
 }
 
-fn generate_workcell_entities(
-    commands: &mut Commands,
-    workcell: &rmf_site_format::Workcell,
-) -> Entity {
+fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> Entity {
     // Create hashmap of ids to entity to correctly generate hierarchy
     let mut id_to_entity = HashMap::new();
     // Hashmap of parent id to list of its children entities
@@ -54,6 +56,7 @@ fn generate_workcell_entities(
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
+        .insert(WorkspaceMarker)
         .insert(PreventDeletion::because(
             "Workcell root cannot be deleted".to_string(),
         ))
@@ -61,7 +64,7 @@ fn generate_workcell_entities(
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn((SiteID(*id), WorkcellVisualMarker));
+        let cmd = commands.spawn((SiteID(*id), VisualMeshMarker));
         let e = cmd.id();
         parented_visual.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
@@ -73,7 +76,7 @@ fn generate_workcell_entities(
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let cmd = commands.spawn((SiteID(*id), WorkcellCollisionMarker));
+        let cmd = commands.spawn((SiteID(*id), CollisionMeshMarker));
         let e = cmd.id();
         parented_collision.bundle.add_bevy_components(cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
@@ -153,7 +156,9 @@ pub fn load_workcell(
 
             // TODO(luca) get rid of SiteState
             if *site_display_state.current() == SiteState::Display {
-                site_display_state.set(SiteState::Off).ok();
+                if let Err(err) = site_display_state.overwrite_set(SiteState::Off) {
+                    error!("Failed to turn the site display off: {err}");
+                }
             }
         }
     }

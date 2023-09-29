@@ -39,10 +39,16 @@ pub enum Category {
     Light,
     Location,
     Measurement,
+    Fiducial,
+    FiducialGroup,
+    TextureGroup,
     Model,
     Camera,
     Drawing,
+    Constraint,
     Workcell,
+    GeoReference,
+    NavigationGraph,
 }
 
 impl Category {
@@ -60,10 +66,16 @@ impl Category {
             Self::Light => "Light",
             Self::Location => "Location",
             Self::Measurement => "Measurement",
+            Self::Fiducial => "Fiducial",
+            Self::FiducialGroup => "Fiducial Group",
+            Self::TextureGroup => "Texture Group",
             Self::Model => "Model",
             Self::Camera => "Camera",
             Self::Drawing => "Drawing",
+            Self::Constraint => "Constraint",
             Self::Workcell => "Workcell",
+            Self::GeoReference => "Georeference",
+            Self::NavigationGraph => "Navigation Graph",
         }
     }
 

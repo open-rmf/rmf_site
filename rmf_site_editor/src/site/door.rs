@@ -15,23 +15,68 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*};
+use crate::{
+    interaction::{Hovered, Selectable},
+    issue::*,
+    shapes::*,
+    site::*,
+};
 use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
+    utils::Uuid,
 };
 use rmf_site_format::{Category, DoorType, Edge, DEFAULT_LEVEL_HEIGHT};
+use std::collections::{BTreeSet, HashMap};
 
 pub const DOOR_CUE_HEIGHT: f32 = 0.004;
 pub const DOOR_STOP_LINE_THICKNESS: f32 = 0.01;
 pub const DOOR_STOP_LINE_LENGTH: f32 = 3.0 * DEFAULT_DOOR_THICKNESS;
 pub const DOOR_SWEEP_THICKNESS: f32 = 0.05;
+pub const DOUBLE_DOOR_GAP: f32 = 0.05;
+
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub enum DoorBodyType {
+    SingleSwing { body: Entity },
+    DoubleSwing { left: Entity, right: Entity },
+    SingleSliding { body: Entity },
+    DoubleSliding { left: Entity, right: Entity },
+    Model { body: Entity },
+}
+
+impl DoorBodyType {
+    pub fn from_door_type(door_type: &DoorType, entities: &Vec<Entity>) -> Self {
+        match door_type {
+            DoorType::SingleSwing(_) => DoorBodyType::SingleSwing { body: entities[0] },
+            DoorType::DoubleSwing(_) => DoorBodyType::DoubleSwing {
+                left: entities[0],
+                right: entities[1],
+            },
+            DoorType::SingleSliding(_) => DoorBodyType::SingleSliding { body: entities[0] },
+            DoorType::DoubleSliding(_) => DoorBodyType::DoubleSliding {
+                left: entities[0],
+                right: entities[1],
+            },
+            DoorType::Model(_) => DoorBodyType::Model { body: entities[0] },
+        }
+    }
+
+    pub fn entities(&self) -> Vec<Entity> {
+        match self {
+            DoorBodyType::SingleSwing { body }
+            | DoorBodyType::SingleSliding { body }
+            | DoorBodyType::Model { body } => {
+                vec![*body]
+            }
+            DoorBodyType::DoubleSwing { left, right }
+            | DoorBodyType::DoubleSliding { left, right } => vec![*left, *right],
+        }
+    }
+}
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct DoorSegments {
-    // TODO(MXG): When it's time to animate the doors we should replace this
-    // with an enum for the different possible door types: Single/Double Swing/Sliding
-    pub body: Entity,
+    pub body: DoorBodyType,
     pub cue_inner: Entity,
     pub cue_outline: Entity,
 }
@@ -41,7 +86,7 @@ fn make_door_visuals(
     edge: &Edge<Entity>,
     anchors: &AnchorParams,
     kind: &DoorType,
-) -> (Transform, Transform, Mesh, Mesh) {
+) -> (Transform, Vec<Transform>, Mesh, Mesh) {
     let p_start = anchors
         .point_in_parent_frame_of(edge.left(), Category::Door, entity)
         .unwrap();
@@ -55,17 +100,59 @@ fn make_door_visuals(
     let center = (p_start + p_end) / 2.0;
 
     let (inner, outline) = make_door_cues(length, kind);
+
+    let get_double_door_tfs = |mid_offset: f32| -> Vec<Transform> {
+        let left_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 - mid_offset;
+        let right_door_length = (length - DOUBLE_DOOR_GAP) / 2.0 + mid_offset;
+        vec![
+            Transform {
+                translation: Vec3::new(
+                    0.,
+                    (length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                scale: Vec3::new(
+                    DEFAULT_DOOR_THICKNESS,
+                    left_door_length,
+                    DEFAULT_LEVEL_HEIGHT,
+                ),
+                ..default()
+            },
+            Transform {
+                translation: Vec3::new(
+                    0.,
+                    -(length + DOUBLE_DOOR_GAP) / 4.0 + mid_offset / 2.0,
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ),
+                scale: Vec3::new(
+                    DEFAULT_DOOR_THICKNESS,
+                    right_door_length,
+                    DEFAULT_LEVEL_HEIGHT,
+                ),
+                ..default()
+            },
+        ]
+    };
+
+    let door_tfs = match kind {
+        // TODO(luca) implement model variant
+        DoorType::SingleSwing(_) | DoorType::SingleSliding(_) | DoorType::Model(_) => {
+            vec![Transform {
+                translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
+                scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
+                ..default()
+            }]
+        }
+        DoorType::DoubleSwing(door) => get_double_door_tfs(door.compute_offset(length)),
+        DoorType::DoubleSliding(door) => get_double_door_tfs(door.compute_offset(length)),
+    };
     (
         Transform {
             translation: Vec3::new(center.x, center.y, 0.),
             rotation: Quat::from_rotation_z(yaw),
             ..default()
         },
-        Transform {
-            translation: Vec3::new(0., 0., DEFAULT_LEVEL_HEIGHT / 2.0),
-            scale: Vec3::new(DEFAULT_DOOR_THICKNESS, length, DEFAULT_LEVEL_HEIGHT),
-            ..default()
-        },
+        door_tfs,
         inner,
         outline,
     )
@@ -97,10 +184,16 @@ fn door_slide_arrows(start: f32, stop: f32) -> MeshBuffer {
     door_slide_arrow(start, stop, -1.0).merge_with(door_slide_arrow(start, stop, 1.0))
 }
 
-fn door_swing_arc(door_width: f32, door_count: u32, pivot_on: Side, swing: Swing) -> MeshBuffer {
+fn door_swing_arc(
+    door_width: f32,
+    door_count: u32,
+    offset: f32,
+    pivot_on: Side,
+    swing: Swing,
+) -> MeshBuffer {
     let pivot = pivot_on.sign() * door_width / 2.0;
     let pivot = Vec3::new(0.0, pivot, DOOR_CUE_HEIGHT);
-    let door_width = door_width / door_count as f32;
+    let door_width = door_width / door_count as f32 + offset;
     let (initial_angle, sweep) = swing.swing_on_pivot(pivot_on);
     flat_arc(
         pivot,
@@ -149,11 +242,14 @@ fn make_door_cues(door_width: f32, kind: &DoorType) -> (Mesh, Mesh) {
                 .into_mesh_and_outline()
         }
         DoorType::SingleSwing(door) => {
-            door_swing_arc(door_width, 1, door.pivot_on, door.swing).into_mesh_and_outline()
+            door_swing_arc(door_width, 1, 0.0, door.pivot_on, door.swing).into_mesh_and_outline()
         }
-        DoorType::DoubleSwing(door) => door_swing_arc(door_width, 2, Side::Left, door.swing)
-            .merge_with(door_swing_arc(door_width, 2, Side::Right, door.swing))
-            .into_mesh_and_outline(),
+        DoorType::DoubleSwing(door) => {
+            let mid = door.compute_offset(door_width);
+            door_swing_arc(door_width, 2, -mid, Side::Left, door.swing)
+                .merge_with(door_swing_arc(door_width, 2, mid, Side::Right, door.swing))
+                .into_mesh_and_outline()
+        }
         _ => {
             let mut mesh = Mesh::new(PrimitiveTopology::TriangleList);
             mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, Vec::<[f32; 3]>::new());
@@ -179,20 +275,26 @@ pub fn add_door_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
 ) {
     for (e, edge, kind, visibility) in &new_doors {
-        let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
+        let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
             make_door_visuals(e, edge, &anchors, kind);
 
         let mut commands = commands.entity(e);
         let (body, cue_inner, cue_outline) = commands.add_children(|parent| {
-            let body = parent
-                .spawn(PbrBundle {
-                    mesh: assets.box_mesh.clone(),
-                    material: assets.door_body_material.clone(),
-                    transform: shape_tf,
-                    ..default()
+            let bodies = door_tfs
+                .iter()
+                .map(|tf| {
+                    parent
+                        .spawn(PbrBundle {
+                            mesh: assets.box_mesh.clone(),
+                            material: assets.door_body_material.clone(),
+                            transform: *tf,
+                            ..default()
+                        })
+                        .insert(Selectable::new(e))
+                        .id()
                 })
-                .insert(Selectable::new(e))
-                .id();
+                .collect::<Vec<_>>();
+            let body = DoorBodyType::from_door_type(kind, &bodies);
 
             let cue_inner = parent
                 .spawn(PbrBundle {
@@ -245,6 +347,7 @@ pub fn add_door_visuals(
 }
 
 fn update_door_visuals(
+    commands: &mut Commands,
     entity: Entity,
     edge: &Edge<Entity>,
     kind: &DoorType,
@@ -253,45 +356,92 @@ fn update_door_visuals(
     transforms: &mut Query<&mut Transform>,
     mesh_handles: &mut Query<&mut Handle<Mesh>>,
     mesh_assets: &mut ResMut<Assets<Mesh>>,
-) {
-    let (pose_tf, shape_tf, cue_inner_mesh, cue_outline_mesh) =
+    assets: &Res<SiteAssets>,
+) -> Option<DoorBodyType> {
+    let (pose_tf, door_tfs, cue_inner_mesh, cue_outline_mesh) =
         make_door_visuals(entity, edge, anchors, kind);
     let mut door_transform = transforms.get_mut(entity).unwrap();
     *door_transform = pose_tf;
-    let mut shape_transform = transforms.get_mut(segments.body).unwrap();
-    *shape_transform = shape_tf;
+    let mut entities = segments.body.entities();
+    for (door_tf, e) in door_tfs.iter().zip(entities.iter()) {
+        let mut door_transform = transforms.get_mut(*e).unwrap();
+        *door_transform = *door_tf;
+    }
+    for door_tf in door_tfs.iter().skip(entities.len()) {
+        // New doors were added, we need to spawn them
+        let id = commands
+            .spawn(PbrBundle {
+                mesh: assets.box_mesh.clone(),
+                material: assets.door_body_material.clone(),
+                transform: *door_tf,
+                ..default()
+            })
+            .insert(Selectable::new(entity))
+            .id();
+        entities.push(id);
+        commands.entity(entity).add_child(id);
+    }
+    for e in entities.iter().skip(door_tfs.len()) {
+        // Doors were removed, we need to despawn them
+        commands.entity(*e).despawn_recursive();
+    }
     let mut cue_inner = mesh_handles.get_mut(segments.cue_inner).unwrap();
     *cue_inner = mesh_assets.add(cue_inner_mesh);
     let mut cue_outline = mesh_handles.get_mut(segments.cue_outline).unwrap();
     *cue_outline = mesh_assets.add(cue_outline_mesh);
+    let new_segments = DoorBodyType::from_door_type(kind, &entities);
+    if new_segments != segments.body {
+        Some(new_segments)
+    } else {
+        None
+    }
 }
 
 pub fn update_changed_door(
-    doors: Query<
-        (Entity, &Edge<Entity>, &DoorType, &DoorSegments),
+    mut commands: Commands,
+    mut doors: Query<
+        (
+            Entity,
+            &Edge<Entity>,
+            &DoorType,
+            &mut DoorSegments,
+            &mut Hovered,
+        ),
         Or<(Changed<Edge<Entity>>, Changed<DoorType>)>,
     >,
     anchors: AnchorParams,
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    assets: Res<SiteAssets>,
 ) {
-    for (entity, edge, kind, segments) in &doors {
-        update_door_visuals(
+    for (entity, edge, kind, mut segments, mut hovered) in &mut doors {
+        let old_door_count = segments.body.entities().len();
+        if let Some(new_body) = update_door_visuals(
+            &mut commands,
             entity,
             edge,
             kind,
-            segments,
+            &segments,
             &anchors,
             &mut transforms,
             &mut mesh_handles,
             &mut mesh_assets,
-        );
+            &assets,
+        ) {
+            segments.body = new_body;
+            if segments.body.entities().len() > old_door_count {
+                // A new door was spawned, trigger hovered change detection to update the outline
+                // for the new mesh
+                hovered.set_changed();
+            }
+        }
     }
 }
 
 pub fn update_door_for_moved_anchors(
-    doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
+    mut commands: Commands,
+    mut doors: Query<(Entity, &Edge<Entity>, &DoorType, &DoorSegments)>,
     anchors: AnchorParams,
     changed_anchors: Query<
         &Dependents,
@@ -303,20 +453,61 @@ pub fn update_door_for_moved_anchors(
     mut transforms: Query<&mut Transform>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
+    assets: Res<SiteAssets>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, segments)) = doors.get(*dependent).ok() {
+            if let Some((entity, edge, kind, mut segments)) = doors.get_mut(*dependent).ok() {
                 update_door_visuals(
+                    &mut commands,
                     entity,
                     edge,
                     kind,
-                    segments,
+                    &segments,
                     &anchors,
                     &mut transforms,
                     &mut mesh_handles,
                     &mut mesh_assets,
+                    &assets,
                 );
+            }
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated door names
+pub const DUPLICATED_DOOR_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x73f641f2a08d4ffd90216eb9bacb4743u128);
+
+// When triggered by a validation request event, check if there are duplicated door names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_door_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    door_names: Query<(Entity, &NameInSite), With<DoorMarker>>,
+) {
+    for root in validate_events.iter() {
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &door_names {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: DUPLICATED_DOOR_NAME_ISSUE_UUID,
+                    },
+                    brief: format!("Multiple doors found with the same name {}", name),
+                    hint: "Doors use their names as identifiers with RMF and each door should have a unique \
+                           name, rename the affected doors".to_string()
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(id);
             }
         }
     }

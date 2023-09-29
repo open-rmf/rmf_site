@@ -18,9 +18,10 @@
 use crate::interaction::ScreenSpaceSelection;
 use crate::interaction::Selectable;
 use crate::site::*;
-use crate::CurrentWorkspace;
-use bevy::prelude::*;
+use crate::{CurrentWorkspace, Issue, ValidateWorkspace};
+use bevy::{prelude::*, utils::Uuid};
 use rmf_site_format::{Edge, LaneMarker};
+use std::collections::{BTreeSet, HashMap};
 
 use bevy_polyline::prelude::*;
 
@@ -55,7 +56,7 @@ fn should_display_lane(
     edge: &Edge<Entity>,
     associated: &AssociatedGraphs<Entity>,
     parents: &Query<&Parent>,
-    levels: &Query<(), With<LevelProperties>>,
+    levels: &Query<(), With<LevelElevation>>,
     current_level: &Res<CurrentLevel>,
     graphs: &GraphSelect,
 ) -> bool {
@@ -80,7 +81,7 @@ pub fn assign_orphan_nav_elements_to_site(
         ),
     >,
     current_workspace: Res<CurrentWorkspace>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
 ) {
     if let Some(current_site) = current_workspace.to_site(&open_sites) {
         for e in &elements {
@@ -95,7 +96,7 @@ pub fn add_lane_visuals(
     graphs: GraphSelect,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     assets: Res<SiteAssets>,
     current_level: Res<CurrentLevel>,
@@ -312,7 +313,7 @@ pub fn update_changed_lane(
     >,
     anchors: AnchorParams,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     graphs: GraphSelect,
     mut transforms: Query<&mut Transform>,
     polylines: Query<&Handle<Polyline>>,
@@ -404,7 +405,7 @@ pub fn update_visibility_for_lanes(
         (With<LaneMarker>, Without<NavGraphMarker>),
     >,
     parents: Query<&Parent>,
-    levels: Query<(), With<LevelProperties>>,
+    levels: Query<(), With<LevelElevation>>,
     current_level: Res<CurrentLevel>,
     graphs: GraphSelect,
     lanes_with_changed_association: Query<
@@ -498,6 +499,72 @@ pub fn handle_consider_associated_graph(
     for consider in considerations.iter() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
             recall.consider = consider.graph;
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated dock names
+pub const DUPLICATED_DOCK_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0xca210e1025014ac2a4072bc956d76151u128);
+
+// When triggered by a validation request event, check if there are duplicated dock names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_dock_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    lane_properties: Query<(Entity, &Motion, Option<&ReverseLane>), With<LaneMarker>>,
+) {
+    const ISSUE_HINT: &str = "RMF uses the dock name parameter to trigger special behavior from \
+                        the robots. Duplicated dock names would make such behavior ambiguous as \
+                        it would be triggered in different parts of the map, rename the docks to \
+                        be unique";
+    for root in validate_events.iter() {
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, motion, reverse) in &lane_properties {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+                if let Some(dock) = &motion.dock {
+                    let entities_with_name = names.entry(dock.name.clone()).or_default();
+                    entities_with_name.insert(e);
+                }
+            }
+            if let Some(reverse) = reverse {
+                if let ReverseLane::Different(m) = reverse {
+                    if let Some(dock) = &m.dock {
+                        let entities_with_name = names.entry(dock.name.clone()).or_default();
+                        let inserted = entities_with_name.insert(e);
+                        if !inserted {
+                            let issue = Issue {
+                                key: IssueKey {
+                                    entities: [e].into(),
+                                    kind: DUPLICATED_DOCK_NAME_ISSUE_UUID,
+                                },
+                                brief: format!(
+                                    "Same dock name found for forward and reverse motion {}",
+                                    dock.name
+                                ),
+                                hint: ISSUE_HINT.to_string(),
+                            };
+                            let id = commands.spawn(issue).id();
+                            commands.entity(**root).add_child(id);
+                        }
+                    }
+                }
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: DUPLICATED_DOCK_NAME_ISSUE_UUID,
+                    },
+                    brief: format!("Multiple docks found with the same name {}", name),
+                    hint: ISSUE_HINT.to_string(),
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(id);
+            }
         }
     }
 }

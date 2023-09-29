@@ -15,6 +15,8 @@
  *
 */
 
+pub mod alignment;
+
 pub mod agent;
 pub use agent::*;
 
@@ -26,6 +28,9 @@ pub use asset_source::*;
 
 pub mod category;
 pub use category::*;
+
+pub mod constraint;
+pub use constraint::*;
 
 pub mod dock;
 pub use dock::*;
@@ -45,8 +50,14 @@ pub use fiducial::*;
 pub mod floor;
 pub use floor::*;
 
+pub mod issue;
+pub use issue::*;
+
 pub mod lane;
 pub use lane::*;
+
+pub mod layer;
+pub use layer::*;
 
 pub mod location;
 pub use location::*;
@@ -101,6 +112,9 @@ pub use wall::*;
 
 pub mod workcell;
 pub use workcell::*;
+
+pub mod georeference;
+pub use georeference::*;
 
 mod is_default;
 pub(crate) use is_default::*;

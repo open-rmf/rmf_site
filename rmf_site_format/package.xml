@@ -1,0 +1,11 @@
+<package format="3">
+  <name>rmf_site_format</name>
+  <version>0.0.1</version>
+  <description>A library with reusable elements for rmf_site</description>
+  <maintainer email="mxgrey@intrinsic.ai">Grey</maintainer>
+  <license>Apache License 2.0</license>
+
+  <export>
+    <build_type>ament_cargo</build_type>
+  </export>
+</package>

@@ -18,7 +18,11 @@
 use crate::{
     interaction::{Select, Selection},
     log::Log,
-    site::{Category, CurrentLevel, Dependents, LevelProperties, SiteUpdateStage},
+    site::{
+        Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
+        SiteUpdateStage,
+    },
+    Issue,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -85,9 +89,10 @@ struct DeletionParams<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
-    levels: Query<'w, 's, Entity, With<LevelProperties>>,
+    levels: Query<'w, 's, Entity, With<LevelElevation>>,
     select: EventWriter<'w, 's, Select>,
     log: EventWriter<'w, 's, Log>,
+    issues: Query<'w, 's, (Entity, &'static mut Issue)>,
 }
 
 pub struct DeletionPlugin;
@@ -222,6 +227,13 @@ fn cautious_delete(element: Entity, params: &mut DeletionParams) {
         }
     }
 
+    for (e, mut issue) in &mut params.issues {
+        issue.key.entities.remove(&element);
+        if issue.key.entities.is_empty() {
+            params.commands.entity(e).despawn_recursive();
+        }
+    }
+
     // Fetch the parent and delete this dependent
     // TODO(luca) should we add this snippet to the recursive delete also?
     if let Ok(parent) = params.parents.get(element) {
@@ -345,8 +357,9 @@ fn perform_deletions(all_to_delete: HashSet<Entity>, params: &mut DeletionParams
                     .commands
                     .spawn(SpatialBundle::default())
                     .insert(LevelProperties {
-                        elevation: 0.0,
-                        name: "<Unnamed>".to_string(),
+                        name: NameInSite("<Unnamed>".to_owned()),
+                        elevation: LevelElevation(0.0),
+                        ..default()
                     })
                     .insert(Category::Level)
                     .id();

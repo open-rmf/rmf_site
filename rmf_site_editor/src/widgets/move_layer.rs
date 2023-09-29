@@ -27,11 +27,40 @@ pub struct MoveLayer<'a, 'w, 's, T: Component> {
     entity: Entity,
     rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
     icons: &'a Icons,
-    adjustment: RankAdjustment,
-    hover: Option<&'a mut ResMut<'w, Events<Hover>>>,
 }
 
 impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
+    pub fn new(
+        entity: Entity,
+        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        icons: &'a Icons,
+    ) -> Self {
+        Self {
+            entity,
+            rank_events,
+            icons,
+        }
+    }
+
+    pub fn show(self, ui: &mut Ui) {
+        MoveLayerButton::to_top(self.entity, self.rank_events, self.icons).show(ui);
+
+        MoveLayerButton::up(self.entity, self.rank_events, self.icons).show(ui);
+
+        MoveLayerButton::down(self.entity, self.rank_events, self.icons).show(ui);
+
+        MoveLayerButton::to_bottom(self.entity, self.rank_events, self.icons).show(ui);
+    }
+}
+
+pub struct MoveLayerButton<'a, 'w, 's, T: Component> {
+    entity: Entity,
+    rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+    icons: &'a Icons,
+    adjustment: RankAdjustment,
+}
+
+impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, 's, T> {
     pub fn to_top(
         entity: Entity,
         rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
@@ -42,7 +71,6 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
             rank_events,
             icons,
             adjustment: RankAdjustment::ToTop,
-            hover: None,
         }
     }
 
@@ -56,7 +84,6 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
             rank_events,
             icons,
             adjustment: RankAdjustment::Delta(1),
-            hover: None,
         }
     }
 
@@ -70,7 +97,6 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
             rank_events,
             icons,
             adjustment: RankAdjustment::Delta(-1),
-            hover: None,
         }
     }
 
@@ -84,13 +110,7 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
             rank_events,
             icons,
             adjustment: RankAdjustment::ToBottom,
-            hover: None,
         }
-    }
-
-    pub fn with_hover(mut self, hover: &'a mut ResMut<'w, Events<Hover>>) -> Self {
-        self.hover = Some(hover);
-        self
     }
 
     pub fn show(self, ui: &mut Ui) {
@@ -104,12 +124,6 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
         if resp.clicked() {
             self.rank_events
                 .send(ChangeRank::new(self.entity, self.adjustment));
-        }
-
-        if let Some(hover) = self.hover {
-            if resp.hovered() {
-                hover.send(Hover(Some(self.entity)));
-            }
         }
     }
 }

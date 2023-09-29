@@ -15,8 +15,14 @@
  *
 */
 
-use crate::{interaction::Selectable, shapes::*, site::*, CurrentWorkspace};
-use bevy::{prelude::*, render::primitives::Aabb};
+use crate::{
+    interaction::Selectable, shapes::*, site::*, CurrentWorkspace, Issue, ValidateWorkspace,
+};
+use bevy::{
+    prelude::*,
+    render::primitives::Aabb,
+    utils::{HashMap, Uuid},
+};
 use rmf_site_format::{Edge, LiftCabin};
 use std::collections::BTreeSet;
 
@@ -110,7 +116,7 @@ pub fn add_tags_to_lift(
     mut commands: Commands,
     new_lifts: Query<(Entity, &Edge<Entity>), Added<LiftCabin<Entity>>>,
     orphan_lifts: Query<Entity, (With<LiftCabin<Entity>>, Without<Parent>)>,
-    open_sites: Query<Entity, With<SiteProperties>>,
+    open_sites: Query<Entity, With<NameOfSite>>,
     mut dependents: Query<&mut Dependents, With<Anchor>>,
     current_workspace: Res<CurrentWorkspace>,
 ) {
@@ -159,7 +165,7 @@ pub fn update_lift_cabin(
     mut anchors: Query<&mut Anchor>,
     assets: Res<SiteAssets>,
     mut meshes: ResMut<Assets<Mesh>>,
-    levels: Query<(Entity, &Parent), With<LevelProperties>>,
+    levels: Query<(Entity, &Parent), With<LevelElevation>>,
 ) {
     for (e, cabin, recall, child_anchor_group, child_cabin_group, site) in &lifts {
         // Despawn the previous cabin
@@ -170,7 +176,8 @@ pub fn update_lift_cabin(
         let cabin_tf = match cabin {
             LiftCabin::Rect(params) => {
                 let Aabb { center, .. } = params.aabb();
-                let cabin_tf = Transform::from_translation(Vec3::new(center.x, center.y, 0.));
+                let cabin_tf =
+                    Transform::from_translation(Vec3::new(center.x, center.y, FLOOR_LAYER_START));
                 let floor_mesh: Mesh = make_flat_rect_mesh(
                     params.depth + 2.0 * params.thickness(),
                     params.width + 2.0 * params.thickness(),
@@ -185,6 +192,8 @@ pub fn update_lift_cabin(
                             wall[1],
                             params.thickness(),
                             DEFAULT_LEVEL_HEIGHT / 3.0,
+                            None,
+                            None,
                         )
                     })
                     .fold(MeshBuffer::default(), |sum, next| sum.merge_with(next))
@@ -348,9 +357,9 @@ pub fn update_lift_door_availability(
     mut doors: Query<(Entity, &Edge<Entity>, &mut LevelVisits<Entity>), With<LiftCabinDoorMarker>>,
     dependents: Query<&Dependents, With<Anchor>>,
     current_level: Res<CurrentLevel>,
-    new_levels: Query<(), Added<LevelProperties>>,
-    all_levels: Query<(), With<LevelProperties>>,
-    removed_levels: RemovedComponents<LevelProperties>,
+    new_levels: Query<(), Added<LevelElevation>>,
+    all_levels: Query<(), With<LevelElevation>>,
+    removed_levels: RemovedComponents<LevelElevation>,
     parents: Query<&Parent>,
 ) {
     for toggle in toggles.iter() {
@@ -592,6 +601,45 @@ fn remove_door(
                 .entity(anchor)
                 .insert(Pending)
                 .insert(Visibility { is_visible: false });
+        }
+    }
+}
+
+/// Unique UUID to identify issue of duplicated lift names
+pub const DUPLICATED_LIFT_NAME_ISSUE_UUID: Uuid =
+    Uuid::from_u128(0x307e81822d8d4b62b20f2503955f1032u128);
+
+// When triggered by a validation request event, check if there are duplicated lift names and
+// generate an issue if that is the case
+pub fn check_for_duplicated_lift_names(
+    mut commands: Commands,
+    mut validate_events: EventReader<ValidateWorkspace>,
+    parents: Query<&Parent>,
+    lift_names: Query<(Entity, &NameInSite), With<LiftCabin<Entity>>>,
+) {
+    const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
+                              have a unique name, rename the affected lifts";
+    for root in validate_events.iter() {
+        let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
+        for (e, name) in &lift_names {
+            if AncestorIter::new(&parents, e).any(|p| p == **root) {
+                let entities_with_name = names.entry(name.0.clone()).or_default();
+                entities_with_name.insert(e);
+            }
+        }
+        for (name, entities) in names.drain() {
+            if entities.len() > 1 {
+                let issue = Issue {
+                    key: IssueKey {
+                        entities: entities,
+                        kind: DUPLICATED_LIFT_NAME_ISSUE_UUID,
+                    },
+                    brief: format!("Multiple lifts found with the same name {}", name),
+                    hint: ISSUE_HINT.to_string(),
+                };
+                let id = commands.spawn(issue).id();
+                commands.entity(**root).add_child(id);
+            }
         }
     }
 }
