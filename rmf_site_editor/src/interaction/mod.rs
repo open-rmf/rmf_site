@@ -143,7 +143,7 @@ impl Plugin for InteractionPlugin {
             .add_plugin(PickingPlugin)
             .add_plugin(OutlinePlugin)
             .add_plugin(CameraControlsPlugin)
-            .add_plugin(ColorBasedPicker)
+            //.add_plugin(ColorBasedPicker)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)
                     .with_system(make_lift_doormat_gizmo)

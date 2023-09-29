@@ -55,6 +55,10 @@ pub fn add_anchor_visual_cues(
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
             });
+            body.insert(LimitScaleFactor{
+                distance_to_start_scaling: 10.0,
+                original_scale: 0.2,
+            });
             body.insert(Selectable::new(e));
             body.insert(MaterialMeshBundle {
                 mesh: point_assets.bevy_point_mesh.clone(),
@@ -113,6 +117,7 @@ pub fn update_anchor_proximity_xray(
     mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
     intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
+    camera_controls: Res<CameraControls>,
 ) {
     if cursor_moved.is_empty() {
         return;
