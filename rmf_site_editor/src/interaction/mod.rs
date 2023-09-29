@@ -177,7 +177,7 @@ impl Plugin for InteractionPlugin {
             .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
             .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
             .add_plugin(CameraControlsPlugin)
-            //.add_plugin(ColorBasedPicker)
+            .add_plugin(ColorBasedPicker)
             .add_plugin(ModelPreviewPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)

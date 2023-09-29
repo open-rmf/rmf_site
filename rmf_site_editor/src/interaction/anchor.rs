@@ -49,15 +49,15 @@ pub fn add_anchor_visual_cues(
         };
 
         let mut entity_commands = commands.entity(e);
+        entity_commands.insert(LimitScaleFactor{
+            distance_to_start_scaling: 10.0,
+            original_scale: 1.0,
+        });
         let body = entity_commands.add_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
-            });
-            body.insert(LimitScaleFactor{
-                distance_to_start_scaling: 10.0,
-                original_scale: 0.2,
             });
             body.insert(Selectable::new(e));
             body.insert(MaterialMeshBundle {
@@ -65,7 +65,7 @@ pub fn add_anchor_visual_cues(
                 material: point_assets.bevy_point_material.clone(),
                 ..default()
             });
-            body.insert(ScreenSpaceSelection::Point);
+            body.insert(ScreenSpaceSelection::Point(e));
             if subordinate.is_none() {
                 body.insert(DragPlaneBundle::new(e, Vec3::Z));
             }
@@ -117,7 +117,6 @@ pub fn update_anchor_proximity_xray(
     mut anchors: Query<(&GlobalTransform, &mut VisualCue), With<Anchor>>,
     intersect_ground_params: IntersectGroundPlaneParams,
     cursor_moved: EventReader<CursorMoved>,
-    camera_controls: Res<CameraControls>,
 ) {
     if cursor_moved.is_empty() {
         return;

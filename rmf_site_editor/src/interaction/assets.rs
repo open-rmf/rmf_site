@@ -83,10 +83,10 @@ impl InteractionAssets {
                 ..default()
             });
 
-            child_entity.insert(LimitScaleFactor {
+            /*child_entity.insert(LimitScaleFactor {
                 distance_to_start_scaling: 10.0,
                 original_scale: 0.2,
-            });
+            });*/
             if let Some(for_entity) = for_entity_opt {
                 child_entity
                     .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));

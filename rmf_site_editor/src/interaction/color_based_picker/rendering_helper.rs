@@ -65,12 +65,12 @@ pub fn resize_notificator<const Layer: u8>(
             }
 
             let viewport_size = camera.logical_viewport_size().unwrap();
-
-            let scale_ratio = 512.0 / viewport_size.x;
-            let height = (viewport_size.y * scale_ratio) as u32;
+            let scale_ratio =1.0;
+            //let scale_ratio = 512.0 / viewport_size.x;
+            //let height = (viewport_size.y * scale_ratio) as u32;
             let size = Extent3d {
-                width: 512,     //e.width as u32,
-                height: height, //e.height as u32,
+                width: viewport_size.x as u32,     //e.width as u32,
+                height: viewport_size.y as u32, //e.height as u32,
                 ..default()
             };
             // This is the texture that will be rendered to.
@@ -199,7 +199,7 @@ pub fn buffer_to_selection<const Layer: u8>(
     for image in images_to_save.iter() {
         let data = &images.get_mut(&image.0).unwrap().data;
 
-        let Some(img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+        let Some(mut img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
             image.1,
             image.2,
             data.as_slice(),
@@ -213,6 +213,7 @@ pub fn buffer_to_selection<const Layer: u8>(
 
         if debug.0 {
             println!("x : {}, y: {}", mx, my);
+            
             let result = img.save(format!("picking_layer_{:?}.png", Layer));
             if let Err(something) = result {
                 println!("{:?}", something);
@@ -225,19 +226,15 @@ pub fn buffer_to_selection<const Layer: u8>(
                     continue;
                 };
                 if Layer == POINT_PICKING_LAYER {
-                    let Ok((_, parent)) = selections.get(*entity) else {
+                    /*let Ok((_, parent)) = selections.get(*entity) else {
                         error!("No parent found");
                         continue;
                     };
                     let Ok(_) = anchors.get(parent.get()) else {
                         error!("Not an anchor");
                         continue;
-                    };
-                    if (mouse_button_input.just_released(MouseButton::Left)) {
-                        select_event.send(Select(Some(parent.get())));
-                    } else {
-                        hover_event.send(Hover(Some(parent.get())));
-                    }
+                    };*/
+                    println!{"Over anchor {:?}", entity};
                 }
 
                 /*if Layer == LINE_PICKING_LAYER {
