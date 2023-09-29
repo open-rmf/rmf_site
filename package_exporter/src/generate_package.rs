@@ -1,4 +1,3 @@
-use crate::ros2_cli;
 use crate::template;
 use crate::urdf;
 
@@ -70,12 +69,7 @@ fn write_urdf_and_copy_mesh_files(
     let mesh_files = urdf::get_mesh_files(urdf_robot)?;
     // Copy mesh files to new directory
     for mesh_file in mesh_files.iter() {
-        let system_path = ros2_cli::get_pkg_prefix(&mesh_file.package_name)?;
-        let share_path = format!(
-            "{}/share/{}/{}",
-            system_path, &mesh_file.package_name, &mesh_file.relative_path
-        );
-        let mesh_file_path = std::path::Path::new(&system_path).join(share_path);
+        let mesh_file_path = (*urdf_rs::utils::expand_package_path(mesh_file.get_path().as_str(), None)).to_owned();
         let output_mesh_file_path = meshes_directory_path.join(&mesh_file.get_file_name());
         std::fs::copy(&mesh_file_path, &output_mesh_file_path)?;
     }

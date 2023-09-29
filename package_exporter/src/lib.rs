@@ -1,6 +1,5 @@
 mod generate_package;
 mod template;
-mod ros2_cli;
 mod ros2_package_path;
 mod urdf;
 
