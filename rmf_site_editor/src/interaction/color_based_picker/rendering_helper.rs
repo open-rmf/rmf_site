@@ -7,6 +7,7 @@ use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
+use image::{Pixel, save_buffer_with_format};
 use rmf_site_format::Anchor;
 
 use super::{ColorEntityMap, ScreenSpaceSelection};
@@ -199,7 +200,7 @@ pub fn buffer_to_selection<const Layer: u8>(
     for image in images_to_save.iter() {
         let data = &images.get_mut(&image.0).unwrap().data;
 
-        let Some(mut img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
+        let Some(img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
             image.1,
             image.2,
             data.as_slice(),
@@ -211,10 +212,42 @@ pub fn buffer_to_selection<const Layer: u8>(
         let mx = (mouse_position.x * image.3) as u32;
         let my = (mouse_position.y * image.3) as u32;
 
+        // y-axis seems flipped
+        let my = image.2 - my;
+
         if debug.0 {
             println!("x : {}, y: {}", mx, my);
+
+            let mut img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(
+                image.1,
+                image.2,
+                Vec::from_iter(data.clone()[..5760000].iter().map(|f| *f)),
+            ).expect("failed to unwrap image");
+
             
-            let result = img.save(format!("picking_layer_{:?}.png", Layer));
+
+            if mx > 50 || my > 50 {
+
+            for i in mx-50..mx+50 {
+                for j in my-50..my+50 {
+                    if i > image.1 || j > image.2 {
+                        continue;
+                    }
+                    img.put_pixel(i, j, image::Rgba([255,255,255,255]));
+                }
+            }
+        }
+            println!("{:?}", data.len());
+
+
+            let result = save_buffer_with_format(
+                format!("picking_layer_{:?}.png", Layer),
+                &img.into_raw(),
+                image.1,
+                image.2,
+                image::ColorType::Rgba8,
+                image::ImageFormat::Png
+            );
             if let Err(something) = result {
                 println!("{:?}", something);
             }
@@ -226,15 +259,10 @@ pub fn buffer_to_selection<const Layer: u8>(
                     continue;
                 };
                 if Layer == POINT_PICKING_LAYER {
-                    /*let Ok((_, parent)) = selections.get(*entity) else {
-                        error!("No parent found");
-                        continue;
-                    };
-                    let Ok(_) = anchors.get(parent.get()) else {
+                    let Ok(_) = anchors.get(*entity) else {
                         error!("Not an anchor");
                         continue;
-                    };*/
-                    println!{"Over anchor {:?}", entity};
+                    };
                 }
 
                 /*if Layer == LINE_PICKING_LAYER {
