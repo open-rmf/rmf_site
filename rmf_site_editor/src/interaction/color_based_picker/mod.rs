@@ -13,6 +13,8 @@ use super::{LINE_PICKING_LAYER, POINT_PICKING_LAYER};
 
 pub struct ColorBasedPicker;
 
+struct GPUPickItem(Entity);
+
 impl Plugin for ColorBasedPicker {
     fn build(&self, app: &mut bevy::prelude::App) {
         app.add_system(resize_notificator::<LINE_PICKING_LAYER>)
