@@ -210,6 +210,10 @@ pub fn buffer_to_selection<const Layer: u8>(
         let mx = (mouse_position.x * image.3) as u32;
         let my = (mouse_position.y * image.3) as u32;
 
+        if my > image.2 {
+            return;
+        }
+
         // y-axis seems flipped
         let my = image.2 - my;
 
@@ -257,12 +261,11 @@ pub fn buffer_to_selection<const Layer: u8>(
                     continue;
                 };
                 if Layer == POINT_PICKING_LAYER {
-                    let Ok(_) = anchors.get(*entity) else {
+                    /*let Ok(_) = anchors.get(*entity) else {
                         error!("Not an anchor");
                         continue;
-                    };
+                    };*/
                     pick_event.send(GPUPickItem(*entity));
-                    println!("Over anchor {:?}", *entity);
                 }
 
                 /*if Layer == LINE_PICKING_LAYER {

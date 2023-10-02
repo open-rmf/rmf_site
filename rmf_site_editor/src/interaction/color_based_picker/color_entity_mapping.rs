@@ -203,14 +203,14 @@ pub fn new_objectcolor_entity_mapping<const Layer: u8>(
                         .insert(MarkAsDrawnToSelectionBuffer::<LINE_PICKING_LAYER>);
                 }
             }
-            ScreenSpaceSelection::Point(entity) => {
+            ScreenSpaceSelection::Point(_) => {
                 if Layer == POINT_PICKING_LAYER {
-                    commands.entity(*entity).with_children(|parent| {
+                    commands.entity(entity).with_children(|parent| {
                         parent.spawn((
                             MaterialMeshBundle {
                                 mesh: point_assets.bevy_point_mesh.clone(),
                                 material: color_map
-                                    .get_points_material(entity, &mut point_materials)
+                                    .get_points_material(&entity, &mut point_materials)
                                     .clone(),
                                 ..default()
                             },
@@ -220,7 +220,7 @@ pub fn new_objectcolor_entity_mapping<const Layer: u8>(
                         ));
                     });
                     commands
-                        .entity(*entity)
+                        .entity(entity)
                         .insert(MarkAsDrawnToSelectionBuffer::<POINT_PICKING_LAYER>);
                 }
             }
