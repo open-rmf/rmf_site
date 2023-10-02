@@ -202,8 +202,7 @@ pub fn buffer_to_selection<const Layer: u8>(
             image.1,
             image.2,
             data.as_slice(),
-        )
-        else {
+        ) else {
             continue;
         };
 
@@ -254,7 +253,8 @@ pub fn buffer_to_selection<const Layer: u8>(
 
         if let Some(pixel) = img.get_pixel_checked(mx, my) {
             if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
-                let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2])) else {
+                let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2]))
+                else {
                     continue;
                 };
                 if Layer == POINT_PICKING_LAYER {

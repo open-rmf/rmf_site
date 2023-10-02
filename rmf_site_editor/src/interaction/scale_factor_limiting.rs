@@ -33,8 +33,7 @@ pub fn limit_size(
         ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
     };
 
-    let Ok(camera_transform) = transforms.get(view_cam_entity)
-    else {
+    let Ok(camera_transform) = transforms.get(view_cam_entity) else {
         return;
     };
 
