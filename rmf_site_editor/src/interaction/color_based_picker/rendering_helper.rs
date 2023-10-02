@@ -10,7 +10,7 @@ use bevy::window::WindowResized;
 use image::{Pixel, save_buffer_with_format};
 use rmf_site_format::Anchor;
 
-use super::{ColorEntityMap, ScreenSpaceSelection};
+use super::{ColorEntityMap, ScreenSpaceSelection, GPUPickItem};
 use crate::interaction::camera_controls::MouseLocation;
 use crate::interaction::*;
 use crate::interaction::{CameraControls, ProjectionMode, POINT_PICKING_LAYER};
@@ -177,9 +177,7 @@ pub fn buffer_to_selection<const Layer: u8>(
     anchors: Query<&Anchor>,
     lane_segments: Query<(Entity, &LaneSegments)>,
     selections: Query<(&ScreenSpaceSelection, &Parent)>,
-    mut hover_event: EventWriter<Hover>,
-    mut select_event: EventWriter<Select>,
-    mouse_button_input: Res<Input<MouseButton>>,
+    mut pick_event: EventWriter<GPUPickItem>,
 ) {
     let view_cam_entity = match camera_controls.mode() {
         ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
@@ -263,6 +261,8 @@ pub fn buffer_to_selection<const Layer: u8>(
                         error!("Not an anchor");
                         continue;
                     };
+                    pick_event.send(GPUPickItem(*entity));
+                    println!("Over anchor {:?}", *entity);
                 }
 
                 /*if Layer == LINE_PICKING_LAYER {
