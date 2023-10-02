@@ -49,7 +49,7 @@ pub fn add_anchor_visual_cues(
         };
 
         let mut entity_commands = commands.entity(e);
-        entity_commands.insert(LimitScaleFactor{
+        entity_commands.insert(LimitScaleFactor {
             distance_to_start_scaling: 10.0,
             original_scale: 1.0,
         });

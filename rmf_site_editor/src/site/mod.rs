@@ -119,11 +119,11 @@ pub use wall::*;
 
 use bevy_points::prelude::PointsPlugin;
 
+use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
 use crate::{
     interaction::{limit_size, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
     recency::{RecencyRank, RecencyRankingPlugin},
 };
-use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
 pub use rmf_site_format::*;
 
 use bevy::{

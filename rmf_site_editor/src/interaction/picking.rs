@@ -152,7 +152,7 @@ pub fn update_picked(
 
     let current_picked = 'current_picked: {
         for pick_source in &pick_source_query {
-            let picks = pick_source.intersections();    
+            let picks = pick_source.intersections();
             // First only look at the visual cues that are being xrayed
             if let Some(topmost) = pick_topmost(
                 picks
@@ -189,7 +189,7 @@ pub fn update_picked(
             if let Some(item) = gpu_pick_event.iter().next() {
                 break 'current_picked Some(item.0);
             }
-        } 
+        }
 
         None
     };

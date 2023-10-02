@@ -7,10 +7,10 @@ use bevy::render::render_resource::*;
 use bevy::render::renderer::RenderDevice;
 use bevy::render::view::RenderLayers;
 use bevy::window::WindowResized;
-use image::{Pixel, save_buffer_with_format};
+use image::{save_buffer_with_format, Pixel};
 use rmf_site_format::Anchor;
 
-use super::{ColorEntityMap, ScreenSpaceSelection, GPUPickItem};
+use super::{ColorEntityMap, GPUPickItem, ScreenSpaceSelection};
 use crate::interaction::camera_controls::MouseLocation;
 use crate::interaction::*;
 use crate::interaction::{CameraControls, ProjectionMode, POINT_PICKING_LAYER};
@@ -66,11 +66,11 @@ pub fn resize_notificator<const Layer: u8>(
             }
 
             let viewport_size = camera.logical_viewport_size().unwrap();
-            let scale_ratio =1.0;
+            let scale_ratio = 1.0;
             //let scale_ratio = 512.0 / viewport_size.x;
             //let height = (viewport_size.y * scale_ratio) as u32;
             let size = Extent3d {
-                width: viewport_size.x as u32,     //e.width as u32,
+                width: viewport_size.x as u32,  //e.width as u32,
                 height: viewport_size.y as u32, //e.height as u32,
                 ..default()
             };
@@ -224,23 +224,20 @@ pub fn buffer_to_selection<const Layer: u8>(
                 image.1,
                 image.2,
                 Vec::from_iter(data.clone()[..5760000].iter().map(|f| *f)),
-            ).expect("failed to unwrap image");
-
-            
+            )
+            .expect("failed to unwrap image");
 
             if mx > 50 || my > 50 {
-
-            for i in mx-50..mx+50 {
-                for j in my-50..my+50 {
-                    if i > image.1 || j > image.2 {
-                        continue;
+                for i in mx - 50..mx + 50 {
+                    for j in my - 50..my + 50 {
+                        if i > image.1 || j > image.2 {
+                            continue;
+                        }
+                        img.put_pixel(i, j, image::Rgba([255, 255, 255, 255]));
                     }
-                    img.put_pixel(i, j, image::Rgba([255,255,255,255]));
                 }
             }
-        }
             println!("{:?}", data.len());
-
 
             let result = save_buffer_with_format(
                 format!("picking_layer_{:?}.png", Layer),
@@ -248,7 +245,7 @@ pub fn buffer_to_selection<const Layer: u8>(
                 image.1,
                 image.2,
                 image::ColorType::Rgba8,
-                image::ImageFormat::Png
+                image::ImageFormat::Png,
             );
             if let Err(something) = result {
                 println!("{:?}", something);
