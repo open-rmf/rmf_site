@@ -209,9 +209,7 @@ pub fn add_lane_visuals(
                                 ..default()
                             })
                             .insert(Selectable::new(e))
-                            .id();
-                        let picker = parent
-                            .spawn((
+                            .insert((
                                 ScreenSpaceSelection::polyline(start_anchor, end_anchor, 10.0),
                                 Transform::IDENTITY,
                                 GlobalTransform::IDENTITY,
@@ -220,6 +218,7 @@ pub fn add_lane_visuals(
                                 RenderLayers::layer(LINE_PICKING_LAYER),
                             ))
                             .id();
+                        let picker = polyline.clone();
 
                         (
                             start,

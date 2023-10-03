@@ -209,6 +209,9 @@ pub fn buffer_to_selection<const Layer: u8>(
         let mx = (mouse_position.x * image.3) as u32;
         let my = (mouse_position.y * image.3) as u32;
 
+        // Rust panics if there is integer overflow.
+        // Since my and mx are unsigned we should make sure they fall within
+        // the bounds of the picking buffer.
         if my > image.2 {
             return;
         }
@@ -217,8 +220,6 @@ pub fn buffer_to_selection<const Layer: u8>(
         let my = image.2 - my;
 
         if debug.0 {
-            println!("x : {}, y: {}", mx, my);
-
             let mut img = image::ImageBuffer::<image::Rgba<u8>, _>::from_raw(
                 image.1,
                 image.2,
@@ -236,7 +237,6 @@ pub fn buffer_to_selection<const Layer: u8>(
                     }
                 }
             }
-            println!("{:?}", data.len());
 
             let result = save_buffer_with_format(
                 format!("picking_layer_{:?}.png", Layer),
@@ -257,31 +257,8 @@ pub fn buffer_to_selection<const Layer: u8>(
                 else {
                     continue;
                 };
-                if Layer == POINT_PICKING_LAYER {
-                    /*let Ok(_) = anchors.get(*entity) else {
-                        error!("Not an anchor");
-                        continue;
-                    };*/
-                    pick_event.send(GPUPickItem(*entity));
-                }
 
-                /*if Layer == LINE_PICKING_LAYER {
-                    // TODO(arjoc): Make picker contain parent entity
-                    let result: Vec<_> = lane_segments
-                        .iter()
-                        .filter(|(_, segment)| segment.picker == *entity)
-                        .collect();
-
-                    if result.len() == 0usize {
-                        continue;
-                    }
-
-                    if mouse_button_input.just_released(MouseButton::Left) {
-                        select_event.send(Select(Some(*entity)));
-                    } else {
-                        hover_event.send(Hover(Some(*entity)));
-                    }
-                }*/
+                pick_event.send(GPUPickItem(*entity));
             }
         }
     }
