@@ -8,3 +8,4 @@ serde = { version = "1.0.188", features = ["derive"] }
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 tera = "1.19.1"
 urdf-rs = "0.7.3"
+dirs = "5.0.1"

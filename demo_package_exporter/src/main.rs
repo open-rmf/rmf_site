@@ -1,6 +1,6 @@
-use package_exporter::{generate_package,PackageContext, Person};
+use package_exporter::{generate_package,PackageContext, Person, generate_package_2};
 
-fn main() {
+fn generate_package_1() {
     let args: Vec<String> = std::env::args().collect();
     if args.len() != 3 {
         eprintln!("Usage: {} <urdf_file> <output_directory>", args[0]);
@@ -25,4 +25,8 @@ fn main() {
     let urdf_robot = urdf_rs::read_file(urdf_path).expect("Should be able to read URDF file");
     generate_package(&urdf_robot, &package_context, output_directory).unwrap();
     println!("Wrote package to: {}", output_directory);
+
+}
+fn main() {
+    generate_package_2();
 }
