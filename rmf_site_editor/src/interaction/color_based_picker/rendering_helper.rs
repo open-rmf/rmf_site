@@ -66,12 +66,13 @@ pub fn resize_notificator<const Layer: u8>(
             }
 
             let viewport_size = camera.logical_viewport_size().unwrap();
-            let scale_ratio = 1.0;
-            //let scale_ratio = 512.0 / viewport_size.x;
-            //let height = (viewport_size.y * scale_ratio) as u32;
+            //let scale_ratio = 1.0;
+            let scale_ratio = 256.0 / viewport_size.x;
+            let height = (viewport_size.y * scale_ratio) as u32;
+            let width = (viewport_size.x * scale_ratio) as u32;
             let size = Extent3d {
-                width: viewport_size.x as u32,  //e.width as u32,
-                height: viewport_size.y as u32, //e.height as u32,
+                width,  //e.width as u32,
+                height, //e.height as u32,
                 ..default()
             };
             // This is the texture that will be rendered to.
