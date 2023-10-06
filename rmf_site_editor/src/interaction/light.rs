@@ -70,6 +70,7 @@ pub fn add_physical_light_visual_cues(
         let light_material = materials.add(StandardMaterial {
             base_color: kind.color().into(),
             unlit: true,
+            perceptual_roughness: 0.089,
             ..default()
         });
 

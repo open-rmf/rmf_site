@@ -88,6 +88,7 @@ impl FromWorld for SiteAssets {
             base_color: Color::rgb(0.4, 0.7, 0.6),
             // unlit: true,
             unlit: false,
+            perceptual_roughness: 0.089,
             ..default()
         });
         let unassigned_anchor_material = materials.add(StandardMaterial {
