@@ -128,6 +128,7 @@ pub fn update_picked(
     mut picked: ResMut<Picked>,
     mut change_pick: EventWriter<ChangePick>,
     current_workspace: Res<CurrentWorkspace>,
+    mut gpu_pick_event: EventReader<GPUPickItem>,
 ) {
     if let Some(blockers) = blockers {
         if blockers.blocking() {
@@ -181,6 +182,12 @@ pub fn update_picked(
                 current_site,
             ) {
                 break 'current_picked Some(topmost);
+            }
+        }
+        // Use GPU picking if nothing is picked via normal picking
+        if !gpu_pick_event.is_empty() {
+            if let Some(item) = gpu_pick_event.iter().next() {
+                break 'current_picked Some(item.0);
             }
         }
 

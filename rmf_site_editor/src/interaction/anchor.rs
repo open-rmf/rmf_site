@@ -20,7 +20,7 @@ use crate::{
     interaction::IntersectGroundPlaneParams,
     interaction::*,
     keyboard::DebugMode,
-    site::{Anchor, Category, Delete, Dependents, SiteAssets, Subordinate},
+    site::{Anchor, Category, Delete, Dependents, PointAsset, SiteAssets, Subordinate},
 };
 use bevy::prelude::*;
 
@@ -38,6 +38,8 @@ pub fn add_anchor_visual_cues(
     >,
     categories: Query<&Category>,
     site_assets: Res<SiteAssets>,
+    point_assets: Res<PointAsset>,
+    interaction_assets: Res<InteractionAssets>,
 ) {
     for (e, parent, subordinate, anchor) in &new_anchors {
         let body_mesh = match categories.get(parent.get()).unwrap() {
@@ -47,6 +49,10 @@ pub fn add_anchor_visual_cues(
         };
 
         let mut entity_commands = commands.entity(e);
+        entity_commands.insert(LimitScaleFactor {
+            distance_to_start_scaling: 10.0,
+            original_scale: 1.0,
+        });
         let body = entity_commands.add_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
@@ -54,6 +60,12 @@ pub fn add_anchor_visual_cues(
                 ..default()
             });
             body.insert(Selectable::new(e));
+            body.insert(MaterialMeshBundle {
+                mesh: point_assets.bevy_point_mesh.clone(),
+                material: point_assets.bevy_point_material.clone(),
+                ..default()
+            });
+            body.insert(ScreenSpaceSelection::Point(e));
             if subordinate.is_none() {
                 body.insert(DragPlaneBundle::new(e, Vec3::Z));
             }

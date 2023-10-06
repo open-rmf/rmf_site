@@ -78,6 +78,12 @@ pub use popup::*;
 pub mod preview;
 pub use preview::*;
 
+pub mod scale_factor_limiting;
+pub use scale_factor_limiting::*;
+
+pub mod color_based_picker;
+pub use color_based_picker::*;
+
 pub mod select;
 pub use select::*;
 
@@ -171,6 +177,7 @@ impl Plugin for InteractionPlugin {
             .add_plugin(CategoryVisibilityPlugin::<MeasurementMarker>::visible(true))
             .add_plugin(CategoryVisibilityPlugin::<WallMarker>::visible(true))
             .add_plugin(CameraControlsPlugin)
+            .add_plugin(ColorBasedPicker)
             .add_plugin(ModelPreviewPlugin)
             .add_system_set(
                 SystemSet::on_update(InteractionState::Enable)

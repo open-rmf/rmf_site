@@ -33,10 +33,10 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let lat2 = lat2.to_radians();
     let lon2 = lon2.to_radians();
 
-    let dLat = lat2 - lat1;
-    let dLon = lon2 - lon1;
+    let d_lat = lat2 - lat1;
+    let d_lon = lon2 - lon1;
 
-    let a = (dLat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dLon / 2.0).sin().powi(2);
+    let a = (d_lat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (d_lon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
     return c * EARTH_RADIUS;
 }

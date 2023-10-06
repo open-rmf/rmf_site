@@ -117,11 +117,20 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
-use crate::recency::{RecencyRank, RecencyRankingPlugin};
+use bevy_points::prelude::PointsPlugin;
+
 use crate::{clear_old_issues_on_new_validate_event, RegisterIssueType};
+use crate::{
+    interaction::{limit_size, LINE_PICKING_LAYER, POINT_PICKING_LAYER},
+    recency::{RecencyRank, RecencyRankingPlugin},
+};
 pub use rmf_site_format::*;
 
-use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::{
+    prelude::*,
+    render::view::{visibility::VisibilitySystems, RenderLayers},
+    transform::TransformSystem,
+};
 
 #[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 pub enum SiteState {
@@ -151,6 +160,7 @@ pub struct SitePlugin;
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
         app.add_state(SiteState::Off)
+            .add_plugin(PointsPlugin)
             .add_stage_after(
                 CoreStage::Update,
                 SiteUpdateStage::AssignOrphans,
@@ -161,6 +171,7 @@ impl Plugin for SitePlugin {
             .add_state_to_stage(SiteUpdateStage::AssignOrphans, SiteState::Off)
             .add_state_to_stage(CoreStage::PostUpdate, SiteState::Off)
             .insert_resource(ClearColor(Color::rgb(0., 0., 0.)))
+            .init_resource::<PointAsset>()
             .init_resource::<FuelClient>()
             .init_resource::<SiteAssets>()
             .init_resource::<CurrentLevel>()
@@ -240,6 +251,8 @@ impl Plugin for SitePlugin {
                     .with_system(update_lift_cabin)
                     .with_system(update_lift_edge)
                     .with_system(update_model_tentative_formats)
+                    .with_system(update_material_for_display_color)
+                    .with_system(limit_size)
                     .with_system(check_for_duplicated_door_names)
                     .with_system(check_for_duplicated_lift_names)
                     .with_system(check_for_duplicated_dock_names)
