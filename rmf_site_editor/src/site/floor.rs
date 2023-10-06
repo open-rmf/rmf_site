@@ -239,6 +239,7 @@ pub fn add_floor_visuals(
             base_color,
             alpha_mode,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
 

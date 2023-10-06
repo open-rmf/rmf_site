@@ -80,6 +80,7 @@ pub fn add_wall_visual(
                     base_color,
                     alpha_mode,
                     perceptual_roughness: 0.089,
+                    metallic: 0.01,
                     ..default()
                 }),
                 ..default()

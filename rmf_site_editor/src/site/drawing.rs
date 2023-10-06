@@ -149,6 +149,8 @@ pub fn handle_loaded_drawing(
                     base_color_texture: Some(handle.0.clone()),
                     base_color: *Color::default().set_a(alpha),
                     alpha_mode,
+                    perceptual_roughness: 0.089,
+                    metallic: 0.01,
                     ..Default::default()
                 });
 

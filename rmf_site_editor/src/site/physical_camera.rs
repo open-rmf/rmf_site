@@ -51,7 +51,7 @@ pub fn add_physical_camera_visuals(
                     is_active: false,
                     ..default()
                 },
-                tonemapping: Tonemapping::Reinhard,
+                tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
             .id();

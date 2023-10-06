@@ -198,6 +198,7 @@ fn warehouse_generator(
         let concrete_floor_handle = materials.add(StandardMaterial {
             base_color_texture: Some(albedo.clone()),
             perceptual_roughness: 0.3,
+            metallic: 0.01,
             metallic_roughness_texture: Some(roughness.clone()),
             ..default()
         });

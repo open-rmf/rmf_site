@@ -73,7 +73,7 @@ impl FromWorld for ModelPreviewCamera {
                     target: RenderTarget::Image(preview_image),
                     ..default()
                 },
-                tonemapping: Tonemapping::Reinhard,
+                tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))

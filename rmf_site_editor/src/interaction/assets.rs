@@ -293,23 +293,27 @@ impl FromWorld for InteractionAssets {
             alpha_mode: AlphaMode::Blend,
             unlit: true,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let dagger_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
         let physical_light_cover_material = materials.add(StandardMaterial {
             base_color: light_cover_color,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let direction_light_cover_material = materials.add(StandardMaterial {
             base_color: light_cover_color,
             unlit: true,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
@@ -322,6 +326,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
@@ -329,6 +334,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
@@ -336,6 +342,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
         };
@@ -345,6 +352,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
@@ -352,6 +360,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
@@ -359,6 +368,7 @@ impl FromWorld for InteractionAssets {
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
                 perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
         };

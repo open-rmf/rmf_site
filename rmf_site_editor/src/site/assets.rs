@@ -57,6 +57,26 @@ pub struct SiteAssets {
     pub parking_material: Handle<StandardMaterial>,
 }
 
+pub fn old_default_material(base_color: Color) -> StandardMaterial {
+    StandardMaterial {
+        base_color,
+        perceptual_roughness: 0.089,
+        metallic: 0.01,
+        // fog_enabled: false,
+        ..default()
+    }
+}
+
+pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMaterial {
+    StandardMaterial {
+        base_color_texture: Some(base_color_texture),
+        perceptual_roughness: 0.089,
+        metallic: 0.01,
+        // fog_enabled: false,
+        ..default()
+    }
+}
+
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
@@ -73,88 +93,78 @@ impl FromWorld for SiteAssets {
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()
             .unwrap();
-        let unassigned_lane_material = materials.add(Color::rgb(0.1, 0.1, 0.1).into());
+        let unassigned_lane_material =
+            materials.add(old_default_material(Color::rgb(0.1, 0.1, 0.1)));
         let select_color = Color::rgb(1., 0.3, 1.);
         let hover_color = Color::rgb(0.3, 1., 1.);
         let hover_select_color = Color::rgb(1.0, 0.0, 0.3);
-        let select_material = materials.add(select_color.into());
-        let hover_material = materials.add(hover_color.into());
-        let hover_select_material = materials.add(hover_select_color.into());
+        let select_material = materials.add(old_default_material(select_color));
+        let hover_material = materials.add(old_default_material(hover_color));
+        let hover_select_material = materials.add(old_default_material(hover_select_color));
         // let hover_select_material = materials.add(Color::rgb_u8(177, 178, 255).into());
         // let hover_select_material = materials.add(Color::rgb_u8(214, 28, 78).into());
-        let measurement_material = materials.add(Color::rgb_u8(250, 234, 72).into());
-        let fiducial_material = materials.add(Color::rgb(0.1, 0.1, 0.8).into());
+        let measurement_material = materials.add(old_default_material(Color::rgb_u8(250, 234, 72)));
+        let fiducial_material = materials.add(old_default_material(Color::rgb(0.1, 0.1, 0.8)));
         let passive_anchor_material = materials.add(StandardMaterial {
             base_color: Color::rgb(0.4, 0.7, 0.6),
             // unlit: true,
             unlit: false,
             perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let unassigned_anchor_material = materials.add(StandardMaterial {
-            base_color: Color::rgb(1.0, 0.9, 0.05),
             // unlit: true,
             unlit: false,
-            ..default()
+            ..old_default_material(Color::rgb(1.0, 0.9, 0.05))
         });
         let hover_anchor_material = materials.add(StandardMaterial {
-            base_color: hover_color,
             // unlit: true,
             unlit: false,
-            ..default()
+            ..old_default_material(hover_color)
         });
         let select_anchor_material = materials.add(StandardMaterial {
-            base_color: select_color,
             // unlit: true,
             unlit: false,
-            ..default()
+            ..old_default_material(select_color)
         });
         let hover_select_anchor_material = materials.add(StandardMaterial {
-            base_color: hover_select_color,
             // unlit: true,
             unlit: false,
-            ..default()
+            ..old_default_material(hover_select_color)
         });
         let preview_anchor_material = materials.add(StandardMaterial {
-            base_color: Color::rgba(0.98, 0.91, 0.28, 0.5),
             alpha_mode: AlphaMode::Blend,
             depth_bias: 1.0,
             // unlit: true,
             unlit: false,
-            ..default()
+            ..old_default_material(Color::rgba(0.98, 0.91, 0.28, 0.5))
         });
-        let lift_wall_material = materials.add(StandardMaterial {
-            base_color: Color::rgba(0.7, 0.7, 0.7, 1.0),
-            perceptual_roughness: 0.3,
-            ..default()
-        });
-        let lift_floor_material = materials.add(StandardMaterial {
-            base_color: Color::rgb(0.3, 0.3, 0.3).into(),
-            perceptual_roughness: 0.5,
-            ..default()
-        });
+        let lift_wall_material =
+            materials.add(old_default_material(Color::rgba(0.7, 0.7, 0.7, 1.0)));
+        let lift_floor_material = materials.add(old_default_material(Color::rgb(0.3, 0.3, 0.3)));
         let door_body_material = materials.add(StandardMaterial {
-            base_color: Color::rgba(1., 1., 1., 0.8),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..old_default_material(Color::rgba(1., 1., 1., 0.8))
         });
         let translucent_black = materials.add(StandardMaterial {
-            base_color: Color::rgba(0., 0., 0., 0.8),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..old_default_material(Color::rgba(0., 0., 0., 0.8))
         });
         let translucent_white = materials.add(StandardMaterial {
-            base_color: Color::rgba(1., 1., 1., 0.8),
             alpha_mode: AlphaMode::Blend,
-            ..default()
+            ..old_default_material(Color::rgba(1., 1., 1., 0.8))
         });
-        let physical_camera_material = materials.add(Color::rgb(0.6, 0.7, 0.8).into());
-        let occupied_material = materials.add(Color::rgba(0.8, 0.1, 0.1, 0.2).into());
-        let default_mesh_grey_material = materials.add(Color::rgb(0.7, 0.7, 0.7).into());
+        let physical_camera_material =
+            materials.add(old_default_material(Color::rgb(0.6, 0.7, 0.8)));
+        let occupied_material =
+            materials.add(old_default_material(Color::rgba(0.8, 0.1, 0.1, 0.2)));
+        let default_mesh_grey_material =
+            materials.add(old_default_material(Color::rgb(0.7, 0.7, 0.7)));
 
-        let charger_material = materials.add(charger_texture.into());
-        let holding_point_material = materials.add(holding_point_texture.into());
-        let parking_material = materials.add(parking_texture.into());
+        let charger_material = materials.add(old_default_material_t(charger_texture));
+        let holding_point_material = materials.add(old_default_material_t(holding_point_texture));
+        let parking_material = materials.add(old_default_material_t(parking_texture));
 
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let level_anchor_mesh = meshes.add(
