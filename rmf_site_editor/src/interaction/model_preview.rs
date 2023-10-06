@@ -19,8 +19,12 @@ use crate::interaction::MODEL_PREVIEW_LAYER;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
-use bevy::render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers};
-use bevy::{ecs::system::SystemState, prelude::*};
+use bevy::{
+    core_pipeline::tonemapping::Tonemapping,
+    ecs::system::SystemState,
+    prelude::*,
+    render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers},
+};
 use bevy_egui::{egui::TextureId, EguiContexts};
 
 #[derive(Resource)]
@@ -69,6 +73,7 @@ impl FromWorld for ModelPreviewCamera {
                     target: RenderTarget::Image(preview_image),
                     ..default()
                 },
+                tonemapping: Tonemapping::Reinhard,
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))

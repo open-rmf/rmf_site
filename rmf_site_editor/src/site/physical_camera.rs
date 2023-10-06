@@ -16,7 +16,7 @@
 */
 
 use crate::{interaction::Selectable, site::*};
-use bevy::prelude::*;
+use bevy::{core_pipeline::tonemapping::Tonemapping, prelude::*};
 use rmf_site_format::{PhysicalCameraProperties, Pose};
 
 pub fn add_physical_camera_visuals(
@@ -51,6 +51,7 @@ pub fn add_physical_camera_visuals(
                     is_active: false,
                     ..default()
                 },
+                tonemapping: Tonemapping::Reinhard,
                 ..default()
             })
             .id();

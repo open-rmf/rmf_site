@@ -19,6 +19,7 @@ use crate::interaction::PickingBlockers;
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
+    core_pipeline::tonemapping::Tonemapping,
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
     render::{
@@ -251,6 +252,7 @@ impl FromWorld for CameraControls {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
+                    tonemapping: Tonemapping::Reinhard,
                     ..default()
                 })
                 .insert(Visibility::Inherited)
@@ -263,6 +265,7 @@ impl FromWorld for CameraControls {
             .spawn(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
                 projection: Projection::Perspective(Default::default()),
+                tonemapping: Tonemapping::Reinhard,
                 ..default()
             })
             .insert(Visibility::Inherited)
@@ -315,6 +318,7 @@ impl FromWorld for CameraControls {
                         ..default()
                     },
                     projection: Projection::Orthographic(ortho_projection.clone()),
+                    tonemapping: Tonemapping::Reinhard,
                     ..default()
                 })
                 .insert(Visibility::Inherited)
@@ -331,6 +335,7 @@ impl FromWorld for CameraControls {
                 },
                 transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
                 projection: Projection::Orthographic(ortho_projection),
+                tonemapping: Tonemapping::Reinhard,
                 ..default()
             })
             .insert(Visibility::Inherited)
