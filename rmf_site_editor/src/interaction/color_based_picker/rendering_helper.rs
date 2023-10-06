@@ -196,7 +196,7 @@ pub fn buffer_to_selection<const Layer: u8>(
     };
     let mouse_position = mouse_location.previous - offset;
 
-    for image in images_to_save.iter() {
+    if let Some(image) = images_to_save.iter().next() {
         let data = &images.get_mut(&image.0).unwrap().data;
 
         let Some(img) = image::ImageBuffer::<image::Rgba<u8>, &[u8]>::from_raw(
@@ -204,7 +204,7 @@ pub fn buffer_to_selection<const Layer: u8>(
             image.2,
             data.as_slice(),
         ) else {
-            continue;
+            return;
         };
 
         let mx = (mouse_position.x * image.3) as u32;
@@ -256,7 +256,7 @@ pub fn buffer_to_selection<const Layer: u8>(
             if pixel.0[0] != 0 || pixel.0[1] != 0 || pixel.0[2] != 0 {
                 let Some(entity) = color_map.get_entity(&(pixel.0[0], pixel.0[1], pixel.0[2]))
                 else {
-                    continue;
+                    return;
                 };
 
                 pick_event.send(GPUPickItem(*entity));
