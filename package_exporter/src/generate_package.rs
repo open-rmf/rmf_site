@@ -1,17 +1,18 @@
-use crate::template;
-use crate::urdf;
-
+use rmf_site_format::{Workcell, AssetSource, Geometry};
+use std::path::{PathBuf, Path};
+use dirs;
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
-use std::path::Path;
+use crate::template;
 
 pub fn generate_package(
-    urdf_robot: &urdf_rs::Robot,
+    workcell: &Workcell,
     package_context: &template::PackageContext,
     output_directory: &String,
 ) -> Result<(), Box<dyn Error>> {
-    let mut urdf_robot = urdf_robot.clone();
-    let new_package_name = &package_context.project_name;
+
+    let output_directory = "output".to_string();
+    let new_package_name = "test_package".to_string();
 
     let mesh_directory_name = "meshes".to_string();
     let launch_directory_name = "launch".to_string();
@@ -19,8 +20,8 @@ pub fn generate_package(
     let rviz_directory_name = "rviz".to_string();
 
     // Create paths
-    let output_directory_path = std::path::Path::new(output_directory);
-    let output_package_path = output_directory_path.join(new_package_name);
+    let output_directory_path = std::path::Path::new(&output_directory);
+    let output_package_path = output_directory_path.join(&new_package_name);
     let meshes_directory_path = output_package_path.join(&mesh_directory_name);
     let launch_directory_path = output_package_path.join(&launch_directory_name);
     let urdf_directory_path = output_package_path.join(&urdf_directory_name);
@@ -28,7 +29,7 @@ pub fn generate_package(
 
     // Create directories
     if output_package_path.exists() {
-        std::fs::remove_dir_all(&output_package_path)?;
+        std::fs::remove_dir_all(&output_directory_path)?;
     }
     for directory_path in [
         &output_package_path,
@@ -40,14 +41,8 @@ pub fn generate_package(
         std::fs::create_dir_all(directory_path)?;
     }
 
-    write_urdf_and_copy_mesh_files(
-        &mut urdf_robot,
-        &mesh_directory_name,
-        &meshes_directory_path,
-        new_package_name,
-        &urdf_directory_path,
-    )?;
-
+    // Create the package
+    write_urdf_and_copy_mesh_files(&workcell, &mesh_directory_name, &meshes_directory_path, &new_package_name, &urdf_directory_path);
     generate_templates(
         package_context,
         &output_package_path,
@@ -59,29 +54,99 @@ pub fn generate_package(
 }
 
 fn write_urdf_and_copy_mesh_files(
-    urdf_robot: &mut urdf_rs::Robot,
+    workcell: &Workcell,
     mesh_directory_name: &str,
     meshes_directory_path: &std::path::Path,
     new_package_name: &str,
     urdf_directory_path: &std::path::Path,
 ) -> Result<(), Box<dyn Error>> {
-    // Current mesh files
-    let mesh_files = urdf::get_mesh_files(urdf_robot)?;
-    // Copy mesh files to new directory
-    for mesh_file in mesh_files.iter() {
-        let mesh_file_path = (*urdf_rs::utils::expand_package_path(mesh_file.get_path().as_str(), None)).to_owned();
-        let output_mesh_file_path = meshes_directory_path.join(&mesh_file.get_file_name());
-        std::fs::copy(&mesh_file_path, &output_mesh_file_path)?;
-    }
+    let asset_paths = get_mesh_paths(&workcell)?;
+    copy_files(&asset_paths, &meshes_directory_path)?;
 
-    // Update mesh files
-    urdf::replace_mesh_file_paths(urdf_robot, new_package_name, mesh_directory_name)?;
-    // Write URDF file
+    let new_workcell = convert_to_package_paths(&workcell, new_package_name, mesh_directory_name)?;
+
+    let urdf_robot = new_workcell.to_urdf()?;
     let urdf_file_path = urdf_directory_path.join("robot.urdf");
-    let urdf_string = urdf_rs::write_to_string(urdf_robot)?;
+    let urdf_string = urdf_rs::write_to_string(&urdf_robot)?;
     std::fs::write(urdf_file_path, urdf_string)?;
 
     Ok(())
+}
+
+fn convert_to_package_paths(workcell: &Workcell, package_name: &str, mesh_directory_name: &str) -> Result<Workcell, Box<dyn Error>> {
+    let mut workcell = workcell.clone();
+    workcell.visuals.iter_mut().chain(workcell.collisions.iter_mut()).try_for_each(|(id, visual)| {
+        if let Geometry::Mesh { source: asset_source, scale } = &mut visual.bundle.geometry {
+            let path = get_path_to_asset_file(asset_source)?;
+
+            let file_name = PathBuf::from(&path).file_name().ok_or(
+                IoError::new(IoErrorKind::InvalidInput, "Unable to get file name from path")
+            )?.to_str().ok_or(
+                IoError::new(IoErrorKind::InvalidInput, "Unable to convert file name to str")
+            )?.to_owned();
+
+            let package_path = format!("package://{}/{}/{}", package_name, mesh_directory_name, file_name);
+            *asset_source = AssetSource::Package(package_path);
+        }
+        Result::<(), Box<dyn Error>>::Ok(())
+    })?;
+    Ok(workcell)
+}
+
+fn get_mesh_paths(workcell: &Workcell) -> Result<Vec<String>, Box<dyn Error>> {
+    let paths = workcell.visuals.iter().chain(workcell.collisions.iter()).filter_map(|(id, visual)| {
+        get_path_if_mesh_geometry(&visual.bundle.geometry).ok()?
+    }).collect();
+    Ok(paths)
+}
+
+fn get_path_if_mesh_geometry(geometry: &Geometry) -> Result<Option<String>, Box<dyn Error>> {
+    if let Geometry::Mesh { source: asset_source, scale } = geometry {
+        Ok(Some(get_path_to_asset_file(asset_source)?))
+    } else {
+        Ok(None)
+    }
+}
+
+
+fn copy_files(paths: &Vec<String>, output_directory: &Path) -> Result<(), Box<dyn Error>> {
+    for path in paths.iter() {
+        let file_name = PathBuf::from(path).file_name().ok_or(
+            IoError::new(IoErrorKind::InvalidInput, "Unable to get file name from path")
+        )?.to_owned();
+        let new_path = PathBuf::from(output_directory).join(file_name);
+        match std::fs::copy(path, &new_path) {
+            Ok(_) => {},
+            Err(e) => {
+                println!("Error copying file '{}' to '{}': {}", path, new_path.display(), e);
+            }
+        }
+    }
+    Ok(())
+}
+
+
+// TODO(anyone) remove duplication with rmf_site_editor
+fn cache_path() -> PathBuf {
+    let mut p = dirs::cache_dir().unwrap();
+    p.push("open-robotics");
+    p.push("rmf_site_editor");
+    return p;
+}
+
+fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn Error>> {
+    if let AssetSource::Package(_) = asset_source {
+        let path = String::from(asset_source);
+        Ok((*urdf_rs::utils::expand_package_path(&path, None)).to_owned())
+    } else if let AssetSource::Remote(asset_name) = asset_source {
+        let mut asset_path = cache_path();
+        asset_path.push(PathBuf::from(&asset_name));
+        Ok(asset_path.to_str().ok_or(IoError::new(IoErrorKind::InvalidInput, "Unable to convert asset_path to str"))?.to_string())
+    } else if let AssetSource::Local(path) = asset_source {
+        Ok(path.clone())
+    } else {
+        Err(IoError::new(IoErrorKind::Unsupported, "Not a supported asset type for exporting a workcell to a package"))?
+    }
 }
 
 fn generate_templates(
@@ -126,4 +191,5 @@ fn generate_templates(
     template::populate_and_save_templates(templates, package_context)?;
     Ok(())
 }
+
 
