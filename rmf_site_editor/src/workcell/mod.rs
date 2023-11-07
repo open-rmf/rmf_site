@@ -30,7 +30,6 @@ pub use save::*;
 pub mod workcell;
 pub use workcell::*;
 
-use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
@@ -65,27 +64,9 @@ fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>)
     }
 }
 
-fn add_wireframe_to_meshes(
-    mut commands: Commands,
-    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
-    parents: Query<&Parent>,
-    models: Query<Entity, With<ModelMarker>>,
-) {
-    for e in new_meshes.iter() {
-        for ancestor in AncestorIter::new(&parents, e) {
-            if let Ok(_) = models.get(ancestor) {
-                commands.entity(e).insert(Wireframe);
-            }
-        }
-    }
-}
-
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
-            .add_plugin(WireframePlugin)
-            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-            .add_plugin(RapierDebugRenderPlugin::default())
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
@@ -94,7 +75,6 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    add_wireframe_to_meshes,
                     update_constraint_dependents,
                     handle_model_loaded_events,
                     update_model_scenes,
