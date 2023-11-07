@@ -23,7 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_mod_picking::PickingRaycastSet;
 use bevy_mod_raycast::{Intersection, Ray3d};
-use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -302,7 +302,7 @@ pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
     intersections: Query<&Intersection<PickingRaycastSet>>,
-    models: Query<(), With<ModelMarker>>,
+    models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     mut transforms: Query<&mut Transform>,
     hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
