@@ -11,8 +11,7 @@ pub fn generate_package(
     output_directory: &String,
 ) -> Result<(), Box<dyn Error>> {
 
-    let output_directory = "output".to_string();
-    let new_package_name = "test_package".to_string();
+    let new_package_name = &package_context.project_name;
 
     let mesh_directory_name = "meshes".to_string();
     let launch_directory_name = "launch".to_string();
@@ -85,7 +84,7 @@ fn convert_to_package_paths(workcell: &Workcell, package_name: &str, mesh_direct
                 IoError::new(IoErrorKind::InvalidInput, "Unable to convert file name to str")
             )?.to_owned();
 
-            let package_path = format!("package://{}/{}/{}", package_name, mesh_directory_name, file_name);
+            let package_path = format!("{}/{}/{}", package_name, mesh_directory_name, file_name);
             *asset_source = AssetSource::Package(package_path);
         }
         Result::<(), Box<dyn Error>>::Ok(())

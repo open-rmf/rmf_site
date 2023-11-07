@@ -10,7 +10,7 @@ fn main() {
     let output_directory = &args[2];
 
     let package_context = PackageContext {
-        project_name: "output_package".to_string(),
+        project_name: "test_package".to_string(),
         project_version: "1.0.0".to_string(),
         project_description: "A generated package from an rmf_site workcell".to_string(),
         license: "MIT".to_string(),
