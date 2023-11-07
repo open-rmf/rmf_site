@@ -36,7 +36,6 @@ pub use save::*;
 pub mod workcell;
 pub use workcell::*;
 
-use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
@@ -69,21 +68,6 @@ fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>)
     }
 }
 
-fn add_wireframe_to_meshes(
-    mut commands: Commands,
-    new_meshes: Query<Entity, Added<Handle<Mesh>>>,
-    parents: Query<&Parent>,
-    models: Query<Entity, With<ModelMarker>>,
-) {
-    for e in new_meshes.iter() {
-        for ancestor in AncestorIter::new(&parents, e) {
-            if let Ok(_) = models.get(ancestor) {
-                commands.entity(e).insert(Wireframe);
-            }
-        }
-    }
-}
-
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
@@ -91,7 +75,6 @@ impl Plugin for WorkcellEditorPlugin {
                 features: WgpuFeatures::POLYGON_MODE_LINE,
                 ..default()
             })
-            .add_plugin(WireframePlugin)
             .add_event::<CreateJoint>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
@@ -100,7 +83,6 @@ impl Plugin for WorkcellEditorPlugin {
             .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
             .add_system_set(
                 SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(add_wireframe_to_meshes)
                     .with_system(update_constraint_dependents)
                     .with_system(handle_model_loaded_events)
                     .with_system(update_model_scenes)
