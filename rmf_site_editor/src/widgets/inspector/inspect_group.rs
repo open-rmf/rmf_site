@@ -66,7 +66,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectGroup<'a, 'w1, 'w2, 's1, 's2> {
             ui.label(RichText::new("Texture Properties").size(18.0));
             if let Some(new_texture) = InspectTexture::new(texture, self.default_file).show(ui) {
                 self.events
-                    .change_more
+                    .change
                     .texture
                     .send(Change::new(new_texture, self.group));
             }

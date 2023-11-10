@@ -25,6 +25,7 @@ use rfd::FileDialog;
 
 use std::path::PathBuf;
 
+#[derive(Event)]
 pub struct SaveWorkspace {
     /// If specified workspace will be saved to requested file, otherwise the default file
     pub destination: SaveWorkspaceDestination,
@@ -82,7 +83,7 @@ impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<SaveWorkspace>();
         #[cfg(not(target_arch = "wasm32"))]
-        app.add_system(dispatch_save_events);
+        app.add_systems(Update, dispatch_save_events);
     }
 }
 
@@ -117,7 +118,7 @@ pub fn dispatch_save_events(
                 }
                 SaveWorkspaceDestination::Path(path) => path.clone(),
             };
-            match app_state.current() {
+            match app_state.get() {
                 AppState::WorkcellEditor => {
                     save_workcell.send(SaveWorkcell {
                         root: ws_root,

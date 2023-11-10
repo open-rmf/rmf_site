@@ -16,8 +16,8 @@
 */
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
-use bevy::prelude::*;
-use bevy_egui::{egui::TextureId, EguiContext};
+use bevy::{ecs::system::SystemState, prelude::*};
+use bevy_egui::{egui::TextureId, EguiContexts};
 use rmf_site_format::AssetSource;
 
 struct IconBuilder(Handle<Image>);
@@ -26,7 +26,7 @@ impl IconBuilder {
         Self(asset_server.load(&String::from(&AssetSource::Bundled(name.to_owned()))))
     }
 
-    pub fn build(self, egui_context: &mut EguiContext) -> Icon {
+    pub fn build(self, egui_context: &mut EguiContexts) -> Icon {
         let egui_handle = egui_context.add_image(self.0.clone());
         Icon {
             bevy_handle: self.0,
@@ -74,7 +74,7 @@ pub struct Icons {
 }
 
 impl FromWorld for Icons {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(mut world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
         let select = IconBuilder::new("textures/select.png", &asset_server);
         let selected = IconBuilder::new("textures/selected.png", &asset_server);
@@ -101,7 +101,8 @@ impl FromWorld for Icons {
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
         // immutable AssetServer resource.
-        let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
+        let mut system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut egui_context = system_state.get_mut(&mut world);
         Self {
             select: select.build(&mut egui_context),
             selected: selected.build(&mut egui_context),

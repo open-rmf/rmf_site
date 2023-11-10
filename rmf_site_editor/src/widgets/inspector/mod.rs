@@ -148,7 +148,6 @@ pub struct InspectorComponentParams<'w, 's> {
     pub motions: Query<'w, 's, (&'static Motion, &'static RecallMotion)>,
     pub reverse_motions: Query<'w, 's, (&'static ReverseLane, &'static RecallReverseLane)>,
     pub names: Query<'w, 's, &'static NameInSite>,
-    pub labels: Query<'w, 's, (&'static Label, &'static RecallLabel)>,
     pub doors: Query<'w, 's, (&'static DoorType, &'static RecallDoorType)>,
     pub lifts: InspectLiftParams<'w, 's>,
     pub poses: Query<'w, 's, &'static Pose>,
@@ -318,7 +317,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
-                if *self.events.app_state.current() == AppState::SiteEditor {
+                if *self.events.app_state.get() == AppState::SiteEditor {
                     ui.add_space(10.0);
                     if ui
                         .add(Button::image_and_text(
@@ -347,7 +346,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     .clicked()
                 {
                     if let Some(site) = self.events.request.current_workspace.root {
-                        self.events.align_site.send(AlignSiteDrawings(site));
+                        self.events.request.align_site.send(AlignSiteDrawings(site));
                     }
                 }
                 ui.add_space(10.0);
@@ -434,17 +433,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 });
                 ui.add_space(10.0);
-            }
-
-            if let Ok((label, recall)) = self.params.component.labels.get(selection) {
-                if let Some(new_label) =
-                    InspectOptionString::new("Label", &label.0, &recall.value).show(ui)
-                {
-                    self.events
-                        .change
-                        .label
-                        .send(Change::new(Label(new_label), selection));
-                }
             }
 
             if let Ok(pose) = self.params.component.poses.get(selection) {
@@ -537,7 +525,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .show(ui)
                 {
                     self.events
-                        .change_more
+                        .change
                         .distance
                         .send(Change::new(Distance(new_distance), selection));
                 }

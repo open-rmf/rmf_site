@@ -20,13 +20,10 @@ use crate::{
 };
 
 use bevy::prelude::{
-    App, Children, Component, Entity, EventWriter, FromWorld, Parent, Plugin, Query, Res, Resource,
-    Without, World,
+    App, Children, Component, Entity, Event, EventWriter, FromWorld, Parent, Plugin, Query, Res,
+    Resource, Without, World,
 };
-use bevy_egui::{
-    egui::{self, Button, Ui},
-    EguiContext,
-};
+use bevy_egui::egui::{self, Button, Context, Ui};
 
 /// Adding this to an entity to an entity with the MenuItem component
 /// will grey out and disable a MenuItem.
@@ -133,6 +130,7 @@ impl FromWorld for ViewMenu {
 }
 
 #[non_exhaustive]
+#[derive(Event)]
 pub enum MenuEvent {
     MenuClickEvent(Entity),
 }
@@ -235,7 +233,7 @@ fn render_sub_menu(
 }
 
 pub fn top_menu_bar(
-    egui_context: &mut EguiContext,
+    egui_context: &mut Context,
     file_events: &mut FileEvents,
     params: &mut VisibilityParameters,
     file_menu: &Res<FileMenu>,
@@ -243,7 +241,7 @@ pub fn top_menu_bar(
     children: &Query<&Children>,
     menu_params: &mut MenuParams,
 ) {
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+    egui::TopBottomPanel::top("top_panel").show(egui_context, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {

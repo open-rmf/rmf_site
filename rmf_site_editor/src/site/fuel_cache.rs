@@ -27,13 +27,14 @@ use gz_fuel::{FuelClient as GzFuelClient, FuelModel};
 pub struct FuelClient(GzFuelClient);
 
 /// Event used to request an update to the fuel cache
+#[derive(Event)]
 pub struct UpdateFuelCache;
 
 #[derive(Deref, DerefMut)]
 pub struct FuelCacheUpdated(Option<Vec<FuelModel>>);
 
 /// Event used to set the fuel API key from the UI. Will also trigger a reload for failed assets
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Event)]
 pub struct SetFuelApiKey(pub String);
 
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can

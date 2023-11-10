@@ -6,13 +6,8 @@ use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
-use wasm_bindgen::prelude::*;
-
-// a few more imports needed for wasm32 only
 #[cfg(target_arch = "wasm32")]
-use bevy::{time::FixedTimestep, window::Windows};
-
-extern crate web_sys;
+use wasm_bindgen::prelude::*;
 
 pub mod aabb;
 pub mod animate;
@@ -20,8 +15,6 @@ pub mod animate;
 pub mod keyboard;
 use keyboard::*;
 
-pub mod settings;
-use settings::*;
 pub mod save;
 use save::*;
 pub mod widgets;
@@ -66,7 +59,11 @@ use site::{OSMViewPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;
-use bevy::render::render_resource::{AddressMode, SamplerDescriptor};
+use bevy::render::{
+    render_resource::{AddressMode, SamplerDescriptor},
+    settings::{WgpuFeatures, WgpuSettings},
+    RenderPlugin,
+};
 pub use osm_slippy_map::*;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
@@ -79,8 +76,9 @@ pub struct CommandLineArgs {
     pub import: Option<String>,
 }
 
-#[derive(Clone, Eq, PartialEq, Debug, Hash)]
+#[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
 pub enum AppState {
+    #[default]
     MainMenu,
     SiteEditor,
     SiteVisualizer,
@@ -89,30 +87,22 @@ pub enum AppState {
     SiteDrawingEditor,
 }
 
-pub struct OpenedMapFile(std::path::PathBuf);
-
-#[cfg(target_arch = "wasm32")]
-fn check_browser_window_size(mut windows: ResMut<Windows>) {
-    let window = windows.get_primary_mut().unwrap();
-    let wasm_window = web_sys::window().unwrap();
-    let target_width = wasm_window.inner_width().unwrap().as_f64().unwrap() as f32;
-    let target_height = wasm_window.inner_height().unwrap().as_f64().unwrap() as f32;
-    let w_diff = (target_width - window.width()).abs();
-    let h_diff = (target_height - window.height()).abs();
-
-    if w_diff > 3. || h_diff > 3. {
-        // web_sys::console::log_1(&format!("window = {} {} canvas = {} {}", window.width(), window.height(), target_width, target_height).into());
-        window.set_resolution(target_width, target_height);
+impl AppState {
+    pub fn in_site_mode() -> impl Condition<()> {
+        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
+            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
+            AppState::MainMenu | AppState::WorkcellEditor => false,
+        })
     }
-}
 
-pub fn init_settings(mut settings: ResMut<Settings>, adapter_info: Res<RenderAdapterInfo>) {
-    // todo: be more sophisticated
-    let is_elite = adapter_info.name.contains("NVIDIA");
-    if is_elite {
-        settings.graphics_quality = GraphicsQuality::Ultra;
-    } else {
-        settings.graphics_quality = GraphicsQuality::Low;
+    pub fn in_displaying_mode() -> impl Condition<()> {
+        IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
+            AppState::MainMenu => false,
+            AppState::SiteEditor
+            | AppState::SiteVisualizer
+            | AppState::WorkcellEditor
+            | AppState::SiteDrawingEditor => true,
+        })
     }
 }
 
@@ -138,7 +128,7 @@ pub fn run(command_line_args: Vec<String>) {
         }
     }
 
-    app.add_plugin(SiteEditor);
+    app.add_plugins(SiteEditor);
     app.run();
 }
 
@@ -153,11 +143,12 @@ impl Plugin for SiteEditor {
                     .build()
                     .disable::<LogPlugin>()
                     .set(WindowPlugin {
-                        window: WindowDescriptor {
+                        primary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
                             canvas: Some(String::from("#rmf_site_editor_canvas")),
+                            fit_canvas_to_parent: true,
                             ..default()
-                        },
+                        }),
                         ..default()
                     })
                     .set(ImagePlugin {
@@ -169,11 +160,6 @@ impl Plugin for SiteEditor {
                         },
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-            )
-            .add_system_set(
-                SystemSet::new()
-                    .with_run_criteria(FixedTimestep::step(0.5))
-                    .with_system(check_browser_window_size),
             );
         }
 
@@ -184,12 +170,11 @@ impl Plugin for SiteEditor {
                     .build()
                     .disable::<LogPlugin>()
                     .set(WindowPlugin {
-                        window: WindowDescriptor {
+                        primary_window: Some(Window {
                             title: "RMF Site Editor".to_owned(),
-                            width: 1600.,
-                            height: 900.,
+                            resolution: (1600., 900.).into(),
                             ..default()
-                        },
+                        }),
                         ..default()
                     })
                     .set(ImagePlugin {
@@ -200,36 +185,36 @@ impl Plugin for SiteEditor {
                             ..Default::default()
                         },
                     })
-                    .set(LogPlugin {
-                        filter: "bevy_asset=error,wgpu=error".to_string(),
+                    .set(RenderPlugin {
+                        wgpu_settings: WgpuSettings {
+                            features: WgpuFeatures::POLYGON_MODE_LINE,
+                            ..default()
+                        },
                         ..default()
                     })
                     .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
             );
         }
-        app.init_resource::<Settings>()
-            .add_startup_system(init_settings)
-            .insert_resource(DirectionalLightShadowMap { size: 2048 })
-            .add_plugin(LogHistoryPlugin)
-            .add_plugin(AabbUpdatePlugin)
-            .add_plugin(EguiPlugin)
-            .add_plugin(KeyboardInputPlugin)
-            .add_plugin(SavePlugin)
-            .add_plugin(SdfPlugin)
-            .add_state(AppState::MainMenu)
-            .add_state_to_stage(CoreStage::PreUpdate, AppState::MainMenu)
-            .add_plugin(MainMenuPlugin)
-            // .add_plugin(WarehouseGeneratorPlugin)
-            .add_plugin(WorkcellEditorPlugin)
-            .add_plugin(SitePlugin)
-            .add_plugin(InteractionPlugin)
-            .add_plugin(StandardUiLayout)
-            .add_plugin(AnimationPlugin)
-            .add_plugin(SiteWireframePlugin)
-            .add_plugin(OccupancyPlugin)
-            .add_plugin(WorkspacePlugin)
+        app.insert_resource(DirectionalLightShadowMap { size: 2048 })
+            .add_state::<AppState>()
+            .add_plugins((
+                LogHistoryPlugin,
+                AabbUpdatePlugin,
+                EguiPlugin,
+                KeyboardInputPlugin,
+                SavePlugin,
+                SdfPlugin,
+                MainMenuPlugin,
+                WorkcellEditorPlugin,
+                SitePlugin,
+                InteractionPlugin,
+                StandardUiLayout,
+                AnimationPlugin,
+                OccupancyPlugin,
+                WorkspacePlugin,
+                SiteWireframePlugin,
+            ))
             // Note order matters, issue and OSMView plugins must be initialized after the UI
-            .add_plugin(IssuePlugin)
-            .add_plugin(OSMViewPlugin);
+            .add_plugins((IssuePlugin, OSMViewPlugin));
     }
 }

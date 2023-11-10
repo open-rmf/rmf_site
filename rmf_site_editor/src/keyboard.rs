@@ -24,7 +24,7 @@ use crate::{
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::EguiContext;
+use bevy_egui::EguiContexts;
 
 #[derive(Debug, Clone, Copy, Resource)]
 pub struct DebugMode(pub bool);
@@ -40,22 +40,15 @@ pub struct KeyboardInputPlugin;
 impl Plugin for KeyboardInputPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<DebugMode>()
-            .add_system(handle_keyboard_input);
+            .add_systems(Last, handle_keyboard_input);
     }
-}
-
-// TODO(luca) get rid of this once 16 parameters limit is lifted in bevy 0.10
-#[derive(SystemParam)]
-struct KeyboardParams<'w, 's> {
-    align_site: EventWriter<'w, 's, AlignSiteDrawings>,
-    current_workspace: Res<'w, CurrentWorkspace>,
 }
 
 fn handle_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     selection: Res<Selection>,
     current_mode: Res<InteractionMode>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut change_mode: EventWriter<ChangeMode>,
     mut delete: EventWriter<Delete>,
     mut save_workspace: EventWriter<SaveWorkspace>,
@@ -64,7 +57,8 @@ fn handle_keyboard_input(
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     current_level: Res<CurrentLevel>,
     mut debug_mode: ResMut<DebugMode>,
-    mut params: KeyboardParams,
+    mut align_site: EventWriter<AlignSiteDrawings>,
+    current_workspace: Res<CurrentWorkspace>,
 ) {
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
@@ -103,9 +97,9 @@ fn handle_keyboard_input(
     }
 
     // Ctrl keybindings
-    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
+    if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard_input.just_pressed(KeyCode::S) {
-            if keyboard_input.any_pressed([KeyCode::LShift, KeyCode::RShift]) {
+            if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
                 save_workspace.send(SaveWorkspace::new().to_dialog());
             } else {
                 save_workspace.send(SaveWorkspace::new().to_default_file());
@@ -113,8 +107,8 @@ fn handle_keyboard_input(
         }
 
         if keyboard_input.just_pressed(KeyCode::T) {
-            if let Some(site) = params.current_workspace.root {
-                params.align_site.send(AlignSiteDrawings(site));
+            if let Some(site) = current_workspace.root {
+                align_site.send(AlignSiteDrawings(site));
             }
         }
 

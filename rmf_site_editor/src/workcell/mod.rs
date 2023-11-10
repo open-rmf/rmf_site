@@ -30,9 +30,6 @@ pub use save::*;
 pub mod workcell;
 pub use workcell::*;
 
-pub mod urdf;
-pub use urdf::*;
-
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
@@ -70,51 +67,48 @@ fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>)
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
-            .insert_resource(WgpuSettings {
-                features: WgpuFeatures::POLYGON_MODE_LINE,
-                ..default()
-            })
-            .add_plugin(RapierPhysicsPlugin::<NoUserData>::default())
-            .add_plugin(RapierDebugRenderPlugin::default())
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
-            .add_system_set(SystemSet::on_enter(AppState::WorkcellEditor).with_system(spawn_grid))
-            .add_system_set(SystemSet::on_exit(AppState::WorkcellEditor).with_system(delete_grid))
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(update_constraint_dependents)
-                    .with_system(handle_model_loaded_events)
-                    .with_system(update_model_scenes)
-                    .with_system(update_model_scales)
-                    .with_system(update_model_tentative_formats)
-                    .with_system(propagate_model_render_layers)
-                    .with_system(make_models_selectable)
-                    .with_system(handle_update_fuel_cache_requests)
-                    .with_system(read_update_fuel_cache_results)
-                    .with_system(reload_failed_models_with_new_api_key)
-                    .with_system(handle_workcell_keyboard_input)
-                    .with_system(handle_new_mesh_primitives)
-                    .with_system(change_workcell.before(load_workcell))
-                    .with_system(handle_new_sdf_roots)
-                    .with_system(handle_new_urdf_roots),
+            .add_systems(OnEnter(AppState::WorkcellEditor), spawn_grid)
+            .add_systems(OnExit(AppState::WorkcellEditor), delete_grid)
+            .add_systems(
+                Update,
+                (
+                    update_constraint_dependents,
+                    handle_model_loaded_events,
+                    update_model_scenes,
+                    update_model_scales,
+                    update_model_tentative_formats,
+                    propagate_model_render_layers,
+                    make_models_selectable,
+                    handle_update_fuel_cache_requests,
+                    read_update_fuel_cache_results,
+                    reload_failed_models_with_new_api_key,
+                    handle_workcell_keyboard_input,
+                    handle_new_mesh_primitives,
+                    change_workcell.before(load_workcell),
+                    handle_new_sdf_roots,
+                )
+                    .run_if(in_state(AppState::WorkcellEditor)),
             )
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(AppState::WorkcellEditor).with_system(clear_model_trashcan),
+            .add_systems(
+                PreUpdate,
+                clear_model_trashcan.run_if(in_state(AppState::WorkcellEditor)),
             )
-            .add_system(load_workcell)
-            .add_system(save_workcell)
-            .add_system(add_workcell_visualization)
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .before(TransformSystem::TransformPropagate)
-                    .after(VisibilitySystems::VisibilityPropagate)
-                    .with_system(update_anchor_transforms)
-                    .with_system(
-                        add_anchors_for_new_mesh_constraints.before(update_anchor_transforms),
-                    )
-                    .with_system(update_transforms_for_changed_poses),
+            .add_systems(
+                Update,
+                (load_workcell, save_workcell, add_workcell_visualization),
+            )
+            // TODO(luca) restore doing this before transform propagation
+            .add_systems(
+                Update,
+                (
+                    update_anchor_transforms,
+                    add_anchors_for_new_mesh_constraints,
+                    update_transforms_for_changed_poses,
+                )
+                    .run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 }

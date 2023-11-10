@@ -102,59 +102,64 @@ pub fn handle_model_loaded_events(
     for (e, h, scale, render_layer) in loading_models.iter() {
         if asset_server.get_load_state(&h.0) == LoadState::Loaded {
             let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    // Get default scene if present, otherwise index 0
-                    let scene = gltf
-                        .default_scene
-                        .as_ref()
-                        .map(|s| s.clone())
-                        .unwrap_or(gltf.scenes.get(0).unwrap().clone());
-                    parent
+                // Get default scene if present, otherwise index 0
+                let scene = gltf
+                    .default_scene
+                    .as_ref()
+                    .map(|s| s.clone())
+                    .unwrap_or(gltf.scenes.get(0).unwrap().clone());
+                Some(
+                    commands
                         .spawn(SceneBundle {
                             scene,
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .id()
-                }))
+                        .set_parent(e)
+                        .id(),
+                )
             } else if scenes.contains(&h.typed_weak::<Scene>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    let h_typed = h.0.clone().typed::<Scene>();
-                    parent
+                let h_typed = h.0.clone().typed::<Scene>();
+                Some(
+                    commands
                         .spawn(SceneBundle {
                             scene: h_typed,
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .id()
-                }))
+                        .set_parent(e)
+                        .id(),
+                )
             } else if meshes.contains(&h.typed_weak::<Mesh>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    let h_typed = h.0.clone().typed::<Mesh>();
-                    parent
+                let h_typed = h.0.clone().typed::<Mesh>();
+                Some(
+                    commands
                         .spawn(PbrBundle {
                             mesh: h_typed,
                             material: site_assets.default_mesh_grey_material.clone(),
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .id()
-                }))
+                        .set_parent(e)
+                        .id(),
+                )
             } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    parent
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                Some(
+                    commands
+                        .spawn(SpatialBundle::INHERITED_IDENTITY)
                         .insert(urdf.clone())
                         .insert(Category::Workcell)
-                        .id()
-                }))
+                        .set_parent(e)
+                        .id(),
+                )
             } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
-                Some(commands.entity(e).add_children(|parent| {
-                    parent
-                        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+                Some(
+                    commands
+                        .spawn(SpatialBundle::INHERITED_IDENTITY)
                         .insert(sdf.clone())
-                        .id()
-                }))
+                        .set_parent(e)
+                        .id(),
+                )
             } else {
                 None
             };
@@ -219,7 +224,7 @@ pub fn update_model_scenes(
             // new entities and/or using a dependency tracker as proposed here:
             // https://github.com/open-rmf/rmf_site/issues/173
             commands.insert(VisibilityBundle {
-                visibility: Visibility::VISIBLE,
+                visibility: Visibility::Inherited,
                 ..default()
             });
         }

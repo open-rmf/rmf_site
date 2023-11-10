@@ -81,20 +81,9 @@ impl OutlineVisualization {
         }
     }
 
-    // Flat outlines look better but are subject to glitches in wasm, use a feature flag to use
-    // Real outline depth in wasm and flat in other platforms.
-    // Tracking issue here https://github.com/komadori/bevy_mod_outline/issues/19
-    // TODO(luca) revisit once issue is solved
     pub fn depth(&self) -> SetOutlineDepth {
-        #[cfg(target_arch = "wasm32")]
-        {
-            SetOutlineDepth::Real
-        }
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            SetOutlineDepth::Flat {
-                model_origin: Vec3::ZERO,
-            }
+        SetOutlineDepth::Flat {
+            model_origin: Vec3::ZERO,
         }
     }
 

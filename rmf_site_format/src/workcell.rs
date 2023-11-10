@@ -24,7 +24,7 @@ use bevy::ecs::system::EntityCommands;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity};
 #[cfg(feature = "bevy")]
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use glam::Vec3;
 use serde::{Deserialize, Serialize};
 use urdf_rs::Robot;
@@ -295,7 +295,7 @@ impl Workcell {
 
 #[cfg_attr(
     feature = "bevy",
-    derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)
+    derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid, TypePath)
 )]
 #[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
 pub struct UrdfRoot(pub Robot);

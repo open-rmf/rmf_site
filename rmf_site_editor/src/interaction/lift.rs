@@ -43,7 +43,7 @@ pub fn make_lift_doormat_gizmo(
             .insert(Gizmo::new().with_materials(materials));
 
         if Some(doormat.on_level) == current_level.0 {
-            visible.is_visible = true;
+            *visible = Visibility::Inherited;
         }
     }
 }
@@ -78,7 +78,11 @@ pub fn update_doormats_for_level_change(
 ) {
     if current_level.is_changed() {
         for (doormat, mut visibility) in &mut doormats {
-            visibility.is_visible = Some(doormat.on_level) == current_level.0;
+            *visibility = if Some(doormat.on_level) == current_level.0 {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 }

@@ -126,7 +126,7 @@ impl<T: Component> RecencyRank<T> {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct ChangeRank<T: Component> {
     of: Entity,
     by: RankAdjustment,
@@ -190,9 +190,13 @@ pub struct RecencyRankingPlugin<T>(PhantomData<T>);
 
 impl<T: Component> Plugin for RecencyRankingPlugin<T> {
     fn build(&self, app: &mut App) {
-        app.add_event::<ChangeRank<T>>()
-            .add_system(update_recency_rankings::<T>)
-            .add_system(update_recency_ranks::<T>.after(update_recency_rankings::<T>));
+        app.add_event::<ChangeRank<T>>().add_systems(
+            Update,
+            (
+                update_recency_rankings::<T>,
+                update_recency_ranks::<T>.after(update_recency_rankings::<T>),
+            ),
+        );
     }
 }
 
@@ -201,8 +205,8 @@ fn update_recency_rankings<T: Component>(
     new_entities: Query<Entity, (Added<T>, Without<SuppressRecencyRank>)>,
     moved_entities: Query<Entity, (Changed<Parent>, With<T>, Without<SuppressRecencyRank>)>,
     newly_suppressed_entities: Query<Entity, (With<T>, Added<SuppressRecencyRank>)>,
-    unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
-    no_longer_relevant: RemovedComponents<T>,
+    mut unsuppressed_entities: RemovedComponents<SuppressRecencyRank>,
+    mut no_longer_relevant: RemovedComponents<T>,
     parents: Query<&Parent>,
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {

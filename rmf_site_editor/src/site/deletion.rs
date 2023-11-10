@@ -20,9 +20,9 @@ use crate::{
     log::Log,
     site::{
         Category, CurrentLevel, Dependents, LevelElevation, LevelProperties, NameInSite,
-        SiteUpdateStage,
+        SiteUpdateSet,
     },
-    Issue,
+    AppState, Issue,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{ConstraintDependents, Edge, MeshConstraint, Path, Point};
@@ -48,7 +48,7 @@ impl PreventDeletion {
 
 /// This is an event used to delete site elements. Deleting the element is
 /// recursive, so all its children will be deleted along with it.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct Delete {
     pub element: Entity,
     /// If this is true, all dependents of the element or any of its children
@@ -90,8 +90,8 @@ struct DeletionParams<'w, 's> {
     selection: Res<'w, Selection>,
     current_level: ResMut<'w, CurrentLevel>,
     levels: Query<'w, 's, Entity, With<LevelElevation>>,
-    select: EventWriter<'w, 's, Select>,
-    log: EventWriter<'w, 's, Log>,
+    select: EventWriter<'w, Select>,
+    log: EventWriter<'w, Log>,
     issues: Query<'w, 's, (Entity, &'static mut Issue)>,
 }
 
@@ -99,13 +99,18 @@ pub struct DeletionPlugin;
 
 impl Plugin for DeletionPlugin {
     fn build(&self, app: &mut App) {
-        app.add_stage_after(
-            CoreStage::First,
-            SiteUpdateStage::Deletion,
-            SystemStage::parallel(),
+        app.configure_sets(
+            First,
+            (SiteUpdateSet::Deletion, SiteUpdateSet::DeletionFlush).chain(),
         )
+        .add_systems(First, apply_deferred.in_set(SiteUpdateSet::DeletionFlush))
         .add_event::<Delete>()
-        .add_system_to_stage(SiteUpdateStage::Deletion, handle_deletion_requests);
+        .add_systems(
+            First,
+            handle_deletion_requests
+                .in_set(SiteUpdateSet::Deletion)
+                .run_if(AppState::in_displaying_mode()),
+        );
     }
 }
 

@@ -34,15 +34,27 @@ pub struct LightBodies {
 impl LightBodies {
     fn switch(&self, kind: &LightKind, visibilities: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibilities.get_mut(self.point) {
-            v.is_visible = kind.is_point();
+            *v = if kind.is_point() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.spot) {
-            v.is_visible = kind.is_spot();
+            *v = if kind.is_spot() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
 
         if let Ok(mut v) = visibilities.get_mut(self.directional) {
-            v.is_visible = kind.is_directional();
+            *v = if kind.is_directional() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 }
@@ -58,6 +70,7 @@ pub fn add_physical_light_visual_cues(
         let light_material = materials.add(StandardMaterial {
             base_color: kind.color().into(),
             unlit: true,
+            perceptual_roughness: 0.089,
             ..default()
         });
 
@@ -65,98 +78,101 @@ pub fn add_physical_light_visual_cues(
             headlight_toggle.0 = false;
         }
 
-        let bodies = commands
+        let point = commands
+            .spawn(SpatialBundle {
+                visibility: if kind.is_point() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
+                ..default()
+            })
+            .with_children(|point| {
+                point
+                    .spawn(PbrBundle {
+                        mesh: assets.point_light_socket_mesh.clone(),
+                        material: assets.physical_light_cover_material.clone(),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+
+                point
+                    .spawn(PbrBundle {
+                        mesh: assets.point_light_shine_mesh.clone(),
+                        material: light_material.clone(),
+                        ..default()
+                    })
+                    .insert(Selectable::new(e))
+                    .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+            })
+            .id();
+
+        let spot = commands
+            .spawn(SpatialBundle {
+                visibility: if kind.is_spot() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
+                ..default()
+            })
+            .with_children(|spot| {
+                spot.spawn(PbrBundle {
+                    mesh: assets.spot_light_cover_mesh.clone(),
+                    material: assets.physical_light_cover_material.clone(),
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+
+                spot.spawn(PbrBundle {
+                    mesh: assets.spot_light_shine_mesh.clone(),
+                    material: light_material.clone(),
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+            })
+            .id();
+
+        let directional = commands
+            .spawn(SpatialBundle {
+                visibility: if kind.is_directional() {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                },
+                ..default()
+            })
+            .with_children(|dir| {
+                dir.spawn(PbrBundle {
+                    mesh: assets.directional_light_cover_mesh.clone(),
+                    material: assets.direction_light_cover_material.clone(),
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+
+                dir.spawn(PbrBundle {
+                    mesh: assets.directional_light_shine_mesh.clone(),
+                    material: light_material.clone(),
+                    ..default()
+                })
+                .insert(Selectable::new(e))
+                .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
+            })
+            .id();
+
+        commands
             .entity(e)
             .insert(light_material.clone())
-            .add_children(|parent| {
-                let point = parent
-                    .spawn(SpatialBundle {
-                        visibility: Visibility {
-                            is_visible: kind.is_point(),
-                        },
-                        ..default()
-                    })
-                    .with_children(|point| {
-                        point
-                            .spawn(PbrBundle {
-                                mesh: assets.point_light_socket_mesh.clone(),
-                                material: assets.physical_light_cover_material.clone(),
-                                ..default()
-                            })
-                            .insert(Selectable::new(e))
-                            .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-
-                        point
-                            .spawn(PbrBundle {
-                                mesh: assets.point_light_shine_mesh.clone(),
-                                material: light_material.clone(),
-                                ..default()
-                            })
-                            .insert(Selectable::new(e))
-                            .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-                    })
-                    .id();
-
-                let spot = parent
-                    .spawn(SpatialBundle {
-                        visibility: Visibility {
-                            is_visible: kind.is_spot(),
-                        },
-                        ..default()
-                    })
-                    .with_children(|spot| {
-                        spot.spawn(PbrBundle {
-                            mesh: assets.spot_light_cover_mesh.clone(),
-                            material: assets.physical_light_cover_material.clone(),
-                            ..default()
-                        })
-                        .insert(Selectable::new(e))
-                        .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-
-                        spot.spawn(PbrBundle {
-                            mesh: assets.spot_light_shine_mesh.clone(),
-                            material: light_material.clone(),
-                            ..default()
-                        })
-                        .insert(Selectable::new(e))
-                        .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-                    })
-                    .id();
-
-                let directional = parent
-                    .spawn(SpatialBundle {
-                        visibility: Visibility {
-                            is_visible: kind.is_directional(),
-                        },
-                        ..default()
-                    })
-                    .with_children(|dir| {
-                        dir.spawn(PbrBundle {
-                            mesh: assets.directional_light_cover_mesh.clone(),
-                            material: assets.direction_light_cover_material.clone(),
-                            ..default()
-                        })
-                        .insert(Selectable::new(e))
-                        .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-
-                        dir.spawn(PbrBundle {
-                            mesh: assets.directional_light_shine_mesh.clone(),
-                            material: light_material.clone(),
-                            ..default()
-                        })
-                        .insert(Selectable::new(e))
-                        .insert(DragPlaneBundle::new(e, Vec3::Z).globally());
-                    })
-                    .id();
-
-                return LightBodies {
-                    point,
-                    spot,
-                    directional,
-                };
-            });
-
-        commands.entity(e).insert(bodies);
+            .insert(LightBodies {
+                point,
+                spot,
+                directional,
+            })
+            .push_children(&[point, spot, directional]);
     }
 }
 

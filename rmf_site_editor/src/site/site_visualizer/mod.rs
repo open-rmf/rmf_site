@@ -37,7 +37,7 @@ fn show_all_levels(
     {
         for child in children.iter() {
             if let Ok((mut vis, mut tf, elevation)) = levels.get_mut(*child) {
-                vis.is_visible = true;
+                *vis = Visibility::Inherited;
                 tf.translation.z = elevation.0;
             }
         }
@@ -59,7 +59,11 @@ fn hide_all_non_current_levels(
     {
         for child in children.iter() {
             if let Ok((mut vis, mut tf)) = levels.get_mut(*child) {
-                vis.is_visible = Some(*child) == **current_level;
+                *vis = if Some(*child) == **current_level {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
                 tf.translation.z = 0.0;
             }
         }
@@ -75,34 +79,29 @@ fn update_level_elevation(
     }
 }
 
-fn disable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
+fn disable_interaction(mut interaction_state: ResMut<NextState<InteractionState>>) {
     info!("Entering site visualizer");
-    if let Err(err) = interaction_state.overwrite_set(InteractionState::Disable) {
-        error!("Failed to disable interactions: {err}");
-    }
+    interaction_state.set(InteractionState::Disable);
 }
 
-fn enable_interaction(mut interaction_state: ResMut<State<InteractionState>>) {
+fn enable_interaction(mut interaction_state: ResMut<NextState<InteractionState>>) {
     info!("Exiting site visualizer");
-    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
-        error!("Failed to enable interactions: {err}");
-    }
+    interaction_state.set(InteractionState::Enable);
 }
 
 impl Plugin for SiteVisualizerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system_set(
-            SystemSet::on_enter(AppState::SiteVisualizer)
-                .with_system(show_all_levels)
-                .with_system(disable_interaction),
+        app.add_systems(
+            OnEnter(AppState::SiteVisualizer),
+            (show_all_levels, disable_interaction),
         )
-        .add_system_set(
-            SystemSet::on_exit(AppState::SiteVisualizer)
-                .with_system(hide_all_non_current_levels)
-                .with_system(enable_interaction),
+        .add_systems(
+            OnExit(AppState::SiteVisualizer),
+            (hide_all_non_current_levels, enable_interaction),
         )
-        .add_system_set(
-            SystemSet::on_update(AppState::SiteVisualizer).with_system(update_level_elevation),
+        .add_systems(
+            Update,
+            update_level_elevation.run_if(in_state(AppState::SiteVisualizer)),
         );
     }
 }

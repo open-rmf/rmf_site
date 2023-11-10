@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::DisplayColor;
+use crate::site::{assets::old_default_material, DisplayColor};
 use bevy::prelude::*;
 
 pub fn add_material_for_display_colors(
@@ -26,7 +26,9 @@ pub fn add_material_for_display_colors(
     for (e, c) in &new_display {
         commands
             .entity(e)
-            .insert(materials.add(Color::rgba(c.0[0], c.0[1], c.0[2], c.0[3]).into()));
+            .insert(materials.add(old_default_material(Color::rgba(
+                c.0[0], c.0[1], c.0[2], c.0[3],
+            ))));
     }
 }
 

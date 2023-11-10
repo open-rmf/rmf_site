@@ -109,7 +109,9 @@ pub struct AnimationPlugin;
 
 impl Plugin for AnimationPlugin {
     fn build(&self, app: &mut App) {
-        app.add_system(update_spinning_animations)
-            .add_system(update_bobbing_animations);
+        app.add_systems(
+            Update,
+            (update_spinning_animations, update_bobbing_animations),
+        );
     }
 }

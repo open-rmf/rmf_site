@@ -22,7 +22,7 @@ use bevy::prelude::*;
 use rmf_site_format::WorkcellProperties;
 
 /// Used as an event to command that a new workcell should be made the current one
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentWorkcell {
     /// What should the current workcell root be
     pub root: Entity,
@@ -56,7 +56,7 @@ pub fn add_workcell_visualization(
     for e in new_workcells.iter() {
         let body_mesh = site_assets.site_anchor_mesh.clone();
         let mut entity_commands = commands.entity(e);
-        entity_commands.add_children(|parent| {
+        entity_commands.with_children(|parent| {
             let mut body = parent.spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),

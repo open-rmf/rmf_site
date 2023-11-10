@@ -20,7 +20,7 @@ use std::path::PathBuf;
 
 use crate::{
     site::{
-        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion, SiteState,
+        AnchorBundle, CollisionMeshMarker, DefaultFile, Dependents, PreventDeletion,
         VisualMeshMarker,
     },
     workcell::ChangeCurrentWorkcell,
@@ -33,6 +33,7 @@ use rmf_site_format::{
     Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
 };
 
+#[derive(Event)]
 pub struct LoadWorkcell {
     /// The site data to load
     pub workcell: Workcell,
@@ -51,7 +52,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     let mut model_to_constraint_dependent_entities = HashMap::new();
 
     let root = commands
-        .spawn(SpatialBundle::VISIBLE_IDENTITY)
+        .spawn(SpatialBundle::INHERITED_IDENTITY)
         .insert(workcell.properties.clone())
         .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
@@ -142,7 +143,6 @@ pub fn load_workcell(
     mut commands: Commands,
     mut load_workcells: EventReader<LoadWorkcell>,
     mut change_current_workcell: EventWriter<ChangeCurrentWorkcell>,
-    mut site_display_state: ResMut<State<SiteState>>,
 ) {
     for cmd in load_workcells.iter() {
         info!("Loading workcell");
@@ -153,13 +153,6 @@ pub fn load_workcell(
 
         if cmd.focus {
             change_current_workcell.send(ChangeCurrentWorkcell { root });
-
-            // TODO(luca) get rid of SiteState
-            if *site_display_state.current() == SiteState::Display {
-                if let Err(err) = site_display_state.overwrite_set(SiteState::Off) {
-                    error!("Failed to turn the site display off: {err}");
-                }
-            }
         }
     }
 }

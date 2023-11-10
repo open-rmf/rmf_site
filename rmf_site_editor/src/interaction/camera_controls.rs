@@ -19,12 +19,14 @@ use crate::interaction::PickingBlockers;
 use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
+    core_pipeline::tonemapping::Tonemapping,
     input::mouse::{MouseButton, MouseWheel},
     prelude::*,
     render::{
-        camera::{Camera, Projection, ScalingMode, WindowOrigin},
+        camera::{Camera, Projection, ScalingMode},
         view::RenderLayers,
     },
+    window::PrimaryWindow,
 };
 
 /// RenderLayers are used to inform cameras which entities they should render.
@@ -81,6 +83,7 @@ impl ProjectionMode {
     }
 }
 
+#[derive(Event)]
 pub struct ChangeProjectionMode(pub ProjectionMode);
 
 impl ChangeProjectionMode {
@@ -132,7 +135,11 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.perspective_camera_entities) {
             for mut visibility in visibilities {
-                visibility.is_visible = choice;
+                *visibility = if choice {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
             }
         }
 
@@ -144,7 +151,11 @@ impl CameraControls {
 
         if let Ok(visibilities) = visibilities.get_many_mut(self.orthographic_camera_entities) {
             for mut visibility in visibilities {
-                visibility.is_visible = !choice;
+                *visibility = if choice {
+                    Visibility::Hidden
+                } else {
+                    Visibility::Inherited
+                };
             }
         }
 
@@ -197,11 +208,19 @@ impl CameraControls {
 
     pub fn toggle_lights(&self, toggle: bool, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.perspective_headlight) {
-            v.is_visible = toggle && self.mode.is_perspective();
+            *v = if toggle && self.mode.is_perspective() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
 
         if let Ok(mut v) = visibility.get_mut(self.orthographic_headlight) {
-            v.is_visible = toggle && self.mode.is_orthographic();
+            *v = if toggle && self.mode.is_orthographic() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
         }
     }
 }
@@ -224,21 +243,19 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(priority, layer)| {
+        .map(|(order, layer)| {
             world
                 .spawn(Camera3dBundle {
                     projection: Projection::Perspective(Default::default()),
-                    camera: Camera {
-                        priority,
-                        ..default()
-                    },
+                    camera: Camera { order, ..default() },
                     camera_3d: Camera3d {
                         clear_color: ClearColorConfig::None,
                         ..default()
                     },
+                    tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
-                .insert(Visibility::VISIBLE)
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(layer))
                 .id()
@@ -248,9 +265,10 @@ impl FromWorld for CameraControls {
             .spawn(Camera3dBundle {
                 transform: Transform::from_xyz(-10., -10., 10.).looking_at(Vec3::ZERO, Vec3::Z),
                 projection: Projection::Perspective(Default::default()),
+                tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
-            .insert(Visibility::VISIBLE)
+            .insert(Visibility::Inherited)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
@@ -276,7 +294,7 @@ impl FromWorld for CameraControls {
             .id();
 
         let ortho_projection = OrthographicProjection {
-            window_origin: WindowOrigin::Center,
+            viewport_origin: Vec2::new(0.5, 0.5),
             scaling_mode: ScalingMode::FixedVertical(1.0),
             scale: 10.0,
             ..default()
@@ -287,12 +305,12 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(priority, layer)| {
+        .map(|(order, layer)| {
             world
                 .spawn(Camera3dBundle {
                     camera: Camera {
                         is_active: false,
-                        priority,
+                        order,
                         ..default()
                     },
                     camera_3d: Camera3d {
@@ -300,9 +318,10 @@ impl FromWorld for CameraControls {
                         ..default()
                     },
                     projection: Projection::Orthographic(ortho_projection.clone()),
+                    tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
-                .insert(Visibility::VISIBLE)
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
                 .id()
@@ -316,9 +335,10 @@ impl FromWorld for CameraControls {
                 },
                 transform: Transform::from_xyz(0., 0., 20.).looking_at(Vec3::ZERO, Vec3::Y),
                 projection: Projection::Orthographic(ortho_projection),
+                tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
-            .insert(Visibility::VISIBLE)
+            .insert(Visibility::Inherited)
             .insert(ComputedVisibility::default())
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
@@ -353,7 +373,7 @@ impl FromWorld for CameraControls {
 }
 
 fn camera_controls(
-    windows: Res<Windows>,
+    primary_windows: Query<&Window, With<PrimaryWindow>>,
     mut ev_cursor_moved: EventReader<CursorMoved>,
     mut ev_scroll: EventReader<MouseWheel>,
     input_mouse: Res<Input<MouseButton>>,
@@ -386,7 +406,7 @@ fn camera_controls(
     }
 
     let is_shifting =
-        input_keyboard.pressed(KeyCode::LShift) || input_keyboard.pressed(KeyCode::LShift);
+        input_keyboard.pressed(KeyCode::ShiftLeft) || input_keyboard.pressed(KeyCode::ShiftRight);
     let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
 
     let is_orbiting = input_mouse.pressed(MouseButton::Middle)
@@ -428,7 +448,7 @@ fn camera_controls(
             .get_mut(controls.orthographic_camera_entities[0])
             .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-            if let Some(window) = windows.get_primary() {
+            if let Ok(window) = primary_windows.get_single() {
                 let window_size = Vec2::new(window.width() as f32, window.height() as f32);
                 let aspect_ratio = window_size[0] / window_size[1];
 
@@ -436,7 +456,7 @@ fn camera_controls(
                     cursor_motion *= 2. / window_size
                         * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
                     let right = -cursor_motion.x * Vec3::X;
-                    let up = -cursor_motion.y * Vec3::Y;
+                    let up = cursor_motion.y * Vec3::Y;
                     ortho_transform.translation += right + up;
                 }
                 if scroll.abs() > 0.0 {
@@ -470,7 +490,7 @@ fn camera_controls(
 
             if is_orbiting && cursor_motion.length_squared() > 0. {
                 changed = true;
-                if let Some(window) = windows.get_primary() {
+                if let Ok(window) = primary_windows.get_single() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
                     let delta_x = {
                         let delta = cursor_motion.x / window_size.x * std::f32::consts::PI * 2.0;
@@ -480,7 +500,7 @@ fn camera_controls(
                             delta
                         }
                     };
-                    let delta_y = -cursor_motion.y / window_size.y * std::f32::consts::PI;
+                    let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI;
                     let yaw = Quat::from_rotation_z(-delta_x);
                     let pitch = Quat::from_rotation_x(-delta_y);
                     persp_transform.rotation = yaw * persp_transform.rotation; // global y
@@ -490,7 +510,7 @@ fn camera_controls(
             } else if is_panning && cursor_motion.length_squared() > 0. {
                 changed = true;
                 // make panning distance independent of resolution and FOV,
-                if let Some(window) = windows.get_primary() {
+                if let Ok(window) = primary_windows.get_single() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
 
                     cursor_motion *=
@@ -498,7 +518,7 @@ fn camera_controls(
                             / window_size;
                     // translate by local axes
                     let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
-                    let up = persp_transform.rotation * Vec3::Y * -cursor_motion.y;
+                    let up = persp_transform.rotation * Vec3::Y * cursor_motion.y;
                     // make panning proportional to distance away from center point
                     let translation = (right + up) * controls.orbit_radius;
                     controls.orbit_center += translation;
@@ -532,6 +552,6 @@ impl Plugin for CameraControlsPlugin {
             .init_resource::<CameraControls>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_system(camera_controls);
+            .add_systems(Update, camera_controls);
     }
 }

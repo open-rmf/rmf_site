@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{SiteState, SiteUpdateLabel};
+use crate::site::SiteUpdateSet;
 use crate::AppState;
 use bevy::prelude::*;
 use std::fmt::Debug;
@@ -23,7 +23,7 @@ use std::fmt::Debug;
 /// The Change component is used as an event to indicate that the value of a
 /// component should change for some entity. Using these events instead of
 /// modifying the component directly helps with managing an undo/redo buffer.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct Change<T: Component + Clone + Debug> {
     pub to_value: T,
     pub for_element: Entity,
@@ -61,18 +61,12 @@ impl<T: Component + Clone + Debug> Default for ChangePlugin<T> {
 
 impl<T: Component + Clone + Debug> Plugin for ChangePlugin<T> {
     fn build(&self, app: &mut App) {
-        // TODO(luca) this is duplicated, refactor app states to avoid?
-        app.add_event::<Change<T>>()
-            .add_system_set_to_stage(
-                CoreStage::PreUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .label(SiteUpdateLabel::ProcessChanges)
-                    .with_system(update_changed_values::<T>),
-            )
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(update_changed_values::<T>),
-            );
+        app.add_event::<Change<T>>().add_systems(
+            PreUpdate,
+            update_changed_values::<T>
+                .run_if(AppState::in_displaying_mode())
+                .in_set(SiteUpdateSet::ProcessChanges),
+        );
     }
 }
 

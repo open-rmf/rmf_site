@@ -176,7 +176,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
             }
 
             if ui.add(Button::new("Validate")).clicked() {
-                self.events.validate_workspace.send(ValidateWorkspace(root));
+                self.events
+                    .request
+                    .validate_workspace
+                    .send(ValidateWorkspace(root));
             }
             if ui.add(Button::new("Close")).clicked() {
                 state.show = false;
@@ -184,13 +187,13 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
         });
         if new_filtered_issues != *filtered_issues {
             self.events
-                .change_more
+                .change
                 .filtered_issues
                 .send(Change::new(new_filtered_issues, root));
         }
         if new_filtered_issue_kinds != *filtered_issue_kinds {
             self.events
-                .change_more
+                .change
                 .filtered_issue_kinds
                 .send(Change::new(new_filtered_issue_kinds, root));
         }

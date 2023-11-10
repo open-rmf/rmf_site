@@ -20,7 +20,7 @@ use bevy::prelude::*;
 use rmf_site_format::{LevelElevation, LevelProperties, NameInSite, NameOfSite};
 
 /// Used as an event to command that a new site should be made the current one
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentSite {
     /// What should the current site be
     pub site: Entity,
@@ -56,7 +56,7 @@ pub fn change_site(
 ) {
     let mut set_visibility = |entity, value| {
         if let Ok(mut v) = visibility.get_mut(entity) {
-            v.is_visible = value;
+            *v = value;
         }
     };
 
@@ -91,16 +91,16 @@ pub fn change_site(
         if let Some(new_level) = cmd.level {
             if let Some(previous_level) = current_level.0 {
                 if previous_level != new_level {
-                    set_visibility(previous_level, false);
+                    set_visibility(previous_level, Visibility::Hidden);
                 }
             }
 
-            set_visibility(new_level, true);
+            set_visibility(new_level, Visibility::Inherited);
             commands.entity(cmd.site).insert(CachedLevel(new_level));
             current_level.0 = Some(new_level);
         } else {
             if let Ok(cached_level) = cached_levels.get(cmd.site) {
-                set_visibility(**cached_level, true);
+                set_visibility(**cached_level, Visibility::Inherited);
                 current_level.0 = Some(**cached_level);
             } else {
                 if let Ok(children) = children.get(cmd.site) {
@@ -110,22 +110,22 @@ pub fn change_site(
                             commands.entity(cmd.site).insert(CachedLevel(level));
                             current_level.0 = Some(level);
                             found_level = true;
-                            set_visibility(level, true);
+                            set_visibility(level, Visibility::Inherited);
                         }
                     }
 
                     if !found_level {
                         // Create a new blank level for the user
-                        let new_level = commands.entity(cmd.site).add_children(|site| {
-                            site.spawn(SpatialBundle::default())
-                                .insert(LevelProperties {
-                                    name: NameInSite("<unnamed level>".to_owned()),
-                                    elevation: LevelElevation(0.),
-                                    global_floor_visibility: default(),
-                                    global_drawing_visibility: default(),
-                                })
-                                .id()
-                        });
+                        let new_level = commands
+                            .spawn(SpatialBundle::default())
+                            .insert(LevelProperties {
+                                name: NameInSite("<unnamed level>".to_owned()),
+                                elevation: LevelElevation(0.),
+                                global_floor_visibility: default(),
+                                global_drawing_visibility: default(),
+                            })
+                            .set_parent(cmd.site)
+                            .id();
 
                         commands.entity(cmd.site).insert(CachedLevel(new_level));
                         current_level.0 = Some(new_level);

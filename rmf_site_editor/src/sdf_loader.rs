@@ -17,7 +17,7 @@
 
 use bevy::asset::{AssetLoader, LoadContext, LoadedAsset};
 use bevy::prelude::*;
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::BoxedFuture;
 
 use thiserror::Error;
@@ -32,7 +32,7 @@ impl Plugin for SdfPlugin {
     }
 }
 
-#[derive(Component, Default, Debug, TypeUuid, Clone)]
+#[derive(Component, Default, Debug, TypeUuid, TypePath, Clone)]
 #[uuid = "fe707f9e-c6f3-11ed-afa2-0242ac120002"]
 pub struct SdfRoot {
     pub model: SdfModel,
