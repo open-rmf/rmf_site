@@ -1,6 +1,5 @@
-use crate::template;
 use crate::site_asset_io::cache_path;
-use dirs;
+use crate::template;
 use rmf_site_format::{AssetSource, Geometry, Workcell};
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};

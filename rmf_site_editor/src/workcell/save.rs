@@ -17,7 +17,7 @@
 
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::path::{PathBuf, Path as SysPath};
+use std::path::{Path as SysPath, PathBuf};
 
 use crate::package_exporter::{generate_package, PackageContext, Person};
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
@@ -339,11 +339,7 @@ pub fn save_workcell(world: &mut World) {
     }
 }
 
-fn export_package(
-    path: &SysPath,
-    workcell: &Workcell,
-) -> Result<(), Box<dyn std::error::Error>> {
-
+fn export_package(path: &SysPath, workcell: &Workcell) -> Result<(), Box<dyn std::error::Error>> {
     let output_directory = path
         .parent()
         .ok_or("Not able to get parent")?
