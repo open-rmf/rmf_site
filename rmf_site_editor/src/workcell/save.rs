@@ -17,8 +17,9 @@
 
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::path::PathBuf;
+use std::path::{PathBuf, Path as SysPath};
 
+use crate::package_exporter::{generate_package, PackageContext, Person};
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
 use crate::ExportFormat;
 
@@ -293,19 +294,6 @@ pub fn save_workcell(world: &mut World) {
         .drain()
         .collect();
     for save_event in save_events {
-        let path = save_event.to_file;
-        info!(
-            "Saving to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
-        let f = match std::fs::File::create(path) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
         let workcell = match generate_workcell(world, save_event.root) {
             Ok(root) => root,
             Err(err) => {
@@ -314,23 +302,75 @@ pub fn save_workcell(world: &mut World) {
             }
         };
 
+        let path = save_event.to_file;
         match save_event.format {
-            ExportFormat::Default => match workcell.to_writer(f) {
-                Ok(()) => {
-                    info!("Save successful");
+            ExportFormat::Default => {
+                info!(
+                    "Saving to {}",
+                    path.to_str().unwrap_or("<failed to render??>")
+                );
+                let f = match std::fs::File::create(path) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file: {err}");
+                        continue;
+                    }
+                };
+                match workcell.to_writer(f) {
+                    Ok(()) => {
+                        info!("Save successful");
+                    }
+                    Err(err) => {
+                        error!("Save failed: {err}");
+                    }
                 }
-                Err(err) => {
-                    error!("Save failed: {err}");
-                }
-            },
-            ExportFormat::Urdf => match workcell.to_urdf_writer(f) {
-                Ok(()) => {
-                    info!("Save successful");
-                }
-                Err(err) => {
-                    error!("Save failed: {err}");
-                }
-            },
+            }
+            ExportFormat::Urdf => {
+                match export_package(&path, &workcell) {
+                    Ok(()) => {
+                        info!("Successfully exported package");
+                    }
+                    Err(err) => {
+                        error!("Failed to export package: {err}");
+                    }
+                };
+            }
         }
     }
+}
+
+fn export_package(
+    path: &SysPath,
+    workcell: &Workcell,
+) -> Result<(), Box<dyn std::error::Error>> {
+
+    let output_directory = path
+        .parent()
+        .ok_or("Not able to get parent")?
+        .to_str()
+        .ok_or("Invalid output directory")?
+        .to_string();
+    let package_name = path
+        .file_stem()
+        .ok_or("Not able to get file_stem")?
+        .to_str()
+        .ok_or("Invalid file name")?
+        .to_string();
+
+    let package_context = PackageContext {
+        license: "TODO".to_string(),
+        maintainers: vec![Person {
+            name: "TODO".to_string(),
+            email: "TODO".to_string(),
+        }],
+        project_name: package_name,
+        fixed_frame: "base_link".to_string(),
+        dependencies: vec![],
+        project_description: "TODO".to_string(),
+        project_version: "TODO".to_string(),
+        urdf_file_name: "robot.urdf".to_string(),
+    };
+
+    generate_package(workcell, &package_context, &output_directory)?;
+    Ok(())
 }
