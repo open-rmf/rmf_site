@@ -46,25 +46,25 @@ pub fn add_anchor_visual_cues(
             _ => site_assets.site_anchor_mesh.clone(),
         };
 
-        let mut entity_commands = commands.entity(e);
-        let body = entity_commands.add_children(|parent| {
-            let mut body = parent.spawn(PbrBundle {
+        let body = commands
+            .spawn(PbrBundle {
                 mesh: body_mesh,
                 material: site_assets.passive_anchor_material.clone(),
                 ..default()
-            });
-            body.insert(Selectable::new(e));
-            if subordinate.is_none() {
-                body.insert(DragPlaneBundle::new(e, Vec3::Z));
-            }
-            let body = body.id();
+            })
+            .insert(Selectable::new(e))
+            .id();
+        if subordinate.is_none() {
+            commands
+                .entity(body)
+                .insert(DragPlaneBundle::new(e, Vec3::Z));
+        }
 
-            body
-        });
-
+        let mut entity_commands = commands.entity(e);
         entity_commands
             .insert(AnchorVisualization { body, drag: None })
-            .insert(OutlineVisualization::Anchor { body });
+            .insert(OutlineVisualization::Anchor { body })
+            .add_child(body);
 
         // 3D anchors should always be visible with arrow cue meshes
         if anchor.is_3D() {
@@ -184,8 +184,8 @@ pub fn update_anchor_visual_cues(
             &mut AnchorVisualization,
             &mut VisualCue,
             Option<&Subordinate>,
-            ChangeTrackers<Hovered>,
-            ChangeTrackers<Selected>,
+            Ref<Hovered>,
+            Ref<Selected>,
         ),
         Or<(Changed<Hovered>, Changed<Selected>, Changed<Dependents>)>,
     >,

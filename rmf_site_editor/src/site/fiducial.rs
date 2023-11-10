@@ -89,7 +89,7 @@ pub fn update_fiducial_usage_tracker(
             ),
         )>,
     >,
-    removed_fiducial_groups: RemovedComponents<Group>,
+    mut removed_fiducial_groups: RemovedComponents<Group>,
 ) {
     for e in &changed_parent {
         if let Some(site) = find_parent_site(e, &sites, &parent) {
@@ -147,7 +147,7 @@ pub fn update_fiducial_usage_tracker(
         reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
     }
 
-    for removed_group in &removed_fiducial_groups {
+    for removed_group in removed_fiducial_groups.iter() {
         for (_, mut tracker) in &mut unused_fiducial_trackers {
             tracker.used.remove(&removed_group);
             tracker.unused.remove(&removed_group);
@@ -217,7 +217,7 @@ pub fn add_fiducial_visuals(
         }
 
         if tf.is_none() {
-            commands.entity(e).insert(SpatialBundle::VISIBLE_IDENTITY);
+            commands.entity(e).insert(SpatialBundle::INHERITED_IDENTITY);
         }
 
         commands

@@ -2172,7 +2172,7 @@ pub fn handle_select_anchor_3d_mode(
 
         // Set the request parent to the currently selected element, to spawn new object as
         // children of selected frames
-        if matches!(app_state.current(), AppState::WorkcellEditor) && request.begin_creating() {
+        if matches!(**app_state, AppState::WorkcellEditor) && request.begin_creating() {
             request.parent = selection.0;
         }
     }
@@ -2208,7 +2208,7 @@ pub fn handle_select_anchor_3d_mode(
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
                         // If we are in workcell mode, add a "base link" frame to the model
-                        if matches!(app_state.current(), AppState::WorkcellEditor) {
+                        if matches!(**app_state, AppState::WorkcellEditor) {
                             let child_id = params.commands.spawn(model).id();
                             params
                                 .commands

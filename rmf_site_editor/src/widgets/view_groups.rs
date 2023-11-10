@@ -205,7 +205,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                                 .on_hover_text("Merge into this group")
                                 .clicked()
                             {
-                                events.change_more.merge_groups.send(MergeGroups {
+                                events.change.merge_groups.send(MergeGroups {
                                     from_group: merge_from,
                                     into_group: *child,
                                 });

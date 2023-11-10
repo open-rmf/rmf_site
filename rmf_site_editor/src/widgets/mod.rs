@@ -27,8 +27,8 @@ use crate::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
         ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
         ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
-        JointProperties, LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs,
-        SiteState, Texture, ToggleLiftDoorAvailability, VisualMeshMarker,
+        JointProperties, LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture,
+        ToggleLiftDoorAvailability, VisualMeshMarker,
     },
     workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
@@ -37,7 +37,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Button, CollapsingHeader},
-    EguiContext,
+    EguiContexts,
 };
 use rmf_site_format::*;
 
@@ -83,11 +83,6 @@ pub use move_layer::*;
 pub mod new_model;
 pub use new_model::*;
 
-#[derive(Debug, Hash, PartialEq, Eq, Clone, SystemLabel)]
-pub enum UiUpdateLabel {
-    DrawUi,
-}
-
 #[derive(Resource, Clone, Default)]
 pub struct PendingDrawing {
     pub source: AssetSource,
@@ -116,89 +111,84 @@ impl Plugin for StandardUiLayout {
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .init_resource::<SearchForFiducial>()
-            .add_plugin(MenuPluginManager)
+            .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
-            .add_system_set(SystemSet::on_enter(AppState::MainMenu).with_system(init_ui_style))
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteEditor)
-                    .with_system(site_ui_layout.label(UiUpdateLabel::DrawUi)),
+            .add_systems(Startup, init_ui_style)
+            .add_systems(
+                Update,
+                site_ui_layout.run_if(in_state(AppState::SiteEditor)),
             )
-            .add_system_set(
-                SystemSet::on_update(AppState::WorkcellEditor)
-                    .with_system(workcell_ui_layout.label(UiUpdateLabel::DrawUi)),
+            .add_systems(
+                Update,
+                workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
             )
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteDrawingEditor)
-                    .with_system(site_drawing_ui_layout.label(UiUpdateLabel::DrawUi)),
+            .add_systems(
+                Update,
+                site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
             )
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteVisualizer)
-                    .with_system(site_visualizer_ui_layout.label(UiUpdateLabel::DrawUi)),
+            .add_systems(
+                Update,
+                site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
             )
-            .add_system_set_to_stage(
-                CoreStage::PostUpdate,
-                SystemSet::on_update(SiteState::Display)
-                    .with_system(resolve_light_export_file)
-                    .with_system(resolve_nav_graph_import_export_files),
+            .add_systems(
+                PostUpdate,
+                (
+                    resolve_light_export_file,
+                    resolve_nav_graph_import_export_files,
+                )
+                    .run_if(AppState::in_site_mode()),
             );
     }
 }
 
 #[derive(SystemParam)]
-pub struct ChangeEvents<'w, 's> {
-    pub lane_motion: EventWriter<'w, 's, Change<Motion>>,
-    pub lane_reverse: EventWriter<'w, 's, Change<ReverseLane>>,
-    pub name: EventWriter<'w, 's, Change<NameInSite>>,
-    pub label: EventWriter<'w, 's, Change<Label>>,
-    pub pose: EventWriter<'w, 's, Change<Pose>>,
-    pub door: EventWriter<'w, 's, Change<DoorType>>,
-    pub lift_cabin: EventWriter<'w, 's, Change<LiftCabin<Entity>>>,
-    pub asset_source: EventWriter<'w, 's, Change<AssetSource>>,
-    pub pixels_per_meter: EventWriter<'w, 's, Change<PixelsPerMeter>>,
-    pub physical_camera_properties: EventWriter<'w, 's, Change<PhysicalCameraProperties>>,
-    pub light: EventWriter<'w, 's, Change<LightKind>>,
-    pub level_elevation: EventWriter<'w, 's, Change<LevelElevation>>,
-    pub color: EventWriter<'w, 's, Change<DisplayColor>>,
-    pub visibility: EventWriter<'w, 's, Change<Visibility>>,
-    pub associated_graphs: EventWriter<'w, 's, Change<AssociatedGraphs<Entity>>>,
-    pub location_tags: EventWriter<'w, 's, Change<LocationTags>>,
-}
-
-// We split out this new struct to deal with the 16 field limitation on
-// SystemParams.
-#[derive(SystemParam)]
-pub struct MoreChangeEvents<'w, 's> {
-    pub affiliation: EventWriter<'w, 's, Change<Affiliation<Entity>>>,
+pub struct ChangeEvents<'w> {
+    pub lane_motion: EventWriter<'w, Change<Motion>>,
+    pub lane_reverse: EventWriter<'w, Change<ReverseLane>>,
+    pub name: EventWriter<'w, Change<NameInSite>>,
+    pub pose: EventWriter<'w, Change<Pose>>,
+    pub door: EventWriter<'w, Change<DoorType>>,
+    pub lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
+    pub asset_source: EventWriter<'w, Change<AssetSource>>,
+    pub pixels_per_meter: EventWriter<'w, Change<PixelsPerMeter>>,
+    pub physical_camera_properties: EventWriter<'w, Change<PhysicalCameraProperties>>,
+    pub light: EventWriter<'w, Change<LightKind>>,
+    pub level_elevation: EventWriter<'w, Change<LevelElevation>>,
+    pub color: EventWriter<'w, Change<DisplayColor>>,
+    pub visibility: EventWriter<'w, Change<Visibility>>,
+    pub associated_graphs: EventWriter<'w, Change<AssociatedGraphs<Entity>>>,
+    pub location_tags: EventWriter<'w, Change<LocationTags>>,
+    pub affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
     pub search_for_fiducial: ResMut<'w, SearchForFiducial>,
     pub search_for_texture: ResMut<'w, SearchForTexture>,
-    pub distance: EventWriter<'w, 's, Change<Distance>>,
-    pub texture: EventWriter<'w, 's, Change<Texture>>,
-    pub joint_properties: EventWriter<'w, 's, Change<JointProperties>>,
-    pub merge_groups: EventWriter<'w, 's, MergeGroups>,
-    pub filtered_issues: EventWriter<'w, 's, Change<FilteredIssues<Entity>>>,
-    pub filtered_issue_kinds: EventWriter<'w, 's, Change<FilteredIssueKinds>>,
+    pub distance: EventWriter<'w, Change<Distance>>,
+    pub texture: EventWriter<'w, Change<Texture>>,
+    pub joint_properties: EventWriter<'w, Change<JointProperties>>,
+    pub merge_groups: EventWriter<'w, MergeGroups>,
+    pub filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
+    pub filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
 }
 
 #[derive(SystemParam)]
-pub struct WorkcellChangeEvents<'w, 's> {
-    pub mesh_constraints: EventWriter<'w, 's, Change<MeshConstraint<Entity>>>,
-    pub primitive_shapes: EventWriter<'w, 's, Change<PrimitiveShape>>,
-    pub name_in_workcell: EventWriter<'w, 's, Change<NameInWorkcell>>,
-    pub workcell_name: EventWriter<'w, 's, Change<NameOfWorkcell>>,
-    pub scale: EventWriter<'w, 's, Change<Scale>>,
+pub struct WorkcellChangeEvents<'w> {
+    pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
+    pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
+    pub workcell_name: EventWriter<'w, Change<NameOfWorkcell>>,
+    pub scale: EventWriter<'w, Change<Scale>>,
+    pub primitive_shapes: EventWriter<'w, Change<PrimitiveShape>>,
 }
 
 #[derive(SystemParam)]
-pub struct FileEvents<'w, 's> {
-    pub save: EventWriter<'w, 's, SaveWorkspace>,
-    pub load_workspace: EventWriter<'w, 's, LoadWorkspace>,
-    pub new_workspace: EventWriter<'w, 's, CreateNewWorkspace>,
+pub struct FileEvents<'w> {
+    pub save: EventWriter<'w, SaveWorkspace>,
+    pub load_workspace: EventWriter<'w, LoadWorkspace>,
+    pub new_workspace: EventWriter<'w, CreateNewWorkspace>,
     pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
 }
 
 #[derive(SystemParam)]
-pub struct PanelResources<'w, 's> {
+pub struct PanelResources<'w> {
     pub level: ResMut<'w, LevelDisplay>,
     pub nav_graph: ResMut<'w, NavGraphDisplay>,
     pub light: ResMut<'w, LightDisplay>,
@@ -206,61 +196,63 @@ pub struct PanelResources<'w, 's> {
     pub log_history: ResMut<'w, LogHistory>,
     pub pending_model: ResMut<'w, PendingModel>,
     pub pending_drawings: ResMut<'w, PendingDrawing>,
-    _ignore: Query<'w, 's, ()>,
 }
 
 #[derive(SystemParam)]
-pub struct Requests<'w, 's> {
+pub struct Requests<'w> {
     pub hover: ResMut<'w, Events<Hover>>,
     pub select: ResMut<'w, Events<Select>>,
-    pub move_to: EventWriter<'w, 's, MoveTo>,
+    pub move_to: EventWriter<'w, MoveTo>,
     pub current_level: ResMut<'w, CurrentLevel>,
     pub current_workspace: ResMut<'w, CurrentWorkspace>,
     pub change_mode: ResMut<'w, Events<ChangeMode>>,
-    pub delete: EventWriter<'w, 's, Delete>,
-    pub toggle_door_levels: EventWriter<'w, 's, ToggleLiftDoorAvailability>,
+    pub delete: EventWriter<'w, Delete>,
+    pub toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,
     pub toggle_headlights: ResMut<'w, HeadlightToggle>,
     pub toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
-    pub spawn_preview: EventWriter<'w, 's, SpawnPreview>,
-    pub export_lights: EventWriter<'w, 's, ExportLights>,
-    pub save_nav_graphs: EventWriter<'w, 's, SaveNavGraphs>,
-    pub calculate_grid: EventWriter<'w, 's, CalculateGrid>,
-    pub consider_tag: EventWriter<'w, 's, ConsiderLocationTag>,
-    pub consider_graph: EventWriter<'w, 's, ConsiderAssociatedGraph>,
+    pub spawn_preview: EventWriter<'w, SpawnPreview>,
+    pub export_lights: EventWriter<'w, ExportLights>,
+    pub save_nav_graphs: EventWriter<'w, SaveNavGraphs>,
+    pub calculate_grid: EventWriter<'w, CalculateGrid>,
+    pub consider_tag: EventWriter<'w, ConsiderLocationTag>,
+    pub consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
+    pub align_site: EventWriter<'w, AlignSiteDrawings>,
+    pub validate_workspace: EventWriter<'w, ValidateWorkspace>,
+    pub create_joint: EventWriter<'w, CreateJoint>,
 }
 
 #[derive(SystemParam)]
-pub struct LayerEvents<'w, 's> {
-    pub floors: EventWriter<'w, 's, ChangeRank<FloorMarker>>,
-    pub drawings: EventWriter<'w, 's, ChangeRank<DrawingMarker>>,
-    pub nav_graphs: EventWriter<'w, 's, ChangeRank<NavGraphMarker>>,
-    pub layer_vis: EventWriter<'w, 's, Change<LayerVisibility>>,
-    pub preferred_alpha: EventWriter<'w, 's, Change<PreferredSemiTransparency>>,
-    pub global_floor_vis: EventWriter<'w, 's, Change<GlobalFloorVisibility>>,
-    pub global_drawing_vis: EventWriter<'w, 's, Change<GlobalDrawingVisibility>>,
-    pub begin_edit_drawing: EventWriter<'w, 's, BeginEditDrawing>,
-    pub finish_edit_drawing: EventWriter<'w, 's, FinishEditDrawing>,
+pub struct LayerEvents<'w> {
+    pub floors: EventWriter<'w, ChangeRank<FloorMarker>>,
+    pub drawings: EventWriter<'w, ChangeRank<DrawingMarker>>,
+    pub nav_graphs: EventWriter<'w, ChangeRank<NavGraphMarker>>,
+    pub layer_vis: EventWriter<'w, Change<LayerVisibility>>,
+    pub preferred_alpha: EventWriter<'w, Change<PreferredSemiTransparency>>,
+    pub global_floor_vis: EventWriter<'w, Change<GlobalFloorVisibility>>,
+    pub global_drawing_vis: EventWriter<'w, Change<GlobalDrawingVisibility>>,
+    pub begin_edit_drawing: EventWriter<'w, BeginEditDrawing>,
+    pub finish_edit_drawing: EventWriter<'w, FinishEditDrawing>,
     pub icons: Res<'w, Icons>,
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityEvents<'w, 's> {
-    pub doors: EventWriter<'w, 's, SetCategoryVisibility<DoorMarker>>,
-    pub floors: EventWriter<'w, 's, SetCategoryVisibility<FloorMarker>>,
-    pub lanes: EventWriter<'w, 's, SetCategoryVisibility<LaneMarker>>,
-    pub lift_cabins: EventWriter<'w, 's, SetCategoryVisibility<LiftCabin<Entity>>>,
-    pub lift_cabin_doors: EventWriter<'w, 's, SetCategoryVisibility<LiftCabinDoorMarker>>,
-    pub locations: EventWriter<'w, 's, SetCategoryVisibility<LocationTags>>,
-    pub fiducials: EventWriter<'w, 's, SetCategoryVisibility<FiducialMarker>>,
-    pub constraints: EventWriter<'w, 's, SetCategoryVisibility<ConstraintMarker>>,
-    pub measurements: EventWriter<'w, 's, SetCategoryVisibility<MeasurementMarker>>,
-    pub walls: EventWriter<'w, 's, SetCategoryVisibility<WallMarker>>,
-    pub visuals: EventWriter<'w, 's, SetCategoryVisibility<VisualMeshMarker>>,
-    pub collisions: EventWriter<'w, 's, SetCategoryVisibility<CollisionMeshMarker>>,
+pub struct VisibilityEvents<'w> {
+    pub doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
+    pub floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
+    pub lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
+    pub lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin<Entity>>>,
+    pub lift_cabin_doors: EventWriter<'w, SetCategoryVisibility<LiftCabinDoorMarker>>,
+    pub locations: EventWriter<'w, SetCategoryVisibility<LocationTags>>,
+    pub fiducials: EventWriter<'w, SetCategoryVisibility<FiducialMarker>>,
+    pub constraints: EventWriter<'w, SetCategoryVisibility<ConstraintMarker>>,
+    pub measurements: EventWriter<'w, SetCategoryVisibility<MeasurementMarker>>,
+    pub walls: EventWriter<'w, SetCategoryVisibility<WallMarker>>,
+    pub visuals: EventWriter<'w, SetCategoryVisibility<VisualMeshMarker>>,
+    pub collisions: EventWriter<'w, SetCategoryVisibility<CollisionMeshMarker>>,
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityResources<'w, 's> {
+pub struct VisibilityResources<'w> {
     pub doors: Res<'w, CategoryVisibility<DoorMarker>>,
     pub floors: Res<'w, CategoryVisibility<FloorMarker>>,
     pub lanes: Res<'w, CategoryVisibility<LaneMarker>>,
@@ -273,20 +265,19 @@ pub struct VisibilityResources<'w, 's> {
     pub walls: Res<'w, CategoryVisibility<WallMarker>>,
     pub visuals: Res<'w, CategoryVisibility<VisualMeshMarker>>,
     pub collisions: Res<'w, CategoryVisibility<CollisionMeshMarker>>,
-    _ignore: Query<'w, 's, ()>,
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityParameters<'w, 's> {
-    events: VisibilityEvents<'w, 's>,
-    resources: VisibilityResources<'w, 's>,
+pub struct VisibilityParameters<'w> {
+    events: VisibilityEvents<'w>,
+    resources: VisibilityResources<'w>,
 }
 
 #[derive(SystemParam)]
 pub struct MenuParams<'w, 's> {
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Option<&'static MenuDisabled>)>,
-    extension_events: EventWriter<'w, 's, MenuEvent>,
+    extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }
 
@@ -297,24 +288,20 @@ pub struct MenuParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
-    pub change: ChangeEvents<'w, 's>,
-    pub change_more: MoreChangeEvents<'w, 's>,
-    pub workcell_change: WorkcellChangeEvents<'w, 's>,
-    pub display: PanelResources<'w, 's>,
-    pub request: Requests<'w, 's>,
-    pub file_events: FileEvents<'w, 's>,
-    pub layers: LayerEvents<'w, 's>,
-    pub new_model: NewModelParams<'w, 's>,
-    pub app_state: ResMut<'w, State<AppState>>,
-    pub visibility_parameters: VisibilityParameters<'w, 's>,
-    // TODO(luca) move these to Requests once 16 limit is lifted
-    pub align_site: EventWriter<'w, 's, AlignSiteDrawings>,
-    pub create_joint: EventWriter<'w, 's, CreateJoint>,
-    pub validate_workspace: EventWriter<'w, 's, ValidateWorkspace>,
+    pub change: ChangeEvents<'w>,
+    pub workcell_change: WorkcellChangeEvents<'w>,
+    pub display: PanelResources<'w>,
+    pub request: Requests<'w>,
+    pub file_events: FileEvents<'w>,
+    pub layers: LayerEvents<'w>,
+    pub new_model: NewModelParams<'w>,
+    pub app_state: Res<'w, State<AppState>>,
+    pub next_app_state: ResMut<'w, NextState<AppState>>,
+    pub visibility_parameters: VisibilityParameters<'w>,
 }
 
 fn site_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
@@ -390,18 +377,14 @@ fn site_ui_layout(
                                 ViewOccupancy::new(&mut events).show(ui);
                             });
                         if ui.add(Button::new("Building preview")).clicked() {
-                            if let Err(err) =
-                                events.app_state.overwrite_set(AppState::SiteVisualizer)
-                            {
-                                error!("Failed to switch to full site visualization: {err}");
-                            }
+                            events.next_app_state.set(AppState::SiteVisualizer);
                         }
                     });
                 });
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -455,7 +438,7 @@ fn site_ui_layout(
 }
 
 fn site_drawing_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     create_params: CreateParams,
@@ -511,7 +494,7 @@ fn site_drawing_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -539,7 +522,7 @@ fn site_drawing_ui_layout(
 }
 
 fn site_visualizer_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     mut events: AppEvents,
     levels: LevelParams,
@@ -571,7 +554,7 @@ fn site_visualizer_ui_layout(
                             .clicked()
                         {
                             if let Some(site) = events.request.current_workspace.root {
-                                events.align_site.send(AlignSiteDrawings(site));
+                                events.request.align_site.send(AlignSiteDrawings(site));
                             }
                         }
                         if ui.add(Button::image_and_text(
@@ -579,9 +562,7 @@ fn site_visualizer_ui_layout(
                             [18., 18.],
                             "Return to site editor"
                         )).clicked() {
-                            if let Err(err) = events.app_state.overwrite_set(AppState::SiteEditor) {
-                                error!("Failed to return to site editor: {err}");
-                            }
+                            events.next_app_state.set(AppState::SiteEditor);
                         }
                     });
                 });
@@ -597,7 +578,7 @@ fn site_visualizer_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -625,7 +606,7 @@ fn site_visualizer_ui_layout(
 }
 
 fn workcell_ui_layout(
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
     create_params: CreateParams,
@@ -668,7 +649,7 @@ fn workcell_ui_layout(
         });
 
     top_menu_bar(
-        &mut egui_context,
+        egui_context.ctx_mut(),
         &mut events.file_events,
         &mut events.visibility_parameters,
         &file_menu,
@@ -704,7 +685,7 @@ fn workcell_ui_layout(
     }
 }
 
-fn init_ui_style(mut egui_context: ResMut<EguiContext>) {
+fn init_ui_style(mut egui_context: EguiContexts) {
     // I think the default egui dark mode text color is too dim, so this changes
     // it to a brighter white.
     let mut visuals = egui::Visuals::dark();

@@ -52,10 +52,12 @@ impl AnchorBundle {
     }
 
     pub fn visible(self, is_visible: bool) -> Self {
-        Self {
-            visibility: Visibility { is_visible },
-            ..self
-        }
+        let visibility = if is_visible {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        Self { visibility, ..self }
     }
 
     /// When the parent's GlobalTransform is not an identity matrix, this can

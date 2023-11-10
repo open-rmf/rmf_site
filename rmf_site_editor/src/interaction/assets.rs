@@ -63,7 +63,7 @@ impl InteractionAssets {
 
     pub fn make_axis(
         &self,
-        command: &mut Commands,
+        commands: &mut Commands,
         // What entity will be moved when this gizmo is dragged
         for_entity_opt: Option<Entity>,
         // What entity should be the parent frame of this gizmo
@@ -73,22 +73,24 @@ impl InteractionAssets {
         rotation: Quat,
         scale: f32,
     ) -> Entity {
-        return command.entity(parent).add_children(|parent| {
-            let mut child_entity = parent.spawn(PbrBundle {
+        let child_entity = commands
+            .spawn(PbrBundle {
                 transform: Transform::from_rotation(rotation)
                     .with_translation(offset)
                     .with_scale(Vec3::splat(scale)),
                 mesh: self.arrow_mesh.clone(),
                 material: material_set.passive.clone(),
                 ..default()
-            });
+            })
+            .set_parent(parent)
+            .id();
 
-            if let Some(for_entity) = for_entity_opt {
-                child_entity
-                    .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
-            }
-            child_entity.id()
-        });
+        if let Some(for_entity) = for_entity_opt {
+            commands
+                .entity(child_entity)
+                .insert(DragAxisBundle::new(for_entity, Vec3::Z).with_materials(material_set));
+        }
+        child_entity
     }
 
     pub fn make_draggable_axis(
@@ -121,12 +123,11 @@ impl InteractionAssets {
         anchor: Entity,
         cue: &mut AnchorVisualization,
     ) {
-        let drag_parent = commands.entity(anchor).add_children(|parent| {
-            parent
-                .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline().irregular().always_xray())
-                .id()
-        });
+        let drag_parent = commands
+            .spawn(SpatialBundle::default())
+            .insert(VisualCue::no_outline().irregular().always_xray())
+            .set_parent(anchor)
+            .id();
 
         let height = 0.0;
         let scale = 0.2;
@@ -167,12 +168,11 @@ impl InteractionAssets {
         cue: &mut AnchorVisualization,
         draggable: bool,
     ) {
-        let drag_parent = commands.entity(anchor).add_children(|parent| {
-            parent
-                .spawn(SpatialBundle::default())
-                .insert(VisualCue::no_outline().irregular().always_xray())
-                .id()
-        });
+        let drag_parent = commands
+            .spawn(SpatialBundle::default())
+            .insert(VisualCue::no_outline().irregular().always_xray())
+            .id();
+        commands.entity(anchor).add_child(drag_parent);
 
         let for_entity = if draggable { Some(anchor) } else { None };
         let scale = 0.2;
@@ -197,7 +197,7 @@ impl InteractionAssets {
             self.make_axis(commands, for_entity, drag_parent, m, p, r, scale);
         }
 
-        commands.entity(drag_parent).add_children(|parent| {
+        commands.entity(drag_parent).with_children(|parent| {
             for (polyline, material) in &self.centimeter_finite_grid {
                 parent.spawn(PolylineBundle {
                     polyline: polyline.clone(),
@@ -292,20 +292,28 @@ impl FromWorld for InteractionAssets {
             base_color: Color::WHITE,
             alpha_mode: AlphaMode::Blend,
             unlit: true,
+            perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let dagger_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
+            perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
         let physical_light_cover_material = materials.add(StandardMaterial {
             base_color: light_cover_color,
+            perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let direction_light_cover_material = materials.add(StandardMaterial {
             base_color: light_cover_color,
             unlit: true,
+            perceptual_roughness: 0.089,
+            metallic: 0.01,
             ..default()
         });
         let x_axis_materials = GizmoMaterialSet::make_x_axis(&mut materials);
@@ -317,18 +325,24 @@ impl FromWorld for InteractionAssets {
                 base_color: Color::rgba(0.1, 0.9, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.1, 0.9, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
         };
@@ -337,18 +351,24 @@ impl FromWorld for InteractionAssets {
                 base_color: Color::rgba(0.9, 0.1, 0.1, 0.1),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             hover: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
             drag: materials.add(StandardMaterial {
                 base_color: Color::rgba(0.9, 0.1, 0.1, 0.9),
                 alpha_mode: AlphaMode::Blend,
                 unlit: true,
+                perceptual_roughness: 0.089,
+                metallic: 0.01,
                 ..default()
             }),
         };

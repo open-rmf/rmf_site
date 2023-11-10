@@ -1,7 +1,7 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Slider},
-    EguiContext,
+    EguiContexts,
 };
 use bevy_mod_raycast::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
@@ -35,7 +35,7 @@ fn set_reference(
     mut geo_events: EventReader<MenuEvent>,
     osm_menu: Res<OSMMenu>,
     current_ws: Res<CurrentWorkspace>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
@@ -54,7 +54,7 @@ fn set_reference(
 
     if let Some((_, mut properties)) = site_properties
         .iter_mut()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if !window.visible {
@@ -191,7 +191,7 @@ pub fn handle_visibility_change(
 pub fn view_reference(
     mut geo_events: EventReader<MenuEvent>,
     osm_menu: Res<OSMMenu>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     current_ws: Res<CurrentWorkspace>,
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
@@ -208,7 +208,7 @@ pub fn view_reference(
 
     if let Some((_, properties)) = site_properties
         .iter()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if let Some(offset) = properties.0 {
@@ -245,7 +245,7 @@ fn settings(
     current_ws: Res<CurrentWorkspace>,
     osm_menu: Res<OSMMenu>,
     mut site_properties: Query<&mut GeographicComponent>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut settings_window: Local<SettingsWindow>,
 ) {
     for event in geo_events.iter() {
@@ -387,7 +387,7 @@ pub fn render_map_tiles(
 ) {
     if let Some((_, site_properties)) = site_properties
         .iter()
-        .filter(|(entity, _)| *entity == current_ws.root.unwrap())
+        .filter(|(entity, _)| Some(*entity) == current_ws.root)
         .nth(0)
     {
         if let Some(geo_offset) = site_properties.0 {
@@ -424,8 +424,8 @@ pub fn render_map_tiles(
             }
 
             if let Ok((camera, transform)) = cameras.get(cam_entity) {
-                if let Some((viewport_min, viewport_max)) = camera.logical_viewport_rect() {
-                    let viewport_size = viewport_max - viewport_min;
+                if let Some(Rect { min, max }) = camera.logical_viewport_rect() {
+                    let viewport_size = max - min;
 
                     let top_left_ray =
                         Ray3d::from_screenspace(Vec2::new(0.0, 0.0), camera, transform);
@@ -585,12 +585,16 @@ pub struct OSMViewPlugin;
 impl Plugin for OSMViewPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<OSMMenu>()
-            .add_stage_after(CoreStage::PreUpdate, "WindowUI", SystemStage::parallel())
-            .add_system_to_stage("WindowUI", set_reference)
-            .add_system_to_stage("WindowUI", view_reference)
-            .add_system_to_stage("WindowUI", settings)
-            .add_system(render_map_tiles)
-            .add_system(handle_visibility_change.before("update_menu"))
-            .add_system(detect_new_geographic_component.label("update_menu"));
+            // TODO(luca) these were in PreUpdate before but putting them there seems to break
+            // editing text fields
+            .add_systems(Update, (set_reference, view_reference, settings))
+            .add_systems(
+                Update,
+                (
+                    render_map_tiles,
+                    handle_visibility_change,
+                    detect_new_geographic_component,
+                ),
+            );
     }
 }

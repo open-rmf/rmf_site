@@ -20,9 +20,8 @@ use crate::{
     interaction::*,
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_mod_picking::PickingRaycastSet;
-use bevy_mod_raycast::{Intersection, Ray3d};
+use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
+use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -96,9 +95,13 @@ impl Cursor {
 
     fn toggle_visibility(&mut self, visibility: &mut Query<&mut Visibility>) {
         if let Ok(mut v) = visibility.get_mut(self.frame) {
-            let visible = self.should_be_visible();
-            if v.is_visible != visible {
-                v.is_visible = visible;
+            let new_visible = if self.should_be_visible() {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if new_visible != *v {
+                *v = new_visible;
             }
         }
     }
@@ -169,7 +172,7 @@ impl FromWorld for Cursor {
                 transform: Transform::from_scale([0.2, 0.2, 1.].into()),
                 mesh: halo_mesh,
                 material: halo_material,
-                visibility: Visibility { is_visible: true },
+                visibility: Visibility::Inherited,
                 ..default()
             })
             .insert(Spinning::default())
@@ -180,7 +183,7 @@ impl FromWorld for Cursor {
             .spawn(PbrBundle {
                 mesh: dagger_mesh,
                 material: dagger_material,
-                visibility: Visibility { is_visible: true },
+                visibility: Visibility::Inherited,
                 ..default()
             })
             .insert(Spinning::default())
@@ -241,7 +244,7 @@ impl FromWorld for Cursor {
                 frame_placement,
             ])
             .insert(SpatialBundle {
-                visibility: Visibility { is_visible: false },
+                visibility: Visibility::Hidden,
                 ..default()
             })
             .id();
@@ -272,7 +275,7 @@ pub struct Preview;
 
 #[derive(SystemParam)]
 pub struct IntersectGroundPlaneParams<'w, 's> {
-    windows: Res<'w, Windows>,
+    primary_windows: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
     camera_controls: Res<'w, CameraControls>,
     cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
@@ -280,7 +283,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
     pub fn ground_plane_intersection(&self) -> Option<Vec3> {
-        let window = self.windows.get_primary()?;
+        let window = self.primary_windows.get_single().ok()?;
         let cursor_position = window.cursor_position()?;
         let e_active_camera = self.camera_controls.active_camera();
         let active_camera = self.cameras.get(e_active_camera).ok()?;
@@ -301,7 +304,7 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
 pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
-    intersections: Query<&Intersection<PickingRaycastSet>>,
+    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     mut transforms: Query<&mut Transform>,
     hovering: Res<Hovering>,
@@ -310,8 +313,12 @@ pub fn update_cursor_transform(
 ) {
     match &*mode {
         InteractionMode::Inspect => {
-            let intersection = match intersections.iter().last() {
-                Some(intersection) => intersection,
+            // TODO(luca) this will not work if more than one raycast source exist
+            let Ok(source) = raycast_sources.get_single() else {
+                return;
+            };
+            let intersection = match source.get_nearest_intersection() {
+                Some((_, intersection)) => intersection,
                 None => {
                     return;
                 }
@@ -324,12 +331,7 @@ pub fn update_cursor_transform(
                 }
             };
 
-            let ray = match intersection.normal_ray() {
-                Some(ray) => ray,
-                None => {
-                    return;
-                }
-            };
+            let ray = Ray3d::new(intersection.position(), intersection.normal());
 
             *transform = Transform::from_matrix(ray.to_aligned_transform([0., 0., 1.].into()));
         }
@@ -359,13 +361,16 @@ pub fn update_cursor_transform(
                     return;
                 }
             };
+
+            let Ok(source) = raycast_sources.get_single() else {
+                return;
+            };
+
             // Check if there is an intersection to a mesh, if there isn't fallback to ground plane
-            // TODO(luca) Clean this messy statement, the API for intersections is not too friendly
-            if let Some((Some(triangle), Some(position), Some(normal))) = intersections
-                .iter()
-                .last()
-                .and_then(|data| Some((data.world_triangle(), data.position(), data.normal())))
-            {
+            if let Some((_, intersection)) = source.get_nearest_intersection() {
+                let Some(triangle) = intersection.triangle() else {
+                    return;
+                };
                 // Make sure we are hovering over a model and not anything else (i.e. anchor)
                 match cursor.preview_model {
                     None => {
@@ -376,6 +381,7 @@ pub fn update_cursor_transform(
                             // spawning methods
                             // TODO(luca) there must be a better way to find a minimum given predicate in Rust
                             let triangle_vecs = vec![triangle.v1, triangle.v2];
+                            let position = intersection.position();
                             let mut closest_vertex = triangle.v0;
                             let mut closest_dist = position.distance(triangle.v0.into());
                             for v in triangle_vecs {
@@ -386,7 +392,7 @@ pub fn update_cursor_transform(
                                 }
                             }
                             //closest_vertex = *triangle_vecs.iter().min_by(|position, ver| position.distance(**ver).cmp(closest_dist)).unwrap();
-                            let ray = Ray3d::new(closest_vertex.into(), normal);
+                            let ray = Ray3d::new(closest_vertex.into(), intersection.normal());
                             *transform = Transform::from_matrix(
                                 ray.to_aligned_transform([0., 0., 1.].into()),
                             );
@@ -445,7 +451,7 @@ pub fn add_cursor_hover_visualization(
 
 pub fn update_cursor_hover_visualization(
     entities: Query<(Entity, &Hovered), (With<CursorHoverVisualization>, Changed<Hovered>)>,
-    removed: RemovedComponents<CursorHoverVisualization>,
+    mut removed: RemovedComponents<CursorHoverVisualization>,
     mut cursor: ResMut<Cursor>,
     mut visibility: Query<&mut Visibility>,
 ) {
@@ -469,7 +475,9 @@ pub fn make_model_previews_not_selectable(
     cursor: Res<Cursor>,
 ) {
     if let Some(e) = cursor.preview_model.and_then(|m| new_models.get(m).ok()) {
-        commands.entity(e).remove::<Selectable>();
-        commands.entity(e).remove::<PickableBundle>();
+        commands
+            .entity(e)
+            .remove::<Selectable>()
+            .remove::<RaycastMesh<SiteRaycastSet>>();
     }
 }

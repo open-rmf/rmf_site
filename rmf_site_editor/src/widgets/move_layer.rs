@@ -23,16 +23,16 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{ImageButton, Ui};
 
-pub struct MoveLayer<'a, 'w, 's, T: Component> {
+pub struct MoveLayer<'a, 'w, T: Component> {
     entity: Entity,
-    rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+    rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
     icons: &'a Icons,
 }
 
-impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
+impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, T> {
     pub fn new(
         entity: Entity,
-        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
         Self {
@@ -53,17 +53,17 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, 's, T> {
     }
 }
 
-pub struct MoveLayerButton<'a, 'w, 's, T: Component> {
+pub struct MoveLayerButton<'a, 'w, T: Component> {
     entity: Entity,
-    rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+    rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
     icons: &'a Icons,
     adjustment: RankAdjustment,
 }
 
-impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, 's, T> {
+impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, T> {
     pub fn to_top(
         entity: Entity,
-        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
         Self {
@@ -76,7 +76,7 @@ impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, 's, T> {
 
     pub fn up(
         entity: Entity,
-        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
         Self {
@@ -89,7 +89,7 @@ impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, 's, T> {
 
     pub fn down(
         entity: Entity,
-        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
         Self {
@@ -102,7 +102,7 @@ impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, 's, T> {
 
     pub fn to_bottom(
         entity: Entity,
-        rank_events: &'a mut EventWriter<'w, 's, ChangeRank<T>>,
+        rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
         icons: &'a Icons,
     ) -> Self {
         Self {

@@ -157,7 +157,7 @@ fn spawn_geometry(
                         size: [s.x as f32, s.y as f32, s.z as f32],
                     })
                     .insert(pose)
-                    .insert(SpatialBundle::VISIBLE_IDENTITY)
+                    .insert(SpatialBundle::INHERITED_IDENTITY)
                     .id(),
             )
         }
@@ -168,7 +168,7 @@ fn spawn_geometry(
                     length: c.length as f32,
                 })
                 .insert(pose)
-                .insert(SpatialBundle::VISIBLE_IDENTITY)
+                .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
         SdfGeometry::Cylinder(c) => Some(
@@ -178,7 +178,7 @@ fn spawn_geometry(
                     length: c.length as f32,
                 })
                 .insert(pose)
-                .insert(SpatialBundle::VISIBLE_IDENTITY)
+                .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
         SdfGeometry::Sphere(s) => Some(
@@ -187,7 +187,7 @@ fn spawn_geometry(
                     radius: s.radius as f32,
                 })
                 .insert(pose)
-                .insert(SpatialBundle::VISIBLE_IDENTITY)
+                .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
         _ => None,

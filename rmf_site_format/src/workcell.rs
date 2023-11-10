@@ -25,7 +25,7 @@ use bevy::ecs::system::EntityCommands;
 #[cfg(feature = "bevy")]
 use bevy::prelude::{Bundle, Component, Deref, DerefMut, Entity, SpatialBundle};
 #[cfg(feature = "bevy")]
-use bevy::reflect::TypeUuid;
+use bevy::reflect::{TypePath, TypeUuid};
 use glam::{EulerRot, Vec3};
 use serde::{Deserialize, Serialize};
 use thiserror::Error as ThisError;
@@ -264,7 +264,7 @@ impl JointProperties {
 impl Joint {
     pub fn add_bevy_components(&self, commands: &mut EntityCommands) {
         commands.insert((
-            SpatialBundle::VISIBLE_IDENTITY,
+            SpatialBundle::INHERITED_IDENTITY,
             Category::Joint,
             self.name.clone(),
             self.properties.clone(),
@@ -848,7 +848,7 @@ impl Workcell {
 
 #[cfg_attr(
     feature = "bevy",
-    derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid)
+    derive(Component, Clone, Debug, Deref, DerefMut, TypeUuid, TypePath)
 )]
 #[cfg_attr(feature = "bevy", uuid = "fe707f9e-c6f3-11ed-afa1-0242ac120002")]
 pub struct UrdfRoot(pub urdf_rs::Robot);

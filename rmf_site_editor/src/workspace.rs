@@ -30,7 +30,7 @@ use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 use crossbeam_channel::{Receiver, Sender};
 
 /// Used as an event to command that a new workspace should be made the current one
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Event)]
 pub struct ChangeCurrentWorkspace {
     /// What should the current site be
     pub root: Entity,
@@ -38,6 +38,7 @@ pub struct ChangeCurrentWorkspace {
 
 /// Used as an event to command that a new workspace should be created, behavior will depend on
 /// what app mode the editor is currently in
+#[derive(Event)]
 pub struct CreateNewWorkspace;
 
 /// Apply this component to all workspace types
@@ -50,6 +51,7 @@ pub struct WorkspaceMarker;
 // workcells or sites
 // Dialog will spawn a RFD dialog, Path will open a specific path, the others will parse embedded
 // data
+#[derive(Event)]
 pub enum LoadWorkspace {
     Dialog,
     Path(PathBuf),
@@ -128,10 +130,15 @@ impl Plugin for WorkspacePlugin {
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
             .init_resource::<LoadWorkspaceChannels>()
-            .add_system(dispatch_new_workspace_events)
-            .add_system(workspace_file_load_complete)
-            .add_system(sync_workspace_visibility)
-            .add_system(dispatch_load_workspace_events);
+            .add_systems(
+                Update,
+                (
+                    dispatch_new_workspace_events,
+                    workspace_file_load_complete,
+                    sync_workspace_visibility,
+                    dispatch_load_workspace_events,
+                ),
+            );
     }
 }
 
@@ -142,7 +149,7 @@ pub fn dispatch_new_workspace_events(
     mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
     if let Some(_cmd) = new_workspace.iter().last() {
-        match state.current() {
+        match state.get() {
             AppState::MainMenu => {
                 error!("Sent generic change workspace while in main menu");
             }
@@ -170,8 +177,8 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut app_state: ResMut<State<AppState>>,
-    mut interaction_state: ResMut<State<InteractionState>>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
@@ -230,8 +237,8 @@ pub fn dispatch_load_workspace_events(
 fn handle_workspace_data(
     file: Option<PathBuf>,
     workspace_data: &WorkspaceData,
-    app_state: &mut ResMut<State<AppState>>,
-    interaction_state: &mut ResMut<State<InteractionState>>,
+    app_state: &mut ResMut<NextState<AppState>>,
+    interaction_state: &mut ResMut<NextState<InteractionState>>,
     load_site: &mut EventWriter<LoadSite>,
     load_workcell: &mut EventWriter<LoadWorkcell>,
 ) {
@@ -243,19 +250,13 @@ fn handle_workspace_data(
                     match building.to_site() {
                         Ok(site) => {
                             // Switch state
-                            if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
-                                error!("Failed to open the site edit mode: {err}");
-                            }
+                            app_state.set(AppState::SiteEditor);
                             load_site.send(LoadSite {
                                 site,
                                 focus: true,
                                 default_file: file,
                             });
-                            if let Err(err) =
-                                interaction_state.overwrite_set(InteractionState::Enable)
-                            {
-                                error!("Failed to turn on interaction: {err}");
-                            }
+                            interaction_state.set(InteractionState::Enable);
                         }
                         Err(err) => {
                             error!("Failed converting to site {:?}", err);
@@ -272,17 +273,13 @@ fn handle_workspace_data(
             match Site::from_bytes(&data) {
                 Ok(site) => {
                     // Switch state
-                    if let Err(err) = app_state.overwrite_set(AppState::SiteEditor) {
-                        error!("Failed to open the site edit mode: {err}");
-                    }
+                    app_state.set(AppState::SiteEditor);
                     load_site.send(LoadSite {
                         site,
                         focus: true,
                         default_file: file,
                     });
-                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
-                        error!("Failed to turn on interaction: {err}");
-                    }
+                    interaction_state.set(InteractionState::Enable);
                 }
                 Err(err) => {
                     error!("Failed loading site {:?}", err);
@@ -294,17 +291,13 @@ fn handle_workspace_data(
             match Workcell::from_bytes(&data) {
                 Ok(workcell) => {
                     // Switch state
-                    if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
-                        error!("Failed to open the workcell edit mode: {err}");
-                    }
+                    app_state.set(AppState::WorkcellEditor);
                     load_workcell.send(LoadWorkcell {
                         workcell,
                         focus: true,
                         default_file: file,
                     });
-                    if let Err(err) = interaction_state.overwrite_set(InteractionState::Enable) {
-                        error!("Failed to turn on interaction: {err}");
-                    }
+                    interaction_state.set(InteractionState::Enable);
                 }
                 Err(err) => {
                     error!("Failed loading workcell {:?}", err);
@@ -323,19 +316,13 @@ fn handle_workspace_data(
                     match Workcell::from_urdf(&urdf) {
                         Ok(workcell) => {
                             // Switch state
-                            if let Err(err) = app_state.overwrite_set(AppState::WorkcellEditor) {
-                                error!("Failed to open the workcell edit mode: {err}");
-                            }
+                            app_state.set(AppState::WorkcellEditor);
                             load_workcell.send(LoadWorkcell {
                                 workcell,
                                 focus: true,
                                 default_file: file,
                             });
-                            if let Err(err) =
-                                interaction_state.overwrite_set(InteractionState::Enable)
-                            {
-                                error!("Failed to turn on interaction: {err}");
-                            }
+                            interaction_state.set(InteractionState::Enable);
                         }
                         Err(err) => {
                             error!("Failed converting urdf to workcell {:?}", err);
@@ -352,8 +339,8 @@ fn handle_workspace_data(
 
 /// Handles the file opening events
 fn workspace_file_load_complete(
-    mut app_state: ResMut<State<AppState>>,
-    mut interaction_state: ResMut<State<InteractionState>>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
@@ -386,13 +373,17 @@ pub fn sync_workspace_visibility(
         // Set visibility of current to target
         if let Some(current_workspace_entity) = current_workspace.root {
             if let Ok(mut v) = visibility.get_mut(current_workspace_entity) {
-                v.is_visible = current_workspace.display;
+                *v = if current_workspace.display {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
             }
         }
         // Disable visibility in recall
         if let Some(recall) = recall.0 {
             if let Ok(mut v) = visibility.get_mut(recall) {
-                v.is_visible = false;
+                *v = Visibility::Hidden;
             }
         }
         recall.0 = current_workspace.root;

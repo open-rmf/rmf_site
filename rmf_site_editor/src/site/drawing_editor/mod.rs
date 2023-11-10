@@ -32,11 +32,11 @@ use crate::{
 
 use std::collections::HashSet;
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);
 
 /// Command to finish editing a drawing. Use None to command any drawing to finish.
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Event)]
 pub struct FinishEditDrawing(pub Option<Entity>);
 
 #[derive(Clone, Copy)]
@@ -72,7 +72,7 @@ impl CurrentEditDrawing {
 #[derive(Default)]
 pub struct DrawingEditorPlugin;
 
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Event)]
 pub struct AlignSiteDrawings(pub Entity);
 
 fn switch_edit_drawing_mode(
@@ -81,7 +81,7 @@ fn switch_edit_drawing_mode(
     mut finish: EventReader<FinishEditDrawing>,
     mut current: ResMut<CurrentEditDrawing>,
     mut workspace_visibility: Query<&mut Visibility, With<WorkspaceMarker>>,
-    mut app_state: ResMut<State<AppState>>,
+    mut app_state: ResMut<NextState<AppState>>,
     mut local_tf: Query<&mut Transform>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     global_tf: Query<&GlobalTransform>,
@@ -120,7 +120,7 @@ fn switch_edit_drawing_mode(
             commands
                 .entity(*e)
                 .set_parent(current.editor)
-                .insert(Visibility { is_visible: true })
+                .insert(Visibility::Inherited)
                 .insert(ComputedVisibility::default())
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited".to_owned(),
@@ -141,12 +141,10 @@ fn switch_edit_drawing_mode(
                 error!("Cannot change transform of drawing editor view");
             }
 
-            if let Some(err) = app_state.overwrite_set(AppState::SiteDrawingEditor).err() {
-                error!("Unable to switch to drawing editor mode: {err:?}");
-            }
+            app_state.set(AppState::SiteDrawingEditor);
 
             for mut v in &mut workspace_visibility {
-                v.is_visible = false;
+                *v = Visibility::Hidden;
             }
         }
     }
@@ -169,26 +167,24 @@ fn switch_edit_drawing_mode(
 
         if let Some(w) = current_workspace.root {
             if let Ok(mut v) = workspace_visibility.get_mut(w) {
-                v.is_visible = current_workspace.display;
+                *v = if current_workspace.display {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
             }
 
             if is_site.contains(w) {
-                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
-                    error!("Failed to switch back to site editing mode: {err:?}");
-                }
+                app_state.set(AppState::SiteEditor);
             } else if is_workcell.contains(w) {
-                if let Some(err) = app_state.overwrite_set(AppState::WorkcellEditor).err() {
-                    error!("Failed to switch back to workcell editing mode: {err:?}");
-                }
+                app_state.set(AppState::WorkcellEditor);
             } else {
                 // This logic can probably be improved with an editor mode stack
                 error!(
                     "Unable to identify the type for the current workspace \
                     {w:?}, so we will default to site editing mode",
                 );
-                if let Some(err) = app_state.overwrite_set(AppState::SiteEditor).err() {
-                    error!("Failed to switch back to site editing mode: {err:?}");
-                }
+                app_state.set(AppState::SiteEditor);
             }
         }
     }
@@ -205,8 +201,8 @@ fn restore_edited_drawing(edit: &EditDrawing, commands: &mut Commands) {
 
 fn assign_drawing_parent_to_new_measurements(
     mut commands: Commands,
-    mut changed_measurement: Query<
-        (Entity, &Edge<Entity>, Option<&Parent>),
+    changed_measurement: Query<
+        (Entity, &Edge<Entity>),
         (
             Without<Pending>,
             (With<MeasurementMarker>, Changed<Edge<Entity>>),
@@ -214,15 +210,15 @@ fn assign_drawing_parent_to_new_measurements(
     >,
     parents: Query<&Parent>,
 ) {
-    for (e, edge, mut tf) in &mut changed_measurement {
+    for (e, edge) in &changed_measurement {
         if let (Ok(p0), Ok(p1)) = (parents.get(edge.left()), parents.get(edge.right())) {
             if p0.get() != p1.get() {
-                commands.entity(e).set_parent(p0.get());
-            } else {
                 warn!(
                     "Mismatch in parents of anchors for measurement {e:?}: {:?}, {:?}",
                     p0, p1
                 );
+            } else {
+                commands.entity(e).set_parent(p0.get());
             }
         } else {
             warn!(
@@ -255,11 +251,14 @@ impl Plugin for DrawingEditorPlugin {
             .add_event::<FinishEditDrawing>()
             .add_event::<AlignSiteDrawings>()
             .init_resource::<CurrentEditDrawing>()
-            .add_system(switch_edit_drawing_mode)
-            .add_system_set(
-                SystemSet::on_update(AppState::SiteDrawingEditor)
-                    .with_system(assign_drawing_parent_to_new_measurements)
-                    .with_system(make_drawing_default_selected),
+            .add_systems(Update, switch_edit_drawing_mode)
+            .add_systems(
+                Update,
+                (
+                    assign_drawing_parent_to_new_measurements,
+                    make_drawing_default_selected,
+                )
+                    .run_if(in_state(AppState::SiteDrawingEditor)),
             );
     }
 }

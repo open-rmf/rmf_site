@@ -149,6 +149,8 @@ pub fn handle_loaded_drawing(
                     base_color_texture: Some(handle.0.clone()),
                     base_color: *Color::default().set_a(alpha),
                     alpha_mode,
+                    perceptual_roughness: 0.089,
+                    metallic: 0.01,
                     ..Default::default()
                 });
 
@@ -157,14 +159,16 @@ pub fn handle_loaded_drawing(
                     // We can ignore the layer height here since that update
                     // will be handled by another system.
                 } else {
-                    let mut cmd = commands.entity(entity);
-                    let leaf = cmd.add_children(|p| p.spawn_empty().id());
+                    let leaf = commands.spawn_empty().id();
 
-                    cmd.insert(DrawingSegments { leaf })
+                    commands
+                        .entity(entity)
+                        .insert(DrawingSegments { leaf })
                         .insert(SpatialBundle::from_transform(pose.transform().with_scale(
                             Vec3::new(1.0 / pixels_per_meter.0, 1.0 / pixels_per_meter.0, 1.),
                         )))
-                        .insert(Selectable::new(entity));
+                        .insert(Selectable::new(entity))
+                        .push_children(&[leaf]);
                     leaf
                 };
                 let z = drawing_layer_height(rank);
@@ -327,7 +331,7 @@ pub fn update_drawing_visibility(
             Changed<RecencyRank<DrawingMarker>>,
         )>,
     >,
-    removed_vis: RemovedComponents<LayerVisibility>,
+    mut removed_vis: RemovedComponents<LayerVisibility>,
     all_drawings: Query<(
         Option<&LayerVisibility>,
         Option<&Parent>,

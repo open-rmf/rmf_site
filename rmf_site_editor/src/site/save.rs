@@ -28,11 +28,13 @@ use thiserror::Error as ThisError;
 use crate::{recency::RecencyRanking, site::*};
 use rmf_site_format::*;
 
+#[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: PathBuf,
 }
 
+#[derive(Event)]
 pub struct SaveNavGraphs {
     pub site: Entity,
     pub to_file: PathBuf,
@@ -314,7 +316,6 @@ fn generate_levels(
                 &Edge<Entity>,
                 Option<&Original<Edge<Entity>>>,
                 &Distance,
-                &Label,
                 &SiteID,
             ),
             (With<MeasurementMarker>, Without<Pending>),
@@ -460,8 +461,7 @@ fn generate_levels(
                             if let Ok((anchor, anchor_id)) = q_anchors.get(*e) {
                                 anchors.insert(anchor_id.0, anchor.clone());
                             }
-                            if let Ok((edge, o_edge, distance, label, id)) = q_measurements.get(*e)
-                            {
+                            if let Ok((edge, o_edge, distance, id)) = q_measurements.get(*e) {
                                 let edge = o_edge.map(|x| &x.0).unwrap_or(edge);
                                 let anchors = get_anchor_id_edge(edge)?;
                                 measurements.insert(
@@ -469,7 +469,6 @@ fn generate_levels(
                                     Measurement {
                                         anchors,
                                         distance: distance.clone(),
-                                        label: label.clone(),
                                         marker: MeasurementMarker,
                                     },
                                 );

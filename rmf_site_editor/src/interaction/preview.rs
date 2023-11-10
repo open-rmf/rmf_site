@@ -21,14 +21,14 @@ use bevy::{
         camera::{Projection, RenderTarget},
         view::RenderLayers,
     },
-    window::{CreateWindow, PresentMode, WindowClosed, WindowId, Windows},
+    window::{PresentMode, WindowClosed, WindowRef},
 };
 
 use rmf_site_format::{NameInSite, PhysicalCameraProperties, PreviewableMarker};
 
 /// Instruction to spawn a preview for the given entity
 /// TODO None to encode "Clear all"
-#[derive(Debug, Clone, Copy, Default, PartialEq)]
+#[derive(Debug, Clone, Copy, Default, PartialEq, Event)]
 pub struct SpawnPreview {
     pub entity: Option<Entity>,
 }
@@ -41,31 +41,31 @@ impl SpawnPreview {
 
 /// Used to keep track of what Camera is being previewed in what window for runtime updates
 #[derive(Component)]
-pub struct CameraPreviewWindow(pub WindowId);
+pub struct CameraPreviewWindow(pub Entity);
 
 fn create_camera_window(
     commands: &mut Commands,
     entity: Entity,
     camera_name: &String,
     camera_properties: &PhysicalCameraProperties,
-    create_window_events: &mut EventWriter<CreateWindow>,
-) -> WindowId {
-    let window_id = WindowId::new();
-    create_window_events.send(CreateWindow {
-        id: window_id,
-        descriptor: WindowDescriptor {
-            width: camera_properties.width as f32,
-            height: camera_properties.height as f32,
+) -> Entity {
+    let window_id = commands
+        .spawn(Window {
+            resolution: (
+                camera_properties.width as f32,
+                camera_properties.height as f32,
+            )
+                .into(),
             present_mode: PresentMode::AutoNoVsync,
             title: "Camera preview: ".to_string() + camera_name,
             ..default()
-        },
-    });
+        })
+        .id();
     // Now spawn the camera
     commands
         .entity(entity)
         .insert(Camera {
-            target: RenderTarget::Window(window_id),
+            target: RenderTarget::Window(WindowRef::Entity(window_id)),
             is_active: true,
             ..default()
         })
@@ -84,7 +84,6 @@ pub fn manage_previews(
     >,
     preview_windows: Query<&CameraPreviewWindow>,
     mut camera_children: Query<(Entity, &mut Projection), With<Camera>>,
-    mut create_window_events: EventWriter<CreateWindow>,
 ) {
     for event in preview_events.iter() {
         match event.entity {
@@ -116,7 +115,6 @@ pub fn manage_previews(
                                 child_entity,
                                 &camera_name,
                                 &camera_properties,
-                                &mut create_window_events,
                             );
                             commands.entity(e).insert(CameraPreviewWindow(window_id));
                         }
@@ -133,10 +131,10 @@ pub fn update_physical_camera_preview(
         Changed<PhysicalCameraProperties>,
     >,
     mut camera_children: Query<&mut Projection, With<Camera>>,
-    mut windows: ResMut<Windows>,
+    mut windows: Query<&mut Window>,
 ) {
     for (children, camera_properties, preview_window) in updated_cameras.iter() {
-        if let Some(window) = windows.get_mut(preview_window.0) {
+        if let Ok(mut window) = windows.get_mut(preview_window.0) {
             // Update fov first
             if let Ok(mut projection) = camera_children.get_mut(children[0]) {
                 if let Projection::Perspective(perspective_projection) = &mut (*projection) {
@@ -146,10 +144,11 @@ pub fn update_physical_camera_preview(
                         camera_properties.horizontal_fov.radians() / aspect_ratio;
                 }
             }
-            window.set_resolution(
+            window.resolution = (
                 camera_properties.width as f32,
                 camera_properties.height as f32,
-            );
+            )
+                .into();
         }
     }
 }
@@ -161,7 +160,7 @@ pub fn handle_preview_window_close(
 ) {
     for closed in closed_windows.iter() {
         for (e, window) in &preview_windows {
-            if window.0 == closed.id {
+            if window.0 == closed.window {
                 commands.entity(e).remove::<CameraPreviewWindow>();
             }
         }

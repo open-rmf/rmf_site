@@ -17,6 +17,7 @@
 
 use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
+use bevy_mod_raycast::RaycastMesh;
 use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can
@@ -96,11 +97,11 @@ pub struct Selection(pub Option<Entity>);
 pub struct Hovering(pub Option<Entity>);
 
 /// Used as an event to command a change in the selected entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Select(pub Option<Entity>);
 
 /// Used as an event to command a change in the hovered entity.
-#[derive(Default, Debug, Clone, Copy, Deref, DerefMut)]
+#[derive(Default, Debug, Clone, Copy, Deref, DerefMut, Event)]
 pub struct Hover(pub Option<Entity>);
 
 /// A resource to track what kind of blockers are preventing the selection
@@ -134,7 +135,9 @@ pub fn make_selectable_entities_pickable(
     targets: Query<(Option<&Hovered>, Option<&Selected>)>,
 ) {
     for (entity, selectable) in &new_selectables {
-        commands.entity(entity).insert(PickableBundle::default());
+        commands
+            .entity(entity)
+            .insert(RaycastMesh::<SiteRaycastSet>::default());
 
         if let Ok((hovered, selected)) = targets.get(selectable.element) {
             if hovered.is_none() {

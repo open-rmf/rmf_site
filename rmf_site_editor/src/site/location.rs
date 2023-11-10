@@ -87,14 +87,18 @@ pub fn add_location_visuals(
         }
 
         let material = graphs.display_style(associated_graphs).0;
-        let is_visible = should_display_point(
+        let visibility = if should_display_point(
             point,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
             &graphs,
-        );
+        ) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
 
         let position = anchors
             .point_in_parent_frame_of(point.0, Category::Location, e)
@@ -136,7 +140,7 @@ pub fn add_location_visuals(
                 mesh: assets.location_mesh.clone(),
                 transform: Transform::from_translation(position),
                 material,
-                visibility: Visibility { is_visible },
+                visibility,
                 ..default()
             })
             .insert(Spinning::new(-10.0))
@@ -170,16 +174,20 @@ pub fn update_changed_location(
         tf.translation = position;
         tf.translation.z = LOCATION_LAYER_HEIGHT;
 
-        let is_visible = should_display_point(
+        let new_visibility = if should_display_point(
             point,
             associated,
             &parents,
             &levels,
             &current_level,
             &graphs,
-        );
-        if visibility.is_visible != is_visible {
-            visibility.is_visible = is_visible;
+        ) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
+        if *visibility != new_visibility {
+            *visibility = new_visibility;
         }
     }
 }
@@ -303,37 +311,45 @@ pub fn update_visibility_for_locations(
             Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
         ),
     >,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (point, associated, mut visibility, _) in &mut locations {
-            let is_visible = should_display_point(
+            let new_visibility = if should_display_point(
                 point,
                 associated,
                 &parents,
                 &levels,
                 &current_level,
                 &graphs,
-            );
-            if visibility.is_visible != is_visible {
-                visibility.is_visible = is_visible;
+            ) {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if *visibility != new_visibility {
+                *visibility = new_visibility;
             }
         }
     } else {
         for e in &locations_with_changed_association {
             if let Ok((point, associated, mut visibility, _)) = locations.get_mut(e) {
-                let is_visible = should_display_point(
+                let new_visibility = if should_display_point(
                     point,
                     associated,
                     &parents,
                     &levels,
                     &current_level,
                     &graphs,
-                );
-                if visibility.is_visible != is_visible {
-                    visibility.is_visible = is_visible;
+                ) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+                if *visibility != new_visibility {
+                    *visibility = new_visibility;
                 }
             }
         }
@@ -352,7 +368,7 @@ pub fn update_visibility_for_locations(
     }
 }
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Event)]
 pub struct ConsiderLocationTag {
     pub tag: Option<LocationTag>,
     pub for_element: Entity,

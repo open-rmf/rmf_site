@@ -170,20 +170,25 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                         self.events.display.nav_graph.removing = false;
                     }
                 } else {
-                    let mut is_visible = vis.is_visible;
+                    let mut is_visible = !matches!(vis, Visibility::Hidden);
                     if ui
                         .checkbox(&mut is_visible, "")
-                        .on_hover_text(if vis.is_visible {
+                        .on_hover_text(if is_visible {
                             "Make this graph invisible"
                         } else {
                             "Make this graph visible"
                         })
                         .changed()
                     {
+                        let visibility = if is_visible {
+                            Visibility::Inherited
+                        } else {
+                            Visibility::Hidden
+                        };
                         self.events
                             .change
                             .visibility
-                            .send(Change::new(Visibility { is_visible }, e));
+                            .send(Change::new(visibility, e));
                     }
                 }
 

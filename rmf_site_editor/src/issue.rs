@@ -48,7 +48,7 @@ impl RegisterIssueType for App {
 }
 
 /// Used as an event to request validation of a workspace
-#[derive(Deref, DerefMut)]
+#[derive(Deref, DerefMut, Event)]
 pub struct ValidateWorkspace(pub Entity);
 
 // Maps a uuid to the issue name
@@ -94,11 +94,13 @@ fn handle_diagnostic_window_visibility(
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<ValidateWorkspace>()
-            .add_plugin(ChangePlugin::<FilteredIssues<Entity>>::default())
-            .add_plugin(ChangePlugin::<FilteredIssueKinds>::default())
+            .add_plugins((
+                ChangePlugin::<FilteredIssues<Entity>>::default(),
+                ChangePlugin::<FilteredIssueKinds>::default(),
+            ))
             .init_resource::<IssueDictionary>()
             .init_resource::<IssueMenu>()
-            .add_system(handle_diagnostic_window_visibility);
+            .add_systems(Update, handle_diagnostic_window_visibility);
     }
 }
 

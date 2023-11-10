@@ -1,5 +1,5 @@
 use bevy::{
-    asset::{AssetIo, AssetIoError, AssetPlugin, FileType, Metadata},
+    asset::{AssetIo, AssetIoError, AssetPlugin, ChangeWatcher, FileType, Metadata},
     prelude::*,
     utils::{BoxedFuture, HashMap},
 };
@@ -391,20 +391,24 @@ impl AssetIo for SiteAssetIo {
         self.default_io.is_dir(path)
     }
 
-    fn watch_path_for_changes(&self, path: &Path) -> Result<(), AssetIoError> {
+    fn watch_path_for_changes(
+        &self,
+        to_watch: &Path,
+        to_reload: Option<PathBuf>,
+    ) -> Result<(), AssetIoError> {
         #[cfg(target_arch = "wasm32")]
         return Ok(());
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.default_io.watch_path_for_changes(path)
+        self.default_io.watch_path_for_changes(to_watch, to_reload)
     }
 
-    fn watch_for_changes(&self) -> Result<(), AssetIoError> {
+    fn watch_for_changes(&self, configuration: &ChangeWatcher) -> Result<(), AssetIoError> {
         #[cfg(target_arch = "wasm32")]
         return Ok(());
 
         #[cfg(not(target_arch = "wasm32"))]
-        self.default_io.watch_for_changes()
+        self.default_io.watch_for_changes(configuration)
     }
 }
 
@@ -424,8 +428,6 @@ impl Plugin for SiteAssetIoPlugin {
 
         // the asset server is constructed and added the resource manager
         app.insert_resource(AssetServer::new(asset_io))
-            .add_plugin(bevy_stl::StlPlugin)
-            .add_plugin(bevy_obj::ObjPlugin)
-            .add_plugin(UrdfPlugin);
+            .add_plugins((bevy_stl::StlPlugin, bevy_obj::ObjPlugin, UrdfPlugin));
     }
 }

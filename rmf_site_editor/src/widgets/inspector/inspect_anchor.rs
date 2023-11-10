@@ -216,7 +216,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                             // If the parent is not a joint, add a joint creation widget
                             if self.params.joints.get(parent.get()).is_err() {
                                 if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
-                                    self.events.create_joint.send(CreateJoint {
+                                    self.events.request.create_joint.send(CreateJoint {
                                         parent: parent.get(),
                                         child: self.anchor,
                                     });

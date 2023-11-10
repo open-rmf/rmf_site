@@ -17,8 +17,7 @@
 
 use crate::interaction::*;
 use bevy::{math::Affine3A, prelude::*};
-use bevy_mod_picking::{PickableBundle, PickableMesh, PickingRaycastSet};
-use bevy_mod_raycast::{Intersection, Ray3d};
+use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -102,7 +101,7 @@ impl Draggable {
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct GizmoClicked(pub Entity);
 
 #[derive(Clone, Copy, Debug)]
@@ -220,7 +219,7 @@ impl Default for GizmoState {
 
 /// Instruction to move an entity to a new transform. This should be caught with
 /// an EventReader<MoveTo>.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct MoveTo {
     pub entity: Entity,
     pub transform: Transform,
@@ -228,7 +227,9 @@ pub struct MoveTo {
 
 pub fn make_gizmos_pickable(mut commands: Commands, new_gizmos: Query<Entity, Added<Gizmo>>) {
     for e in &new_gizmos {
-        commands.entity(e).insert(PickableBundle::default());
+        commands
+            .entity(e)
+            .insert(RaycastMesh::<SiteRaycastSet>::default());
     }
 }
 
@@ -242,12 +243,12 @@ pub fn update_gizmo_click_start(
     mut visibility: Query<&mut Visibility>,
     mouse_button_input: Res<Input<MouseButton>>,
     transforms: Query<(&Transform, &GlobalTransform)>,
-    intersections: Query<&Intersection<PickingRaycastSet>>,
+    raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
     mut cursor: ResMut<Cursor>,
     mut gizmo_state: ResMut<GizmoState>,
     mut picks: EventReader<ChangePick>,
     mut click: EventWriter<GizmoClicked>,
-    removed_gizmos: RemovedComponents<Gizmo>,
+    mut removed_gizmos: RemovedComponents<Gizmo>,
 ) {
     for e in removed_gizmos.iter() {
         cursor.remove_blocker(e, &mut visibility);
@@ -289,7 +290,11 @@ pub fn update_gizmo_click_start(
     if clicking {
         if let GizmoState::Hovering(e) = *gizmo_state {
             click.send(GizmoClicked(e));
-            if let Ok(Some(intersection)) = intersections.get_single().map(|i| i.position()) {
+            let Ok(source) = raycast_sources.get_single() else {
+                return;
+            };
+            if let Some(intersection) = source.get_nearest_intersection().map(|(_, i)| i.position())
+            {
                 if let Ok((gizmo, Some(mut draggable), mut material)) = gizmos.get_mut(e) {
                     if let Ok((local_tf, global_tf)) = transforms.get(draggable.for_entity) {
                         selection_blocker.dragging = true;

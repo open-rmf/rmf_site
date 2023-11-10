@@ -103,14 +103,18 @@ pub fn add_lane_visuals(
         }
 
         let (lane_material, height) = graphs.display_style(associated_graphs);
-        let is_visible = should_display_lane(
+        let visibility = if should_display_lane(
             edge,
             associated_graphs,
             &parents,
             &levels,
             &current_level,
             &graphs,
-        );
+        ) {
+            Visibility::Inherited
+        } else {
+            Visibility::Hidden
+        };
 
         let start_anchor = anchors
             .point_in_parent_frame_of(edge.start(), Category::Lane, e)
@@ -118,85 +122,71 @@ pub fn add_lane_visuals(
         let end_anchor = anchors
             .point_in_parent_frame_of(edge.end(), Category::Lane, e)
             .unwrap();
-        let mut commands = commands.entity(e);
-        let (layer, start, mid, end, outlines) = commands.add_children(|parent| {
-            // Create a "layer" entity that manages the height of the lane,
-            // determined by the DisplayHeight of the graph.
-            let mut layer_cmd = parent.spawn(SpatialBundle {
+
+        // Create a "layer" entity that manages the height of the lane,
+        // determined by the DisplayHeight of the graph.
+        let layer = commands
+            .spawn(SpatialBundle {
                 transform: Transform::from_xyz(0.0, 0.0, height),
                 ..default()
-            });
+            })
+            .set_parent(e)
+            .id();
 
-            let (start, mid, end, outlines) = layer_cmd.add_children(|parent| {
-                let mut start = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
+        let mut spawn_lane_mesh_and_outline = |lane_tf, lane_mesh, outline_mesh| {
+            let mesh = commands
+                .spawn(PbrBundle {
+                    mesh: lane_mesh,
                     material: lane_material.clone(),
-                    transform: Transform::from_translation(start_anchor),
+                    transform: lane_tf,
                     ..default()
-                });
-                let start_outline = start.add_children(|start| {
-                    start
-                        .spawn(PbrBundle {
-                            mesh: assets.lane_end_outline.clone(),
-                            transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                            visibility: Visibility { is_visible: false },
-                            ..default()
-                        })
-                        .id()
-                });
-                let start = start.id();
+                })
+                .set_parent(layer)
+                .id();
 
-                let mut mid = parent.spawn(PbrBundle {
-                    mesh: assets.lane_mid_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+            let outline = commands
+                .spawn(PbrBundle {
+                    mesh: outline_mesh,
+                    transform: Transform::from_translation(-0.000_5 * Vec3::Z),
+                    visibility: Visibility::Hidden,
                     ..default()
-                });
-                let mid_outline = mid.add_children(|mid| {
-                    mid.spawn(PbrBundle {
-                        mesh: assets.lane_mid_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let mid = mid.id();
+                })
+                .set_parent(mesh)
+                .id();
 
-                let mut end = parent.spawn(PbrBundle {
-                    mesh: assets.lane_end_mesh.clone(),
-                    material: lane_material.clone(),
-                    transform: Transform::from_translation(end_anchor),
-                    ..default()
-                });
-                let end_outline = end.add_children(|end| {
-                    end.spawn(PbrBundle {
-                        mesh: assets.lane_end_outline.clone(),
-                        transform: Transform::from_translation(-0.000_5 * Vec3::Z),
-                        visibility: Visibility { is_visible: false },
-                        ..default()
-                    })
-                    .id()
-                });
-                let end = end.id();
+            (mesh, outline)
+        };
 
-                (start, mid, end, [start_outline, mid_outline, end_outline])
-            });
+        let (start, start_outline) = spawn_lane_mesh_and_outline(
+            Transform::from_translation(start_anchor),
+            assets.lane_end_mesh.clone(),
+            assets.lane_end_outline.clone(),
+        );
 
-            (layer_cmd.id(), start, mid, end, outlines)
-        });
+        let (mid, mid_outline) = spawn_lane_mesh_and_outline(
+            line_stroke_transform(&start_anchor, &end_anchor, LANE_WIDTH),
+            assets.lane_mid_mesh.clone(),
+            assets.lane_mid_outline.clone(),
+        );
+
+        let (end, end_outline) = spawn_lane_mesh_and_outline(
+            Transform::from_translation(end_anchor),
+            assets.lane_end_mesh.clone(),
+            assets.lane_end_outline.clone(),
+        );
 
         commands
+            .entity(e)
             .insert(LaneSegments {
                 layer,
                 start,
                 mid,
                 end,
-                outlines,
+                outlines: [start_outline, mid_outline, end_outline],
             })
             .insert(SpatialBundle {
                 transform: Transform::from_translation([0., 0., LANE_LAYER_START].into()),
-                visibility: Visibility { is_visible },
+                visibility,
                 ..default()
             })
             .insert(Category::Lane)
@@ -250,10 +240,14 @@ pub fn update_changed_lane(
     for (e, edge, associated, segments, mut visibility) in &mut lanes {
         update_lane_visuals(e, edge, segments, &anchors, &mut transforms);
 
-        let is_visible =
-            should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
-        if visibility.is_visible != is_visible {
-            visibility.is_visible = is_visible;
+        let new_visibility =
+            if should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs) {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+        if *visibility != new_visibility {
+            *visibility = new_visibility;
         }
     }
 }
@@ -281,7 +275,7 @@ pub fn update_lane_for_moved_anchor(
 
 pub fn remove_association_for_deleted_graphs(
     mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     for e in removed.iter() {
         for mut associated in &mut associaged_graphs {
@@ -326,31 +320,45 @@ pub fn update_visibility_for_lanes(
             Or<(Changed<Visibility>, Changed<RecencyRank<NavGraphMarker>>)>,
         ),
     >,
-    removed: RemovedComponents<NavGraphMarker>,
+    mut removed: RemovedComponents<NavGraphMarker>,
 ) {
     let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
-            let is_visible =
-                should_display_lane(edge, associated, &parents, &levels, &current_level, &graphs);
-            if visibility.is_visible != is_visible {
-                visibility.is_visible = is_visible;
+            let new_visibility = if should_display_lane(
+                edge,
+                associated,
+                &parents,
+                &levels,
+                &current_level,
+                &graphs,
+            ) {
+                Visibility::Inherited
+            } else {
+                Visibility::Hidden
+            };
+            if *visibility != new_visibility {
+                *visibility = new_visibility;
             }
         }
     } else {
         for (e, _, _) in &lanes_with_changed_association {
             if let Ok((edge, associated, _, mut visibility)) = lanes.get_mut(e) {
-                let is_visible = should_display_lane(
+                let new_visibility = if should_display_lane(
                     edge,
                     associated,
                     &parents,
                     &levels,
                     &current_level,
                     &graphs,
-                );
-                if visibility.is_visible != is_visible {
-                    visibility.is_visible = is_visible;
+                ) {
+                    Visibility::Inherited
+                } else {
+                    Visibility::Hidden
+                };
+                if *visibility != new_visibility {
+                    *visibility = new_visibility;
                 }
             }
         }
@@ -385,7 +393,7 @@ pub fn update_visibility_for_lanes(
     }
 }
 
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Event)]
 pub struct ConsiderAssociatedGraph {
     pub graph: Option<Entity>,
     pub for_element: Entity,

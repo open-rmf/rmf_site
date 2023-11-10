@@ -21,6 +21,7 @@ use bevy::{
 };
 use rmf_site_format::{Affiliation, Group};
 
+#[derive(Event)]
 pub struct MergeGroups {
     pub from_group: Entity,
     pub into_group: Entity,
@@ -41,7 +42,7 @@ struct LastAffiliation(Option<Entity>);
 pub fn update_affiliations(
     mut affiliations: Query<&mut Affiliation<Entity>>,
     mut merge_groups: EventReader<MergeGroups>,
-    deleted_groups: RemovedComponents<Group>,
+    mut deleted_groups: RemovedComponents<Group>,
 ) {
     for merge in merge_groups.iter() {
         for mut affiliation in &mut affiliations {
@@ -51,7 +52,7 @@ pub fn update_affiliations(
         }
     }
 
-    for deleted in &deleted_groups {
+    for deleted in deleted_groups.iter() {
         for mut affiliation in &mut affiliations {
             if affiliation.0.is_some_and(|a| a == deleted) {
                 affiliation.0 = None;
@@ -69,13 +70,14 @@ pub fn update_members_of_groups(
     }
 }
 
+#[derive(Event)]
 struct ChangeMembership {
     member: Entity,
     group: Option<Entity>,
 }
 
 impl Command for ChangeMembership {
-    fn write(self, world: &mut World) {
+    fn apply(self, world: &mut World) {
         let last = world
             .get_entity(self.member)
             .map(|e| e.get::<LastAffiliation>())

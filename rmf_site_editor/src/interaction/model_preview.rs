@@ -16,12 +16,16 @@
 */
 
 use crate::interaction::MODEL_PREVIEW_LAYER;
-use bevy::prelude::*;
 use bevy::render::render_resource::{
     Extent3d, TextureDescriptor, TextureDimension, TextureFormat, TextureUsages,
 };
-use bevy::render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers};
-use bevy_egui::{egui::TextureId, EguiContext};
+use bevy::{
+    core_pipeline::tonemapping::Tonemapping,
+    ecs::system::SystemState,
+    prelude::*,
+    render::{camera::RenderTarget, primitives::Aabb, view::RenderLayers},
+};
+use bevy_egui::{egui::TextureId, EguiContexts};
 
 #[derive(Resource)]
 pub struct ModelPreviewCamera {
@@ -33,7 +37,7 @@ pub struct ModelPreviewCamera {
 pub struct ModelPreviewPlugin;
 
 impl FromWorld for ModelPreviewCamera {
-    fn from_world(world: &mut World) -> Self {
+    fn from_world(mut world: &mut World) -> Self {
         // camera
         let image_size = Extent3d {
             width: 320,
@@ -51,13 +55,15 @@ impl FromWorld for ModelPreviewCamera {
                 usage: TextureUsages::TEXTURE_BINDING
                     | TextureUsages::COPY_DST
                     | TextureUsages::RENDER_ATTACHMENT,
+                view_formats: &[],
             },
             ..default()
         };
         preview_image.resize(image_size);
         let mut images = world.get_resource_mut::<Assets<Image>>().unwrap();
         let preview_image = images.add(preview_image);
-        let mut egui_context = world.get_resource_mut::<EguiContext>().unwrap();
+        let mut system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut egui_context = system_state.get_mut(&mut world);
         // Attach the bevy image to the egui image
         let egui_handle = egui_context.add_image(preview_image.clone());
         let camera_entity = world
@@ -67,6 +73,7 @@ impl FromWorld for ModelPreviewCamera {
                     target: RenderTarget::Image(preview_image),
                     ..default()
                 },
+                tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
             .insert(RenderLayers::from_layers(&[MODEL_PREVIEW_LAYER]))

@@ -43,7 +43,7 @@ impl fmt::Display for LogCategory {
     }
 }
 
-#[derive(Debug, Clone, Component, PartialEq, Eq)]
+#[derive(Debug, Clone, Component, PartialEq, Eq, Event)]
 pub struct Log {
     pub category: LogCategory,
     pub message: String,
@@ -335,6 +335,6 @@ impl Plugin for LogHistoryPlugin {
     fn build(&self, app: &mut App) {
         app.add_event::<Log>()
             .init_resource::<LogHistory>()
-            .add_system(receive_logs);
+            .add_systems(Update, receive_logs);
     }
 }

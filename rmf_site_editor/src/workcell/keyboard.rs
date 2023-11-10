@@ -17,11 +17,11 @@
 
 use crate::{ExportFormat, SaveWorkspace, SaveWorkspaceDestination};
 use bevy::prelude::*;
-use bevy_egui::EguiContext;
+use bevy_egui::EguiContexts;
 
 pub fn handle_workcell_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
-    mut egui_context: ResMut<EguiContext>,
+    mut egui_context: EguiContexts,
     mut save_events: EventWriter<SaveWorkspace>,
 ) {
     let egui_context = egui_context.ctx_mut();
@@ -33,7 +33,7 @@ pub fn handle_workcell_keyboard_input(
         return;
     }
 
-    if keyboard_input.any_pressed([KeyCode::LControl, KeyCode::RControl]) {
+    if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard_input.just_pressed(KeyCode::E) {
             info!("Exporting URDF");
             save_events.send(SaveWorkspace {

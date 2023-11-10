@@ -46,7 +46,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
 
     pub fn show(self, ui: &mut Ui) {
         ui.vertical(|ui| {
-            match self.events.app_state.current() {
+            match self.events.app_state.get() {
                 AppState::MainMenu | AppState::SiteVisualizer => {
                     return;
                 }
@@ -150,7 +150,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
                 }
             }
-            match self.events.app_state.current() {
+            match self.events.app_state.get() {
                 AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
                 AppState::SiteEditor | AppState::WorkcellEditor => {
                     ui.add_space(10.0);
@@ -185,7 +185,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                 self.events.display.pending_model.scale = new_scale;
                             }
                             ui.add_space(5.0);
-                            match self.events.app_state.current() {
+                            match self.events.app_state.get() {
                                 AppState::MainMenu
                                 | AppState::SiteDrawingEditor
                                 | AppState::SiteVisualizer => {}
