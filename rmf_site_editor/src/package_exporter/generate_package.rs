@@ -1,4 +1,5 @@
 use crate::template;
+use crate::site_asset_io::cache_path;
 use dirs;
 use rmf_site_format::{AssetSource, Geometry, Workcell};
 use std::error::Error;
@@ -162,14 +163,6 @@ fn copy_files(paths: &Vec<String>, output_directory: &Path) -> Result<(), Box<dy
         }
     }
     Ok(())
-}
-
-// TODO(anyone) remove duplication with rmf_site_editor
-fn cache_path() -> PathBuf {
-    let mut p = dirs::cache_dir().unwrap();
-    p.push("open-robotics");
-    p.push("rmf_site_editor");
-    return p;
 }
 
 fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn Error>> {
