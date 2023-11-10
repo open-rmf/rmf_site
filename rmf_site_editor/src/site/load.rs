@@ -153,7 +153,7 @@ fn generate_site_entities(
                 consider_id(*anchor_id);
             }
 
-            for (fiducial_id, fiducial) in &site_data.fiducials {
+            for (fiducial_id, fiducial) in &drawing.fiducials {
                 let fiducial_entity = commands
                     .spawn(fiducial.convert(&id_to_entity).for_site(site_id)?)
                     .insert(SiteID(*fiducial_id))
