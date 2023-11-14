@@ -17,7 +17,7 @@
 
 use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
-use bevy_mod_raycast::RaycastMesh;
+use bevy_mod_raycast::deferred::RaycastMesh;
 use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can

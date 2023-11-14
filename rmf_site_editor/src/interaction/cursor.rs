@@ -21,7 +21,7 @@ use crate::{
     site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
+use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
 use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
@@ -279,6 +279,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
     camera_controls: Res<'w, CameraControls>,
     cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
+    primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
 }
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
@@ -288,7 +289,9 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let e_active_camera = self.camera_controls.active_camera();
         let active_camera = self.cameras.get(e_active_camera).ok()?;
         let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
-        let ray = Ray3d::from_screenspace(cursor_position, active_camera, camera_tf)?;
+        let primary_window = self.primary_window.get_single().ok()?;
+        let ray =
+            Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
         let n_p = Vec3::Z;
         let n_r = ray.direction();
         let denom = n_p.dot(n_r);

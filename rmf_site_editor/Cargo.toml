@@ -17,7 +17,7 @@ path = "examples/extending_menu.rs"
 
 [dependencies]
 bevy_egui = "0.21"
-bevy_mod_raycast = "0.13"
+bevy_mod_raycast = "0.15"
 bevy_mod_outline = "0.5"
 bevy_infinite_grid = "0.8"
 bevy_polyline = "0.7"
