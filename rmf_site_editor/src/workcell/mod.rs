@@ -24,9 +24,6 @@ pub use load::*;
 pub mod keyboard;
 pub use keyboard::*;
 
-pub mod mesh_constraint;
-pub use mesh_constraint::*;
-
 pub mod model;
 pub use model::*;
 
@@ -80,7 +77,6 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    update_constraint_dependents,
                     handle_model_loaded_events,
                     update_model_scenes,
                     update_model_scales,
@@ -96,7 +92,6 @@ impl Plugin for WorkcellEditorPlugin {
                     read_update_fuel_cache_results,
                     reload_failed_models_with_new_api_key,
                     handle_workcell_keyboard_input,
-                    handle_new_primitive_shapes,
                     change_workcell.before(load_workcell),
                     handle_new_sdf_roots,
                 )
@@ -115,7 +110,6 @@ impl Plugin for WorkcellEditorPlugin {
                 Update,
                 (
                     update_anchor_transforms,
-                    add_anchors_for_new_mesh_constraints,
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
