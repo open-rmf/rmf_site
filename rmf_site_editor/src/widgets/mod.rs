@@ -274,7 +274,7 @@ pub struct MenuParams<'w, 's> {
     state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
     menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
-    menu_constraints: Query<'w, 's, Option<&'static MenuVisualizationConstraint>>,
+    menu_states: Query<'w, 's, Option<&'static MenuVisualizationStates>>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }

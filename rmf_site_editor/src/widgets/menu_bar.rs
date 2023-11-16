@@ -24,6 +24,8 @@ use bevy::ecs::query::Has;
 use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Context, Ui};
 
+use std::collections::HashSet;
+
 /// Adding this to an entity to an entity with the MenuItem component
 /// will grey out and disable a MenuItem.
 #[derive(Component)]
@@ -56,8 +58,9 @@ pub enum MenuItem {
     CheckBox(String, bool),
 }
 
-#[derive(Component, Deref, DerefMut)]
-pub struct MenuVisualizationConstraint(pub Box<dyn Fn(&AppState) -> bool + Send + Sync>);
+/// Contains the states that the menu should be visualized in.
+#[derive(Debug, Clone, Component, Deref, DerefMut)]
+pub struct MenuVisualizationStates(pub HashSet<AppState>);
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
@@ -168,12 +171,12 @@ fn render_sub_menu(
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
     menu_items: &Query<(&mut MenuItem, Has<MenuDisabled>)>,
-    menu_constraints: &Query<Option<&MenuVisualizationConstraint>>,
+    menu_states: &Query<Option<&MenuVisualizationStates>>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
-    if let Some(constraint) = menu_constraints.get(*entity).ok().flatten() {
-        if !(constraint.0)(state.get()) {
+    if let Some(states) = menu_states.get(*entity).ok().flatten() {
+        if !states.contains(state.get()) {
             return;
         }
     }
@@ -215,7 +218,7 @@ fn render_sub_menu(
                     children,
                     menus,
                     menu_items,
-                    menu_constraints,
+                    menu_states,
                     extension_events,
                     false,
                 );
@@ -234,7 +237,7 @@ fn render_sub_menu(
                 children,
                 menus,
                 menu_items,
-                menu_constraints,
+                menu_states,
                 extension_events,
                 false,
             );
@@ -288,7 +291,7 @@ pub fn top_menu_bar(
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_constraints,
+                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -399,7 +402,7 @@ pub fn top_menu_bar(
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_constraints,
+                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -416,7 +419,7 @@ pub fn top_menu_bar(
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
-                    &menu_params.menu_constraints,
+                    &menu_params.menu_states,
                     &mut menu_params.extension_events,
                     false,
                 );
