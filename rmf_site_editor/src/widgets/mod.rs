@@ -33,7 +33,7 @@ use crate::{
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::query::Has, ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Button, CollapsingHeader},
     EguiContexts,
@@ -271,8 +271,10 @@ pub struct VisibilityParameters<'w> {
 
 #[derive(SystemParam)]
 pub struct MenuParams<'w, 's> {
+    state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
-    menu_items: Query<'w, 's, (&'static mut MenuItem, Option<&'static MenuDisabled>)>,
+    menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
+    menu_constraints: Query<'w, 's, Option<&'static MenuVisualizationConstraint>>,
     extension_events: EventWriter<'w, MenuEvent>,
     view_menu: Res<'w, ViewMenu>,
 }

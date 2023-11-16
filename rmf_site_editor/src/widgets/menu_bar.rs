@@ -16,13 +16,12 @@
 */
 
 use crate::{
-    CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace, VisibilityParameters,
+    AppState, CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace,
+    VisibilityParameters,
 };
 
-use bevy::prelude::{
-    App, Children, Component, Entity, Event, EventWriter, FromWorld, Parent, Plugin, Query, Res,
-    Resource, Without, World,
-};
+use bevy::ecs::query::Has;
+use bevy::prelude::*;
 use bevy_egui::egui::{self, Button, Context, Ui};
 
 /// Adding this to an entity to an entity with the MenuItem component
@@ -56,6 +55,9 @@ pub enum MenuItem {
     Text(String),
     CheckBox(String, bool),
 }
+
+#[derive(Component, Deref, DerefMut)]
+pub struct MenuVisualizationConstraint(pub Box<dyn Fn(&State<AppState>) -> bool + Send + Sync>);
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
@@ -160,28 +162,32 @@ impl Plugin for MenuPluginManager {
 
 /// Helper function to render a submenu starting at the entity.
 fn render_sub_menu(
+    state: &State<AppState>,
     ui: &mut Ui,
     entity: &Entity,
     children: &Query<&Children>,
     menus: &Query<(&Menu, Entity)>,
-    menu_items: &Query<(&mut MenuItem, Option<&MenuDisabled>)>,
+    menu_items: &Query<(&mut MenuItem, Has<MenuDisabled>)>,
+    menu_constraints: &Query<Option<&MenuVisualizationConstraint>>,
     extension_events: &mut EventWriter<MenuEvent>,
     skip_top_label: bool,
 ) {
+    if let Some(constraint) = menu_constraints.get(*entity).ok().flatten() {
+        if !(constraint.0)(state) {
+            return;
+        }
+    }
     if let Ok((e, disabled)) = menu_items.get(*entity) {
         // Draw ui
         match e {
             MenuItem::Text(title) => {
-                if ui
-                    .add_enabled(disabled.is_none(), Button::new(title))
-                    .clicked()
-                {
+                if ui.add_enabled(disabled, Button::new(title)).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
             MenuItem::CheckBox(title, mut value) => {
                 if ui
-                    .add_enabled(disabled.is_none(), egui::Checkbox::new(&mut value, title))
+                    .add_enabled(disabled, egui::Checkbox::new(&mut value, title))
                     .clicked()
                 {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
@@ -203,11 +209,13 @@ fn render_sub_menu(
 
             for child in child_items.iter() {
                 render_sub_menu(
+                    state,
                     ui,
                     child,
                     children,
                     menus,
                     menu_items,
+                    menu_constraints,
                     extension_events,
                     false,
                 );
@@ -220,11 +228,13 @@ fn render_sub_menu(
 
         for child in child_items.iter() {
             render_sub_menu(
+                state,
                 ui,
                 child,
                 children,
                 menus,
                 menu_items,
+                menu_constraints,
                 extension_events,
                 false,
             );
@@ -272,11 +282,13 @@ pub fn top_menu_bar(
                 }
 
                 render_sub_menu(
+                    &menu_params.state,
                     ui,
                     &file_menu.get(),
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
+                    &menu_params.menu_constraints,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -381,11 +393,13 @@ pub fn top_menu_bar(
                     params.events.walls.send((!params.resources.walls.0).into());
                 }
                 render_sub_menu(
+                    &menu_params.state,
                     ui,
                     &menu_params.view_menu.get(),
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
+                    &menu_params.menu_constraints,
                     &mut menu_params.extension_events,
                     true,
                 );
@@ -396,11 +410,13 @@ pub fn top_menu_bar(
                     && (*entity != file_menu.get() && *entity != menu_params.view_menu.get())
             }) {
                 render_sub_menu(
+                    &menu_params.state,
                     ui,
                     &entity,
                     children,
                     &menu_params.menus,
                     &menu_params.menu_items,
+                    &menu_params.menu_constraints,
                     &mut menu_params.extension_events,
                     false,
                 );
