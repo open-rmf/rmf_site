@@ -57,7 +57,7 @@ pub enum MenuItem {
 }
 
 #[derive(Component, Deref, DerefMut)]
-pub struct MenuVisualizationConstraint(pub Box<dyn Fn(&State<AppState>) -> bool + Send + Sync>);
+pub struct MenuVisualizationConstraint(pub Box<dyn Fn(&AppState) -> bool + Send + Sync>);
 
 /// This resource provides the root entity for the file menu
 #[derive(Resource)]
@@ -173,7 +173,7 @@ fn render_sub_menu(
     skip_top_label: bool,
 ) {
     if let Some(constraint) = menu_constraints.get(*entity).ok().flatten() {
-        if !(constraint.0)(state) {
+        if !(constraint.0)(state.get()) {
             return;
         }
     }

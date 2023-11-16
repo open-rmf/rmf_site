@@ -544,7 +544,7 @@ pub struct OSMMenu {
 impl FromWorld for OSMMenu {
     fn from_world(world: &mut World) -> Self {
         // Only show the menu in site editor modes
-        let visualization_constraint = |state: &State<AppState>| match state.get() {
+        let visualization_constraint = |state: &AppState| match state {
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => true,
             AppState::MainMenu | AppState::WorkcellEditor => false,
         };
