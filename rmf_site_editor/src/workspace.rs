@@ -58,6 +58,7 @@ pub enum LoadWorkspace {
     Data(WorkspaceData),
 }
 
+#[derive(Clone)]
 pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     Site(Vec<u8>),
@@ -89,7 +90,7 @@ pub struct CurrentWorkspace {
     pub display: bool,
 }
 
-pub struct LoadWorkspaceFile(pub std::path::PathBuf, pub Vec<u8>);
+pub struct LoadWorkspaceFile(pub Option<PathBuf>, pub WorkspaceData);
 
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
 /// be cloned and moved into async functions therefore don't have lifetime issues
@@ -174,11 +175,7 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut app_state: ResMut<NextState<AppState>>,
-    mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_channels: ResMut<LoadWorkspaceChannels>,
-    mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
     mut load_workspace: EventReader<LoadWorkspace>,
 ) {
     if let Some(cmd) = load_workspace.iter().last() {
@@ -190,115 +187,31 @@ pub fn dispatch_load_workspace_events(
                         if let Some(file) = AsyncFileDialog::new().pick_file().await {
                             let data = file.read().await;
                             #[cfg(not(target_arch = "wasm32"))]
-                            sender
-                                .send(LoadWorkspaceFile(file.path().to_path_buf(), data))
-                                .expect("Failed sending file event");
+                            let file = file.path().to_path_buf();
                             #[cfg(target_arch = "wasm32")]
-                            sender
-                                .send(LoadWorkspaceFile(PathBuf::from(file.file_name()), data))
-                                .expect("Failed sending file event");
+                            let file = PathBuf::from(file.file_name());
+                            if let Some(data) = WorkspaceData::new(&file, data) {
+                                sender
+                                    .send(LoadWorkspaceFile(Some(file), data))
+                                    .expect("Failed sending file event");
+                            }
                         }
                     })
                     .detach();
             }
             LoadWorkspace::Path(path) => {
-                if let Some(data) = std::fs::read(&path)
-                    .ok()
-                    .and_then(|d| WorkspaceData::new(&path, d))
-                {
-                    handle_workspace_data(
-                        Some(path.clone()),
-                        &data,
-                        &mut app_state,
-                        &mut interaction_state,
-                        &mut load_site,
-                        &mut load_workcell,
-                    );
+                if let Ok(data) = std::fs::read(&path) {
+                    if let Some(data) = WorkspaceData::new(path, data) {
+                        load_channels
+                            .sender
+                            .send(LoadWorkspaceFile(Some(path.clone()), data));
+                    }
                 }
             }
             LoadWorkspace::Data(data) => {
-                // Do a sync load and state update
-                handle_workspace_data(
-                    None,
-                    &data,
-                    &mut app_state,
-                    &mut interaction_state,
-                    &mut load_site,
-                    &mut load_workcell,
-                );
-            }
-        }
-    }
-}
-
-fn handle_workspace_data(
-    file: Option<PathBuf>,
-    workspace_data: &WorkspaceData,
-    app_state: &mut ResMut<NextState<AppState>>,
-    interaction_state: &mut ResMut<NextState<InteractionState>>,
-    load_site: &mut EventWriter<LoadSite>,
-    load_workcell: &mut EventWriter<LoadWorkcell>,
-) {
-    match workspace_data {
-        WorkspaceData::LegacyBuilding(data) => {
-            info!("Opening legacy building map file");
-            match BuildingMap::from_bytes(&data) {
-                Ok(building) => {
-                    match building.to_site() {
-                        Ok(site) => {
-                            // Switch state
-                            app_state.set(AppState::SiteEditor);
-                            load_site.send(LoadSite {
-                                site,
-                                focus: true,
-                                default_file: file,
-                            });
-                            interaction_state.set(InteractionState::Enable);
-                        }
-                        Err(err) => {
-                            error!("Failed converting to site {:?}", err);
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Failed loading legacy building {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::Site(data) => {
-            info!("Opening site file");
-            match Site::from_bytes(&data) {
-                Ok(site) => {
-                    // Switch state
-                    app_state.set(AppState::SiteEditor);
-                    load_site.send(LoadSite {
-                        site,
-                        focus: true,
-                        default_file: file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading site {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::Workcell(data) => {
-            info!("Opening workcell file");
-            match Workcell::from_bytes(&data) {
-                Ok(workcell) => {
-                    // Switch state
-                    app_state.set(AppState::WorkcellEditor);
-                    load_workcell.send(LoadWorkcell {
-                        workcell,
-                        focus: true,
-                        default_file: file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading workcell {:?}", err);
-                }
+                load_channels
+                    .sender
+                    .send(LoadWorkspaceFile(None, data.clone()));
             }
         }
     }
@@ -313,16 +226,69 @@ fn workspace_file_load_complete(
     mut load_channels: ResMut<LoadWorkspaceChannels>,
 ) {
     if let Ok(result) = load_channels.receiver.try_recv() {
-        let LoadWorkspaceFile(file, data) = result;
-        if let Some(workspace_data) = WorkspaceData::new(&file, data) {
-            handle_workspace_data(
-                Some(file),
-                &workspace_data,
-                &mut app_state,
-                &mut interaction_state,
-                &mut load_site,
-                &mut load_workcell,
-            );
+        let LoadWorkspaceFile(default_file, data) = result;
+        match data {
+            WorkspaceData::LegacyBuilding(data) => {
+                info!("Opening legacy building map file");
+                match BuildingMap::from_bytes(&data) {
+                    Ok(building) => {
+                        match building.to_site() {
+                            Ok(site) => {
+                                // Switch state
+                                app_state.set(AppState::SiteEditor);
+                                load_site.send(LoadSite {
+                                    site,
+                                    focus: true,
+                                    default_file,
+                                });
+                                interaction_state.set(InteractionState::Enable);
+                            }
+                            Err(err) => {
+                                error!("Failed converting to site {:?}", err);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!("Failed loading legacy building {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::Site(data) => {
+                info!("Opening site file");
+                match Site::from_bytes(&data) {
+                    Ok(site) => {
+                        // Switch state
+                        app_state.set(AppState::SiteEditor);
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading site {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::Workcell(data) => {
+                info!("Opening workcell file");
+                match Workcell::from_bytes(&data) {
+                    Ok(workcell) => {
+                        // Switch state
+                        app_state.set(AppState::WorkcellEditor);
+                        load_workcell.send(LoadWorkcell {
+                            workcell,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading workcell {:?}", err);
+                    }
+                }
+            }
         }
     }
 }
