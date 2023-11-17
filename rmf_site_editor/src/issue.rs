@@ -18,11 +18,13 @@
 use crate::site::ChangePlugin;
 use crate::widgets::{
     diagnostic_window::DiagnosticWindowState,
-    menu_bar::{MenuEvent, MenuItem, ToolMenu},
+    menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
 };
+use crate::AppState;
 use bevy::prelude::*;
 use bevy::utils::{HashMap, Uuid};
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
+use std::collections::HashSet;
 
 #[derive(Component, Debug, Clone)]
 pub struct Issue {
@@ -65,9 +67,15 @@ pub struct IssueMenu {
 
 impl FromWorld for IssueMenu {
     fn from_world(world: &mut World) -> Self {
+        let target_states = HashSet::from([
+            AppState::SiteEditor,
+            AppState::SiteDrawingEditor,
+            AppState::SiteVisualizer,
+        ]);
         // Tools menu
         let diagnostic_tool = world
             .spawn(MenuItem::Text("Diagnostic Tool".to_string()))
+            .insert(MenuVisualizationStates(target_states))
             .id();
 
         let tool_header = world.resource::<ToolMenu>().get();

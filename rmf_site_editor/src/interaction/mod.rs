@@ -20,6 +20,7 @@ use crate::site::{
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
     ModelMarker, SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
+use crate::workcell::WorkcellVisualizationMarker;
 
 pub mod anchor;
 pub use anchor::*;
@@ -168,9 +169,9 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-                CameraControlsPlugin,
-                ModelPreviewPlugin,
+                CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
+            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin))
             .add_systems(
                 Update,
                 (
