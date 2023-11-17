@@ -184,13 +184,13 @@ fn render_sub_menu(
         // Draw ui
         match e {
             MenuItem::Text(title) => {
-                if ui.add_enabled(disabled, Button::new(title)).clicked() {
+                if ui.add_enabled(!disabled, Button::new(title)).clicked() {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
                 }
             }
             MenuItem::CheckBox(title, mut value) => {
                 if ui
-                    .add_enabled(disabled, egui::Checkbox::new(&mut value, title))
+                    .add_enabled(!disabled, egui::Checkbox::new(&mut value, title))
                     .clicked()
                 {
                     extension_events.send(MenuEvent::MenuClickEvent(*entity));
