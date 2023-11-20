@@ -67,7 +67,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Local(ref mut p) => {
+        AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
             let binding = p.clone();
             *p = if let Some(stripped) = uri.strip_prefix("model://") {
                 // Search for a model with the requested name in the same folder as the sdf file
@@ -93,7 +93,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Bundled(_) | AssetSource::Package(_) | AssetSource::OSMTile { .. } => {
+        AssetSource::Bundled(_) | AssetSource::OSMTile { .. } => {
             warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
         }
     }
@@ -214,8 +214,10 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                 );
                 match id {
                     Some(id) => {
-                        commands.entity(id).insert(VisualMeshMarker);
-                        commands.entity(link_id).add_child(id);
+                        commands
+                            .entity(id)
+                            .insert(VisualMeshMarker)
+                            .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
@@ -231,8 +233,10 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                 );
                 match id {
                     Some(id) => {
-                        commands.entity(id).insert(CollisionMeshMarker);
-                        commands.entity(link_id).add_child(id);
+                        commands
+                            .entity(id)
+                            .insert(CollisionMeshMarker)
+                            .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &collision.geometry),
                 }

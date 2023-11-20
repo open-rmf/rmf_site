@@ -81,7 +81,6 @@ impl Plugin for WorkcellEditorPlugin {
                     update_model_scenes,
                     update_model_scales,
                     handle_new_primitive_shapes,
-                    flatten_loaded_models_hierarchy,
                     update_model_tentative_formats,
                     replace_name_in_site_components,
                     handle_create_joint_events,
@@ -113,6 +112,10 @@ impl Plugin for WorkcellEditorPlugin {
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
+            )
+            .add_systems(
+                PostUpdate,
+                (flatten_loaded_models_hierarchy,).run_if(in_state(AppState::WorkcellEditor)),
             );
     }
 }
