@@ -1,0 +1,20 @@
+cmake_minimum_required(VERSION 3.16)
+
+project({{project_name}})
+
+find_package(ament_cmake REQUIRED)
+{%- for dependency in dependencies %}
+find_package({{dependency}} REQUIRED)
+{%- endfor %}
+
+install(
+  DIRECTORY launch meshes rviz urdf
+  DESTINATION share/${PROJECT_NAME}
+)
+
+if(BUILD_TESTING)
+  find_package(ament_lint_auto REQUIRED)
+  ament_lint_auto_find_test_dependencies()
+endif()
+
+ament_package()
