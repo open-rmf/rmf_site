@@ -4,6 +4,7 @@ use rmf_site_format::{AssetSource, Geometry, Workcell};
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
 use std::path::{Path, PathBuf};
+use tera::Tera;
 
 pub fn generate_package(
     workcell: &Workcell,
@@ -12,18 +13,15 @@ pub fn generate_package(
 ) -> Result<(), Box<dyn Error>> {
     let new_package_name = &package_context.project_name;
 
-    let mesh_directory_name = "meshes".to_string();
-    let launch_directory_name = "launch".to_string();
-    let urdf_directory_name = "urdf".to_string();
-    let rviz_directory_name = "rviz".to_string();
+    let mesh_directory_name = "meshes";
 
     // Create paths
     let output_directory_path = std::path::Path::new(&output_directory);
-    let output_package_path = output_directory_path.join(&new_package_name);
-    let meshes_directory_path = output_package_path.join(&mesh_directory_name);
-    let launch_directory_path = output_package_path.join(&launch_directory_name);
-    let urdf_directory_path = output_package_path.join(&urdf_directory_name);
-    let rviz_directory_path = output_package_path.join(&rviz_directory_name);
+    let output_package_path = output_directory_path.join(new_package_name);
+    let meshes_directory_path = output_package_path.join(mesh_directory_name);
+    let launch_directory_path = output_package_path.join("launch");
+    let urdf_directory_path = output_package_path.join("urdf");
+    let rviz_directory_path = output_package_path.join("rviz");
 
     // Create directories
     if output_package_path.exists() {
@@ -166,9 +164,11 @@ fn copy_files(paths: &Vec<String>, output_directory: &Path) -> Result<(), Box<dy
 
 fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn Error>> {
     match asset_source {
-        AssetSource::Package(path) => {
-            Ok((*urdf_rs::utils::expand_package_path(&path, None)).to_owned())
-        }
+        AssetSource::Package(_) => Ok((*urdf_rs::utils::expand_package_path(
+            &(String::from(asset_source)),
+            None,
+        ))
+        .to_owned()),
         AssetSource::Remote(asset_name) => {
             let mut asset_path = cache_path();
             asset_path.push(PathBuf::from(&asset_name));
@@ -181,16 +181,12 @@ fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn 
                 .to_string())
         }
         AssetSource::Local(path) => Ok(path.clone()),
-        AssetSource::Search(_)
-        | AssetSource::OSMTile {
-            zoom: _,
-            latitude: _,
-            longitude: _,
+        AssetSource::Search(_) | AssetSource::OSMTile { .. } | AssetSource::Bundled(_) => {
+            Err(IoError::new(
+                IoErrorKind::Unsupported,
+                "Not a supported asset type for exporting a workcell to a package",
+            ))?
         }
-        | AssetSource::Bundled(_) => Err(IoError::new(
-            IoErrorKind::Unsupported,
-            "Not a supported asset type for exporting a workcell to a package",
-        ))?,
     }
 }
 
@@ -200,43 +196,25 @@ fn generate_templates(
     launch_directory: &std::path::Path,
     rviz_directory: &std::path::Path,
 ) -> Result<(), Box<dyn Error>> {
-    let directory = Path::new(file!())
-        .parent()
-        .ok_or_else(|| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Could not get directory of {}", file!()),
-            )
-        })?
-        .to_str()
-        .ok_or_else(|| {
-            IoError::new(
-                IoErrorKind::Other,
-                format!("Could not convert directory of {} to string", file!()),
-            )
-        })?;
-    let templates = vec![
-        template::Template {
-            name: "package.xml".to_string(),
-            path: format!("{}/templates/package.xml.j2", directory),
-            output_path: package_directory.join("package.xml"),
-        },
-        template::Template {
-            name: "CMakeLists.txt".to_string(),
-            path: format!("{}/templates/CMakeLists.txt.j2", directory),
-            output_path: package_directory.join("CMakeLists.txt"),
-        },
-        template::Template {
-            name: "urdf.rviz".to_string(),
-            path: format!("{}/templates/urdf.rviz.j2", directory),
-            output_path: rviz_directory.join("urdf.rviz"),
-        },
-        template::Template {
-            name: "display.launch.py".to_string(),
-            path: format!("{}/templates/display.launch.py.j2", directory),
-            output_path: launch_directory.join("display.launch.py"),
-        },
-    ];
-    template::populate_and_save_templates(templates, package_context)?;
+    let context = tera::Context::from_serialize(package_context)?;
+    let mut tera = Tera::default();
+    tera.add_raw_template("package.xml", include_str!("templates/package.xml.j2"))?;
+    tera.add_raw_template(
+        "CMakeLists.txt",
+        include_str!("templates/CMakeLists.txt.j2"),
+    )?;
+    tera.add_raw_template("urdf.rviz", include_str!("templates/urdf.rviz.j2"))?;
+    tera.add_raw_template(
+        "display.launch.py",
+        include_str!("templates/display.launch.py.j2"),
+    )?;
+    let f = std::fs::File::create(package_directory.join("package.xml"))?;
+    let rendered = tera.render_to("package.xml", &context, f)?;
+    let f = std::fs::File::create(package_directory.join("CMakeLists.txt"))?;
+    let rendered = tera.render_to("CMakeLists.txt", &context, f)?;
+    let f = std::fs::File::create(rviz_directory.join("urdf.rviz"))?;
+    let rendered = tera.render_to("urdf.rviz", &context, f)?;
+    let f = std::fs::File::create(launch_directory.join("display.launch.py"))?;
+    let rendered = tera.render_to("display.launch.py", &context, f)?;
     Ok(())
 }
