@@ -166,11 +166,9 @@ fn copy_files(paths: &Vec<String>, output_directory: &Path) -> Result<(), Box<dy
 
 fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn Error>> {
     match asset_source {
-        AssetSource::Package(path) => Ok((*urdf_rs::utils::expand_package_path(
-            &path,
-            None,
-        ))
-        .to_owned()),
+        AssetSource::Package(path) => {
+            Ok((*urdf_rs::utils::expand_package_path(&path, None)).to_owned())
+        }
         AssetSource::Remote(asset_name) => {
             let mut asset_path = cache_path();
             asset_path.push(PathBuf::from(&asset_name));
@@ -183,12 +181,16 @@ fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn 
                 .to_string())
         }
         AssetSource::Local(path) => Ok(path.clone()),
-        AssetSource::Search(_) | AssetSource::OSMTile {zoom: _, latitude: _, longitude: _} | AssetSource::Bundled(_) => {
-            Err(IoError::new(
-                IoErrorKind::Unsupported,
-                "Not a supported asset type for exporting a workcell to a package",
-            ))?
+        AssetSource::Search(_)
+        | AssetSource::OSMTile {
+            zoom: _,
+            latitude: _,
+            longitude: _,
         }
+        | AssetSource::Bundled(_) => Err(IoError::new(
+            IoErrorKind::Unsupported,
+            "Not a supported asset type for exporting a workcell to a package",
+        ))?,
     }
 }
 
