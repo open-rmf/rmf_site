@@ -33,6 +33,8 @@ pub use model::*;
 pub mod save;
 pub use save::*;
 
+pub mod urdf_package_exporter;
+
 pub mod workcell;
 pub use workcell::*;
 

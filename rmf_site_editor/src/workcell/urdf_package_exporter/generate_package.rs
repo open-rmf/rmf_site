@@ -1,5 +1,5 @@
 use crate::site_asset_io::cache_path;
-use crate::template;
+use crate::workcell::urdf_package_exporter::template;
 use rmf_site_format::{AssetSource, Geometry, Workcell};
 use std::error::Error;
 use std::io::{Error as IoError, ErrorKind as IoErrorKind};
@@ -46,7 +46,7 @@ pub fn generate_package(
         &meshes_directory_path,
         &new_package_name,
         &urdf_directory_path,
-    );
+    )?;
     generate_templates(
         package_context,
         &output_package_path,
@@ -90,7 +90,7 @@ fn convert_to_package_paths(
         .try_for_each(|(id, visual)| {
             if let Geometry::Mesh {
                 source: asset_source,
-                scale,
+                scale: _,
             } = &mut visual.bundle.geometry
             {
                 let path = get_path_to_asset_file(asset_source)?;
@@ -165,26 +165,30 @@ fn copy_files(paths: &Vec<String>, output_directory: &Path) -> Result<(), Box<dy
 }
 
 fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn Error>> {
-    if let AssetSource::Package(_) = asset_source {
-        let path = String::from(asset_source);
-        Ok((*urdf_rs::utils::expand_package_path(&path, None)).to_owned())
-    } else if let AssetSource::Remote(asset_name) = asset_source {
-        let mut asset_path = cache_path();
-        asset_path.push(PathBuf::from(&asset_name));
-        Ok(asset_path
-            .to_str()
-            .ok_or(IoError::new(
-                IoErrorKind::InvalidInput,
-                "Unable to convert asset_path to str",
+    match asset_source {
+        AssetSource::Package(path) => Ok((*urdf_rs::utils::expand_package_path(
+            &path,
+            None,
+        ))
+        .to_owned()),
+        AssetSource::Remote(asset_name) => {
+            let mut asset_path = cache_path();
+            asset_path.push(PathBuf::from(&asset_name));
+            Ok(asset_path
+                .to_str()
+                .ok_or(IoError::new(
+                    IoErrorKind::InvalidInput,
+                    "Unable to convert asset_path to str",
+                ))?
+                .to_string())
+        }
+        AssetSource::Local(path) => Ok(path.clone()),
+        AssetSource::Search(_) | AssetSource::OSMTile(_) => {
+            Err(IoError::new(
+                IoErrorKind::Unsupported,
+                "Not a supported asset type for exporting a workcell to a package",
             ))?
-            .to_string())
-    } else if let AssetSource::Local(path) = asset_source {
-        Ok(path.clone())
-    } else {
-        Err(IoError::new(
-            IoErrorKind::Unsupported,
-            "Not a supported asset type for exporting a workcell to a package",
-        ))?
+        }
     }
 }
 

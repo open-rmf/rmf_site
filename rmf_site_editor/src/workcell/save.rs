@@ -19,7 +19,7 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use std::path::{Path as SysPath, PathBuf};
 
-use crate::package_exporter::{generate_package, PackageContext, Person};
+use crate::workcell::urdf_package_exporter::{generate_package, PackageContext, Person};
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
 use crate::ExportFormat;
 
@@ -357,13 +357,13 @@ fn export_package(path: &SysPath, workcell: &Workcell) -> Result<(), Box<dyn std
         license: "TODO".to_string(),
         maintainers: vec![Person {
             name: "TODO".to_string(),
-            email: "TODO".to_string(),
+            email: "todo@todo.com".to_string(),
         }],
         project_name: package_name,
-        fixed_frame: "base_link".to_string(),
+        fixed_frame: "world".to_string(),
         dependencies: vec![],
         project_description: "TODO".to_string(),
-        project_version: "TODO".to_string(),
+        project_version: "0.0.1".to_string(),
         urdf_file_name: "robot.urdf".to_string(),
     };
 

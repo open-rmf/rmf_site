@@ -19,9 +19,6 @@ pub mod save;
 use save::*;
 pub mod widgets;
 use widgets::{menu_bar::MenuPluginManager, *};
-pub mod package_exporter;
-use package_exporter::*;
-
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 pub mod issue;
