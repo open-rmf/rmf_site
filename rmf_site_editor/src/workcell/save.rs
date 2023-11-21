@@ -17,7 +17,7 @@
 
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::path::{Path as SysPath, PathBuf};
+use std::path::{Path, PathBuf};
 
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
 use crate::workcell::urdf_package_exporter::{generate_package, PackageContext, Person};
@@ -326,7 +326,8 @@ pub fn save_workcell(world: &mut World) {
                 }
             }
             ExportFormat::Urdf => {
-                match export_package(&path, &workcell) {
+                // TODO(luca) File name is ignored, change to pick folder instead of pick file
+                match export_package(&path, workcell) {
                     Ok(()) => {
                         info!("Successfully exported package");
                     }
@@ -339,19 +340,8 @@ pub fn save_workcell(world: &mut World) {
     }
 }
 
-fn export_package(path: &SysPath, workcell: &Workcell) -> Result<(), Box<dyn std::error::Error>> {
-    let output_directory = path
-        .parent()
-        .ok_or("Not able to get parent")?
-        .to_str()
-        .ok_or("Invalid output directory")?
-        .to_string();
-    let package_name = path
-        .file_stem()
-        .ok_or("Not able to get file_stem")?
-        .to_str()
-        .ok_or("Invalid file name")?
-        .to_string();
+fn export_package(path: &PathBuf, workcell: Workcell) -> Result<(), Box<dyn std::error::Error>> {
+    let output_directory = path.parent().ok_or("Not able to get parent")?;
 
     let package_context = PackageContext {
         license: "TODO".to_string(),
@@ -359,7 +349,7 @@ fn export_package(path: &SysPath, workcell: &Workcell) -> Result<(), Box<dyn std
             name: "TODO".to_string(),
             email: "todo@todo.com".to_string(),
         }],
-        project_name: package_name,
+        project_name: workcell.properties.name.0.clone() + "_description",
         fixed_frame: "world".to_string(),
         dependencies: vec![],
         project_description: "TODO".to_string(),
@@ -367,6 +357,6 @@ fn export_package(path: &SysPath, workcell: &Workcell) -> Result<(), Box<dyn std
         urdf_file_name: "robot.urdf".to_string(),
     };
 
-    generate_package(workcell, &package_context, &output_directory)?;
+    generate_package(workcell, package_context, &output_directory)?;
     Ok(())
 }

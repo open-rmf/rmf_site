@@ -1,7 +1,5 @@
 use serde::Serialize;
-use std::error::Error;
 use std::path::PathBuf;
-use tera::Tera;
 
 #[derive(Debug, Serialize)]
 pub struct PackageContext {
