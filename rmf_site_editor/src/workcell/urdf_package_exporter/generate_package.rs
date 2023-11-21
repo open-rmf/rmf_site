@@ -183,7 +183,7 @@ fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<String, Box<dyn 
                 .to_string())
         }
         AssetSource::Local(path) => Ok(path.clone()),
-        AssetSource::Search(_) | AssetSource::OSMTile(_) => {
+        AssetSource::Search(_) | AssetSource::OSMTile {zoom: _, latitude: _, longitude: _} | AssetSource::Bundled(_) => {
             Err(IoError::new(
                 IoErrorKind::Unsupported,
                 "Not a supported asset type for exporting a workcell to a package",
