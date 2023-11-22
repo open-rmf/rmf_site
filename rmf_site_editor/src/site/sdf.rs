@@ -25,8 +25,8 @@ use crate::SdfRoot;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, Model, ModelMarker, NameInSite,
-    Pose, PrimitiveShape, Rotation, Scale,
+    Angle, AssetSource, Category, ConstraintDependents, Geometry, IsStatic, Model, ModelMarker,
+    NameInSite, Pose, PrimitiveShape, Rotation, Scale,
 };
 
 /// An empty component to mark this entity as a visual mesh
@@ -157,6 +157,7 @@ fn spawn_geometry(
                         size: [s.x as f32, s.y as f32, s.z as f32],
                     })
                     .insert(pose)
+                    .insert(NameInSite(visual_name.to_owned()))
                     .insert(SpatialBundle::INHERITED_IDENTITY)
                     .id(),
             )
@@ -168,6 +169,7 @@ fn spawn_geometry(
                     length: c.length as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -178,6 +180,7 @@ fn spawn_geometry(
                     length: c.length as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -187,6 +190,7 @@ fn spawn_geometry(
                     radius: s.radius as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -217,6 +221,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                         commands
                             .entity(id)
                             .insert(VisualMeshMarker)
+                            .insert(Category::Visual)
                             .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
@@ -236,6 +241,7 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                         commands
                             .entity(id)
                             .insert(CollisionMeshMarker)
+                            .insert(Category::Collision)
                             .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &collision.geometry),
