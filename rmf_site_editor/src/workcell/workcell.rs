@@ -28,6 +28,10 @@ pub struct ChangeCurrentWorkcell {
     pub root: Entity,
 }
 
+/// Marker component used to mark the visualization of the workcell (its origin axis).
+#[derive(Component, Debug, Clone)]
+pub struct WorkcellVisualizationMarker;
+
 pub fn change_workcell(
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut change_current_workcell: EventReader<ChangeCurrentWorkcell>,
@@ -54,16 +58,18 @@ pub fn add_workcell_visualization(
     interaction_assets: Res<InteractionAssets>,
 ) {
     for e in new_workcells.iter() {
-        let body_mesh = site_assets.site_anchor_mesh.clone();
-        let mut entity_commands = commands.entity(e);
-        entity_commands.with_children(|parent| {
-            let mut body = parent.spawn(PbrBundle {
-                mesh: body_mesh,
-                material: site_assets.passive_anchor_material.clone(),
-                ..default()
-            });
-            body.insert(Selectable::new(e));
-        });
-        interaction_assets.make_orientation_cue_meshes(&mut commands, e, 1.0);
+        let body = commands
+            .spawn((
+                PbrBundle {
+                    mesh: site_assets.site_anchor_mesh.clone(),
+                    material: site_assets.passive_anchor_material.clone(),
+                    ..default()
+                },
+                WorkcellVisualizationMarker,
+                Selectable::new(e),
+            ))
+            .set_parent(e)
+            .id();
+        interaction_assets.make_orientation_cue_meshes(&mut commands, body, 1.0);
     }
 }

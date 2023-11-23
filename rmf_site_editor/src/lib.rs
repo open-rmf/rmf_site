@@ -47,6 +47,9 @@ pub mod site_asset_io;
 pub mod urdf_loader;
 use sdf_loader::*;
 
+pub mod view_menu;
+use view_menu::*;
+
 pub mod wireframe;
 use wireframe::*;
 
@@ -209,9 +212,13 @@ impl Plugin for SiteEditor {
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
-                SiteWireframePlugin,
             ))
-            // Note order matters, issue and OSMView plugins must be initialized after the UI
-            .add_plugins((IssuePlugin, OSMViewPlugin));
+            // Note order matters, plugins that edit the menus must be initialized after the UI
+            .add_plugins((
+                ViewMenuPlugin,
+                IssuePlugin,
+                OSMViewPlugin,
+                SiteWireframePlugin,
+            ));
     }
 }
