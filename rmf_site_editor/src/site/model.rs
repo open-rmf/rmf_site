@@ -443,14 +443,14 @@ pub fn make_models_selectable(
 pub fn propagate_model_render_layers(
     mut commands: Commands,
     new_scene_roots: Query<Entity, Added<ModelSceneRoot>>,
-    scene_roots: Query<&RenderLayers, With<ModelMarker>>,
+    render_layers: Query<&RenderLayers>,
     parents: Query<&Parent>,
     mesh_entities: Query<Entity, With<Handle<Mesh>>>,
     children: Query<&Children>,
 ) {
     for e in &new_scene_roots {
         let Some(render_layers) = AncestorIter::new(&parents, e)
-            .filter_map(|p| scene_roots.get(p).ok())
+            .filter_map(|p| render_layers.get(p).ok())
             .last()
         else {
             continue;
