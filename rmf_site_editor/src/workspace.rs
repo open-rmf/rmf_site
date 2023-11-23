@@ -21,8 +21,8 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
-use crate::site::LoadSite;
-use crate::workcell::LoadWorkcell;
+use crate::site::{DefaultFile, LoadSite, SaveSite};
+use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
@@ -58,6 +58,7 @@ pub enum LoadWorkspace {
     Data(WorkspaceData),
 }
 
+#[derive(Clone)]
 pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     Site(Vec<u8>),
@@ -89,7 +90,7 @@ pub struct CurrentWorkspace {
     pub display: bool,
 }
 
-pub struct LoadWorkspaceFile(pub std::path::PathBuf, pub Vec<u8>);
+pub struct LoadWorkspaceFile(pub Option<PathBuf>, pub WorkspaceData);
 
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
 /// be cloned and moved into async functions therefore don't have lifetime issues
@@ -100,6 +101,81 @@ pub struct LoadWorkspaceChannels {
 }
 
 impl Default for LoadWorkspaceChannels {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        Self { sender, receiver }
+    }
+}
+
+#[derive(Event)]
+pub struct SaveWorkspace {
+    /// If specified workspace will be saved to requested file, otherwise the default file
+    pub destination: SaveWorkspaceDestination,
+    /// If specified the workspace will be exported to a specific format
+    pub format: ExportFormat,
+}
+
+impl SaveWorkspace {
+    pub fn new() -> Self {
+        Self {
+            destination: SaveWorkspaceDestination::default(),
+            format: ExportFormat::default(),
+        }
+    }
+
+    pub fn to_default_file(mut self) -> Self {
+        self.destination = SaveWorkspaceDestination::DefaultFile;
+        self
+    }
+
+    pub fn to_dialog(mut self) -> Self {
+        self.destination = SaveWorkspaceDestination::Dialog;
+        self
+    }
+
+    pub fn to_path(mut self, path: &PathBuf) -> Self {
+        self.destination = SaveWorkspaceDestination::Path(path.clone());
+        self
+    }
+
+    pub fn to_urdf(mut self) -> Self {
+        self.format = ExportFormat::Urdf;
+        self
+    }
+}
+
+#[derive(Default, Debug, Clone)]
+pub enum SaveWorkspaceDestination {
+    #[default]
+    DefaultFile,
+    Dialog,
+    Path(PathBuf),
+}
+
+#[derive(Clone, Default, Debug)]
+pub enum ExportFormat {
+    #[default]
+    Default,
+    Urdf,
+}
+
+/// Event used in channels to communicate the file handle that was chosen by the user.
+#[derive(Debug)]
+pub struct SaveWorkspaceFile {
+    path: PathBuf,
+    format: ExportFormat,
+    root: Entity,
+}
+
+/// Use a channel since file dialogs are async and channel senders can be cloned and passed into an
+/// async block.
+#[derive(Debug, Resource)]
+pub struct SaveWorkspaceChannels {
+    pub sender: Sender<SaveWorkspaceFile>,
+    pub receiver: Receiver<SaveWorkspaceFile>,
+}
+
+impl Default for SaveWorkspaceChannels {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         Self { sender, receiver }
@@ -124,8 +200,10 @@ impl Plugin for WorkspacePlugin {
         app.add_event::<ChangeCurrentWorkspace>()
             .add_event::<CreateNewWorkspace>()
             .add_event::<LoadWorkspace>()
+            .add_event::<SaveWorkspace>()
             .init_resource::<CurrentWorkspace>()
             .init_resource::<RecallWorkspace>()
+            .init_resource::<SaveWorkspaceChannels>()
             .init_resource::<LoadWorkspaceChannels>()
             .add_systems(
                 Update,
@@ -134,8 +212,11 @@ impl Plugin for WorkspacePlugin {
                     workspace_file_load_complete,
                     sync_workspace_visibility,
                     dispatch_load_workspace_events,
+                    workspace_file_save_complete,
                 ),
             );
+        #[cfg(not(target_arch = "wasm32"))]
+        app.add_systems(Update, dispatch_save_workspace_events);
     }
 }
 
@@ -148,7 +229,7 @@ pub fn dispatch_new_workspace_events(
     if let Some(_cmd) = new_workspace.iter().last() {
         match state.get() {
             AppState::MainMenu => {
-                error!("Sent generic change workspace while in main menu");
+                error!("Sent generic new workspace while in main menu");
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                 let mut levels = BTreeMap::new();
@@ -174,11 +255,7 @@ pub fn dispatch_new_workspace_events(
 }
 
 pub fn dispatch_load_workspace_events(
-    mut app_state: ResMut<NextState<AppState>>,
-    mut interaction_state: ResMut<NextState<InteractionState>>,
-    mut load_channels: ResMut<LoadWorkspaceChannels>,
-    mut load_site: EventWriter<LoadSite>,
-    mut load_workcell: EventWriter<LoadWorkcell>,
+    load_channels: Res<LoadWorkspaceChannels>,
     mut load_workspace: EventReader<LoadWorkspace>,
 ) {
     if let Some(cmd) = load_workspace.iter().last() {
@@ -190,115 +267,33 @@ pub fn dispatch_load_workspace_events(
                         if let Some(file) = AsyncFileDialog::new().pick_file().await {
                             let data = file.read().await;
                             #[cfg(not(target_arch = "wasm32"))]
-                            sender
-                                .send(LoadWorkspaceFile(file.path().to_path_buf(), data))
-                                .expect("Failed sending file event");
+                            let file = file.path().to_path_buf();
                             #[cfg(target_arch = "wasm32")]
-                            sender
-                                .send(LoadWorkspaceFile(PathBuf::from(file.file_name()), data))
-                                .expect("Failed sending file event");
+                            let file = PathBuf::from(file.file_name());
+                            if let Some(data) = WorkspaceData::new(&file, data) {
+                                sender
+                                    .send(LoadWorkspaceFile(Some(file), data))
+                                    .expect("Failed sending file event");
+                            }
                         }
                     })
                     .detach();
             }
             LoadWorkspace::Path(path) => {
-                if let Some(data) = std::fs::read(&path)
-                    .ok()
-                    .and_then(|d| WorkspaceData::new(&path, d))
-                {
-                    handle_workspace_data(
-                        Some(path.clone()),
-                        &data,
-                        &mut app_state,
-                        &mut interaction_state,
-                        &mut load_site,
-                        &mut load_workcell,
-                    );
+                if let Ok(data) = std::fs::read(&path) {
+                    if let Some(data) = WorkspaceData::new(path, data) {
+                        load_channels
+                            .sender
+                            .send(LoadWorkspaceFile(Some(path.clone()), data))
+                            .expect("Failed sending load event");
+                    }
                 }
             }
             LoadWorkspace::Data(data) => {
-                // Do a sync load and state update
-                handle_workspace_data(
-                    None,
-                    &data,
-                    &mut app_state,
-                    &mut interaction_state,
-                    &mut load_site,
-                    &mut load_workcell,
-                );
-            }
-        }
-    }
-}
-
-fn handle_workspace_data(
-    file: Option<PathBuf>,
-    workspace_data: &WorkspaceData,
-    app_state: &mut ResMut<NextState<AppState>>,
-    interaction_state: &mut ResMut<NextState<InteractionState>>,
-    load_site: &mut EventWriter<LoadSite>,
-    load_workcell: &mut EventWriter<LoadWorkcell>,
-) {
-    match workspace_data {
-        WorkspaceData::LegacyBuilding(data) => {
-            info!("Opening legacy building map file");
-            match BuildingMap::from_bytes(&data) {
-                Ok(building) => {
-                    match building.to_site() {
-                        Ok(site) => {
-                            // Switch state
-                            app_state.set(AppState::SiteEditor);
-                            load_site.send(LoadSite {
-                                site,
-                                focus: true,
-                                default_file: file,
-                            });
-                            interaction_state.set(InteractionState::Enable);
-                        }
-                        Err(err) => {
-                            error!("Failed converting to site {:?}", err);
-                        }
-                    }
-                }
-                Err(err) => {
-                    error!("Failed loading legacy building {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::Site(data) => {
-            info!("Opening site file");
-            match Site::from_bytes(&data) {
-                Ok(site) => {
-                    // Switch state
-                    app_state.set(AppState::SiteEditor);
-                    load_site.send(LoadSite {
-                        site,
-                        focus: true,
-                        default_file: file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading site {:?}", err);
-                }
-            }
-        }
-        WorkspaceData::Workcell(data) => {
-            info!("Opening workcell file");
-            match Workcell::from_bytes(&data) {
-                Ok(workcell) => {
-                    // Switch state
-                    app_state.set(AppState::WorkcellEditor);
-                    load_workcell.send(LoadWorkcell {
-                        workcell,
-                        focus: true,
-                        default_file: file,
-                    });
-                    interaction_state.set(InteractionState::Enable);
-                }
-                Err(err) => {
-                    error!("Failed loading workcell {:?}", err);
-                }
+                load_channels
+                    .sender
+                    .send(LoadWorkspaceFile(None, data.clone()))
+                    .expect("Failed sending load event");
             }
         }
     }
@@ -310,19 +305,160 @@ fn workspace_file_load_complete(
     mut interaction_state: ResMut<NextState<InteractionState>>,
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
-    mut load_channels: ResMut<LoadWorkspaceChannels>,
+    load_channels: Res<LoadWorkspaceChannels>,
 ) {
     if let Ok(result) = load_channels.receiver.try_recv() {
-        let LoadWorkspaceFile(file, data) = result;
-        if let Some(workspace_data) = WorkspaceData::new(&file, data) {
-            handle_workspace_data(
-                Some(file),
-                &workspace_data,
-                &mut app_state,
-                &mut interaction_state,
-                &mut load_site,
-                &mut load_workcell,
-            );
+        let LoadWorkspaceFile(default_file, data) = result;
+        match data {
+            WorkspaceData::LegacyBuilding(data) => {
+                info!("Opening legacy building map file");
+                match BuildingMap::from_bytes(&data) {
+                    Ok(building) => {
+                        match building.to_site() {
+                            Ok(site) => {
+                                // Switch state
+                                app_state.set(AppState::SiteEditor);
+                                load_site.send(LoadSite {
+                                    site,
+                                    focus: true,
+                                    default_file,
+                                });
+                                interaction_state.set(InteractionState::Enable);
+                            }
+                            Err(err) => {
+                                error!("Failed converting to site {:?}", err);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!("Failed loading legacy building {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::Site(data) => {
+                info!("Opening site file");
+                match Site::from_bytes(&data) {
+                    Ok(site) => {
+                        // Switch state
+                        app_state.set(AppState::SiteEditor);
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading site {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::Workcell(data) => {
+                info!("Opening workcell file");
+                match Workcell::from_bytes(&data) {
+                    Ok(workcell) => {
+                        // Switch state
+                        app_state.set(AppState::WorkcellEditor);
+                        load_workcell.send(LoadWorkcell {
+                            workcell,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading workcell {:?}", err);
+                    }
+                }
+            }
+        }
+    }
+}
+
+// TODO(luca) implement this in wasm, it's supported since rfd version 0.12, however it requires
+// calling .write on the `FileHandle` object returned by the AsyncFileDialog. Such FileHandle is
+// not Send in wasm so it can't be sent to another thread through an event. We would need to
+// refactor saving to be fully done in the async task rather than send an event to have wasm saving.
+#[cfg(not(target_arch = "wasm32"))]
+fn dispatch_save_workspace_events(
+    mut save_events: EventReader<SaveWorkspace>,
+    save_channels: Res<SaveWorkspaceChannels>,
+    workspace: Res<CurrentWorkspace>,
+    default_files: Query<&DefaultFile>,
+) {
+    let spawn_dialog = |format: &ExportFormat, root| {
+        let sender = save_channels.sender.clone();
+        let format = format.clone();
+        AsyncComputeTaskPool::get()
+            .spawn(async move {
+                if let Some(file) = AsyncFileDialog::new().save_file().await {
+                    let path = file.path().to_path_buf();
+                    sender
+                        .send(SaveWorkspaceFile { path, format, root })
+                        .expect("Failed sending save event");
+                }
+            })
+            .detach();
+    };
+    for event in save_events.iter() {
+        if let Some(ws_root) = workspace.root {
+            match &event.destination {
+                SaveWorkspaceDestination::DefaultFile => {
+                    if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
+                        save_channels
+                            .sender
+                            .send(SaveWorkspaceFile {
+                                path: file,
+                                format: event.format.clone(),
+                                root: ws_root,
+                            })
+                            .expect("Failed sending save request");
+                    } else {
+                        spawn_dialog(&event.format, ws_root);
+                    }
+                }
+                SaveWorkspaceDestination::Dialog => spawn_dialog(&event.format, ws_root),
+                SaveWorkspaceDestination::Path(path) => {
+                    save_channels
+                        .sender
+                        .send(SaveWorkspaceFile {
+                            path: path.clone(),
+                            format: event.format.clone(),
+                            root: ws_root,
+                        })
+                        .expect("Failed sending save request");
+                }
+            }
+        } else {
+            warn!("Unable to save, no workspace loaded");
+            return;
+        }
+    }
+}
+
+/// Handles the file saving events
+fn workspace_file_save_complete(
+    app_state: Res<State<AppState>>,
+    mut save_site: EventWriter<SaveSite>,
+    mut save_workcell: EventWriter<SaveWorkcell>,
+    save_channels: Res<SaveWorkspaceChannels>,
+) {
+    if let Ok(result) = save_channels.receiver.try_recv() {
+        match app_state.get() {
+            AppState::WorkcellEditor => {
+                save_workcell.send(SaveWorkcell {
+                    root: result.root,
+                    to_file: result.path,
+                    format: result.format,
+                });
+            }
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+                save_site.send(SaveSite {
+                    site: result.root,
+                    to_file: result.path,
+                });
+            }
+            AppState::MainMenu => { /* Noop */ }
         }
     }
 }
