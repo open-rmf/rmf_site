@@ -37,7 +37,7 @@ pub use workcell::*;
 
 use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
 use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
-use bevy_infinite_grid::{InfiniteGrid, InfiniteGridBundle, InfiniteGridPlugin};
+use bevy_infinite_grid::{InfiniteGrid, InfiniteGridPlugin};
 
 use crate::interaction::Gizmo;
 use crate::AppState;

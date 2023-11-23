@@ -17,8 +17,7 @@
 
 use crate::{
     interaction::{
-        CategoryVisibility, ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select,
-        SetCategoryVisibility, SpawnPreview,
+        ChangeMode, HeadlightToggle, Hover, MoveTo, PickingBlockers, Select, SpawnPreview,
     },
     log::LogHistory,
     occupancy::CalculateGrid,
@@ -236,44 +235,6 @@ pub struct LayerEvents<'w> {
 }
 
 #[derive(SystemParam)]
-pub struct VisibilityEvents<'w> {
-    pub doors: EventWriter<'w, SetCategoryVisibility<DoorMarker>>,
-    pub floors: EventWriter<'w, SetCategoryVisibility<FloorMarker>>,
-    pub lanes: EventWriter<'w, SetCategoryVisibility<LaneMarker>>,
-    pub lift_cabins: EventWriter<'w, SetCategoryVisibility<LiftCabin<Entity>>>,
-    pub lift_cabin_doors: EventWriter<'w, SetCategoryVisibility<LiftCabinDoorMarker>>,
-    pub locations: EventWriter<'w, SetCategoryVisibility<LocationTags>>,
-    pub fiducials: EventWriter<'w, SetCategoryVisibility<FiducialMarker>>,
-    pub constraints: EventWriter<'w, SetCategoryVisibility<ConstraintMarker>>,
-    pub measurements: EventWriter<'w, SetCategoryVisibility<MeasurementMarker>>,
-    pub walls: EventWriter<'w, SetCategoryVisibility<WallMarker>>,
-    pub visuals: EventWriter<'w, SetCategoryVisibility<VisualMeshMarker>>,
-    pub collisions: EventWriter<'w, SetCategoryVisibility<CollisionMeshMarker>>,
-}
-
-#[derive(SystemParam)]
-pub struct VisibilityResources<'w> {
-    pub doors: Res<'w, CategoryVisibility<DoorMarker>>,
-    pub floors: Res<'w, CategoryVisibility<FloorMarker>>,
-    pub lanes: Res<'w, CategoryVisibility<LaneMarker>>,
-    pub lift_cabins: Res<'w, CategoryVisibility<LiftCabin<Entity>>>,
-    pub lift_cabin_doors: Res<'w, CategoryVisibility<LiftCabinDoorMarker>>,
-    pub locations: Res<'w, CategoryVisibility<LocationTags>>,
-    pub fiducials: Res<'w, CategoryVisibility<FiducialMarker>>,
-    pub constraints: Res<'w, CategoryVisibility<ConstraintMarker>>,
-    pub measurements: Res<'w, CategoryVisibility<MeasurementMarker>>,
-    pub walls: Res<'w, CategoryVisibility<WallMarker>>,
-    pub visuals: Res<'w, CategoryVisibility<VisualMeshMarker>>,
-    pub collisions: Res<'w, CategoryVisibility<CollisionMeshMarker>>,
-}
-
-#[derive(SystemParam)]
-pub struct VisibilityParameters<'w> {
-    events: VisibilityEvents<'w>,
-    resources: VisibilityResources<'w>,
-}
-
-#[derive(SystemParam)]
 pub struct MenuParams<'w, 's> {
     state: Res<'w, State<AppState>>,
     menus: Query<'w, 's, (&'static Menu, Entity)>,
@@ -299,7 +260,6 @@ pub struct AppEvents<'w, 's> {
     pub new_model: NewModelParams<'w>,
     pub app_state: Res<'w, State<AppState>>,
     pub next_app_state: ResMut<'w, NextState<AppState>>,
-    pub visibility_parameters: VisibilityParameters<'w>,
 }
 
 fn site_ui_layout(
@@ -388,7 +348,6 @@ fn site_ui_layout(
     top_menu_bar(
         egui_context.ctx_mut(),
         &mut events.file_events,
-        &mut events.visibility_parameters,
         &file_menu,
         &top_level_components,
         &children,
@@ -498,7 +457,6 @@ fn site_drawing_ui_layout(
     top_menu_bar(
         egui_context.ctx_mut(),
         &mut events.file_events,
-        &mut events.visibility_parameters,
         &file_menu,
         &top_level_components,
         &children,
@@ -582,7 +540,6 @@ fn site_visualizer_ui_layout(
     top_menu_bar(
         egui_context.ctx_mut(),
         &mut events.file_events,
-        &mut events.visibility_parameters,
         &file_menu,
         &top_level_components,
         &children,
@@ -653,7 +610,6 @@ fn workcell_ui_layout(
     top_menu_bar(
         egui_context.ctx_mut(),
         &mut events.file_events,
-        &mut events.visibility_parameters,
         &file_menu,
         &top_level_components,
         &children,
