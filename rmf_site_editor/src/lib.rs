@@ -15,8 +15,6 @@ pub mod animate;
 pub mod keyboard;
 use keyboard::*;
 
-pub mod save;
-use save::*;
 pub mod widgets;
 use widgets::{menu_bar::MenuPluginManager, *};
 
@@ -205,7 +203,6 @@ impl Plugin for SiteEditor {
                 AabbUpdatePlugin,
                 EguiPlugin,
                 KeyboardInputPlugin,
-                SavePlugin,
                 SdfPlugin,
                 MainMenuPlugin,
                 WorkcellEditorPlugin,
