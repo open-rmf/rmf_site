@@ -24,6 +24,9 @@ pub use load::*;
 pub mod keyboard;
 pub use keyboard::*;
 
+pub mod menu;
+pub use menu::*;
+
 pub mod model;
 pub use model::*;
 
@@ -95,6 +98,7 @@ impl Plugin for WorkcellEditorPlugin {
                     handle_workcell_keyboard_input,
                     change_workcell.before(load_workcell),
                     handle_new_sdf_roots,
+                    handle_export_urdf_menu_events,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
             )
@@ -119,5 +123,10 @@ impl Plugin for WorkcellEditorPlugin {
                 PostUpdate,
                 (flatten_loaded_models_hierarchy,).run_if(in_state(AppState::WorkcellEditor)),
             );
+    }
+
+    // Put the UI dependent plugins in `finish` to make sure the interaction is initialized first
+    fn finish(&self, app: &mut App) {
+        app.init_resource::<ExportUrdfMenu>();
     }
 }

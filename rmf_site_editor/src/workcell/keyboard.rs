@@ -35,7 +35,6 @@ pub fn handle_workcell_keyboard_input(
 
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard_input.just_pressed(KeyCode::E) {
-            info!("Exporting URDF");
             save_events.send(SaveWorkspace {
                 destination: SaveWorkspaceDestination::Dialog,
                 format: ExportFormat::Urdf,
