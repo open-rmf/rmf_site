@@ -18,10 +18,13 @@
 use crate::site::{DefaultFile, SaveSite};
 use crate::workcell::SaveWorkcell;
 use crate::{AppState, CurrentWorkspace};
-use bevy::prelude::*;
+use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
+
+use rfd::{AsyncFileDialog, FileHandle};
+use crossbeam_channel::{Receiver, Sender};
 
 use std::path::PathBuf;
 
@@ -77,11 +80,35 @@ pub enum ExportFormat {
     Urdf,
 }
 
+/// Event used in channels to communicate the file handle that was chosen by the user.
+#[derive(Debug)]
+pub struct SaveWorkspaceFile {
+    file: FileHandle,
+    format: ExportFormat,
+    root: Entity,
+}
+
+/// Use a channel since file dialogs are async and channel senders can be cloned and passed into an
+/// async block.
+#[derive(Debug, Resource)]
+pub struct SaveWorkspaceChannels {
+    pub sender: Sender<SaveWorkspaceFile>,
+    pub receiver: Receiver<SaveWorkspaceFile>,
+}
+
+impl Default for SaveWorkspaceChannels {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        Self { sender, receiver }
+    }
+}
+
 pub struct SavePlugin;
 
 impl Plugin for SavePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<SaveWorkspace>();
+        app.add_event::<SaveWorkspace>()
+            .init_resource::<SaveWorkspaceChannels>();
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, dispatch_save_events);
     }
@@ -92,6 +119,7 @@ pub fn dispatch_save_events(
     mut save_events: EventReader<SaveWorkspace>,
     mut save_site: EventWriter<SaveSite>,
     mut save_workcell: EventWriter<SaveWorkcell>,
+    mut save_channels: ResMut<SaveWorkspaceChannels>,
     app_state: Res<State<AppState>>,
     workspace: Res<CurrentWorkspace>,
     default_files: Query<&DefaultFile>,
@@ -103,10 +131,30 @@ pub fn dispatch_save_events(
                     if let Some(file) = default_files.get(ws_root).ok().map(|f| f.0.clone()) {
                         file
                     } else {
-                        let Some(file) = FileDialog::new().save_file() else {
-                            continue;
-                        };
-                        file
+                        let sender = save_channels.sender.clone();
+                        let format = event.format.clone();
+                        AsyncComputeTaskPool::get()
+                            .spawn(async move {
+                                if let Some(file) = AsyncFileDialog::new().save_file().await {
+                                    /*
+                                    let data = file.read().await;
+                                    #[cfg(not(target_arch = "wasm32"))]
+                                    let file = file.path().to_path_buf();
+                                    #[cfg(target_arch = "wasm32")]
+                                    let file = PathBuf::from(file.file_name());
+                                    */
+                                    sender
+                                        .send(SaveWorkspaceFile {
+                                            file,
+                                            format,
+                                            root: ws_root,
+
+                                        })
+                                        .expect("Failed sending file event");
+                                    }
+                                })
+                            .detach();
+                        continue;
                     }
                 }
                 SaveWorkspaceDestination::Dialog => {

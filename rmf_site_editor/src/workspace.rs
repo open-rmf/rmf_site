@@ -149,7 +149,7 @@ pub fn dispatch_new_workspace_events(
     if let Some(_cmd) = new_workspace.iter().last() {
         match state.get() {
             AppState::MainMenu => {
-                error!("Sent generic change workspace while in main menu");
+                error!("Sent generic new workspace while in main menu");
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
                 let mut levels = BTreeMap::new();
@@ -204,14 +204,16 @@ pub fn dispatch_load_workspace_events(
                     if let Some(data) = WorkspaceData::new(path, data) {
                         load_channels
                             .sender
-                            .send(LoadWorkspaceFile(Some(path.clone()), data));
+                            .send(LoadWorkspaceFile(Some(path.clone()), data))
+                            .expect("Failed sending load event");
                     }
                 }
             }
             LoadWorkspace::Data(data) => {
                 load_channels
                     .sender
-                    .send(LoadWorkspaceFile(None, data.clone()));
+                    .send(LoadWorkspaceFile(None, data.clone()))
+                    .expect("Failed sending load event");
             }
         }
     }
