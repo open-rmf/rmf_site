@@ -33,7 +33,7 @@ pub const FLOOR_LAYER_START: f32 = DRAWING_LAYER_START + 0.001;
 
 #[derive(Debug, Clone, Copy, Component)]
 pub struct FloorSegments {
-    mesh: Entity,
+    pub mesh: Entity,
 }
 
 fn make_fallback_floor_mesh(p: Vec3) -> Mesh {

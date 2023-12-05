@@ -267,6 +267,9 @@ pub fn save_workcell(world: &mut World) {
             ExportFormat::Urdf => {
                 info!("Saving to urdf");
             }
+            ExportFormat::Sdf => {
+                warn!("Exporting workcells to sdf is not supported.");
+            }
         }
     }
 }

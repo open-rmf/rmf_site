@@ -157,6 +157,7 @@ pub enum ExportFormat {
     #[default]
     Default,
     Urdf,
+    Sdf,
 }
 
 /// Event used in channels to communicate the file handle that was chosen by the user.
@@ -456,6 +457,7 @@ fn workspace_file_save_complete(
                 save_site.send(SaveSite {
                     site: result.root,
                     to_file: result.path,
+                    format: result.format,
                 });
             }
             AppState::MainMenu => { /* Noop */ }

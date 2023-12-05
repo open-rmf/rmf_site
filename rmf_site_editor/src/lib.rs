@@ -56,7 +56,7 @@ use wireframe::*;
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
-use site::{OSMViewPlugin, SitePlugin};
+use site::{OSMViewPlugin, SiteFileMenuPlugin, SitePlugin};
 use site_asset_io::SiteAssetIoPlugin;
 
 pub mod osm_slippy_map;
@@ -219,6 +219,7 @@ impl Plugin for SiteEditor {
                 IssuePlugin,
                 OSMViewPlugin,
                 SiteWireframePlugin,
+                SiteFileMenuPlugin,
             ));
     }
 }

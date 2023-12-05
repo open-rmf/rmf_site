@@ -98,6 +98,9 @@ pub use point::*;
 pub mod recall;
 pub use recall::*;
 
+pub mod sdf;
+pub use sdf::*;
+
 pub mod semver;
 pub use semver::*;
 

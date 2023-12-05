@@ -21,17 +21,19 @@ use bevy::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
+    io::Write,
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
 
-use crate::{recency::RecencyRanking, site::*};
+use crate::{recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 
 #[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: PathBuf,
+    pub format: ExportFormat,
 }
 
 #[derive(Event)]
@@ -1206,42 +1208,96 @@ pub fn save_site(world: &mut World) {
                 continue;
             }
         };
-        if path_str.ends_with(".building.yaml") {
-            warn!("Detected old file format, converting to new format");
-            new_path = path_str.replace(".building.yaml", ".site.ron").into();
-        } else if !path_str.ends_with("site.ron") {
-            info!("Appending .site.ron to {}", new_path.display());
-            new_path = new_path.with_extension("site.ron");
-        }
-        info!("Saving to {}", new_path.display());
-        let f = match std::fs::File::create(new_path.clone()) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
-        let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
-        migrate_relative_paths(save_event.site, &new_path, world);
-
-        let site = match generate_site(world, save_event.site) {
-            Ok(site) => site,
-            Err(err) => {
-                error!("Unable to compile site: {err}");
-                continue;
-            }
-        };
-
-        match site.to_writer(f) {
-            Ok(()) => {
-                info!("Save successful");
-            }
-            Err(err) => {
-                if let Some(old_default_path) = old_default_path {
-                    world.entity_mut(save_event.site).insert(old_default_path);
+        match save_event.format {
+            ExportFormat::Default => {
+                if path_str.ends_with(".building.yaml") {
+                    warn!("Detected old file format, converting to new format");
+                    new_path = path_str.replace(".building.yaml", ".site.ron").into();
+                } else if !path_str.ends_with("site.ron") {
+                    info!("Appending .site.ron to {}", new_path.display());
+                    new_path = new_path.with_extension("site.ron");
                 }
-                error!("Save failed: {err}");
+                info!("Saving to {}", new_path.display());
+                let f = match std::fs::File::create(new_path.clone()) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file: {err}");
+                        continue;
+                    }
+                };
+
+                let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+                migrate_relative_paths(save_event.site, &new_path, world);
+
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+
+                match site.to_writer(f) {
+                    Ok(()) => {
+                        info!("Save successful");
+                    }
+                    Err(err) => {
+                        if let Some(old_default_path) = old_default_path {
+                            world.entity_mut(save_event.site).insert(old_default_path);
+                        }
+                        error!("Save failed: {err}");
+                    }
+                }
+            }
+            ExportFormat::Sdf => {
+                // TODO(luca) reduce code duplication with default exporting
+                if path_str.ends_with(".building.yaml") {
+                    warn!("Detected old file format, converting to new format");
+                    new_path = path_str.replace(".building.yaml", ".world").into();
+                } else if !path_str.ends_with("site.ron") {
+                    info!("Appending .world to {}", new_path.display());
+                    new_path = new_path.with_extension("world");
+                }
+                info!("Saving to {}", new_path.display());
+                let f = match std::fs::File::create(new_path.clone()) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file: {err}");
+                        continue;
+                    }
+                };
+
+                std::fs::create_dir("meshes").ok();
+                collect_site_meshes(world, save_event.site, "meshes");
+
+                let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+                migrate_relative_paths(save_event.site, &new_path, world);
+
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+                let sdf = match site.to_sdf() {
+                    Ok(sdf) => sdf,
+                    Err(err) => {
+                        //error!("Unable to convert site to sdf: {err}");
+                        error!("Unable to convert site to sdf");
+                        continue;
+                    }
+                };
+                let config = yaserde::ser::Config {
+                    perform_indent: true,
+                    write_document_declaration: true,
+                    ..Default::default()
+                };
+                let s = yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
+            }
+            ExportFormat::Urdf => {
+                warn!("Site exporting to Urdf is not supported.");
+                continue;
             }
         }
     }
