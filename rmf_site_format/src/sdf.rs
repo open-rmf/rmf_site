@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Angle, Anchor, Level, AssetSource, Category, NameInSite, Pose, Rotation, Site};
+use crate::{Anchor, Angle, AssetSource, Category, Level, NameInSite, Pose, Rotation, Site};
 use sdformat_rs::*;
 use std::collections::{hash_map::Entry, HashMap};
 
@@ -123,7 +123,8 @@ impl Site {
                     .0
                     .iter()
                     .map(|id| {
-                        let anchor = get_anchor(*id, level, self).ok_or(SdfConversionError::BrokenAnchorReference)?;
+                        let anchor = get_anchor(*id, level, self)
+                            .ok_or(SdfConversionError::BrokenAnchorReference)?;
                         let pose = anchor.translation_for_category(Category::General);
                         Ok(format!("{} {}", pose[0], pose[1]))
                     })
@@ -156,8 +157,10 @@ impl Site {
             for wall in level.walls.values() {
                 wall_count += 1;
                 // TODO(luca) materials for walls
-                let start = get_anchor(wall.anchors.start(), level, self).ok_or(SdfConversionError::BrokenAnchorReference)?;
-                let end = get_anchor(wall.anchors.end(), level, self).ok_or(SdfConversionError::BrokenAnchorReference)?;
+                let start = get_anchor(wall.anchors.start(), level, self)
+                    .ok_or(SdfConversionError::BrokenAnchorReference)?;
+                let end = get_anchor(wall.anchors.end(), level, self)
+                    .ok_or(SdfConversionError::BrokenAnchorReference)?;
                 let start = start.translation_for_category(Category::General);
                 let end = end.translation_for_category(Category::General);
                 let length = ((start[0] - end[0]).powi(2) + (start[1] - end[1]).powi(2)).sqrt();

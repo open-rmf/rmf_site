@@ -1,24 +1,20 @@
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use bevy_gltf_export::{export_mesh, gltf_to_bytes, GltfPose};
+use bevy_gltf_export::{export_mesh, CompressGltfOptions, GltfPose};
 
 use std::collections::BTreeMap;
 
 use crate::site::FloorSegments;
-use rmf_site_format::{FloorMarker, LevelElevation, Pose, WallMarker};
-
-// Returns a map from level site id to
-//fn collect_wall_meshes(world: &World, site: Entity) -> HashMap<u32,
+use rmf_site_format::{FloorMarker, LevelElevation, NameInSite, Pose, WallMarker};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &str) {
     let mut state: SystemState<(
         Query<&Children>,
-        Query<(Entity, &LevelElevation)>,
+        Query<(&NameInSite, &LevelElevation, &Children)>,
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments, With<FloorMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
     )> = SystemState::new(world);
-    // TODO(luca) level elevation into meshes transform
     let (q_children, q_levels, q_walls, q_floors, q_pbr) = state.get(world);
 
     let image_assets = world.resource::<Assets<Image>>();
@@ -26,11 +22,13 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &str) {
     let material_assets = world.resource::<Assets<StandardMaterial>>();
     let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
 
-    info!("Looking for children");
-    for site_child in q_children.get(site).unwrap().iter() {
-        if let Ok((level, elevation)) = q_levels.get(*site_child) {
-            info!("Found level {:?}", level);
-            for (i, child) in q_children.get(level).unwrap().iter().enumerate() {
+    let Ok(site_children) = q_children.get(site) else {
+        return;
+    };
+    for site_child in site_children.iter() {
+        let mut mesh_data = Vec::new();
+        if let Ok((level_name, elevation, children)) = q_levels.get(*site_child) {
+            for child in children.iter() {
                 let entity = if let Ok(res) = q_walls.get(*child) {
                     res
                 } else if let Ok(res) = q_floors.get(*child) {
@@ -38,7 +36,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &str) {
                 } else {
                     continue;
                 };
-                info!("Found a mesh");
                 // Get mesh and material
                 let Ok((mesh, material)) = q_pbr.get(entity) else {
                     // This shouldn't happen
@@ -58,20 +55,30 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &str) {
                     translation: [0.0, 0.0, **elevation],
                     ..Default::default()
                 };
-                let (root, bytes) = bevy_gltf_export::export_mesh(
+                match bevy_gltf_export::export_mesh(
                     mesh.clone(),
                     material.clone(),
                     Some(pose),
                     image_getter,
-                )
-                .unwrap();
-                // TODO(luca) merge the roots
-                let bytes = gltf_to_bytes(&root, bytes).unwrap();
-                let filename = format!("{}/level_{}_mesh_{}.glb", folder, level.index(), i);
-                info!("Writing to {}", filename);
-                std::fs::write(filename, bytes).unwrap();
-                info!("Wrote mesh");
+                ) {
+                    Ok(exported) => mesh_data.push(exported),
+                    Err(e) => error!("Error exporting mesh to glb"),
+                }
             }
+            let mut meshes = mesh_data.into_iter();
+            let Some(mut combined) = meshes.next() else {
+                continue;
+            };
+            let combined = combined.combine_with(meshes, CompressGltfOptions::maximum());
+            let Ok(bytes) = combined.to_bytes() else {
+                error!("Error converting glb to bytes");
+                continue;
+            };
+            let filename = format!("{}/level_{}.glb", folder, **level_name);
+            let Ok(e) = std::fs::write(filename, bytes) else {
+                error!("Error writing mesh to file");
+                continue;
+            };
         }
     }
 }
