@@ -66,11 +66,13 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &str) {
                 }
             }
             let mut meshes = mesh_data.into_iter();
-            let Some(mut combined) = meshes.next() else {
+            let Some(mut mesh) = meshes.next() else {
                 continue;
             };
-            let combined = combined.combine_with(meshes, CompressGltfOptions::maximum());
-            let Ok(bytes) = combined.to_bytes() else {
+            let Ok(bytes) = mesh
+                .combine_with(meshes, CompressGltfOptions::maximum())
+                .to_bytes()
+            else {
                 error!("Error converting glb to bytes");
                 continue;
             };

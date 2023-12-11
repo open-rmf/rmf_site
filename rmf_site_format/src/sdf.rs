@@ -113,85 +113,34 @@ impl Site {
                     pose: Some(model.pose.to_sdf(z)),
                     r#static: Some(model.is_static.0),
                     ..Default::default()
-                })
-            }
-            for floor in level.floors.values() {
-                // TODO(luca) materials for floors
-                floor_count += 1;
-                let anchors = floor
-                    .anchors
-                    .0
-                    .iter()
-                    .map(|id| {
-                        let anchor = get_anchor(*id, level, self)
-                            .ok_or(SdfConversionError::BrokenAnchorReference)?;
-                        let pose = anchor.translation_for_category(Category::General);
-                        Ok(format!("{} {}", pose[0], pose[1]))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-                let geometry = SdfGeometry::Polyline(SdfPolylineShape {
-                    point: anchors,
-                    height: floor_thickness as f64,
                 });
-                models.push(SdfModel {
-                    name: format!("Floor_{}", floor_count),
-                    r#static: Some(true),
-                    pose: Some(Pose::default().to_sdf(z - floor_thickness / 2.0)),
-                    link: vec![SdfLink {
-                        name: format!("Floor_{}", floor_count),
-                        collision: vec![SdfCollision {
-                            name: "collision".into(),
-                            geometry: geometry.clone(),
-                            ..Default::default()
-                        }],
-                        visual: vec![SdfVisual {
-                            name: "visual".into(),
-                            geometry,
-                            ..Default::default()
-                        }],
+            }
+            // Floors and walls are included in the static level mesh
+            models.push(SdfModel {
+                name: format!("level_{}", level.properties.name.0),
+                r#static: Some(true),
+                link: vec![SdfLink {
+                    name: "link".into(),
+                    collision: vec![SdfCollision {
+                        name: "collision".into(),
+                        geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                uri: format!("meshes://level_{}.glb", level.properties.name.0),
+                                ..Default::default()
+                            }),
+                        ..Default::default()
+                    }],
+                    visual: vec![SdfVisual {
+                        name: "visual".into(),
+                        geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                uri: format!("meshes/level_{}.glb", level.properties.name.0),
+                                ..Default::default()
+                            }),
                         ..Default::default()
                     }],
                     ..Default::default()
-                })
-            }
-            for wall in level.walls.values() {
-                wall_count += 1;
-                // TODO(luca) materials for walls
-                let start = get_anchor(wall.anchors.start(), level, self)
-                    .ok_or(SdfConversionError::BrokenAnchorReference)?;
-                let end = get_anchor(wall.anchors.end(), level, self)
-                    .ok_or(SdfConversionError::BrokenAnchorReference)?;
-                let start = start.translation_for_category(Category::General);
-                let end = end.translation_for_category(Category::General);
-                let length = ((start[0] - end[0]).powi(2) + (start[1] - end[1]).powi(2)).sqrt();
-                let geometry = SdfGeometry::r#Box(SdfBoxShape {
-                    size: Vector3d::new(length.into(), wall_thickness, wall_height),
-                });
-                let pose = Pose {
-                    trans: Default::default(),
-                    rot: Rotation::Yaw(Angle::Rad((start[0] - end[0]).atan2(start[1] - end[1]))),
-                };
-                models.push(SdfModel {
-                    name: format!("Wall_{}", wall_count),
-                    r#static: Some(true),
-                    pose: Some(pose.to_sdf(0.0)),
-                    link: vec![SdfLink {
-                        name: format!("Wall_{}", wall_count),
-                        collision: vec![SdfCollision {
-                            name: "collision".into(),
-                            geometry: geometry.clone(),
-                            ..Default::default()
-                        }],
-                        visual: vec![SdfVisual {
-                            name: "visual".into(),
-                            geometry,
-                            ..Default::default()
-                        }],
-                        ..Default::default()
-                    }],
-                    ..Default::default()
-                })
-            }
+                }],
+                ..Default::default()
+            })
         }
 
         Ok(SdfRoot {
