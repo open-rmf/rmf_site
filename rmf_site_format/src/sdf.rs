@@ -15,9 +15,8 @@
  *
 */
 
-use crate::{Anchor, Angle, AssetSource, Category, Level, NameInSite, Pose, Rotation, Site};
+use crate::{Pose, Rotation, Site};
 use sdformat_rs::*;
-use std::collections::{hash_map::Entry, HashMap};
 
 #[derive(Debug)]
 pub enum SdfConversionError {
@@ -25,26 +24,6 @@ pub enum SdfConversionError {
     UnsupportedAssetType,
     /// Entity referenced a non existing anchor.
     BrokenAnchorReference,
-}
-
-impl AssetSource {
-    fn to_sdf(&self) -> Result<String, SdfConversionError> {
-        // TODO(luca) check this function
-        match self {
-            AssetSource::Local(path) => Ok(path.clone()),
-            AssetSource::Remote(name) => Ok(name.clone()),
-            AssetSource::Search(name) => {
-                let name = name
-                    .rsplit("/")
-                    .next()
-                    .ok_or(SdfConversionError::UnsupportedAssetType)?;
-                Ok("model://".to_owned() + name)
-            }
-            AssetSource::Bundled(_) | AssetSource::Package(_) | AssetSource::OSMTile { .. } => {
-                Err(SdfConversionError::UnsupportedAssetType)
-            }
-        }
-    }
 }
 
 impl Pose {
@@ -67,32 +46,8 @@ impl Pose {
     }
 }
 
-impl NameInSite {
-    fn to_sdf(&self, model_counts: &mut HashMap<String, i64>) -> String {
-        match model_counts.entry(self.0.to_string()) {
-            Entry::Occupied(mut entry) => {
-                let name = format!("{}_{}", self.0, entry.get());
-                *entry.get_mut() += 1;
-                name
-            }
-            Entry::Vacant(entry) => {
-                entry.insert(1);
-                self.0.clone()
-            }
-        }
-    }
-}
-
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32, level: &Level, site: &Site| -> Option<Anchor> {
-            level
-                .anchors
-                .get(&id)
-                .or_else(|| self.anchors.get(&id))
-                .cloned()
-        };
-        let mut includes = Vec::new();
         let mut models = Vec::new();
         for level in self.levels.values() {
             // Floors walls and static models are included in the level mesh
@@ -143,7 +98,6 @@ impl Site {
             version: "1.7".to_string(),
             world: vec![SdfWorld {
                 name: self.properties.name.0.clone(),
-                include: includes,
                 model: models,
                 atmosphere: SdfAtmosphere {
                     r#type: "adiabatic".to_string(),
