@@ -1267,8 +1267,10 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                std::fs::create_dir("meshes").ok();
-                collect_site_meshes(world, save_event.site, "meshes");
+                let mut meshes_dir = PathBuf::from(new_path.parent().unwrap());
+                meshes_dir.push("meshes");
+                std::fs::create_dir(&meshes_dir).ok();
+                collect_site_meshes(world, save_event.site, &meshes_dir);
 
                 let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
                 migrate_relative_paths(save_event.site, &new_path, world);

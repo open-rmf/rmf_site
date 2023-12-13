@@ -92,30 +92,10 @@ impl Site {
                 .or_else(|| self.anchors.get(&id))
                 .cloned()
         };
-        //let mut levels = Vec::new();
         let mut includes = Vec::new();
         let mut models = Vec::new();
-        // Models must have a unique name, use this to add a counter
-        let mut model_counts = HashMap::new();
-        let mut floor_count = 0;
-        let mut wall_count = 0;
-        let floor_thickness = 0.01_f32;
-        let wall_thickness = 0.01;
-        let wall_height = 2.5;
         for level in self.levels.values() {
-            let z = level.properties.elevation.0;
-            // TODO(luca) meshes for floor, walls,
-            for model in level.models.values() {
-                let source = model.source.to_sdf()?;
-                includes.push(SdfWorldInclude {
-                    name: Some(model.name.to_sdf(&mut model_counts)),
-                    uri: source,
-                    pose: Some(model.pose.to_sdf(z)),
-                    r#static: Some(model.is_static.0),
-                    ..Default::default()
-                });
-            }
-            // Floors and walls are included in the static level mesh
+            // Floors walls and static models are included in the level mesh
             models.push(SdfModel {
                 name: format!("level_{}", level.properties.name.0),
                 r#static: Some(true),
@@ -124,17 +104,17 @@ impl Site {
                     collision: vec![SdfCollision {
                         name: "collision".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                uri: format!("meshes://level_{}.glb", level.properties.name.0),
-                                ..Default::default()
-                            }),
+                            uri: format!("meshes/level_{}_collision.glb", level.properties.name.0),
+                            ..Default::default()
+                        }),
                         ..Default::default()
                     }],
                     visual: vec![SdfVisual {
                         name: "visual".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                uri: format!("meshes/level_{}.glb", level.properties.name.0),
-                                ..Default::default()
-                            }),
+                            uri: format!("meshes/level_{}_visual.glb", level.properties.name.0),
+                            ..Default::default()
+                        }),
                         ..Default::default()
                     }],
                     ..Default::default()
@@ -143,6 +123,22 @@ impl Site {
             })
         }
 
+        let sun = SdfLight {
+            name: "sun".into(),
+            r#type: "directional".into(),
+            cast_shadows: Some(true),
+            diffuse: Some("1 1 1 1".into()),
+            pose: Some(Pose::default().to_sdf(10.0)),
+            specular: Some("0.2 0.2 0.2 1".into()),
+            attenuation: Some(SdfLightAttenuation {
+                range: 1000.0,
+                constant: Some(0.09),
+                linear: Some(0.001),
+                quadratic: Some(0.001),
+            }),
+            direction: Vector3d::new(-0.5, 0.1, -0.9),
+            ..Default::default()
+        };
         Ok(SdfRoot {
             version: "1.7".to_string(),
             world: vec![SdfWorld {
@@ -158,6 +154,7 @@ impl Site {
                     background: "0.8 0.8 0.8".to_string(),
                     ..Default::default()
                 },
+                light: vec![sun],
                 ..Default::default()
             }],
             ..Default::default()
