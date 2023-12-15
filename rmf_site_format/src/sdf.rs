@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{Category, Side, Anchor, DoorType, Level, Pose, Rotation, Site};
+use crate::{Anchor, Angle, Category, DoorType, Level, Pose, Rotation, Side, Site, Swing};
 use sdformat_rs::*;
 
 #[derive(Debug)]
@@ -94,6 +94,18 @@ impl Site {
             });
             // Now add all the doors
             for door in level.doors.values() {
+                let left_anchor = get_anchor(door.anchors.left(), level)?;
+                let left_trans = left_anchor.translation_for_category(Category::Door);
+                let right_anchor = get_anchor(door.anchors.right(), level)?;
+                let right_trans = right_anchor.translation_for_category(Category::Door);
+                let center = [
+                    (left_trans[0] + right_trans[0]) / 2.0,
+                    (left_trans[1] + right_trans[1]) / 2.0,
+                ];
+                let dx = left_trans[0] - right_trans[0];
+                let dy = left_trans[1] - right_trans[1];
+                let door_length = (dx * dx + dy * dy).sqrt();
+                let yaw = -dx.atan2(dy);
                 let labels = match door.kind {
                     DoorType::SingleSliding(_) | DoorType::SingleSwing(_) | DoorType::Model(_) => {
                         Vec::from(["right"])
@@ -104,6 +116,13 @@ impl Site {
                 };
                 let mut door_model = SdfModel {
                     name: door.name.0.clone(),
+                    pose: Some(
+                        Pose {
+                            trans: [center[0], center[1], level.properties.elevation.0],
+                            rot: Rotation::Yaw(Angle::Rad(yaw)),
+                        }
+                        .to_sdf(0.0),
+                    ),
                     r#static: Some(false),
                     ..Default::default()
                 };
@@ -149,41 +168,133 @@ impl Site {
                 }
                 let joints = match &door.kind {
                     DoorType::SingleSliding(door) => {
-                        // TODO(luca) set pose
+                        let pose = Pose {
+                            trans: [0.0, (door_length / 2.0) * door.towards.sign(), 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
+                        vec![SdfJoint {
+                            name: "right_joint".into(),
+                            parent: "world".into(),
+                            child: "right".into(),
+                            r#type: "prismatic".into(),
+                            pose: Some(pose),
+                            axis: Some(SdfJointAxis {
+                                xyz: Vector3d::new(0.0, door.towards.sign(), 0.0),
+                                limit: SdfJointaxisLimit {
+                                    lower: 0.0,
+                                    upper: door_length as f64,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }]
+                    }
+                    DoorType::SingleSwing(door) => {
+                        let side = door.pivot_on.sign() as f64;
+                        let closed = 0.0_f64;
+                        let (open, z) = match door.swing {
+                            Swing::Forward(angle) => (side * angle.radians() as f64, 1.0),
+                            Swing::Backward(angle) => (-side * angle.radians() as f64, -1.0),
+                            // Only use the forward position for double doors
+                            Swing::Both { forward, backward } => {
+                                (side * forward.radians() as f64, 1.0)
+                            }
+                        };
+                        let lower = closed.min(closed + open);
+                        let upper = closed.max(closed + open);
+                        let pose = Pose {
+                            trans: [0.0, (door_length / 2.0) * door.pivot_on.sign(), 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
+                        vec![SdfJoint {
+                            name: "right_joint".into(),
+                            parent: "world".into(),
+                            child: "right".into(),
+                            r#type: "revolute".into(),
+                            axis: Some(SdfJointAxis {
+                                xyz: Vector3d::new(0.0, 0.0, z),
+                                limit: SdfJointaxisLimit {
+                                    lower,
+                                    upper,
+                                    ..Default::default()
+                                },
+                                ..Default::default()
+                            }),
+                            pose: Some(pose),
+                            ..Default::default()
+                        }]
+                    }
+                    DoorType::DoubleSliding(door) => {
+                        let right_pose = Pose {
+                            trans: [0.0, -door_length / 2.0, 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
+                        let left_pose = Pose {
+                            trans: [0.0, door_length / 2.0, 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
                         vec![
                             SdfJoint {
                                 name: "right_joint".into(),
                                 parent: "world".into(),
                                 child: "right".into(),
                                 r#type: "prismatic".into(),
+                                pose: Some(right_pose),
                                 axis: Some(SdfJointAxis {
-                                    xyz: Vector3d::new(1.0, 0.0, 0.0),
+                                    xyz: Vector3d::new(0.0, 1.0, 0.0),
                                     limit: SdfJointaxisLimit {
                                         lower: 0.0,
-                                        // TODO(luca) this is length of the door
+                                        upper: door_length as f64 / 2.0,
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            },
+                            SdfJoint {
+                                name: "left_joint".into(),
+                                parent: "world".into(),
+                                child: "left".into(),
+                                r#type: "prismatic".into(),
+                                pose: Some(left_pose),
+                                axis: Some(SdfJointAxis {
+                                    xyz: Vector3d::new(0.0, -1.0, 0.0),
+                                    limit: SdfJointaxisLimit {
+                                        lower: -door_length as f64 / 2.0,
                                         upper: 0.0,
                                         ..Default::default()
                                     },
                                     ..Default::default()
                                 }),
                                 ..Default::default()
-                            }
+                            },
                         ]
                     }
-                    DoorType::SingleSwing(swing) => {
-                        let (lower, upper) = swing.swing.swing_on_pivot(swing.pivot_on);
-                        // TODO(check this logic)
-                        let lower = 0.0;
-                        let upper = lower - upper.radians() as f64;
-                        let pivot = door.anchors.side(swing.pivot_on);
-                        let start_anchor = get_anchor(pivot, level)?;
-                        let trans = start_anchor.translation_for_category(Category::Level);
-                        let end_anchor = get_anchor(door.anchors.side(swing.pivot_on.opposite()), level)?;
-                        let end = end_anchor.translation_for_category(Category::Level);
-                        let pose = Pose {
-                            trans: [trans[0], trans[1], level.properties.elevation.0 + 1.0],
+                    DoorType::DoubleSwing(door) => {
+                        let closed = 0.0_f64;
+                        let (open, z) = match door.swing {
+                            Swing::Forward(angle) => (-angle.radians() as f64, 1.0),
+                            Swing::Backward(angle) => (angle.radians() as f64, -1.0),
+                            // Only use the forward position for double doors
+                            Swing::Both { forward, backward } => (-forward.radians() as f64, 1.0),
+                        };
+                        let lower = closed.min(open);
+                        let upper = closed.max(open);
+                        let right_pose = Pose {
+                            trans: [0.0, -door_length / 2.0, 1.25],
                             ..Default::default()
-                        }.to_sdf(0.0);
+                        }
+                        .to_sdf(0.0);
+                        let left_pose = Pose {
+                            trans: [0.0, door_length / 2.0, 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
                         vec![
                             SdfJoint {
                                 name: "right_joint".into(),
@@ -191,7 +302,7 @@ impl Site {
                                 child: "right".into(),
                                 r#type: "revolute".into(),
                                 axis: Some(SdfJointAxis {
-                                    xyz: Vector3d::new(0.0, 0.0, -1.0),
+                                    xyz: Vector3d::new(0.0, 0.0, z),
                                     limit: SdfJointaxisLimit {
                                         lower,
                                         upper,
@@ -199,36 +310,7 @@ impl Site {
                                     },
                                     ..Default::default()
                                 }),
-                                pose: Some(pose),
-                                ..Default::default()
-                            }
-                        ]
-                    }
-                    DoorType::DoubleSliding(door) => {
-                        vec![
-                            SdfJoint {
-                                name: "right_joint".into(),
-                                parent: "world".into(),
-                                child: "right".into(),
-                                r#type: "prismatic".into(),
-                                ..Default::default()
-                            },
-                            SdfJoint {
-                                name: "left_joint".into(),
-                                parent: "world".into(),
-                                child: "left".into(),
-                                r#type: "prismatic".into(),
-                                ..Default::default()
-                            },
-                        ]
-                    }
-                    DoorType::DoubleSwing(door) => {
-                        vec![
-                            SdfJoint {
-                                name: "right_joint".into(),
-                                parent: "world".into(),
-                                child: "right".into(),
-                                r#type: "revolute".into(),
+                                pose: Some(right_pose),
                                 ..Default::default()
                             },
                             SdfJoint {
@@ -236,26 +318,39 @@ impl Site {
                                 parent: "world".into(),
                                 child: "left".into(),
                                 r#type: "revolute".into(),
+                                axis: Some(SdfJointAxis {
+                                    xyz: Vector3d::new(0.0, 0.0, -z),
+                                    limit: SdfJointaxisLimit {
+                                        lower: -upper,
+                                        upper: -lower,
+                                        ..Default::default()
+                                    },
+                                    ..Default::default()
+                                }),
+                                pose: Some(left_pose),
                                 ..Default::default()
                             },
                         ]
                     }
                     DoorType::Model(_) => {
                         // Unimplemented! Use a fixed joint for now
-                        vec![
-                            SdfJoint {
-                                name: "right_joint".into(),
-                                parent: "world".into(),
-                                child: "right".into(),
-                                r#type: "fixed".into(),
-                                ..Default::default()
-                            }
-                        ]
+                        let pose = Pose {
+                            trans: [0.0, door_length / 2.0, 1.25],
+                            ..Default::default()
+                        }
+                        .to_sdf(0.0);
+                        vec![SdfJoint {
+                            name: "right_joint".into(),
+                            parent: "world".into(),
+                            child: "right".into(),
+                            r#type: "fixed".into(),
+                            pose: Some(pose),
+                            ..Default::default()
+                        }]
                     }
                 };
                 door_model.joint.extend(joints);
                 // TODO(luca) Plugin element
-
                 models.push(door_model);
             }
         }

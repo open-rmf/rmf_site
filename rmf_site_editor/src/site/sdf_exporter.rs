@@ -20,6 +20,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
         Query<&GlobalTransform>,
+        Query<&Transform>,
     )> = SystemState::new(world);
     let (
         q_children,
@@ -31,25 +32,20 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         q_collisions,
         q_visuals,
         q_pbr,
+        q_global_tfs,
         q_tfs,
     ) = state.get(world);
 
     let image_assets = world.resource::<Assets<Image>>();
     let mesh_assets = world.resource::<Assets<Mesh>>();
     let material_assets = world.resource::<Assets<StandardMaterial>>();
-    let write_meshes_to_file = |
-        meshes: Vec<MeshData>,
-        name: Option<String>,
-        options: CompressGltfOptions,
-        filename: String,
-    | -> Result<(), MeshExportError> {
+    let write_meshes_to_file = |meshes: Vec<MeshData>,
+                                name: Option<String>,
+                                options: CompressGltfOptions,
+                                filename: String|
+     -> Result<(), MeshExportError> {
         let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
-        let meshes = export_meshes(
-            meshes,
-            name,
-            image_getter,
-            options,
-        )?;
+        let meshes = export_meshes(meshes, name, image_getter, options)?;
         let bytes = meshes.to_bytes()?;
         let Ok(_) = std::fs::write(filename, bytes) else {
             // TODO(luca) make this an error
@@ -58,7 +54,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         };
         Ok(())
     };
-
 
     let get_mesh_and_material = |entity: Entity| -> Option<(&Mesh, &StandardMaterial)> {
         let Ok((mesh, material)) = q_pbr.get(entity) else {
@@ -125,7 +120,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                 let Some((mesh, material)) = get_mesh_and_material(entity) else {
                                     continue;
                                 };
-                                let Ok(tf) = q_tfs.get(entity) else {
+                                let Ok(tf) = q_global_tfs.get(entity) else {
                                     continue;
                                 };
                                 let tf = tf.compute_transform();
@@ -150,7 +145,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                 let Some((mesh, material)) = get_mesh_and_material(entity) else {
                                     continue;
                                 };
-                                let Ok(tf) = q_tfs.get(entity) else {
+                                let Ok(tf) = q_global_tfs.get(entity) else {
                                     continue;
                                 };
                                 let tf = tf.compute_transform();
@@ -187,7 +182,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                         let Ok(tf) = q_tfs.get(*entity) else {
                             continue;
                         };
-                        let tf = tf.compute_transform();
                         let pose = GltfPose {
                             translation: [
                                 tf.translation.x,
@@ -203,17 +197,33 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             material,
                             pose: Some(pose.clone()),
                         };
-                        let filename = format!("{}/{}_{}.glb", folder.display(), **door_name, segment_name);
-                        write_meshes_to_file(vec![data], None, CompressGltfOptions::default(), filename);
+                        let filename =
+                            format!("{}/{}_{}.glb", folder.display(), **door_name, segment_name);
+                        write_meshes_to_file(
+                            vec![data],
+                            None,
+                            CompressGltfOptions::default(),
+                            filename,
+                        );
                     }
                 } else {
                     continue;
                 };
             }
             let filename = format!("{}/level_{}_collision.glb", folder.display(), **level_name);
-            write_meshes_to_file(collision_data, None, CompressGltfOptions::skip_materials(), filename);
+            write_meshes_to_file(
+                collision_data,
+                None,
+                CompressGltfOptions::skip_materials(),
+                filename,
+            );
             let filename = format!("{}/level_{}_visual.glb", folder.display(), **level_name);
-            write_meshes_to_file(visual_data, Some(format!("level_{}_visuals", **level_name)), CompressGltfOptions::default(), filename);
+            write_meshes_to_file(
+                visual_data,
+                Some(format!("level_{}_visuals", **level_name)),
+                CompressGltfOptions::default(),
+                filename,
+            );
         }
     }
 }
