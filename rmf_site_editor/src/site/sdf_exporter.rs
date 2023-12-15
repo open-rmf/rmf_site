@@ -1,32 +1,64 @@
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use bevy_gltf_export::{export_meshes, CompressGltfOptions, GltfPose, MeshData};
+use bevy_gltf_export::{export_meshes, CompressGltfOptions, GltfPose, MeshData, MeshExportError};
 
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::site::{CollisionMeshMarker, FloorSegments, VisualMeshMarker};
-use rmf_site_format::{FloorMarker, LevelElevation, ModelMarker, NameInSite, Pose, WallMarker};
+use crate::site::{CollisionMeshMarker, DoorSegments, FloorSegments, VisualMeshMarker};
+use rmf_site_format::{LevelElevation, ModelMarker, NameInSite, Pose, WallMarker};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
     let mut state: SystemState<(
         Query<&Children>,
         Query<(&NameInSite, &LevelElevation, &Children)>,
         Query<Entity, With<WallMarker>>,
-        Query<&FloorSegments, With<FloorMarker>>,
+        Query<&FloorSegments>,
+        Query<(&NameInSite, &DoorSegments)>,
         Query<Entity, With<ModelMarker>>,
         Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
         Query<&GlobalTransform>,
     )> = SystemState::new(world);
-    let (q_children, q_levels, q_walls, q_floors, q_models, q_collisions, q_visuals, q_pbr, q_tfs) =
-        state.get(world);
+    let (
+        q_children,
+        q_levels,
+        q_walls,
+        q_floors,
+        q_doors,
+        q_models,
+        q_collisions,
+        q_visuals,
+        q_pbr,
+        q_tfs,
+    ) = state.get(world);
 
     let image_assets = world.resource::<Assets<Image>>();
     let mesh_assets = world.resource::<Assets<Mesh>>();
     let material_assets = world.resource::<Assets<StandardMaterial>>();
-    let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
+    let write_meshes_to_file = |
+        meshes: Vec<MeshData>,
+        name: Option<String>,
+        options: CompressGltfOptions,
+        filename: String,
+    | -> Result<(), MeshExportError> {
+        let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
+        let meshes = export_meshes(
+            meshes,
+            name,
+            image_getter,
+            options,
+        )?;
+        let bytes = meshes.to_bytes()?;
+        let Ok(_) = std::fs::write(filename, bytes) else {
+            // TODO(luca) make this an error
+            error!("Error writing mesh to file");
+            return Ok(());
+        };
+        Ok(())
+    };
+
 
     let get_mesh_and_material = |entity: Entity| -> Option<(&Mesh, &StandardMaterial)> {
         let Ok((mesh, material)) = q_pbr.get(entity) else {
@@ -139,46 +171,49 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             }
                         }
                     }
+                } else if let Ok((door_name, segments)) = q_doors.get(*child) {
+                    // TODO(luca) get rid of reverse by changing the entities function
+                    for (entity, segment_name) in segments
+                        .body
+                        .entities()
+                        .iter()
+                        .rev()
+                        .zip(["right", "left"].into_iter())
+                    {
+                        // Generate the visual and collisions here
+                        let Some((mesh, material)) = get_mesh_and_material(*entity) else {
+                            continue;
+                        };
+                        let Ok(tf) = q_tfs.get(*entity) else {
+                            continue;
+                        };
+                        let tf = tf.compute_transform();
+                        let pose = GltfPose {
+                            translation: [
+                                tf.translation.x,
+                                tf.translation.y,
+                                tf.translation.z + **elevation,
+                            ],
+                            rotation: tf.rotation.to_array(),
+                            scale: Some(tf.scale.to_array()),
+                        };
+
+                        let data = MeshData {
+                            mesh,
+                            material,
+                            pose: Some(pose.clone()),
+                        };
+                        let filename = format!("{}/{}_{}.glb", folder.display(), **door_name, segment_name);
+                        write_meshes_to_file(vec![data], None, CompressGltfOptions::default(), filename);
+                    }
                 } else {
                     continue;
                 };
             }
-            let Ok(collisions) = export_meshes(
-                collision_data,
-                None,
-                image_getter,
-                CompressGltfOptions::skip_materials(),
-            ) else {
-                error!("Failed exporting collision data");
-                continue;
-            };
-            let Ok(bytes) = collisions.to_bytes() else {
-                error!("Error converting glb to bytes");
-                continue;
-            };
             let filename = format!("{}/level_{}_collision.glb", folder.display(), **level_name);
-            let Ok(e) = std::fs::write(filename, bytes) else {
-                error!("Error writing mesh to file");
-                continue;
-            };
-            let Ok(visuals) = export_meshes(
-                visual_data,
-                Some(format!("level_{}_visuals", **level_name)),
-                image_getter,
-                CompressGltfOptions::default(),
-            ) else {
-                error!("Failed exporting visual data");
-                continue;
-            };
-            let Ok(bytes) = visuals.to_bytes() else {
-                error!("Error converting glb to bytes");
-                continue;
-            };
+            write_meshes_to_file(collision_data, None, CompressGltfOptions::skip_materials(), filename);
             let filename = format!("{}/level_{}_visual.glb", folder.display(), **level_name);
-            let Ok(e) = std::fs::write(filename, bytes) else {
-                error!("Error writing mesh to file");
-                continue;
-            };
+            write_meshes_to_file(visual_data, Some(format!("level_{}_visuals", **level_name)), CompressGltfOptions::default(), filename);
         }
     }
 }
