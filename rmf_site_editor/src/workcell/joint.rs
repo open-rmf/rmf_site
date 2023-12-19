@@ -31,25 +31,30 @@ pub fn handle_create_joint_events(
     mut commands: Commands,
     mut events: EventReader<CreateJoint>,
     mut dependents: Query<&mut Dependents>,
-    frames: Query<(), With<FrameMarker>>,
+    frames: Query<&NameInWorkcell, With<FrameMarker>>,
 ) {
     for req in events.iter() {
-        if frames.get(req.parent).is_err() {
+        let Ok(parent_name) = frames.get(req.parent) else {
             error!(
                 "Requested to create a joint with a parent that is not a frame, \
                    this is not valid and will be ignored"
             );
             continue;
-        }
-        if frames.get(req.child).is_err() {
+        };
+        let Ok(child_name) = frames.get(req.child) else {
             error!(
                 "Requested to create a joint with a child that is not a frame, \
                    this is not valid and will be ignored"
             );
             continue;
-        }
+        };
+        let joint_name = if !parent_name.is_empty() && !child_name.is_empty() {
+            format!("joint-{}-{}", **parent_name, **child_name)
+        } else {
+            "new_joint".into()
+        };
         let joint = Joint {
-            name: NameInWorkcell("new_joint".into()),
+            name: NameInWorkcell(joint_name),
             properties: JointProperties::Fixed,
         };
         let mut cmd = commands.spawn(Dependents::single(req.child));
