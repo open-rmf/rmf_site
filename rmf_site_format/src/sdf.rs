@@ -180,7 +180,7 @@ impl Site {
                             r#type: "prismatic".into(),
                             pose: Some(pose),
                             axis: Some(SdfJointAxis {
-                                xyz: Vector3d::new(0.0, door.towards.sign(), 0.0),
+                                xyz: Vector3d::new(0.0, door.towards.sign().into(), 0.0),
                                 limit: SdfJointaxisLimit {
                                     lower: 0.0,
                                     upper: door_length as f64,

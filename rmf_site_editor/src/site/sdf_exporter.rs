@@ -183,11 +183,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             continue;
                         };
                         let pose = GltfPose {
-                            translation: [
-                                tf.translation.x,
-                                tf.translation.y,
-                                tf.translation.z + **elevation,
-                            ],
+                            translation: tf.translation.to_array(),
                             rotation: tf.rotation.to_array(),
                             scale: Some(tf.scale.to_array()),
                         };
