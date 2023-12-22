@@ -172,8 +172,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                         .body
                         .entities()
                         .iter()
-                        .rev()
-                        .zip(["right", "left"].into_iter())
+                        .zip(segments.body.labels().into_iter())
                     {
                         // Generate the visual and collisions here
                         let Some((mesh, material)) = get_mesh_and_material(*entity) else {

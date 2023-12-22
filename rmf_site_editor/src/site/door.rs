@@ -72,6 +72,18 @@ impl DoorBodyType {
             | DoorBodyType::DoubleSliding { left, right } => vec![*left, *right],
         }
     }
+
+    pub fn labels(&self) -> Vec<&str> {
+        match self {
+            DoorBodyType::SingleSwing { body }
+            | DoorBodyType::SingleSliding { body }
+            | DoorBodyType::Model { body } => {
+                vec!["body"]
+            }
+            DoorBodyType::DoubleSwing { left, right }
+            | DoorBodyType::DoubleSliding { left, right } => vec!["left", "right"],
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, Component)]
