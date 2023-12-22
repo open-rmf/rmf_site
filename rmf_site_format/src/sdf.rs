@@ -15,7 +15,9 @@
  *
 */
 
-use crate::{Anchor, Angle, Category, Door, DoorType, Level, Pose, Rotation, Side, Site, Swing};
+use crate::{
+    Anchor, Angle, Category, Door, DoorType, Level, LiftCabin, Pose, Rotation, Side, Site, Swing,
+};
 use sdformat_rs::*;
 
 #[derive(Debug)]
@@ -397,10 +399,9 @@ impl Door<u32> {
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32, level: &Level| -> Result<Anchor, SdfConversionError> {
+        let get_anchor = |id: u32, level: Option<&Level>| -> Result<Anchor, SdfConversionError> {
             level
-                .anchors
-                .get(&id)
+                .and_then(|l| l.anchors.get(&id))
                 .or_else(|| self.anchors.get(&id))
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
                 .cloned()
@@ -442,14 +443,68 @@ impl Site {
             });
             // Now add all the doors
             for door in level.doors.values() {
-                let left_anchor = get_anchor(door.anchors.left(), level)?;
-                let right_anchor = get_anchor(door.anchors.right(), level)?;
+                let left_anchor = get_anchor(door.anchors.left(), Some(level))?;
+                let right_anchor = get_anchor(door.anchors.right(), Some(level))?;
                 models.push(door.to_sdf(
                     left_anchor,
                     right_anchor,
                     level.properties.elevation.0,
                 )?);
             }
+        }
+        for lift in self.lifts.values() {
+            // Cabin
+            let LiftCabin::Rect(ref cabin) = lift.properties.cabin else {
+                continue;
+            };
+            let center = cabin.aabb().center;
+            let left_anchor = get_anchor(lift.properties.reference_anchors.left(), None)?;
+            let right_anchor = get_anchor(lift.properties.reference_anchors.right(), None)?;
+            let left_trans = left_anchor.translation_for_category(Category::Level);
+            let right_trans = right_anchor.translation_for_category(Category::Level);
+            let midpoint = [
+                (left_trans[0] + right_trans[0]) / 2.0,
+                (left_trans[1] + right_trans[1]) / 2.0,
+            ];
+            // TODO(luca) initial level
+            let pose = Pose {
+                trans: [midpoint[0] + center.x, midpoint[1] + center.y, 0.0],
+                ..Default::default()
+            };
+            models.push(SdfModel {
+                name: lift.properties.name.0.clone(),
+                // TODO(luca) remove static
+                r#static: Some(true),
+                pose: Some(pose.to_sdf(0.0)),
+                link: vec![SdfLink {
+                    name: "link".into(),
+                    collision: vec![SdfCollision {
+                        name: "collision".into(),
+                        geometry: SdfGeometry::Mesh(SdfMeshShape {
+                            uri: format!("meshes/{}.glb", lift.properties.name.0),
+                            ..Default::default()
+                        }),
+                        surface: Some(SdfSurface {
+                            contact: Some(SdfSurfaceContact {
+                                collide_bitmask: Some("0x02".into()),
+                                ..Default::default()
+                            }),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }],
+                    visual: vec![SdfVisual {
+                        name: "visual".into(),
+                        geometry: SdfGeometry::Mesh(SdfMeshShape {
+                            uri: format!("meshes/{}.glb", lift.properties.name.0),
+                            ..Default::default()
+                        }),
+                        ..Default::default()
+                    }],
+                    ..Default::default()
+                }],
+                ..Default::default()
+            });
         }
 
         let sun = SdfLight {

@@ -5,7 +5,10 @@ use bevy_gltf_export::{export_meshes, CompressGltfOptions, GltfPose, MeshData, M
 use std::collections::BTreeMap;
 use std::path::Path;
 
-use crate::site::{CollisionMeshMarker, DoorSegments, FloorSegments, VisualMeshMarker};
+use crate::site::{
+    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
+    VisualMeshMarker,
+};
 use rmf_site_format::{LevelElevation, ModelMarker, NameInSite, Pose, WallMarker};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
@@ -19,6 +22,8 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
+        Query<(&NameInSite, &ChildLiftCabinGroup)>,
+        Query<((), With<LiftDoormat>)>,
         Query<&GlobalTransform>,
         Query<&Transform>,
     )> = SystemState::new(world);
@@ -32,6 +37,8 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         q_collisions,
         q_visuals,
         q_pbr,
+        q_lift_cabins,
+        q_lift_door_mats,
         q_global_tfs,
         q_tfs,
     ) = state.get(world);
@@ -219,6 +226,30 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                 CompressGltfOptions::default(),
                 filename,
             );
+        }
+        // Lifts
+        if let Ok((lift_name, lift_cabin)) = q_lift_cabins.get(*site_child) {
+            // The children of this entity have the mesh for the lift cabin
+            info!("New lift");
+            let mut lift_data = vec![];
+            for entity in DescendantIter::new(&q_children, **lift_cabin) {
+                if q_lift_door_mats.get(entity).is_ok() {
+                    // Just visual cues, not exported
+                    continue;
+                }
+                let Some((mesh, material)) = get_mesh_and_material(entity) else {
+                    info!("Cabin Child without mesh!");
+                    continue;
+                };
+                info!("Found mesh for cabin child");
+                lift_data.push(MeshData {
+                    mesh,
+                    material,
+                    pose: None,
+                });
+            }
+            let filename = format!("{}/{}.glb", folder.display(), **lift_name);
+            write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename);
         }
     }
 }
