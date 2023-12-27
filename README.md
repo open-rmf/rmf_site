@@ -54,7 +54,8 @@ Make sure you install rust from the main rust website. Cargo should take care of
 These are only needed if you're going to build a WebAssembly binary:
 ```bash
 $ sudo apt install binaryen
-$ cargo install wasm-bindgen-cli basic-http-server
+$ cargo install --version 0.2.84 wasm-bindgen-cli
+$ cargo install basic-http-server
 $ rustup target add wasm32-unknown-unknown
 ```
 

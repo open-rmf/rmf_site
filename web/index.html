@@ -17,24 +17,13 @@
 </head>
 <body>
 <canvas id="rmf_site_editor_canvas">
+  <script type="module">
+    import init from "./librmf_site_editor.js";
+    document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
+    init("./librmf_site_editor_bg_optimized.wasm").then(function (wasm) {
+      wasm.run_js();
+    });
+  </script>
 </canvas>
-<script type="module">
-  import init from "./librmf_site_editor.js";
-
-  document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
-  resize_canvas();
-  window.addEventListener('resize', resize_canvas);
-
-  function resize_canvas() {
-    let canvas = document.getElementById("rmf_site_editor_canvas");
-    canvas.width = window.innerWidth;
-    canvas.height = window.innerHeight;
-    console.log('canvas size: ' + canvas.width + ' ' + canvas.height);
-  }
-
-  init("./librmf_site_editor_bg_optimized.wasm").then(function (wasm) {
-    wasm.run_js();
-  });
-</script>
 </body>
 </html>
