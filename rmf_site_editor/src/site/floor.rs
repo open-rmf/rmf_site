@@ -21,10 +21,9 @@ use bevy::{
     prelude::*,
     render::mesh::{Indices, PrimitiveTopology},
 };
-use lyon::{
-    math::point,
-    path::Path as LyonPath,
-    tessellation::{geometry_builder::simple_builder, *},
+use geo::{
+    geometry::{LineString, Polygon},
+    TriangulateEarcut,
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
 
@@ -99,71 +98,51 @@ fn make_floor_mesh(
             .into();
     }
 
-    let mut builder = LyonPath::builder();
-    let mut first = true;
-    let mut valid = true;
     let mut reference_positions = Vec::new();
+    let mut valid = true;
     for anchor in &anchor_path.0 {
-        let p = match anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
-            Ok(a) => a,
+        match anchors.point_in_parent_frame_of(*anchor, Category::Floor, entity) {
+            Ok(p) => reference_positions.push(p.to_array()),
             Err(_) => {
                 error!("Failed to find anchor {anchor:?} used by a path");
                 valid = false;
                 continue;
             }
         };
-
-        reference_positions.push(p.to_array());
-        if first {
-            first = false;
-            builder.begin(point(p.x, p.y));
-        } else {
-            builder.line_to(point(p.x, p.y));
-        }
     }
+    let polygon = Polygon::new(
+        LineString::from(
+            reference_positions
+                .iter()
+                .map(|p| [p[0], p[1]])
+                .collect::<Vec<_>>(),
+        ),
+        vec![],
+    );
     let outline_buffer = make_closed_path_outline(reference_positions);
 
     if !valid {
         return make_fallback_floor_mesh_near_path(entity, anchor_path, anchors);
     }
-
-    builder.close();
-    let path = builder.build();
-
-    let mut buffers = VertexBuffers::new();
-    {
-        let mut vertex_builder = simple_builder(&mut buffers);
-        let mut tessellator = FillTessellator::new();
-        let result = tessellator.tessellate_path(
-            path.as_slice(),
-            &FillOptions::default(),
-            &mut vertex_builder,
-        );
-
-        match result {
-            Err(err) => {
-                error!("Failed to render floor: {err}");
-                return make_fallback_floor_mesh_near_path(entity, anchor_path, anchors);
-            }
-            _ => {}
-        }
-    }
+    let triangles = polygon.earcut_triangles_raw();
 
     let texture_width = texture.width.unwrap_or(1.0);
     let texture_height = texture.height.unwrap_or(1.0);
-    let positions: Vec<[f32; 3]> = buffers.vertices.iter().map(|v| [v.x, v.y, 0.]).collect();
-    let normals: Vec<[f32; 3]> = buffers.vertices.iter().map(|_| [0., 0., 1.]).collect();
-    let uv: Vec<[f32; 2]> = buffers
+    let positions: Vec<[f32; 3]> = triangles
         .vertices
-        .iter()
-        .map(|v| [v.x / texture_width, v.y / texture_height])
+        .chunks(2)
+        .map(|v| [v[0], v[1], 0.])
         .collect();
-    for i in 0..buffers.indices.len() / 3 {
-        let i1 = 3 * i + 1;
-        let i2 = 3 * i + 2;
-        buffers.indices.swap(i1, i2);
-    }
-    let indices = buffers.indices.drain(..).map(|v| v as u32).collect();
+    let normals: Vec<[f32; 3]> = positions.iter().map(|_| [0., 0., 1.]).collect();
+    let uv: Vec<[f32; 2]> = positions
+        .iter()
+        .map(|v| [v[0] / texture_width, v[1] / texture_height])
+        .collect();
+    let indices = triangles
+        .triangle_indices
+        .drain(..)
+        .map(|v| v as u32)
+        .collect();
 
     MeshBuffer::new(positions, normals, indices)
         .with_uv(uv)
