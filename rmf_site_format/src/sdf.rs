@@ -471,10 +471,32 @@ impl Site {
                 trans: [midpoint[0] + center.x, midpoint[1] + center.y, 0.0],
                 ..Default::default()
             };
+            let mut plugin = SdfPlugin {
+                name: "lift".into(),
+                filename: "liblift.so".into(),
+                ..Default::default()
+            };
+            let mut elements = vec![];
+            elements.push(("lift_name", lift.properties.name.0.clone()));
+            // TODO(luca) remove unwrap here for missing initial level
+            let initial_level = lift.properties.initial_level.0.and_then(|id| self.levels.get(&id)).map(|level| level.properties.name.0.clone()).unwrap();
+            elements.push(("initial_level", initial_level));
+            elements.push(("v_max_cabin", "2.0".to_string()));
+            elements.push(("a_max_cabin", "1.2".to_string()));
+            elements.push(("a_nom_cabin", "1.0".to_string()));
+            elements.push(("dx_min_cabin", "0.001".to_string()));
+            elements.push(("f_max_cabin", "25323.0".to_string()));
+            for (name, value) in elements.into_iter() {
+                plugin.elements.push(XmlElement {
+                    name: name.into(),
+                    data: ElementData::String(value),
+                    ..Default::default()
+                });
+            }
+            // Now add the floors
             models.push(SdfModel {
                 name: lift.properties.name.0.clone(),
-                // TODO(luca) remove static
-                r#static: Some(true),
+                r#static: Some(lift.properties.is_static.0),
                 pose: Some(pose.to_sdf(0.0)),
                 link: vec![SdfLink {
                     name: "link".into(),
@@ -503,6 +525,7 @@ impl Site {
                     }],
                     ..Default::default()
                 }],
+                plugin: vec![plugin],
                 ..Default::default()
             });
         }
