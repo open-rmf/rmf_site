@@ -22,8 +22,8 @@ use bevy::{
     render::mesh::{Indices, PrimitiveTopology},
 };
 use geo::{
-    geometry::{LineString, Polygon},
-    TriangulateEarcut,
+    geometry::{LineString, MultiPolygon, Polygon},
+    BooleanOps, TriangulateEarcut,
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
 
@@ -69,6 +69,7 @@ fn make_floor_mesh(
     anchor_path: &Path<Entity>,
     texture: &Texture,
     anchors: &AnchorParams,
+    lifts: &Query<(&Transform, &LiftCabin<Entity>)>,
 ) -> Mesh {
     if anchor_path.len() == 0 {
         return Mesh::new(PrimitiveTopology::TriangleList);
@@ -110,7 +111,7 @@ fn make_floor_mesh(
             }
         };
     }
-    let polygon = Polygon::new(
+    let mut polygon = MultiPolygon::from(Polygon::new(
         LineString::from(
             reference_positions
                 .iter()
@@ -118,30 +119,44 @@ fn make_floor_mesh(
                 .collect::<Vec<_>>(),
         ),
         vec![],
-    );
+    ));
     let outline_buffer = make_closed_path_outline(reference_positions);
 
     if !valid {
         return make_fallback_floor_mesh_near_path(entity, anchor_path, anchors);
     }
-    let triangles = polygon.earcut_triangles_raw();
+    // Subtract all the lift cabin AABBs
+    for (tf, cabin) in lifts.iter() {
+        match cabin {
+            LiftCabin::Rect(params) => {
+                let mut aabb = params.aabb();
+                // Pad with a half meter per side
+                aabb.half_extents += 0.5;
+                let min = tf.transform_point(aabb.min().into());
+                let max = tf.transform_point(aabb.max().into());
+                let to_subtract = Polygon::new(
+                    LineString::from(vec![[min[0], min[1]], [min[0], max[1]], [max[0], max[1]], [max[0], min[1]]]),
+                    vec![],
+                ).into();
+                polygon = polygon.difference(&to_subtract);
+            }
+        };
+    }
+    //let triangles = polygon.iter().map(|polygon| p.earcut_triangles_raw()).collect();
+    let mut positions: Vec<[f32; 3]> = Vec::new();
+    let mut indices: Vec<u32> = Vec::new();
+    for polygon in polygon.iter() {
+        let triangles = polygon.earcut_triangles_raw();
+        positions.extend(triangles.vertices.chunks(2).map(|v| [v[0], v[1], 0.]).collect::<Vec<_>>());
+        indices.extend(triangles.triangle_indices.iter().map(|idx| (idx + indices.len()) as u32).collect::<Vec<_>>());
+    }
 
     let texture_width = texture.width.unwrap_or(1.0);
     let texture_height = texture.height.unwrap_or(1.0);
-    let positions: Vec<[f32; 3]> = triangles
-        .vertices
-        .chunks(2)
-        .map(|v| [v[0], v[1], 0.])
-        .collect();
     let normals: Vec<[f32; 3]> = positions.iter().map(|_| [0., 0., 1.]).collect();
     let uv: Vec<[f32; 2]> = positions
         .iter()
         .map(|v| [v[0] / texture_width, v[1] / texture_height])
-        .collect();
-    let indices = triangles
-        .triangle_indices
-        .drain(..)
-        .map(|v| v as u32)
         .collect();
 
     MeshBuffer::new(positions, normals, indices)
@@ -203,11 +218,12 @@ pub fn add_floor_visuals(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     default_floor_vis: Query<(&GlobalFloorVisibility, &RecencyRanking<DrawingMarker>)>,
+    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for (e, new_floor, texture_source, rank, vis, parent) in &floors {
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
 
-        let mesh = make_floor_mesh(e, new_floor, &texture, &anchors);
+        let mesh = make_floor_mesh(e, new_floor, &texture, &anchors, &lifts);
         let height = floor_height(rank);
         let default_vis = parent
             .map(|p| default_floor_vis.get(p.get()).ok())
@@ -275,13 +291,14 @@ pub fn update_floors_for_moved_anchors(
     >,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
+    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
             if let Some((e, segments, path, texture_source)) = floors.get(*dependent).ok() {
                 let (_, texture) = from_texture_source(texture_source, &textures);
                 if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
-                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors));
+                    *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
                 }
             }
         }
@@ -307,6 +324,7 @@ pub fn update_floors(
     material_handles: Query<&Handle<StandardMaterial>>,
     anchors: AnchorParams,
     textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
 ) {
     for e in changed_floors.iter().chain(
         changed_texture_sources
@@ -319,7 +337,7 @@ pub fn update_floors(
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
-                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors));
+                *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
                 if let Some(mut material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }
