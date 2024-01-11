@@ -15,6 +15,9 @@
  *
 */
 
+pub mod frame;
+pub use frame::*;
+
 pub mod joint;
 pub use joint::*;
 
@@ -114,6 +117,7 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
+                    scale_workcell_anchors,
                     update_anchor_transforms,
                     update_transforms_for_changed_poses,
                 )
