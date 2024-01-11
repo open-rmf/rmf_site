@@ -127,28 +127,48 @@ fn make_floor_mesh(
     }
     // Subtract all the lift cabin AABBs
     for (tf, cabin) in lifts.iter() {
-        match cabin {
+        let to_subtract = match cabin {
             LiftCabin::Rect(params) => {
-                let mut aabb = params.aabb();
+                let aabb = params.aabb();
+                let yaw = tf.rotation.to_euler(EulerRot::ZYX).0;
                 // Pad with a half meter per side
-                aabb.half_extents += 0.5;
-                let min = tf.transform_point(aabb.min().into());
-                let max = tf.transform_point(aabb.max().into());
-                let to_subtract = Polygon::new(
-                    LineString::from(vec![[min[0], min[1]], [min[0], max[1]], [max[0], max[1]], [max[0], min[1]]]),
+                let center = tf.transform_point(aabb.center.into());
+                let he = aabb.half_extents + 0.5;
+                let p0_x = center[0] - he[0] * yaw.cos() + he[1] * yaw.sin();
+                let p0_y = center[1] - he[1] * yaw.cos() - he[0] * yaw.sin();
+                let p1_x = center[0] - he[0] * yaw.cos() - he[1] * yaw.sin();
+                let p1_y = center[1] + he[1] * yaw.cos() - he[0] * yaw.sin();
+                let p2_x = center[0] + he[0] * yaw.cos() - he[1] * yaw.sin();
+                let p2_y = center[1] + he[1] * yaw.cos() + he[0] * yaw.sin();
+                let p3_x = center[0] + he[0] * yaw.cos() + he[1] * yaw.sin();
+                let p3_y = center[1] - he[1] * yaw.cos() + he[0] * yaw.sin();
+                Polygon::new(
+                    LineString::from(vec![[p0_x, p0_y], [p1_x, p1_y], [p2_x, p2_y], [p3_x, p3_y]]),
                     vec![],
-                ).into();
-                polygon = polygon.difference(&to_subtract);
-            }
+                )
+            } // When new lift types are added, add their footprint calculation here.
         };
+        polygon = polygon.difference(&to_subtract.into());
     }
     //let triangles = polygon.iter().map(|polygon| p.earcut_triangles_raw()).collect();
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
     for polygon in polygon.iter() {
         let triangles = polygon.earcut_triangles_raw();
-        positions.extend(triangles.vertices.chunks(2).map(|v| [v[0], v[1], 0.]).collect::<Vec<_>>());
-        indices.extend(triangles.triangle_indices.iter().map(|idx| (idx + indices.len()) as u32).collect::<Vec<_>>());
+        positions.extend(
+            triangles
+                .vertices
+                .chunks(2)
+                .map(|v| [v[0], v[1], 0.])
+                .collect::<Vec<_>>(),
+        );
+        indices.extend(
+            triangles
+                .triangle_indices
+                .iter()
+                .map(|idx| (idx + indices.len()) as u32)
+                .collect::<Vec<_>>(),
+        );
     }
 
     let texture_width = texture.width.unwrap_or(1.0);
