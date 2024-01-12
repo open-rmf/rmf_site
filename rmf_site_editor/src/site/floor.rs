@@ -366,6 +366,26 @@ pub fn update_floors(
     }
 }
 
+pub fn update_floors_for_changed_lifts(
+    lifts: Query<(&Transform, &LiftCabin<Entity>)>,
+    changed_lifts: Query<(), Changed<LiftCabin<Entity>>>,
+    floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
+    anchors: AnchorParams,
+    textures: Query<(Option<&Handle<Image>>, &Texture)>,
+    mut mesh_assets: ResMut<Assets<Mesh>>,
+    mut mesh_handles: Query<&mut Handle<Mesh>>,
+) {
+    if changed_lifts.is_empty() {
+        return;
+    }
+    for (e, segments, path, texture_source) in floors.iter() {
+        let (_, texture) = from_texture_source(texture_source, &textures);
+        if let Ok(mut mesh) = mesh_handles.get_mut(segments.mesh) {
+            *mesh = mesh_assets.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
+        }
+    }
+}
+
 #[inline]
 fn iter_update_floor_visibility<'a>(
     iter: impl Iterator<

@@ -336,7 +336,7 @@ impl Plugin for SitePlugin {
                 add_floor_visuals,
                 update_floors,
                 update_floors_for_moved_anchors,
-                update_floors,
+                update_floors_for_changed_lifts,
                 update_floor_visibility,
                 update_drawing_visibility,
                 add_lane_visuals,
