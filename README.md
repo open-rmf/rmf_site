@@ -5,6 +5,8 @@
 
 # The RMF Site Editor
 
+![Office world](media/office.png)
+
 The RMF Site Editor is an experimental approach to visualizing and editing large RMF deployment sites.
 It is built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
 
