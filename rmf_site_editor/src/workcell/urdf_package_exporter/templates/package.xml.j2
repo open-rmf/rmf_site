@@ -1,0 +1,25 @@
+<?xml version="1.0"?>
+<?xml-model href="http://download.ros.org/schema/package_format3.xsd" schematypens="http://www.w3.org/2001/XMLSchema"?>
+<package format="3">
+  <name>{{project_name}}</name>
+  <version>{{project_version}}</version>
+  <description>{{project_description}}</description>
+
+  {%- for maintainer in maintainers %}
+  <maintainer email="{{maintainer.email}}">{{maintainer.name}}</maintainer>
+  {%- endfor %}
+
+  <license>{{license}}</license>
+
+  <buildtool_depend>ament_cmake</buildtool_depend>
+  <exec_depend>urdf_launch</exec_depend>
+  <test_depend>ament_lint_auto</test_depend>
+  {%- for dependency in dependencies %}
+  <depend>{{dependency}}</depend>
+  {%- endfor %}
+
+  <export>
+    <build_type>ament_cmake</build_type>
+    <gazebo_ros gazebo_model_path="${prefix}/.."/>
+  </export>
+</package>

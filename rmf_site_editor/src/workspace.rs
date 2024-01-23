@@ -63,6 +63,7 @@ pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
     Site(Vec<u8>),
     Workcell(Vec<u8>),
+    WorkcellUrdf(Vec<u8>),
 }
 
 impl WorkspaceData {
@@ -74,6 +75,8 @@ impl WorkspaceData {
             Some(WorkspaceData::Site(data))
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
+        } else if filename.ends_with("urdf") {
+            Some(WorkspaceData::WorkcellUrdf(data))
         } else {
             error!("Unrecognized file type {:?}", filename);
             None
@@ -368,6 +371,36 @@ fn workspace_file_load_complete(
                     }
                     Err(err) => {
                         error!("Failed loading workcell {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::WorkcellUrdf(data) => {
+                info!("Importing urdf workcell");
+                let Ok(utf) = std::str::from_utf8(&data) else {
+                    error!("Failed converting urdf bytes to string");
+                    return;
+                };
+                match urdf_rs::read_from_string(utf) {
+                    Ok(urdf) => {
+                        // TODO(luca) make this function return a result and this a match statement
+                        match Workcell::from_urdf(&urdf) {
+                            Ok(workcell) => {
+                                // Switch state
+                                app_state.set(AppState::WorkcellEditor);
+                                load_workcell.send(LoadWorkcell {
+                                    workcell,
+                                    focus: true,
+                                    default_file,
+                                });
+                                interaction_state.set(InteractionState::Enable);
+                            }
+                            Err(err) => {
+                                error!("Failed converting urdf to workcell {:?}", err);
+                            }
+                        }
+                    }
+                    Err(err) => {
+                        error!("Failed loading urdf workcell {:?}", err);
                     }
                 }
             }

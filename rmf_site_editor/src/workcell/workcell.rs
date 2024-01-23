@@ -19,7 +19,7 @@ use crate::interaction::{InteractionAssets, Selectable};
 use crate::site::SiteAssets;
 use crate::CurrentWorkspace;
 use bevy::prelude::*;
-use rmf_site_format::WorkcellProperties;
+use rmf_site_format::NameOfWorkcell;
 
 /// Used as an event to command that a new workcell should be made the current one
 #[derive(Clone, Copy, Debug, Event)]
@@ -35,7 +35,7 @@ pub struct WorkcellVisualizationMarker;
 pub fn change_workcell(
     mut current_workspace: ResMut<CurrentWorkspace>,
     mut change_current_workcell: EventReader<ChangeCurrentWorkcell>,
-    open_workcells: Query<Entity, With<WorkcellProperties>>,
+    open_workcells: Query<Entity, With<NameOfWorkcell>>,
 ) {
     if let Some(cmd) = change_current_workcell.iter().last() {
         if open_workcells.get(cmd.root).is_err() {
@@ -53,7 +53,7 @@ pub fn change_workcell(
 
 pub fn add_workcell_visualization(
     mut commands: Commands,
-    new_workcells: Query<Entity, Added<WorkcellProperties>>,
+    new_workcells: Query<Entity, Added<NameOfWorkcell>>,
     site_assets: Res<SiteAssets>,
     interaction_assets: Res<InteractionAssets>,
 ) {

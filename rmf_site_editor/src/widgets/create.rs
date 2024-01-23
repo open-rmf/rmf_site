@@ -218,12 +218,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     if ui.button("Spawn visual").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self
+                                                source: self
                                                     .events
                                                     .display
                                                     .pending_model
-                                                    .source)
-                                                    .into(),
+                                                    .source
+                                                    .clone(),
                                                 scale: Some(
                                                     *self.events.display.pending_model.scale,
                                                 ),
@@ -239,12 +239,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     if ui.button("Spawn collision").clicked() {
                                         let workcell_model = WorkcellModel {
                                             geometry: Geometry::Mesh {
-                                                filename: (&self
+                                                source: self
                                                     .events
                                                     .display
                                                     .pending_model
-                                                    .source)
-                                                    .into(),
+                                                    .source
+                                                    .clone(),
                                                 scale: Some(
                                                     *self.events.display.pending_model.scale,
                                                 ),

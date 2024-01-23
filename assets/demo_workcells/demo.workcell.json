@@ -75,5 +75,9 @@
   "visuals": {
   },
   "collisions": {
+  },
+  "inertias": {
+  },
+  "joints": {
   }
 }

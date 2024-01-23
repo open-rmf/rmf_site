@@ -17,7 +17,7 @@
 
 use crate::{interaction::*, site::Anchor};
 use bevy::prelude::*;
-use bevy_mod_raycast::RaycastMesh;
+use bevy_mod_raycast::deferred::RaycastMesh;
 use std::collections::HashSet;
 
 /// This component is put on entities with meshes to mark them as items that can
@@ -236,9 +236,7 @@ pub fn maintain_hovered_entities(
             // TODO(luca) refactor to remove this hack
             // Skip if we are in SelectAnchor3D mode
             if let InteractionMode::SelectAnchor3D(mode) = &*mode {
-                if mode.begin_creating() {
-                    return;
-                }
+                return;
             }
             select.send(Select(Some(current_hovered)));
         }

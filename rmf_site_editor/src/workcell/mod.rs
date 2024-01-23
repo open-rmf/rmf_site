@@ -15,17 +15,28 @@
  *
 */
 
+pub mod frame;
+pub use frame::*;
+
+pub mod joint;
+pub use joint::*;
+
 pub mod load;
 pub use load::*;
 
 pub mod keyboard;
 pub use keyboard::*;
 
-pub mod mesh_constraint;
-pub use mesh_constraint::*;
+pub mod menu;
+pub use menu::*;
+
+pub mod model;
+pub use model::*;
 
 pub mod save;
 pub use save::*;
+
+pub mod urdf_package_exporter;
 
 pub mod workcell;
 pub use workcell::*;
@@ -39,7 +50,7 @@ use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
     site::{
-        clear_model_trashcan, handle_model_loaded_events, handle_new_mesh_primitives,
+        clear_model_trashcan, handle_model_loaded_events, handle_new_primitive_shapes,
         handle_new_sdf_roots, handle_update_fuel_cache_requests, make_models_selectable,
         propagate_model_render_layers, read_update_fuel_cache_results,
         reload_failed_models_with_new_api_key, update_anchor_transforms, update_model_scales,
@@ -48,8 +59,6 @@ use crate::{
 };
 
 use rmf_site_format::ModelMarker;
-
-use bevy_rapier3d::prelude::*;
 
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
@@ -67,6 +76,7 @@ fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>)
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
         app.add_plugin(InfiniteGridPlugin)
+            .add_event::<CreateJoint>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
@@ -75,20 +85,23 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
-                    update_constraint_dependents,
                     handle_model_loaded_events,
                     update_model_scenes,
                     update_model_scales,
+                    handle_new_primitive_shapes,
                     update_model_tentative_formats,
+                    replace_name_in_site_components,
+                    handle_create_joint_events,
+                    cleanup_orphaned_joints,
                     propagate_model_render_layers,
                     make_models_selectable,
                     handle_update_fuel_cache_requests,
                     read_update_fuel_cache_results,
                     reload_failed_models_with_new_api_key,
                     handle_workcell_keyboard_input,
-                    handle_new_mesh_primitives,
                     change_workcell.before(load_workcell),
                     handle_new_sdf_roots,
+                    handle_export_urdf_menu_events,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
             )
@@ -104,11 +117,20 @@ impl Plugin for WorkcellEditorPlugin {
             .add_systems(
                 Update,
                 (
+                    scale_workcell_anchors,
                     update_anchor_transforms,
-                    add_anchors_for_new_mesh_constraints,
                     update_transforms_for_changed_poses,
                 )
                     .run_if(in_state(AppState::WorkcellEditor)),
+            )
+            .add_systems(
+                PostUpdate,
+                (flatten_loaded_models_hierarchy,).run_if(in_state(AppState::WorkcellEditor)),
             );
+    }
+
+    // Put the UI dependent plugins in `finish` to make sure the interaction is initialized first
+    fn finish(&self, app: &mut App) {
+        app.init_resource::<ExportUrdfMenu>();
     }
 }

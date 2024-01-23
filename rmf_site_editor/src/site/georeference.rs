@@ -1,9 +1,9 @@
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_egui::{
     egui::{self, Slider},
     EguiContexts,
 };
-use bevy_mod_raycast::Ray3d;
+use bevy_mod_raycast::primitives::rays::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
 use rmf_site_format::{Anchor, AssetSource, GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
@@ -386,6 +386,7 @@ pub fn render_map_tiles(
     mut commands: Commands,
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut render_settings: Local<RenderSettings>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
     if let Some((_, site_properties)) = site_properties
         .iter()
@@ -429,14 +430,29 @@ pub fn render_map_tiles(
                 if let Some(Rect { min, max }) = camera.logical_viewport_rect() {
                     let viewport_size = max - min;
 
-                    let top_left_ray =
-                        Ray3d::from_screenspace(Vec2::new(0.0, 0.0), camera, transform);
-                    let top_right_ray =
-                        Ray3d::from_screenspace(Vec2::new(viewport_size.x, 0.0), camera, transform);
-                    let bottom_left_ray =
-                        Ray3d::from_screenspace(Vec2::new(0.0, viewport_size.y), camera, transform);
+                    let Ok(primary_window) = primary_window.get_single() else {
+                        return;
+                    };
+                    let top_left_ray = Ray3d::from_screenspace(
+                        Vec2::new(0.0, 0.0),
+                        camera,
+                        transform,
+                        primary_window,
+                    );
+                    let top_right_ray = Ray3d::from_screenspace(
+                        Vec2::new(viewport_size.x, 0.0),
+                        camera,
+                        transform,
+                        primary_window,
+                    );
+                    let bottom_left_ray = Ray3d::from_screenspace(
+                        Vec2::new(0.0, viewport_size.y),
+                        camera,
+                        transform,
+                        primary_window,
+                    );
                     let bottom_right_ray =
-                        Ray3d::from_screenspace(viewport_size, camera, transform);
+                        Ray3d::from_screenspace(viewport_size, camera, transform, primary_window);
 
                     let top_left = ray_groundplane_intersection(&top_left_ray);
                     let top_right = ray_groundplane_intersection(&top_right_ray);

@@ -17,7 +17,9 @@
 
 use crate::{interaction::*, site::Anchor, CurrentWorkspace};
 use bevy::prelude::*;
-use bevy_mod_raycast::{RaycastMethod, RaycastSource};
+use bevy_mod_raycast::{
+    deferred::RaycastMethod, deferred::RaycastSource, immediate::RaycastVisibility,
+};
 
 /// A resource to track what kind of picking blockers are currently active
 #[derive(Resource)]
@@ -72,9 +74,11 @@ pub fn update_picking_cam(
                     .remove::<RaycastSource<SiteRaycastSet>>();
             }
 
-            commands
-                .entity(camera_controls.active_camera())
-                .insert(RaycastSource::<SiteRaycastSet>::new().with_early_exit(false));
+            commands.entity(camera_controls.active_camera()).insert(
+                RaycastSource::<SiteRaycastSet>::new_cursor()
+                    .with_early_exit(false)
+                    .with_visibility(RaycastVisibility::MustBeVisible),
+            );
         }
     }
 }
@@ -113,20 +117,6 @@ fn pick_topmost(
     }
 
     return None;
-}
-
-// Update our `RaycastSource` with the current cursor position every frame.
-pub fn update_raycast_with_cursor(
-    mut cursor: EventReader<CursorMoved>,
-    mut query: Query<&mut RaycastSource<SiteRaycastSet>>,
-) {
-    // Grab the most recent cursor event if it exists:
-    let Some(cursor_moved) = cursor.iter().last() else {
-        return;
-    };
-    for mut pick_source in &mut query {
-        pick_source.cast_method = RaycastMethod::Screenspace(cursor_moved.position);
-    }
 }
 
 pub fn update_picked(
