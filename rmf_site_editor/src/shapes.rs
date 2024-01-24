@@ -660,10 +660,10 @@ pub(crate) fn make_cylinder(height: f32, radius: f32) -> MeshBuffer {
     make_smooth_wrap([top_circle, bottom_circle], resolution)
         .merge_with(
             make_bottom_circle(mid_circle, resolution)
-                .transform_by(Affine3A::from_translation([0.0, 0., -height].into())),
+                .transform_by(Affine3A::from_translation([0.0, 0., -height / 2.0].into())),
         )
         .merge_with(make_bottom_circle(mid_circle, resolution).transform_by(
-            Affine3A::from_translation([0., 0., height].into())
+            Affine3A::from_translation([0., 0., height / 2.0].into())
                 * Affine3A::from_rotation_x(180_f32.to_radians()),
         ))
 }

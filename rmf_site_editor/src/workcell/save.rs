@@ -17,9 +17,10 @@
 
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::path::PathBuf;
+use std::path::{Path, PathBuf};
 
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
+use crate::workcell::urdf_package_exporter::{generate_package, PackageContext, Person};
 use crate::ExportFormat;
 
 use thiserror::Error as ThisError;
@@ -56,8 +57,9 @@ fn assign_site_ids(world: &mut World, workcell: Entity) {
             Entity,
             (
                 Or<(
-                    With<Anchor>,
-                    With<LinkMarker>,
+                    With<FrameMarker>,
+                    With<JointProperties>,
+                    With<Moment>,
                     With<VisualMeshMarker>,
                     With<CollisionMeshMarker>,
                 )>,
@@ -99,36 +101,45 @@ pub fn generate_workcell(
             ),
             Without<Pending>,
         >,
+        Query<(Entity, &Pose, &Mass, &Moment, &SiteID, &Parent), Without<Pending>>,
         Query<
             (
                 Entity,
                 &NameInWorkcell,
                 Option<&AssetSource>,
-                Option<&MeshPrimitive>,
+                Option<&PrimitiveShape>,
                 &Pose,
                 &SiteID,
                 &Parent,
-                &Scale,
+                Option<&Scale>,
             ),
             (
                 Or<(With<VisualMeshMarker>, With<CollisionMeshMarker>)>,
                 Without<Pending>,
             ),
         >,
+        Query<(Entity, &JointProperties, &NameInWorkcell, &SiteID, &Parent), Without<Pending>>,
         Query<&VisualMeshMarker>,
         Query<&CollisionMeshMarker>,
         Query<&SiteID>,
-        Query<&WorkcellProperties>,
+        Query<&NameOfWorkcell>,
         Query<&Parent>,
     )> = SystemState::new(world);
-    let (q_anchors, q_models, q_visuals, q_collisions, q_site_id, q_properties, q_parents) =
-        state.get(world);
+    let (
+        q_anchors,
+        q_inertials,
+        q_models,
+        q_joints,
+        q_visuals,
+        q_collisions,
+        q_site_id,
+        q_properties,
+        q_parents,
+    ) = state.get(world);
 
     let mut workcell = Workcell::default();
     match q_properties.get(root) {
-        Ok(properties) => {
-            workcell.properties = properties.clone();
-        }
+        Ok(name) => workcell.properties.name = name.clone(),
         Err(_) => {
             return Err(WorkcellGenerationError::InvalidWorkcellEntity(root));
         }
@@ -150,8 +161,8 @@ pub fn generate_workcell(
         let geom = if let Some(source) = source {
             // It's a model
             Geometry::Mesh {
-                filename: String::from(source),
-                scale: Some(**scale),
+                source: source.clone(),
+                scale: scale.map(|s| **s),
             }
         } else if let Some(primitive) = primitive {
             Geometry::Primitive(primitive.clone())
@@ -163,7 +174,7 @@ pub fn generate_workcell(
             workcell.visuals.insert(
                 id.0,
                 Parented {
-                    parent: parent,
+                    parent,
                     bundle: WorkcellModel {
                         name: name.0.clone(),
                         geometry: geom,
@@ -176,7 +187,7 @@ pub fn generate_workcell(
             workcell.collisions.insert(
                 id.0,
                 Parented {
-                    parent: parent,
+                    parent,
                     bundle: WorkcellModel {
                         name: name.0.clone(),
                         geometry: geom,
@@ -214,12 +225,61 @@ pub fn generate_workcell(
         workcell.frames.insert(
             id.0,
             Parented {
-                parent: parent,
+                parent,
                 bundle: Frame {
                     anchor: anchor.clone(),
                     name: name.cloned(),
                     mesh_constraint: constraint,
                     marker: FrameMarker,
+                },
+            },
+        );
+    }
+
+    for (e, pose, mass, moment, id, parent) in &q_inertials {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => parent.0,
+            Err(_) => {
+                error!("Parent not found for inertial {:?}", parent.get());
+                continue;
+            }
+        };
+
+        workcell.inertias.insert(
+            id.0,
+            Parented {
+                parent,
+                bundle: Inertia {
+                    center: pose.clone(),
+                    mass: mass.clone(),
+                    moment: moment.clone(),
+                },
+            },
+        );
+    }
+
+    for (e, properties, name, id, parent) in &q_joints {
+        if !parent_in_workcell(&q_parents, e, root) {
+            continue;
+        }
+        let parent = match q_site_id.get(parent.get()) {
+            Ok(parent) => parent.0,
+            Err(_) => {
+                error!("Parent not found for joint {:?}", parent.get());
+                continue;
+            }
+        };
+
+        workcell.joints.insert(
+            id.0,
+            Parented {
+                parent,
+                bundle: Joint {
+                    name: name.clone(),
+                    properties: properties.clone(),
                 },
             },
         );
@@ -234,19 +294,6 @@ pub fn save_workcell(world: &mut World) {
         .drain()
         .collect();
     for save_event in save_events {
-        let path = save_event.to_file;
-        info!(
-            "Saving to {}",
-            path.to_str().unwrap_or("<failed to render??>")
-        );
-        let f = match std::fs::File::create(path) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
         let workcell = match generate_workcell(world, save_event.root) {
             Ok(root) => root,
             Err(err) => {
@@ -255,18 +302,61 @@ pub fn save_workcell(world: &mut World) {
             }
         };
 
+        let path = save_event.to_file;
         match save_event.format {
-            ExportFormat::Default => match workcell.to_writer(f) {
-                Ok(()) => {
-                    info!("Save successful");
+            ExportFormat::Default => {
+                info!(
+                    "Saving to {}",
+                    path.to_str().unwrap_or("<failed to render??>")
+                );
+                let f = match std::fs::File::create(path) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file: {err}");
+                        continue;
+                    }
+                };
+                match workcell.to_writer(f) {
+                    Ok(()) => {
+                        info!("Save successful");
+                    }
+                    Err(err) => {
+                        error!("Save failed: {err}");
+                    }
                 }
-                Err(err) => {
-                    error!("Save failed: {err}");
-                }
-            },
+            }
             ExportFormat::Urdf => {
-                info!("Saving to urdf");
+                // TODO(luca) File name is ignored, change to pick folder instead of pick file
+                match export_package(&path, workcell) {
+                    Ok(()) => {
+                        info!("Successfully exported package");
+                    }
+                    Err(err) => {
+                        error!("Failed to export package: {err}");
+                    }
+                };
             }
         }
     }
+}
+
+fn export_package(path: &PathBuf, workcell: Workcell) -> Result<(), Box<dyn std::error::Error>> {
+    let output_directory = path.parent().ok_or("Not able to get parent")?;
+
+    let package_context = PackageContext {
+        license: "TODO".to_string(),
+        maintainers: vec![Person {
+            name: "TODO".to_string(),
+            email: "todo@todo.com".to_string(),
+        }],
+        project_name: workcell.properties.name.0.clone() + "_description",
+        fixed_frame: "world".to_string(),
+        dependencies: vec![],
+        project_description: "TODO".to_string(),
+        project_version: "0.0.1".to_string(),
+        urdf_file_name: "robot.urdf".to_string(),
+    };
+
+    generate_package(workcell, package_context, &output_directory)?;
+    Ok(())
 }

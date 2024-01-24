@@ -22,13 +22,13 @@ use crate::{
         Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
         VisualMeshMarker,
     },
-    CurrentWorkspace,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location,
-    Measurement, MeshConstraint, MeshElement, Model, ModelMarker, NameInWorkcell, NameOfSite, Path,
-    PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
+    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, FrameMarker, Lane,
+    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
+    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -1755,19 +1755,6 @@ impl SelectAnchor3D {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<(), ()> {
         if let Some(target) = self.target {
-            // Change the anchor that the location is attached to.
-            let (e, anchor) = match params.anchors.get_mut(target) {
-                Ok(l) => l,
-                Err(_) => {
-                    error!(
-                        "Unable to get anchor {:?} while \
-                        replacing 3D Anchor.",
-                        target
-                    );
-                    return Err(());
-                }
-            };
-
             // Make sure the selected entity is an anchor
             // TODO(luca) Should this be at the caller level?
             match params.anchors.get(anchor_selection.entity()) {
@@ -1790,27 +1777,6 @@ impl SelectAnchor3D {
                 match self.parent {
                     Some(new_parent) => {
                         if anchor_selection.entity() != target {
-                            // Delete parent and dependent
-                            if let Ok(old_parent) = params.parents.get(target) {
-                                params
-                                    .commands
-                                    .entity(**old_parent)
-                                    .remove_children(&[target]);
-                                params.remove_dependent(
-                                    target,
-                                    **old_parent,
-                                    &mut Some(&mut anchor_selection),
-                                )?;
-                            }
-                            params.add_dependent(
-                                target,
-                                anchor_selection.entity(),
-                                &mut Some(&mut anchor_selection),
-                            )?;
-                            params
-                                .commands
-                                .entity(anchor_selection.entity())
-                                .push_children(&[target]);
                             self.parent = Some(anchor_selection.entity());
                         }
                         return Ok(());
@@ -1852,58 +1818,10 @@ impl SelectAnchor3D {
         return PreviewResult::Unchanged;
     }
 
-    /// Return Ok if we need to keep the entity, Err if we need to remove it
-    fn placement_backout<'w, 's>(
-        &self,
-        continuity: SelectAnchorContinuity,
-        target: Entity,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
-    ) -> Result<(), ()> {
-        match self.parent {
-            Some(parent) => {
-                if let Ok((e, _anchor)) = params.anchors.get_mut(parent) {
-                    if let Ok(mut deps) = params.dependents.get_mut(e) {
-                        deps.remove(&target);
-                        params.commands.entity(e).remove_children(&[target]);
-                    }
-
-                    if let Some(replacing) = continuity.replacing() {
-                        // Restore the target to the original
-                        if let Ok(mut deps) = params.dependents.get_mut(replacing) {
-                            deps.insert(target);
-                            params.commands.entity(replacing).push_children(&[target]);
-                        }
-
-                        // point.0 = replacing;
-                        params.commands.entity(target).remove::<Pending>();
-                        return Ok(());
-                    } else {
-                        // Delete the location entirely because there is no anchor to
-                        // return it to.
-                        params.commands.entity(target).despawn_recursive();
-                        return Err(());
-                    }
-                } else {
-                    error!(
-                        "Cannot find point for location {target:?} while \
-                        trying to back out of SelectAnchor mode"
-                    );
-                    return Err(());
-                }
-            }
-            None => {
-                return Ok(());
-            }
-        }
-    }
-
     pub fn backout<'w, 's>(
         &self,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> InteractionMode {
-        if let Some(target) = self.target {
-            self.placement_backout(self.continuity, target, params);
-        }
         params.cleanup();
         return InteractionMode::Inspect;
     }
@@ -2190,16 +2108,6 @@ fn compute_parent_inverse_pose(
     pose.align_with(&Transform::from_matrix((inv_tf * goal_tf).into()))
 }
 
-fn find_mesh_element(
-    params: &SelectAnchorPlacementParams,
-    cursor_tf: &GlobalTransform,
-    hovered: Entity,
-) -> MeshElement {
-    // TODO(luca) Assign a proper vertex id, will need mesh lookup based on
-    // hover status and (expensive) iteration on vertices
-    MeshElement::Vertex(0)
-}
-
 pub fn handle_select_anchor_3d_mode(
     mut mode: ResMut<InteractionMode>,
     anchors: Query<(), With<Anchor>>,
@@ -2213,6 +2121,7 @@ pub fn handle_select_anchor_3d_mode(
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
+    app_state: Res<State<AppState>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor3D(request) => request.clone(),
@@ -2263,7 +2172,7 @@ pub fn handle_select_anchor_3d_mode(
 
         // Set the request parent to the currently selected element, to spawn new object as
         // children of selected frames
-        if request.begin_creating() {
+        if matches!(**app_state, AppState::WorkcellEditor) && request.begin_creating() {
             request.parent = selection.0;
         }
     }
@@ -2283,81 +2192,83 @@ pub fn handle_select_anchor_3d_mode(
                     .get(params.cursor.frame)
                     .expect("Unable to get transform for cursor frame");
 
-                let id = params
-                    .commands
-                    .spawn(NameInWorkcell("Unnamed".to_string()))
-                    .id();
-                let parent = match request.bundle {
-                    PlaceableObject::Anchor => {
-                        // If parent is a mesh this will be a mesh constraint, otherwise an anchor
-                        let parent = if let Some(parent) =
-                            hovering.0.and_then(|p| params.models.get(p).ok())
-                        {
-                            let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                            let element = find_mesh_element(&params, &cursor_tf, parent);
-                            params.commands.entity(id).insert(MeshConstraint {
-                                entity: parent,
-                                element: element,
-                                relative_pose: pose,
-                            });
-                            // Add constraint dependent
-                            if let Ok(mut parent_deps) =
-                                params.constraint_dependents.get_mut(parent)
-                            {
-                                parent_deps.0.insert(id);
-                            }
-                            // Parent to be assigned is the first frame parent of the currently
-                            // hovered model
-                            AncestorIter::new(&params.parents, parent)
-                                .find(|&p| params.anchors.get(p).is_ok())
-                                .unwrap_or(workspace.root.expect("No workspace"))
-                        } else {
-                            let parent = request
-                                .parent
-                                .unwrap_or(workspace.root.expect("No workspace"));
-                            let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                            params
-                                .commands
-                                .entity(id)
-                                .insert(AnchorBundle::new(Anchor::Pose3D(pose)));
-                            parent
-                        };
-                        parent
-                    }
+                let parent = request
+                    .parent
+                    .unwrap_or(workspace.root.expect("No workspace"));
+                let pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
+                let id = match request.bundle {
+                    PlaceableObject::Anchor => params
+                        .commands
+                        .spawn((
+                            AnchorBundle::new(Anchor::Pose3D(pose)),
+                            FrameMarker,
+                            NameInWorkcell("Unnamed".to_string()),
+                        ))
+                        .id(),
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
-                        let parent = workspace.root.expect("No workspace");
-                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        params.commands.entity(id).insert(model);
-                        parent
+                        // If we are in workcell mode, add a "base link" frame to the model
+                        if matches!(**app_state, AppState::WorkcellEditor) {
+                            let child_id = params.commands.spawn(model).id();
+                            params
+                                .commands
+                                .spawn((
+                                    AnchorBundle::new(Anchor::Pose3D(pose))
+                                        .dependents(Dependents::single(child_id)),
+                                    FrameMarker,
+                                    NameInWorkcell("model_root".to_string()),
+                                ))
+                                .add_child(child_id)
+                                .id()
+                        } else {
+                            model.pose = pose;
+                            params.commands.spawn(model).id()
+                        }
                     }
                     PlaceableObject::VisualMesh(ref a) => {
                         let mut model = a.clone();
-                        let parent = request
-                            .parent
-                            .unwrap_or(workspace.root.expect("No workspace"));
-                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        let mut cmd = params.commands.entity(id);
-                        cmd.insert(VisualMeshMarker);
-                        model.add_bevy_components(cmd);
-                        parent
+                        model.pose = pose;
+                        let mut cmd = params.commands.spawn(VisualMeshMarker);
+                        model.add_bevy_components(&mut cmd);
+                        cmd.id()
                     }
                     PlaceableObject::CollisionMesh(ref a) => {
                         let mut model = a.clone();
-                        let parent = request
-                            .parent
-                            .unwrap_or(workspace.root.expect("No workspace"));
-                        model.pose = compute_parent_inverse_pose(&cursor_tf, &transforms, parent);
-                        let mut cmd = params.commands.entity(id);
-                        cmd.insert(CollisionMeshMarker);
-                        model.add_bevy_components(cmd);
-                        parent
+                        model.pose = pose;
+                        let mut cmd = params.commands.spawn(CollisionMeshMarker);
+                        model.add_bevy_components(&mut cmd);
+                        cmd.id()
                     }
                 };
                 // Add child and dependent to parent
-                params.commands.entity(parent).add_child(id);
+                params.commands.entity(id).set_parent(parent);
                 if let Ok(mut deps) = params.dependents.get_mut(parent) {
                     deps.insert(id);
+                }
+            } else {
+                // We are replacing an anchor, which in this mode refers to changing a parent
+                if let (Some(target), Some(parent)) = (request.target, request.parent) {
+                    if let Ok(old_parent) = params.parents.get(target) {
+                        if let Ok(mut deps) = params.dependents.get_mut(**old_parent) {
+                            deps.remove(&target);
+                        }
+                    }
+                    if let Ok(mut deps) = params.dependents.get_mut(parent) {
+                        deps.insert(target);
+                    }
+                    let mut cmd = params.commands.entity(target);
+                    cmd.set_parent(parent);
+                    // Anchors store their pose in the Anchor component, other elements in Pose,
+                    // set accordingly
+                    let previous_tf = transforms
+                        .get(target)
+                        .expect("Transform not found for entity");
+                    let pose = compute_parent_inverse_pose(&previous_tf, &transforms, parent);
+                    if anchors.get(target).is_ok() {
+                        cmd.insert(AnchorBundle::new(Anchor::Pose3D(pose)));
+                    } else {
+                        cmd.insert(pose);
+                    }
                 }
             }
 

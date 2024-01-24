@@ -26,9 +26,10 @@ use crate::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
         ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
         ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
-        LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture,
+        JointProperties, LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture,
         ToggleLiftDoorAvailability, VisualMeshMarker,
     },
+    workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
@@ -162,6 +163,7 @@ pub struct ChangeEvents<'w> {
     pub search_for_texture: ResMut<'w, SearchForTexture>,
     pub distance: EventWriter<'w, Change<Distance>>,
     pub texture: EventWriter<'w, Change<Texture>>,
+    pub joint_properties: EventWriter<'w, Change<JointProperties>>,
     pub merge_groups: EventWriter<'w, MergeGroups>,
     pub filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
     pub filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
@@ -170,9 +172,10 @@ pub struct ChangeEvents<'w> {
 #[derive(SystemParam)]
 pub struct WorkcellChangeEvents<'w> {
     pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
-    pub mesh_primitives: EventWriter<'w, Change<MeshPrimitive>>,
     pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
+    pub workcell_name: EventWriter<'w, Change<NameOfWorkcell>>,
     pub scale: EventWriter<'w, Change<Scale>>,
+    pub primitive_shapes: EventWriter<'w, Change<PrimitiveShape>>,
 }
 
 #[derive(SystemParam)]
@@ -214,6 +217,7 @@ pub struct Requests<'w> {
     pub consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
     pub align_site: EventWriter<'w, AlignSiteDrawings>,
     pub validate_workspace: EventWriter<'w, ValidateWorkspace>,
+    pub create_joint: EventWriter<'w, CreateJoint>,
 }
 
 #[derive(SystemParam)]

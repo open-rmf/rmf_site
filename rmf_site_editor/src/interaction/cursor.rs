@@ -18,11 +18,11 @@
 use crate::{
     animate::*,
     interaction::*,
-    site::{AnchorBundle, Pending, SiteAssets},
+    site::{AnchorBundle, Pending, SiteAssets, Trashcan},
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
-use rmf_site_format::{FloorMarker, Model, ModelMarker, WallMarker, WorkcellModel};
+use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -36,6 +36,7 @@ pub struct Cursor {
     pub level_anchor_placement: Entity,
     pub site_anchor_placement: Entity,
     pub frame_placement: Entity,
+    pub trashcan: Entity,
     pub preview_model: Option<Entity>,
     dependents: HashSet<Entity>,
     /// Use a &str to label each mode that might want to turn the cursor on
@@ -107,10 +108,7 @@ impl Cursor {
 
     fn remove_preview(&mut self, commands: &mut Commands) {
         if let Some(current_preview) = self.preview_model {
-            commands
-                .entity(self.frame)
-                .remove_children(&[current_preview]);
-            commands.entity(current_preview).despawn_recursive();
+            commands.entity(current_preview).set_parent(self.trashcan);
         }
     }
 
@@ -133,9 +131,9 @@ impl Cursor {
     ) {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
-            let cmd = commands.spawn(Pending);
+            let mut cmd = commands.spawn(Pending);
             let e = cmd.id();
-            model.add_bevy_components(cmd);
+            model.add_bevy_components(&mut cmd);
             commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {
@@ -251,6 +249,8 @@ impl FromWorld for Cursor {
             })
             .id();
 
+        let trashcan = world.spawn(Trashcan).id();
+
         Self {
             frame: cursor,
             halo,
@@ -258,6 +258,7 @@ impl FromWorld for Cursor {
             level_anchor_placement,
             site_anchor_placement,
             frame_placement,
+            trashcan,
             preview_model: None,
             dependents: Default::default(),
             modes: Default::default(),
@@ -278,6 +279,7 @@ pub struct IntersectGroundPlaneParams<'w, 's> {
     camera_controls: Res<'w, CameraControls>,
     cameras: Query<'w, 's, &'static Camera>,
     global_transforms: Query<'w, 's, &'static GlobalTransform>,
+    primary_window: Query<'w, 's, &'static Window, With<PrimaryWindow>>,
 }
 
 impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
@@ -287,7 +289,9 @@ impl<'w, 's> IntersectGroundPlaneParams<'w, 's> {
         let e_active_camera = self.camera_controls.active_camera();
         let active_camera = self.cameras.get(e_active_camera).ok()?;
         let camera_tf = self.global_transforms.get(e_active_camera).ok()?;
-        let ray = Ray3d::from_screenspace(cursor_position, active_camera, camera_tf)?;
+        let primary_window = self.primary_window.get_single().ok()?;
+        let ray =
+            Ray3d::from_screenspace(cursor_position, active_camera, camera_tf, primary_window)?;
         let n_p = Vec3::Z;
         let n_r = ray.direction();
         let denom = n_p.dot(n_r);
@@ -304,7 +308,7 @@ pub fn update_cursor_transform(
     mode: Res<InteractionMode>,
     cursor: Res<Cursor>,
     raycast_sources: Query<&RaycastSource<SiteRaycastSet>>,
-    models: Query<(), With<ModelMarker>>,
+    models: Query<(), Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     mut transforms: Query<&mut Transform>,
     hovering: Res<Hovering>,
     intersect_ground_params: IntersectGroundPlaneParams,
