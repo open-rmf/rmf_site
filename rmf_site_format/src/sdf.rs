@@ -16,9 +16,10 @@
 */
 
 use crate::{
-    Anchor, Angle, Category, Door, DoorType, Level, LiftCabin, Pose, Rotation, Side, Site, Swing,
+    Anchor, Angle, Category, Door, DoorType, Level, LiftCabin, Pose, Rotation, Side, Site, Swing, NameInSite, DoorMarker,
 };
 use sdformat_rs::*;
+use std::collections::BTreeMap;
 
 #[derive(Debug)]
 pub enum SdfConversionError {
@@ -26,6 +27,8 @@ pub enum SdfConversionError {
     UnsupportedAssetType,
     /// Entity referenced a non existing anchor.
     BrokenAnchorReference(u32),
+    /// Entity referenced a non existing level.
+    BrokenLevelReference(u32),
 }
 
 impl Pose {
@@ -115,14 +118,20 @@ impl Door<u32> {
             DoorType::DoubleSliding(_) | DoorType::DoubleSwing(_) => Vec::from(["right", "left"]),
         };
         let mut plugin = SdfPlugin {
-            name: "door".into(),
-            filename: "libdoor.so".into(),
+            name: "register_component".into(),
+            filename: "libregister_component.so".into(),
+            ..Default::default()
+        };
+        let mut component = XmlElement {
+            name: "component".into(),
             ..Default::default()
         };
         let mut door_plugin_inner = XmlElement {
             name: "door".into(),
             ..Default::default()
         };
+        component.attributes.insert("name".into(), "Door".into());
+        let mut component_data = ElementMap::default();
         door_plugin_inner
             .attributes
             .insert("name".to_string(), self.name.0.clone());
@@ -383,15 +392,18 @@ impl Door<u32> {
                 }]
             }
         };
+        door_motion_params.push(("ros_interface", "true"));
         door_model.joint.extend(joints);
         for (name, value) in door_motion_params.into_iter() {
-            plugin.elements.push(XmlElement {
+            component_data.push(XmlElement {
                 name: name.into(),
                 data: ElementData::String(value.to_string()),
                 ..Default::default()
             });
         }
-        plugin.elements.push(door_plugin_inner);
+        component_data.push(door_plugin_inner);
+        component.data = ElementData::Nested(component_data);
+        plugin.elements.push(component);
         door_model.plugin = vec![plugin];
         Ok(door_model)
     }
@@ -399,10 +411,9 @@ impl Door<u32> {
 
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
-        let get_anchor = |id: u32, level: Option<&Level>| -> Result<Anchor, SdfConversionError> {
-            level
-                .and_then(|l| l.anchors.get(&id))
-                .or_else(|| self.anchors.get(&id))
+        let get_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+            self.anchors.get(&id)
+                .or_else(|| self.levels.values().find_map(|l| l.anchors.get(&id)))
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
                 .cloned()
         };
@@ -443,8 +454,8 @@ impl Site {
             });
             // Now add all the doors
             for door in level.doors.values() {
-                let left_anchor = get_anchor(door.anchors.left(), Some(level))?;
-                let right_anchor = get_anchor(door.anchors.right(), Some(level))?;
+                let left_anchor = get_anchor(door.anchors.left())?;
+                let right_anchor = get_anchor(door.anchors.right())?;
                 models.push(door.to_sdf(
                     left_anchor,
                     right_anchor,
@@ -458,15 +469,14 @@ impl Site {
                 continue;
             };
             let center = cabin.aabb().center;
-            let left_anchor = get_anchor(lift.properties.reference_anchors.left(), None)?;
-            let right_anchor = get_anchor(lift.properties.reference_anchors.right(), None)?;
+            let left_anchor = get_anchor(lift.properties.reference_anchors.left())?;
+            let right_anchor = get_anchor(lift.properties.reference_anchors.right())?;
             let left_trans = left_anchor.translation_for_category(Category::Level);
             let right_trans = right_anchor.translation_for_category(Category::Level);
             let midpoint = [
                 (left_trans[0] + right_trans[0]) / 2.0,
                 (left_trans[1] + right_trans[1]) / 2.0,
             ];
-            // TODO(luca) initial level
             let pose = Pose {
                 trans: [midpoint[0] + center.x, midpoint[1] + center.y, 0.0],
                 ..Default::default()
@@ -476,24 +486,113 @@ impl Site {
                 filename: "liblift.so".into(),
                 ..Default::default()
             };
+            let mut component = XmlElement {
+                name: "component".into(),
+                ..Default::default()
+            };
+            component.attributes.insert("name".into(), "Lift".into());
+            let mut component_data = ElementMap::default();
             let mut elements = vec![];
-            elements.push(("lift_name", lift.properties.name.0.clone()));
+            let lift_name = &lift.properties.name.0;
+            elements.push(("lift_name", lift_name.clone()));
             // TODO(luca) remove unwrap here for missing initial level
-            let initial_level = lift.properties.initial_level.0.and_then(|id| self.levels.get(&id)).map(|level| level.properties.name.0.clone()).unwrap();
+            let initial_level = lift
+                .properties
+                .initial_level
+                .0
+                .and_then(|id| self.levels.get(&id))
+                .map(|level| level.properties.name.0.clone())
+                .unwrap();
             elements.push(("initial_level", initial_level));
             elements.push(("v_max_cabin", "2.0".to_string()));
             elements.push(("a_max_cabin", "1.2".to_string()));
             elements.push(("a_nom_cabin", "1.0".to_string()));
             elements.push(("dx_min_cabin", "0.001".to_string()));
             elements.push(("f_max_cabin", "25323.0".to_string()));
-            for (name, value) in elements.into_iter() {
+            elements.push(("cabin_joint_name", "cabin_joint".to_string()));
+            let mut levels: BTreeMap<u32, ElementMap> = BTreeMap::new();
+            //let mut lift_models = Vec::new();
+            for (door_idx, door) in lift.cabin_doors.iter() {
+                let cabin_door_name = format!("CabinDoor_{}_door_{}", lift_name, door_idx);
+                // Create a dummy cabin door first
+                let dummy_cabin = Door {
+                    anchors: door.reference_anchors.clone(),
+                    name: NameInSite(cabin_door_name.clone()),
+                    kind: door.kind.clone(),
+                    marker: DoorMarker,
+                };
+                // TODO(luca) remove unwrap here
+                let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
+                let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
+                // TODO(luca) do this when nested models are supported
+                //lift_models.push(dummy_cabin.to_sdf(
+                models.push(dummy_cabin.to_sdf(
+                    left_anchor,
+                    right_anchor,
+                    0.0
+                    //level.properties.elevation.0,
+                )?);
+                for visit in door.visits.0.iter() {
+                    let level = self
+                        .levels
+                        .get(visit)
+                        .ok_or(SdfConversionError::BrokenLevelReference(*visit))?;
+                    let shaft_door_name = format!("ShaftDoor_{}_{}_door_{}", level.properties.name.0, lift_name, door_idx);
+                    // TODO(luca) proper pose for shaft doors
+                    let dummy_shaft  = Door {
+                        anchors: door.reference_anchors.clone(),
+                        name: NameInSite(shaft_door_name.clone()),
+                        kind: door.kind.clone(),
+                        marker: DoorMarker,
+                    };
+                    let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
+                    let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
+                    models.push(dummy_shaft.to_sdf(
+                        left_anchor,
+                        right_anchor,
+                        level.properties.elevation.0,
+                    )?);
+                    let mut level = levels.entry(*visit).or_default();
+                    let element = XmlElement {
+                        name: "door_pair".into(),
+                        attributes: [
+                            ("cabin_door".to_string(), cabin_door_name.clone()),
+                            ("shaft_door".to_string(), shaft_door_name.clone()),
+                        ]
+                        .into(),
+                        ..Default::default()
+                    };
+                    level.push(element);
+                }
+            }
+            for (key, door_pairs) in levels.into_iter() {
+                let level = self
+                    .levels
+                    .get(&key)
+                    .ok_or(SdfConversionError::BrokenLevelReference(key))?;
                 plugin.elements.push(XmlElement {
+                    name: "floor".into(),
+                    attributes: [
+                        ("name".to_string(), level.properties.name.0.clone()),
+                        (
+                            "elevation".to_string(),
+                            level.properties.elevation.0.to_string(),
+                        ),
+                    ]
+                    .into(),
+                    data: ElementData::Nested(door_pairs),
+                    ..Default::default()
+                });
+            }
+            for (name, value) in elements.into_iter() {
+                component_data.push(XmlElement {
                     name: name.into(),
                     data: ElementData::String(value),
                     ..Default::default()
                 });
             }
-            // Now add the floors
+            component.data = ElementData::Nested(component_data);
+            plugin.elements.push(component);
             models.push(SdfModel {
                 name: lift.properties.name.0.clone(),
                 r#static: Some(lift.properties.is_static.0),
@@ -525,7 +624,8 @@ impl Site {
                     }],
                     ..Default::default()
                 }],
-                plugin: vec![plugin],
+                //model: lift_models,
+                //plugin: vec![plugin],
                 ..Default::default()
             });
         }
@@ -546,6 +646,31 @@ impl Site {
             direction: Vector3d::new(-0.5, 0.1, -0.9),
             ..Default::default()
         };
+        let lift_plugin = SdfPlugin {
+            name: "lift".into(),
+            filename: "liblift.so".into(),
+            ..Default::default()
+        };
+        let door_plugin = SdfPlugin {
+            name: "door".into(),
+            filename: "libdoor.so".into(),
+            ..Default::default()
+        };
+        let physics_plugin = SdfPlugin {
+            name: "gz::sim::systems::Physics".into(),
+            filename: "libgz-sim-physics-system.so".into(),
+            ..Default::default()
+        };
+        let user_commands_plugin = SdfPlugin {
+            name: "gz::sim::systems::UserCommands".into(),
+            filename: "libgz-sim-user-commands-system.so".into(),
+            ..Default::default()
+        };
+        let scene_broadcaster_plugin = SdfPlugin {
+            name: "gz::sim::systems::SceneBroadcaster".into(),
+            filename: "libgz-sim-scene-broadcaster-system.so".into(),
+            ..Default::default()
+        };
         Ok(SdfRoot {
             version: "1.7".to_string(),
             world: vec![SdfWorld {
@@ -561,6 +686,7 @@ impl Site {
                     ..Default::default()
                 },
                 light: vec![sun],
+                plugin: vec![physics_plugin, user_commands_plugin, scene_broadcaster_plugin, door_plugin, lift_plugin],
                 ..Default::default()
             }],
             ..Default::default()

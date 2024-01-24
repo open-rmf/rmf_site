@@ -9,7 +9,7 @@ use crate::site::{
     ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
     VisualMeshMarker,
 };
-use rmf_site_format::{LevelElevation, ModelMarker, NameInSite, Pose, WallMarker};
+use rmf_site_format::{SiteID, LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, WallMarker};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
     let mut state: SystemState<(
@@ -17,7 +17,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<(&NameInSite, &LevelElevation, &Children)>,
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments>,
-        Query<(&NameInSite, &DoorSegments)>,
+        Query<(Option<&NameInSite>, Option<&SiteID>, &DoorSegments)>,
         Query<Entity, With<ModelMarker>>,
         Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
@@ -173,8 +173,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             }
                         }
                     }
-                } else if let Ok((door_name, segments)) = q_doors.get(*child) {
-                    // TODO(luca) get rid of reverse by changing the entities function
+                } else if let Ok((door_name, _, segments)) = q_doors.get(*child) {
                     for (entity, segment_name) in segments
                         .body
                         .entities()
@@ -186,6 +185,9 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             continue;
                         };
                         let Ok(tf) = q_tfs.get(*entity) else {
+                            continue;
+                        };
+                        let Some(door_name) = door_name else {
                             continue;
                         };
                         let pose = GltfPose {
@@ -250,6 +252,16 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
             }
             let filename = format!("{}/{}.glb", folder.display(), **lift_name);
             write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename);
+            // Now generate the lift doors
+            let Ok(children) = q_children.get(*site_child) else {
+                continue;
+            };
+            for child in children.iter() {
+                if let Ok((_, site_id, segments)) = q_doors.get(*child) {
+                    println!("Found lift door with id");
+                    dbg!(site_id);
+                }
+            }
         }
     }
 }
