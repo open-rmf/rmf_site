@@ -99,6 +99,8 @@ impl Door<u32> {
         left_anchor: Anchor,
         right_anchor: Anchor,
         elevation: f32,
+        ros_interface: bool,
+        name_override: Option<String>,
     ) -> Result<SdfModel, SdfConversionError> {
         let door_mass = 50.0;
         let left_trans = left_anchor.translation_for_category(Category::Door);
@@ -147,10 +149,15 @@ impl Door<u32> {
             r#static: Some(false),
             ..Default::default()
         };
+        let link_name = if let Some(name_override) = name_override.as_ref() {
+            name_override
+        } else {
+            &self.name.0
+        };
         for label in labels.iter() {
             door_model
                 .link
-                .push(make_sdf_door_link(&self.name.0, label));
+                .push(make_sdf_door_link(link_name, label));
         }
         let mut door_motion_params = vec![];
         let joints = match &self.kind {
@@ -392,7 +399,8 @@ impl Door<u32> {
                 }]
             }
         };
-        door_motion_params.push(("ros_interface", "true"));
+        let b = ros_interface.to_string();
+        door_motion_params.push(("ros_interface", &b));
         door_model.joint.extend(joints);
         for (name, value) in door_motion_params.into_iter() {
             component_data.push(XmlElement {
@@ -460,6 +468,8 @@ impl Site {
                     left_anchor,
                     right_anchor,
                     level.properties.elevation.0,
+                    true,
+                    None,
                 )?);
             }
         }
@@ -512,8 +522,15 @@ impl Site {
             elements.push(("cabin_joint_name", "cabin_joint".to_string()));
             let mut levels: BTreeMap<u32, ElementMap> = BTreeMap::new();
             //let mut lift_models = Vec::new();
-            for (door_idx, door) in lift.cabin_doors.iter() {
-                let cabin_door_name = format!("CabinDoor_{}_door_{}", lift_name, door_idx);
+            for (face, door) in cabin.doors().iter() {
+                let Some(door) = door else {
+                    continue;
+                };
+                // TODO(luca) use door struct for offset / shift
+                // TODO(luca) remove unwrap
+                let door = lift.cabin_doors.get(&door.door).unwrap();
+                let cabin_door_name = format!("CabinDoor_{}_door_{}", lift_name, face.label());
+                let cabin_mesh_prefix = format!("{}_{}", lift_name, face.label());
                 // Create a dummy cabin door first
                 let dummy_cabin = Door {
                     anchors: door.reference_anchors.clone(),
@@ -529,7 +546,9 @@ impl Site {
                 models.push(dummy_cabin.to_sdf(
                     left_anchor,
                     right_anchor,
-                    0.0
+                    0.0,
+                    false,
+                    Some(cabin_mesh_prefix.clone()),
                     //level.properties.elevation.0,
                 )?);
                 for visit in door.visits.0.iter() {
@@ -537,7 +556,7 @@ impl Site {
                         .levels
                         .get(visit)
                         .ok_or(SdfConversionError::BrokenLevelReference(*visit))?;
-                    let shaft_door_name = format!("ShaftDoor_{}_{}_door_{}", level.properties.name.0, lift_name, door_idx);
+                    let shaft_door_name = format!("ShaftDoor_{}_{}_door_{}", level.properties.name.0, lift_name, face.label());
                     // TODO(luca) proper pose for shaft doors
                     let dummy_shaft  = Door {
                         anchors: door.reference_anchors.clone(),
@@ -551,6 +570,8 @@ impl Site {
                         left_anchor,
                         right_anchor,
                         level.properties.elevation.0,
+                        false,
+                        Some(cabin_mesh_prefix.clone()),
                     )?);
                     let mut level = levels.entry(*visit).or_default();
                     let element = XmlElement {

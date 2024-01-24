@@ -17,12 +17,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<(&NameInSite, &LevelElevation, &Children)>,
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments>,
-        Query<(Option<&NameInSite>, Option<&SiteID>, &DoorSegments)>,
+        Query<(Option<&NameInSite>, &DoorSegments)>,
         Query<Entity, With<ModelMarker>>,
         Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
-        Query<(&NameInSite, &ChildLiftCabinGroup)>,
+        Query<(&NameInSite, &LiftCabin<Entity>, &ChildLiftCabinGroup)>,
         Query<((), With<LiftDoormat>)>,
         Query<&GlobalTransform>,
         Query<&Transform>,
@@ -173,7 +173,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             }
                         }
                     }
-                } else if let Ok((door_name, _, segments)) = q_doors.get(*child) {
+                } else if let Ok((door_name, segments)) = q_doors.get(*child) {
                     for (entity, segment_name) in segments
                         .body
                         .entities()
@@ -230,11 +230,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
             );
         }
         // Lifts
-        if let Ok((lift_name, lift_cabin)) = q_lift_cabins.get(*site_child) {
+        if let Ok((lift_name, cabin, cabin_children)) = q_lift_cabins.get(*site_child) {
             // The children of this entity have the mesh for the lift cabin
             info!("New lift");
             let mut lift_data = vec![];
-            for entity in DescendantIter::new(&q_children, **lift_cabin) {
+            for entity in DescendantIter::new(&q_children, **cabin_children) {
                 if q_lift_door_mats.get(entity).is_ok() {
                     // Just visual cues, not exported
                     continue;
@@ -253,13 +253,48 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
             let filename = format!("{}/{}.glb", folder.display(), **lift_name);
             write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename);
             // Now generate the lift doors
-            let Ok(children) = q_children.get(*site_child) else {
-                continue;
-            };
-            for child in children.iter() {
-                if let Ok((_, site_id, segments)) = q_doors.get(*child) {
-                    println!("Found lift door with id");
-                    dbg!(site_id);
+            let LiftCabin::Rect(cabin) = cabin;
+            for (face, door) in cabin.doors().iter() {
+                let Some(door) = door else {
+                    continue;
+                };
+                println!("Found door with label {}", face.label());
+                if let Ok((_, segments)) = q_doors.get(door.door) {
+                    println!("Segments found");
+                    // TODO(luca) this is duplicated with door generation, refactor
+                    for (entity, segment_name) in segments
+                        .body
+                        .entities()
+                        .iter()
+                        .zip(segments.body.labels().into_iter())
+                    {
+                        // Generate the visual and collisions here
+                        let Some((mesh, material)) = get_mesh_and_material(*entity) else {
+                            continue;
+                        };
+                        let Ok(tf) = q_tfs.get(*entity) else {
+                            continue;
+                        };
+                        let pose = GltfPose {
+                            translation: tf.translation.to_array(),
+                            rotation: tf.rotation.to_array(),
+                            scale: Some(tf.scale.to_array()),
+                        };
+
+                        let data = MeshData {
+                            mesh,
+                            material,
+                            pose: Some(pose.clone()),
+                        };
+                        let filename =
+                            format!("{}/{}_{}_{}.glb", folder.display(), **lift_name, face.label(), segment_name);
+                        write_meshes_to_file(
+                            vec![data],
+                            None,
+                            CompressGltfOptions::default(),
+                            filename,
+                        );
+                    }
                 }
             }
         }
