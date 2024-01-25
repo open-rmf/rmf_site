@@ -20,4 +20,4 @@ bevy = { version = "0.11", optional = true }
 urdf-rs = "0.7"
 yaserde = "0.7"
 pathdiff = "*"
-sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", branch = "luca/serde_plugin"}
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", branch = "luca/yaserde_nested_models"}

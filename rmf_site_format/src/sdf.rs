@@ -18,6 +18,7 @@
 use crate::{
     Anchor, Angle, Category, Door, DoorType, Level, LiftCabin, Pose, Rotation, Side, Site, Swing, NameInSite, DoorMarker,
 };
+use glam::Vec3;
 use sdformat_rs::*;
 use std::collections::BTreeMap;
 
@@ -98,7 +99,7 @@ impl Door<u32> {
         &self,
         left_anchor: Anchor,
         right_anchor: Anchor,
-        elevation: f32,
+        offset: Vec3,
         ros_interface: bool,
         name_override: Option<String>,
     ) -> Result<SdfModel, SdfConversionError> {
@@ -141,7 +142,7 @@ impl Door<u32> {
             name: self.name.0.clone(),
             pose: Some(
                 Pose {
-                    trans: [center[0], center[1], elevation],
+                    trans: (Vec3::from([center[0], center[1], 0.0]) + offset).to_array(),
                     rot: Rotation::Yaw(Angle::Rad(yaw)),
                 }
                 .to_sdf(0.0),
@@ -189,7 +190,7 @@ impl Door<u32> {
                     pose: Some(pose),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, door.towards.sign().into(), 0.0),
-                        limit: SdfJointaxisLimit {
+                        limit: SdfJointAxisLimit {
                             lower: 0.0,
                             upper: door_length as f64,
                             ..Default::default()
@@ -236,7 +237,7 @@ impl Door<u32> {
                     r#type: "revolute".into(),
                     axis: Some(SdfJointAxis {
                         xyz: Vector3d::new(0.0, 0.0, z),
-                        limit: SdfJointaxisLimit {
+                        limit: SdfJointAxisLimit {
                             lower,
                             upper,
                             ..Default::default()
@@ -284,7 +285,7 @@ impl Door<u32> {
                         pose: Some(right_pose),
                         axis: Some(SdfJointAxis {
                             xyz: Vector3d::new(0.0, -1.0, 0.0),
-                            limit: SdfJointaxisLimit {
+                            limit: SdfJointAxisLimit {
                                 lower: 0.0,
                                 upper: right_length as f64,
                                 ..Default::default()
@@ -301,7 +302,7 @@ impl Door<u32> {
                         pose: Some(left_pose),
                         axis: Some(SdfJointAxis {
                             xyz: Vector3d::new(0.0, -1.0, 0.0),
-                            limit: SdfJointaxisLimit {
+                            limit: SdfJointAxisLimit {
                                 lower: -left_length as f64,
                                 upper: 0.0,
                                 ..Default::default()
@@ -353,7 +354,7 @@ impl Door<u32> {
                         r#type: "revolute".into(),
                         axis: Some(SdfJointAxis {
                             xyz: Vector3d::new(0.0, 0.0, z),
-                            limit: SdfJointaxisLimit {
+                            limit: SdfJointAxisLimit {
                                 lower: 0.0,
                                 upper,
                                 ..Default::default()
@@ -370,7 +371,7 @@ impl Door<u32> {
                         r#type: "revolute".into(),
                         axis: Some(SdfJointAxis {
                             xyz: Vector3d::new(0.0, 0.0, z),
-                            limit: SdfJointaxisLimit {
+                            limit: SdfJointAxisLimit {
                                 lower: -upper,
                                 upper: 0.0,
                                 ..Default::default()
@@ -467,7 +468,7 @@ impl Site {
                 models.push(door.to_sdf(
                     left_anchor,
                     right_anchor,
-                    level.properties.elevation.0,
+                    Vec3::new(0.0, 0.0, level.properties.elevation.0),
                     true,
                     None,
                 )?);
@@ -492,8 +493,8 @@ impl Site {
                 ..Default::default()
             };
             let mut plugin = SdfPlugin {
-                name: "lift".into(),
-                filename: "liblift.so".into(),
+                name: "register_component".into(),
+                filename: "libregister_component.so".into(),
                 ..Default::default()
             };
             let mut component = XmlElement {
@@ -506,14 +507,14 @@ impl Site {
             let lift_name = &lift.properties.name.0;
             elements.push(("lift_name", lift_name.clone()));
             // TODO(luca) remove unwrap here for missing initial level
-            let initial_level = lift
+            let initial_floor = lift
                 .properties
                 .initial_level
                 .0
                 .and_then(|id| self.levels.get(&id))
                 .map(|level| level.properties.name.0.clone())
                 .unwrap();
-            elements.push(("initial_level", initial_level));
+            elements.push(("initial_floor", initial_floor));
             elements.push(("v_max_cabin", "2.0".to_string()));
             elements.push(("a_max_cabin", "1.2".to_string()));
             elements.push(("a_nom_cabin", "1.0".to_string()));
@@ -521,7 +522,18 @@ impl Site {
             elements.push(("f_max_cabin", "25323.0".to_string()));
             elements.push(("cabin_joint_name", "cabin_joint".to_string()));
             let mut levels: BTreeMap<u32, ElementMap> = BTreeMap::new();
-            //let mut lift_models = Vec::new();
+            let mut lift_models = Vec::new();
+            let mut lift_joints = vec![SdfJoint {
+                name: "cabin_joint".into(),
+                r#type: "prismatic".into(),
+                parent: "world".into(),
+                child: "platform".into(),
+                axis: Some(SdfJointAxis {
+                    xyz: Vector3d::new(0.0, 0.0, 1.0),
+                    ..Default::default()
+                }),
+                ..Default::default()
+                }];
             for (face, door) in cabin.doors().iter() {
                 let Some(door) = door else {
                     continue;
@@ -541,16 +553,20 @@ impl Site {
                 // TODO(luca) remove unwrap here
                 let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
                 let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
-                // TODO(luca) do this when nested models are supported
-                //lift_models.push(dummy_cabin.to_sdf(
-                models.push(dummy_cabin.to_sdf(
+                let mut dummy_cabin = dummy_cabin.to_sdf(
                     left_anchor,
                     right_anchor,
-                    0.0,
+                    Vec3::default(),
                     false,
                     Some(cabin_mesh_prefix.clone()),
-                    //level.properties.elevation.0,
-                )?);
+                )?;
+                for mut joint in dummy_cabin.joint.drain(..) {
+                    // Move the joint to the lift and change its parenthood accordingly
+                    joint.parent = "platform".into();
+                    joint.child = dummy_cabin.name.clone() + "::" + &joint.child;
+                    lift_joints.push(joint);
+                }
+                lift_models.push(dummy_cabin.into());
                 for visit in door.visits.0.iter() {
                     let level = self
                         .levels
@@ -566,13 +582,15 @@ impl Site {
                     };
                     let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
                     let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
-                    models.push(dummy_shaft.to_sdf(
+                    let mut dummy_shaft = dummy_shaft.to_sdf(
                         left_anchor,
                         right_anchor,
-                        level.properties.elevation.0,
+                        Vec3::from(pose.trans),
                         false,
                         Some(cabin_mesh_prefix.clone()),
-                    )?);
+                    )?;
+                    // Add the pose of the lift to have world coordinates
+                    models.push(dummy_shaft);
                     let mut level = levels.entry(*visit).or_default();
                     let element = XmlElement {
                         name: "door_pair".into(),
@@ -591,7 +609,7 @@ impl Site {
                     .levels
                     .get(&key)
                     .ok_or(SdfConversionError::BrokenLevelReference(key))?;
-                plugin.elements.push(XmlElement {
+                component_data.push(XmlElement {
                     name: "floor".into(),
                     attributes: [
                         ("name".to_string(), level.properties.name.0.clone()),
@@ -619,7 +637,7 @@ impl Site {
                 r#static: Some(lift.properties.is_static.0),
                 pose: Some(pose.to_sdf(0.0)),
                 link: vec![SdfLink {
-                    name: "link".into(),
+                    name: "platform".into(),
                     collision: vec![SdfCollision {
                         name: "collision".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
@@ -645,8 +663,9 @@ impl Site {
                     }],
                     ..Default::default()
                 }],
-                //model: lift_models,
-                //plugin: vec![plugin],
+                joint: lift_joints,
+                model: lift_models,
+                plugin: vec![plugin],
                 ..Default::default()
             });
         }

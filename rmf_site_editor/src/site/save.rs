@@ -1287,6 +1287,7 @@ pub fn save_site(world: &mut World) {
                     Err(err) => {
                         //error!("Unable to convert site to sdf: {err}");
                         error!("Unable to convert site to sdf");
+                        dbg!(err);
                         continue;
                     }
                 };
