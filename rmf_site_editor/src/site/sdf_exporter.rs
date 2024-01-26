@@ -9,7 +9,9 @@ use crate::site::{
     ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
     VisualMeshMarker,
 };
-use rmf_site_format::{SiteID, LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, WallMarker};
+use rmf_site_format::{
+    LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, SiteID, WallMarker,
+};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
     let mut state: SystemState<(
@@ -285,8 +287,13 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             material: Some(material),
                             pose: Some(pose.clone()),
                         };
-                        let filename =
-                            format!("{}/{}_{}_{}.glb", folder.display(), **lift_name, face.label(), segment_name);
+                        let filename = format!(
+                            "{}/{}_{}_{}.glb",
+                            folder.display(),
+                            **lift_name,
+                            face.label(),
+                            segment_name
+                        );
                         write_meshes_to_file(
                             vec![data],
                             None,

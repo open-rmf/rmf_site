@@ -16,7 +16,8 @@
 */
 
 use crate::{
-    Anchor, Angle, Category, Door, DoorType, Level, LiftCabin, Pose, Rotation, Side, Site, Swing, NameInSite, DoorMarker,
+    Anchor, Angle, Category, Door, DoorMarker, DoorType, Level, LiftCabin, NameInSite, Pose,
+    Rotation, Side, Site, Swing,
 };
 use glam::Vec3;
 use sdformat_rs::*;
@@ -157,9 +158,7 @@ impl Door<u32> {
             &self.name.0
         };
         for label in labels.iter() {
-            door_model
-                .link
-                .push(make_sdf_door_link(link_name, label));
+            door_model.link.push(make_sdf_door_link(link_name, label));
         }
         let mut door_motion_params = vec![];
         let joints = match &self.kind {
@@ -422,7 +421,8 @@ impl Door<u32> {
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
         let get_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
-            self.anchors.get(&id)
+            self.anchors
+                .get(&id)
                 .or_else(|| self.levels.values().find_map(|l| l.anchors.get(&id)))
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
                 .cloned()
@@ -534,7 +534,7 @@ impl Site {
                     ..Default::default()
                 }),
                 ..Default::default()
-                }];
+            }];
             for (face, door_placement) in cabin.doors().iter() {
                 let Some(door_placement) = door_placement else {
                     continue;
@@ -552,9 +552,21 @@ impl Site {
                     marker: DoorMarker,
                 };
                 // TODO(luca) remove unwrap here
-                let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
-                let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
-                let x_offset = -face.u() * (door_placement.thickness() / 2.0 + door_placement.custom_gap.unwrap_or_else(|| cabin.gap.unwrap_or(0.01)));
+                let left_anchor = lift
+                    .cabin_anchors
+                    .get(&door.reference_anchors.left())
+                    .unwrap()
+                    .clone();
+                let right_anchor = lift
+                    .cabin_anchors
+                    .get(&door.reference_anchors.right())
+                    .unwrap()
+                    .clone();
+                let x_offset = -face.u()
+                    * (door_placement.thickness() / 2.0
+                        + door_placement
+                            .custom_gap
+                            .unwrap_or_else(|| cabin.gap.unwrap_or(0.01)));
                 dbg!(&x_offset);
                 let mut dummy_cabin = dummy_cabin.to_sdf(
                     left_anchor,
@@ -575,16 +587,29 @@ impl Site {
                         .levels
                         .get(visit)
                         .ok_or(SdfConversionError::BrokenLevelReference(*visit))?;
-                    let shaft_door_name = format!("ShaftDoor_{}_{}_door_{}", level.properties.name.0, lift_name, face.label());
+                    let shaft_door_name = format!(
+                        "ShaftDoor_{}_{}_door_{}",
+                        level.properties.name.0,
+                        lift_name,
+                        face.label()
+                    );
                     // TODO(luca) proper pose for shaft doors
-                    let dummy_shaft  = Door {
+                    let dummy_shaft = Door {
                         anchors: door.reference_anchors.clone(),
                         name: NameInSite(shaft_door_name.clone()),
                         kind: door.kind.clone(),
                         marker: DoorMarker,
                     };
-                    let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
-                    let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
+                    let left_anchor = lift
+                        .cabin_anchors
+                        .get(&door.reference_anchors.left())
+                        .unwrap()
+                        .clone();
+                    let right_anchor = lift
+                        .cabin_anchors
+                        .get(&door.reference_anchors.right())
+                        .unwrap()
+                        .clone();
                     let mut dummy_shaft = dummy_shaft.to_sdf(
                         left_anchor,
                         right_anchor,
@@ -729,7 +754,13 @@ impl Site {
                     ..Default::default()
                 },
                 light: vec![sun],
-                plugin: vec![physics_plugin, user_commands_plugin, scene_broadcaster_plugin, door_plugin, lift_plugin],
+                plugin: vec![
+                    physics_plugin,
+                    user_commands_plugin,
+                    scene_broadcaster_plugin,
+                    door_plugin,
+                    lift_plugin,
+                ],
                 ..Default::default()
             }],
             ..Default::default()
