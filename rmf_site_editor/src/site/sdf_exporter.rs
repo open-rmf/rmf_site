@@ -95,12 +95,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                     };
                     collision_data.push(MeshData {
                         mesh,
-                        material,
+                        material: None,
                         pose: Some(level_pose.clone()),
                     });
                     visual_data.push(MeshData {
                         mesh,
-                        material,
+                        material: Some(material),
                         pose: Some(level_pose.clone()),
                     });
                 } else if let Ok(res) = q_floors.get(*child) {
@@ -109,12 +109,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                     };
                     collision_data.push(MeshData {
                         mesh,
-                        material,
+                        material: None,
                         pose: Some(level_pose.clone()),
                     });
                     visual_data.push(MeshData {
                         mesh,
-                        material,
+                        material: Some(material),
                         pose: Some(level_pose.clone()),
                     });
                 } else if let Ok(model) = q_models.get(*child) {
@@ -142,7 +142,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                 };
                                 collision_data.push(MeshData {
                                     mesh,
-                                    material,
+                                    material: None,
                                     pose: Some(pose),
                                 });
                             }
@@ -167,7 +167,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                 };
                                 visual_data.push(MeshData {
                                     mesh,
-                                    material,
+                                    material: Some(material),
                                     pose: Some(pose),
                                 });
                             }
@@ -198,7 +198,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
 
                         let data = MeshData {
                             mesh,
-                            material,
+                            material: Some(material),
                             pose: Some(pose.clone()),
                         };
                         let filename =
@@ -232,7 +232,6 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         // Lifts
         if let Ok((lift_name, cabin, cabin_children)) = q_lift_cabins.get(*site_child) {
             // The children of this entity have the mesh for the lift cabin
-            info!("New lift");
             let mut lift_data = vec![];
             for entity in DescendantIter::new(&q_children, **cabin_children) {
                 if q_lift_door_mats.get(entity).is_ok() {
@@ -246,7 +245,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                 info!("Found mesh for cabin child");
                 lift_data.push(MeshData {
                     mesh,
-                    material,
+                    material: Some(material),
                     pose: None,
                 });
             }
@@ -283,7 +282,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
 
                         let data = MeshData {
                             mesh,
-                            material,
+                            material: Some(material),
                             pose: Some(pose.clone()),
                         };
                         let filename =

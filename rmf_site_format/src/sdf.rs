@@ -114,6 +114,7 @@ impl Door<u32> {
         let dy = left_trans[1] - right_trans[1];
         let door_length = (dx * dx + dy * dy).sqrt();
         let yaw = -dx.atan2(dy);
+        let prefix = name_override.clone().unwrap_or_default();
         let labels = match self.kind {
             DoorType::SingleSliding(_) | DoorType::SingleSwing(_) | DoorType::Model(_) => {
                 Vec::from(["body"])
@@ -171,7 +172,7 @@ impl Door<u32> {
                     .insert("left_joint_name".into(), "empty_joint".into());
                 door_plugin_inner
                     .attributes
-                    .insert("right_joint_name".into(), "joint".into());
+                    .insert("right_joint_name".into(), prefix.clone() + "joint");
                 door_motion_params.push(("v_max_door", "0.2"));
                 door_motion_params.push(("a_max_door", "0.2"));
                 door_motion_params.push(("a_nom_door", "0.08"));
@@ -183,7 +184,7 @@ impl Door<u32> {
                 }
                 .to_sdf(0.0);
                 vec![SdfJoint {
-                    name: "joint".into(),
+                    name: prefix.clone() + "joint",
                     parent: "world".into(),
                     child: "body".into(),
                     r#type: "prismatic".into(),
@@ -223,15 +224,15 @@ impl Door<u32> {
                     ..Default::default()
                 }
                 .to_sdf(0.0);
-                let (left_joint_name, right_joint_name) = ("empty_joint", "joint");
+                let (left_joint_name, right_joint_name) = ("empty_joint", prefix.clone() + "joint");
                 door_plugin_inner
                     .attributes
                     .insert("left_joint_name".into(), left_joint_name.into());
                 door_plugin_inner
                     .attributes
-                    .insert("right_joint_name".into(), right_joint_name.into());
+                    .insert("right_joint_name".into(), right_joint_name);
                 vec![SdfJoint {
-                    name: "joint".into(),
+                    name: prefix.clone() + "joint",
                     parent: "world".into(),
                     child: "body".into(),
                     r#type: "revolute".into(),
@@ -254,10 +255,10 @@ impl Door<u32> {
                     .insert("type".into(), "DoubleSlidingDoor".into());
                 door_plugin_inner
                     .attributes
-                    .insert("left_joint_name".into(), "left_joint".into());
+                    .insert("left_joint_name".into(), prefix.clone() + "left_joint");
                 door_plugin_inner
                     .attributes
-                    .insert("right_joint_name".into(), "right_joint".into());
+                    .insert("right_joint_name".into(), prefix.clone() + "right_joint");
                 door_motion_params.push(("v_max_door", "0.2"));
                 door_motion_params.push(("a_max_door", "0.2"));
                 door_motion_params.push(("a_nom_door", "0.08"));
@@ -278,7 +279,7 @@ impl Door<u32> {
                 let right_length = door_length - left_length;
                 vec![
                     SdfJoint {
-                        name: "right_joint".into(),
+                        name: prefix.clone() + "right_joint",
                         parent: "world".into(),
                         child: "right".into(),
                         r#type: "prismatic".into(),
@@ -295,7 +296,7 @@ impl Door<u32> {
                         ..Default::default()
                     },
                     SdfJoint {
-                        name: "left_joint".into(),
+                        name: prefix.clone() + "left_joint",
                         parent: "world".into(),
                         child: "left".into(),
                         r#type: "prismatic".into(),
@@ -319,10 +320,10 @@ impl Door<u32> {
                     .insert("type".into(), "DoubleSwingDoor".into());
                 door_plugin_inner
                     .attributes
-                    .insert("left_joint_name".into(), "left_joint".into());
+                    .insert("left_joint_name".into(), prefix.clone() + "left_joint");
                 door_plugin_inner
                     .attributes
-                    .insert("right_joint_name".into(), "right_joint".into());
+                    .insert("right_joint_name".into(), prefix.clone() + "right_joint");
                 door_motion_params.push(("v_max_door", "0.5"));
                 door_motion_params.push(("a_max_door", "0.3"));
                 door_motion_params.push(("a_nom_door", "0.15"));
@@ -348,7 +349,7 @@ impl Door<u32> {
                 .to_sdf(0.0);
                 vec![
                     SdfJoint {
-                        name: "right_joint".into(),
+                        name: prefix.clone() + "right_joint",
                         parent: "world".into(),
                         child: "right".into(),
                         r#type: "revolute".into(),
@@ -365,7 +366,7 @@ impl Door<u32> {
                         ..Default::default()
                     },
                     SdfJoint {
-                        name: "left_joint".into(),
+                        name: prefix.clone() + "left_joint",
                         parent: "world".into(),
                         child: "left".into(),
                         r#type: "revolute".into(),
@@ -391,7 +392,7 @@ impl Door<u32> {
                 }
                 .to_sdf(0.0);
                 vec![SdfJoint {
-                    name: "joint".into(),
+                    name: prefix.clone() + "joint",
                     parent: "world".into(),
                     child: "body".into(),
                     r#type: "fixed".into(),
@@ -534,13 +535,13 @@ impl Site {
                 }),
                 ..Default::default()
                 }];
-            for (face, door) in cabin.doors().iter() {
-                let Some(door) = door else {
+            for (face, door_placement) in cabin.doors().iter() {
+                let Some(door_placement) = door_placement else {
                     continue;
                 };
                 // TODO(luca) use door struct for offset / shift
                 // TODO(luca) remove unwrap
-                let door = lift.cabin_doors.get(&door.door).unwrap();
+                let door = lift.cabin_doors.get(&door_placement.door).unwrap();
                 let cabin_door_name = format!("CabinDoor_{}_door_{}", lift_name, face.label());
                 let cabin_mesh_prefix = format!("{}_{}", lift_name, face.label());
                 // Create a dummy cabin door first
@@ -553,10 +554,12 @@ impl Site {
                 // TODO(luca) remove unwrap here
                 let left_anchor = lift.cabin_anchors.get(&door.reference_anchors.left()).unwrap().clone();
                 let right_anchor = lift.cabin_anchors.get(&door.reference_anchors.right()).unwrap().clone();
+                let x_offset = -face.u() * (door_placement.thickness() / 2.0 + door_placement.custom_gap.unwrap_or_else(|| cabin.gap.unwrap_or(0.01)));
+                dbg!(&x_offset);
                 let mut dummy_cabin = dummy_cabin.to_sdf(
                     left_anchor,
                     right_anchor,
-                    Vec3::default(),
+                    x_offset,
                     false,
                     Some(cabin_mesh_prefix.clone()),
                 )?;
@@ -585,7 +588,7 @@ impl Site {
                     let mut dummy_shaft = dummy_shaft.to_sdf(
                         left_anchor,
                         right_anchor,
-                        Vec3::from(pose.trans),
+                        Vec3::from(pose.trans) + Vec3::new(0.0, 0.0, level.properties.elevation.0),
                         false,
                         Some(cabin_mesh_prefix.clone()),
                     )?;
@@ -646,7 +649,7 @@ impl Site {
                         }),
                         surface: Some(SdfSurface {
                             contact: Some(SdfSurfaceContact {
-                                collide_bitmask: Some("0x02".into()),
+                                collide_bitmask: Some("0x04".into()),
                                 ..Default::default()
                             }),
                             ..Default::default()
