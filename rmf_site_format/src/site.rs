@@ -183,6 +183,12 @@ impl Site {
     pub fn from_bytes<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
+
+    pub fn get_anchor(&self, id: u32) -> Option<&Anchor> {
+        self.anchors
+            .get(&id)
+            .or_else(|| self.levels.values().find_map(|l| l.anchors.get(&id)))
+    }
 }
 
 pub trait RefTrait: Ord + Eq + Copy + Send + Sync + Hash + 'static {}

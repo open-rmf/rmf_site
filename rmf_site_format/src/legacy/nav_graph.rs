@@ -6,6 +6,27 @@ use std::collections::{HashMap, HashSet};
 pub struct NavGraph {
     pub building_name: String,
     pub levels: HashMap<String, NavLevel>,
+    pub doors: HashMap<String, NavDoor>,
+    pub lifts: HashMap<String, NavLift>,
+}
+
+// Readapted from legacy traffic editor implementation
+fn segments_intersect(p1: [f32; 2], p2: [f32; 2], p3: [f32; 2], p4: [f32; 2]) -> bool {
+    // line segments are (x1,y1),(x2,y2) and (x3,y3),(x4,y4)
+    let [x1, y1] = p1;
+    let [x2, y2] = p2;
+    let [x3, y3] = p3;
+    let [x4, y4] = p4;
+    let det = (x1 - x2) * (y3 - y4) - (y1 - y2) * (x3 - x4);
+    if det.abs() < 0.01 {
+        return false;
+    }
+    let t = ((x1 - x3) * (y3 - y4) - (y1 - y3) * (x3 - x4)) / det;
+    let u = -((x1 - x2) * (y1 - y3) - (y1 - y2) * (x1 - x3)) / det;
+    if u < 0.0 || t < 0.0 || u > 1.0 || t > 1.0 {
+        return false;
+    }
+    true
 }
 
 impl NavGraph {
@@ -39,6 +60,7 @@ impl NavGraph {
 
             // TODO(MXG): Make this work for lifts
 
+            let mut doors = HashMap::new();
             let mut levels = HashMap::new();
             for (_, level) in &site.levels {
                 let mut anchor_to_vertex = HashMap::new();
@@ -55,6 +77,33 @@ impl NavGraph {
                     vertices.push(NavVertex::from_anchor(anchor, location_at_anchor.get(id)));
                 }
 
+                let mut level_doors = HashMap::new();
+                for (_, door) in &level.doors {
+                    let door_name = &door.name.0;
+                    let (v0, v1) = match (
+                        level.anchors.get(&door.anchors.start()),
+                        level.anchors.get(&door.anchors.end()),
+                    ) {
+                        (Some(v0), Some(v1)) => (
+                            v0.translation_for_category(Category::Level),
+                            v1.translation_for_category(Category::Level),
+                        ),
+                        _ => {
+                            println!(
+                                "ERROR: Skipping door {door_name} due to broken anchor reference"
+                            );
+                            continue;
+                        }
+                    };
+                    level_doors.insert(
+                        door_name.clone(),
+                        NavDoor {
+                            map: level.properties.name.0.clone(),
+                            endpoints: [*v0, *v1],
+                        },
+                    );
+                }
+
                 let mut lanes = Vec::new();
                 for lane_id in &lanes_to_include {
                     let lane = site.navigation.guided.lanes.get(lane_id).unwrap();
@@ -69,14 +118,27 @@ impl NavGraph {
                         }
                     };
 
-                    let props = NavLaneProperties::from_motion(&lane.forward);
+                    let mut door_name = None;
+                    let l0 = [vertices[v0].0, vertices[v0].1];
+                    let l1 = [vertices[v1].0, vertices[v1].1];
+                    for (name, door) in &level_doors {
+                        if segments_intersect(l0, l1, door.endpoints[0], door.endpoints[1]) {
+                            door_name = Some(name);
+                        }
+                    }
+
+                    let props = NavLaneProperties::from_motion(&lane.forward, door_name.cloned());
                     lanes.push(NavLane(v0, v1, props.clone()));
                     match &lane.reverse {
                         ReverseLane::Same => {
                             lanes.push(NavLane(v1, v0, props));
                         }
                         ReverseLane::Different(motion) => {
-                            lanes.push(NavLane(v1, v0, NavLaneProperties::from_motion(motion)));
+                            lanes.push(NavLane(
+                                v1,
+                                v0,
+                                NavLaneProperties::from_motion(motion, door_name.cloned()),
+                            ));
                         }
                         ReverseLane::Disable => {
                             // Do nothing
@@ -84,10 +146,37 @@ impl NavGraph {
                     }
                 }
 
+                doors.extend(level_doors);
                 levels.insert(
                     level.properties.name.clone().0,
                     NavLevel { lanes, vertices },
                 );
+            }
+
+            let mut lifts = HashMap::new();
+            for (_, lift) in &site.lifts {
+                let lift_name = &lift.properties.name.0;
+                let Some(pose) = lift.properties.center(site) else {
+                    println!("ERROR: Skipping lift {lift_name} due to broken anchor reference");
+                    continue;
+                };
+                let Rotation::Yaw(yaw) = pose.rot else {
+                    println!("ERROR: Skipping lift {lift_name} due to rotation not being pure yaw");
+                    continue;
+                };
+                match &lift.properties.cabin {
+                    LiftCabin::Rect(params) => {
+                        lifts.insert(
+                            lift_name.clone(),
+                            NavLift {
+                                position: [pose.trans[0], pose.trans[1], yaw.radians()],
+                                // Note depth and width are inverted between legacy and site editor
+                                dims: [params.depth, params.width],
+                            },
+                        );
+                    }
+                }
+                // TODO(luca) lift property for vertices
             }
 
             graphs.push((
@@ -95,6 +184,8 @@ impl NavGraph {
                 Self {
                     building_name: site.properties.name.clone().0,
                     levels,
+                    doors,
+                    lifts,
                 },
             ))
         }
@@ -117,17 +208,32 @@ pub struct NavLaneProperties {
     pub speed_limit: f32,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub dock_name: Option<String>,
-    // TODO(MXG): Add other lane properties
-    // door_name,
-    // orientation_constraint,
-    // demo_mock_floor_name
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub door_name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub orientation_constraint: Option<String>, // TODO(MXG): Add other lane properties
+                                                // demo_mock_floor_name
 }
 
 impl NavLaneProperties {
-    fn from_motion(motion: &Motion) -> Self {
+    fn from_motion(motion: &Motion, door_name: Option<String>) -> Self {
+        let orientation_constraint = match &motion.orientation_constraint {
+            OrientationConstraint::None => None,
+            OrientationConstraint::Forwards => Some("forward".to_owned()),
+            OrientationConstraint::Backwards => Some("backward".to_owned()),
+            OrientationConstraint::RelativeYaw(_) | OrientationConstraint::AbsoluteYaw(_) => {
+                println!(
+                    "Skipping orientation constraint [{:?}] because of incompatibility",
+                    motion.orientation_constraint
+                );
+                None
+            }
+        };
         Self {
             speed_limit: motion.speed_limit.unwrap_or(0.0),
             dock_name: motion.dock.as_ref().map(|d| d.name.clone()),
+            orientation_constraint,
+            door_name,
         }
     }
 }
@@ -142,7 +248,7 @@ impl NavVertex {
     }
 }
 
-#[derive(Serialize, Deserialize, Clone)]
+#[derive(Serialize, Deserialize, Clone, Default)]
 pub struct NavVertexProperties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lift: Option<String>,
@@ -152,19 +258,9 @@ pub struct NavVertexProperties {
     pub is_holding_point: bool,
     #[serde(skip_serializing_if = "is_false")]
     pub is_parking_spot: bool,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub merge_radius: Option<f32>,
     pub name: String,
-}
-
-impl Default for NavVertexProperties {
-    fn default() -> Self {
-        Self {
-            lift: None,
-            is_charger: false,
-            is_holding_point: false,
-            is_parking_spot: false,
-            name: "".to_owned(),
-        }
-    }
 }
 
 impl NavVertexProperties {
@@ -195,4 +291,16 @@ impl NavVertexProperties {
 
 fn is_false(b: &bool) -> bool {
     !b
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct NavDoor {
+    pub endpoints: [[f32; 2]; 2],
+    pub map: String,
+}
+
+#[derive(Serialize, Deserialize, Clone)]
+pub struct NavLift {
+    pub position: [f32; 3],
+    pub dims: [f32; 2],
 }
