@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    Anchor, Angle, Category, Door, DoorMarker, DoorType, Level, LiftCabin, NameInSite, Pose,
-    Rotation, Side, Site, Swing,
+    Anchor, Angle, AssetSource, Category, Door, DoorMarker, DoorType, Level, LiftCabin, NameInSite,
+    Pose, Rotation, Side, Site, Swing,
 };
 use glam::Vec3;
 use sdformat_rs::*;
@@ -739,11 +739,47 @@ impl Site {
             filename: "libgz-sim-scene-broadcaster-system.so".into(),
             ..Default::default()
         };
+        // Spawn the robots now
+        // TODO(luca) use robot properties and export this like other meshes
+        // instead of including a tag
+        let mut world_includes = Vec::new();
+        for location in self.navigation.guided.locations.values() {
+            let Some(robot) = location.tags.0.iter().find_map(|l| l.spawn_robot()) else {
+                continue;
+            };
+            // For now all robots are just Search type
+            let AssetSource::Search(ref robot_type) = robot.source else {
+                continue;
+            };
+            let Some(level) = self
+                .levels
+                .values()
+                .find(|l| l.anchors.get(&location.anchor.0).is_some())
+            else {
+                // TODO(luca) this would fail if the robot was on a site anchor
+                continue;
+            };
+            // Get the location
+            let anchor = get_anchor(location.anchor.0)?;
+            let tf = anchor.translation_for_category(Category::Level);
+            let pose = Pose {
+                trans: [tf[0], tf[1], level.properties.elevation.0],
+                ..Default::default()
+            };
+            world_includes.push(SdfWorldInclude {
+                uri: "model://".to_string() + robot_type,
+                name: Some(robot.name.0.clone()),
+                pose: Some(pose.to_sdf(0.0)),
+                r#static: Some(robot.is_static.0),
+                ..Default::default()
+            });
+        }
         Ok(SdfRoot {
             version: "1.7".to_string(),
             world: vec![SdfWorld {
                 name: self.properties.name.0.clone(),
                 model: models,
+                include: world_includes,
                 atmosphere: SdfAtmosphere {
                     r#type: "adiabatic".to_string(),
                     ..Default::default()
@@ -753,6 +789,13 @@ impl Site {
                     background: "0.8 0.8 0.8".to_string(),
                     ..Default::default()
                 },
+                physics: vec![SdfPhysics {
+                    r#type: "ode".into(),
+                    max_step_size: 0.01,
+                    real_time_factor: 1.0,
+                    real_time_update_rate: 100.0,
+                    ..Default::default()
+                }],
                 light: vec![sun],
                 plugin: vec![
                     physics_plugin,
