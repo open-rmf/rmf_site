@@ -17,14 +17,13 @@ path = "examples/extending_menu.rs"
 
 [dependencies]
 bevy_egui = "0.21"
-bevy_mod_raycast = "0.13"
+bevy_mod_raycast = "0.15"
 bevy_mod_outline = "0.5"
 bevy_infinite_grid = "0.8"
 bevy_polyline = "0.7"
 bevy_gltf_export = { git = "https://github.com/luca-della-vedova/bevy_gltf_export", branch = "luca/primitive_instantiation"}
 bevy_stl = "0.11"
 bevy_obj = { version = "0.11", features = ["scene"] }
-bevy_rapier3d = "0.22.0"
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
@@ -34,7 +33,7 @@ wasm-bindgen = "=0.2.84"
 futures-lite = "1.12.0"
 bevy = { version = "0.11", features = ["pnm", "jpeg", "tga"] }
 bevy_utils = "0.11"
-dirs = "4.0"
+dirs = "5.0"
 thread_local = "*"
 lyon = "1"
 thiserror = "*"
@@ -51,6 +50,7 @@ utm = "0.1.6"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", branch = "luca/yaserde_nested_models"}
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "first_implementation" }
 pathdiff = "*"
+tera = "1.19.1"
 
 # only enable the 'dynamic_linking' feature if we're not building for web or windows
 # TODO(luca) it seems this can be enabled on windows, check

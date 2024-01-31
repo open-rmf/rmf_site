@@ -25,8 +25,8 @@ use crate::SdfRoot;
 use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use rmf_site_format::{
-    Angle, AssetSource, ConstraintDependents, Geometry, IsStatic, MeshPrimitive, Model,
-    ModelMarker, NameInSite, Pose, Rotation, Scale,
+    Angle, AssetSource, Category, ConstraintDependents, Geometry, IsStatic, Model, ModelMarker,
+    NameInSite, Pose, PrimitiveShape, Rotation, Scale,
 };
 
 /// An empty component to mark this entity as a visual mesh
@@ -67,7 +67,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Local(ref mut p) => {
+        AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
             let binding = p.clone();
             *p = if let Some(stripped) = uri.strip_prefix("model://") {
                 // Search for a model with the requested name in the same folder as the sdf file
@@ -93,7 +93,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Bundled(_) | AssetSource::Package(_) | AssetSource::OSMTile { .. } => {
+        AssetSource::Bundled(_) | AssetSource::OSMTile { .. } => {
             warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
         }
     }
@@ -153,40 +153,44 @@ fn spawn_geometry(
             let s = &b.size.0;
             Some(
                 commands
-                    .spawn(MeshPrimitive::Box {
+                    .spawn(PrimitiveShape::Box {
                         size: [s.x as f32, s.y as f32, s.z as f32],
                     })
                     .insert(pose)
+                    .insert(NameInSite(visual_name.to_owned()))
                     .insert(SpatialBundle::INHERITED_IDENTITY)
                     .id(),
             )
         }
         SdfGeometry::Capsule(c) => Some(
             commands
-                .spawn(MeshPrimitive::Capsule {
+                .spawn(PrimitiveShape::Capsule {
                     radius: c.radius as f32,
                     length: c.length as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
         SdfGeometry::Cylinder(c) => Some(
             commands
-                .spawn(MeshPrimitive::Cylinder {
+                .spawn(PrimitiveShape::Cylinder {
                     radius: c.radius as f32,
                     length: c.length as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
         SdfGeometry::Sphere(s) => Some(
             commands
-                .spawn(MeshPrimitive::Sphere {
+                .spawn(PrimitiveShape::Sphere {
                     radius: s.radius as f32,
                 })
                 .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -194,7 +198,7 @@ fn spawn_geometry(
     }
 }
 
-// TODO(luca) reduce duplication between sdf -> MeshPrimitive and urdf -> MeshPrimitive
+// TODO(luca) reduce duplication between sdf -> PrimitiveShape and urdf -> PrimitiveShape
 pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &SdfRoot)>) {
     for (e, sdf) in new_sdfs.iter() {
         for link in &sdf.model.link {
@@ -214,8 +218,11 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                 );
                 match id {
                     Some(id) => {
-                        commands.entity(id).insert(VisualMeshMarker);
-                        commands.entity(link_id).add_child(id);
+                        commands
+                            .entity(id)
+                            .insert(VisualMeshMarker)
+                            .insert(Category::Visual)
+                            .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
                 }
@@ -231,8 +238,11 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
                 );
                 match id {
                     Some(id) => {
-                        commands.entity(id).insert(CollisionMeshMarker);
-                        commands.entity(link_id).add_child(id);
+                        commands
+                            .entity(id)
+                            .insert(CollisionMeshMarker)
+                            .insert(Category::Collision)
+                            .set_parent(link_id);
                     }
                     None => warn!("Found unhandled geometry type {:?}", &collision.geometry),
                 }
@@ -242,9 +252,9 @@ pub fn handle_new_sdf_roots(mut commands: Commands, new_sdfs: Query<(Entity, &Sd
     }
 }
 
-pub fn handle_new_mesh_primitives(
+pub fn handle_new_primitive_shapes(
     mut commands: Commands,
-    primitives: Query<(Entity, &MeshPrimitive), Added<MeshPrimitive>>,
+    primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
     parents: Query<&Parent>,
     selectables: Query<
         &Selectable,
@@ -259,35 +269,37 @@ pub fn handle_new_mesh_primitives(
 ) {
     for (e, primitive) in primitives.iter() {
         let mesh = match primitive {
-            MeshPrimitive::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
-            MeshPrimitive::Cylinder { radius, length } => {
+            PrimitiveShape::Box { size } => Mesh::from(shape::Box::new(size[0], size[1], size[2])),
+            PrimitiveShape::Cylinder { radius, length } => {
                 Mesh::from(make_cylinder(*length, *radius))
             }
-            MeshPrimitive::Capsule { radius, length } => Mesh::from(Capsule {
+            PrimitiveShape::Capsule { radius, length } => Mesh::from(Capsule {
                 radius: *radius,
                 depth: *length,
                 ..default()
             }),
-            MeshPrimitive::Sphere { radius } => Mesh::from(UVSphere {
+            PrimitiveShape::Sphere { radius } => Mesh::from(UVSphere {
                 radius: *radius,
                 ..default()
             }),
         };
-        // Parent is the first of ModelMarker and / or WorkcellVisualMarker or
-        // WorkcelLCollisionMarker
-        let child_id = commands
+        // If there is a parent with a Selectable component, use it to make this primitive
+        // point to it. Otherwise set the Selectable to point to itself.
+        let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+            .filter_map(|p| selectables.get(p).ok())
+            .last()
+        {
+            selectable.clone()
+        } else {
+            Selectable::new(e)
+        };
+        commands
             .spawn(PbrBundle {
                 mesh: meshes.add(mesh),
                 material: site_assets.default_mesh_grey_material.clone(),
                 ..default()
             })
-            .id();
-        if let Some(selectable) = AncestorIter::new(&parents, e)
-            .filter_map(|p| selectables.get(p).ok())
-            .last()
-        {
-            commands.entity(child_id).insert(selectable.clone());
-        }
-        commands.entity(e).push_children(&[child_id]);
+            .insert(selectable)
+            .set_parent(e);
     }
 }

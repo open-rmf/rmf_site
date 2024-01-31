@@ -24,8 +24,8 @@ use crate::AppState;
 use crate::{
     interaction::{ChangeProjectionMode, Selection, SuppressHighlight, SuppressOutline},
     site::{
-        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, NameOfSite, Pending,
-        PixelsPerMeter, Point, PreventDeletion, SiteProperties, WorkcellProperties,
+        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, NameOfSite, NameOfWorkcell,
+        Pending, PixelsPerMeter, Point, PreventDeletion, SiteProperties,
     },
     CurrentWorkspace, WorkspaceMarker,
 };
@@ -88,7 +88,7 @@ fn switch_edit_drawing_mode(
     current_workspace: Res<CurrentWorkspace>,
     parent: Query<&Parent, With<DrawingMarker>>,
     is_site: Query<(), With<NameOfSite>>,
-    is_workcell: Query<(), With<WorkcellProperties>>,
+    is_workcell: Query<(), With<NameOfWorkcell>>,
 ) {
     // TODO(@mxgrey): We can make this implementation much cleaner after we
     // update to the latest version of bevy that distinguishes between inherited

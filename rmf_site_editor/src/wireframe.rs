@@ -19,7 +19,7 @@ use crate::menu_bar::{MenuEvent, MenuItem, ViewMenu};
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 
-use rmf_site_format::ModelMarker;
+use rmf_site_format::{ModelMarker, PrimitiveShape};
 
 #[derive(Default)]
 pub struct SiteWireframePlugin;
@@ -53,7 +53,7 @@ fn handle_wireframe_menu_events(
     wireframe_menu: Res<WireframeMenu>,
     meshes: Query<Entity, With<Handle<Mesh>>>,
     children: Query<&Children>,
-    models: Query<Entity, With<ModelMarker>>,
+    models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
 ) {
     for event in menu_events.iter() {
         if event.clicked() && event.source() == wireframe_menu.toggle_wireframe {
@@ -86,7 +86,7 @@ fn add_wireframe_to_new_models(
     mut commands: Commands,
     new_meshes: Query<Entity, Added<Handle<Mesh>>>,
     parents: Query<&Parent>,
-    models: Query<Entity, With<ModelMarker>>,
+    models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     wireframe_menu: Res<WireframeMenu>,
     menu_items: Query<&MenuItem>,
     meshes: Query<Entity, With<Handle<Mesh>>>,

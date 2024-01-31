@@ -90,7 +90,7 @@ pub use visual_cue::*;
 
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
-use bevy_mod_raycast::{DefaultRaycastingPlugin, RaycastSystem};
+use bevy_mod_raycast::deferred::DeferredRaycastingPlugin;
 use bevy_polyline::PolylinePlugin;
 
 #[derive(Reflect)]
@@ -136,7 +136,7 @@ impl Plugin for InteractionPlugin {
                 apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
             )
             .add_plugins(PolylinePlugin)
-            .add_plugins(DefaultRaycastingPlugin::<SiteRaycastSet>::default())
+            .add_plugins(DeferredRaycastingPlugin::<SiteRaycastSet>::default())
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
             .init_resource::<CameraControls>()
@@ -254,14 +254,7 @@ impl Plugin for InteractionPlugin {
                 )
                     .run_if(in_state(InteractionState::Enable)),
             )
-            .add_systems(
-                First,
-                (
-                    update_picked,
-                    update_interaction_mode,
-                    update_raycast_with_cursor.before(RaycastSystem::BuildRays::<SiteRaycastSet>),
-                ),
-            );
+            .add_systems(First, (update_picked, update_interaction_mode));
     }
 }
 

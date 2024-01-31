@@ -17,7 +17,6 @@ use keyboard::*;
 
 pub mod widgets;
 use widgets::{menu_bar::MenuPluginManager, *};
-
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 pub mod issue;

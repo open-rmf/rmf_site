@@ -16,8 +16,11 @@ thiserror = "*"
 glam = { version = "0.24", features = ["serde"] }
 uuid = { version = "1.1", features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
+# We depend on a bugfix released specifically in 0.7.3
 bevy = { version = "0.11", optional = true }
-urdf-rs = "0.7"
-yaserde = "0.7"
-pathdiff = "*"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", branch = "luca/yaserde_nested_models"}
+urdf-rs = "0.7.3"
+pathdiff = "*"
+
+[dev-dependencies]
+float_eq = "1.0"

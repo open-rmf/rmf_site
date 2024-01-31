@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, MeshConstraint, NameInWorkcell, SiteID, Workcell,
+    Category, ConstraintDependents, FrameMarker, MeshConstraint, NameInWorkcell, SiteID, Workcell,
 };
 
 #[derive(Event)]
@@ -54,7 +54,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     let root = commands
         .spawn(SpatialBundle::INHERITED_IDENTITY)
         .insert(workcell.properties.clone())
-        .insert(NameInWorkcell(workcell.properties.name.clone()))
         .insert(SiteID(workcell.id))
         .insert(Category::Workcell)
         .insert(WorkspaceMarker)
@@ -65,9 +64,9 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     id_to_entity.insert(&workcell.id, root);
 
     for (id, parented_visual) in &workcell.visuals {
-        let cmd = commands.spawn((SiteID(*id), VisualMeshMarker));
+        let mut cmd = commands.spawn((SiteID(*id), VisualMeshMarker, Category::Visual));
         let e = cmd.id();
-        parented_visual.bundle.add_bevy_components(cmd);
+        parented_visual.bundle.add_bevy_components(&mut cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_visual.parent)
@@ -77,9 +76,9 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     }
 
     for (id, parented_collision) in &workcell.collisions {
-        let cmd = commands.spawn((SiteID(*id), CollisionMeshMarker));
+        let mut cmd = commands.spawn((SiteID(*id), CollisionMeshMarker, Category::Collision));
         let e = cmd.id();
-        parented_collision.bundle.add_bevy_components(cmd);
+        parented_collision.bundle.add_bevy_components(&mut cmd);
         // TODO(luca) this hashmap update is duplicated, refactor into function
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_collision.parent)
@@ -92,6 +91,7 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         let e = commands
             .spawn(AnchorBundle::new(parented_anchor.bundle.anchor.clone()).visible(true))
             .insert(SiteID(*id))
+            .insert(FrameMarker)
             .id();
         if let Some(c) = &parented_anchor.bundle.mesh_constraint {
             let model_entity = *id_to_entity
@@ -113,6 +113,32 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
         }
         let child_entities: &mut Vec<Entity> = parent_to_child_entities
             .entry(parented_anchor.parent)
+            .or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
+    for (id, parented_inertia) in &workcell.inertias {
+        let e = commands
+            .spawn(SpatialBundle::INHERITED_IDENTITY)
+            .insert(parented_inertia.bundle.clone())
+            .insert(Category::Inertia)
+            .insert(SiteID(*id))
+            .id();
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_inertia.parent)
+            .or_default();
+        child_entities.push(e);
+        id_to_entity.insert(id, e);
+    }
+
+    for (id, parented_joint) in &workcell.joints {
+        let joint = &parented_joint.bundle;
+        let mut cmd = commands.spawn(SiteID(*id));
+        let e = cmd.id();
+        joint.add_bevy_components(&mut cmd);
+        let child_entities: &mut Vec<Entity> = parent_to_child_entities
+            .entry(parented_joint.parent)
             .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);

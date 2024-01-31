@@ -16,8 +16,8 @@
 */
 
 use crate::interaction::*;
-use bevy::{math::Affine3A, prelude::*};
-use bevy_mod_raycast::{Ray3d, RaycastMesh, RaycastSource};
+use bevy::{math::Affine3A, prelude::*, window::PrimaryWindow};
+use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
 use rmf_site_format::Pose;
 
 #[derive(Debug, Clone, Copy)]
@@ -363,6 +363,7 @@ pub fn update_drag_motions(
     drag_state: Res<GizmoState>,
     mut cursor_motion: EventReader<CursorMoved>,
     mut move_to: EventWriter<MoveTo>,
+    primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
     if let GizmoState::Dragging(dragging) = *drag_state {
         let cursor_position = match cursor_motion.iter().last() {
@@ -381,7 +382,10 @@ pub fn update_drag_motions(
                 }
             };
 
-            match Ray3d::from_screenspace(cursor_position, camera, &camera_tf) {
+            let Ok(primary_window) = primary_window.get_single() else {
+                return;
+            };
+            match Ray3d::from_screenspace(cursor_position, camera, &camera_tf, primary_window) {
                 Some(ray) => ray,
                 None => {
                     return;

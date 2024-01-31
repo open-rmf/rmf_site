@@ -5,6 +5,8 @@
 
 # The RMF Site Editor
 
+![Office world](media/office.png)
+
 The RMF Site Editor is an experimental approach to visualizing and editing large RMF deployment sites.
 It is built in Rust using [Bevy](https://bevyengine.org/), an open-source Rust-based game engine.
 
@@ -54,7 +56,7 @@ Make sure you install rust from the main rust website. Cargo should take care of
 These are only needed if you're going to build a WebAssembly binary:
 ```bash
 $ sudo apt install binaryen
-$ cargo install wasm-bindgen-cli basic-http-server
+$ cargo install wasm-bindgen-cli@0.2.84 basic-http-server
 $ rustup target add wasm32-unknown-unknown
 ```
 

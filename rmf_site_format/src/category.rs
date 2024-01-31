@@ -30,9 +30,12 @@ pub enum Category {
     General,
     Site,
     Anchor,
+    Collision,
     Door,
     Wall,
     Floor,
+    Inertia,
+    Joint,
     Level,
     Lane,
     Lift,
@@ -49,6 +52,7 @@ pub enum Category {
     Workcell,
     GeoReference,
     NavigationGraph,
+    Visual,
 }
 
 impl Category {
@@ -57,9 +61,12 @@ impl Category {
             Self::General => "General",
             Self::Site => "Site",
             Self::Anchor => "Anchor",
+            Self::Collision => "Collision",
             Self::Door => "Door",
             Self::Wall => "Wall",
             Self::Floor => "Floor",
+            Self::Inertia => "Inertia",
+            Self::Joint => "Joint",
             Self::Level => "Level",
             Self::Lane => "Lane",
             Self::Lift => "Lift",
@@ -76,6 +83,7 @@ impl Category {
             Self::Workcell => "Workcell",
             Self::GeoReference => "Georeference",
             Self::NavigationGraph => "Navigation Graph",
+            Self::Visual => "Visual",
         }
     }
 
