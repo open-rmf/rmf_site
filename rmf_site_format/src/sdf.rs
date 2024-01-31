@@ -31,6 +31,8 @@ pub enum SdfConversionError {
     BrokenAnchorReference(u32),
     /// Entity referenced a non existing level.
     BrokenLevelReference(u32),
+    /// Parsing of a lift cabin failed
+    LiftParsingError(String),
 }
 
 impl Pose {
@@ -480,19 +482,7 @@ impl Site {
             let LiftCabin::Rect(ref cabin) = lift.properties.cabin else {
                 continue;
             };
-            let center = cabin.aabb().center;
-            let left_anchor = get_anchor(lift.properties.reference_anchors.left())?;
-            let right_anchor = get_anchor(lift.properties.reference_anchors.right())?;
-            let left_trans = left_anchor.translation_for_category(Category::Level);
-            let right_trans = right_anchor.translation_for_category(Category::Level);
-            let midpoint = [
-                (left_trans[0] + right_trans[0]) / 2.0,
-                (left_trans[1] + right_trans[1]) / 2.0,
-            ];
-            let pose = Pose {
-                trans: [midpoint[0] + center.x, midpoint[1] + center.y, 0.0],
-                ..Default::default()
-            };
+            let pose = lift.properties.center(self).ok_or(SdfConversionError::LiftParsingError(lift.properties.name.0.clone()))?;
             let mut plugin = SdfPlugin {
                 name: "register_component".into(),
                 filename: "libregister_component.so".into(),
