@@ -12,7 +12,7 @@ pub struct NavGraph {
 
 // Readapted from legacy traffic editor implementation
 fn segments_intersect(p1: [f32; 2], p2: [f32; 2], p3: [f32; 2], p4: [f32; 2]) -> bool {
-    // line segments are (x1,y1),(x2,y2) and (x3,y3),(x4,y4)
+    // line segments are [p1-p2] and [p3-p4]
     let [x1, y1] = p1;
     let [x2, y2] = p2;
     let [x3, y3] = p3;
@@ -164,6 +164,7 @@ impl NavGraph {
                     println!("ERROR: Skipping lift {lift_name} due to rotation not being pure yaw");
                     continue;
                 };
+                // TODO(luca) check that the lift position is correct when doing end to end testing
                 match &lift.properties.cabin {
                     LiftCabin::Rect(params) => {
                         lifts.insert(
@@ -176,7 +177,7 @@ impl NavGraph {
                         );
                     }
                 }
-                // TODO(luca) lift property for vertices
+                // TODO(luca) lift property for vertices contained in lifts
             }
 
             graphs.push((
@@ -211,8 +212,10 @@ pub struct NavLaneProperties {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub door_name: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub orientation_constraint: Option<String>, // TODO(MXG): Add other lane properties
-                                                // demo_mock_floor_name
+    pub orientation_constraint: Option<String>,
+    // TODO(luca): Add other lane properties
+    // demo_mock_floor_name
+    // mutex
 }
 
 impl NavLaneProperties {
@@ -250,6 +253,7 @@ impl NavVertex {
 
 #[derive(Serialize, Deserialize, Clone, Default)]
 pub struct NavVertexProperties {
+    // TODO(luca) serialize lift and merge_radius, they are currently skipped
     #[serde(skip_serializing_if = "Option::is_none")]
     pub lift: Option<String>,
     #[serde(skip_serializing_if = "is_false")]
