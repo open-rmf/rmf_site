@@ -80,7 +80,7 @@ impl Vertex {
             return Some(Location {
                 anchor: anchor.into(),
                 tags: LocationTags(tags),
-                name: NameInSite(name.unwrap_or("<Unnamed>".to_string())),
+                name: NameInSite(name.unwrap_or_default()),
                 graphs: AssociatedGraphs::All,
             });
         }
