@@ -139,7 +139,7 @@ impl LiftProperties<u32> {
         let right_anchor = site.get_anchor(self.reference_anchors.right())?;
         let left_trans = left_anchor.translation_for_category(Category::Level);
         let right_trans = right_anchor.translation_for_category(Category::Level);
-        let yaw = (left_trans[1] - right_trans[1]).atan2(left_trans[0] - right_trans[0]);
+        let yaw = (left_trans[0] - right_trans[0]).atan2(left_trans[1] - right_trans[1]);
         let midpoint = [
             (left_trans[0] + right_trans[0]) / 2.0,
             (left_trans[1] + right_trans[1]) / 2.0,

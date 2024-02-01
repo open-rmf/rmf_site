@@ -59,15 +59,68 @@ impl NavGraph {
                 lanes_with_anchor
             };
 
-            // TODO(MXG): Make this work for lifts
-
             let mut doors = HashMap::new();
             let mut levels = HashMap::new();
+            let mut lifts = HashMap::new();
             for (_, level) in &site.levels {
                 let mut anchor_to_vertex = HashMap::new();
                 let mut vertices = Vec::new();
                 let mut lanes_to_include = HashSet::new();
-                for (id, anchor) in &level.anchors {
+                // Add vertices for anchors that are in lifts
+                for lift in site.lifts.values() {
+                    let lift_name = &lift.properties.name.0;
+                    let Some(center) = lift.properties.center(site) else {
+                        println!("ERROR: Skipping lift {lift_name} due to broken anchor reference");
+                        continue;
+                    };
+                    let Rotation::Yaw(yaw) = center.rot else {
+                        println!(
+                            "ERROR: Skipping lift {lift_name} due to rotation not being pure yaw"
+                        );
+                        continue;
+                    };
+                    let yaw = yaw.radians();
+                    // Note this will overwrite the entry in the map but that is OK
+                    // TODO(luca) check that the lift position is correct when doing end to end testing
+                    match &lift.properties.cabin {
+                        LiftCabin::Rect(params) => {
+                            lifts.insert(
+                                lift_name.clone(),
+                                NavLift {
+                                    position: [center.trans[0], center.trans[1], yaw],
+                                    // Note depth and width are inverted between legacy and site editor
+                                    dims: [params.depth, params.width],
+                                },
+                            );
+                        }
+                    }
+                    for (id, anchor) in &lift.cabin_anchors {
+                        let Some(lanes) = lanes_with_anchor.get(id) else {
+                            continue;
+                        };
+
+                        for lane in lanes.iter() {
+                            lanes_to_include.insert(*lane);
+                        }
+
+                        // The anchor is in lift coordinates, make it in global coordinates
+                        let trans = anchor.translation_for_category(Category::General);
+                        // TODO(luca) check that this translation is correct, most cases just have
+                        // an anchor in the origin.
+                        let anchor = Anchor::Translate2D([
+                            center.trans[0] + yaw.cos() * trans[0],
+                            center.trans[1] + yaw.sin() * trans[1],
+                        ]);
+
+                        anchor_to_vertex.insert(*id, vertices.len());
+                        let mut vertex =
+                            NavVertex::from_anchor(&anchor, location_at_anchor.get(id));
+                        vertex.2.lift = Some(lift_name.clone());
+                        vertices.push(vertex);
+                    }
+                }
+                // Add site and level anchors
+                for (id, anchor) in site.anchors.iter().chain(level.anchors.iter()) {
                     let Some(lanes) = lanes_with_anchor.get(id) else {
                         continue;
                     };
@@ -84,8 +137,8 @@ impl NavGraph {
                 for (_, door) in &level.doors {
                     let door_name = &door.name.0;
                     let (v0, v1) = match (
-                        level.anchors.get(&door.anchors.start()),
-                        level.anchors.get(&door.anchors.end()),
+                        site.get_anchor(door.anchors.start()),
+                        site.get_anchor(door.anchors.end()),
                     ) {
                         (Some(v0), Some(v1)) => (
                             v0.translation_for_category(Category::Level),
@@ -154,33 +207,6 @@ impl NavGraph {
                     level.properties.name.clone().0,
                     NavLevel { lanes, vertices },
                 );
-            }
-
-            let mut lifts = HashMap::new();
-            for (_, lift) in &site.lifts {
-                let lift_name = &lift.properties.name.0;
-                let Some(pose) = lift.properties.center(site) else {
-                    println!("ERROR: Skipping lift {lift_name} due to broken anchor reference");
-                    continue;
-                };
-                let Rotation::Yaw(yaw) = pose.rot else {
-                    println!("ERROR: Skipping lift {lift_name} due to rotation not being pure yaw");
-                    continue;
-                };
-                // TODO(luca) check that the lift position is correct when doing end to end testing
-                match &lift.properties.cabin {
-                    LiftCabin::Rect(params) => {
-                        lifts.insert(
-                            lift_name.clone(),
-                            NavLift {
-                                position: [pose.trans[0], pose.trans[1], yaw.radians()],
-                                // Note depth and width are inverted between legacy and site editor
-                                dims: [params.depth, params.width],
-                            },
-                        );
-                    }
-                }
-                // TODO(luca) lift property for vertices contained in lifts
             }
 
             graphs.push((
