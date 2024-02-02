@@ -430,7 +430,11 @@ impl Site {
                 .cloned()
         };
         let mut models = Vec::new();
+        let mut min_elevation = f32::MAX;
+        let mut max_elevation = f32::MIN;
         for level in self.levels.values() {
+            max_elevation = max_elevation.max(level.properties.elevation.0);
+            min_elevation = min_elevation.min(level.properties.elevation.0);
             // Floors walls and static models are included in the level mesh
             models.push(SdfModel {
                 name: format!("level_{}", level.properties.name.0),
@@ -482,7 +486,12 @@ impl Site {
             let LiftCabin::Rect(ref cabin) = lift.properties.cabin else {
                 continue;
             };
-            let pose = lift.properties.center(self).ok_or(SdfConversionError::LiftParsingError(lift.properties.name.0.clone()))?;
+            let pose = lift
+                .properties
+                .center(self)
+                .ok_or(SdfConversionError::LiftParsingError(
+                    lift.properties.name.0.clone(),
+                ))?;
             let mut plugin = SdfPlugin {
                 name: "register_component".into(),
                 filename: "libregister_component.so".into(),
@@ -521,6 +530,11 @@ impl Site {
                 child: "platform".into(),
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, 1.0),
+                    limit: SdfJointAxisLimit {
+                        lower: min_elevation.into(),
+                        upper: max_elevation.into(),
+                        ..Default::default()
+                    },
                     ..Default::default()
                 }),
                 ..Default::default()
