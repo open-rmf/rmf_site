@@ -101,7 +101,7 @@ impl FromWorld for Icons {
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
         // immutable AssetServer resource.
-        let mut system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut system_state: SystemState<EguiContexts> = SystemState::new(&mut world);
         let mut egui_context = system_state.get_mut(&mut world);
         Self {
             select: select.build(&mut egui_context),

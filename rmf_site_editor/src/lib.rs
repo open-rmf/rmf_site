@@ -130,17 +130,20 @@ pub fn run_js() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn run_js_with_data(buffer: JsValue) {
+pub fn run_js_with_data(buffer: JsValue, file_type: JsValue) {
     use js_sys::Uint8Array;
+
+    #[cfg(target_arch = "wasm32")]
     log("Running RCC RMF Site Editor with map data");
 
     let array = Uint8Array::new(&buffer);
     let bytes: Vec<u8> = array.to_vec();
 
+    let file_type: String = file_type.as_string().unwrap();
+
     let mut app: App = App::new();
 
-    app.insert_resource(WebAutoLoad::file(bytes));
-
+    app.insert_resource(WebAutoLoad::file(bytes, file_type));
     app.add_plugins(SiteEditor);
     app.run();
 }

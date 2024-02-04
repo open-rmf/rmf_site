@@ -25,7 +25,7 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{recency::RecencyRanking, site::*};
+use crate::{log, recency::RecencyRanking, site::*};
 use rmf_site_format::*;
 
 #[derive(Event)]
@@ -1198,6 +1198,9 @@ pub fn generate_site(
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
+        #[cfg(target_arch = "wasm32")]
+        log("Saving site event");
+
         let mut new_path = save_event.to_file;
         let path_str = match new_path.to_str() {
             Some(s) => s,
@@ -1254,6 +1257,9 @@ pub fn save_nav_graphs(world: &mut World) {
         .collect();
     for save_event in save_events {
         let path = save_event.to_file;
+
+        #[cfg(target_arch = "wasm32")]
+        log("Saving nav graphs event");
 
         let mut site = match generate_site(world, save_event.site) {
             Ok(site) => site,

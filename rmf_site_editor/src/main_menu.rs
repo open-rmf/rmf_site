@@ -16,7 +16,7 @@
 */
 
 use super::demo_world::*;
-use crate::{log, AppState, LoadWorkspace, WorkspaceData};
+use crate::{log, AppState, LoadWorkspace, SaveWorkspaceChannels, WorkspaceData};
 use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
@@ -31,12 +31,14 @@ pub struct Autoload {
 #[derive(Resource)]
 pub struct WebAutoLoad {
     pub building_data: Option<Vec<u8>>,
+    pub file_type: String,
 }
 
 impl WebAutoLoad {
-    pub fn file(url: Vec<u8>) -> Self {
+    pub fn file(url: Vec<u8>, file_type: String) -> Self {
         WebAutoLoad {
             building_data: Some(url),
+            file_type: file_type,
         }
     }
 }
@@ -54,13 +56,45 @@ impl Autoload {
 fn autoload_from_web(
     // access resource
     mut _load_workspace: EventWriter<LoadWorkspace>,
-    autoload: ResMut<WebAutoLoad>,
+    autoload: Option<ResMut<WebAutoLoad>>,
 ) {
-    if let Some(building_data) = autoload.building_data.clone() {
-        log(&format!("Main Menu - Loading map from building data"));
-        _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-            building_data,
-        )));
+    #[cfg(target_arch = "wasm32")]
+    {
+        log(&format!(
+            "Main Menu - Trying to load map from building data"
+        ));
+
+        if let Some(mut autoload) = autoload {
+            if let Some(building_data) = autoload.building_data.clone() {
+                #[cfg(target_arch = "wasm32")]
+                log(&format!(
+                    "Main Menu - Loading map from building data with format {}",
+                    autoload.file_type
+                ));
+
+                match autoload.file_type.as_str() {
+                    "building.yaml" => {
+                        _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+                            building_data,
+                        )));
+                    }
+                    "site.ron" => {
+                        _load_workspace
+                            .send(LoadWorkspace::Data(WorkspaceData::Site(building_data)));
+                    }
+                    _ => {
+                        log(&format!(
+                            "Main Menu - Unsupported file type: {}",
+                            autoload.file_type
+                        ));
+                    }
+                }
+
+                // _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+                //     building_data,
+                // )));
+            }
+        }
     }
 }
 

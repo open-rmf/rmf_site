@@ -62,7 +62,7 @@ impl FromWorld for ModelPreviewCamera {
         preview_image.resize(image_size);
         let mut images = world.get_resource_mut::<Assets<Image>>().unwrap();
         let preview_image = images.add(preview_image);
-        let mut system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut system_state: SystemState<EguiContexts> = SystemState::new(&mut world);
         let mut egui_context = system_state.get_mut(&mut world);
         // Attach the bevy image to the egui image
         let egui_handle = egui_context.add_image(preview_image.clone());

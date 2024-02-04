@@ -29,13 +29,16 @@
         let wasm = await init("./librmf_site_editor_bg_optimized.wasm");
         window.wasm = wasm
 
-        let data = await fetch("https://filebin.net/olo599ws5cvyjpil/hotel.building.yaml");
+        // https://filebin.net/sf1ynff67v7chf0t/test.site.ron
+        // https://filebin.net/olo599ws5cvyjpil/hotel.building.yaml
+
+        let data = await fetch("https://filebin.net/sf1ynff67v7chf0t/test.site.ron");
         let text = await data.text();
 
         // convert text to Unit8Array
         let bytes = new TextEncoder().encode(text);
 
-        run_js_with_data(bytes);
+        run_js_with_data(bytes, "site.ron");
       } catch (e) {
         console.error(e);
       }

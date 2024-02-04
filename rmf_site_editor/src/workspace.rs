@@ -23,7 +23,7 @@ use std::path::PathBuf;
 use crate::interaction::InteractionState;
 use crate::site::{DefaultFile, LoadSite, SaveSite};
 use crate::workcell::{LoadWorkcell, SaveWorkcell};
-use crate::AppState;
+use crate::{log, AppState};
 use rmf_site_format::legacy::building_map::BuildingMap;
 use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
 
@@ -315,6 +315,10 @@ fn workspace_file_load_complete(
         match data {
             WorkspaceData::LegacyBuilding(data) => {
                 info!("Opening legacy building map file");
+
+                #[cfg(target_arch = "wasm32")]
+                log("Opening legacy building map file");
+
                 match BuildingMap::from_bytes(&data) {
                     Ok(building) => {
                         match building.to_site() {
@@ -340,6 +344,10 @@ fn workspace_file_load_complete(
             }
             WorkspaceData::Site(data) => {
                 info!("Opening site file");
+
+                #[cfg(target_arch = "wasm32")]
+                log("Opening site file");
+
                 match Site::from_bytes(&data) {
                     Ok(site) => {
                         // Switch state
@@ -486,6 +494,8 @@ fn workspace_file_save_complete(
                 });
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
+                #[cfg(target_arch = "wasm32")]
+                log("Saving site to file");
                 save_site.send(SaveSite {
                     site: result.root,
                     to_file: result.path,
