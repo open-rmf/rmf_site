@@ -49,6 +49,8 @@ sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev =
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "first_implementation" }
 pathdiff = "*"
 tera = "1.19.1"
+reqwest = { version = "0.11", features = ["blocking", "json"] }
+js-sys = "0.3.60"
 
 # only enable the 'dynamic_linking' feature if we're not building for web or windows
 # TODO(luca) it seems this can be enabled on windows, check

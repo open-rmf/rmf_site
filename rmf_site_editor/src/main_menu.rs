@@ -16,7 +16,7 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, LoadWorkspace, WorkspaceData};
+use crate::{log, AppState, LoadWorkspace, WorkspaceData};
 use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
@@ -26,6 +26,19 @@ pub struct Autoload {
     pub filename: Option<PathBuf>,
     pub import: Option<PathBuf>,
     pub importing: Option<Task<Option<(Entity, rmf_site_format::Site)>>>,
+}
+
+#[derive(Resource)]
+pub struct WebAutoLoad {
+    pub building_data: Option<Vec<u8>>,
+}
+
+impl WebAutoLoad {
+    pub fn file(url: Vec<u8>) -> Self {
+        WebAutoLoad {
+            building_data: Some(url),
+        }
+    }
 }
 
 impl Autoload {
@@ -38,6 +51,19 @@ impl Autoload {
     }
 }
 
+fn debug_end(
+    // access resource
+    mut _load_workspace: EventWriter<LoadWorkspace>,
+    mut autoload: ResMut<WebAutoLoad>,
+) {
+    if let Some(building_data) = autoload.building_data.clone() {
+        log(&format!("Main Menu - Loading map from building data"));
+        _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+            building_data,
+        )));
+    }
+}
+
 fn egui_ui(
     mut egui_context: EguiContexts,
     mut _exit: EventWriter<AppExit>,
@@ -45,24 +71,42 @@ fn egui_ui(
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
 ) {
-    if let Some(mut autoload) = autoload {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            if let Some(filename) = autoload.filename.clone() {
-                _load_workspace.send(LoadWorkspace::Path(filename));
+    #[cfg(not(target_arch = "wasm32"))]
+    {
+        if let Some(mut autoload) = autoload {
+            {
+                if let Some(filename) = autoload.filename.clone() {
+                    _load_workspace.send(LoadWorkspace::Path(filename));
+                }
+                autoload.filename = None;
             }
-            autoload.filename = None;
+            return;
         }
-        return;
     }
 
-    egui::Window::new("Welcome!")
+    // #[cfg(target_arch = "wasm32")]
+    // {
+    //     // print the value of the building_url in WebAutoLoad
+    //     if let Some(mut autoload_some) = autoload_web {
+    //         if let Some(building_url) = autoload_some.building_url.clone() {
+    //             log(&format!("Main Menu - Loading map from {}", building_url));
+    //             demo_office_from_server(building_url);
+    //         }
+    //         return;
+    //     }
+    // }
+
+    // _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+    //     demo_office(),
+    // )));
+
+    egui::Window::new("Welcome to RCC Traffic Editor!")
         .collapsible(false)
         .resizable(false)
         .title_bar(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(egui_context.ctx_mut(), |ui| {
-            ui.heading("Welcome to The RMF Site Editor!");
+            ui.heading("Welcome to the RCC RMF Site Editor!");
             ui.add_space(10.);
 
             ui.horizontal(|ui| {
@@ -72,9 +116,9 @@ fn egui_ui(
                     )));
                 }
 
-                if ui.button("Open a file").clicked() {
-                    _load_workspace.send(LoadWorkspace::Dialog);
-                }
+                // if ui.button("Open a file").clicked() {
+                //     _load_workspace.send(LoadWorkspace::Dialog);
+                // }
 
                 // TODO(@mxgrey): Bring this back when we have finished developing
                 // the key features for workcell editing.
@@ -110,6 +154,9 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, egui_ui.run_if(in_state(AppState::MainMenu)));
+        app.add_systems(
+            Update,
+            (debug_start, egui_ui, debug_end).run_if(in_state(AppState::MainMenu)),
+        );
     }
 }

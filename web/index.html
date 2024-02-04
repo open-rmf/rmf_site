@@ -1,4 +1,5 @@
 <html>
+
 <head>
   <meta charset="utf-8">
   <title>The RMF Site Editor</title>
@@ -10,20 +11,37 @@
       width: 100%;
       height: 100%;
     }
+
     canvas {
       background-color: #401010;
     }
   </style>
 </head>
+
 <body>
-<canvas id="rmf_site_editor_canvas">
-  <script type="module">
-    import init from "./librmf_site_editor.js";
-    document.addEventListener('contextmenu', function(evt) { evt.preventDefault(); });
-    init("./librmf_site_editor_bg_optimized.wasm").then(function (wasm) {
-      wasm.run_js();
-    });
-  </script>
-</canvas>
+  <canvas id="rmf_site_editor_canvas">
+    <script type="module">
+      import init, { run_js_with_data } from "./librmf_site_editor.js";
+
+      document.addEventListener('contextmenu', function (evt) { evt.preventDefault(); });
+
+      try {
+        let wasm = await init("./librmf_site_editor_bg_optimized.wasm");
+        window.wasm = wasm
+
+        let data = await fetch("https://filebin.net/olo599ws5cvyjpil/hotel.building.yaml");
+        let text = await data.text();
+
+        // convert text to Unit8Array
+        let bytes = new TextEncoder().encode(text);
+
+        run_js_with_data(bytes);
+      } catch (e) {
+        console.error(e);
+      }
+
+    </script>
+  </canvas>
 </body>
+
 </html>
