@@ -51,10 +51,10 @@ impl Autoload {
     }
 }
 
-fn debug_end(
+fn autoload_from_web(
     // access resource
     mut _load_workspace: EventWriter<LoadWorkspace>,
-    mut autoload: ResMut<WebAutoLoad>,
+    autoload: ResMut<WebAutoLoad>,
 ) {
     if let Some(building_data) = autoload.building_data.clone() {
         log(&format!("Main Menu - Loading map from building data"));
@@ -156,7 +156,7 @@ impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
         app.add_systems(
             Update,
-            (debug_start, egui_ui, debug_end).run_if(in_state(AppState::MainMenu)),
+            (egui_ui, autoload_from_web).run_if(in_state(AppState::MainMenu)),
         );
     }
 }
