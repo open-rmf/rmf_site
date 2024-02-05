@@ -38,7 +38,18 @@
         // convert text to Unit8Array
         let bytes = new TextEncoder().encode(text);
 
-        run_js_with_data(bytes, "site.ron");
+        // possible 2nd parameter:
+        // 1. building.yaml
+        // 2. site.ron
+
+
+
+        window.save_map = function (buildingId, data) {
+          console.log('Received data from wasm for buildingId' + buildingId)
+          console.log(data)
+        }
+
+        run_js_with_data(bytes, "site.ron", "uuid_building_id");
       } catch (e) {
         console.error(e);
       }

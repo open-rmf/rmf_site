@@ -21,6 +21,7 @@ use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
+use crate::main_menu::UploadData;
 use crate::site::{DefaultFile, LoadSite, SaveSite};
 use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::{log, AppState};
@@ -136,6 +137,11 @@ impl SaveWorkspace {
         self
     }
 
+    pub fn to_web(mut self) -> Self {
+        self.destination = SaveWorkspaceDestination::Web;
+        self
+    }
+
     pub fn to_path(mut self, path: &PathBuf) -> Self {
         self.destination = SaveWorkspaceDestination::Path(path.clone());
         self
@@ -153,6 +159,7 @@ pub enum SaveWorkspaceDestination {
     DefaultFile,
     Dialog,
     Path(PathBuf),
+    Web,
 }
 
 #[derive(Clone, Default, Debug)]
@@ -218,6 +225,9 @@ impl Plugin for WorkspacePlugin {
                     workspace_file_save_complete,
                 ),
             );
+        #[cfg(target_arch = "wasm32")]
+        app.add_systems(Update, dispatch_save_workspace_events_web);
+
         #[cfg(not(target_arch = "wasm32"))]
         app.add_systems(Update, dispatch_save_workspace_events);
     }
@@ -458,6 +468,7 @@ fn dispatch_save_workspace_events(
                         spawn_dialog(&event.format, ws_root);
                     }
                 }
+
                 SaveWorkspaceDestination::Dialog => spawn_dialog(&event.format, ws_root),
                 SaveWorkspaceDestination::Path(path) => {
                     save_channels
@@ -477,14 +488,52 @@ fn dispatch_save_workspace_events(
     }
 }
 
+#[cfg(target_arch = "wasm32")]
+fn dispatch_save_workspace_events_web(
+    mut save_events: EventReader<SaveWorkspace>,
+    save_channels: Res<SaveWorkspaceChannels>,
+    workspace: Res<CurrentWorkspace>,
+) {
+    for event in save_events.iter() {
+        if let Some(ws_root) = workspace.root {
+            match &event.destination {
+                SaveWorkspaceDestination::Web => {
+                    save_channels
+                        .sender
+                        .send(SaveWorkspaceFile {
+                            path: PathBuf::new(),
+                            format: event.format.clone(),
+                            root: ws_root,
+                        })
+                        .expect("Failed sending save request");
+                }
+                _ => {
+                    warn!("Unable to save, only web saving is supported in wasm");
+                    return;
+                }
+            }
+        } else {
+            warn!("Unable to save, no workspace loaded");
+            return;
+        }
+    }
+}
+
 /// Handles the file saving events
 fn workspace_file_save_complete(
     app_state: Res<State<AppState>>,
     mut save_site: EventWriter<SaveSite>,
     mut save_workcell: EventWriter<SaveWorkcell>,
     save_channels: Res<SaveWorkspaceChannels>,
+    mut upload_details: Option<Res<UploadData>>,
 ) {
     if let Ok(result) = save_channels.receiver.try_recv() {
+        #[cfg(target_arch = "wasm32")]
+        {
+            log("workspace_file_save_complete received");
+            log(&format!("app_state: {:?}", app_state.get()));
+        }
+
         match app_state.get() {
             AppState::WorkcellEditor => {
                 save_workcell.send(SaveWorkcell {
@@ -494,12 +543,18 @@ fn workspace_file_save_complete(
                 });
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-                #[cfg(target_arch = "wasm32")]
-                log("Saving site to file");
-                save_site.send(SaveSite {
-                    site: result.root,
-                    to_file: result.path,
-                });
+                if let Some(upload_details) = upload_details {
+                    if upload_details.building_id.is_none() {
+                        warn!("No upload details found, saving to file instead");
+                    }
+                    save_site.send(SaveSite {
+                        site: result.root,
+                        to_file: result.path,
+                        upload: UploadData {
+                            building_id: upload_details.building_id.clone(),
+                        },
+                    });
+                }
             }
             AppState::MainMenu => { /* Noop */ }
         }

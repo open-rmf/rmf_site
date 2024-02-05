@@ -70,6 +70,7 @@ use bevy::render::{
 };
 pub use osm_slippy_map::*;
 
+use crate::main_menu::UploadData;
 use crate::main_menu::WebAutoLoad;
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
@@ -117,6 +118,8 @@ extern "C" {
     #[wasm_bindgen(js_namespace = console)]
     pub fn log(s: &str);
 
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn save_map(id: &str, s: &str);
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -130,7 +133,7 @@ pub fn run_js() {
 
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
-pub fn run_js_with_data(buffer: JsValue, file_type: JsValue) {
+pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValue) {
     use js_sys::Uint8Array;
 
     #[cfg(target_arch = "wasm32")]
@@ -140,10 +143,12 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue) {
     let bytes: Vec<u8> = array.to_vec();
 
     let file_type: String = file_type.as_string().unwrap();
+    let building_id: String = building_id.as_string().unwrap();
 
     let mut app: App = App::new();
 
     app.insert_resource(WebAutoLoad::file(bytes, file_type));
+    app.insert_resource(UploadData::new(building_id));
     app.add_plugins(SiteEditor);
     app.run();
 }

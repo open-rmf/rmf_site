@@ -16,7 +16,10 @@
 */
 
 use super::demo_world::*;
-use crate::{log, AppState, LoadWorkspace, SaveWorkspaceChannels, WorkspaceData};
+use crate::{
+    log, AppState, CurrentWorkspace, LoadWorkspace, SaveWorkspace, SaveWorkspaceChannels,
+    WorkspaceData,
+};
 use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
@@ -26,6 +29,21 @@ pub struct Autoload {
     pub filename: Option<PathBuf>,
     pub import: Option<PathBuf>,
     pub importing: Option<Task<Option<(Entity, rmf_site_format::Site)>>>,
+}
+
+impl Autoload {
+    pub fn file(filename: PathBuf, import: Option<PathBuf>) -> Self {
+        Autoload {
+            filename: Some(filename),
+            import,
+            importing: None,
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct SaveToWeb {
+    pub url: String,
 }
 
 #[derive(Resource)]
@@ -43,12 +61,15 @@ impl WebAutoLoad {
     }
 }
 
-impl Autoload {
-    pub fn file(filename: PathBuf, import: Option<PathBuf>) -> Self {
-        Autoload {
-            filename: Some(filename),
-            import,
-            importing: None,
+#[derive(Resource)]
+pub struct UploadData {
+    pub building_id: Option<String>,
+}
+
+impl UploadData {
+    pub fn new(building_id: String) -> Self {
+        UploadData {
+            building_id: Some(building_id),
         }
     }
 }
@@ -64,7 +85,7 @@ fn autoload_from_web(
             "Main Menu - Trying to load map from building data"
         ));
 
-        if let Some(mut autoload) = autoload {
+        if let Some(autoload) = autoload {
             if let Some(building_data) = autoload.building_data.clone() {
                 #[cfg(target_arch = "wasm32")]
                 log(&format!(
@@ -89,10 +110,6 @@ fn autoload_from_web(
                         ));
                     }
                 }
-
-                // _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-                //     building_data,
-                // )));
             }
         }
     }
@@ -117,22 +134,6 @@ fn egui_ui(
             return;
         }
     }
-
-    // #[cfg(target_arch = "wasm32")]
-    // {
-    //     // print the value of the building_url in WebAutoLoad
-    //     if let Some(mut autoload_some) = autoload_web {
-    //         if let Some(building_url) = autoload_some.building_url.clone() {
-    //             log(&format!("Main Menu - Loading map from {}", building_url));
-    //             demo_office_from_server(building_url);
-    //         }
-    //         return;
-    //     }
-    // }
-
-    // _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-    //     demo_office(),
-    // )));
 
     egui::Window::new("Welcome to RCC Traffic Editor!")
         .collapsible(false)

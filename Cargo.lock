@@ -537,7 +537,6 @@ version = "0.11.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "91c6d3ec4f89e85294dc97334c5b271ddc301fdf67ac9bb994fe44d9273e6ed7"
 dependencies = [
- "bevy_dylib",
  "bevy_internal",
 ]
 
@@ -697,15 +696,6 @@ dependencies = [
  "bevy_time",
  "bevy_utils",
  "sysinfo",
-]
-
-[[package]]
-name = "bevy_dylib"
-version = "0.11.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "22ea11f830028e1c9d37f8bc88c5873f1c4c0346661209c2ba015f899c51863c"
-dependencies = [
- "bevy_internal",
 ]
 
 [[package]]
@@ -4803,6 +4793,7 @@ dependencies = [
  "urdf-rs",
  "utm",
  "wasm-bindgen",
+ "web-sys",
 ]
 
 [[package]]

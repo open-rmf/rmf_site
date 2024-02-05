@@ -25,13 +25,20 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{log, recency::RecencyRanking, site::*};
+use crate::{
+    log,
+    main_menu::{SaveToWeb, UploadData, WebAutoLoad},
+    recency::RecencyRanking,
+    save_map,
+    site::*,
+};
 use rmf_site_format::*;
 
 #[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: PathBuf,
+    pub upload: UploadData,
 }
 
 #[derive(Event)]
@@ -1195,56 +1202,90 @@ pub fn generate_site(
     });
 }
 
+// TODO: Make this available in web
 pub fn save_site(world: &mut World) {
     let save_events: Vec<_> = world.resource_mut::<Events<SaveSite>>().drain().collect();
     for save_event in save_events {
         #[cfg(target_arch = "wasm32")]
-        log("Saving site event");
-
-        let mut new_path = save_event.to_file;
-        let path_str = match new_path.to_str() {
-            Some(s) => s,
-            None => {
-                error!("Unable to save file: Invalid path [{new_path:?}]");
-                continue;
-            }
-        };
-        if path_str.ends_with(".building.yaml") {
-            warn!("Detected old file format, converting to new format");
-            new_path = path_str.replace(".building.yaml", ".site.ron").into();
-        } else if !path_str.ends_with("site.ron") {
-            info!("Appending .site.ron to {}", new_path.display());
-            new_path = new_path.with_extension("site.ron");
-        }
-        info!("Saving to {}", new_path.display());
-        let f = match std::fs::File::create(new_path.clone()) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
-        let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
-        migrate_relative_paths(save_event.site, &new_path, world);
-
-        let site = match generate_site(world, save_event.site) {
-            Ok(site) => site,
-            Err(err) => {
-                error!("Unable to compile site: {err}");
-                continue;
-            }
-        };
-
-        match site.to_writer(f) {
-            Ok(()) => {
-                info!("Save successful");
-            }
-            Err(err) => {
-                if let Some(old_default_path) = old_default_path {
-                    world.entity_mut(save_event.site).insert(old_default_path);
+        {
+            log("save_site - Saving site event from web");
+            let site = match generate_site(world, save_event.site) {
+                Ok(site) => site,
+                Err(err) => {
+                    error!("Unable to compile site: {err}");
+                    continue;
                 }
-                error!("Save failed: {err}");
+            };
+
+            // convert site to json
+            let site_json = match serde_json::to_string(&site) {
+                Ok(json) => json,
+                Err(err) => {
+                    error!("Unable to convert site to json: {err}");
+                    continue;
+                }
+            };
+
+            let building_id = save_event.upload.building_id.unwrap();
+            // send site to web
+            save_map(&building_id, site_json.as_str());
+
+            // if let Some(upload_details) = upload_details {
+            //     if let Some(building_id) = upload_details.building_id.clone() {
+            //         log(&format!("building_id: {building_id}"));
+            //     }
+            // }
+            // use reqwest to send non blocking request json to the server
+            // url: https://www.toptal.com/developers/postbin/1707104013738-0294617360923
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            let mut new_path = save_event.to_file;
+            let path_str = match new_path.to_str() {
+                Some(s) => s,
+                None => {
+                    error!("Unable to save file: Invalid path [{new_path:?}]");
+                    continue;
+                }
+            };
+            if path_str.ends_with(".building.yaml") {
+                warn!("Detected old file format, converting to new format");
+                new_path = path_str.replace(".building.yaml", ".site.ron").into();
+            } else if !path_str.ends_with("site.ron") {
+                info!("Appending .site.ron to {}", new_path.display());
+                new_path = new_path.with_extension("site.ron");
+            }
+            info!("Saving to {}", new_path.display());
+            let f = match std::fs::File::create(new_path.clone()) {
+                Ok(f) => f,
+                Err(err) => {
+                    error!("Unable to save file: {err}");
+                    continue;
+                }
+            };
+
+            let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+            migrate_relative_paths(save_event.site, &new_path, world);
+
+            let site = match generate_site(world, save_event.site) {
+                Ok(site) => site,
+                Err(err) => {
+                    error!("Unable to compile site: {err}");
+                    continue;
+                }
+            };
+
+            match site.to_writer(f) {
+                Ok(()) => {
+                    info!("Save successful");
+                }
+                Err(err) => {
+                    if let Some(old_default_path) = old_default_path {
+                        world.entity_mut(save_event.site).insert(old_default_path);
+                    }
+                    error!("Save failed: {err}");
+                }
             }
         }
     }

@@ -96,14 +96,31 @@ fn handle_keyboard_input(
         info!("Toggling debug mode: {debug_mode:?}");
     }
 
+    // if keyboard_input.just_pressed(KeyCode::W) {
+    //     info!("Key pressed to save to web");
+    //     #[cfg(target_arch = "wasm32")]
+    //     {
+    //         save_workspace.send(SaveWorkspace::new().to_web());
+    //     }
+    // }
+
     // Ctrl keybindings
     if keyboard_input.any_pressed([KeyCode::ControlLeft, KeyCode::ControlRight]) {
         if keyboard_input.just_pressed(KeyCode::S) {
-            info!("Saving workspace");
-            if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
-                save_workspace.send(SaveWorkspace::new().to_dialog());
-            } else {
-                save_workspace.send(SaveWorkspace::new().to_default_file());
+            #[cfg(not(target_arch = "wasm32"))]
+            {
+                if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
+                    save_workspace.send(SaveWorkspace::new().to_dialog());
+                } else {
+                    save_workspace.send(SaveWorkspace::new().to_default_file());
+                }
+            }
+
+            #[cfg(target_arch = "wasm32")]
+            {
+                if keyboard_input.any_pressed([KeyCode::ShiftLeft, KeyCode::ShiftRight]) {
+                    save_workspace.send(SaveWorkspace::new().to_web());
+                }
             }
         }
 
