@@ -10,3 +10,13 @@ members = [
 # the workspace needs to explicitly specify this.
 # For more see: https://doc.rust-lang.org/edition-guide/rust-2021/default-cargo-resolver.html
 resolver = "2"
+
+# Compile time optimizations as suggested in
+# https://bevyengine.org/learn/quick-start/getting-started/setup/#compile-with-performance-optimizations
+# Enable a small amount of optimization in debug mode
+[profile.dev]
+opt-level = 1
+
+# Enable high optimizations for dependencies (incl. Bevy), but not for our code:
+[profile.dev.package."*"]
+opt-level = 3
