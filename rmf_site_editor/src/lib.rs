@@ -1,5 +1,6 @@
 use bevy::{
-    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
+    app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*,
+    render::renderer::RenderAdapterInfo,
 };
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
@@ -74,6 +75,9 @@ pub struct CommandLineArgs {
     /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
+    /// Run in headless mode.
+    #[arg(long)]
+    pub headless: bool,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -117,22 +121,27 @@ pub fn run_js() {
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
 
-    #[cfg(not(target_arch = "wasm32"))]
-    {
-        let command_line_args = CommandLineArgs::parse_from(command_line_args);
-        if let Some(path) = command_line_args.filename {
-            app.insert_resource(Autoload::file(
-                path.into(),
-                command_line_args.import.map(Into::into),
-            ));
-        }
+    //#[cfg(not(target_arch = "wasm32"))]
+    //{
+    let command_line_args = CommandLineArgs::parse_from(command_line_args);
+    if let Some(path) = command_line_args.filename {
+        app.insert_resource(Autoload::file(
+            path.into(),
+            command_line_args.import.map(Into::into),
+        ));
     }
+    //}
 
-    app.add_plugins(SiteEditor);
+    app.add_plugins(SiteEditor {
+        headless: command_line_args.headless,
+    });
     app.run();
 }
 
-pub struct SiteEditor;
+pub struct SiteEditor {
+    /// Whether to run the site editor in headless mode.
+    pub headless: bool,
+}
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
@@ -165,18 +174,27 @@ impl Plugin for SiteEditor {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
+            let window_plugin = if self.headless {
+                WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
+                }
+            } else {
+                WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "RMF Site Editor".to_owned(),
+                        resolution: (1600., 900.).into(),
+                        ..default()
+                    }),
+                    ..default()
+                }
+            };
             app.add_plugins(
                 DefaultPlugins
                     .build()
                     .disable::<LogPlugin>()
-                    .set(WindowPlugin {
-                        primary_window: Some(Window {
-                            title: "RMF Site Editor".to_owned(),
-                            resolution: (1600., 900.).into(),
-                            ..default()
-                        }),
-                        ..default()
-                    })
+                    .set(window_plugin)
                     .set(ImagePlugin {
                         default_sampler: SamplerDescriptor {
                             address_mode_u: AddressMode::Repeat,
@@ -206,8 +224,12 @@ impl Plugin for SiteEditor {
                 MainMenuPlugin,
                 WorkcellEditorPlugin,
                 SitePlugin,
-                InteractionPlugin,
-                StandardUiLayout,
+                InteractionPlugin {
+                    headless: self.headless,
+                },
+                StandardUiLayout {
+                    headless: self.headless,
+                },
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
@@ -219,5 +241,9 @@ impl Plugin for SiteEditor {
                 OSMViewPlugin,
                 SiteWireframePlugin,
             ));
+
+        if self.headless {
+            app.add_plugins(ScheduleRunnerPlugin::default());
+        }
     }
 }
