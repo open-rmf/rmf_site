@@ -1282,6 +1282,7 @@ pub fn save_site(world: &mut World) {
                         continue;
                     }
                 };
+                let graphs = legacy::nav_graph::NavGraph::from_site(&site);
                 let sdf = match site.to_sdf() {
                     Ok(sdf) => sdf,
                     Err(err) => {
@@ -1297,6 +1298,26 @@ pub fn save_site(world: &mut World) {
                     ..Default::default()
                 };
                 let s = yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
+                let mut navgraph_dir = PathBuf::from(new_path.parent().unwrap());
+                navgraph_dir.push("nav");
+                for (name, graph) in &graphs {
+                    let mut graph_file = navgraph_dir.clone();
+                    graph_file.set_file_name(name.to_owned() + ".yaml");
+                    info!(
+                        "Saving legacy nav graph to {}",
+                        graph_file.to_str().unwrap_or("<failed to render??>")
+                    );
+                    let f = match std::fs::File::create(graph_file) {
+                        Ok(f) => f,
+                        Err(err) => {
+                            error!("Unable to save nav graph: {err}");
+                            continue;
+                        }
+                    };
+                    if let Err(err) = serde_yaml::to_writer(f, &graph) {
+                        error!("Failed to save nav graph: {err}");
+                    }
+                }
             }
             ExportFormat::Urdf => {
                 warn!("Site exporting to Urdf is not supported.");

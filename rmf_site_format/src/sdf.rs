@@ -423,9 +423,7 @@ impl Door<u32> {
 impl Site {
     pub fn to_sdf(&self) -> Result<SdfRoot, SdfConversionError> {
         let get_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
-            self.anchors
-                .get(&id)
-                .or_else(|| self.levels.values().find_map(|l| l.anchors.get(&id)))
+            self.get_anchor(id)
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
                 .cloned()
         };
