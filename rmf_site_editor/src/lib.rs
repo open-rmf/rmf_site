@@ -1,9 +1,12 @@
+extern crate console_error_panic_hook;
+
 use bevy::{
     log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
 };
 use bevy_egui::EguiPlugin;
 
 use main_menu::MainMenuPlugin;
+use std::panic;
 
 // use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
@@ -134,6 +137,8 @@ pub fn run_js() {
 #[cfg(target_arch = "wasm32")]
 #[wasm_bindgen]
 pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValue) {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+
     use js_sys::Uint8Array;
 
     #[cfg(target_arch = "wasm32")]
@@ -154,6 +159,7 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValu
 }
 
 pub fn run(command_line_args: Vec<String>) {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
     let mut app: App = App::new();
 
     #[cfg(not(target_arch = "wasm32"))]

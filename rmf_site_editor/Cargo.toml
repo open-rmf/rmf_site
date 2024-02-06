@@ -49,9 +49,9 @@ sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev =
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "first_implementation" }
 pathdiff = "*"
 tera = "1.19.1"
-reqwest = { version = "0.11", features = ["blocking", "json"] }
 js-sys = "0.3.60"
 web-sys = "0.3.60"
+console_error_panic_hook = "0.1.7"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
