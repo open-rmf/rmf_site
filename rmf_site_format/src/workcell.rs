@@ -698,8 +698,9 @@ impl Workcell {
                 }),
                 // As per Industrial Workcell Coordinate Conventions, the name of the workcell
                 // datum link shall be "<workcell_name>_workcell_link".
-                name: Some(NameInWorkcell(
-                    String::from(self.properties.name.0.clone() + "_workcell_link"))),
+                name: Some(NameInWorkcell(String::from(
+                    self.properties.name.0.clone() + "_workcell_link",
+                ))),
                 mesh_constraint: None,
                 marker: FrameMarker,
             };
