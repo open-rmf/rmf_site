@@ -175,27 +175,27 @@ impl Plugin for SiteEditor {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut plugins = DefaultPlugins.build();
-            let window_plugin = if self.headless {
-                plugins = plugins.disable::<bevy::winit::WinitPlugin>();
-                WindowPlugin {
-                    primary_window: None,
-                    exit_condition: bevy::window::ExitCondition::DontExit,
-                    close_when_requested: false,
-                }
+            let plugins = if self.headless {
+                plugins
+                    .set(WindowPlugin {
+                        primary_window: None,
+                        exit_condition: bevy::window::ExitCondition::DontExit,
+                        close_when_requested: false,
+                    })
+                    .disable::<bevy::winit::WinitPlugin>()
             } else {
-                WindowPlugin {
+                plugins.set(WindowPlugin {
                     primary_window: Some(Window {
                         title: "RMF Site Editor".to_owned(),
                         resolution: (1600., 900.).into(),
                         ..default()
                     }),
                     ..default()
-                }
+                })
             };
             app.add_plugins(
                 plugins
                     .disable::<LogPlugin>()
-                    .set(window_plugin)
                     .set(ImagePlugin {
                         default_sampler: SamplerDescriptor {
                             address_mode_u: AddressMode::Repeat,
@@ -243,6 +243,8 @@ impl Plugin for SiteEditor {
                 SiteWireframePlugin,
             ));
 
+        // TODO(luca) This schedule runner plugin runs forever.
+        // We might need to have a custom one where we can inject exit conditions.
         if self.headless {
             app.add_plugins(ScheduleRunnerPlugin::default());
         }
