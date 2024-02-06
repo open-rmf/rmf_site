@@ -76,7 +76,7 @@ pub struct CommandLineArgs {
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
     /// Run in headless mode.
-    #[arg(long)]
+    #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
     pub headless: bool,
 }
 
