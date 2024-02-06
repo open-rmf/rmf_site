@@ -174,7 +174,9 @@ impl Plugin for SiteEditor {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
+            let mut plugins = DefaultPlugins.build();
             let window_plugin = if self.headless {
+                plugins = plugins.disable::<bevy::winit::WinitPlugin>();
                 WindowPlugin {
                     primary_window: None,
                     exit_condition: bevy::window::ExitCondition::DontExit,
@@ -191,8 +193,7 @@ impl Plugin for SiteEditor {
                 }
             };
             app.add_plugins(
-                DefaultPlugins
-                    .build()
+                plugins
                     .disable::<LogPlugin>()
                     .set(window_plugin)
                     .set(ImagePlugin {
