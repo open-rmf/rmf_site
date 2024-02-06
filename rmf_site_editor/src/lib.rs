@@ -124,7 +124,7 @@ pub fn run(command_line_args: Vec<String>) {
 
     #[cfg(not(target_arch = "wasm32"))]
     {
-    let command_line_args = CommandLineArgs::parse_from(command_line_args);
+        let command_line_args = CommandLineArgs::parse_from(command_line_args);
         if let Some(path) = command_line_args.filename {
             app.insert_resource(Autoload::file(
                 path.into(),
@@ -134,9 +134,7 @@ pub fn run(command_line_args: Vec<String>) {
         headless = command_line_args.headless;
     }
 
-    app.add_plugins(SiteEditor {
-        headless,
-    });
+    app.add_plugins(SiteEditor { headless });
     app.run();
 }
 
