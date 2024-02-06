@@ -120,24 +120,27 @@ pub fn run_js() {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
+    let mut headless = false;
 
-    //#[cfg(not(target_arch = "wasm32"))]
-    //{
+    #[cfg(not(target_arch = "wasm32"))]
+    {
     let command_line_args = CommandLineArgs::parse_from(command_line_args);
-    if let Some(path) = command_line_args.filename {
-        app.insert_resource(Autoload::file(
-            path.into(),
-            command_line_args.import.map(Into::into),
-        ));
+        if let Some(path) = command_line_args.filename {
+            app.insert_resource(Autoload::file(
+                path.into(),
+                command_line_args.import.map(Into::into),
+            ));
+        }
+        headless = command_line_args.headless;
     }
-    //}
 
     app.add_plugins(SiteEditor {
-        headless: command_line_args.headless,
+        headless,
     });
     app.run();
 }
 
+#[derive(Default)]
 pub struct SiteEditor {
     /// Whether to run the site editor in headless mode.
     pub headless: bool,
