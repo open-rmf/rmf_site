@@ -122,7 +122,10 @@ extern "C" {
     pub fn log(s: &str);
 
     #[wasm_bindgen(js_namespace = window)]
-    pub fn save_map(id: &str, s: &str);
+    pub fn save_site_map(id: &str, s: &str);
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn save_nav_graph(id: &str, s: &str);
 }
 
 #[cfg(target_arch = "wasm32")]

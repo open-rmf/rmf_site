@@ -480,6 +480,10 @@ fn dispatch_save_workspace_events(
                         })
                         .expect("Failed sending save request");
                 }
+                SaveWorkspaceDestination::Web => {
+                    warn!("Unable to save, only file saving is supported in non-wasm");
+                    return;
+                }
             }
         } else {
             warn!("Unable to save, no workspace loaded");

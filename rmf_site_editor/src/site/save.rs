@@ -29,7 +29,7 @@ use crate::{
     log,
     main_menu::{SaveToWeb, UploadData, WebAutoLoad},
     recency::RecencyRanking,
-    save_map,
+    save_nav_graph, save_site_map,
     site::*,
 };
 use rmf_site_format::*;
@@ -1208,6 +1208,8 @@ pub fn save_site(world: &mut World) {
     for save_event in save_events {
         #[cfg(target_arch = "wasm32")]
         {
+            let building_id: String = save_event.upload.building_id.unwrap();
+
             log("save_site - Saving site event from web");
             let site = match generate_site(world, save_event.site) {
                 Ok(site) => site,
@@ -1218,25 +1220,32 @@ pub fn save_site(world: &mut World) {
             };
 
             // convert site to json
-            let site_json = match serde_json::to_string(&site) {
-                Ok(json) => json,
+            let site_yaml = match serde_yaml::to_string(&site) {
+                Ok(yaml) => yaml,
                 Err(err) => {
-                    error!("Unable to convert site to json: {err}");
+                    error!("Unable to convert site to yaml: {err}");
                     continue;
                 }
             };
 
-            let building_id = save_event.upload.building_id.unwrap();
-            // send site to web
-            save_map(&building_id, site_json.as_str());
+            log(&format!("site_yaml: {site_yaml}"));
 
-            // if let Some(upload_details) = upload_details {
-            //     if let Some(building_id) = upload_details.building_id.clone() {
-            //         log(&format!("building_id: {building_id}"));
-            //     }
-            // }
-            // use reqwest to send non blocking request json to the server
-            // url: https://www.toptal.com/developers/postbin/1707104013738-0294617360923
+            for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
+                // convert to yaml using serde yaml
+                let nav_graph_yaml = match serde_yaml::to_string(&nav_graph) {
+                    Ok(yaml) => yaml,
+                    Err(err) => {
+                        error!("Unable to convert nav graph to yaml: {err}");
+                        continue;
+                    }
+                };
+                save_nav_graph(&building_id, nav_graph_yaml.as_str());
+
+                log(&format!("nav_graph {name}: {:?}", &nav_graph_yaml));
+            }
+
+            // send site to web
+            save_site_map(&building_id, site_yaml.as_str());
         }
 
         #[cfg(not(target_arch = "wasm32"))]
