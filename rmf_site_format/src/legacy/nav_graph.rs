@@ -1,4 +1,5 @@
 use crate::*;
+use glam::Affine2;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -70,11 +71,13 @@ impl NavGraph {
                 for lift in site.lifts.values() {
                     let lift_name = &lift.properties.name.0;
                     let Some(center) = lift.properties.center(site) else {
-                        println!("ERROR: Skipping lift {lift_name} due to broken anchor reference");
+                        eprintln!(
+                            "ERROR: Skipping lift {lift_name} due to broken anchor reference"
+                        );
                         continue;
                     };
                     let Rotation::Yaw(yaw) = center.rot else {
-                        println!(
+                        eprintln!(
                             "ERROR: Skipping lift {lift_name} due to rotation not being pure yaw"
                         );
                         continue;
@@ -105,12 +108,12 @@ impl NavGraph {
 
                         // The anchor is in lift coordinates, make it in global coordinates
                         let trans = anchor.translation_for_category(Category::General);
-                        // TODO(luca) check that this translation is correct, most cases just have
-                        // an anchor in the origin.
-                        let anchor = Anchor::Translate2D([
-                            center.trans[0] + yaw.cos() * trans[0],
-                            center.trans[1] + yaw.sin() * trans[1],
-                        ]);
+                        let lift_tf = Affine2::from_angle_translation(
+                            yaw,
+                            [center.trans[0], center.trans[1]].into(),
+                        );
+                        let trans = lift_tf.transform_point2((*trans).into());
+                        let anchor = Anchor::Translate2D([trans[0], trans[1]]);
 
                         anchor_to_vertex.insert(*id, vertices.len());
                         let mut vertex =
@@ -120,7 +123,7 @@ impl NavGraph {
                     }
                 }
                 // Add site and level anchors
-                for (id, anchor) in site.anchors.iter().chain(level.anchors.iter()) {
+                for (id, anchor) in level.anchors.iter() {
                     let Some(lanes) = lanes_with_anchor.get(id) else {
                         continue;
                     };
@@ -141,11 +144,11 @@ impl NavGraph {
                         site.get_anchor(door.anchors.end()),
                     ) {
                         (Some(v0), Some(v1)) => (
-                            v0.translation_for_category(Category::Level),
-                            v1.translation_for_category(Category::Level),
+                            v0.translation_for_category(Category::Door),
+                            v1.translation_for_category(Category::Door),
                         ),
                         _ => {
-                            println!(
+                            eprintln!(
                                 "ERROR: Skipping door {door_name} due to broken anchor reference"
                             );
                             continue;
@@ -169,7 +172,7 @@ impl NavGraph {
                     ) {
                         (Some(v0), Some(v1)) => (*v0, *v1),
                         _ => {
-                            println!("ERROR: Skipping lane {lane_id} due to incompatibility");
+                            eprintln!("ERROR: Lane {lane_id} is using a site anchor. This is not supported, the lane will be skipped.");
                             continue;
                         }
                     };
