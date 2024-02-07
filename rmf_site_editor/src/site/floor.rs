@@ -129,45 +129,43 @@ fn make_floor_mesh(
     for (tf, cabin) in lifts.iter() {
         let to_subtract = match cabin {
             LiftCabin::Rect(params) => {
+                let gap_for_door = |d: &Option<LiftCabinDoorPlacement<Entity>>| -> f32 {
+                    d.and_then(|d| d.custom_gap).unwrap_or(params.gap())
+                };
                 let aabb = params.aabb();
-                let yaw = tf.rotation.to_euler(EulerRot::ZYX).0;
-                // Pad with a half meter per side
-                let center = tf.transform_point(aabb.center.into());
-                let he = aabb.half_extents + 0.5;
-                let p0_x = center[0] - he[0] * yaw.cos() + he[1] * yaw.sin();
-                let p0_y = center[1] - he[1] * yaw.cos() - he[0] * yaw.sin();
-                let p1_x = center[0] - he[0] * yaw.cos() - he[1] * yaw.sin();
-                let p1_y = center[1] + he[1] * yaw.cos() - he[0] * yaw.sin();
-                let p2_x = center[0] + he[0] * yaw.cos() - he[1] * yaw.sin();
-                let p2_y = center[1] + he[1] * yaw.cos() + he[0] * yaw.sin();
-                let p3_x = center[0] + he[0] * yaw.cos() + he[1] * yaw.sin();
-                let p3_y = center[1] - he[1] * yaw.cos() + he[0] * yaw.sin();
+                let tf_cabin = *tf * Transform::from_translation(aabb.center.into());
+                let front_gap = gap_for_door(&params.front_door);
+                let right_gap = gap_for_door(&params.right_door);
+                let back_gap = gap_for_door(&params.back_door);
+                let left_gap = gap_for_door(&params.left_door);
+                let he = aabb.half_extents;
+                let he0 = Vec3::new(he.x + front_gap, he.y + left_gap, 0.0);
+                let he1 = Vec3::new(he.x + front_gap, -he.y - right_gap, 0.0);
+                let he2 = Vec3::new(-he.x - back_gap, -he.y - right_gap, 0.0);
+                let he3 = Vec3::new(-he.x - back_gap, he.y + left_gap, 0.0);
+                let p0 = tf_cabin.transform_point(he0);
+                let p1 = tf_cabin.transform_point(he1);
+                let p2 = tf_cabin.transform_point(he2);
+                let p3 = tf_cabin.transform_point(he3);
                 Polygon::new(
-                    LineString::from(vec![[p0_x, p0_y], [p1_x, p1_y], [p2_x, p2_y], [p3_x, p3_y]]),
+                    LineString::from(vec![[p0.x, p0.y], [p1.x, p1.y], [p2.x, p2.y], [p3.x, p3.y]]),
                     vec![],
                 )
             } // When new lift types are added, add their footprint calculation here.
         };
         polygon = polygon.difference(&to_subtract.into());
     }
-    //let triangles = polygon.iter().map(|polygon| p.earcut_triangles_raw()).collect();
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
     for polygon in polygon.iter() {
         let triangles = polygon.earcut_triangles_raw();
-        positions.extend(
-            triangles
-                .vertices
-                .chunks(2)
-                .map(|v| [v[0], v[1], 0.])
-                .collect::<Vec<_>>(),
-        );
+        positions.extend(triangles.vertices.chunks(2).map(|v| [v[0], v[1], 0.]));
+        let idx_offset = indices.len();
         indices.extend(
             triangles
                 .triangle_indices
                 .iter()
-                .map(|idx| (idx + indices.len()) as u32)
-                .collect::<Vec<_>>(),
+                .map(|idx| (idx + idx_offset) as u32),
         );
     }
 
@@ -368,14 +366,21 @@ pub fn update_floors(
 
 pub fn update_floors_for_changed_lifts(
     lifts: Query<(&Transform, &LiftCabin<Entity>)>,
-    changed_lifts: Query<(), Changed<LiftCabin<Entity>>>,
+    changed_lifts: Query<
+        (),
+        Or<(
+            Changed<LiftCabin<Entity>>,
+            (With<LiftCabin<Entity>>, Changed<GlobalTransform>),
+        )>,
+    >,
+    removed_lifts: RemovedComponents<LiftCabin<Entity>>,
     floors: Query<(Entity, &FloorSegments, &Path<Entity>, &Affiliation<Entity>), With<FloorMarker>>,
     anchors: AnchorParams,
     textures: Query<(Option<&Handle<Image>>, &Texture)>,
     mut mesh_assets: ResMut<Assets<Mesh>>,
     mut mesh_handles: Query<&mut Handle<Mesh>>,
 ) {
-    if changed_lifts.is_empty() {
+    if changed_lifts.is_empty() && removed_lifts.is_empty() {
         return;
     }
     for (e, segments, path, texture_source) in floors.iter() {
