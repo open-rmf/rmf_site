@@ -23,7 +23,7 @@ use bevy::{
 };
 use geo::{
     geometry::{LineString, MultiPolygon, Polygon},
-    BooleanOps, TriangulateEarcut,
+    BooleanOps, CoordsIter, TriangulateSpade,
 };
 use rmf_site_format::{FloorMarker, Path, Texture};
 
@@ -158,15 +158,15 @@ fn make_floor_mesh(
     let mut positions: Vec<[f32; 3]> = Vec::new();
     let mut indices: Vec<u32> = Vec::new();
     for polygon in polygon.iter() {
-        let triangles = polygon.earcut_triangles_raw();
-        positions.extend(triangles.vertices.chunks(2).map(|v| [v[0], v[1], 0.]));
-        let idx_offset = indices.len();
-        indices.extend(
-            triangles
-                .triangle_indices
-                .iter()
-                .map(|idx| (idx + idx_offset) as u32),
-        );
+        let Ok(triangles) = polygon.constrained_triangulation(Default::default()) else {
+            warn!("Failed triangulating lift floor hole");
+            continue;
+        };
+        for triangle in triangles.iter() {
+            let idx = indices.len() as u32;
+            positions.extend(triangle.coords_iter().map(|v| [v.x, v.y, 0.]));
+            indices.extend([idx, idx + 1, idx + 2]);
+        }
     }
 
     let texture_width = texture.width.unwrap_or(1.0);
