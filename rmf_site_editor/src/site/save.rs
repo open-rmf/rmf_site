@@ -1228,8 +1228,6 @@ pub fn save_site(world: &mut World) {
                 }
             };
 
-            log(&format!("site_yaml: {site_yaml}"));
-
             for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                 // convert to yaml using serde yaml
                 let nav_graph_yaml = match serde_yaml::to_string(&nav_graph) {
@@ -1240,8 +1238,6 @@ pub fn save_site(world: &mut World) {
                     }
                 };
                 save_nav_graph(&building_id, nav_graph_yaml.as_str());
-
-                log(&format!("nav_graph {name}: {:?}", &nav_graph_yaml));
             }
 
             // send site to web
