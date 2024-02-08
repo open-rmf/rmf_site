@@ -156,21 +156,20 @@ fn make_floor_mesh(
         polygon = polygon.difference(&to_subtract.into());
     }
     let mut positions: Vec<[f32; 3]> = Vec::new();
-    let mut indices: Vec<u32> = Vec::new();
     for polygon in polygon.iter() {
         let Ok(triangles) = polygon.constrained_triangulation(Default::default()) else {
             warn!("Failed triangulating lift floor hole");
             continue;
         };
+        positions.reserve(triangles.len() * 3);
         for triangle in triangles.iter() {
-            let idx = indices.len() as u32;
             positions.extend(triangle.coords_iter().map(|v| [v.x, v.y, 0.]));
-            indices.extend([idx, idx + 1, idx + 2]);
         }
     }
 
     let texture_width = texture.width.unwrap_or(1.0);
     let texture_height = texture.height.unwrap_or(1.0);
+    let indices = (0..positions.len() as u32).collect();
     let normals: Vec<[f32; 3]> = positions.iter().map(|_| [0., 0., 1.]).collect();
     let uv: Vec<[f32; 2]> = positions
         .iter()
