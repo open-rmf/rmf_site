@@ -99,11 +99,11 @@ async fn fetch_asset<'a>(
     remote_url: String,
     asset_name: String,
 ) -> Result<Box<Reader<'a>>, AssetReaderError> {
-    let mut req = surf::get(remote_url.clone());
+    let mut req = ehttp::Request::get(remote_url.clone());
     match FUEL_API_KEY.lock() {
         Ok(key) => {
             if let Some(key) = key.clone() {
-                req = req.header("Private-token", key);
+                req.headers.headers.push(("Private-token".to_owned(), key));
             }
         }
         Err(poisoned_key) => {
@@ -115,10 +115,10 @@ async fn fetch_asset<'a>(
             )));
         }
     }
-    let bytes = req
-        .recv_bytes()
+    let bytes = ehttp::fetch_async(req)
         .await
-        .map_err(|e| AssetReaderError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?;
+        .map_err(|e| AssetReaderError::Io(io::Error::new(io::ErrorKind::Other, e.to_string())))?
+        .bytes;
 
     match serde_json::from_slice::<FuelErrorMsg>(&bytes) {
         Ok(error) => {
@@ -177,18 +177,8 @@ where
     F: Fn(&Path) -> BoxedFuture<'_, Result<Box<Reader<'_>>, AssetReaderError>> + Sync + 'static,
 {
     pub fn new(reader: F) -> Self {
-        let default_reader = {
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                bevy::asset::io::file::FileAssetReader::new("assets")
-            }
-            #[cfg(target_arch = "wasm32")]
-            {
-                bevy::asset::io::HttpWasmAssetReader::new("assets")
-            }
-        };
         Self {
-            default_reader: Box::new(default_reader),
+            default_reader: (AssetSourceBuilder::platform_default("assets", None).reader.unwrap())(),
             reader,
         }
     }
@@ -311,6 +301,14 @@ impl Plugin for SiteAssetIoPlugin {
         )
         .register_asset_source(
             "file",
+            BevyAssetSource::build().with_reader(|| {
+                Box::new(SiteAssetReader::new(|path: &Path| {
+                    Box::pin(async move { load_from_file(path.into()) })
+                }))
+            }),
+        )
+        .register_asset_source(
+            "slippy_map",
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
                     Box::pin(async move { load_from_file(path.into()) })

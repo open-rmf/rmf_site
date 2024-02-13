@@ -234,7 +234,7 @@ impl OSMTile {
         Self { xtile, ytile, zoom }
     }
 
-    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, surf::Error> {
+    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, ehttp::Error> {
         let mut cache_ok = false;
         let mut cache_full_path = PathBuf::new();
         #[cfg(not(target_arch = "wasm32"))]
@@ -248,7 +248,7 @@ impl OSMTile {
             cache_full_path.push(cache_file_name);
             // TODO(luca) check if we can have an async file read here instead?
             if std::path::Path::new(&cache_full_path).exists() && cache_ok {
-                return Ok(Box::new(VecReader::new(std::fs::read(&cache_full_path)?)));
+                return Ok(Box::new(VecReader::new(std::fs::read(&cache_full_path).map_err(|e| e.to_string())?)));
             }
         }
 
@@ -258,9 +258,8 @@ impl OSMTile {
             self.zoom, self.xtile, self.ytile
         );
 
-        let mut result = surf::get(uri).await?;
-
-        let bytes = result.body_bytes().await?;
+        let request = ehttp::Request::get(uri);
+        let bytes = ehttp::fetch_async(request).await?.bytes;
 
         #[cfg(not(target_arch = "wasm32"))]
         {
