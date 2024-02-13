@@ -113,8 +113,10 @@ fn add_wireframe_to_new_models(
 impl Plugin for SiteWireframePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WireframeMenu>()
-            .add_plugin(WireframePlugin)
-            .add_system(handle_wireframe_menu_events)
-            .add_system(add_wireframe_to_new_models);
+            .add_plugins(WireframePlugin)
+            .add_systems(
+                Update,
+                (handle_wireframe_menu_events, add_wireframe_to_new_models),
+            );
     }
 }

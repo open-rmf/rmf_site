@@ -120,8 +120,10 @@ fn switch_edit_drawing_mode(
             commands
                 .entity(*e)
                 .set_parent(current.editor)
-                .insert(Visibility::Inherited)
-                .insert(ComputedVisibility::default())
+                .insert(VisibilityBundle {
+                    visibility: Visibility::Inherited,
+                    ..default()
+                })
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited".to_owned(),
                 ))

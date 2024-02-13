@@ -1,3 +1,4 @@
+#![allow(warnings)]
 use bevy::{
     log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
 };
@@ -43,7 +44,7 @@ use workspace::*;
 pub mod sdf_loader;
 
 pub mod site_asset_io;
-pub mod urdf_loader;
+//pub mod urdf_loader;
 use sdf_loader::*;
 
 pub mod view_menu;
@@ -165,7 +166,8 @@ impl Plugin for SiteEditor {
 
         #[cfg(not(target_arch = "wasm32"))]
         {
-            app.add_plugins(
+            app.add_plugins((
+                SiteAssetIoPlugin,
                 DefaultPlugins
                     .build()
                     .disable::<LogPlugin>()
@@ -183,17 +185,18 @@ impl Plugin for SiteEditor {
                             address_mode_v: AddressMode::Repeat,
                             address_mode_w: AddressMode::Repeat,
                             ..Default::default()
-                        },
+                        }
+                        .into(),
                     })
                     .set(RenderPlugin {
-                        wgpu_settings: WgpuSettings {
+                        render_creation: WgpuSettings {
                             features: WgpuFeatures::POLYGON_MODE_LINE,
                             ..default()
-                        },
+                        }
+                        .into(),
                         ..default()
-                    })
-                    .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-            );
+                    }),
+            ));
         }
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
@@ -214,6 +217,8 @@ impl Plugin for SiteEditor {
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
             .add_plugins((
+                bevy_stl::StlPlugin,
+                bevy_obj::ObjPlugin,
                 ViewMenuPlugin,
                 IssuePlugin,
                 OSMViewPlugin,

@@ -28,7 +28,6 @@ pub enum AssetSource {
     Local(String),
     Remote(String),
     Search(String),
-    Bundled(String),
     Package(String),
     OSMTile {
         zoom: i32,
@@ -43,7 +42,6 @@ impl AssetSource {
             Self::Local(_) => "Local",
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
-            Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
             Self::OSMTile {
                 zoom: _,
@@ -115,8 +113,6 @@ impl From<&str> for AssetSource {
             return AssetSource::Local(path);
         } else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
             return AssetSource::Search(path);
-        } else if let Some(path) = path.strip_prefix("bundled://").map(|p| p.to_string()) {
-            return AssetSource::Bundled(path);
         } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
             return AssetSource::Package(path);
         } else if let Some(path) = path.strip_prefix("osm-tile://").map(|p| p.to_string()) {
@@ -157,7 +153,6 @@ impl From<&AssetSource> for String {
             AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
-            AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
             AssetSource::OSMTile {
                 zoom,
@@ -197,9 +192,6 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Search(name) => {
                 self.search_name = Some(name.clone());
-            }
-            AssetSource::Bundled(name) => {
-                self.bundled_name = Some(name.clone());
             }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());

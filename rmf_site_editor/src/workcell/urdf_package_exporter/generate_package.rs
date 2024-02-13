@@ -93,12 +93,10 @@ fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<PathBuf, Box<dyn
             Ok(asset_path)
         }
         AssetSource::Local(path) => Ok(path.into()),
-        AssetSource::Search(_) | AssetSource::OSMTile { .. } | AssetSource::Bundled(_) => {
-            Err(IoError::new(
-                IoErrorKind::Unsupported,
-                "Not a supported asset type for exporting a workcell to a package",
-            ))?
-        }
+        AssetSource::Search(_) | AssetSource::OSMTile { .. } => Err(IoError::new(
+            IoErrorKind::Unsupported,
+            "Not a supported asset type for exporting a workcell to a package",
+        ))?,
     }
 }
 

@@ -81,11 +81,11 @@ pub fn set_bobbing(
 }
 
 pub fn update_spinning_animations(
-    mut spinners: Query<(&mut Transform, &Spinning, &ComputedVisibility)>,
+    mut spinners: Query<(&mut Transform, &Spinning, &ViewVisibility)>,
     now: Res<Time>,
 ) {
     for (mut tf, spin, visibility) in &mut spinners {
-        if visibility.is_visible_in_view() {
+        if **visibility {
             let angle = 2. * std::f32::consts::PI * now.elapsed_seconds() / spin.period;
             tf.as_mut().rotation = Quat::from_rotation_z(angle);
         }
@@ -93,11 +93,11 @@ pub fn update_spinning_animations(
 }
 
 pub fn update_bobbing_animations(
-    mut bobbers: Query<(&mut Transform, &Bobbing, &ComputedVisibility)>,
+    mut bobbers: Query<(&mut Transform, &Bobbing, &ViewVisibility)>,
     now: Res<Time>,
 ) {
     for (mut tf, bob, visibility) in &mut bobbers {
-        if visibility.is_visible_in_view() {
+        if **visibility {
             let theta = 2. * std::f32::consts::PI * now.elapsed_seconds() / bob.period;
             let dh = bob.heights.1 - bob.heights.0;
             tf.as_mut().translation[2] = dh * (1. - theta.cos()) / 2.0 + bob.heights.0;

@@ -115,10 +115,7 @@ impl<'a, 'w, 's, T: Component> MoveLayerButton<'a, 'w, T> {
 
     pub fn show(self, ui: &mut Ui) {
         let resp = ui
-            .add(ImageButton::new(
-                self.icons.move_rank(self.adjustment),
-                [18., 18.],
-            ))
+            .add(ImageButton::new(self.icons.move_rank(self.adjustment)))
             .on_hover_text(self.adjustment.label());
 
         if resp.clicked() {

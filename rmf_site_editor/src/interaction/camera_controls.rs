@@ -255,8 +255,10 @@ impl FromWorld for CameraControls {
                     tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
-                .insert(Visibility::Inherited)
-                .insert(ComputedVisibility::default())
+                .insert(VisibilityBundle {
+                    visibility: Visibility::Inherited,
+                    ..default()
+                })
                 .insert(RenderLayers::layer(layer))
                 .id()
         });
@@ -268,8 +270,10 @@ impl FromWorld for CameraControls {
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
-            .insert(Visibility::Inherited)
-            .insert(ComputedVisibility::default())
+            .insert(VisibilityBundle {
+                visibility: Visibility::Inherited,
+                ..default()
+            })
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,
@@ -321,8 +325,10 @@ impl FromWorld for CameraControls {
                     tonemapping: Tonemapping::ReinhardLuminance,
                     ..default()
                 })
-                .insert(Visibility::Inherited)
-                .insert(ComputedVisibility::default())
+                .insert(VisibilityBundle {
+                    visibility: Visibility::Inherited,
+                    ..default()
+                })
                 .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
                 .id()
         });
@@ -338,8 +344,10 @@ impl FromWorld for CameraControls {
                 tonemapping: Tonemapping::ReinhardLuminance,
                 ..default()
             })
-            .insert(Visibility::Inherited)
-            .insert(ComputedVisibility::default())
+            .insert(VisibilityBundle {
+                visibility: Visibility::Inherited,
+                ..default()
+            })
             .insert(RenderLayers::from_layers(&[
                 GENERAL_RENDER_LAYER,
                 VISUAL_CUE_RENDER_LAYER,

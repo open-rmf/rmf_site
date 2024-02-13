@@ -80,10 +80,7 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
 
             if !self.is_floor {
                 let response = ui
-                    .add(ImageButton::new(
-                        self.events.layers.icons.edit.egui(),
-                        [18., 18.],
-                    ))
+                    .add(ImageButton::new(self.events.layers.icons.edit.egui()))
                     .on_hover_text("Edit Drawing");
 
                 if response.hovered() {
@@ -100,12 +97,10 @@ impl<'a, 'w, 's> InspectLayer<'a, 'w, 's> {
         }
 
         let icon = self.icons.layer_visibility_of(self.layer_vis);
-        let resp = ui
-            .add(ImageButton::new(icon, [18., 18.]))
-            .on_hover_text(format!(
-                "Change to {}",
-                self.layer_vis.next(self.default_alpha).label()
-            ));
+        let resp = ui.add(ImageButton::new(icon)).on_hover_text(format!(
+            "Change to {}",
+            self.layer_vis.next(self.default_alpha).label()
+        ));
         if resp.hovered() {
             self.events.request.hover.send(Hover(Some(self.entity)));
         }

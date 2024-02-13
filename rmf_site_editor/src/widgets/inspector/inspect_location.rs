@@ -59,10 +59,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         let mut deleted_tag = None;
         for (i, tag) in self.tags.0.iter().enumerate() {
             ui.horizontal(|ui| {
-                if ui
-                    .add(ImageButton::new(self.icons.trash.egui(), [18., 18.]))
-                    .clicked()
-                {
+                if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
                     deleted_tag = Some(i);
                 }
                 ui.label(tag.label());

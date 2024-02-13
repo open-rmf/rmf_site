@@ -21,10 +21,16 @@ use crate::{
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
     SdfRoot,
 };
-use bevy::{asset::LoadState, gltf::Gltf, prelude::*, render::view::RenderLayers};
+use bevy::{
+    asset::{LoadState, LoadedUntypedAsset},
+    gltf::Gltf,
+    prelude::*,
+    render::view::RenderLayers,
+};
 use bevy_mod_outline::OutlineMeshExt;
-use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale, UrdfRoot};
+use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
+use std::any::{Any, TypeId};
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -74,8 +80,8 @@ impl TentativeModelFormat {
     }
 }
 
-#[derive(Component, Deref, DerefMut)]
-pub struct PendingSpawning(HandleUntyped);
+#[derive(Debug, Component, Deref, DerefMut)]
+pub struct PendingSpawning(Handle<LoadedUntypedAsset>);
 
 /// A unit component to mark where a scene begins
 #[derive(Component, Debug, Clone, Copy)]
@@ -93,15 +99,25 @@ pub fn handle_model_loaded_events(
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
     gltfs: Res<Assets<Gltf>>,
-    urdfs: Res<Assets<UrdfRoot>>,
     sdfs: Res<Assets<SdfRoot>>,
+    untyped_assets: Res<Assets<LoadedUntypedAsset>>,
 ) {
     // For each model that is loading, check if its scene has finished loading
     // yet. If the scene has finished loading, then insert it as a child of the
     // model entity and make it selectable.
     for (e, h, scale, render_layer) in loading_models.iter() {
-        if asset_server.get_load_state(&h.0) == LoadState::Loaded {
-            let model_id = if let Some(gltf) = gltfs.get(&h.typed_weak::<Gltf>()) {
+        if asset_server.is_loaded_with_dependencies(h.id()) {
+            let Some(h) = untyped_assets.get(&**h) else {
+                warn!("Broken reference to untyped asset, this should not happen!");
+                continue;
+            };
+            let h = &h.handle;
+            let type_id = h.type_id();
+            let model_id = if type_id == TypeId::of::<Gltf>() {
+                // Guaranteed to be safe in this scope
+                // Note we can't do an `if let Some()` because get(Handle) panics if the type is
+                // not the stored type
+                let gltf = gltfs.get(&*h).unwrap();
                 // Get default scene if present, otherwise index 0
                 let scene = gltf
                     .default_scene
@@ -118,8 +134,8 @@ pub fn handle_model_loaded_events(
                         .set_parent(e)
                         .id(),
                 )
-            } else if scenes.contains(&h.typed_weak::<Scene>()) {
-                let h_typed = h.0.clone().typed::<Scene>();
+            } else if type_id == TypeId::of::<Scene>() {
+                let h_typed = h.clone().typed::<Scene>();
                 Some(
                     commands
                         .spawn(SceneBundle {
@@ -130,8 +146,8 @@ pub fn handle_model_loaded_events(
                         .set_parent(e)
                         .id(),
                 )
-            } else if meshes.contains(&h.typed_weak::<Mesh>()) {
-                let h_typed = h.0.clone().typed::<Mesh>();
+            } else if type_id == TypeId::of::<Mesh>() {
+                let h_typed = h.clone().typed::<Mesh>();
                 Some(
                     commands
                         .spawn(PbrBundle {
@@ -143,16 +159,8 @@ pub fn handle_model_loaded_events(
                         .set_parent(e)
                         .id(),
                 )
-            } else if let Some(urdf) = urdfs.get(&h.typed_weak::<UrdfRoot>()) {
-                Some(
-                    commands
-                        .spawn(SpatialBundle::INHERITED_IDENTITY)
-                        .insert(urdf.clone())
-                        .insert(Category::Workcell)
-                        .set_parent(e)
-                        .id(),
-                )
-            } else if let Some(sdf) = sdfs.get(&h.typed_weak::<SdfRoot>()) {
+            } else if type_id == TypeId::of::<SdfRoot>() {
+                let sdf = sdfs.get(&*h).unwrap();
                 Some(
                     commands
                         .spawn(SpatialBundle::INHERITED_IDENTITY)
@@ -302,7 +310,7 @@ pub fn update_model_tentative_formats(
     }
     // Check from the asset server if any format failed, if it did try the next
     for (e, mut tentative_format, h, source) in loading_models.iter_mut() {
-        if matches!(asset_server.get_load_state(&h.0), LoadState::Failed) {
+        if matches!(asset_server.get_load_state(h.id()), Some(LoadState::Failed)) {
             let mut cmd = commands.entity(e);
             cmd.remove::<PreventDeletion>();
             // We want to iterate only for search asset types, for others just print an error

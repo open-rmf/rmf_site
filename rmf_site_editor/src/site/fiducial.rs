@@ -224,8 +224,7 @@ pub fn add_fiducial_visuals(
             .entity(e)
             .insert(assets.fiducial_mesh.clone())
             .insert(assets.fiducial_material.clone())
-            .insert(Visibility::default())
-            .insert(ComputedVisibility::default())
+            .insert(VisibilityBundle::default())
             .insert(Category::Fiducial)
             .insert(VisualCue::outline());
     }

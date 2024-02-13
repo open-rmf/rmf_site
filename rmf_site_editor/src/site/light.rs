@@ -58,7 +58,8 @@ pub fn add_physical_lights(
             } else {
                 Visibility::Hidden
             })
-            .insert(ComputedVisibility::default())
+            .insert(ViewVisibility::default())
+            .insert(InheritedVisibility::default())
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())

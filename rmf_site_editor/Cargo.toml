@@ -16,22 +16,23 @@ name = "extending_site_editor"
 path = "examples/extending_menu.rs"
 
 [dependencies]
-bevy_egui = "0.21"
-bevy_mod_raycast = "0.15"
-bevy_mod_outline = "0.5"
-bevy_infinite_grid = "0.8"
-bevy_polyline = "0.7"
-bevy_stl = "0.11"
-bevy_obj = { version = "0.11", features = ["scene"] }
+bevy_egui = "0.23"
+bevy_mod_raycast = "0.16"
+bevy_mod_outline = "0.6"
+bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "5897bb6" }
+bevy_polyline = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline", rev = "9608140" }
+bevy_stl = "0.12"
+#bevy_obj = { version = "0.12", features = ["scene"] }
+bevy_obj = { path = "../../bevy_obj", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
 # wasm-bindgen 0.2.85 introduces a compile error in stdweb
-wasm-bindgen = "=0.2.84"
+wasm-bindgen = "0.2.87"
 futures-lite = "1.12.0"
-bevy = { version = "0.11", features = ["pnm", "jpeg", "tga"] }
-bevy_utils = "0.11"
+bevy = { version = "0.12", features = ["pnm", "jpeg", "tga"] }
+bevy_utils = "0.12"
 dirs = "5.0"
 thread_local = "*"
 lyon = "1"

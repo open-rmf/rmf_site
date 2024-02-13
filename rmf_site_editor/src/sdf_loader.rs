@@ -15,10 +15,11 @@
  *
 */
 
-use bevy::asset::{AssetLoader, LoadContext, LoadedAsset};
+use bevy::asset::{io::Reader, AssetLoader, LoadContext, LoadedAsset};
 use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::BoxedFuture;
+use futures_lite::AsyncReadExt;
 
 use thiserror::Error;
 
@@ -28,12 +29,11 @@ pub struct SdfPlugin;
 
 impl Plugin for SdfPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset_loader::<SdfLoader>().add_asset::<SdfRoot>();
+        app.init_asset_loader::<SdfLoader>().init_asset::<SdfRoot>();
     }
 }
 
-#[derive(Component, Default, Debug, TypeUuid, TypePath, Clone)]
-#[uuid = "fe707f9e-c6f3-11ed-afa2-0242ac120002"]
+#[derive(Asset, Component, Default, Debug, TypePath, Clone)]
 pub struct SdfRoot {
     pub model: SdfModel,
     // TODO(make this a AssetSource)
@@ -44,12 +44,22 @@ pub struct SdfRoot {
 struct SdfLoader;
 
 impl AssetLoader for SdfLoader {
+    // TODO(luca) make this a scene
+    type Asset = SdfRoot;
+    type Settings = ();
+    type Error = SdfError;
     fn load<'a>(
         &'a self,
-        bytes: &'a [u8],
+        reader: &'a mut Reader,
+        _settings: &'a (),
         load_context: &'a mut LoadContext,
-    ) -> BoxedFuture<'a, Result<(), bevy::asset::Error>> {
-        Box::pin(async move { Ok(load_model(bytes, load_context).await?) })
+    ) -> BoxedFuture<'a, Result<Self::Asset, Self::Error>> {
+        Box::pin(async move {
+            let mut bytes = Vec::new();
+            // TODO(luca) remove unwrap
+            reader.read_to_end(&mut bytes).await.unwrap();
+            Ok(load_model(bytes, load_context).await?)
+        })
     }
 
     fn extensions(&self) -> &[&str] {
@@ -60,6 +70,8 @@ impl AssetLoader for SdfLoader {
 
 #[derive(Error, Debug)]
 pub enum SdfError {
+    #[error("Couldn't read SDF file: {0}")]
+    Io(#[from] std::io::Error),
     #[error("Yaserde loading error: {0}")]
     YaserdeError(String),
     #[error("No <model> tag found in model.sdf file")]
@@ -67,18 +79,17 @@ pub enum SdfError {
 }
 
 async fn load_model<'a, 'b>(
-    bytes: &'a [u8],
+    bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
-) -> Result<(), SdfError> {
-    let sdf_str = std::str::from_utf8(bytes).unwrap();
+) -> Result<SdfRoot, SdfError> {
+    let sdf_str = std::str::from_utf8(&bytes).unwrap();
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
-                let path = load_context.path().to_str().unwrap().to_string();
+                let path = load_context.asset_path().to_string();
                 let sdf_root = SdfRoot { model, path };
-                load_context.set_default_asset(LoadedAsset::new(sdf_root));
-                Ok(())
+                Ok(sdf_root)
             } else {
                 Err(SdfError::MissingModelTag)
             }

@@ -75,7 +75,7 @@ fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>)
 
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugin(InfiniteGridPlugin)
+        app.add_plugins(InfiniteGridPlugin)
             .add_event::<CreateJoint>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()

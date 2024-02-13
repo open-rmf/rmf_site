@@ -33,7 +33,12 @@ use crate::{
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
-use bevy::{ecs::query::Has, ecs::system::SystemParam, prelude::*};
+use bevy::{
+    asset::{embedded_asset, embedded_path},
+    ecs::query::Has,
+    ecs::system::SystemParam,
+    prelude::*,
+};
 use bevy_egui::{
     egui::{self, Button, CollapsingHeader},
     EguiContexts,
@@ -98,8 +103,33 @@ pub struct PendingModel {
 #[derive(Default)]
 pub struct StandardUiLayout;
 
+fn add_widgets_icons(app: &mut App) {
+    embedded_asset!(app, "icons/add.png");
+    embedded_asset!(app, "icons/alignment.png");
+    embedded_asset!(app, "icons/alpha.png");
+    embedded_asset!(app, "icons/confirm.png");
+    embedded_asset!(app, "icons/down.png");
+    embedded_asset!(app, "icons/edit.png");
+    embedded_asset!(app, "icons/empty.png");
+    embedded_asset!(app, "icons/exit.png");
+    embedded_asset!(app, "icons/global.png");
+    embedded_asset!(app, "icons/hidden.png");
+    embedded_asset!(app, "icons/hide.png");
+    embedded_asset!(app, "icons/merge.png");
+    embedded_asset!(app, "icons/opaque.png");
+    embedded_asset!(app, "icons/reject.png");
+    embedded_asset!(app, "icons/search.png");
+    embedded_asset!(app, "icons/select.png");
+    embedded_asset!(app, "icons/selected.png");
+    embedded_asset!(app, "icons/to_bottom.png");
+    embedded_asset!(app, "icons/to_top.png");
+    embedded_asset!(app, "icons/trash.png");
+    embedded_asset!(app, "icons/up.png");
+}
+
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
+        add_widgets_icons(app);
         app.init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
@@ -431,7 +461,6 @@ fn site_drawing_ui_layout(
                         if ui
                             .add(Button::image_and_text(
                                 events.layers.icons.exit.egui(),
-                                [18., 18.],
                                 "Return to site editor",
                             ))
                             .clicked()
@@ -507,7 +536,6 @@ fn site_visualizer_ui_layout(
                         ui.separator();
                         if ui.add(Button::image_and_text(
                             events.layers.icons.alignment.egui(),
-                            [18., 18.],
                             "Align Drawings",
                         ))
                             .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
@@ -519,7 +547,6 @@ fn site_visualizer_ui_layout(
                         }
                         if ui.add(Button::image_and_text(
                             events.layers.icons.exit.egui(),
-                            [18., 18.],
                             "Return to site editor"
                         )).clicked() {
                             events.next_app_state.set(AppState::SiteEditor);

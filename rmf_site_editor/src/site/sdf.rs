@@ -93,7 +93,7 @@ fn compute_model_source(path: &str, uri: &str) -> AssetSource {
                 "".into()
             };
         }
-        AssetSource::Bundled(_) | AssetSource::OSMTile { .. } => {
+        AssetSource::OSMTile { .. } => {
             warn!("Requested asset source {:?} type not supported for SDFs, might behave unexpectedly", asset_source);
         }
     }

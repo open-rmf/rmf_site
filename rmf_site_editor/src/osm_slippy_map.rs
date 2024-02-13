@@ -18,6 +18,7 @@
 use std::{f32::consts::PI, io::Write, path::PathBuf};
 
 use bevy::{
+    asset::io::{file::FileAssetReader, Reader, VecReader},
     prelude::{Mesh, Vec2},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
@@ -233,7 +234,7 @@ impl OSMTile {
         Self { xtile, ytile, zoom }
     }
 
-    pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
+    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, surf::Error> {
         let mut cache_ok = false;
         let mut cache_full_path = PathBuf::new();
         #[cfg(not(target_arch = "wasm32"))]
@@ -245,8 +246,9 @@ impl OSMTile {
             let err = std::fs::create_dir_all(cache_full_path.clone());
             cache_ok = err.is_ok();
             cache_full_path.push(cache_file_name);
+            // TODO(luca) check if we can have an async file read here instead?
             if std::path::Path::new(&cache_full_path).exists() && cache_ok {
-                return Ok(std::fs::read(&cache_full_path)?);
+                return Ok(Box::new(VecReader::new(std::fs::read(&cache_full_path)?)));
             }
         }
 
@@ -272,7 +274,7 @@ impl OSMTile {
             }
         }
 
-        Ok(bytes)
+        Ok(Box::new(VecReader::new(bytes)))
     }
 }
 

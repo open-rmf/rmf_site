@@ -346,7 +346,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     if ui
                         .add(Button::image_and_text(
                             self.events.layers.icons.edit.egui(),
-                            [18., 18.],
                             "Edit Drawing",
                         ))
                         .clicked()
@@ -361,7 +360,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if ui
                     .add(Button::image_and_text(
                         self.events.layers.icons.alignment.egui(),
-                        [18., 18.],
                         "Align Drawings",
                     ))
                     .on_hover_text(

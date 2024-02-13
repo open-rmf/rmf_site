@@ -105,12 +105,13 @@ pub fn update_bounds(
         }
     }
 
+    /*
     let to_update = |event: &AssetEvent<Mesh>| {
-        let handle = match event {
-            AssetEvent::Modified { handle } => handle,
+        let id = match event {
+            AssetEvent::Modified { id } => id,
             _ => return None,
         };
-        let mesh = meshes.get(handle)?;
+        let mesh = meshes.get(*id)?;
         let entities_with_handle = entity_mesh_map.entities_with_mesh.get(handle)?;
         let aabb = mesh.compute_aabb()?;
         Some((aabb, entities_with_handle))
@@ -120,6 +121,7 @@ pub fn update_bounds(
             commands.entity(*entity).insert(aabb.clone());
         }
     }
+    */
 }
 
 pub struct AabbUpdatePlugin;
