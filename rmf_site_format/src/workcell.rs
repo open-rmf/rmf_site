@@ -879,10 +879,14 @@ impl From<&urdf_rs::Geometry> for Geometry {
                 let scale = scale
                     .clone()
                     .and_then(|s| Some(Vec3::from_array(s.map(|v| v as f32))));
-                Geometry::Mesh {
-                    source: (&**filename).into(),
-                    scale,
-                }
+                // Most (all?) Urdf files use package references, we fallback to local if that is
+                // not the case
+                let source = if let Some(path) = filename.strip_prefix("package://") {
+                    AssetSource::Package(path.to_owned())
+                } else {
+                    AssetSource::Local(filename.clone())
+                };
+                Geometry::Mesh { source, scale }
             }
         }
     }

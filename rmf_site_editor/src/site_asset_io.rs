@@ -178,7 +178,9 @@ where
 {
     pub fn new(reader: F) -> Self {
         Self {
-            default_reader: (AssetSourceBuilder::platform_default("assets", None).reader.unwrap())(),
+            default_reader: (AssetSourceBuilder::platform_default("assets", None)
+                .reader
+                .unwrap())(),
             reader,
         }
     }
@@ -308,10 +310,14 @@ impl Plugin for SiteAssetIoPlugin {
             }),
         )
         .register_asset_source(
-            "slippy_map",
+            "osm-tile",
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
-                    Box::pin(async move { load_from_file(path.into()) })
+                    Box::pin(async move {
+                        let tile =
+                            OSMTile::try_from(path.to_path_buf()).map_err(std::io::Error::other)?;
+                        tile.get_map_image().await
+                    })
                 }))
             }),
         );

@@ -29,11 +29,6 @@ pub enum AssetSource {
     Remote(String),
     Search(String),
     Package(String),
-    OSMTile {
-        zoom: i32,
-        latitude: f32,
-        longitude: f32,
-    },
 }
 
 impl AssetSource {
@@ -43,11 +38,6 @@ impl AssetSource {
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
             Self::Package(_) => "Package",
-            Self::OSMTile {
-                zoom: _,
-                latitude: _,
-                longitude: _,
-            } => "Map",
         }
     }
 
@@ -92,61 +82,6 @@ impl Default for AssetSource {
     }
 }
 
-// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&Path> for AssetSource {
-    fn from(path: &Path) -> Self {
-        if let Some(path) = path.to_str() {
-            AssetSource::from(path)
-        } else {
-            AssetSource::default()
-        }
-    }
-}
-
-// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&str> for AssetSource {
-    fn from(path: &str) -> Self {
-        // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
-        if let Some(path) = path.strip_prefix("rmf-server://").map(|p| p.to_string()) {
-            return AssetSource::Remote(path);
-        } else if let Some(path) = path.strip_prefix("file://").map(|p| p.to_string()) {
-            return AssetSource::Local(path);
-        } else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
-            return AssetSource::Search(path);
-        } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
-            return AssetSource::Package(path);
-        } else if let Some(path) = path.strip_prefix("osm-tile://").map(|p| p.to_string()) {
-            if let Some(path) = path.strip_suffix(".png") {
-                let coordinates: Result<Vec<_>, _> =
-                    path.split(",").map(|f| f.parse::<f32>()).collect();
-
-                match coordinates {
-                    Err(_) => {
-                        println!("Invalid map coordinates {}", path);
-                        return AssetSource::default();
-                    }
-                    Ok(coordinates) => {
-                        if coordinates.len() != 3 {
-                            println!("Invalid map coordinates {}", path);
-                            return AssetSource::default();
-                        }
-
-                        return AssetSource::OSMTile {
-                            zoom: coordinates[0] as i32,
-                            latitude: coordinates[1],
-                            longitude: coordinates[2],
-                        };
-                    }
-                }
-            } else {
-                println!("Invalid map coordinates {}", path);
-                return AssetSource::default();
-            }
-        }
-        AssetSource::default()
-    }
-}
-
 impl From<&AssetSource> for String {
     fn from(asset_source: &AssetSource) -> String {
         match asset_source {
@@ -154,13 +89,6 @@ impl From<&AssetSource> for String {
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => {
-                format!("osm-tile://{},{},{}.png", zoom, latitude, longitude)
-            }
         }
     }
 }
@@ -195,13 +123,6 @@ impl Recall for RecallAssetSource {
             }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
-            }
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => {
-                self.map = Some((*zoom, *latitude, *longitude));
             }
         }
     }

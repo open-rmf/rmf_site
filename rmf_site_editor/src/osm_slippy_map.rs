@@ -15,13 +15,14 @@
  *
 */
 
-use std::{f32::consts::PI, io::Write, path::PathBuf};
+use std::{f32::consts::PI, io::Write, path::Path, path::PathBuf};
 
 use bevy::{
-    asset::io::{file::FileAssetReader, Reader, VecReader},
+    asset::io::{file::FileAssetReader, AssetReaderError, Reader, VecReader},
     prelude::{Mesh, Vec2},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
+use itertools::Itertools;
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
 
 use crate::site_asset_io::cache_path;
@@ -72,6 +73,42 @@ pub struct OSMTile {
     xtile: i32,
     ytile: i32,
     zoom: i32,
+}
+
+impl TryFrom<PathBuf> for OSMTile {
+    type Error = String;
+
+    fn try_from(p: PathBuf) -> Result<Self, Self::Error> {
+        let (xtile, ytile, zoom) = p.components().collect_tuple().ok_or(
+            "Invalid path when converting to OSMTile, three elements are required".to_owned(),
+        )?;
+        Ok(OSMTile {
+            xtile: xtile
+                .as_os_str()
+                .to_string_lossy()
+                .parse::<i32>()
+                .map_err(|e| e.to_string())?,
+            ytile: ytile
+                .as_os_str()
+                .to_string_lossy()
+                .parse::<i32>()
+                .map_err(|e| e.to_string())?,
+            zoom: zoom
+                .as_os_str()
+                .to_string_lossy()
+                .parse::<i32>()
+                .map_err(|e| e.to_string())?,
+        })
+    }
+}
+
+impl From<OSMTile> for PathBuf {
+    fn from(t: OSMTile) -> Self {
+        [t.zoom, t.xtile, t.ytile]
+            .iter()
+            .map(|v| v.to_string())
+            .collect()
+    }
 }
 
 impl OSMTile {
@@ -234,7 +271,7 @@ impl OSMTile {
         Self { xtile, ytile, zoom }
     }
 
-    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, ehttp::Error> {
+    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, AssetReaderError> {
         let mut cache_ok = false;
         let mut cache_full_path = PathBuf::new();
         #[cfg(not(target_arch = "wasm32"))]
@@ -248,7 +285,9 @@ impl OSMTile {
             cache_full_path.push(cache_file_name);
             // TODO(luca) check if we can have an async file read here instead?
             if std::path::Path::new(&cache_full_path).exists() && cache_ok {
-                return Ok(Box::new(VecReader::new(std::fs::read(&cache_full_path).map_err(|e| e.to_string())?)));
+                return Ok(Box::new(VecReader::new(
+                    std::fs::read(&cache_full_path).map_err(std::io::Error::other)?,
+                )));
             }
         }
 
@@ -259,7 +298,10 @@ impl OSMTile {
         );
 
         let request = ehttp::Request::get(uri);
-        let bytes = ehttp::fetch_async(request).await?.bytes;
+        let bytes = ehttp::fetch_async(request)
+            .await
+            .map_err(std::io::Error::other)?
+            .bytes;
 
         #[cfg(not(target_arch = "wasm32"))]
         {
