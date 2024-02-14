@@ -10,3 +10,5 @@ RUST_BACKTRACE=full wasm-bindgen --target web --out-dir ../src/site_editor/ targ
 
 cd ../src/site_editor/
 wasm-opt -Oz -o librmf_site_editor_bg_optimized.wasm librmf_site_editor_bg.wasm
+
+rm librmf_site_editor_bg.wasm
