@@ -20,24 +20,24 @@ use bevy::prelude::*;
 use bevy::reflect::{TypePath, TypeUuid};
 use bevy::utils::BoxedFuture;
 use futures_lite::AsyncReadExt;
+use std::path::PathBuf;
 
 use thiserror::Error;
 
-use sdformat_rs::SdfModel;
+use sdformat_rs::{SdfGeometry, SdfModel, SdfPose, Vector3d};
+
+use crate::site::{CollisionMeshMarker, VisualMeshMarker};
+use rmf_site_format::{
+    Angle, AssetSource, Category, Geometry, IsStatic, Model, ModelMarker, NameInSite, Pose,
+    PrimitiveShape, Rotation, Scale,
+};
 
 pub struct SdfPlugin;
 
 impl Plugin for SdfPlugin {
     fn build(&self, app: &mut App) {
-        app.init_asset_loader::<SdfLoader>().init_asset::<SdfRoot>();
+        app.init_asset_loader::<SdfLoader>();
     }
-}
-
-#[derive(Asset, Component, Default, Debug, TypePath, Clone)]
-pub struct SdfRoot {
-    pub model: SdfModel,
-    // TODO(make this a AssetSource)
-    pub path: String,
 }
 
 #[derive(Default)]
@@ -45,7 +45,7 @@ struct SdfLoader;
 
 impl AssetLoader for SdfLoader {
     // TODO(luca) make this a scene
-    type Asset = SdfRoot;
+    type Asset = bevy::scene::Scene;
     type Settings = ();
     type Error = SdfError;
     fn load<'a>(
@@ -76,20 +76,234 @@ pub enum SdfError {
     YaserdeError(String),
     #[error("No <model> tag found in model.sdf file")]
     MissingModelTag,
+    #[error("Failed parsing asset source: {0}")]
+    UnsupportedAssetSource(String),
+}
+
+// TODO(luca) cleanup this, there are many ways models are referenced and have to be resolved in
+// SDF between local, fuel and cached paths so the logic becomes quite complicated.
+fn compute_model_source(path: &str, uri: &str) -> Result<AssetSource, SdfError> {
+    println!("Asset source is {}", path);
+    let mut asset_source = AssetSource::try_from(path).map_err(SdfError::UnsupportedAssetSource)?;
+    println!("Converted to {:?}", asset_source);
+    match asset_source {
+        AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
+            let binding = p.clone();
+            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+                // Get the org name from context, model name from this and combine
+                if let Some(org_name) = binding.split("/").next() {
+                    org_name.to_owned() + "/" + stripped
+                } else {
+                    return Err(SdfError::UnsupportedAssetSource(format!(
+                        "Unable to extract organization name from asset source [{}]",
+                        uri
+                    )));
+                }
+            } else if let Some(path_idx) = binding.rfind("/") {
+                // It's a path relative to this model, remove file and append uri
+                let (model_path, _model_name) = binding.split_at(path_idx);
+                model_path.to_owned() + "/" + uri
+            } else {
+                return Err(SdfError::UnsupportedAssetSource(format!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
+                    path, uri
+                )));
+            };
+        }
+        AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
+            let binding = p.clone();
+            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+                // Search for a model with the requested name in the same folder as the sdf file
+                // Note that this will not play well if the requested model shares files with other
+                // models that are placed in different folders or are in fuel, but should work for
+                // most local, self contained, models.
+                // Get the org name from context, model name from this and combine
+                if let Some(model_folder) = binding.rsplitn(3, "/").skip(2).next() {
+                    model_folder.to_owned() + "/" + stripped
+                } else {
+                    return Err(SdfError::UnsupportedAssetSource(format!(
+                        "Unable to extract model folder from asset source [{}]",
+                        uri
+                    )));
+                }
+            } else if let Some(path_idx) = binding.rfind("/") {
+                // It's a path relative to this model, remove file and append uri
+                let (model_path, _model_name) = binding.split_at(path_idx);
+                model_path.to_owned() + "/" + uri
+            } else {
+                return Err(SdfError::UnsupportedAssetSource(format!(
+                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
+                    path, uri
+                )));
+            };
+        }
+    }
+    Ok(asset_source)
+}
+
+fn parse_scale(scale: &Option<Vector3d>) -> Scale {
+    match scale {
+        Some(v) => Scale(Vec3::new(v.0.x as f32, v.0.y as f32, v.0.z as f32)),
+        None => Scale::default(),
+    }
+}
+
+fn parse_pose(pose: &Option<SdfPose>) -> Pose {
+    if let Some(pose) = pose.clone().and_then(|p| p.get_pose().ok()) {
+        let rot = pose.rotation.euler_angles();
+        Pose {
+            trans: [
+                pose.translation.x as f32,
+                pose.translation.y as f32,
+                pose.translation.z as f32,
+            ],
+            rot: Rotation::EulerExtrinsicXYZ([
+                Angle::Rad(rot.0 as f32),
+                Angle::Rad(rot.1 as f32),
+                Angle::Rad(rot.2 as f32),
+            ]),
+        }
+    } else {
+        Pose::default()
+    }
+}
+
+fn spawn_geometry(
+    world: &mut World,
+    geometry: &SdfGeometry,
+    visual_name: &str,
+    pose: &Option<SdfPose>,
+    sdf_path: &str,
+    is_static: bool,
+) -> Result<Option<Entity>, SdfError> {
+    let pose = parse_pose(pose);
+    let geometry = match geometry {
+        SdfGeometry::Mesh(mesh) => Some(
+            world
+                .spawn(Model {
+                    name: NameInSite(visual_name.to_owned()),
+                    source: compute_model_source(sdf_path, &mesh.uri)?,
+                    pose,
+                    is_static: IsStatic(is_static),
+                    scale: parse_scale(&mesh.scale),
+                    marker: ModelMarker,
+                })
+                .id(),
+        ),
+        SdfGeometry::Box(b) => {
+            let s = &b.size.0;
+            Some(
+                world
+                    .spawn(PrimitiveShape::Box {
+                        size: [s.x as f32, s.y as f32, s.z as f32],
+                    })
+                    .insert(pose)
+                    .insert(NameInSite(visual_name.to_owned()))
+                    .insert(SpatialBundle::INHERITED_IDENTITY)
+                    .id(),
+            )
+        }
+        SdfGeometry::Capsule(c) => Some(
+            world
+                .spawn(PrimitiveShape::Capsule {
+                    radius: c.radius as f32,
+                    length: c.length as f32,
+                })
+                .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
+                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .id(),
+        ),
+        SdfGeometry::Cylinder(c) => Some(
+            world
+                .spawn(PrimitiveShape::Cylinder {
+                    radius: c.radius as f32,
+                    length: c.length as f32,
+                })
+                .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
+                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .id(),
+        ),
+        SdfGeometry::Sphere(s) => Some(
+            world
+                .spawn(PrimitiveShape::Sphere {
+                    radius: s.radius as f32,
+                })
+                .insert(pose)
+                .insert(NameInSite(visual_name.to_owned()))
+                .insert(SpatialBundle::INHERITED_IDENTITY)
+                .id(),
+        ),
+        _ => None,
+    };
+    Ok(geometry)
 }
 
 async fn load_model<'a, 'b>(
     bytes: Vec<u8>,
     load_context: &'a mut LoadContext<'b>,
-) -> Result<SdfRoot, SdfError> {
+) -> Result<bevy::scene::Scene, SdfError> {
     let sdf_str = std::str::from_utf8(&bytes).unwrap();
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
+    let sdf_path = load_context.asset_path().to_string();
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
-                let path = load_context.asset_path().to_string();
-                let sdf_root = SdfRoot { model, path };
-                Ok(sdf_root)
+                let mut world = World::default();
+                let e = world.spawn(SpatialBundle::INHERITED_IDENTITY).id();
+                // TODO(luca) hierarchies and joints, rather than flat link importing
+                // All Open-RMF assets have no hierarchy, for now.
+                for link in &model.link {
+                    let link_pose = parse_pose(&link.pose);
+                    let link_id = world
+                        .spawn(SpatialBundle::from_transform(link_pose.transform()))
+                        .id();
+                    world.entity_mut(e).add_child(link_id);
+                    for visual in &link.visual {
+                        let id = spawn_geometry(
+                            &mut world,
+                            &visual.geometry,
+                            &visual.name,
+                            &visual.pose,
+                            &sdf_path,
+                            model.r#static.unwrap_or(false),
+                        )?;
+                        match id {
+                            Some(id) => {
+                                world
+                                    .entity_mut(id)
+                                    .insert(VisualMeshMarker)
+                                    .insert(Category::Visual)
+                                    .set_parent(link_id);
+                            }
+                            None => warn!("Found unhandled geometry type {:?}", &visual.geometry),
+                        }
+                    }
+                    for collision in &link.collision {
+                        let id = spawn_geometry(
+                            &mut world,
+                            &collision.geometry,
+                            &collision.name,
+                            &collision.pose,
+                            &sdf_path,
+                            model.r#static.unwrap_or(false),
+                        )?;
+                        match id {
+                            Some(id) => {
+                                world
+                                    .entity_mut(id)
+                                    .insert(CollisionMeshMarker)
+                                    .insert(Category::Collision)
+                                    .set_parent(link_id);
+                            }
+                            None => {
+                                warn!("Found unhandled geometry type {:?}", &collision.geometry)
+                            }
+                        }
+                    }
+                }
+                Ok(bevy::scene::Scene::new(world))
             } else {
                 Err(SdfError::MissingModelTag)
             }

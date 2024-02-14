@@ -17,13 +17,14 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Reflect, ReflectComponent};
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum AssetSource {
     Local(String),
     Remote(String),
@@ -89,6 +90,24 @@ impl From<&AssetSource> for String {
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
+        }
+    }
+}
+
+impl TryFrom<&str> for AssetSource {
+    type Error = String;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        if let Some(uri) = s.strip_prefix("rmf-server://") {
+            Ok(AssetSource::Remote(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("file://") {
+            Ok(AssetSource::Local(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("search://") {
+            Ok(AssetSource::Search(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("package://") {
+            Ok(AssetSource::Package(uri.to_owned()))
+        } else {
+            Err(format!("Unsupported asset type: {}", s))
         }
     }
 }

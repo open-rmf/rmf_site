@@ -19,7 +19,6 @@ use crate::{
     interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER},
     site::{Category, PreventDeletion, SiteAssets},
     site_asset_io::MODEL_ENVIRONMENT_VARIABLE,
-    SdfRoot,
 };
 use bevy::{
     asset::{LoadState, LoadedUntypedAsset},
@@ -99,7 +98,6 @@ pub fn handle_model_loaded_events(
     meshes: Res<Assets<Mesh>>,
     scenes: Res<Assets<Scene>>,
     gltfs: Res<Assets<Gltf>>,
-    sdfs: Res<Assets<SdfRoot>>,
     untyped_assets: Res<Assets<LoadedUntypedAsset>>,
 ) {
     // For each model that is loading, check if its scene has finished loading
@@ -135,11 +133,11 @@ pub fn handle_model_loaded_events(
                         .id(),
                 )
             } else if type_id == TypeId::of::<Scene>() {
-                let h_typed = h.clone().typed::<Scene>();
+                let scene = h.clone().typed::<Scene>();
                 Some(
                     commands
                         .spawn(SceneBundle {
-                            scene: h_typed,
+                            scene,
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
@@ -147,24 +145,15 @@ pub fn handle_model_loaded_events(
                         .id(),
                 )
             } else if type_id == TypeId::of::<Mesh>() {
-                let h_typed = h.clone().typed::<Mesh>();
+                let mesh = h.clone().typed::<Mesh>();
                 Some(
                     commands
                         .spawn(PbrBundle {
-                            mesh: h_typed,
+                            mesh,
                             material: site_assets.default_mesh_grey_material.clone(),
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .set_parent(e)
-                        .id(),
-                )
-            } else if type_id == TypeId::of::<SdfRoot>() {
-                let sdf = sdfs.get(&*h).unwrap();
-                Some(
-                    commands
-                        .spawn(SpatialBundle::INHERITED_IDENTITY)
-                        .insert(sdf.clone())
                         .set_parent(e)
                         .id(),
                 )

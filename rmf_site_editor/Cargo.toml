@@ -23,7 +23,8 @@ bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporat
 bevy_polyline = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline", rev = "9608140" }
 bevy_stl = "0.12"
 #bevy_obj = { version = "0.12", features = ["scene"] }
-bevy_obj = { path = "../../bevy_obj", features = ["scene"] }
+# PR was merged but not released
+bevy_obj = { git = "https://github.com/AmionSky/bevy_obj", rev = "e7cda16", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"

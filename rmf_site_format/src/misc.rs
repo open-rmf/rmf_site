@@ -127,7 +127,8 @@ impl RectFace {
 }
 
 #[derive(Serialize, Deserialize, PartialEq, Clone, Copy, Debug)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Scale(pub Vec3);
 
 impl Default for Scale {
@@ -137,6 +138,7 @@ impl Default for Scale {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, PartialOrd)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[serde(rename_all = "snake_case")]
 pub enum Angle {
     Deg(f32),
@@ -226,6 +228,7 @@ impl std::ops::SubAssign for Angle {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Reflect))]
 #[serde(rename_all = "snake_case")]
 pub enum Rotation {
     Yaw(Angle),
@@ -304,7 +307,8 @@ impl Default for Rotation {
 }
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct Pose {
     pub trans: [f32; 3],
     #[serde(default)]
@@ -369,7 +373,8 @@ impl Pose {
 /// conflicts with another `Name` defined in `bevy::prelude`.
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq, Eq)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct NameInSite(pub String);
 
 impl Default for NameInSite {
@@ -380,7 +385,8 @@ impl Default for NameInSite {
 
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
-#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
+#[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub struct IsStatic(pub bool);
 
 impl Default for IsStatic {

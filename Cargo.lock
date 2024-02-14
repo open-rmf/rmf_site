@@ -885,6 +885,7 @@ dependencies = [
 [[package]]
 name = "bevy_obj"
 version = "0.12.0"
+source = "git+https://github.com/AmionSky/bevy_obj?rev=e7cda16#e7cda163e2dc4bbc4c7795a7cf37f2bfb1c21f7d"
 dependencies = [
  "anyhow",
  "bevy_app",
