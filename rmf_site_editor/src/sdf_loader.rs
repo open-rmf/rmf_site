@@ -44,7 +44,6 @@ impl Plugin for SdfPlugin {
 struct SdfLoader;
 
 impl AssetLoader for SdfLoader {
-    // TODO(luca) make this a scene
     type Asset = bevy::scene::Scene;
     type Settings = ();
     type Error = SdfError;
@@ -80,18 +79,18 @@ pub enum SdfError {
     UnsupportedAssetSource(String),
 }
 
-// TODO(luca) cleanup this, there are many ways models are referenced and have to be resolved in
-// SDF between local, fuel and cached paths so the logic becomes quite complicated.
-fn compute_model_source(path: &str, uri: &str) -> Result<AssetSource, SdfError> {
-    println!("Asset source is {}", path);
-    let mut asset_source = AssetSource::try_from(path).map_err(SdfError::UnsupportedAssetSource)?;
-    println!("Converted to {:?}", asset_source);
-    match asset_source {
-        AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
-            let binding = p.clone();
-            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+fn compute_model_source<'a, 'b>(
+    load_context: &'a mut LoadContext<'b>,
+    uri: &'a str,
+) -> Result<AssetSource, SdfError> {
+    let path = load_context.asset_path().to_string();
+    let asset_source = if let Some(stripped) = uri.strip_prefix("model://") {
+        let mut asset_source =
+            AssetSource::try_from(path.as_str()).map_err(SdfError::UnsupportedAssetSource)?;
+        match asset_source {
+            AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
                 // Get the org name from context, model name from this and combine
-                if let Some(org_name) = binding.split("/").next() {
+                *p = if let Some(org_name) = p.split("/").next() {
                     org_name.to_owned() + "/" + stripped
                 } else {
                     return Err(SdfError::UnsupportedAssetSource(format!(
@@ -99,26 +98,13 @@ fn compute_model_source(path: &str, uri: &str) -> Result<AssetSource, SdfError> 
                         uri
                     )));
                 }
-            } else if let Some(path_idx) = binding.rfind("/") {
-                // It's a path relative to this model, remove file and append uri
-                let (model_path, _model_name) = binding.split_at(path_idx);
-                model_path.to_owned() + "/" + uri
-            } else {
-                return Err(SdfError::UnsupportedAssetSource(format!(
-                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
-                    path, uri
-                )));
-            };
-        }
-        AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
-            let binding = p.clone();
-            *p = if let Some(stripped) = uri.strip_prefix("model://") {
+            }
+            AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
                 // Search for a model with the requested name in the same folder as the sdf file
                 // Note that this will not play well if the requested model shares files with other
                 // models that are placed in different folders or are in fuel, but should work for
                 // most local, self contained, models.
-                // Get the org name from context, model name from this and combine
-                if let Some(model_folder) = binding.rsplitn(3, "/").skip(2).next() {
+                *p = if let Some(model_folder) = p.rsplitn(3, "/").skip(2).next() {
                     model_folder.to_owned() + "/" + stripped
                 } else {
                     return Err(SdfError::UnsupportedAssetSource(format!(
@@ -126,18 +112,20 @@ fn compute_model_source(path: &str, uri: &str) -> Result<AssetSource, SdfError> 
                         uri
                     )));
                 }
-            } else if let Some(path_idx) = binding.rfind("/") {
-                // It's a path relative to this model, remove file and append uri
-                let (model_path, _model_name) = binding.split_at(path_idx);
-                model_path.to_owned() + "/" + uri
-            } else {
-                return Err(SdfError::UnsupportedAssetSource(format!(
-                    "Invalid SDF model path, Path is [{}] and model uri is [{}]",
-                    path, uri
-                )));
-            };
+            }
         }
-    }
+        Ok(asset_source)
+    } else if let Some(path_idx) = path.rfind("/") {
+        // It's a path relative to this model, remove file and append uri
+        let (sdf_path, _sdf_file_name) = path.split_at(path_idx);
+        AssetSource::try_from((sdf_path.to_owned() + "/" + uri).as_str())
+            .map_err(SdfError::UnsupportedAssetSource)
+    } else {
+        Err(SdfError::UnsupportedAssetSource(format!(
+            "Invalid SDF model path, Path is [{}] and model uri is [{}]",
+            path, uri
+        )))
+    }?;
     Ok(asset_source)
 }
 
@@ -168,12 +156,12 @@ fn parse_pose(pose: &Option<SdfPose>) -> Pose {
     }
 }
 
-fn spawn_geometry(
-    world: &mut World,
-    geometry: &SdfGeometry,
-    visual_name: &str,
-    pose: &Option<SdfPose>,
-    sdf_path: &str,
+fn spawn_geometry<'a, 'b>(
+    world: &'a mut World,
+    geometry: &'a SdfGeometry,
+    visual_name: &'a str,
+    pose: &'a Option<SdfPose>,
+    load_context: &'a mut LoadContext<'b>,
     is_static: bool,
 ) -> Result<Option<Entity>, SdfError> {
     let pose = parse_pose(pose);
@@ -182,7 +170,7 @@ fn spawn_geometry(
             world
                 .spawn(Model {
                     name: NameInSite(visual_name.to_owned()),
-                    source: compute_model_source(sdf_path, &mesh.uri)?,
+                    source: compute_model_source(load_context, &mesh.uri)?,
                     pose,
                     is_static: IsStatic(is_static),
                     scale: parse_scale(&mesh.scale),
@@ -246,7 +234,6 @@ async fn load_model<'a, 'b>(
 ) -> Result<bevy::scene::Scene, SdfError> {
     let sdf_str = std::str::from_utf8(&bytes).unwrap();
     let root = sdformat_rs::from_str::<sdformat_rs::SdfRoot>(sdf_str);
-    let sdf_path = load_context.asset_path().to_string();
     match root {
         Ok(root) => {
             if let Some(model) = root.model {
@@ -266,7 +253,7 @@ async fn load_model<'a, 'b>(
                             &visual.geometry,
                             &visual.name,
                             &visual.pose,
-                            &sdf_path,
+                            load_context,
                             model.r#static.unwrap_or(false),
                         )?;
                         match id {
@@ -286,7 +273,7 @@ async fn load_model<'a, 'b>(
                             &collision.geometry,
                             &collision.name,
                             &collision.pose,
-                            &sdf_path,
+                            load_context,
                             model.r#static.unwrap_or(false),
                         )?;
                         match id {

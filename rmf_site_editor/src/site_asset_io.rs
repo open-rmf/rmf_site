@@ -234,8 +234,8 @@ impl Plugin for SiteAssetIoPlugin {
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
                     // Order should be:
-                    // Relative to the building.yaml location, TODO, relative paths are tricky
-                    // Relative to some paths read from an environment variable (.. need to check what gz uses for models)
+                    // Relative to the building.yaml location
+                    // Relative to the MODEL_ENVIRONMENT_VARIABLE path
                     // Relative to a cache directory
                     // Attempt to fetch from the server and save it to the cache directory
 

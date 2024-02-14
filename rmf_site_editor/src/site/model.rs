@@ -129,7 +129,6 @@ pub fn handle_model_loaded_events(
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .set_parent(e)
                         .id(),
                 )
             } else if type_id == TypeId::of::<Scene>() {
@@ -141,7 +140,6 @@ pub fn handle_model_loaded_events(
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .set_parent(e)
                         .id(),
                 )
             } else if type_id == TypeId::of::<Mesh>() {
@@ -154,7 +152,6 @@ pub fn handle_model_loaded_events(
                             transform: Transform::from_scale(**scale),
                             ..default()
                         })
-                        .set_parent(e)
                         .id(),
                 )
             } else {
@@ -163,7 +160,7 @@ pub fn handle_model_loaded_events(
 
             if let Some(id) = model_id {
                 let mut cmd = commands.entity(e);
-                cmd.insert(ModelSceneRoot);
+                cmd.insert(ModelSceneRoot).add_child(id);
                 if !render_layer.is_some_and(|l| l.iter().all(|l| l == MODEL_PREVIEW_LAYER)) {
                     cmd.insert(Selectable::new(e));
                 }
