@@ -129,7 +129,7 @@ impl Default for LogHistory {
         let rx_2 = rx.clone();
 
         let level_name = Level::INFO;
-        let filter_name = "bevy_asset=error,wgpu=error".to_string();
+        let filter_name = "bevy_asset=off,wgpu=error".to_string();
         let default_filter = { format!("{},{}", level_name, filter_name) };
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))

@@ -1,4 +1,3 @@
-#![allow(warnings)]
 use bevy::{
     log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
 };
@@ -137,67 +136,43 @@ pub struct SiteEditor;
 
 impl Plugin for SiteEditor {
     fn build(&self, app: &mut App) {
-        #[cfg(target_arch = "wasm32")]
-        {
-            app.add_plugins(
-                DefaultPlugins
-                    .build()
-                    .disable::<LogPlugin>()
-                    .set(WindowPlugin {
-                        primary_window: Some(Window {
-                            title: "RMF Site Editor".to_owned(),
-                            canvas: Some(String::from("#rmf_site_editor_canvas")),
-                            fit_canvas_to_parent: true,
-                            ..default()
-                        }),
-                        ..default()
-                    })
-                    .set(ImagePlugin {
-                        default_sampler: SamplerDescriptor {
-                            address_mode_u: AddressMode::Repeat,
-                            address_mode_v: AddressMode::Repeat,
-                            address_mode_w: AddressMode::Repeat,
-                            ..Default::default()
-                        },
-                    })
-                    .add_after::<bevy::asset::AssetPlugin, _>(SiteAssetIoPlugin),
-            );
-        }
-
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            app.add_plugins((
-                SiteAssetIoPlugin,
-                DefaultPlugins
-                    .build()
-                    .disable::<LogPlugin>()
-                    .set(WindowPlugin {
-                        primary_window: Some(Window {
-                            title: "RMF Site Editor".to_owned(),
-                            resolution: (1600., 900.).into(),
-                            ..default()
-                        }),
-                        ..default()
-                    })
-                    .set(ImagePlugin {
-                        default_sampler: SamplerDescriptor {
-                            address_mode_u: AddressMode::Repeat,
-                            address_mode_v: AddressMode::Repeat,
-                            address_mode_w: AddressMode::Repeat,
-                            ..Default::default()
-                        }
-                        .into(),
-                    })
-                    .set(RenderPlugin {
-                        render_creation: WgpuSettings {
-                            features: WgpuFeatures::POLYGON_MODE_LINE,
-                            ..default()
-                        }
-                        .into(),
+        app.add_plugins((
+            SiteAssetIoPlugin,
+            DefaultPlugins
+                .build()
+                .disable::<LogPlugin>()
+                .set(WindowPlugin {
+                    primary_window: Some(Window {
+                        title: "RMF Site Editor".to_owned(),
+                        #[cfg(not(target_arch = "wasm32"))]
+                        resolution: (1600., 900.).into(),
+                        #[cfg(target_arch = "wasm32")]
+                        canvas: Some(String::from("#rmf_site_editor_canvas")),
+                        #[cfg(target_arch = "wasm32")]
+                        fit_canvas_to_parent: true,
                         ..default()
                     }),
-            ));
-        }
+                    ..default()
+                })
+                .set(ImagePlugin {
+                    default_sampler: SamplerDescriptor {
+                        address_mode_u: AddressMode::Repeat,
+                        address_mode_v: AddressMode::Repeat,
+                        address_mode_w: AddressMode::Repeat,
+                        ..Default::default()
+                    }
+                    .into(),
+                })
+                .set(RenderPlugin {
+                    render_creation: WgpuSettings {
+                        #[cfg(not(target_arch = "wasm32"))]
+                        features: WgpuFeatures::POLYGON_MODE_LINE,
+                        ..default()
+                    }
+                    .into(),
+                    ..default()
+                }),
+        ));
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((

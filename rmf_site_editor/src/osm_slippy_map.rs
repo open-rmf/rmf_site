@@ -18,7 +18,7 @@
 use std::{f32::consts::PI, io::Write, path::Path, path::PathBuf};
 
 use bevy::{
-    asset::io::{file::FileAssetReader, AssetReaderError, Reader, VecReader},
+    asset::io::{AssetReaderError, Reader, VecReader},
     prelude::{Mesh, Vec2},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
