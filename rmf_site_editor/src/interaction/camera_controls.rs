@@ -309,7 +309,7 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(order, layer)| {
+        .map(|(order, _layer)| {
             world
                 .spawn(Camera3dBundle {
                     camera: Camera {

@@ -141,6 +141,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
         }
     }
 
+    #[allow(dead_code)]
     fn inspect_model(
         &self,
         ui: &mut Ui,

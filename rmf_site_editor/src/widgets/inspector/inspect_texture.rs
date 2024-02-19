@@ -46,7 +46,6 @@ pub struct InspectTextureAffiliationParams<'w, 's> {
 
 pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
     entity: Entity,
-    default_file: Option<&'a DefaultFile>,
     params: &'a InspectTextureAffiliationParams<'w1, 's1>,
     events: &'a mut AppEvents<'w2, 's2>,
 }
@@ -54,13 +53,11 @@ pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
 impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         entity: Entity,
-        default_file: Option<&'a DefaultFile>,
         params: &'a InspectTextureAffiliationParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
             entity,
-            default_file,
             params,
             events,
         }

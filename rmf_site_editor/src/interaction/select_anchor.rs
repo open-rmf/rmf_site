@@ -1445,7 +1445,7 @@ impl SelectAnchor {
 
     /// Move an existing location to a new anchor.
     // TODO(MXG): Make this accessible from the UI
-    pub fn replace_point(location: Entity, original_anchor: Entity) -> SelectAnchorPointBuilder {
+    pub fn replace_point(location: Entity, _original_anchor: Entity) -> SelectAnchorPointBuilder {
         SelectAnchorPointBuilder {
             for_element: Some(location),
             continuity: SelectAnchorContinuity::ReplaceAnchor {
@@ -1737,8 +1737,8 @@ impl SelectAnchor3D {
     /// return to Inspect mode.
     fn next<'w, 's>(
         &self,
-        anchor_selection: AnchorSelection,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
+        _anchor_selection: AnchorSelection,
+        _params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Self> {
         None
     }
@@ -1770,7 +1770,7 @@ impl SelectAnchor3D {
 
             if self.parent != Some(anchor_selection.entity()) {
                 match self.parent {
-                    Some(new_parent) => {
+                    Some(_new_parent) => {
                         if anchor_selection.entity() != target {
                             self.parent = Some(anchor_selection.entity());
                         }
@@ -1795,7 +1795,7 @@ impl SelectAnchor3D {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> PreviewResult {
         // The only live update we need to do is on parent entity change
-        if let SelectAnchorContinuity::ReplaceAnchor { original_anchor } = self.continuity {
+        if let SelectAnchorContinuity::ReplaceAnchor { original_anchor: _ } = self.continuity {
             match self.update_parent(AnchorSelection::Existing(anchor_selection), params) {
                 Ok(()) => {
                     return PreviewResult::Updated3D(Self {
@@ -2280,7 +2280,7 @@ pub fn handle_select_anchor_3d_mode(
                 // anchor is not the one currently assigned. Otherwise we
                 // are wasting query+command effort.
                 match request.preview(hovered, &mut params) {
-                    PreviewResult::Updated(next) => {
+                    PreviewResult::Updated(_next) => {
                         // We should never get here
                         unreachable!();
                     }
