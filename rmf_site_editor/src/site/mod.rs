@@ -210,6 +210,7 @@ impl Plugin for SitePlugin {
         .add_event::<UpdateFuelCache>()
         .add_event::<SetFuelApiKey>()
         .add_event::<MergeGroups>()
+        .add_plugins((bevy_stl::StlPlugin, bevy_obj::ObjPlugin))
         .add_plugins((
             ChangePlugin::<AssociatedGraphs<Entity>>::default(),
             RecallPlugin::<RecallAssociatedGraphs<Entity>>::default(),

@@ -192,8 +192,6 @@ impl Plugin for SiteEditor {
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
             .add_plugins((
-                bevy_stl::StlPlugin,
-                bevy_obj::ObjPlugin,
                 ViewMenuPlugin,
                 IssuePlugin,
                 OSMViewPlugin,
