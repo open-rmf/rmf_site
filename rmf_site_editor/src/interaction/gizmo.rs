@@ -250,11 +250,11 @@ pub fn update_gizmo_click_start(
     mut click: EventWriter<GizmoClicked>,
     mut removed_gizmos: RemovedComponents<Gizmo>,
 ) {
-    for e in removed_gizmos.iter() {
+    for e in removed_gizmos.read() {
         cursor.remove_blocker(e, &mut visibility);
     }
 
-    for pick in picks.iter() {
+    for pick in picks.read() {
         if let Some(previous_pick) = pick.from {
             cursor.remove_blocker(previous_pick, &mut visibility);
             if *gizmo_state == GizmoState::Hovering(previous_pick) {
@@ -366,7 +366,7 @@ pub fn update_drag_motions(
     primary_window: Query<&Window, With<PrimaryWindow>>,
 ) {
     if let GizmoState::Dragging(dragging) = *drag_state {
-        let cursor_position = match cursor_motion.iter().last() {
+        let cursor_position = match cursor_motion.read().last() {
             Some(m) => m.position,
             None => {
                 return;
@@ -467,7 +467,7 @@ pub fn update_drag_motions(
 }
 
 pub fn move_pose(mut poses: Query<&mut Pose>, mut move_to: EventReader<MoveTo>) {
-    for move_to in move_to.iter() {
+    for move_to in move_to.read() {
         if let Ok(mut pose) = poses.get_mut(move_to.entity) {
             pose.align_with(&move_to.transform);
         }

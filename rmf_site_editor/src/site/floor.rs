@@ -396,7 +396,7 @@ pub fn update_floor_visibility(
     );
 
     iter_update_floor_visibility(
-        removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
+        removed_vis.read().filter_map(|e| all_floors.get(e).ok()),
         &material_handles,
         &mut material_assets,
         &default_floor_vis,

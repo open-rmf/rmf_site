@@ -170,7 +170,7 @@ pub fn load_workcell(
     mut load_workcells: EventReader<LoadWorkcell>,
     mut change_current_workcell: EventWriter<ChangeCurrentWorkcell>,
 ) {
-    for cmd in load_workcells.iter() {
+    for cmd in load_workcells.read() {
         info!("Loading workcell");
         let root = generate_workcell_entities(&mut commands, &cmd.workcell);
         if let Some(path) = &cmd.default_file {

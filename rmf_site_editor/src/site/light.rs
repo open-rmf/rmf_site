@@ -152,7 +152,7 @@ pub fn export_lights(
     lights: Query<(&Pose, &LightKind, &Parent)>,
     levels: Query<&NameInSite>,
 ) {
-    for export in exports.iter() {
+    for export in exports.read() {
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
             if let Ok(name) = levels.get(parent.get()) {

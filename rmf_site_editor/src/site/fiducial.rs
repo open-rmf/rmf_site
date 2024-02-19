@@ -72,10 +72,7 @@ pub fn update_fiducial_usage_tracker(
     parent: Query<&Parent>,
     children: Query<&Children>,
     fiducials: Query<&Affiliation<Entity>, With<FiducialMarker>>,
-    changed_fiducials: Query<
-        (Entity, &Parent),
-        (Changed<Affiliation<Entity>>, With<FiducialMarker>),
-    >,
+    changed_fiducials: Query<&Parent, (Changed<Affiliation<Entity>>, With<FiducialMarker>)>,
     fiducial_groups: Query<(Entity, &NameInSite, &Parent), (With<Group>, With<FiducialMarker>)>,
     changed_fiducial_groups: Query<
         Entity,
@@ -140,14 +137,14 @@ pub fn update_fiducial_usage_tracker(
         }
     }
 
-    for (changed_fiducial, parent) in &changed_fiducials {
+    for parent in &changed_fiducials {
         let Ok((e, mut tracker)) = unused_fiducial_trackers.get_mut(parent.get()) else {
             continue;
         };
         reset_fiducial_usage(e, &mut tracker, &fiducials, &fiducial_groups, &children);
     }
 
-    for removed_group in removed_fiducial_groups.iter() {
+    for removed_group in removed_fiducial_groups.read() {
         for (_, mut tracker) in &mut unused_fiducial_trackers {
             tracker.used.remove(&removed_group);
             tracker.unused.remove(&removed_group);
@@ -305,7 +302,7 @@ pub fn check_for_fiducials_without_affiliation(
     const ISSUE_HINT: &str = "Fiducial affiliations are used by the site editor to map matching \
                             fiducials between different floors or drawings and calculate their \
                             relative transform, fiducials without affiliation are ignored";
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         for (e, affiliation) in &fiducial_affiliations {
             if AncestorIter::new(&parents, e).any(|p| p == **root) {
                 if affiliation.0.is_none() {

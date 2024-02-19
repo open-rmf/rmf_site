@@ -95,7 +95,7 @@ fn switch_edit_drawing_mode(
     // We should also consider using an edit mode stack instead of simply
     // CurrentWorkspace and AppState.
     'handle_begin: {
-        if let Some(BeginEditDrawing(e)) = begin.iter().last() {
+        if let Some(BeginEditDrawing(e)) = begin.read().last() {
             if current.target().is_some_and(|c| c.drawing == *e) {
                 break 'handle_begin;
             }
@@ -149,7 +149,7 @@ fn switch_edit_drawing_mode(
         }
     }
 
-    for FinishEditDrawing(finish) in finish.iter() {
+    for FinishEditDrawing(finish) in finish.read() {
         let c = if let Some(c) = current.target() {
             if finish.is_some_and(|e| e != c.drawing) {
                 continue;

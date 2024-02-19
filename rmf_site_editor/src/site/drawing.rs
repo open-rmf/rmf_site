@@ -358,7 +358,7 @@ pub fn update_drawing_visibility(
     );
 
     iter_update_drawing_visibility(
-        removed_vis.iter().filter_map(|e| all_drawings.get(e).ok()),
+        removed_vis.read().filter_map(|e| all_drawings.get(e).ok()),
         &material_handles,
         &mut material_assets,
         &default_drawing_vis,

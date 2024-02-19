@@ -39,7 +39,7 @@ fn set_reference(
     mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.set_reference {
             window.visible = true;
         }
@@ -175,7 +175,7 @@ pub fn handle_visibility_change(
         return;
     };
 
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.satellite_map_check_button {
             let Ok(item) = checkbox_state.get(osm_menu.satellite_map_check_button) else {
                 continue;
@@ -196,7 +196,7 @@ pub fn view_reference(
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.view_reference {
             window.visible = true;
         }
@@ -248,7 +248,7 @@ fn settings(
     mut egui_context: EguiContexts,
     mut settings_window: Local<SettingsWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.settings_panel {
             settings_window.visible = true;
         }

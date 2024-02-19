@@ -56,7 +56,7 @@ pub fn align_site_drawings(
     mut events: EventReader<AlignSiteDrawings>,
     mut params: OptimizationParams,
 ) {
-    for AlignSiteDrawings(site) in events.iter() {
+    for AlignSiteDrawings(site) in events.read() {
         let mut site_variables = SiteVariables::<Entity>::default();
         let Ok(children) = sites.get(*site) else {
             continue;

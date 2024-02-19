@@ -466,7 +466,7 @@ pub fn update_cursor_hover_visualization(
         }
     }
 
-    for e in removed.iter() {
+    for e in removed.read() {
         cursor.remove_dependent(e, &mut visibility);
     }
 }

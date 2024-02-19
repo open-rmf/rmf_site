@@ -58,7 +58,7 @@ pub fn handle_update_fuel_cache_requests(
     fuel_client: Res<FuelClient>,
     channels: Res<UpdateFuelCacheChannels>,
 ) {
-    if events.iter().last().is_some() {
+    if events.read().last().is_some() {
         info!("Updating fuel cache, this might take a few minutes");
         gallery_status.fetching_cache = true;
         let mut fuel_client = fuel_client.clone();
@@ -99,7 +99,7 @@ pub fn reload_failed_models_with_new_api_key(
     mut api_key_events: EventReader<SetFuelApiKey>,
     failed_models: Query<Entity, (With<ModelMarker>, Without<ModelSceneRoot>)>,
 ) {
-    if let Some(key) = api_key_events.iter().last() {
+    if let Some(key) = api_key_events.read().last() {
         info!("New API Key set, attempting to re-download failed models");
         let mut key_guard = match FUEL_API_KEY.lock() {
             Ok(key) => key,

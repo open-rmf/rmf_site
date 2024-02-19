@@ -206,7 +206,7 @@ pub fn check_for_close_unconnected_anchors(
                         review if this is intended and, if it is, suppress the issue";
     // TODO(luca) make this configurable
     const DISTANCE_THRESHOLD: f32 = 0.2;
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         // Key is level id, value is vector of (Entity, Global tf's position)
         let mut anchor_poses: HashMap<Entity, Vec<(Entity, Vec3)>> = HashMap::new();
         for e in &anchor_entities {

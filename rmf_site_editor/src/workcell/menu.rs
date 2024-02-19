@@ -48,7 +48,7 @@ pub fn handle_export_urdf_menu_events(
     urdf_menu: Res<ExportUrdfMenu>,
     mut save_events: EventWriter<SaveWorkspace>,
 ) {
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == urdf_menu.export_urdf {
             save_events.send(SaveWorkspace {
                 destination: SaveWorkspaceDestination::Dialog,

@@ -90,7 +90,7 @@ pub fn update_bounds(
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
     mut entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
 ) {
-    for entity in entities_lost_mesh.iter() {
+    for entity in entities_lost_mesh.read() {
         entity_mesh_map.deregister(entity);
     }
 
@@ -114,7 +114,7 @@ pub fn update_bounds(
         let aabb = mesh.compute_aabb()?;
         Some((aabb, entities_with_handle))
     };
-    for (aabb, entities_with_handle) in mesh_events.iter().filter_map(to_update) {
+    for (aabb, entities_with_handle) in mesh_events.read().filter_map(to_update) {
         for entity in entities_with_handle {
             commands.entity(*entity).insert(aabb.clone());
         }

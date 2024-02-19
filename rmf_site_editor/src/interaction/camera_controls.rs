@@ -395,7 +395,7 @@ fn camera_controls(
     picking_blockers: Res<PickingBlockers>,
     mut change_mode: EventReader<ChangeProjectionMode>,
 ) {
-    if let Some(mode) = change_mode.iter().last() {
+    if let Some(mode) = change_mode.read().last() {
         controls.use_mode(
             mode.0,
             &mut bevy_cameras,
@@ -425,7 +425,7 @@ fn camera_controls(
 
     // spin through all mouse cursor-moved events to find the last one
     let mut last_pos = previous_mouse_location.previous;
-    if let Some(ev) = ev_cursor_moved.iter().last() {
+    if let Some(ev) = ev_cursor_moved.read().last() {
         last_pos.x = ev.position.x;
         last_pos.y = ev.position.y;
     }
@@ -439,7 +439,7 @@ fn camera_controls(
     previous_mouse_location.previous = last_pos;
 
     let mut scroll = 0.0;
-    for ev in ev_scroll.iter() {
+    for ev in ev_scroll.read() {
         #[cfg(not(target_arch = "wasm32"))]
         {
             scroll += ev.y;

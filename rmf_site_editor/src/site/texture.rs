@@ -62,7 +62,7 @@ pub fn detect_last_selected_texture<T: Component>(
         }
     }
 
-    for group in removed_groups.iter() {
+    for group in removed_groups.read() {
         for mut last in &mut last_selected {
             if last.selection.is_some_and(|l| l == group) {
                 last.selection = None;

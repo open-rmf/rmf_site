@@ -2069,7 +2069,7 @@ pub fn handle_select_anchor_mode(
         }
     } else {
         for new_selection in select
-            .iter()
+            .read()
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {
@@ -2301,7 +2301,7 @@ pub fn handle_select_anchor_3d_mode(
         }
     } else {
         for new_selection in select
-            .iter()
+            .read()
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {

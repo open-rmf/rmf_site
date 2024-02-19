@@ -58,7 +58,7 @@ impl<'a> InspectDoorType<'a> {
                 )
                 .on_hover_text("(Left Door Length)/(Right Door Length)");
             });
-        };
+        }
 
         match &mut new_kind {
             DoorType::SingleSliding(door) => {

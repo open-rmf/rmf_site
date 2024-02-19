@@ -35,16 +35,12 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let lat2 = lat2.to_radians();
     let lon2 = lon2.to_radians();
 
-    let dLat = lat2 - lat1;
-    let dLon = lon2 - lon1;
+    let d_lan = lat2 - lat1;
+    let d_lon = lon2 - lon1;
 
-    let a = (dLat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dLon / 2.0).sin().powi(2);
+    let a = (d_lan / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (d_lon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
     return c * EARTH_RADIUS;
-}
-
-enum DistanceError {
-    DifferentZones,
 }
 
 #[test]
@@ -272,8 +268,8 @@ impl OSMTile {
     }
 
     pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        let mut cache_ok = false;
-        let mut cache_full_path = PathBuf::new();
+        let cache_ok;
+        let mut cache_full_path;
         #[cfg(not(target_arch = "wasm32"))]
         {
             let cache_file_name =

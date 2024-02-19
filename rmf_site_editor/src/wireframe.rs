@@ -55,7 +55,7 @@ fn handle_wireframe_menu_events(
     children: Query<&Children>,
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
 ) {
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == wireframe_menu.toggle_wireframe {
             let Ok(mut checkbox) = menu_items.get_mut(wireframe_menu.toggle_wireframe) else {
                 error!("Wireframe button not found");

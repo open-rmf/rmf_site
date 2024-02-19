@@ -92,7 +92,7 @@ fn handle_diagnostic_window_visibility(
     issue_menu: Res<IssueMenu>,
     mut diagnostic_window: ResMut<DiagnosticWindowState>,
 ) {
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == issue_menu.diagnostic_tool {
             diagnostic_window.show = true;
         }
@@ -118,7 +118,7 @@ pub fn clear_old_issues_on_new_validate_event(
     children: Query<&Children>,
     issues: Query<Entity, With<Issue>>,
 ) {
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         let Ok(children) = children.get(**root) else {
             return;
         };

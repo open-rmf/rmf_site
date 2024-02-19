@@ -175,7 +175,7 @@ pub fn handle_selection_picking(
         return;
     }
 
-    for pick in picks.iter() {
+    for pick in picks.read() {
         hover.send(Hover(
             pick.to
                 .and_then(|change_pick_to| {
@@ -209,7 +209,7 @@ pub fn maintain_hovered_entities(
     mode: Res<InteractionMode>,
     blockers: Option<Res<PickingBlockers>>,
 ) {
-    if let Some(new_hovered) = hover.iter().last() {
+    if let Some(new_hovered) = hover.read().last() {
         if hovering.0 != new_hovered.0 {
             if let Some(previous_hovered) = hovering.0 {
                 if let Ok(mut hovering) = hovered.get_mut(previous_hovered) {
@@ -235,7 +235,7 @@ pub fn maintain_hovered_entities(
         if let Some(current_hovered) = hovering.0 {
             // TODO(luca) refactor to remove this hack
             // Skip if we are in SelectAnchor3D mode
-            if let InteractionMode::SelectAnchor3D(mode) = &*mode {
+            if let InteractionMode::SelectAnchor3D(_) = &*mode {
                 return;
             }
             select.send(Select(Some(current_hovered)));
@@ -257,7 +257,7 @@ pub fn maintain_selected_entities(
         return;
     }
 
-    if let Some(new_selection) = select.iter().last() {
+    if let Some(new_selection) = select.read().last() {
         if selection.0 != new_selection.0 {
             if let Some(previous_selection) = selection.0 {
                 if let Ok(mut selected) = selected.get_mut(previous_selection) {

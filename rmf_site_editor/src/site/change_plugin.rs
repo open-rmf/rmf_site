@@ -75,7 +75,7 @@ fn update_changed_values<T: Component + Clone + Debug>(
     mut values: Query<&mut T>,
     mut changes: EventReader<Change<T>>,
 ) {
-    for change in changes.iter() {
+    for change in changes.read() {
         if let Ok(mut new_value) = values.get_mut(change.for_element) {
             *new_value = change.to_value.clone();
         } else {

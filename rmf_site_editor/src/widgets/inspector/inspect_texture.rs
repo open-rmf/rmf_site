@@ -210,7 +210,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 .on_hover_text("Search for or create a new texture");
         });
 
-        let (current_texture_name, current_texture) = if let Some(a) = affiliation.0 {
+        let (current_texture_name, _current_texture) = if let Some(a) = affiliation.0 {
             self.params
                 .texture_groups
                 .get(a)

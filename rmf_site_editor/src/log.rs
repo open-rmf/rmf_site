@@ -323,7 +323,7 @@ where
 
 fn receive_logs(mut log_history: ResMut<LogHistory>, mut log_events: EventReader<Log>) {
     log_history.receive_logs();
-    for log in log_events.iter() {
+    for log in log_events.read() {
         log_history.push(log.clone());
     }
 }
