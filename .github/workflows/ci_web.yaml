@@ -27,7 +27,7 @@ jobs:
 
     - name: cargo-deps
       run: |
-        cargo install wasm-bindgen-cli --vers =0.2.84
+        cargo install wasm-bindgen-cli
 
     - uses: actions/checkout@v3
 

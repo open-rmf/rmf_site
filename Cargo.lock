@@ -3965,7 +3965,6 @@ dependencies = [
  "bevy_obj",
  "bevy_polyline",
  "bevy_stl",
- "bevy_utils",
  "bitfield",
  "clap",
  "console_error_panic_hook",
