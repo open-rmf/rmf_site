@@ -57,7 +57,7 @@ pub fn flatten_loaded_models_hierarchy(
             if let Ok(mut deps) = dependents.get_mut(**model_parent) {
                 deps.insert(e);
             }
-            for (mut t1, t2) in child_pose.trans.iter_mut().zip(parent_pose.trans.iter()) {
+            for (t1, t2) in child_pose.trans.iter_mut().zip(parent_pose.trans.iter()) {
                 *t1 += t2;
             }
             // Now despawn the unnecessary model

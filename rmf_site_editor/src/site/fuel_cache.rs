@@ -15,7 +15,7 @@
  *
 */
 
-use crate::site::{AssetSource, ModelMarker, ModelSceneRoot, TentativeModelFormat};
+use crate::site::{ModelMarker, ModelSceneRoot, TentativeModelFormat};
 use crate::site_asset_io::FUEL_API_KEY;
 use crate::widgets::AssetGalleryStatus;
 use bevy::prelude::*;

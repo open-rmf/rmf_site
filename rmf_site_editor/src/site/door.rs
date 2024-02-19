@@ -450,7 +450,7 @@ pub fn update_door_for_moved_anchors(
 ) {
     for dependents in &changed_anchors {
         for dependent in dependents.iter() {
-            if let Some((entity, edge, kind, mut segments)) = doors.get_mut(*dependent).ok() {
+            if let Some((entity, edge, kind, segments)) = doors.get_mut(*dependent).ok() {
                 update_door_visuals(
                     &mut commands,
                     entity,

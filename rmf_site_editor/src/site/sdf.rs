@@ -21,12 +21,8 @@ use bevy::render::mesh::shape::{Capsule, UVSphere};
 use crate::interaction::Selectable;
 use crate::shapes::make_cylinder;
 use crate::site::SiteAssets;
-use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
-use rmf_site_format::{
-    Angle, AssetSource, Category, ConstraintDependents, Geometry, IsStatic, Model, ModelMarker,
-    NameInSite, Pose, PrimitiveShape, Rotation, Scale,
-};
+use rmf_site_format::{ModelMarker, PrimitiveShape};
 
 /// An empty component to mark this entity as a visual mesh
 #[derive(Component, Debug, Clone, Default, Reflect)]

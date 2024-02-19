@@ -29,7 +29,7 @@ use bevy::{
 use bevy_mod_outline::OutlineMeshExt;
 use rmf_site_format::{AssetSource, ModelMarker, Pending, Pose, Scale};
 use smallvec::SmallVec;
-use std::any::{Any, TypeId};
+use std::any::TypeId;
 
 #[derive(Component, Debug, Clone)]
 pub struct ModelScene {
@@ -95,8 +95,6 @@ pub fn handle_model_loaded_events(
     mut current_scenes: Query<&mut ModelScene>,
     asset_server: Res<AssetServer>,
     site_assets: Res<SiteAssets>,
-    meshes: Res<Assets<Mesh>>,
-    scenes: Res<Assets<Scene>>,
     gltfs: Res<Assets<Gltf>>,
     untyped_assets: Res<Assets<LoadedUntypedAsset>>,
 ) {

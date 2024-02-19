@@ -16,7 +16,7 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*, render::view::visibility::RenderLayers};
+use bevy::{math::Affine3A, prelude::*};
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},

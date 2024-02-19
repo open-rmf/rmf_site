@@ -17,7 +17,7 @@
 
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use std::path::{Path, PathBuf};
+use std::path::PathBuf;
 
 use crate::site::{CollisionMeshMarker, Pending, VisualMeshMarker};
 use crate::workcell::urdf_package_exporter::{generate_package, PackageContext, Person};

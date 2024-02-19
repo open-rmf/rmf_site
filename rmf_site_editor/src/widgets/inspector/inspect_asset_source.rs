@@ -16,7 +16,7 @@
 */
 
 use crate::site::DefaultFile;
-use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
+use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
@@ -45,7 +45,6 @@ impl<'a> InspectAssetSource<'a> {
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
 
-        let osm_string = "OpenStreetMaps".to_string();
         // TODO(luca) implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,

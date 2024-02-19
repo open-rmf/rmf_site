@@ -17,12 +17,11 @@
 
 use crate::{
     interaction::Hover,
-    recency::ChangeRank,
     site::{
         BeginEditDrawing, Change, LayerVisibility, PreferredSemiTransparency, SiteID,
         VisibilityCycle,
     },
-    widgets::{inspector::SelectionWidget, AppEvents, Icons, MoveLayerButton},
+    widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, ImageButton, Ui};

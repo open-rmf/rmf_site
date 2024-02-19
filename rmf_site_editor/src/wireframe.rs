@@ -89,7 +89,6 @@ fn add_wireframe_to_new_models(
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     wireframe_menu: Res<WireframeMenu>,
     menu_items: Query<&MenuItem>,
-    meshes: Query<Entity, With<Handle<Mesh>>>,
 ) {
     let Ok(checkbox) = menu_items.get(wireframe_menu.toggle_wireframe) else {
         error!("Wireframe button not found");

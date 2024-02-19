@@ -241,7 +241,6 @@ pub fn assign_orphan_fiducials_to_parent(
         (With<FiducialMarker>, Without<Parent>, Without<Pending>),
     >,
     anchors: Query<&Parent, With<Anchor>>,
-    site_id: Query<&SiteID>,
 ) {
     for (e, point) in &orphans {
         if let Ok(parent) = anchors.get(point.0) {

@@ -71,7 +71,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
 
         let added_tag = ui
             .collapsing("Add...", |ui| {
-                let (add, mut consider) = ui
+                let (add, consider) = ui
                     .horizontal(|ui| {
                         let add = ui.button("Confirm").clicked();
                         let mut consider = self.recall.assume_tag(self.tags);

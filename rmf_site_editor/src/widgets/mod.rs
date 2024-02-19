@@ -23,22 +23,16 @@ use crate::{
     occupancy::CalculateGrid,
     recency::ChangeRank,
     site::{
-        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, CollisionMeshMarker,
-        ConsiderAssociatedGraph, ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker,
-        ExportLights, FinishEditDrawing, GlobalDrawingVisibility, GlobalFloorVisibility,
-        JointProperties, LayerVisibility, MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture,
-        ToggleLiftDoorAvailability, VisualMeshMarker,
+        AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
+        ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
+        GlobalDrawingVisibility, GlobalFloorVisibility, JointProperties, LayerVisibility,
+        MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture, ToggleLiftDoorAvailability,
     },
     workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
-use bevy::{
-    asset::{embedded_asset, embedded_path},
-    ecs::query::Has,
-    ecs::system::SystemParam,
-    prelude::*,
-};
+use bevy::{asset::embedded_asset, ecs::query::Has, ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
     egui::{self, Button, CollapsingHeader},
     EguiContexts,

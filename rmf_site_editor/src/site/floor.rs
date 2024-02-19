@@ -16,11 +16,7 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
-use bevy::{
-    math::Affine3A,
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-};
+use bevy::{math::Affine3A, prelude::*, render::mesh::PrimitiveTopology};
 use lyon::{
     math::point,
     path::Path as LyonPath,
@@ -341,7 +337,7 @@ pub fn update_floors(
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
                 *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors));
-                if let Some(mut material) = materials.get_mut(material) {
+                if let Some(material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }
             }

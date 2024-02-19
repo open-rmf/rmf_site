@@ -15,21 +15,20 @@
  *
 */
 
-use bevy::asset::{io::Reader, AssetLoader, LoadContext, LoadedAsset};
+use bevy::asset::{io::Reader, AssetLoader, LoadContext};
 use bevy::prelude::*;
-use bevy::reflect::{TypePath, TypeUuid};
+
 use bevy::utils::BoxedFuture;
 use futures_lite::AsyncReadExt;
-use std::path::PathBuf;
 
 use thiserror::Error;
 
-use sdformat_rs::{SdfGeometry, SdfModel, SdfPose, Vector3d};
+use sdformat_rs::{SdfGeometry, SdfPose, Vector3d};
 
 use crate::site::{CollisionMeshMarker, VisualMeshMarker};
 use rmf_site_format::{
-    Angle, AssetSource, Category, Geometry, IsStatic, Model, ModelMarker, NameInSite, Pose,
-    PrimitiveShape, Rotation, Scale,
+    Angle, AssetSource, Category, IsStatic, Model, ModelMarker, NameInSite, Pose, PrimitiveShape,
+    Rotation, Scale,
 };
 
 pub struct SdfPlugin;

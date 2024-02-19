@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    site::{Change, FiducialMarker, Members, MergeGroups, NameInSite, SiteID, Texture},
+    site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
     widgets::{inspector::SelectionWidget, AppEvents},
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, ImageButton, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
 #[derive(Default, Clone, Copy)]
 pub enum GroupViewMode {

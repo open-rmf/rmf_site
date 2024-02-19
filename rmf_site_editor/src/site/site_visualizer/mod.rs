@@ -18,7 +18,7 @@
 use bevy::prelude::*;
 
 use crate::interaction::{InteractionState, SetCategoryVisibility};
-use crate::site::{CurrentLevel, LaneMarker, LevelElevation, NameOfSite, SiteProperties};
+use crate::site::{CurrentLevel, LaneMarker, LevelElevation, NameOfSite};
 use crate::{AppState, CurrentWorkspace};
 
 #[derive(Default)]

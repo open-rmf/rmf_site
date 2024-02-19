@@ -48,7 +48,7 @@ impl<'a> InspectDoorType<'a> {
                 });
         });
 
-        fn left_right_ratio_ui(ui: &mut Ui, mut ratio: &mut f32) {
+        fn left_right_ratio_ui(ui: &mut Ui, ratio: &mut f32) {
             ui.horizontal(|ui| {
                 ui.label("Left : Right");
                 ui.add(

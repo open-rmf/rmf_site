@@ -26,8 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, FrameMarker, Lane,
-    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
+    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
     NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
 };
 use std::collections::HashSet;
@@ -1109,18 +1108,14 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
-    models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
-    children: Query<'w, 's, &'static mut Children>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
     drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
     hidden_entities: ResMut<'w, HiddenSelectAnchorEntities>,
-    fiducials: Query<'w, 's, (), With<FiducialMarker>>,
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
@@ -1751,7 +1746,7 @@ impl SelectAnchor3D {
     /// Used for updating parents on parent assignment
     fn update_parent<'w, 's>(
         &mut self,
-        mut anchor_selection: AnchorSelection,
+        anchor_selection: AnchorSelection,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<(), ()> {
         if let Some(target) = self.target {

@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, FrameMarker, MeshConstraint, NameInWorkcell, SiteID, Workcell,
+    Category, ConstraintDependents, FrameMarker, MeshConstraint, SiteID, Workcell,
 };
 
 #[derive(Event)]

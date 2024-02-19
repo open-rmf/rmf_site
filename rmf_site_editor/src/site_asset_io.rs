@@ -1,27 +1,20 @@
 use bevy::asset::io::AssetSource as BevyAssetSource;
 use bevy::{
-    asset::embedded_asset,
-    asset::io::{
-        AssetReader, AssetReaderError, AssetSourceBuilder, AssetSourceId, PathStream, Reader,
-        VecReader,
-    },
+    asset::io::{AssetReader, AssetReaderError, AssetSourceBuilder, PathStream, Reader, VecReader},
     prelude::*,
-    utils::{BoxedFuture, HashMap},
+    utils::BoxedFuture,
 };
 use dirs;
 use serde::Deserialize;
 use std::env;
 use std::fs;
 use std::io;
-use std::io::prelude::*;
 use std::marker::Sync;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
 use crate::OSMTile;
 use urdf_rs::utils::expand_package_path;
-
-use rmf_site_format::AssetSource;
 
 pub fn cache_path() -> PathBuf {
     let mut p = dirs::cache_dir().unwrap();

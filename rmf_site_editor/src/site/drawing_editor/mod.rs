@@ -15,22 +15,20 @@
  *
 */
 
-use bevy::{prelude::*, render::view::visibility::RenderLayers};
+use bevy::prelude::*;
 
 pub mod alignment;
 pub use alignment::*;
 
 use crate::AppState;
 use crate::{
-    interaction::{ChangeProjectionMode, Selection, SuppressHighlight, SuppressOutline},
+    interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
     site::{
-        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, NameOfSite, NameOfWorkcell,
-        Pending, PixelsPerMeter, Point, PreventDeletion, SiteProperties,
+        DrawingMarker, Edge, MeasurementMarker, NameOfSite, NameOfWorkcell, Pending,
+        PreventDeletion,
     },
     CurrentWorkspace, WorkspaceMarker,
 };
-
-use std::collections::HashSet;
 
 #[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);
@@ -134,7 +132,7 @@ fn switch_edit_drawing_mode(
             change_camera_mode.send(ChangeProjectionMode::to_orthographic());
 
             if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
-                if let Ok(mut level_tf) = global_tf.get(level) {
+                if let Ok(level_tf) = global_tf.get(level) {
                     *editor_tf = level_tf.compute_transform();
                 } else {
                     error!("Cannot get transform of current level");

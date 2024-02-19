@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    interaction::Hover,
     recency::{ChangeRank, RankAdjustment},
     widgets::Icons,
 };

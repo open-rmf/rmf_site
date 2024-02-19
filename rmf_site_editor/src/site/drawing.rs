@@ -26,7 +26,7 @@ use crate::{
     CurrentWorkspace,
 };
 use bevy::{asset::LoadState, math::Affine3A, prelude::*};
-use rmf_site_format::{AssetSource, Category, DrawingProperties, NameInSite, PixelsPerMeter, Pose};
+use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use std::path::PathBuf;
 
 #[derive(Bundle, Debug, Clone)]
@@ -82,7 +82,6 @@ pub fn add_drawing_visuals(
     asset_server: Res<AssetServer>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
-    default_drawing_vis: Query<&GlobalDrawingVisibility>,
 ) {
     if changed_drawings.is_empty() {
         return;

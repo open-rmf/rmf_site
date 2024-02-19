@@ -18,7 +18,6 @@
 use crate::{
     inspector::{InspectAssetSource, InspectValue, SearchResult},
     site::{Category, Change, DefaultFile},
-    widgets::egui::RichText,
     AppEvents, Icons, WorkspaceMarker,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

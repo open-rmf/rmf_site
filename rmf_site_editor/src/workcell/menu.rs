@@ -44,7 +44,6 @@ impl FromWorld for ExportUrdfMenu {
 }
 
 pub fn handle_export_urdf_menu_events(
-    mut commands: Commands,
     mut menu_events: EventReader<MenuEvent>,
     urdf_menu: Res<ExportUrdfMenu>,
     mut save_events: EventWriter<SaveWorkspace>,

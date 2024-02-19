@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    animate::*,
     interaction::IntersectGroundPlaneParams,
     interaction::*,
     keyboard::DebugMode,

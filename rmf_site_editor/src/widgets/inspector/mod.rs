@@ -105,13 +105,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Members, Original, SiteID,
+        EdgeLabels, LayerVisibility, Original, SiteID,
     },
     widgets::AppEvents,
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
+use bevy_egui::egui::{Button, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split

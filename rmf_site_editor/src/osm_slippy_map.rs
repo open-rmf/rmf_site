@@ -15,7 +15,7 @@
  *
 */
 
-use std::{f32::consts::PI, io::Write, path::Path, path::PathBuf};
+use std::{f32::consts::PI, io::Write, path::PathBuf};
 
 use bevy::{
     asset::io::{AssetReaderError, Reader, VecReader},

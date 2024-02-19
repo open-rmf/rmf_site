@@ -475,7 +475,7 @@ fn camera_controls(
         }
 
         let proj = ortho_proj.clone();
-        let mut children = cameras
+        let children = cameras
             .get_many_mut(controls.orthographic_camera_entities)
             .unwrap();
         for (mut child_proj, _) in children {

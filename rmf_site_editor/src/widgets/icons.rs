@@ -16,9 +16,8 @@
 */
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
-use bevy::{asset::LoadedUntypedAsset, ecs::system::SystemState, prelude::*};
+use bevy::{ecs::system::SystemState, prelude::*};
 use bevy_egui::{egui::ImageSource, egui::TextureId, EguiContexts};
-use rmf_site_format::AssetSource;
 
 struct IconBuilder(Handle<Image>);
 impl IconBuilder {

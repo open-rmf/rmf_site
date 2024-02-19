@@ -41,11 +41,9 @@ pub mod urdf_package_exporter;
 pub mod workcell;
 pub use workcell::*;
 
-use bevy::render::{render_resource::WgpuFeatures, settings::WgpuSettings};
-use bevy::{prelude::*, render::view::visibility::VisibilitySystems, transform::TransformSystem};
+use bevy::prelude::*;
 use bevy_infinite_grid::{InfiniteGrid, InfiniteGridPlugin};
 
-use crate::interaction::Gizmo;
 use crate::AppState;
 use crate::{
     shapes::make_infinite_grid,
@@ -57,8 +55,6 @@ use crate::{
         update_model_tentative_formats, update_transforms_for_changed_poses,
     },
 };
-
-use rmf_site_format::ModelMarker;
 
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;

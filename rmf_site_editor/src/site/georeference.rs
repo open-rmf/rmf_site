@@ -1,18 +1,15 @@
-use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_egui::{
-    egui::{self, Slider},
-    EguiContexts,
-};
+use bevy::{prelude::*, window::PrimaryWindow};
+use bevy_egui::{egui, EguiContexts};
 use bevy_mod_raycast::primitives::rays::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{Anchor, AssetSource, GeographicComponent, GeographicOffset};
+use rmf_site_format::{GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
 use std::path::PathBuf;
 use utm::*;
 
 use crate::{
     generate_map_tiles,
-    interaction::{camera_controls, MoveTo, Selected},
+    interaction::camera_controls,
     widgets::menu_bar::{
         Menu, MenuDisabled, MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu, ViewMenu,
     },
@@ -284,10 +281,10 @@ fn settings(
 }
 
 fn spawn_tile(
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     coordinates: (f32, f32),
     reference: (f32, f32),
     zoom: i32,

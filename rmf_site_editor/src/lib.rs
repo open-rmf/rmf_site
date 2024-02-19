@@ -1,6 +1,4 @@
-use bevy::{
-    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
-};
+use bevy::{log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -16,7 +14,7 @@ pub mod keyboard;
 use keyboard::*;
 
 pub mod widgets;
-use widgets::{menu_bar::MenuPluginManager, *};
+use widgets::*;
 pub mod occupancy;
 use occupancy::OccupancyPlugin;
 pub mod issue;
