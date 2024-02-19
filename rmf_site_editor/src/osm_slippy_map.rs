@@ -75,7 +75,7 @@ impl TryFrom<PathBuf> for OSMTile {
     type Error = String;
 
     fn try_from(p: PathBuf) -> Result<Self, Self::Error> {
-        let (xtile, ytile, zoom) = p.components().collect_tuple().ok_or(
+        let (zoom, xtile, ytile) = p.components().collect_tuple().ok_or(
             "Invalid path when converting to OSMTile, three elements are required".to_owned(),
         )?;
         Ok(OSMTile {
