@@ -268,8 +268,8 @@ impl OSMTile {
     }
 
     pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, AssetReaderError> {
-        let cache_ok;
-        let mut cache_full_path;
+        let cache_ok: bool;
+        let mut cache_full_path: PathBuf;
         #[cfg(not(target_arch = "wasm32"))]
         {
             let cache_file_name =
