@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, SelectAnchor3D},
-    site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell, SiteID},
+    site::{FrameMarker, NameInWorkcell, NameOfWorkcell, SiteID},
     widgets::{inspector::SelectionWidget, AppEvents, Icons},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -36,7 +36,6 @@ pub struct InspectWorkcellParentParams<'w, 's> {
             With<NameOfWorkcell>,
         )>,
     >,
-    pub mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub icons: Res<'w, Icons>,
 }
@@ -69,16 +68,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectWorkcellParentWidget<'a, 'w1, 'w2, 's1, 's2>
             .and_then(|p| self.params.workcell_elements.get(**p))
         {
             ui.vertical(|ui| {
-                if let Ok(c) = self.params.mesh_constraints.get(self.entity) {
-                    ui.label("Mesh Parent");
-                    SelectionWidget::new(
-                        c.entity,
-                        self.params.site_id.get(c.entity).ok().cloned(),
-                        self.params.icons.as_ref(),
-                        self.events,
-                    )
-                    .show(ui);
-                }
                 ui.label("Parent Frame");
                 SelectionWidget::new(
                     parent,

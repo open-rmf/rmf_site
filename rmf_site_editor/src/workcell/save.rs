@@ -97,7 +97,6 @@ pub fn generate_workcell(
                 Option<&NameInWorkcell>,
                 &SiteID,
                 &Parent,
-                Option<&MeshConstraint<Entity>>,
             ),
             Without<Pending>,
         >,
@@ -199,7 +198,7 @@ pub fn generate_workcell(
     }
 
     // Anchors
-    for (e, anchor, name, id, parent, constraint) in &q_anchors {
+    for (e, anchor, name, id, parent) in &q_anchors {
         if !parent_in_workcell(&q_parents, e, root) {
             continue;
         }
@@ -210,18 +209,6 @@ pub fn generate_workcell(
                 continue;
             }
         };
-        // TODO(luca) is duplication here OK? same information is contained in mesh constraint and
-        // anchor
-        let constraint = if let Some(c) = constraint {
-            Some(MeshConstraint {
-                entity: **q_site_id.get(c.entity).unwrap(),
-                element: c.element.clone(),
-                relative_pose: c.relative_pose,
-            })
-        } else {
-            None
-        };
-
         workcell.frames.insert(
             id.0,
             Parented {
@@ -229,7 +216,6 @@ pub fn generate_workcell(
                 bundle: Frame {
                     anchor: anchor.clone(),
                     name: name.cloned(),
-                    mesh_constraint: constraint,
                     marker: FrameMarker,
                 },
             },

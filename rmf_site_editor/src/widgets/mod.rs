@@ -195,7 +195,6 @@ pub struct ChangeEvents<'w> {
 
 #[derive(SystemParam)]
 pub struct WorkcellChangeEvents<'w> {
-    pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
     pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
     pub workcell_name: EventWriter<'w, Change<NameOfWorkcell>>,
     pub scale: EventWriter<'w, Change<Scale>>,

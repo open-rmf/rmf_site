@@ -50,31 +50,9 @@ pub struct Frame {
     pub anchor: Anchor,
     #[serde(default, skip_serializing_if = "is_default")]
     pub name: Option<NameInWorkcell>,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub mesh_constraint: Option<MeshConstraint<u32>>,
     #[serde(skip)]
     pub marker: FrameMarker,
 }
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct MeshConstraint<T: RefTrait> {
-    pub entity: T,
-    pub element: MeshElement,
-    pub relative_pose: Pose,
-}
-
-#[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-pub enum MeshElement {
-    Vertex(u32),
-    // TODO(luca) edge and vertices
-}
-
-/// Attached to Model entities to keep track of constraints attached to them,
-/// for change detection and hierarchy propagation
-#[cfg(feature = "bevy")]
-#[derive(Component, Deref, DerefMut, Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
-pub struct ConstraintDependents(pub HashSet<Entity>);
 
 #[derive(Serialize, Deserialize, Debug, Default, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Component))]
@@ -424,7 +402,6 @@ impl WorkcellModel {
                     NameInWorkcell(self.name.clone()),
                     source.clone(),
                     self.pose.clone(),
-                    ConstraintDependents::default(),
                     scale,
                     ModelMarker,
                 ));
@@ -558,7 +535,6 @@ impl Workcell {
                     bundle: Frame {
                         anchor: Anchor::Pose3D(Pose::default()),
                         name: Some(NameInWorkcell(link.name.clone())),
-                        mesh_constraint: Default::default(),
                         marker: Default::default(),
                     },
                 },
@@ -712,7 +688,6 @@ impl Workcell {
                 name: Some(NameInWorkcell(String::from(
                     self.properties.name.0.clone() + "_workcell_link",
                 ))),
-                mesh_constraint: None,
                 marker: FrameMarker,
             };
             frames.insert(

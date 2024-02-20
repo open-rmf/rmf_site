@@ -30,7 +30,7 @@ use bevy::prelude::*;
 use std::collections::HashSet;
 
 use rmf_site_format::{
-    Category, ConstraintDependents, FrameMarker, MeshConstraint, SiteID, Workcell,
+    Category, FrameMarker, SiteID, Workcell,
 };
 
 #[derive(Event)]
@@ -48,8 +48,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
     let mut id_to_entity = HashMap::new();
     // Hashmap of parent id to list of its children entities
     let mut parent_to_child_entities = HashMap::new();
-    // Hashmap of parent model entity to constraint dependent entity
-    let mut model_to_constraint_dependent_entities = HashMap::new();
 
     let root = commands
         .spawn(SpatialBundle::INHERITED_IDENTITY)
@@ -93,21 +91,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             .insert(SiteID(*id))
             .insert(FrameMarker)
             .id();
-        if let Some(c) = &parented_anchor.bundle.mesh_constraint {
-            let model_entity = *id_to_entity
-                .get(&c.entity)
-                .expect("Mesh constraint refers to non existing model");
-            commands.entity(e).insert(MeshConstraint {
-                entity: model_entity,
-                element: c.element.clone(),
-                relative_pose: c.relative_pose,
-            });
-            let constraint_dependents: &mut HashSet<Entity> =
-                model_to_constraint_dependent_entities
-                    .entry(model_entity)
-                    .or_default();
-            constraint_dependents.insert(e);
-        }
         if let Some(name) = &parented_anchor.bundle.name {
             commands.entity(e).insert(name.clone());
         }
@@ -142,13 +125,6 @@ fn generate_workcell_entities(commands: &mut Commands, workcell: &Workcell) -> E
             .or_default();
         child_entities.push(e);
         id_to_entity.insert(id, e);
-    }
-
-    // Add constraint dependents to models
-    for (model, dependents) in model_to_constraint_dependent_entities {
-        commands
-            .entity(model)
-            .insert(ConstraintDependents(dependents));
     }
 
     for (parent, children) in parent_to_child_entities {

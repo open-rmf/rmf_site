@@ -60,9 +60,6 @@ pub use inspect_light::*;
 pub mod inspect_location;
 pub use inspect_location::*;
 
-pub mod inspect_mesh_constraint;
-pub use inspect_mesh_constraint::*;
-
 pub mod inspect_primitive_shape;
 pub use inspect_primitive_shape::*;
 
@@ -137,7 +134,6 @@ pub struct InspectorParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct InspectorWorkcellParams<'w, 's> {
     pub joints: InspectJointParams<'w, 's>,
-    pub constraint_dependents_params: InspectModelDependentsParams<'w, 's>,
     pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
     pub workcell_names: Query<'w, 's, &'static NameOfWorkcell>,
     pub parent_params: InspectWorkcellParentParams<'w, 's>,
@@ -167,7 +163,6 @@ pub struct InspectorComponentParams<'w, 's> {
     pub poses: Query<'w, 's, &'static Pose>,
     pub asset_sources:
         Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
-    pub constraint_dependents: Query<'w, 's, With<ConstraintDependents>>,
     pub pixels_per_meter: Query<'w, 's, &'static PixelsPerMeter>,
     pub physical_camera_properties: Query<'w, 's, &'static PhysicalCameraProperties>,
     pub lights: Query<'w, 's, (&'static LightKind, &'static RecallLightKind)>,
@@ -512,22 +507,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .primitive_shapes
                         .send(Change::new(new_primitive_shape, selection));
                 }
-                ui.add_space(10.0);
-            }
-
-            if self
-                .params
-                .component
-                .constraint_dependents
-                .get(selection)
-                .is_ok()
-            {
-                InspectModelDependentsWidget::new(
-                    selection,
-                    &self.params.workcell_params.constraint_dependents_params,
-                    self.events,
-                )
-                .show(ui);
                 ui.add_space(10.0);
             }
 
