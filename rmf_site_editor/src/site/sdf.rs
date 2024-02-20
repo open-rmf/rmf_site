@@ -17,8 +17,9 @@
 
 use bevy::prelude::*;
 use bevy::render::mesh::shape::{Capsule, UVSphere};
+use bevy::render::view::RenderLayers;
 
-use crate::interaction::Selectable;
+use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
 use crate::shapes::make_cylinder;
 use crate::site::SiteAssets;
 
@@ -38,14 +39,8 @@ pub fn handle_new_primitive_shapes(
     mut commands: Commands,
     primitives: Query<(Entity, &PrimitiveShape), Added<PrimitiveShape>>,
     parents: Query<&Parent>,
-    selectables: Query<
-        &Selectable,
-        Or<(
-            With<ModelMarker>,
-            With<VisualMeshMarker>,
-            With<CollisionMeshMarker>,
-        )>,
-    >,
+    selectables: Query<&Selectable>,
+    render_layers: Query<&RenderLayers>,
     mut meshes: ResMut<Assets<Mesh>>,
     site_assets: Res<SiteAssets>,
 ) {
@@ -67,21 +62,34 @@ pub fn handle_new_primitive_shapes(
         };
         // If there is a parent with a Selectable component, use it to make this primitive
         // point to it. Otherwise set the Selectable to point to itself.
-        let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
-            .filter_map(|p| selectables.get(p).ok())
-            .last()
-        {
-            selectable.clone()
-        } else {
-            Selectable::new(e)
-        };
-        commands
+        let id = commands
             .spawn(PbrBundle {
                 mesh: meshes.add(mesh),
                 material: site_assets.default_mesh_grey_material.clone(),
                 ..default()
             })
-            .insert(selectable)
-            .set_parent(e);
+            .set_parent(e)
+            .id();
+
+        if let Some(render_layer) = AncestorIter::new(&parents, e)
+            .filter_map(|p| render_layers.get(p).ok())
+            .last()
+        {
+            commands.entity(id).insert(render_layer.clone());
+            if !render_layer.iter().all(|l| l == MODEL_PREVIEW_LAYER) {
+                let selectable = if let Some(selectable) = AncestorIter::new(&parents, e)
+                    .filter_map(|p| selectables.get(p).ok())
+                    .last()
+                {
+                    selectable.clone()
+                } else {
+                    Selectable::new(e)
+                };
+                commands.entity(id).insert((
+                    selectable,
+                    DragPlaneBundle::new(selectable.element, Vec3::Z),
+                ));
+            }
+        }
     }
 }
