@@ -27,6 +27,7 @@ use std::path::{Path, PathBuf};
 pub enum AssetSource {
     Local(String),
     Remote(String),
+    RCC(String),
     Search(String),
     Bundled(String),
     Package(String),
@@ -42,6 +43,7 @@ impl AssetSource {
         match self {
             Self::Local(_) => "Local",
             Self::Remote(_) => "Remote",
+            Self::RCC(_) => "RCC",
             Self::Search(_) => "Search",
             Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
@@ -113,7 +115,9 @@ impl From<&str> for AssetSource {
             return AssetSource::Remote(path);
         } else if let Some(path) = path.strip_prefix("file://").map(|p| p.to_string()) {
             return AssetSource::Local(path);
-        } else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
+        } else if let Some(path) = path.strip_prefix("rcc://").map(|p| p.to_string()) {
+            return AssetSource::RCC(path);
+        }else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
             return AssetSource::Search(path);
         } else if let Some(path) = path.strip_prefix("bundled://").map(|p| p.to_string()) {
             return AssetSource::Bundled(path);
@@ -154,6 +158,7 @@ impl From<&str> for AssetSource {
 impl From<&AssetSource> for String {
     fn from(asset_source: &AssetSource) -> String {
         match asset_source {
+            AssetSource::RCC(uri) => uri.to_string(),
             AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
@@ -193,6 +198,9 @@ impl Recall for RecallAssetSource {
                 self.filename = Some(name.clone());
             }
             AssetSource::Remote(uri) => {
+                self.remote_uri = Some(uri.clone());
+            }
+              AssetSource::RCC(uri) => {
                 self.remote_uri = Some(uri.clone());
             }
             AssetSource::Search(name) => {

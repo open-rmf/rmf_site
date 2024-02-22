@@ -20,6 +20,12 @@ use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
+use crate::{
+    get_map_list,
+    rcc,
+    log
+};
+
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
@@ -44,12 +50,14 @@ impl<'a> InspectAssetSource<'a> {
 
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
+        let mut new_map_index = unsafe { rcc::MAP_INDEX };
 
         let osm_string = "OpenStreetMaps".to_string();
         // TODO(luca) implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,
+            AssetSource::RCC(uri) => uri,
             AssetSource::Search(name) => name,
             AssetSource::Bundled(name) => name,
             AssetSource::Package(path) => path,
@@ -67,6 +75,7 @@ impl<'a> InspectAssetSource<'a> {
                     for variant in &[
                         AssetSource::Local(assumed_source.clone()),
                         AssetSource::Remote(assumed_source.clone()),
+                        AssetSource::RCC(assumed_source.clone()),
                         AssetSource::Search(assumed_source.clone()),
                         AssetSource::Bundled(assumed_source.clone()),
                         AssetSource::Package(assumed_source.clone()),
@@ -136,6 +145,50 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Remote(uri) => {
                 ui.text_edit_singleline(uri);
             }
+            
+            
+            AssetSource::RCC(uri) => {
+                let map_list = get_map_list().clone();
+
+                match rcc::parse_js_value(&map_list.get(new_map_index)) {
+                    Ok(current_map)=>{
+                        if map_list.length() > 0 {
+                            ui.horizontal(|ui| {
+                                ui.label("Map");
+                                ComboBox::from_id_source("Map Source")
+                                    .selected_text(current_map.name)
+                                    .show_ui(ui, |ui| {
+                                        for i in 0..map_list.length() {
+                                            // Convert JavaScript object to Rust struct using serde_json
+                                            match rcc::parse_js_value(&map_list.get(i)) {
+                                                Ok(obj)=>{
+                                                    ui.selectable_value(&mut new_map_index, i, obj.name.to_string());
+                                                },
+                                                Err(err)=>{
+                                                    log( &format!("Error parsing  map list items JSON: {}", err));
+                                                }
+                                            }
+                                        }
+                                        ui.end_row();
+                                    });
+                            }); 
+        
+                            match rcc::parse_js_value(&map_list.get(new_map_index)) {
+                                Ok(data)=>{
+                                    let map_uri = String::from(data.image_url);
+                                    *uri = map_uri;
+                                },
+                                Err(err)=>{
+                                    log( &format!("Error parsing JSON while updating the selected value: {}", err));
+                                }
+                            }
+                        }
+                    },
+                    Err(err)=>{
+                        log( &format!("Error parsing JSON: {}", err));
+                    }
+                }
+            }
             AssetSource::Search(name) => {
                 ui.text_edit_singleline(name);
             }
@@ -158,6 +211,12 @@ impl<'a> InspectAssetSource<'a> {
                 });
             }
         }
+        
+        
+        if new_map_index != unsafe { rcc::MAP_INDEX } {
+            rcc::set_selected_map_index(new_map_index)
+        }
+
         if &new_source != self.source {
             Some(new_source)
         } else {

@@ -293,6 +293,15 @@ impl AssetIo for SiteAssetIo {
                 // Get from remote server
                 self.fetch_asset(remote_url, asset_name)
             }
+            AssetSource::RCC(asset_name) => {
+                let remote_url: String = match self.generate_remote_asset_url(&asset_name) {
+                    Ok(uri) => uri,
+                    Err(e) => return Box::pin(async move { Err(e) }),
+                };
+
+                // Get from remote server
+                self.fetch_asset(remote_url, asset_name)
+            }
             AssetSource::Local(filename) => Box::pin(async move {
                 let full_path = PathBuf::from(filename);
                 self.load_from_file(full_path)
