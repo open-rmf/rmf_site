@@ -158,7 +158,7 @@ impl From<&str> for AssetSource {
 impl From<&AssetSource> for String {
     fn from(asset_source: &AssetSource) -> String {
         match asset_source {
-            AssetSource::RCC(uri) => uri.to_string(),
+            AssetSource::RCC(uri) => String::from("rcc://") +uri,
             AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,

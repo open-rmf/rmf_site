@@ -12,10 +12,13 @@ use std::io::prelude::*;
 use std::path::{Path, PathBuf};
 use std::sync::Mutex;
 
-use crate::{urdf_loader::UrdfPlugin, OSMTile};
+use crate::{rcc, urdf_loader::UrdfPlugin, OSMTile};
 use urdf_rs::utils::expand_package_path;
 
 use rmf_site_format::AssetSource;
+use crate::{
+    log
+};
 
 pub fn cache_path() -> PathBuf {
     let mut p = dirs::cache_dir().unwrap();
@@ -294,13 +297,17 @@ impl AssetIo for SiteAssetIo {
                 self.fetch_asset(remote_url, asset_name)
             }
             AssetSource::RCC(asset_name) => {
-                let remote_url: String = match self.generate_remote_asset_url(&asset_name) {
-                    Ok(uri) => uri,
-                    Err(e) => return Box::pin(async move { Err(e) }),
-                };
-
-                // Get from remote server
-                self.fetch_asset(remote_url, asset_name)
+                let mut s3_url = asset_name.clone();
+                
+                if s3_url.starts_with("http://") == false && s3_url.starts_with("https://") == false {
+                    s3_url = match self.generate_remote_asset_url(&asset_name) {
+                        Ok(uri) => uri,
+                        Err(e) => return Box::pin(async move { Err(e) }),
+                    };
+                } 
+                
+                log( &format!("RCC URL: {}", s3_url));
+                self.fetch_asset(s3_url, asset_name)
             }
             AssetSource::Local(filename) => Box::pin(async move {
                 let full_path = PathBuf::from(filename);

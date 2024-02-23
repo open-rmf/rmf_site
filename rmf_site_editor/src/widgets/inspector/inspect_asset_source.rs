@@ -16,7 +16,7 @@
 */
 
 use crate::site::DefaultFile;
-use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
+use bevy_egui::egui::{Color32, ComboBox, DragValue, Label, RichText, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
@@ -148,45 +148,48 @@ impl<'a> InspectAssetSource<'a> {
             
             
             AssetSource::RCC(uri) => {
-                let map_list = get_map_list().clone();
-
-                match rcc::parse_js_value(&map_list.get(new_map_index)) {
-                    Ok(current_map)=>{
-                        if map_list.length() > 0 {
-                            ui.horizontal(|ui| {
-                                ui.label("Map");
-                                ComboBox::from_id_source("Map Source")
-                                    .selected_text(current_map.name)
-                                    .show_ui(ui, |ui| {
-                                        for i in 0..map_list.length() {
-                                            // Convert JavaScript object to Rust struct using serde_json
-                                            match rcc::parse_js_value(&map_list.get(i)) {
-                                                Ok(obj)=>{
-                                                    ui.selectable_value(&mut new_map_index, i, obj.name.to_string());
-                                                },
-                                                Err(err)=>{
-                                                    log( &format!("Error parsing  map list items JSON: {}", err));
+                if unsafe { rcc::SHOW_MAP_ASSET_SOURCE } == 1 {
+                    let map_list = get_map_list().clone();
+                    match rcc::parse_js_value(&map_list.get(new_map_index)) {
+                        Ok(current_map)=>{
+                            if map_list.length() > 0 {
+                                ui.horizontal(|ui| {
+                                    ui.label("Map");
+                                    ComboBox::from_id_source("Map Source")
+                                        .selected_text(current_map.name)
+                                        .show_ui(ui, |ui| {
+                                            for i in 0..map_list.length() {
+                                                // Convert JavaScript object to Rust struct using serde_json
+                                                match rcc::parse_js_value(&map_list.get(i)) {
+                                                    Ok(obj)=>{
+                                                        ui.selectable_value(&mut new_map_index, i, obj.name.to_string());
+                                                    },
+                                                    Err(err)=>{
+                                                        log( &format!("Error parsing  map list items JSON: {}", err));
+                                                    }
                                                 }
                                             }
-                                        }
-                                        ui.end_row();
-                                    });
-                            }); 
-        
-                            match rcc::parse_js_value(&map_list.get(new_map_index)) {
-                                Ok(data)=>{
-                                    let map_uri = String::from(data.image_url);
-                                    *uri = map_uri;
-                                },
-                                Err(err)=>{
-                                    log( &format!("Error parsing JSON while updating the selected value: {}", err));
+                                            ui.end_row();
+                                        });
+                                }); 
+            
+                                match rcc::parse_js_value(&map_list.get(new_map_index)) {
+                                    Ok(data)=>{
+                                        let map_uri = String::from(data.image_url);
+                                        *uri = map_uri;
+                                    },
+                                    Err(err)=>{
+                                        log( &format!("Error parsing JSON while updating the selected value: {}", err));
+                                    }
                                 }
                             }
+                        },
+                        Err(err)=>{
+                            log( &format!("Error parsing JSON: {}", err));
                         }
-                    },
-                    Err(err)=>{
-                        log( &format!("Error parsing JSON: {}", err));
                     }
+                } else {
+                    ui.label(RichText::new("RCC not supported for this action").color(Color32::RED));
                 }
             }
             AssetSource::Search(name) => {

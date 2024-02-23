@@ -2,6 +2,7 @@ use crate::{
     JsValue,
     log
 };
+use js_sys::Boolean;
 use serde::Deserialize;
 
 #[derive(Debug, Deserialize,PartialEq)]
@@ -24,6 +25,7 @@ pub struct Maps {
 }
 
 pub static mut MAP_INDEX:u32=0;
+pub static mut SHOW_MAP_ASSET_SOURCE:u32=0; // Display whether map dropdown or text box on selecting "RCC" AssetSource
 
 pub fn parse_js_value(val: &JsValue) -> Result<Maps, Box<dyn std::error::Error>> {
     let curr_map_str = js_sys::JSON::stringify(&val).unwrap().as_string().ok_or("Invalid string")?;
