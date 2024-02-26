@@ -113,9 +113,6 @@ pub use texture::*;
 pub mod wall;
 pub use wall::*;
 
-pub mod workcell;
-pub use workcell::*;
-
 pub mod georeference;
 pub use georeference::*;
 

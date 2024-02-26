@@ -1241,7 +1241,7 @@ const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
 const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
 const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
 
-pub(crate) fn make_infinite_grid(
+pub fn make_infinite_grid(
     scale: f32,
     fadeout_distance: f32,
     shadow_color: Option<Color>,

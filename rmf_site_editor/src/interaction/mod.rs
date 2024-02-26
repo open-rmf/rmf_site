@@ -20,7 +20,6 @@ use crate::site::{
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
     SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
-use crate::workcell::WorkcellVisualizationMarker;
 
 pub mod anchor;
 pub use anchor::*;
@@ -91,7 +90,6 @@ pub use visual_cue::*;
 use bevy::prelude::*;
 use bevy_mod_outline::OutlinePlugin;
 use bevy_mod_raycast::deferred::DeferredRaycastingPlugin;
-use bevy_polyline::PolylinePlugin;
 
 #[derive(Reflect)]
 pub struct SiteRaycastSet;
@@ -135,7 +133,6 @@ impl Plugin for InteractionPlugin {
                 Update,
                 apply_deferred.in_set(InteractionUpdateSet::CommandFlush),
             )
-            .add_plugins(PolylinePlugin)
             .add_plugins(DeferredRaycastingPlugin::<SiteRaycastSet>::default())
             .init_resource::<InteractionAssets>()
             .init_resource::<Cursor>()
@@ -169,7 +166,6 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<CollisionMeshMarker>::visible(false),
                 CategoryVisibilityPlugin::<MeasurementMarker>::visible(true),
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
-                CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
             .add_plugins((CameraControlsPlugin, ModelPreviewPlugin))
             .add_systems(

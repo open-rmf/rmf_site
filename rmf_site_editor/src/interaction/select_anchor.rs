@@ -18,16 +18,15 @@
 use crate::{
     interaction::*,
     site::{
-        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, CollisionMeshMarker,
-        Dependents, DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
-        VisualMeshMarker,
+        drawing_editor::CurrentEditDrawing, Anchor, AnchorBundle, Category, Dependents,
+        DrawingMarker, Original, PathBehavior, Pending, TextureNeedsAssignment,
     },
-    AppState, CurrentWorkspace,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
-    NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
+    Door, Edge, Fiducial, Floor, Lane, LiftProperties, Location, Measurement, Model, NameInSite,
+    NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall,
 };
 use std::collections::HashSet;
 use std::sync::Arc;
@@ -1306,24 +1305,6 @@ impl SelectAnchorPointBuilder {
         }
     }
 
-    pub fn for_visual(self, model: WorkcellModel) -> SelectAnchor3D {
-        SelectAnchor3D {
-            bundle: PlaceableObject::VisualMesh(model),
-            parent: None,
-            target: self.for_element,
-            continuity: self.continuity,
-        }
-    }
-
-    pub fn for_collision(self, model: WorkcellModel) -> SelectAnchor3D {
-        SelectAnchor3D {
-            bundle: PlaceableObject::CollisionMesh(model),
-            parent: None,
-            target: self.for_element,
-            continuity: self.continuity,
-        }
-    }
-
     pub fn for_anchor(self, parent: Option<Entity>) -> SelectAnchor3D {
         SelectAnchor3D {
             bundle: PlaceableObject::Anchor,
@@ -1688,8 +1669,6 @@ impl SelectAnchor {
 enum PlaceableObject {
     Model(Model),
     Anchor,
-    VisualMesh(WorkcellModel),
-    CollisionMesh(WorkcellModel),
 }
 
 #[derive(Clone)]
@@ -2111,12 +2090,10 @@ pub fn handle_select_anchor_3d_mode(
     mouse_button_input: Res<Input<MouseButton>>,
     touch_input: Res<Touches>,
     mut params: SelectAnchorPlacementParams,
-    selection: Res<Selection>,
     mut select: EventReader<Select>,
     mut hover: EventWriter<Hover>,
     blockers: Option<Res<PickingBlockers>>,
     workspace: Res<CurrentWorkspace>,
-    app_state: Res<State<AppState>>,
 ) {
     let mut request = match &*mode {
         InteractionMode::SelectAnchor3D(request) => request.clone(),
@@ -2157,18 +2134,6 @@ pub fn handle_select_anchor_3d_mode(
                     .cursor
                     .set_model_preview(&mut params.commands, Some(m.clone()));
             }
-            PlaceableObject::VisualMesh(ref m) | PlaceableObject::CollisionMesh(ref m) => {
-                // Spawn the model as a child of the cursor
-                params
-                    .cursor
-                    .set_workcell_model_preview(&mut params.commands, Some(m.clone()));
-            }
-        }
-
-        // Set the request parent to the currently selected element, to spawn new object as
-        // children of selected frames
-        if matches!(**app_state, AppState::WorkcellEditor) && request.begin_creating() {
-            request.parent = selection.0;
         }
     }
 
@@ -2196,43 +2161,13 @@ pub fn handle_select_anchor_3d_mode(
                         .commands
                         .spawn((
                             AnchorBundle::new(Anchor::Pose3D(pose)),
-                            FrameMarker,
-                            NameInWorkcell("Unnamed".to_string()),
+                            NameInSite("Unnamed".to_string()),
                         ))
                         .id(),
                     PlaceableObject::Model(ref a) => {
                         let mut model = a.clone();
-                        // If we are in workcell mode, add a "base link" frame to the model
-                        if matches!(**app_state, AppState::WorkcellEditor) {
-                            let child_id = params.commands.spawn(model).id();
-                            params
-                                .commands
-                                .spawn((
-                                    AnchorBundle::new(Anchor::Pose3D(pose))
-                                        .dependents(Dependents::single(child_id)),
-                                    FrameMarker,
-                                    NameInWorkcell("model_root".to_string()),
-                                ))
-                                .add_child(child_id)
-                                .id()
-                        } else {
-                            model.pose = pose;
-                            params.commands.spawn(model).id()
-                        }
-                    }
-                    PlaceableObject::VisualMesh(ref a) => {
-                        let mut model = a.clone();
                         model.pose = pose;
-                        let mut cmd = params.commands.spawn(VisualMeshMarker);
-                        model.add_bevy_components(&mut cmd);
-                        cmd.id()
-                    }
-                    PlaceableObject::CollisionMesh(ref a) => {
-                        let mut model = a.clone();
-                        model.pose = pose;
-                        let mut cmd = params.commands.spawn(CollisionMeshMarker);
-                        model.add_bevy_components(&mut cmd);
-                        cmd.id()
+                        params.commands.spawn(model).id()
                     }
                 };
                 // Add child and dependent to parent

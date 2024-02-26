@@ -39,9 +39,6 @@ pub use inspect_fiducial::*;
 pub mod inspect_group;
 pub use inspect_group::*;
 
-pub mod inspect_joint;
-pub use inspect_joint::*;
-
 pub mod inspect_is_static;
 pub use inspect_is_static::*;
 
@@ -90,9 +87,6 @@ pub use inspect_texture::*;
 pub mod inspect_value;
 pub use inspect_value::*;
 
-pub mod inspect_workcell_parent;
-pub use inspect_workcell_parent::*;
-
 pub mod selection_widget;
 pub use selection_widget::*;
 
@@ -119,7 +113,6 @@ pub struct InspectorParams<'w, 's> {
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
     pub anchor_params: InspectAnchorParams<'w, 's>,
     pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
-    pub workcell_params: InspectorWorkcellParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
     pub drawing: InspectDrawingParams<'w, 's>,
     // TODO(luca) move to new systemparam, reached 16 limit on main one
@@ -129,14 +122,6 @@ pub struct InspectorParams<'w, 's> {
     pub texture: InspectTextureAffiliationParams<'w, 's>,
     pub groups: InspectGroupParams<'w, 's>,
     pub default_file: Query<'w, 's, &'static DefaultFile>,
-}
-
-#[derive(SystemParam)]
-pub struct InspectorWorkcellParams<'w, 's> {
-    pub joints: InspectJointParams<'w, 's>,
-    pub names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
-    pub workcell_names: Query<'w, 's, &'static NameOfWorkcell>,
-    pub parent_params: InspectWorkcellParentParams<'w, 's>,
 }
 
 // NOTE: We may need to split this struct into multiple structs if we ever need
@@ -266,26 +251,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     self.events
                         .change
                         .name
-                        .send(Change::new(new_name, selection));
-                }
-                ui.add_space(10.0);
-            }
-
-            if let Ok(name) = self.params.workcell_params.names_in_workcell.get(selection) {
-                if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
-                    self.events
-                        .workcell_change
-                        .name_in_workcell
-                        .send(Change::new(new_name, selection));
-                }
-                ui.add_space(10.0);
-            }
-
-            if let Ok(name) = self.params.workcell_params.workcell_names.get(selection) {
-                if let Some(new_name) = InspectNameOfWorkcell::new(name).show(ui) {
-                    self.events
-                        .workcell_change
-                        .workcell_name
                         .send(Change::new(new_name, selection));
                 }
                 ui.add_space(10.0);
@@ -459,7 +424,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             if let Ok(scale) = self.params.scales.get(selection) {
                 if let Some(new_scale) = InspectScale::new(scale).show(ui) {
                     self.events
-                        .workcell_change
+                        .change
                         .scale
                         .send(Change::new(new_scale, selection));
                 }
@@ -503,25 +468,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     InspectPrimitiveShape::new(source, recall).show(ui)
                 {
                     self.events
-                        .workcell_change
+                        .change
                         .primitive_shapes
                         .send(Change::new(new_primitive_shape, selection));
                 }
                 ui.add_space(10.0);
             }
-
-            InspectWorkcellParentWidget::new(
-                selection,
-                &self.params.workcell_params.parent_params,
-                &mut self.events,
-            )
-            .show(ui);
-            InspectJointWidget::new(
-                selection,
-                &self.params.workcell_params.joints,
-                &mut self.events,
-            )
-            .show(ui);
 
             if let Ok(distance) = self.params.drawing.distance.get(selection) {
                 if let Some(new_distance) =

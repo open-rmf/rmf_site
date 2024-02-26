@@ -22,7 +22,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{deferred::RaycastMesh, deferred::RaycastSource, primitives::rays::Ray3d};
-use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker, WorkcellModel};
+use rmf_site_format::{FloorMarker, Model, ModelMarker, PrimitiveShape, WallMarker};
 use std::collections::HashSet;
 
 /// A resource that keeps track of the unique entities that play a role in
@@ -117,23 +117,6 @@ impl Cursor {
         self.remove_preview(commands);
         self.preview_model = if let Some(model) = model {
             let e = commands.spawn(model).insert(Pending).id();
-            commands.entity(self.frame).push_children(&[e]);
-            Some(e)
-        } else {
-            None
-        }
-    }
-
-    pub fn set_workcell_model_preview(
-        &mut self,
-        commands: &mut Commands,
-        model: Option<WorkcellModel>,
-    ) {
-        self.remove_preview(commands);
-        self.preview_model = if let Some(model) = model {
-            let mut cmd = commands.spawn(Pending);
-            let e = cmd.id();
-            model.add_bevy_components(&mut cmd);
             commands.entity(self.frame).push_children(&[e]);
             Some(e)
         } else {

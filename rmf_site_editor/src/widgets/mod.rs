@@ -25,10 +25,9 @@ use crate::{
     site::{
         AlignSiteDrawings, AssociatedGraphs, BeginEditDrawing, Change, ConsiderAssociatedGraph,
         ConsiderLocationTag, CurrentLevel, Delete, DrawingMarker, ExportLights, FinishEditDrawing,
-        GlobalDrawingVisibility, GlobalFloorVisibility, JointProperties, LayerVisibility,
-        MergeGroups, PhysicalLightToggle, SaveNavGraphs, Texture, ToggleLiftDoorAvailability,
+        GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
+        PhysicalLightToggle, SaveNavGraphs, Texture, ToggleLiftDoorAvailability,
     },
-    workcell::CreateJoint,
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
@@ -144,10 +143,6 @@ impl Plugin for StandardUiLayout {
             )
             .add_systems(
                 Update,
-                workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                Update,
                 site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
             )
             .add_systems(
@@ -187,18 +182,11 @@ pub struct ChangeEvents<'w> {
     pub search_for_texture: ResMut<'w, SearchForTexture>,
     pub distance: EventWriter<'w, Change<Distance>>,
     pub texture: EventWriter<'w, Change<Texture>>,
-    pub joint_properties: EventWriter<'w, Change<JointProperties>>,
     pub merge_groups: EventWriter<'w, MergeGroups>,
     pub filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
     pub filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
-}
-
-#[derive(SystemParam)]
-pub struct WorkcellChangeEvents<'w> {
-    pub name_in_workcell: EventWriter<'w, Change<NameInWorkcell>>,
-    pub workcell_name: EventWriter<'w, Change<NameOfWorkcell>>,
-    pub scale: EventWriter<'w, Change<Scale>>,
     pub primitive_shapes: EventWriter<'w, Change<PrimitiveShape>>,
+    pub scale: EventWriter<'w, Change<Scale>>,
 }
 
 #[derive(SystemParam)]
@@ -240,7 +228,6 @@ pub struct Requests<'w> {
     pub consider_graph: EventWriter<'w, ConsiderAssociatedGraph>,
     pub align_site: EventWriter<'w, AlignSiteDrawings>,
     pub validate_workspace: EventWriter<'w, ValidateWorkspace>,
-    pub create_joint: EventWriter<'w, CreateJoint>,
 }
 
 #[derive(SystemParam)]
@@ -275,7 +262,6 @@ pub struct MenuParams<'w, 's> {
 pub struct AppEvents<'w, 's> {
     pub commands: Commands<'w, 's>,
     pub change: ChangeEvents<'w>,
-    pub workcell_change: WorkcellChangeEvents<'w>,
     pub display: PanelResources<'w>,
     pub request: Requests<'w>,
     pub file_events: FileEvents<'w>,
@@ -565,85 +551,6 @@ fn site_visualizer_ui_layout(
         &children,
         &mut menu_params,
     );
-
-    let egui_context = egui_context.ctx_mut();
-    let ui_has_focus = egui_context.wants_pointer_input()
-        || egui_context.wants_keyboard_input()
-        || egui_context.is_pointer_over_area();
-
-    if let Some(picking_blocker) = &mut picking_blocker {
-        picking_blocker.ui = ui_has_focus;
-    }
-
-    if ui_has_focus {
-        // If the UI has focus and there were no hover events emitted by the UI,
-        // then we should emit a None hover event
-        if events.request.hover.is_empty() {
-            events.request.hover.send(Hover(None));
-        }
-    }
-}
-
-fn workcell_ui_layout(
-    mut egui_context: EguiContexts,
-    mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    inspector_params: InspectorParams,
-    create_params: CreateParams,
-    mut events: AppEvents,
-    file_menu: Res<FileMenu>,
-    top_level_components: Query<(), Without<Parent>>,
-    children: Query<&Children>,
-    mut menu_params: MenuParams,
-) {
-    egui::SidePanel::right("right_panel")
-        .resizable(true)
-        .show(egui_context.ctx_mut(), |ui| {
-            egui::ScrollArea::both()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    ui.vertical(|ui| {
-                        CollapsingHeader::new("Inspect")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
-                            });
-                        ui.separator();
-                        CollapsingHeader::new("Create")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                CreateWidget::new(&create_params, &mut events).show(ui);
-                            });
-                        ui.separator();
-                    });
-                });
-        });
-
-    egui::TopBottomPanel::bottom("log_console")
-        .resizable(true)
-        .min_height(30.)
-        .max_height(300.)
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.add_space(10.0);
-            ConsoleWidget::new(&mut events).show(ui);
-        });
-
-    top_menu_bar(
-        egui_context.ctx_mut(),
-        &mut events.file_events,
-        &file_menu,
-        &top_level_components,
-        &children,
-        &mut menu_params,
-    );
-
-    if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("asset_gallery")
-            .resizable(true)
-            .exact_width(320.0)
-            .show(egui_context.ctx_mut(), |ui| {
-                NewModel::new(&mut events).show(ui);
-            });
-    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

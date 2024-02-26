@@ -19,10 +19,9 @@ use crate::{
     interaction::{Hover, MoveTo},
     site::{
         latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Dependents,
-        GeographicComponent, JointProperties, LocationTags, SiteID, Subordinate,
+        GeographicComponent, LocationTags, SiteID, Subordinate,
     },
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
-    workcell::CreateJoint,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
@@ -37,12 +36,10 @@ pub struct InspectAnchorParams<'w, 's> {
             &'static Anchor,
             &'static Transform,
             Option<&'static Subordinate>,
-            &'static Parent,
         ),
     >,
     pub icons: Res<'w, Icons>,
     pub site_id: Query<'w, 's, &'static SiteID>,
-    pub joints: Query<'w, 's, Entity, With<JointProperties>>,
     pub geographic_offset: Query<'w, 's, &'static GeographicComponent>,
 }
 
@@ -95,7 +92,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok((anchor, tf, subordinate, parent)) = self.params.anchors.get(self.anchor) {
+        if let Ok((anchor, tf, subordinate)) = self.params.anchors.get(self.anchor) {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {
@@ -187,15 +184,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     entity: self.anchor,
                                     transform: new_pose.transform(),
                                 });
-                            }
-                            // If the parent is not a joint, add a joint creation widget
-                            if self.params.joints.get(parent.get()).is_err() {
-                                if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
-                                    self.events.request.create_joint.send(CreateJoint {
-                                        parent: parent.get(),
-                                        child: self.anchor,
-                                    });
-                                }
                             }
                         });
                     }

@@ -1,9 +1,8 @@
 use bevy::{log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
-use main_menu::MainMenuPlugin;
-// use warehouse_generator::WarehouseGeneratorPlugin;
 #[cfg(not(target_arch = "wasm32"))]
 use clap::Parser;
+use main_menu::MainMenuPlugin;
 #[cfg(target_arch = "wasm32")]
 use wasm_bindgen::prelude::*;
 
@@ -27,16 +26,13 @@ pub mod demo_world;
 pub mod log;
 mod recency;
 use recency::*;
-mod shapes;
+pub mod shapes;
 use log::LogHistoryPlugin;
 
 pub mod main_menu;
 use main_menu::Autoload;
-pub mod site;
-// mod warehouse_generator;
-pub mod workcell;
-use workcell::WorkcellEditorPlugin;
 pub mod interaction;
+pub mod site;
 
 pub mod workspace;
 use workspace::*;
@@ -83,8 +79,6 @@ pub enum AppState {
     MainMenu,
     SiteEditor,
     SiteVisualizer,
-    //WarehouseGenerator,
-    WorkcellEditor,
     SiteDrawingEditor,
 }
 
@@ -92,17 +86,15 @@ impl AppState {
     pub fn in_site_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
-            AppState::MainMenu | AppState::WorkcellEditor => false,
+            AppState::MainMenu => false,
         })
     }
 
+    // TODO(luca) get rid of this run condition
     pub fn in_displaying_mode() -> impl Condition<()> {
         IntoSystem::into_system(|state: Res<State<AppState>>| match state.get() {
             AppState::MainMenu => false,
-            AppState::SiteEditor
-            | AppState::SiteVisualizer
-            | AppState::WorkcellEditor
-            | AppState::SiteDrawingEditor => true,
+            AppState::SiteEditor | AppState::SiteVisualizer | AppState::SiteDrawingEditor => true,
         })
     }
 }
@@ -183,7 +175,6 @@ impl Plugin for SiteEditor {
                 EguiPlugin,
                 KeyboardInputPlugin,
                 MainMenuPlugin,
-                WorkcellEditorPlugin,
                 SitePlugin,
                 InteractionPlugin,
                 StandardUiLayout,

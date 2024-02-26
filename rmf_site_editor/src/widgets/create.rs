@@ -24,7 +24,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
+use rmf_site_format::{DrawingProperties, Model};
 
 #[derive(SystemParam)]
 pub struct CreateParams<'w, 's> {
@@ -139,17 +139,10 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                         ));
                     }
                 }
-                AppState::WorkcellEditor => {
-                    if ui.button("Frame").clicked() {
-                        self.events.request.change_mode.send(ChangeMode::To(
-                            SelectAnchor3D::create_new_point().for_anchor(None).into(),
-                        ));
-                    }
-                }
             }
             match self.events.app_state.get() {
                 AppState::MainMenu | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {}
-                AppState::SiteEditor | AppState::WorkcellEditor => {
+                AppState::SiteEditor => {
                     ui.add_space(10.0);
                     CollapsingHeader::new("New model")
                         .default_open(false)
@@ -207,54 +200,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                                 .into(),
                                         ));
                                     }
-                                }
-                                AppState::WorkcellEditor => {
-                                    if ui.button("Browse fuel").clicked() {
-                                        self.events.new_model.asset_gallery_status.show = true;
-                                    }
-                                    if ui.button("Spawn visual").clicked() {
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh {
-                                                source: self
-                                                    .events
-                                                    .display
-                                                    .pending_model
-                                                    .source
-                                                    .clone(),
-                                                scale: Some(
-                                                    *self.events.display.pending_model.scale,
-                                                ),
-                                            },
-                                            ..default()
-                                        };
-                                        self.events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_visual(workcell_model)
-                                                .into(),
-                                        ));
-                                    }
-                                    if ui.button("Spawn collision").clicked() {
-                                        let workcell_model = WorkcellModel {
-                                            geometry: Geometry::Mesh {
-                                                source: self
-                                                    .events
-                                                    .display
-                                                    .pending_model
-                                                    .source
-                                                    .clone(),
-                                                scale: Some(
-                                                    *self.events.display.pending_model.scale,
-                                                ),
-                                            },
-                                            ..default()
-                                        };
-                                        self.events.request.change_mode.send(ChangeMode::To(
-                                            SelectAnchor3D::create_new_point()
-                                                .for_collision(workcell_model)
-                                                .into(),
-                                        ));
-                                    }
-                                    ui.add_space(10.0);
                                 }
                             }
                         });
