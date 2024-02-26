@@ -18,7 +18,7 @@
 use crate::{
     interaction::{Hover, MoveTo},
     site::{
-        latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
+        latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Dependents,
         GeographicComponent, JointProperties, LocationTags, SiteID, Subordinate,
     },
     widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
