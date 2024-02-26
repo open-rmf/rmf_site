@@ -19,17 +19,15 @@ path = "examples/extending_menu.rs"
 bevy_egui = "0.23"
 bevy_mod_raycast = "0.16"
 bevy_mod_outline = "0.6"
-bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "5897bb6" }
-bevy_polyline = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_polyline", rev = "9608140" }
+# PR merged after 0.10 but not released yet, bump to 0.10.1 once merged
+bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "86018dd" }
+bevy_polyline = "0.8.1"
 bevy_stl = "0.12"
-#bevy_obj = { version = "0.12", features = ["scene"] }
-# PR was merged but not released
-bevy_obj = { git = "https://github.com/AmionSky/bevy_obj", rev = "e7cda16", features = ["scene"] }
+bevy_obj = { version = "0.12.1", features = ["scene"] }
 smallvec = "*"
 serde = { version = "1.0", features = ["derive"] }
 serde_yaml = "0.8.23"
 serde_json = "1.0"
-# wasm-bindgen 0.2.85 introduces a compile error in stdweb
 wasm-bindgen = "0.2.87"
 futures-lite = "1.12.0"
 bevy = { version = "0.12", features = ["pnm", "jpeg", "tga"] }

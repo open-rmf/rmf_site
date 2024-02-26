@@ -10,6 +10,9 @@ use wasm_bindgen::prelude::*;
 pub mod aabb;
 pub mod animate;
 
+pub mod asset_loaders;
+use asset_loaders::*;
+
 pub mod keyboard;
 use keyboard::*;
 
@@ -174,11 +177,11 @@ impl Plugin for SiteEditor {
         app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((
+                AssetLoadersPlugin,
                 LogHistoryPlugin,
                 AabbUpdatePlugin,
                 EguiPlugin,
                 KeyboardInputPlugin,
-                SdfPlugin,
                 MainMenuPlugin,
                 WorkcellEditorPlugin,
                 SitePlugin,

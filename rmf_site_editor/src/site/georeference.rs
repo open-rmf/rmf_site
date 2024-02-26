@@ -1,10 +1,9 @@
-use bevy::{prelude::*, window::PrimaryWindow};
+use bevy::{asset::AssetPath, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 use bevy_mod_raycast::primitives::rays::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
 use rmf_site_format::{GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
-use std::path::PathBuf;
 use utm::*;
 
 use crate::{
@@ -297,7 +296,7 @@ fn spawn_tile(
     };
     let quad_handle = meshes.add(mesh);
 
-    let texture_handle: Handle<Image> = asset_server.load(PathBuf::from(tile.clone()));
+    let texture_handle: Handle<Image> = asset_server.load(AssetPath::from(&tile));
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,
