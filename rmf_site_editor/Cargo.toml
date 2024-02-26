@@ -19,8 +19,9 @@ path = "examples/extending_menu.rs"
 bevy_egui = "0.23"
 bevy_mod_raycast = "0.16"
 bevy_mod_outline = "0.6"
-bevy_infinite_grid = "0.10"
-bevy_polyline = "0.8"
+# PR merged after 0.10 but not released yet, bump to 0.10.1 once merged
+bevy_infinite_grid = { git = "https://github.com/ForesightMiningSoftwareCorporation/bevy_infinite_grid", rev = "86018dd" }
+bevy_polyline = "0.8.1"
 bevy_stl = "0.12"
 bevy_obj = { version = "0.12.1", features = ["scene"] }
 smallvec = "*"
