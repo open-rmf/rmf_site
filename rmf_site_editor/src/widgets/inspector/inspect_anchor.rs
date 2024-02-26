@@ -95,9 +95,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             assign_response.on_hover_text("Reassign");
         }
 
-        if let Ok((anchor, tf, subordinate, parent)) =
-            self.params.anchors.get(self.anchor)
-        {
+        if let Ok((anchor, tf, subordinate, parent)) = self.params.anchors.get(self.anchor) {
             if let Some(subordinate) = subordinate {
                 ui.horizontal(|ui| {
                     if let Some(boss) = subordinate.0 {

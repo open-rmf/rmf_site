@@ -90,16 +90,7 @@ pub fn generate_workcell(
 ) -> Result<rmf_site_format::Workcell, WorkcellGenerationError> {
     assign_site_ids(world, root);
     let mut state: SystemState<(
-        Query<
-            (
-                Entity,
-                &Anchor,
-                Option<&NameInWorkcell>,
-                &SiteID,
-                &Parent,
-            ),
-            Without<Pending>,
-        >,
+        Query<(Entity, &Anchor, Option<&NameInWorkcell>, &SiteID, &Parent), Without<Pending>>,
         Query<(Entity, &Pose, &Mass, &Moment, &SiteID, &Parent), Without<Pending>>,
         Query<
             (

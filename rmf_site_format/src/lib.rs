@@ -95,6 +95,9 @@ pub use physical_camera::*;
 pub mod point;
 pub use point::*;
 
+pub mod primitive_shape;
+pub use primitive_shape::*;
+
 pub mod recall;
 pub use recall::*;
 

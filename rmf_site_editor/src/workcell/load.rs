@@ -29,9 +29,7 @@ use crate::{
 use bevy::prelude::*;
 use std::collections::HashSet;
 
-use rmf_site_format::{
-    Category, FrameMarker, SiteID, Workcell,
-};
+use rmf_site_format::{Category, FrameMarker, SiteID, Workcell};
 
 #[derive(Event)]
 pub struct LoadWorkcell {
