@@ -23,7 +23,7 @@ use crate::interaction::{DragPlaneBundle, Selectable, MODEL_PREVIEW_LAYER};
 use crate::shapes::make_cylinder;
 use crate::site::SiteAssets;
 
-use rmf_site_format::{ModelMarker, PrimitiveShape};
+use rmf_site_format::PrimitiveShape;
 
 /// An empty component to mark this entity as a visual mesh
 #[derive(Component, Debug, Clone, Default, Reflect)]
