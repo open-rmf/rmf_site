@@ -223,7 +223,6 @@ impl Plugin for SiteAssetIoPlugin {
         // the asset server is constructed and added the resource manager
         app.register_asset_source(
             "search",
-            //AssetSourceBuilder::platform_default("assets", None),
             BevyAssetSource::build().with_reader(|| {
                 Box::new(SiteAssetReader::new(|path: &Path| {
                     // Order should be:

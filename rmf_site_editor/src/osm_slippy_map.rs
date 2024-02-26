@@ -18,7 +18,10 @@
 use std::{f32::consts::PI, io::Write, path::PathBuf};
 
 use bevy::{
-    asset::io::{AssetReaderError, Reader, VecReader},
+    asset::{
+        io::{AssetReaderError, Reader, VecReader},
+        AssetPath,
+    },
     prelude::{Mesh, Vec2},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
@@ -75,35 +78,31 @@ impl TryFrom<PathBuf> for OSMTile {
     type Error = String;
 
     fn try_from(p: PathBuf) -> Result<Self, Self::Error> {
-        let (zoom, xtile, ytile) = p.components().collect_tuple().ok_or(
-            "Invalid path when converting to OSMTile, three elements are required".to_owned(),
-        )?;
+        let (zoom, xtile, ytile) = p
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect_tuple()
+            .ok_or(
+                "Invalid path when converting to OSMTile, three elements are required".to_owned(),
+            )?;
+        let ytile = ytile.strip_suffix(".png").ok_or("Suffix not found")?;
+        dbg!(&zoom, &xtile, &ytile);
         Ok(OSMTile {
-            xtile: xtile
-                .as_os_str()
-                .to_string_lossy()
-                .parse::<i32>()
-                .map_err(|e| e.to_string())?,
-            ytile: ytile
-                .as_os_str()
-                .to_string_lossy()
-                .parse::<i32>()
-                .map_err(|e| e.to_string())?,
-            zoom: zoom
-                .as_os_str()
-                .to_string_lossy()
-                .parse::<i32>()
-                .map_err(|e| e.to_string())?,
+            xtile: xtile.parse::<i32>().map_err(|e| e.to_string())?,
+            ytile: ytile.parse::<i32>().map_err(|e| e.to_string())?,
+            zoom: zoom.parse::<i32>().map_err(|e| e.to_string())?,
         })
     }
 }
 
-impl From<OSMTile> for PathBuf {
-    fn from(t: OSMTile) -> Self {
-        [t.zoom, t.xtile, t.ytile]
+impl From<&OSMTile> for AssetPath<'_> {
+    fn from(t: &OSMTile) -> Self {
+        let mut path: PathBuf = [t.zoom, t.xtile, t.ytile]
             .iter()
             .map(|v| v.to_string())
-            .collect()
+            .collect();
+        path.set_extension("png");
+        AssetPath::from(path).with_source("osm-tile")
     }
 }
 
