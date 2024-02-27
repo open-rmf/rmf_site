@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{recency::RecencyRanking, site::*, WorkspaceMarker};
+use crate::{interaction::InteractionState, recency::RecencyRanking, site::*, WorkspaceMarker};
 use bevy::{ecs::system::SystemParam, prelude::*};
 use std::{collections::HashMap, path::PathBuf};
 use thiserror::Error as ThisError;
@@ -359,6 +359,8 @@ pub fn load_site(
     mut commands: Commands,
     mut load_sites: EventReader<LoadSite>,
     mut change_current_site: EventWriter<ChangeCurrentSite>,
+    mut app_state: ResMut<NextState<AppState>>,
+    mut interaction_state: ResMut<NextState<InteractionState>>,
 ) {
     for cmd in load_sites.read() {
         let site = match generate_site_entities(&mut commands, &cmd.site) {
@@ -380,6 +382,8 @@ pub fn load_site(
         if cmd.focus {
             change_current_site.send(ChangeCurrentSite { site, level: None });
         }
+        app_state.set(AppState::SiteEditor);
+        interaction_state.set(InteractionState::Enable);
     }
 }
 

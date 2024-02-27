@@ -26,9 +26,7 @@ use bevy::{
 use bevy_infinite_grid::{InfiniteGridBundle, InfiniteGridSettings};
 use bevy_mod_outline::ATTRIBUTE_OUTLINE_NORMAL;
 use bevy_mod_outline::{GenerateOutlineNormalsError, OutlineMeshExt};
-use bevy_polyline::{material::PolylineMaterial, polyline::Polyline};
 use rmf_site_format::Angle;
-use std::collections::{BTreeMap, HashMap};
 
 pub(crate) trait WithOutlineMeshExt: Sized {
     fn with_generated_outline_normals(self) -> Result<Self, GenerateOutlineNormalsError>;
@@ -1238,8 +1236,6 @@ pub(crate) fn make_closed_path_outline(mut initial_positions: Vec<[f32; 3]>) -> 
 
 const X_AXIS_COLOR: Color = Color::rgb(1.0, 0.2, 0.2);
 const Y_AXIS_COLOR: Color = Color::rgb(0.2, 1.0, 0.2);
-const NEG_X_AXIS_COLOR: Color = Color::rgb(0.5, 0.0, 0.0);
-const NEG_Y_AXIS_COLOR: Color = Color::rgb(0.0, 0.5, 0.0);
 
 pub fn make_infinite_grid(
     scale: f32,
@@ -1261,93 +1257,4 @@ pub fn make_infinite_grid(
         transform,
         ..Default::default()
     }
-}
-
-const POLYLINE_SEPARATOR: Vec3 = Vec3::splat(std::f32::NAN);
-
-pub(crate) fn make_finite_grid(
-    scale: f32,
-    count: u32,
-    color: Color,
-    weights: BTreeMap<u32, f32>,
-) -> Vec<(Polyline, PolylineMaterial)> {
-    let d_max = count as f32 * scale;
-    let depth_bias = -0.0001;
-    let perspective = true;
-
-    let make_point = |i, j, d, w| {
-        let mut p = Vec3::ZERO;
-        p[i] = w;
-        p[j] = d;
-        p
-    };
-
-    let make_points = |i, j, d| [make_point(i, j, d, d_max), make_point(i, j, d, -d_max)];
-
-    let mut polylines: HashMap<u32, Polyline> = HashMap::new();
-    let mut result = {
-        let Some(width) = weights.values().last().copied() else {
-            return Vec::new();
-        };
-        let mut axes: Vec<(Polyline, PolylineMaterial)> = Vec::new();
-
-        for (sign, x_axis_color, y_axis_color) in [
-            (1.0, X_AXIS_COLOR, Y_AXIS_COLOR),
-            (-1.0, NEG_X_AXIS_COLOR, NEG_Y_AXIS_COLOR),
-        ] {
-            for (i, j, color) in [(0, 1, x_axis_color), (1, 0, y_axis_color)] {
-                let p0 = Vec3::ZERO;
-                let p1 = make_point(i, j, 0.0, sign * d_max);
-                let polyline = Polyline {
-                    vertices: vec![p0, p1],
-                };
-                let material = PolylineMaterial {
-                    width,
-                    color,
-                    depth_bias,
-                    perspective,
-                };
-                axes.push((polyline, material));
-            }
-        }
-
-        axes
-    };
-
-    for n in 1..=count {
-        let d = n as f32 * scale;
-        let polylines = {
-            let Some(weight_key) = weights.keys().rev().find(|k| n % **k == 0) else {
-                continue;
-            };
-            polylines.entry(*weight_key).or_default()
-        };
-
-        for (i, j) in [(0, 1), (1, 0)] {
-            polylines.vertices.extend(make_points(i, j, d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
-            polylines.vertices.extend(make_points(i, j, -d));
-            polylines.vertices.push(POLYLINE_SEPARATOR);
-        }
-    }
-
-    result.extend(polylines.into_iter().map(|(n, polyline)| {
-        let width = *weights.get(&n).unwrap();
-        let material = PolylineMaterial {
-            width,
-            color,
-            depth_bias,
-            perspective,
-        };
-        (polyline, material)
-    }));
-    result
-}
-
-pub(crate) fn make_metric_finite_grid(
-    scale: f32,
-    count: u32,
-    color: Color,
-) -> Vec<(Polyline, PolylineMaterial)> {
-    make_finite_grid(scale, count, color, [(1, 0.5), (5, 1.0), (10, 1.5)].into())
 }

@@ -659,6 +659,21 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_file_dialog"
+version = "0.3.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "16b94aee37611e246e81536300f1c99688be4d0739a1775d11ffca93c155e519"
+dependencies = [
+ "bevy_app",
+ "bevy_derive",
+ "bevy_ecs",
+ "bevy_tasks",
+ "bevy_utils",
+ "crossbeam-channel",
+ "rfd",
+]
+
+[[package]]
 name = "bevy_gilrs"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -924,17 +939,6 @@ dependencies = [
  "radsort",
  "smallvec",
  "thread_local",
-]
-
-[[package]]
-name = "bevy_polyline"
-version = "0.8.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dc6824e97e332fafcbfe31d169b2b9073b9ba568b2a9f59cfd3ac4697982b4bf"
-dependencies = [
- "bevy",
- "bitflags 2.4.2",
- "naga",
 ]
 
 [[package]]
@@ -4002,11 +4006,11 @@ version = "0.0.1"
 dependencies = [
  "bevy",
  "bevy_egui",
+ "bevy_file_dialog",
  "bevy_infinite_grid",
  "bevy_mod_outline",
  "bevy_mod_raycast",
  "bevy_obj",
- "bevy_polyline",
  "bevy_stl",
  "bitfield",
  "clap",

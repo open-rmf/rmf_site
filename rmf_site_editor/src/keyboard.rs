@@ -18,7 +18,7 @@
 use crate::{
     interaction::{ChangeMode, ChangeProjectionMode, InteractionMode, Selection},
     site::{AlignSiteDrawings, Delete},
-    CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    CreateNewWorkspace, CurrentWorkspace, ExportWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::EguiContexts;
@@ -51,6 +51,7 @@ fn handle_keyboard_input(
     mut save_workspace: EventWriter<SaveWorkspace>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
+    mut export_workspace: EventWriter<ExportWorkspace>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
     mut debug_mode: ResMut<DebugMode>,
     mut align_site: EventWriter<AlignSiteDrawings>,
@@ -116,6 +117,10 @@ fn handle_keyboard_input(
 
         if keyboard_input.just_pressed(KeyCode::O) {
             load_workspace.send(LoadWorkspace::Dialog);
+        }
+
+        if keyboard_input.just_pressed(KeyCode::E) {
+            export_workspace.send(ExportWorkspace::default());
         }
     }
 }

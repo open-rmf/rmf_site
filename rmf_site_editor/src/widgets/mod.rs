@@ -28,7 +28,7 @@ use crate::{
         GlobalDrawingVisibility, GlobalFloorVisibility, LayerVisibility, MergeGroups,
         PhysicalLightToggle, SaveNavGraphs, Texture, ToggleLiftDoorAvailability,
     },
-    AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    AppState, CreateNewWorkspace, CurrentWorkspace, ExportWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
 use bevy::{asset::embedded_asset, ecs::query::Has, ecs::system::SystemParam, prelude::*};
@@ -193,6 +193,7 @@ pub struct ChangeEvents<'w> {
 pub struct FileEvents<'w> {
     pub save: EventWriter<'w, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, LoadWorkspace>,
+    pub export_workspace: EventWriter<'w, ExportWorkspace>,
     pub new_workspace: EventWriter<'w, CreateNewWorkspace>,
     pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
 }

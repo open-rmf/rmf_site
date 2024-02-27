@@ -16,16 +16,16 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, LoadWorkspace, WorkspaceData};
-use bevy::{app::AppExit, prelude::*, tasks::Task};
+use crate::{site::send_load_site_event, site::LoadSite, AppState, LoadWorkspace};
+use bevy::{app::AppExit, prelude::*};
 use bevy_egui::{egui, EguiContexts};
+use rmf_site_format::legacy::building_map::BuildingMap;
 use std::path::PathBuf;
 
 #[derive(Resource)]
 pub struct Autoload {
     pub filename: Option<PathBuf>,
     pub import: Option<PathBuf>,
-    pub importing: Option<Task<Option<(Entity, rmf_site_format::Site)>>>,
 }
 
 impl Autoload {
@@ -33,25 +33,25 @@ impl Autoload {
         Autoload {
             filename: Some(filename),
             import,
-            importing: None,
         }
     }
 }
 
 fn egui_ui(
     mut egui_context: EguiContexts,
-    mut _exit: EventWriter<AppExit>,
-    mut _load_workspace: EventWriter<LoadWorkspace>,
-    mut _app_state: ResMut<State<AppState>>,
+    mut exit: EventWriter<AppExit>,
+    mut load_site: EventWriter<LoadSite>,
+    mut load_workspace: EventWriter<LoadWorkspace>,
     autoload: Option<ResMut<Autoload>>,
 ) {
     if let Some(mut autoload) = autoload {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            if let Some(filename) = autoload.filename.clone() {
-                _load_workspace.send(LoadWorkspace::Path(filename));
-            }
-            autoload.filename = None;
+        if let Some(filename) = autoload.filename.take() {
+            let Ok(data) = std::fs::read(&filename) else {
+                error!("Failed opening file {}", filename.to_string_lossy());
+                exit.send(AppExit);
+                return;
+            };
+            send_load_site_event(&mut load_site, &filename, &data);
         }
         return;
     }
@@ -67,29 +67,28 @@ fn egui_ui(
 
             ui.horizontal(|ui| {
                 if ui.button("View demo map").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-                        demo_office(),
-                    )));
+                    match BuildingMap::from_bytes(&demo_office()) {
+                        Ok(building) => match building.to_site() {
+                            Ok(site) => {
+                                load_site.send(LoadSite {
+                                    site,
+                                    focus: true,
+                                    default_file: None,
+                                });
+                            }
+                            Err(err) => {
+                                error!("{err:?}");
+                            }
+                        },
+                        Err(err) => {
+                            error!("{:?}", err);
+                        }
+                    }
                 }
 
                 if ui.button("Open a file").clicked() {
-                    _load_workspace.send(LoadWorkspace::Dialog);
+                    load_workspace.send(LoadWorkspace::Dialog);
                 }
-
-                // TODO(@mxgrey): Bring this back when we have finished developing
-                // the key features for workcell editing.
-                // if ui.button("Workcell Editor").clicked() {
-                //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
-                //         demo_workcell(),
-                //     )));
-                // }
-
-                // TODO(@mxgrey): Bring this back when we have time to fix the
-                // warehouse generator.
-                // if ui.button("Warehouse generator").clicked() {
-                //     info!("Entering warehouse generator");
-                //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
-                // }
             });
 
             #[cfg(not(target_arch = "wasm32"))]
@@ -98,7 +97,7 @@ fn egui_ui(
                 ui.horizontal(|ui| {
                     ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
                         if ui.button("Exit").clicked() {
-                            _exit.send(AppExit);
+                            exit.send(AppExit);
                         }
                     });
                 });

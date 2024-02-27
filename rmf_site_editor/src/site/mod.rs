@@ -114,6 +114,9 @@ pub use util::*;
 pub mod wall;
 pub use wall::*;
 
+pub mod workspace;
+pub use workspace::*;
+
 use crate::recency::{RecencyRank, RecencyRankingPlugin};
 use crate::{clear_old_issues_on_new_validate_event, AppState, RegisterIssueType};
 pub use rmf_site_format::*;
@@ -255,6 +258,7 @@ impl Plugin for SitePlugin {
             DeletionPlugin,
             DrawingEditorPlugin,
             SiteVisualizerPlugin,
+            SiteWorkspacePlugin,
         ))
         .add_issue_type(&DUPLICATED_DOOR_NAME_ISSUE_UUID, "Duplicate door name")
         .add_issue_type(&DUPLICATED_LIFT_NAME_ISSUE_UUID, "Duplicate lift name")

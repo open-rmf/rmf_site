@@ -15,7 +15,10 @@
  *
 */
 
-use crate::{AppState, CreateNewWorkspace, FileEvents, LoadWorkspace, MenuParams, SaveWorkspace};
+use crate::{
+    AppState, CreateNewWorkspace, ExportWorkspace, FileEvents, LoadWorkspace, MenuParams,
+    SaveWorkspace,
+};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -294,6 +297,15 @@ pub fn top_menu_bar(
                     .clicked()
                 {
                     file_events.load_workspace.send(LoadWorkspace::Dialog);
+                }
+
+                if ui
+                    .add(Button::new("Export").shortcut_text("Ctrl+E"))
+                    .clicked()
+                {
+                    file_events
+                        .export_workspace
+                        .send(ExportWorkspace::default());
                 }
 
                 render_sub_menu(
