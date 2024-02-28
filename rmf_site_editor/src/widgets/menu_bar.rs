@@ -298,12 +298,12 @@ pub fn top_menu_bar(
                         file_events.save.send(SaveWorkspace::new().to_dialog());
                     }
                 }
-                if ui
-                    .add(Button::new("Open").shortcut_text("Ctrl+O"))
-                    .clicked()
-                {
-                    file_events.load_workspace.send(LoadWorkspace::Dialog);
-                }
+                // if ui
+                //     .add(Button::new("Open").shortcut_text("Ctrl+O"))
+                //     .clicked()
+                // {
+                //     file_events.load_workspace.send(LoadWorkspace::Dialog);
+                // }
 
                 render_sub_menu(
                     &menu_params.state,
