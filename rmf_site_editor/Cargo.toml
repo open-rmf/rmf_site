@@ -47,7 +47,6 @@ utm = "0.1.6"
 sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "a5daef0"}
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "luca/ehttp" }
 pathdiff = "*"
-tera = "1.19.1"
 ehttp = { version = "0.4", features = ["native-async"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
