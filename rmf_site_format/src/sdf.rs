@@ -430,12 +430,28 @@ impl Site {
         let mut models = Vec::new();
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
+        let mut toggle_floors_plugin = SdfPlugin {
+            name: "toggle_floors".into(),
+            filename: "libtoggle_floors.so".into(),
+            ..Default::default()
+        };
         for level in self.levels.values() {
             max_elevation = max_elevation.max(level.properties.elevation.0);
             min_elevation = min_elevation.min(level.properties.elevation.0);
+            let mut floor_models_ele = XmlElement {
+                name: "floor".into(),
+                ..Default::default()
+            };
+            let level_model_name = format!("level_{}", level.properties.name.0);
+            floor_models_ele
+                .attributes
+                .insert("name".into(), level.properties.name.0.clone());
+            floor_models_ele
+                .attributes
+                .insert("model_name".into(), level_model_name.clone());
             // Floors walls and static models are included in the level mesh
             models.push(SdfModel {
-                name: format!("level_{}", level.properties.name.0),
+                name: level_model_name,
                 r#static: Some(true),
                 link: vec![SdfLink {
                     name: "link".into(),
@@ -468,6 +484,7 @@ impl Site {
             });
             // Now add all the doors
             for door in level.doors.values() {
+                // TODO(luca) doors into toggle floors
                 let left_anchor = get_anchor(door.anchors.left())?;
                 let right_anchor = get_anchor(door.anchors.right())?;
                 models.push(door.to_sdf(
@@ -478,6 +495,7 @@ impl Site {
                     None,
                 )?);
             }
+            toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for lift in self.lifts.values() {
             // Cabin
@@ -726,6 +744,11 @@ impl Site {
             filename: "libdoor.so".into(),
             ..Default::default()
         };
+        let charging_plugin = SdfPlugin {
+            name: "toggle_charging".into(),
+            filename: "libtoggle_charging.so".into(),
+            ..Default::default()
+        };
         let physics_plugin = SdfPlugin {
             name: "gz::sim::systems::Physics".into(),
             filename: "libgz-sim-physics-system.so".into(),
@@ -799,6 +822,12 @@ impl Site {
                     ..Default::default()
                 }],
                 light: vec![sun],
+                // TODO(luca) check why these plugins are not being applied, we might need to
+                // override more than only plugins
+                gui: Some(SdfGui {
+                    plugin: vec![charging_plugin, toggle_floors_plugin],
+                    ..Default::default()
+                }),
                 plugin: vec![
                     physics_plugin,
                     user_commands_plugin,
