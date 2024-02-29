@@ -33,6 +33,8 @@ pub enum SdfConversionError {
     BrokenLevelReference(u32),
     /// Parsing of a lift cabin failed
     LiftParsingError(String),
+    /// A lift had no initial level where it could be spawned
+    MissingInitialLevel(String),
 }
 
 impl Pose {
@@ -522,14 +524,13 @@ impl Site {
             let mut elements = vec![];
             let lift_name = &lift.properties.name.0;
             elements.push(("lift_name", lift_name.clone()));
-            // TODO(luca) remove unwrap here for missing initial level
             let initial_floor = lift
                 .properties
                 .initial_level
                 .0
                 .and_then(|id| self.levels.get(&id))
                 .map(|level| level.properties.name.0.clone())
-                .unwrap();
+                .ok_or(SdfConversionError::MissingInitialLevel(lift_name.clone()))?;
             elements.push(("initial_floor", initial_floor));
             elements.push(("v_max_cabin", "2.0".to_string()));
             elements.push(("a_max_cabin", "1.2".to_string()));
@@ -571,23 +572,25 @@ impl Site {
                     kind: door.kind.clone(),
                     marker: DoorMarker,
                 };
-                // TODO(luca) remove unwrap here
                 let left_anchor = lift
                     .cabin_anchors
                     .get(&door.reference_anchors.left())
-                    .unwrap()
+                    .ok_or(SdfConversionError::BrokenAnchorReference(
+                        door.reference_anchors.left(),
+                    ))?
                     .clone();
                 let right_anchor = lift
                     .cabin_anchors
                     .get(&door.reference_anchors.right())
-                    .unwrap()
+                    .ok_or(SdfConversionError::BrokenAnchorReference(
+                        door.reference_anchors.right(),
+                    ))?
                     .clone();
                 let x_offset = -face.u()
                     * (door_placement.thickness() / 2.0
                         + door_placement
                             .custom_gap
                             .unwrap_or_else(|| cabin.gap.unwrap_or(0.01)));
-                dbg!(&x_offset);
                 let mut dummy_cabin = dummy_cabin.to_sdf(
                     left_anchor,
                     right_anchor,
@@ -623,14 +626,18 @@ impl Site {
                     let left_anchor = lift
                         .cabin_anchors
                         .get(&door.reference_anchors.left())
-                        .unwrap()
+                        .ok_or(SdfConversionError::BrokenAnchorReference(
+                            door.reference_anchors.left(),
+                        ))?
                         .clone();
                     let right_anchor = lift
                         .cabin_anchors
                         .get(&door.reference_anchors.right())
-                        .unwrap()
+                        .ok_or(SdfConversionError::BrokenAnchorReference(
+                            door.reference_anchors.right(),
+                        ))?
                         .clone();
-                    let mut dummy_shaft = dummy_shaft.to_sdf(
+                    let dummy_shaft = dummy_shaft.to_sdf(
                         left_anchor,
                         right_anchor,
                         Vec3::from(pose.trans) + Vec3::new(0.0, 0.0, level.properties.elevation.0),
