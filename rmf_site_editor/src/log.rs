@@ -15,8 +15,8 @@
  *
 */
 
+use bevy::utils::tracing::{field::Field, span::Record, Event, Id, Level, Subscriber};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_utils::tracing::{field::Field, span::Record, Event, Id, Level, Subscriber};
 use crossbeam_channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};

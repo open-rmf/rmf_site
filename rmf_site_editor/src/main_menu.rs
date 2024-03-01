@@ -17,7 +17,7 @@
 
 use super::demo_world::*;
 use crate::{AppState, LoadWorkspace, WorkspaceData};
-use bevy::{app::AppExit, prelude::*, tasks::Task};
+use bevy::{app::AppExit, prelude::*, tasks::Task, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
 
@@ -44,6 +44,7 @@ fn egui_ui(
     mut _load_workspace: EventWriter<LoadWorkspace>,
     mut _app_state: ResMut<State<AppState>>,
     autoload: Option<ResMut<Autoload>>,
+    primary_windows: Query<Entity, With<PrimaryWindow>>,
 ) {
     if let Some(mut autoload) = autoload {
         #[cfg(not(target_arch = "wasm32"))]
@@ -56,12 +57,20 @@ fn egui_ui(
         return;
     }
 
+    let Some(ctx) = primary_windows
+        .get_single()
+        .ok()
+        .and_then(|w| egui_context.try_ctx_for_window_mut(w))
+    else {
+        return;
+    };
+
     egui::Window::new("Welcome!")
         .collapsible(false)
         .resizable(false)
         .title_bar(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
-        .show(egui_context.ctx_mut(), |ui| {
+        .show(ctx, |ui| {
             ui.heading("Welcome to The RMF Site Editor!");
             ui.add_space(10.);
 

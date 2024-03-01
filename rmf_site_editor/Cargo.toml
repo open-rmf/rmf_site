@@ -52,13 +52,6 @@ gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "first_impl
 pathdiff = "*"
 tera = "1.19.1"
 
-# only enable the 'dynamic_linking' feature if we're not building for web or windows
-# TODO(luca) it seems this can be enabled on windows, check
-# https://bevyengine.org/learn/book/getting-started/setup/#enable-fast-compiles-optional
-[target.'cfg(all(not(target_arch = "wasm32"), not(target_os = "windows")))'.dependencies]
-bevy = { version = "0.11", features = ["dynamic_linking"] }
-surf = { version = "2.3" }
-
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
 surf = { version = "2.3" }

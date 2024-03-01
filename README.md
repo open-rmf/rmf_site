@@ -70,6 +70,7 @@ From the root directory:
 $ cargo run
 ```
 
+Use the `--features bevy/dynamic_linking` flag to improve compile time through dynamic linking.
 Use the `--release` flag for better runtime performance.
 
 # Build and Run (WebAssembly)
