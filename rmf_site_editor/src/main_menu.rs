@@ -102,6 +102,16 @@ fn autoload_from_web(
                         _load_workspace
                             .send(LoadWorkspace::Data(WorkspaceData::Site(building_data)));
                     }
+                    "site.json" => {
+                        // convert vec<u8> to string, then deserialize to Site
+                        let site_json = String::from_utf8(building_data).unwrap();
+                        let site: Site = serde_json::from_str(&site_json).unwrap();
+
+                        // use ron to convert site to bytes
+                        let site_bytes = ron::to_string(&site).unwrap().as_bytes().to_vec();
+
+                        _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Site(site_bytes)));
+                    }
                     _ => {
                         log(&format!(
                             "Main Menu - Unsupported file type: {}",
@@ -156,6 +166,9 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(Update, (egui_ui).run_if(in_state(AppState::MainMenu)));
+        app.add_systems(
+            Update,
+            (egui_ui, autoload_from_web).run_if(in_state(AppState::MainMenu)),
+        );
     }
 }

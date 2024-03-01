@@ -21,7 +21,7 @@
 <body>
   <canvas id="rmf_site_editor_canvas">
     <script type="module">
-      import init, { run_js_new_site } from "./librmf_site_editor.js";
+      import init, { run_js_with_data, run_js_new_site } from "./librmf_site_editor.js";
 
       document.addEventListener('contextmenu', function (evt) { evt.preventDefault(); });
 
@@ -32,8 +32,8 @@
         // https://filebin.net/sf1ynff67v7chf0t/test.site.ron
         // https://filebin.net/olo599ws5cvyjpil/hotel.building.yaml
 
-        // let data = await fetch("https://filebin.net/sf1ynff67v7chf0t/test.site.ron");
-        // let text = await data.text();
+        //let data = await fetch("https://filebin.net/wlx69im8e10stemf/hotel.site.ron");
+        //let text = await data.text();
 
         // // convert text to Unit8Array
         // let bytes = new TextEncoder().encode(text);
@@ -47,8 +47,221 @@
           console.log(data)
         }
 
-        //run_js_with_data([], "new.site", "uuid_building_id");
-        run_js_new_site("uuid_building_id")
+        let siteJson = {
+          "levels": {
+            "1": {
+              "walls": {
+                "4": {
+                  "anchors": [
+                    5,
+                    6
+                  ]
+                },
+                "7": {
+                  "anchors": [
+                    6,
+                    8
+                  ]
+                },
+                "9": {
+                  "anchors": [
+                    8,
+                    10
+                  ]
+                },
+                "11": {
+                  "anchors": [
+                    10,
+                    12
+                  ]
+                },
+                "13": {
+                  "anchors": [
+                    12,
+                    14
+                  ]
+                },
+                "15": {
+                  "anchors": [
+                    14,
+                    16
+                  ]
+                },
+                "17": {
+                  "anchors": [
+                    16,
+                    18
+                  ]
+                },
+                "19": {
+                  "anchors": [
+                    18,
+                    20
+                  ]
+                },
+                "21": {
+                  "anchors": [
+                    20,
+                    22
+                  ]
+                }
+              },
+              "anchors": {
+                "5": {
+                  "Translate2D": [
+                    6.034042,
+                    -2.0360918
+                  ]
+                },
+                "6": {
+                  "Translate2D": [
+                    19.552937,
+                    -7.322585
+                  ]
+                },
+                "8": {
+                  "Translate2D": [
+                    14.609462,
+                    -19.08604
+                  ]
+                },
+                "10": {
+                  "Translate2D": [
+                    1.5546465,
+                    -14.203097
+                  ]
+                },
+                "12": {
+                  "Translate2D": [
+                    3.5925694,
+                    -10.550978
+                  ]
+                },
+                "14": {
+                  "Translate2D": [
+                    2.0994387,
+                    -9.82459
+                  ]
+                },
+                "16": {
+                  "Translate2D": [
+                    3.7136335,
+                    -7.181343
+                  ]
+                },
+                "18": {
+                  "Translate2D": [
+                    0.3843546,
+                    -5.8698077
+                  ]
+                },
+                "20": {
+                  "Translate2D": [
+                    2.9468918,
+                    -0.9263325
+                  ]
+                },
+                "22": {
+                  "Translate2D": [
+                    6.034042,
+                    -2.0966234
+                  ]
+                },
+                "23": {
+                  "Translate2D": [
+                    6.114752,
+                    -6.898858
+                  ]
+                },
+                "24": {
+                  "Translate2D": [
+                    16.586853,
+                    -11.438786
+                  ]
+                },
+                "25": {
+                  "Translate2D": [
+                    10.997696,
+                    -9.037668
+                  ]
+                }
+              },
+              "drawings": {
+                "2": {
+                  "properties": {
+                    "name": "<Unnamed>",
+                    "pose": {
+                      "rot": {
+                        "yaw": {
+                          "deg": 0
+                        }
+                      },
+                      "trans": [
+                        0,
+                        0,
+                        0
+                      ]
+                    },
+                    "source": {
+                      "RCC": "https://d85khfey3n1yt.cloudfront.net/app/NK07idsWIX/dotworld_ff.png"
+                    },
+                    "pixels_per_meter": 20
+                  }
+                }
+              },
+              "properties": {
+                "name": "L1",
+                "elevation": 0
+              }
+            }
+          },
+          "navigation": {
+            "guided": {
+              "lanes": {
+                "26": {
+                  "graphs": "All",
+                  "anchors": [
+                    23,
+                    24
+                  ]
+                }
+              },
+              "graphs": {},
+              "ranking": [],
+              "locations": {
+                "27": {
+                  "name": "software_team",
+                  "tags": [
+                    "Charger"
+                  ],
+                  "anchor": 23,
+                  "graphs": "All"
+                },
+                "28": {
+                  "name": "main_door",
+                  "tags": [],
+                  "anchor": 24,
+                  "graphs": "All"
+                },
+                "29": {
+                  "name": "conference_room",
+                  "tags": [],
+                  "anchor": 25,
+                  "graphs": "All"
+                }
+              }
+            }
+          },
+          "properties": {
+            "name": "testing"
+          },
+          "format_version": "0.1"
+        }
+        const bytes = new TextEncoder().encode(JSON.stringify(siteJson))
+
+        run_js_with_data(bytes, "site.json", "uuid_building_id");
+
+        //run_js_new_site("uuid_building_id")
       } catch (e) {
         console.error(e);
       }
