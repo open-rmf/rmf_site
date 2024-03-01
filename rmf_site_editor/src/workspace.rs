@@ -145,6 +145,11 @@ impl SaveWorkspace {
         self.format = ExportFormat::Urdf;
         self
     }
+
+    pub fn to_sdf(mut self) -> Self {
+        self.format = ExportFormat::Sdf;
+        self
+    }
 }
 
 #[derive(Default, Debug, Clone)]

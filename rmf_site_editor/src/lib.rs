@@ -77,7 +77,7 @@ pub struct CommandLineArgs {
     pub import: Option<String>,
     /// Run in headless mode.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
-    pub headless: bool,
+    pub headless: Option<String>,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -120,7 +120,7 @@ pub fn run_js() {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut headless = false;
+    let mut headless = None;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -141,7 +141,7 @@ pub fn run(command_line_args: Vec<String>) {
 #[derive(Default)]
 pub struct SiteEditor {
     /// Whether to run the site editor in headless mode.
-    pub headless: bool,
+    pub headless: Option<String>,
 }
 
 impl Plugin for SiteEditor {
@@ -176,7 +176,7 @@ impl Plugin for SiteEditor {
         #[cfg(not(target_arch = "wasm32"))]
         {
             let mut plugins = DefaultPlugins.build();
-            let plugins = if self.headless {
+            let plugins = if self.headless.is_some() {
                 plugins
                     .set(WindowPlugin {
                         primary_window: None,
@@ -227,10 +227,10 @@ impl Plugin for SiteEditor {
                 WorkcellEditorPlugin,
                 SitePlugin,
                 InteractionPlugin {
-                    headless: self.headless,
+                    headless: self.headless.is_some(),
                 },
                 StandardUiLayout {
-                    headless: self.headless,
+                    headless: self.headless.is_some(),
                 },
                 AnimationPlugin,
                 OccupancyPlugin,
@@ -247,8 +247,53 @@ impl Plugin for SiteEditor {
 
         // TODO(luca) This schedule runner plugin runs forever.
         // We might need to have a custom one where we can inject exit conditions.
-        if self.headless {
+        if let Some(path) = &self.headless {
             app.add_plugins(ScheduleRunnerPlugin::default());
+            app.insert_resource(HeadlessExport(path.clone()));
+            app.add_systems(Last, headless_sdf_export.run_if(AppState::in_site_mode()));
+        }
+    }
+}
+
+#[derive(Debug, Resource, Default)]
+pub struct HeadlessExport(String);
+
+#[derive(Debug, Resource, Default)]
+pub struct Counter(u32, bool);
+
+pub fn headless_sdf_export(
+    mut export: EventWriter<SaveWorkspace>,
+    mut exit: EventWriter<bevy::app::AppExit>,
+    missing_models: Query<
+        (),
+        (
+            With<site::TentativeModelFormat>,
+            Without<site::ModelSceneRoot>,
+        ),
+    >,
+    mut export_state: Local<Counter>,
+    path: Res<HeadlessExport>,
+    sites: Query<(Entity, &rmf_site_format::NameOfSite)>,
+) {
+    export_state.0 += 1;
+    if export_state.0 < 5 {
+        return;
+    }
+    if !missing_models.is_empty() {
+        info!("Waiting for models to spawn");
+    } else {
+        dbg!(&export_state);
+        if !export_state.1 {
+            export_state.1 = true;
+            info!("All models spawned, sending export event");
+            export_state.0 = 0;
+            for (e, name) in &sites {
+                let path = std::path::PathBuf::from(path.0.clone());
+                export.send(SaveWorkspace::new().to_sdf().to_path(&path));
+            }
+        }
+        if export_state.0 > 5 {
+            exit.send(bevy::app::AppExit);
         }
     }
 }
