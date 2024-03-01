@@ -1219,7 +1219,7 @@ pub fn save_site(world: &mut World) {
                 }
             };
 
-            // convert site to json
+            // convert site to yaml
             let site_yaml = match serde_yaml::to_string(&site) {
                 Ok(yaml) => yaml,
                 Err(err) => {

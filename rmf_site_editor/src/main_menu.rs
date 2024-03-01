@@ -17,9 +17,10 @@
 
 use super::demo_world::*;
 use crate::{
-    log, AppState, CurrentWorkspace, LoadWorkspace, SaveWorkspace, SaveWorkspaceChannels,
-    WorkspaceData,
+    log, AppEvents, AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
+    SaveWorkspaceChannels, WorkspaceData,
 };
+
 use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContexts};
 use std::path::PathBuf;
@@ -117,6 +118,7 @@ fn autoload_from_web(
 
 fn egui_ui(
     mut egui_context: EguiContexts,
+    mut events: AppEvents,
     mut _exit: EventWriter<AppExit>,
     mut _load_workspace: EventWriter<LoadWorkspace>,
     mut _app_state: ResMut<State<AppState>>,
@@ -132,6 +134,13 @@ fn egui_ui(
                 autoload.filename = None;
             }
             return;
+        }
+    }
+
+    // if auto load is empty, trigger new workspace
+    if let Some(autoload) = autoload {
+        if autoload.filename.is_none() {
+            let _ = &events.file_events.new_workspace.send(CreateNewWorkspace);
         }
     }
 

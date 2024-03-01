@@ -161,6 +161,22 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValu
     app.run();
 }
 
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn run_js_new_site(building_id: JsValue) {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    #[cfg(target_arch = "wasm32")]
+    log("Running RCC RMF Site Editor for new workspace");
+    let building_id: String = building_id.as_string().unwrap();
+
+    let mut app: App = App::new();
+
+    app.insert_resource(UploadData::new(building_id));
+    app.add_plugins(SiteEditor);
+    app.run();
+}
+
 pub fn run(command_line_args: Vec<String>) {
     panic::set_hook(Box::new(console_error_panic_hook::hook));
     let mut app: App = App::new();
