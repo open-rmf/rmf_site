@@ -127,7 +127,7 @@ extern "C" {
     pub fn save_site_map(id: &str, s: &str);
 
     #[wasm_bindgen(js_namespace = window)]
-    pub fn save_nav_graph(id: &str, s: &str);
+    pub fn save_nav_graph(id: &str, name: &str, s: &str);
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn get_map_list() -> js_sys::Array;

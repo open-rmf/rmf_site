@@ -1219,29 +1219,29 @@ pub fn save_site(world: &mut World) {
                 }
             };
 
-            // convert site to yaml
-            let site_yaml = match serde_yaml::to_string(&site) {
-                Ok(yaml) => yaml,
+            // convert site to json
+            let site_json = match serde_json::to_string(&site) {
+                Ok(json) => json,
                 Err(err) => {
-                    error!("Unable to convert site to yaml: {err}");
+                    error!("Unable to convert site to json: {err}");
                     continue;
                 }
             };
 
             for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                 // convert to yaml using serde yaml
-                let nav_graph_yaml = match serde_yaml::to_string(&nav_graph) {
-                    Ok(yaml) => yaml,
+                let nav_graph_json = match serde_json::to_string(&nav_graph) {
+                    Ok(json) => json,
                     Err(err) => {
-                        error!("Unable to convert nav graph to yaml: {err}");
+                        error!("Unable to convert nav graph to json: {err}");
                         continue;
                     }
                 };
-                save_nav_graph(&building_id, nav_graph_yaml.as_str());
+                save_nav_graph(&building_id, name.as_str(), nav_graph_json.as_str());
             }
 
             // send site to web
-            save_site_map(&building_id, site_yaml.as_str());
+            save_site_map(&building_id, site_json.as_str());
         }
 
         #[cfg(not(target_arch = "wasm32"))]
