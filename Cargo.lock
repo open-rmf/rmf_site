@@ -4804,6 +4804,7 @@ dependencies = [
  "bevy",
  "float_eq",
  "glam",
+ "once_cell",
  "pathdiff",
  "ron",
  "sdformat_rs",
@@ -4813,6 +4814,7 @@ dependencies = [
  "thiserror",
  "urdf-rs",
  "uuid",
+ "yaserde",
 ]
 
 [[package]]
@@ -4938,7 +4940,7 @@ checksum = "94143f37725109f92c262ed2cf5e59bce7498c01bcc1502d7b9afe439a4e9f49"
 [[package]]
 name = "sdformat_rs"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/sdf_rust_experimental?branch=luca/yaserde_nested_models#605ffb7f3c821e919e6eda6b5224e58649d6e46d"
+source = "git+https://github.com/open-rmf/sdf_rust_experimental?rev=2d20fe0#2d20fe051a285e7a14f1948ebeb2a78c7e642da1"
 dependencies = [
  "convert_case",
  "nalgebra",

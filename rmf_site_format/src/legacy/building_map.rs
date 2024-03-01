@@ -153,7 +153,7 @@ impl BuildingMap {
         let mut wall_texture_map: HashMap<WallProperties, u32> = HashMap::new();
         let mut lift_cabin_anchors: BTreeMap<String, Vec<(u32, Anchor)>> = BTreeMap::new();
 
-        let mut building_id_to_nav_graph_id = HashMap::new();
+        let mut building_id_to_nav_graph_id = BTreeMap::new();
 
         let mut fiducial_groups: BTreeMap<u32, FiducialGroup> = BTreeMap::new();
         let mut cartesian_fiducials: HashMap<u32, Vec<DVec2>> = HashMap::new();
@@ -599,7 +599,7 @@ impl BuildingMap {
             nav_graphs.insert(
                 *graph_id,
                 NavGraph {
-                    name: NameInSite("unnamed_graph_#".to_string() + &i.to_string()),
+                    name: NameInSite(i.to_string()),
                     color: DisplayColor(DEFAULT_NAV_GRAPH_COLORS[color_index]),
                     marker: Default::default(),
                 },

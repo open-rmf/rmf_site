@@ -1299,10 +1299,11 @@ pub fn save_site(world: &mut World) {
                 };
                 let s = yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
                 let mut navgraph_dir = PathBuf::from(new_path.parent().unwrap());
-                navgraph_dir.push("nav");
+                navgraph_dir.push("nav_graphs");
+                std::fs::create_dir(&navgraph_dir).ok();
                 for (name, graph) in &graphs {
                     let mut graph_file = navgraph_dir.clone();
-                    graph_file.set_file_name(name.to_owned() + ".yaml");
+                    graph_file.push(name.to_owned() + ".yaml");
                     info!(
                         "Saving legacy nav graph to {}",
                         graph_file.to_str().unwrap_or("<failed to render??>")
