@@ -21,7 +21,7 @@
 <body>
   <canvas id="rmf_site_editor_canvas">
     <script type="module">
-      import init, { run_js_with_data } from "./librmf_site_editor.js";
+      import init, { run_js_new_site } from "./librmf_site_editor.js";
 
       document.addEventListener('contextmenu', function (evt) { evt.preventDefault(); });
 
@@ -32,11 +32,11 @@
         // https://filebin.net/sf1ynff67v7chf0t/test.site.ron
         // https://filebin.net/olo599ws5cvyjpil/hotel.building.yaml
 
-        let data = await fetch("https://filebin.net/sf1ynff67v7chf0t/test.site.ron");
-        let text = await data.text();
+        // let data = await fetch("https://filebin.net/sf1ynff67v7chf0t/test.site.ron");
+        // let text = await data.text();
 
-        // convert text to Unit8Array
-        let bytes = new TextEncoder().encode(text);
+        // // convert text to Unit8Array
+        // let bytes = new TextEncoder().encode(text);
 
         // possible 2nd parameter:
         // 1. building.yaml
@@ -47,7 +47,8 @@
           console.log(data)
         }
 
-        run_js_with_data(bytes, "site.ron", "uuid_building_id");
+        //run_js_with_data([], "new.site", "uuid_building_id");
+        run_js_new_site("uuid_building_id")
       } catch (e) {
         console.error(e);
       }

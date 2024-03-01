@@ -20,11 +20,7 @@ use bevy_egui::egui::{Color32, ComboBox, DragValue, Label, RichText, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
-use crate::{
-    get_map_list,
-    rcc,
-    log
-};
+use crate::{get_map_list, log, rcc};
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
@@ -145,13 +141,11 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Remote(uri) => {
                 ui.text_edit_singleline(uri);
             }
-            
-            
             AssetSource::RCC(uri) => {
                 if unsafe { rcc::SHOW_MAP_ASSET_SOURCE } == 1 {
                     let map_list = get_map_list().clone();
                     match rcc::parse_js_value(&map_list.get(new_map_index)) {
-                        Ok(current_map)=>{
+                        Ok(current_map) => {
                             if map_list.length() > 0 {
                                 ui.horizontal(|ui| {
                                     ui.label("Map");
@@ -165,31 +159,42 @@ impl<'a> InspectAssetSource<'a> {
                                                         ui.selectable_value(&mut new_map_index, i, obj.name.to_string());
                                                     },
                                                     Err(err)=>{
-                                                        log( &format!("Error parsing  map list items JSON: {}", err));
+                                                        #[cfg(target_arch = "wasm32")]
+                                                        {
+                                                            log( &format!("Error parsing  map list items JSON: {}", err));
+                                                        }
                                                     }
                                                 }
                                             }
                                             ui.end_row();
                                         });
-                                }); 
-            
+                                });
+
                                 match rcc::parse_js_value(&map_list.get(new_map_index)) {
-                                    Ok(data)=>{
+                                    Ok(data) => {
                                         let map_uri = String::from(data.image_url);
                                         *uri = map_uri;
-                                    },
-                                    Err(err)=>{
-                                        log( &format!("Error parsing JSON while updating the selected value: {}", err));
+                                    }
+                                    Err(err) => {
+                                        #[cfg(target_arch = "wasm32")]
+                                        {
+                                            log( &format!("Error parsing JSON while updating the selected value: {}", err));
+                                        }
                                     }
                                 }
                             }
-                        },
-                        Err(err)=>{
-                            log( &format!("Error parsing JSON: {}", err));
+                        }
+                        Err(err) => {
+                            #[cfg(target_arch = "wasm32")]
+                            {
+                                log(&format!("Error parsing JSON: {}", err));
+                            }
                         }
                     }
                 } else {
-                    ui.label(RichText::new("RCC not supported for this action").color(Color32::RED));
+                    ui.label(
+                        RichText::new("RCC not supported for this action").color(Color32::RED),
+                    );
                 }
             }
             AssetSource::Search(name) => {
@@ -214,8 +219,7 @@ impl<'a> InspectAssetSource<'a> {
                 });
             }
         }
-        
-        
+
         if new_map_index != unsafe { rcc::MAP_INDEX } {
             rcc::set_selected_map_index(new_map_index)
         }

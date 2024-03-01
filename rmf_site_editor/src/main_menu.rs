@@ -17,13 +17,14 @@
 
 use super::demo_world::*;
 use crate::{
-    log, AppEvents, AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
-    SaveWorkspaceChannels, WorkspaceData,
+    log, site::LoadSite, AppEvents, AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace,
+    SaveWorkspace, SaveWorkspaceChannels, WorkspaceData,
 };
 
 use bevy::{app::AppExit, prelude::*, tasks::Task};
 use bevy_egui::{egui, EguiContexts};
-use std::path::PathBuf;
+use rmf_site_format::{Level, Site};
+use std::{collections::BTreeMap, path::PathBuf};
 
 #[derive(Resource)]
 pub struct Autoload {
@@ -82,10 +83,7 @@ fn autoload_from_web(
 ) {
     #[cfg(target_arch = "wasm32")]
     {
-        log(&format!(
-            "Main Menu - Trying to load map from building data"
-        ));
-
+        // return if autoload is empty
         if let Some(autoload) = autoload {
             if let Some(building_data) = autoload.building_data.clone() {
                 #[cfg(target_arch = "wasm32")]
@@ -118,29 +116,29 @@ fn autoload_from_web(
 
 fn egui_ui(
     mut egui_context: EguiContexts,
-    mut events: AppEvents,
-    mut _exit: EventWriter<AppExit>,
     mut _load_workspace: EventWriter<LoadWorkspace>,
-    mut _app_state: ResMut<State<AppState>>,
-    autoload: Option<ResMut<Autoload>>,
+    autoload: Option<ResMut<WebAutoLoad>>,
 ) {
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(target_arch = "wasm32")]
     {
-        if let Some(mut autoload) = autoload {
-            {
-                if let Some(filename) = autoload.filename.clone() {
-                    _load_workspace.send(LoadWorkspace::Path(filename));
-                }
-                autoload.filename = None;
-            }
-            return;
-        }
-    }
+        // if autoload is empty trigger event
+        if autoload.is_none() {
+            let mut levels = BTreeMap::new();
+            levels.insert(0, Level::default());
 
-    // if auto load is empty, trigger new workspace
-    if let Some(autoload) = autoload {
-        if autoload.filename.is_none() {
-            let _ = &events.file_events.new_workspace.send(CreateNewWorkspace);
+            // create new site and convert to bytes
+            let site = Site {
+                levels,
+                ..default()
+            };
+            // convert site to json using serde
+            // let site_json = serde_json::to_string(&site).unwrap();
+            // log(&format!("Main Menu - Creating new site: {}", site_json));
+
+            // convert site to bytes
+            let site_bytes = ron::to_string(&site).unwrap().as_bytes().to_vec();
+
+            _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Site(site_bytes)));
         }
     }
 
@@ -151,46 +149,6 @@ fn egui_ui(
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(egui_context.ctx_mut(), |ui| {
             ui.heading("Loading RCC RMF Site Editor...");
-            // ui.add_space(10.);
-
-            // ui.horizontal(|ui| {
-            //     if ui.button("View demo map").clicked() {
-            //         _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-            //             demo_office(),
-            //         )));
-            //     }
-
-            //     // if ui.button("Open a file").clicked() {
-            //     //     _load_workspace.send(LoadWorkspace::Dialog);
-            //     // }
-
-            //     // TODO(@mxgrey): Bring this back when we have finished developing
-            //     // the key features for workcell editing.
-            //     // if ui.button("Workcell Editor").clicked() {
-            //     //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
-            //     //         demo_workcell(),
-            //     //     )));
-            //     // }
-
-            //     // TODO(@mxgrey): Bring this back when we have time to fix the
-            //     // warehouse generator.
-            //     // if ui.button("Warehouse generator").clicked() {
-            //     //     info!("Entering warehouse generator");
-            //     //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
-            //     // }
-            // });
-
-            #[cfg(not(target_arch = "wasm32"))]
-            {
-                ui.add_space(20.);
-                ui.horizontal(|ui| {
-                    ui.with_layout(egui::Layout::right_to_left(egui::Align::Center), |ui| {
-                        if ui.button("Exit").clicked() {
-                            _exit.send(AppExit);
-                        }
-                    });
-                });
-            }
         });
 }
 
@@ -198,9 +156,6 @@ pub struct MainMenuPlugin;
 
 impl Plugin for MainMenuPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(
-            Update,
-            (egui_ui, autoload_from_web).run_if(in_state(AppState::MainMenu)),
-        );
+        app.add_systems(Update, (egui_ui).run_if(in_state(AppState::MainMenu)));
     }
 }

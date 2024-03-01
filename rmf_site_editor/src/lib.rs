@@ -130,7 +130,7 @@ extern "C" {
     pub fn save_nav_graph(id: &str, s: &str);
 
     #[wasm_bindgen(js_namespace = window)]
-    pub fn get_map_list()->js_sys::Array;
+    pub fn get_map_list() -> js_sys::Array;
 }
 
 #[cfg(target_arch = "wasm32")]
