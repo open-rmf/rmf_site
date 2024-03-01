@@ -16,10 +16,7 @@
 */
 
 use crate::{
-    inspector::{InspectAssetSource, InspectScale},
-    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall},
-    AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank,
+    inspector::{InspectAssetSource, InspectScale}, interaction::{ChangeMode, SelectAnchor, SelectAnchor3D}, rcc, site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall}, AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
@@ -93,6 +90,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
 
                     ui.add_space(10.0);
+                    unsafe { rcc::SHOW_MAP_ASSET_SOURCE=1 };
                     CollapsingHeader::new("New drawing")
                         .default_open(false)
                         .show(ui, |ui| {
@@ -126,6 +124,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                         ..default()
                                     }));
                             }
+                            unsafe { rcc::SHOW_MAP_ASSET_SOURCE=0 };
                         });
                 }
                 AppState::SiteDrawingEditor => {

@@ -150,35 +150,35 @@ fn egui_ui(
         .title_bar(false)
         .anchor(egui::Align2::CENTER_CENTER, egui::vec2(0., 0.))
         .show(egui_context.ctx_mut(), |ui| {
-            ui.heading("Welcome to the RCC RMF Site Editor!");
-            ui.add_space(10.);
+            ui.heading("Loading RCC RMF Site Editor...");
+            // ui.add_space(10.);
 
-            ui.horizontal(|ui| {
-                if ui.button("View demo map").clicked() {
-                    _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
-                        demo_office(),
-                    )));
-                }
+            // ui.horizontal(|ui| {
+            //     if ui.button("View demo map").clicked() {
+            //         _load_workspace.send(LoadWorkspace::Data(WorkspaceData::LegacyBuilding(
+            //             demo_office(),
+            //         )));
+            //     }
 
-                // if ui.button("Open a file").clicked() {
-                //     _load_workspace.send(LoadWorkspace::Dialog);
-                // }
+            //     // if ui.button("Open a file").clicked() {
+            //     //     _load_workspace.send(LoadWorkspace::Dialog);
+            //     // }
 
-                // TODO(@mxgrey): Bring this back when we have finished developing
-                // the key features for workcell editing.
-                // if ui.button("Workcell Editor").clicked() {
-                //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
-                //         demo_workcell(),
-                //     )));
-                // }
+            //     // TODO(@mxgrey): Bring this back when we have finished developing
+            //     // the key features for workcell editing.
+            //     // if ui.button("Workcell Editor").clicked() {
+            //     //     _load_workspace.send(LoadWorkspace::Data(WorkspaceData::Workcell(
+            //     //         demo_workcell(),
+            //     //     )));
+            //     // }
 
-                // TODO(@mxgrey): Bring this back when we have time to fix the
-                // warehouse generator.
-                // if ui.button("Warehouse generator").clicked() {
-                //     info!("Entering warehouse generator");
-                //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
-                // }
-            });
+            //     // TODO(@mxgrey): Bring this back when we have time to fix the
+            //     // warehouse generator.
+            //     // if ui.button("Warehouse generator").clicked() {
+            //     //     info!("Entering warehouse generator");
+            //     //     _app_state.overwrite_set(AppState::WarehouseGenerator).unwrap();
+            //     // }
+            // });
 
             #[cfg(not(target_arch = "wasm32"))]
             {

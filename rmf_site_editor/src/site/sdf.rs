@@ -42,7 +42,7 @@ pub struct CollisionMeshMarker;
 fn compute_model_source(path: &str, uri: &str) -> AssetSource {
     let mut asset_source = AssetSource::from(path);
     match asset_source {
-        AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
+        AssetSource::RCC(ref mut p) | AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
             let binding = p.clone();
             *p = if let Some(stripped) = uri.strip_prefix("model://") {
                 // Get the org name from context, model name from this and combine

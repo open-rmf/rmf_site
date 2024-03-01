@@ -91,7 +91,12 @@ fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<PathBuf, Box<dyn
             let mut asset_path = cache_path();
             asset_path.push(&asset_name);
             Ok(asset_path)
-        }
+        },
+        AssetSource::RCC(asset_name) => {
+            let mut asset_path = cache_path();
+            asset_path.push(&asset_name);
+            Ok(asset_path)
+        },
         AssetSource::Local(path) => Ok(path.into()),
         AssetSource::Search(_) | AssetSource::OSMTile { .. } | AssetSource::Bundled(_) => {
             Err(IoError::new(

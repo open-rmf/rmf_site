@@ -73,6 +73,8 @@ use bevy::render::{
 };
 pub use osm_slippy_map::*;
 
+pub mod rcc;
+
 use crate::main_menu::UploadData;
 use crate::main_menu::WebAutoLoad;
 
@@ -126,6 +128,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn save_nav_graph(id: &str, s: &str);
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn get_map_list()->js_sys::Array;
 }
 
 #[cfg(target_arch = "wasm32")]
