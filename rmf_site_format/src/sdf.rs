@@ -20,8 +20,14 @@ use crate::{
     Pose, Rotation, Side, Site, Swing,
 };
 use glam::Vec3;
+use once_cell::sync::Lazy;
 use sdformat_rs::*;
 use std::collections::BTreeMap;
+
+static WORLD_TEMPLATE: Lazy<SdfRoot> = Lazy::new(|| {
+    yaserde::de::from_str(include_str!("templates/gz_world.sdf"))
+        .expect("Failed deserializing template")
+});
 
 #[derive(Debug)]
 pub enum SdfConversionError {
@@ -429,12 +435,13 @@ impl Site {
                 .ok_or(SdfConversionError::BrokenAnchorReference(id))
                 .cloned()
         };
-        let mut models = Vec::new();
+        let mut root = WORLD_TEMPLATE.clone();
+        let world = &mut root.world[0];
         let mut min_elevation = f32::MAX;
         let mut max_elevation = f32::MIN;
         let mut toggle_floors_plugin = SdfPlugin {
             name: "toggle_floors".into(),
-            filename: "libtoggle_floors.so".into(),
+            filename: "toggle_floors".into(),
             ..Default::default()
         };
         for level in self.levels.values() {
@@ -452,7 +459,7 @@ impl Site {
                 .attributes
                 .insert("model_name".into(), level_model_name.clone());
             // Floors walls and static models are included in the level mesh
-            models.push(SdfModel {
+            world.model.push(SdfModel {
                 name: level_model_name,
                 r#static: Some(true),
                 link: vec![SdfLink {
@@ -489,7 +496,7 @@ impl Site {
                 // TODO(luca) doors into toggle floors
                 let left_anchor = get_anchor(door.anchors.left())?;
                 let right_anchor = get_anchor(door.anchors.right())?;
-                models.push(door.to_sdf(
+                world.model.push(door.to_sdf(
                     left_anchor,
                     right_anchor,
                     Vec3::new(0.0, 0.0, level.properties.elevation.0),
@@ -501,9 +508,7 @@ impl Site {
         }
         for lift in self.lifts.values() {
             // Cabin
-            let LiftCabin::Rect(ref cabin) = lift.properties.cabin else {
-                continue;
-            };
+            let LiftCabin::Rect(ref cabin) = lift.properties.cabin;
             let pose = lift
                 .properties
                 .center(self)
@@ -591,20 +596,20 @@ impl Site {
                         + door_placement
                             .custom_gap
                             .unwrap_or_else(|| cabin.gap.unwrap_or(0.01)));
-                let mut dummy_cabin = dummy_cabin.to_sdf(
+                let mut cabin = dummy_cabin.to_sdf(
                     left_anchor,
                     right_anchor,
                     x_offset,
                     false,
                     Some(cabin_mesh_prefix.clone()),
                 )?;
-                for mut joint in dummy_cabin.joint.drain(..) {
+                for mut joint in cabin.joint.drain(..) {
                     // Move the joint to the lift and change its parenthood accordingly
                     joint.parent = "platform".into();
-                    joint.child = dummy_cabin.name.clone() + "::" + &joint.child;
+                    joint.child = format!("{}::{}", cabin.name, joint.child);
                     lift_joints.push(joint);
                 }
-                lift_models.push(dummy_cabin.into());
+                lift_models.push(cabin.into());
                 for visit in door.visits.0.iter() {
                     let level = self
                         .levels
@@ -616,7 +621,6 @@ impl Site {
                         lift_name,
                         face.label()
                     );
-                    // TODO(luca) proper pose for shaft doors
                     let dummy_shaft = Door {
                         anchors: door.reference_anchors.clone(),
                         name: NameInSite(shaft_door_name.clone()),
@@ -645,7 +649,7 @@ impl Site {
                         Some(cabin_mesh_prefix.clone()),
                     )?;
                     // Add the pose of the lift to have world coordinates
-                    models.push(dummy_shaft);
+                    world.model.push(dummy_shaft);
                     let mut level = levels.entry(*visit).or_default();
                     let element = XmlElement {
                         name: "door_pair".into(),
@@ -687,7 +691,7 @@ impl Site {
             }
             component.data = ElementData::Nested(component_data);
             plugin.elements.push(component);
-            models.push(SdfModel {
+            world.model.push(SdfModel {
                 name: lift.properties.name.0.clone(),
                 r#static: Some(lift.properties.is_static.0),
                 pose: Some(pose.to_sdf(0.0)),
@@ -723,58 +727,15 @@ impl Site {
                 plugin: vec![plugin],
                 ..Default::default()
             });
+            // TODO(luca) lifts in the legacy pipeline seem to also have a "ramp" joint to allow
+            // easier transition of robots into lifts.
+            // From tests simulation seems to also work without it, probably due to having changed
+            // from full joint with wheel torques to just kinematic simulation for whole robots.
         }
 
-        let sun = SdfLight {
-            name: "sun".into(),
-            r#type: "directional".into(),
-            cast_shadows: Some(true),
-            diffuse: Some("1 1 1 1".into()),
-            pose: Some(Pose::default().to_sdf(10.0)),
-            specular: Some("0.2 0.2 0.2 1".into()),
-            attenuation: Some(SdfLightAttenuation {
-                range: 1000.0,
-                constant: Some(0.09),
-                linear: Some(0.001),
-                quadratic: Some(0.001),
-            }),
-            direction: Vector3d::new(-0.5, 0.1, -0.9),
-            ..Default::default()
-        };
-        let lift_plugin = SdfPlugin {
-            name: "lift".into(),
-            filename: "liblift.so".into(),
-            ..Default::default()
-        };
-        let door_plugin = SdfPlugin {
-            name: "door".into(),
-            filename: "libdoor.so".into(),
-            ..Default::default()
-        };
-        let charging_plugin = SdfPlugin {
-            name: "toggle_charging".into(),
-            filename: "libtoggle_charging.so".into(),
-            ..Default::default()
-        };
-        let physics_plugin = SdfPlugin {
-            name: "gz::sim::systems::Physics".into(),
-            filename: "libgz-sim-physics-system.so".into(),
-            ..Default::default()
-        };
-        let user_commands_plugin = SdfPlugin {
-            name: "gz::sim::systems::UserCommands".into(),
-            filename: "libgz-sim-user-commands-system.so".into(),
-            ..Default::default()
-        };
-        let scene_broadcaster_plugin = SdfPlugin {
-            name: "gz::sim::systems::SceneBroadcaster".into(),
-            filename: "libgz-sim-scene-broadcaster-system.so".into(),
-            ..Default::default()
-        };
         // Spawn the robots now
         // TODO(luca) use robot properties and export this like other meshes
         // instead of including a tag
-        let mut world_includes = Vec::new();
         for location in self.navigation.guided.locations.values() {
             let Some(robot) = location.tags.0.iter().find_map(|l| l.spawn_robot()) else {
                 continue;
@@ -798,7 +759,7 @@ impl Site {
                 trans: [tf[0], tf[1], level.properties.elevation.0],
                 ..Default::default()
             };
-            world_includes.push(SdfWorldInclude {
+            world.include.push(SdfWorldInclude {
                 uri: "model://".to_string() + robot_type,
                 name: Some(robot.name.0.clone()),
                 pose: Some(pose.to_sdf(0.0)),
@@ -806,46 +767,20 @@ impl Site {
                 ..Default::default()
             });
         }
-        Ok(SdfRoot {
-            version: "1.7".to_string(),
-            world: vec![SdfWorld {
-                name: self.properties.name.0.clone(),
-                model: models,
-                include: world_includes,
-                atmosphere: SdfAtmosphere {
-                    r#type: "adiabatic".to_string(),
-                    ..Default::default()
-                },
-                scene: SdfScene {
-                    ambient: "1 1 1".to_string(),
-                    background: "0.8 0.8 0.8".to_string(),
-                    ..Default::default()
-                },
-                physics: vec![SdfPhysics {
-                    r#type: "ode".into(),
-                    max_step_size: 0.01,
-                    real_time_factor: 1.0,
-                    real_time_update_rate: 100.0,
-                    ..Default::default()
-                }],
-                light: vec![sun],
-                // TODO(luca) check why these plugins are not being applied, we might need to
-                // override more than only plugins
-                gui: Some(SdfGui {
-                    plugin: vec![charging_plugin, toggle_floors_plugin],
-                    ..Default::default()
-                }),
-                plugin: vec![
-                    physics_plugin,
-                    user_commands_plugin,
-                    scene_broadcaster_plugin,
-                    door_plugin,
-                    lift_plugin,
-                ],
-                ..Default::default()
-            }],
+        world.name = self.properties.name.0.clone();
+        if let Some(gui) = world.gui.as_mut() {
+            gui.plugin.push(toggle_floors_plugin);
+        }
+        // TODO(luca) these fields are set as required in the specification but seem not to be in
+        // practice (rightly so because not everyone wants to manually specify gravity, earth
+        // magnetic field and atmosphere model)
+        world.atmosphere = SdfAtmosphere {
+            r#type: "adiabatic".to_string(),
             ..Default::default()
-        })
+        };
+        world.gravity = Vector3d::new(0.0, 0.0, -9.80);
+        world.magnetic_field = Vector3d::new(5.64e-6, 2.29e-5, -4.24e-5);
+        Ok(root)
     }
 }
 
