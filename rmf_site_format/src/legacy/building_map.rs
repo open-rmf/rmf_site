@@ -33,6 +33,8 @@ pub struct BuildingMap {
     pub name: String,
     #[serde(default)]
     pub coordinate_system: CoordinateSystem,
+    #[serde(default)]
+    pub reference_level_name: Option<String>,
     pub levels: BTreeMap<String, Level>,
     // TODO(MXG): Consider parsing legacy crowdsim data and converting it to
     // a format that will have future support.
@@ -349,13 +351,11 @@ impl BuildingMap {
             }
 
             for (name, layer) in &level.layers {
-                // TODO(luca) coordinates in site and traffic editor might be different, use
-                // optimization engine instead of parsing
                 let drawing_id = site_id.next().unwrap();
                 let pose = Pose {
                     trans: [
                         layer.transform.translation_x as f32,
-                        layer.transform.translation_y as f32,
+                        -layer.transform.translation_y as f32,
                         0.0 as f32,
                     ],
                     rot: Rotation::Yaw(Angle::Rad(layer.transform.yaw as f32)),
