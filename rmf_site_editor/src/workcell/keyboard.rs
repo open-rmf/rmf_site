@@ -16,15 +16,23 @@
 */
 
 use crate::{ExportFormat, SaveWorkspace, SaveWorkspaceDestination};
-use bevy::prelude::*;
+use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 
 pub fn handle_workcell_keyboard_input(
     keyboard_input: Res<Input<KeyCode>>,
     mut egui_context: EguiContexts,
     mut save_events: EventWriter<SaveWorkspace>,
+    primary_windows: Query<Entity, With<PrimaryWindow>>,
 ) {
-    let egui_context = egui_context.ctx_mut();
+    let Some(egui_context) = primary_windows
+        .get_single()
+        .ok()
+        .and_then(|w| egui_context.try_ctx_for_window_mut(w))
+    else {
+        return;
+    };
+
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
         || egui_context.is_pointer_over_area();

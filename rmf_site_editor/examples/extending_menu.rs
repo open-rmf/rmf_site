@@ -86,7 +86,7 @@ impl Plugin for MyMenuPlugin {
 /// Lets embed site editor in our application with our own plugin
 fn main() {
     App::new()
-        .add_plugin(SiteEditor)
+        .add_plugin(SiteEditor::default())
         .add_plugin(MyMenuPlugin)
         .run();
 }
