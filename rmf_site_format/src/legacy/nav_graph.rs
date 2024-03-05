@@ -257,7 +257,7 @@ impl NavLaneProperties {
             OrientationConstraint::Forwards => Some("forward".to_owned()),
             OrientationConstraint::Backwards => Some("backward".to_owned()),
             OrientationConstraint::RelativeYaw(_) | OrientationConstraint::AbsoluteYaw(_) => {
-                println!(
+                eprintln!(
                     "Skipping orientation constraint [{:?}] because of incompatibility",
                     motion.orientation_constraint
                 );
