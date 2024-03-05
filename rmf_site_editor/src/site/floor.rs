@@ -131,7 +131,9 @@ fn make_floor_mesh(
             LiftCabin::Rect(params) => {
                 let w = params.thickness();
                 let gap_for_door = |d: &Option<LiftCabinDoorPlacement<Entity>>| -> f32 {
-                    d.map(|d| d.custom_gap.unwrap_or(params.gap())).unwrap_or(DEFAULT_CABIN_GAP) + w
+                    d.map(|d| d.custom_gap.unwrap_or(params.gap()))
+                        .unwrap_or(DEFAULT_CABIN_GAP)
+                        + w
                 };
                 let aabb = params.aabb();
                 let tf_cabin = *tf * Transform::from_translation(aabb.center.into());
