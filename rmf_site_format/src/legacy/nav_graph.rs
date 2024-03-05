@@ -11,7 +11,7 @@ pub struct NavGraph {
     pub lifts: HashMap<String, NavLift>,
 }
 
-// Readapted from legacy traffic editor implementation
+// Reference: https://en.wikipedia.org/wiki/Line%E2%80%93line_intersection#Given_two_points_on_each_line_segment
 fn segments_intersect(p1: [f32; 2], p2: [f32; 2], p3: [f32; 2], p4: [f32; 2]) -> bool {
     // line segments are [p1-p2] and [p3-p4]
     let [x1, y1] = p1;
