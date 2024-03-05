@@ -129,8 +129,9 @@ fn make_floor_mesh(
     for (tf, cabin) in lifts.iter() {
         let to_subtract = match cabin {
             LiftCabin::Rect(params) => {
+                let w = params.thickness();
                 let gap_for_door = |d: &Option<LiftCabinDoorPlacement<Entity>>| -> f32 {
-                    d.and_then(|d| d.custom_gap).unwrap_or(params.gap())
+                    d.and_then(|d| d.custom_gap).unwrap_or(params.gap()) + w
                 };
                 let aabb = params.aabb();
                 let tf_cabin = *tf * Transform::from_translation(aabb.center.into());
