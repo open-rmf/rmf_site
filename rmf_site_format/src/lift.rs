@@ -115,6 +115,60 @@ pub struct LiftProperties<T: RefTrait> {
     pub initial_level: InitialLevel<T>,
 }
 
+impl LiftProperties<u32> {
+    /// Returns the pose of the lift cabin center in global coordinates.
+    pub fn center(&self, site: &Site) -> Option<Pose> {
+        // Center of the aabb
+        let center = match &self.cabin {
+            LiftCabin::Rect(params) => {
+                let front_door_t = params
+                    .front_door
+                    .as_ref()
+                    .map(|d| d.thickness())
+                    .unwrap_or(DEFAULT_CABIN_DOOR_THICKNESS);
+
+                [
+                    -params.depth / 2.0 - params.thickness() - params.gap() - front_door_t / 2.0,
+                    params.shift(),
+                    DEFAULT_LEVEL_HEIGHT / 2.0,
+                ]
+            }
+        };
+        // Get the vector between the reference anchors
+        let left_anchor = site.get_anchor(self.reference_anchors.left())?;
+        let right_anchor = site.get_anchor(self.reference_anchors.right())?;
+        let left_trans = left_anchor.translation_for_category(Category::Lift);
+        let right_trans = right_anchor.translation_for_category(Category::Lift);
+        let yaw = (left_trans[0] - right_trans[0]).atan2(left_trans[1] - right_trans[1]);
+        let midpoint = [
+            (left_trans[0] + right_trans[0]) / 2.0,
+            (left_trans[1] + right_trans[1]) / 2.0,
+        ];
+        let elevation = match &self.initial_level.0 {
+            Some(l) => site
+                .levels
+                .get(l)
+                .map(|level| level.properties.elevation.0)?,
+            None => {
+                let mut min_elevation = site
+                    .levels
+                    .first_key_value()
+                    .map(|(_, l)| l.properties.elevation.0)?;
+                for l in site.levels.values().skip(1) {
+                    if l.properties.elevation.0 < min_elevation {
+                        min_elevation = l.properties.elevation.0;
+                    }
+                }
+                min_elevation
+            }
+        };
+        Some(Pose {
+            trans: [midpoint[0] + center[0], midpoint[1] + center[1], elevation],
+            rot: Rotation::Yaw(Angle::Rad(yaw)),
+        })
+    }
+}
+
 #[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord)]
 #[serde(transparent)]
 #[cfg_attr(feature = "bevy", derive(Component, Deref, DerefMut))]
