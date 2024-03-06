@@ -109,6 +109,7 @@ use crate::{
     },
     widgets::AppEvents,
     AppState,
+    rcc
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
@@ -500,6 +501,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             }
 
             if let Ok((source, recall)) = self.params.component.asset_sources.get(selection) {
+                unsafe { rcc::SHOW_MAP_ASSET_SOURCE=0 };
                 if let Some(new_asset_source) =
                     InspectAssetSource::new(source, recall, default_file).show(ui)
                 {
@@ -508,6 +510,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                         .asset_source
                         .send(Change::new(new_asset_source, selection));
                 }
+                unsafe { rcc::SHOW_MAP_ASSET_SOURCE=0 };
                 ui.add_space(10.0);
             }
 
