@@ -309,7 +309,7 @@ impl FromWorld for CameraControls {
             (2, HOVERED_OUTLINE_LAYER),
             (3, XRAY_RENDER_LAYER),
         ]
-        .map(|(order, _layer)| {
+        .map(|(order, layer)| {
             world
                 .spawn(Camera3dBundle {
                     camera: Camera {
@@ -329,7 +329,7 @@ impl FromWorld for CameraControls {
                     visibility: Visibility::Inherited,
                     ..default()
                 })
-                .insert(RenderLayers::layer(XRAY_RENDER_LAYER))
+                .insert(RenderLayers::layer(layer))
                 .id()
         });
 
