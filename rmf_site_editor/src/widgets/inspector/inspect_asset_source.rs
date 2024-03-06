@@ -144,6 +144,27 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::RCC(uri) => {
                 if unsafe { rcc::SHOW_MAP_ASSET_SOURCE } == 1 {
                     let map_list = get_map_list().clone();
+
+                    if *uri != "" {
+                        //load previously selected map by default 
+                        for i in 0..map_list.length() {
+                            match rcc::parse_js_value(&map_list.get(i)) {
+                                Ok(obj)=>{
+                                    if obj.image_url == *uri {
+                                        new_map_index = i;
+                                        break;
+                                    }
+                                },
+                                Err(err)=>{
+                                    #[cfg(target_arch = "wasm32")]
+                                    {
+                                        log( &format!("Error parsing  map list items JSON: {}", err));
+                                    }
+                                }
+                            }
+                        }   
+                    }
+
                     match rcc::parse_js_value(&map_list.get(new_map_index)) {
                         Ok(current_map) => {
                             if map_list.length() > 0 {
