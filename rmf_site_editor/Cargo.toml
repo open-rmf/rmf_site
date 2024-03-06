@@ -33,7 +33,7 @@ futures-lite = "1.12.0"
 bevy = { version = "0.12", features = ["pnm", "jpeg", "tga"] }
 dirs = "5.0"
 thread_local = "*"
-lyon = "1"
+geo = "0.27"
 thiserror = "*"
 rmf_site_format = { path = "../rmf_site_format", features = ["bevy"] }
 itertools = "*"
