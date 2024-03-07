@@ -30,6 +30,8 @@ pub struct LevelProperties {
     pub global_floor_visibility: GlobalFloorVisibility,
     #[serde(default, skip_serializing_if = "is_default")]
     pub global_drawing_visibility: GlobalDrawingVisibility,
+    #[serde(default, skip_serializing_if = "is_default")]
+    pub camera_poses: CameraPoses,
 }
 
 impl Default for LevelProperties {
@@ -39,6 +41,7 @@ impl Default for LevelProperties {
             elevation: LevelElevation(0.0),
             global_floor_visibility: Default::default(),
             global_drawing_visibility: Default::default(),
+            camera_poses: Default::default(),
         }
     }
 }

@@ -330,6 +330,7 @@ impl Plugin for SitePlugin {
                 align_site_drawings,
                 clear_old_issues_on_new_validate_event,
                 export_lights,
+                set_camera_transform_on_level_change,
             )
                 .run_if(AppState::in_site_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),
