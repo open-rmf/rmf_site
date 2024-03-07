@@ -770,6 +770,22 @@ impl Site {
         world.name = self.properties.name.0.clone();
         if let Some(gui) = world.gui.as_mut() {
             gui.plugin.push(toggle_floors_plugin);
+            if let Some(minimal_scene) = gui
+                .plugin
+                .iter_mut()
+                .find(|plugin| plugin.filename == "MinimalScene")
+            {
+                if let Some(camera_pose) = minimal_scene.elements.get_mut("camera_pose") {
+                    if let Some(default_camera) = self
+                        .levels
+                        .first_key_value()
+                        .and_then(|(_, level)| level.properties.camera_poses.0.iter().next())
+                    {
+                        // TODO(luca) use level elevation here?
+                        camera_pose.data = ElementData::String(default_camera.1.to_sdf(0.0).data);
+                    }
+                }
+            }
         }
         // TODO(luca) these fields are set as required in the specification but seem not to be in
         // practice (rightly so because not everyone wants to manually specify gravity, earth
