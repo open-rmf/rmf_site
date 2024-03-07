@@ -1262,10 +1262,14 @@ pub fn save_site(world: &mut World) {
                     new_path = new_path.with_extension("world");
                 }
                 info!("Saving to {}", new_path.display());
-                let f = match std::fs::File::create(new_path.clone()) {
+                let parent_folder = new_path.parent().unwrap();
+                if !parent_folder.exists() {
+                    std::fs::create_dir_all(new_path.parent().unwrap());
+                }
+                let f = match std::fs::File::create(&new_path) {
                     Ok(f) => f,
                     Err(err) => {
-                        error!("Unable to save file: {err}");
+                        error!("Unable to save file {}: {err}", new_path.display());
                         continue;
                     }
                 };

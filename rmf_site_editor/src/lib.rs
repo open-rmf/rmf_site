@@ -259,7 +259,7 @@ impl Plugin for SiteEditor {
 pub struct HeadlessExport(String);
 
 #[derive(Debug, Resource, Default)]
-pub struct Counter(u32, bool);
+pub struct Counter(u32, bool, bool);
 
 pub fn headless_sdf_export(
     mut export: EventWriter<SaveWorkspace>,
@@ -284,19 +284,22 @@ pub fn headless_sdf_export(
         exit.send(bevy::app::AppExit);
     }
     if !missing_models.is_empty() {
-        info!("Waiting for models to spawn");
+        // TODO(luca) implement a timeout logic?
     } else {
         if !export_state.1 {
-            export_state.1 = true;
-            info!("All models spawned, sending export event");
             export_state.0 = 0;
-            for (e, name) in &sites {
-                let path = std::path::PathBuf::from(path.0.clone());
-                export.send(SaveWorkspace::new().to_sdf().to_path(&path));
+            export_state.1 = true;
+        } else {
+            if !export_state.2 && export_state.0 > 5 {
+                export_state.2 = true;
+                for (e, name) in &sites {
+                    let path = std::path::PathBuf::from(path.0.clone());
+                    export.send(SaveWorkspace::new().to_sdf().to_path(&path));
+                    info!("Sent");
+                }
+            } else if export_state.2 && export_state.0 > 15 {
+                exit.send(bevy::app::AppExit);
             }
-        }
-        if export_state.0 > 5 {
-            exit.send(bevy::app::AppExit);
         }
     }
 }
