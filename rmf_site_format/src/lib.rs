@@ -29,6 +29,9 @@ pub use asset_source::*;
 pub mod category;
 pub use category::*;
 
+pub mod camera_poses;
+pub use camera_poses::*;
+
 pub mod constraint;
 pub use constraint::*;
 

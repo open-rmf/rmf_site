@@ -346,6 +346,7 @@ fn generate_levels(
                 &Children,
                 Option<&RecencyRanking<FloorMarker>>,
                 Option<&RecencyRanking<DrawingMarker>>,
+                &CameraPoses,
             ),
             Without<Pending>,
         >,
@@ -411,6 +412,7 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
+                camera_poses,
             )) = q_levels.get(*c)
             {
                 let mut level = Level::new(
@@ -419,6 +421,7 @@ fn generate_levels(
                         elevation: elevation.clone(),
                         global_floor_visibility: floor_vis.clone(),
                         global_drawing_visibility: drawing_vis.clone(),
+                        camera_poses: camera_poses.clone(),
                     },
                     RankingsInLevel {
                         floors: floor_ranking

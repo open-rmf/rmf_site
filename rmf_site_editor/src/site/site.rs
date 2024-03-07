@@ -123,6 +123,7 @@ pub fn change_site(
                                 elevation: LevelElevation(0.),
                                 global_floor_visibility: default(),
                                 global_drawing_visibility: default(),
+                                camera_poses: default(),
                             })
                             .set_parent(cmd.site)
                             .id();
