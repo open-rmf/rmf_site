@@ -250,7 +250,7 @@ impl Plugin for SiteEditor {
         if let Some(path) = &self.headless {
             app.add_plugins(ScheduleRunnerPlugin::default());
             app.insert_resource(HeadlessExport(path.clone()));
-            app.add_systems(Last, headless_sdf_export.run_if(AppState::in_site_mode()));
+            app.add_systems(Last, headless_sdf_export);
         }
     }
 }
@@ -279,10 +279,13 @@ pub fn headless_sdf_export(
     if export_state.0 < 5 {
         return;
     }
+    if sites.is_empty() {
+        warn!("Site loading failed, aborting");
+        exit.send(bevy::app::AppExit);
+    }
     if !missing_models.is_empty() {
         info!("Waiting for models to spawn");
     } else {
-        dbg!(&export_state);
         if !export_state.1 {
             export_state.1 = true;
             info!("All models spawned, sending export event");
