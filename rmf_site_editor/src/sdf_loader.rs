@@ -95,6 +95,8 @@ fn compute_model_source<'a, 'b>(
                 // When working with AssetSource::Remote and AssetSource::Search types, the form is
                 // `Organization/ModelName/path_to_file.ext`, hence we substitute the part after `Organization/`
                 // with the content of the model:// path.
+                // For example: A OpenRobotics/Model1/model.sdf that references to a
+                // model://Model2/mesh.obj would be parsed to OpenRobotics/Model2/mesh.obj
                 // TODO(luca) Should remote and search `AssetSource` objects have a clear split for
                 // organization name and asset name instead of relying on an implicit
                 // Organization/Model syntax?
