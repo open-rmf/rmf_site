@@ -78,28 +78,41 @@ pub enum SdfError {
     UnsupportedAssetSource(String),
 }
 
+/// Combines the path from the SDF that is currently being processed with the path of a mesh
+/// referenced in the SDF to generate an AssetSource that can be loaded by the AssetServer.
 fn compute_model_source<'a, 'b>(
     load_context: &'a mut LoadContext<'b>,
-    uri: &'a str,
+    subasset_uri: &'a str,
 ) -> Result<AssetSource, SdfError> {
-    let path = load_context.asset_path().to_string();
-    let asset_source = if let Some(stripped) = uri.strip_prefix("model://") {
+    // SDF can reference models with the model:// syntax, which specifies a path relative to a certain
+    // model, in the shape of model://ModelName/path_to_file.ext
+    let asset_source = if let Some(stripped) = subasset_uri.strip_prefix("model://") {
         let mut asset_source =
-            AssetSource::try_from(path.as_str()).map_err(SdfError::UnsupportedAssetSource)?;
+            AssetSource::try_from(load_context.asset_path().to_string().as_str())
+                .map_err(SdfError::UnsupportedAssetSource)?;
         match asset_source {
             AssetSource::Remote(ref mut p) | AssetSource::Search(ref mut p) => {
-                // Get the org name from context, model name from this and combine
+                // When working with AssetSource::Remote and AssetSource::Search types, the form is
+                // `Organization/ModelName/path_to_file.ext`, hence we substitute the part after `Organization/`
+                // with the content of the model:// path.
+                // TODO(luca) Should remote and search `AssetSource` objects have a clear split for
+                // organization name and asset name instead of relying on an implicit
+                // Organization/Model syntax?
                 *p = if let Some(org_name) = p.split("/").next() {
                     org_name.to_owned() + "/" + stripped
                 } else {
                     return Err(SdfError::UnsupportedAssetSource(format!(
                         "Unable to extract organization name from asset source [{}]",
-                        uri
+                        subasset_uri
                     )));
                 }
             }
             AssetSource::Local(ref mut p) | AssetSource::Package(ref mut p) => {
-                // Search for a model with the requested name in the same folder as the sdf file
+                // Search for a model with the requested name in the same folder as the sdf file by
+                // navigating the path up by two levels (removing file name and model folder).
+                // For example, if an SDF in /home/user/Model1/model.sdf refers to
+                // model://Model2/meshes/mesh.obj, this function will try to load
+                // /home/user/Model2/meshes/mesh.obj.
                 // Note that this will not play well if the requested model shares files with other
                 // models that are placed in different folders or are in fuel, but should work for
                 // most local, self contained, models.
@@ -108,22 +121,19 @@ fn compute_model_source<'a, 'b>(
                 } else {
                     return Err(SdfError::UnsupportedAssetSource(format!(
                         "Unable to extract model folder from asset source [{}]",
-                        uri
+                        subasset_uri
                     )));
                 }
             }
         }
         Ok(asset_source)
-    } else if let Some(path_idx) = path.rfind("/") {
-        // It's a path relative to this model, remove file and append uri
-        let (sdf_path, _sdf_file_name) = path.split_at(path_idx);
-        AssetSource::try_from((sdf_path.to_owned() + "/" + uri).as_str())
-            .map_err(SdfError::UnsupportedAssetSource)
     } else {
-        Err(SdfError::UnsupportedAssetSource(format!(
-            "Invalid SDF model path, Path is [{}] and model uri is [{}]",
-            path, uri
-        )))
+        // It's a path relative to this model, concatenate it to the current context path.
+        let path = load_context
+            .asset_path()
+            .resolve(subasset_uri)
+            .or_else(|e| Err(SdfError::UnsupportedAssetSource(e.to_string())))?;
+        AssetSource::try_from(path.to_string().as_str()).map_err(SdfError::UnsupportedAssetSource)
     }?;
     Ok(asset_source)
 }
@@ -158,7 +168,7 @@ fn parse_pose(pose: &Option<SdfPose>) -> Pose {
 fn spawn_geometry<'a, 'b>(
     world: &'a mut World,
     geometry: &'a SdfGeometry,
-    visual_name: &'a str,
+    geometry_name: &'a str,
     pose: &'a Option<SdfPose>,
     load_context: &'a mut LoadContext<'b>,
     is_static: bool,
@@ -168,7 +178,7 @@ fn spawn_geometry<'a, 'b>(
         SdfGeometry::Mesh(mesh) => Some(
             world
                 .spawn(Model {
-                    name: NameInSite(visual_name.to_owned()),
+                    name: NameInSite(geometry_name.to_owned()),
                     source: compute_model_source(load_context, &mesh.uri)?,
                     pose,
                     is_static: IsStatic(is_static),
@@ -185,7 +195,7 @@ fn spawn_geometry<'a, 'b>(
                         size: [s.x as f32, s.y as f32, s.z as f32],
                     })
                     .insert(pose)
-                    .insert(NameInSite(visual_name.to_owned()))
+                    .insert(NameInSite(geometry_name.to_owned()))
                     .insert(SpatialBundle::INHERITED_IDENTITY)
                     .id(),
             )
@@ -197,7 +207,7 @@ fn spawn_geometry<'a, 'b>(
                     length: c.length as f32,
                 })
                 .insert(pose)
-                .insert(NameInSite(visual_name.to_owned()))
+                .insert(NameInSite(geometry_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -208,7 +218,7 @@ fn spawn_geometry<'a, 'b>(
                     length: c.length as f32,
                 })
                 .insert(pose)
-                .insert(NameInSite(visual_name.to_owned()))
+                .insert(NameInSite(geometry_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
@@ -218,7 +228,7 @@ fn spawn_geometry<'a, 'b>(
                     radius: s.radius as f32,
                 })
                 .insert(pose)
-                .insert(NameInSite(visual_name.to_owned()))
+                .insert(NameInSite(geometry_name.to_owned()))
                 .insert(SpatialBundle::INHERITED_IDENTITY)
                 .id(),
         ),
