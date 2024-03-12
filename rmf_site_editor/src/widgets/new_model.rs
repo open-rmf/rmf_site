@@ -19,7 +19,7 @@ use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
 use crate::site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache};
 use crate::AppEvents;
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, ComboBox, RichText, ScrollArea, Ui, Window};
+use bevy_egui::egui::{Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
 /// Filters applied to models in the fuel list
@@ -211,10 +211,13 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                     });
                 ui.add_space(10.0);
 
-                ui.image(
-                    self.events.new_model.model_preview_camera.egui_handle,
-                    bevy_egui::egui::Vec2::new(320.0, 240.0),
-                );
+                ui.image(ImageSource::Texture(
+                    (
+                        self.events.new_model.model_preview_camera.egui_handle,
+                        [320.0, 240.0].into(),
+                    )
+                        .into(),
+                ));
                 ui.add_space(10.0);
 
                 if gallery_status.selected.as_ref() != new_selected {

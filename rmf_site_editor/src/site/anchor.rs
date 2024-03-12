@@ -28,7 +28,8 @@ pub struct AnchorBundle {
     global_transform: GlobalTransform,
     dependents: Dependents,
     visibility: Visibility,
-    computed: ComputedVisibility,
+    view: ViewVisibility,
+    inherited: InheritedVisibility,
     category: Category,
 }
 
@@ -41,7 +42,8 @@ impl AnchorBundle {
             global_transform: transform.into(),
             dependents: Default::default(),
             visibility: Default::default(),
-            computed: Default::default(),
+            view: Default::default(),
+            inherited: Default::default(),
             category: Category::Anchor,
         }
     }
@@ -140,7 +142,7 @@ pub fn assign_orphan_anchors_to_parent(
                 center: p_anchor.into(),
                 radius: 0.0,
             };
-            if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.compute_matrix()) {
+            if sphere.intersects_obb(&cabin_aabb, &global_lift_tf.affine()) {
                 if let Ok(anchor_group_tf) = lift_anchor_groups.get(anchor_group.0) {
                     // The anchor is inside the lift cabin, so we should
                     // make it the anchor's parent.
@@ -204,7 +206,7 @@ pub fn check_for_close_unconnected_anchors(
                         review if this is intended and, if it is, suppress the issue";
     // TODO(luca) make this configurable
     const DISTANCE_THRESHOLD: f32 = 0.2;
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         // Key is level id, value is vector of (Entity, Global tf's position)
         let mut anchor_poses: HashMap<Entity, Vec<(Entity, Vec3)>> = HashMap::new();
         for e in &anchor_entities {

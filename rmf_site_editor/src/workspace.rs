@@ -25,7 +25,7 @@ use crate::site::{DefaultFile, LoadSite, SaveSite};
 use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, NameOfSite, Site, SiteProperties, Workcell};
+use rmf_site_format::{Level, NameOfSite, Site, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -229,7 +229,7 @@ pub fn dispatch_new_workspace_events(
     mut load_site: EventWriter<LoadSite>,
     mut load_workcell: EventWriter<LoadWorkcell>,
 ) {
-    if let Some(_cmd) = new_workspace.iter().last() {
+    if let Some(_cmd) = new_workspace.read().last() {
         match state.get() {
             AppState::MainMenu => {
                 error!("Sent generic new workspace while in main menu");
@@ -261,7 +261,7 @@ pub fn dispatch_load_workspace_events(
     load_channels: Res<LoadWorkspaceChannels>,
     mut load_workspace: EventReader<LoadWorkspace>,
 ) {
-    if let Some(cmd) = load_workspace.iter().last() {
+    if let Some(cmd) = load_workspace.read().last() {
         match cmd {
             LoadWorkspace::Dialog => {
                 let sender = load_channels.sender.clone();
@@ -433,7 +433,7 @@ fn dispatch_save_workspace_events(
             })
             .detach();
     };
-    for event in save_events.iter() {
+    for event in save_events.read() {
         if let Some(ws_root) = workspace.root {
             match &event.destination {
                 SaveWorkspaceDestination::DefaultFile => {

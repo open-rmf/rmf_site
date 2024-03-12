@@ -1,17 +1,14 @@
-use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
-use bevy_egui::{
-    egui::{self, Slider},
-    EguiContexts,
-};
+use bevy::{asset::AssetPath, prelude::*, window::PrimaryWindow};
+use bevy_egui::{egui, EguiContexts};
 use bevy_mod_raycast::primitives::rays::Ray3d;
 use camera_controls::{CameraControls, ProjectionMode};
-use rmf_site_format::{Anchor, AssetSource, GeographicComponent, GeographicOffset};
+use rmf_site_format::{GeographicComponent, GeographicOffset};
 use std::collections::HashSet;
 use utm::*;
 
 use crate::{
     generate_map_tiles,
-    interaction::{camera_controls, MoveTo, Selected},
+    interaction::camera_controls,
     widgets::menu_bar::{
         Menu, MenuDisabled, MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu, ViewMenu,
     },
@@ -41,7 +38,7 @@ fn set_reference(
     mut site_properties: Query<(Entity, &mut GeographicComponent)>,
     mut window: Local<ReferenceWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.set_reference {
             window.visible = true;
         }
@@ -177,7 +174,7 @@ pub fn handle_visibility_change(
         return;
     };
 
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.satellite_map_check_button {
             let Ok(item) = checkbox_state.get(osm_menu.satellite_map_check_button) else {
                 continue;
@@ -198,7 +195,7 @@ pub fn view_reference(
     site_properties: Query<(Entity, &GeographicComponent)>,
     mut window: Local<UTMReferenceWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.view_reference {
             window.visible = true;
         }
@@ -250,7 +247,7 @@ fn settings(
     mut egui_context: EguiContexts,
     mut settings_window: Local<SettingsWindow>,
 ) {
-    for event in geo_events.iter() {
+    for event in geo_events.read() {
         if event.clicked() && event.source() == osm_menu.settings_panel {
             settings_window.visible = true;
         }
@@ -283,10 +280,10 @@ fn settings(
 }
 
 fn spawn_tile(
-    mut meshes: &mut ResMut<Assets<Mesh>>,
-    mut materials: &mut ResMut<Assets<StandardMaterial>>,
+    meshes: &mut ResMut<Assets<Mesh>>,
+    materials: &mut ResMut<Assets<StandardMaterial>>,
     asset_server: &Res<AssetServer>,
-    mut commands: &mut Commands,
+    commands: &mut Commands,
     coordinates: (f32, f32),
     reference: (f32, f32),
     zoom: i32,
@@ -299,11 +296,7 @@ fn spawn_tile(
     };
     let quad_handle = meshes.add(mesh);
 
-    let texture_handle: Handle<Image> = asset_server.load(String::from(&AssetSource::OSMTile {
-        zoom: tile.zoom(),
-        latitude: coordinates.0,
-        longitude: coordinates.1,
-    }));
+    let texture_handle: Handle<Image> = asset_server.load(AssetPath::from(&tile));
     let material_handle = materials.add(StandardMaterial {
         base_color_texture: Some(texture_handle.clone()),
         alpha_mode: AlphaMode::Blend,

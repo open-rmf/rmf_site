@@ -184,7 +184,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLayers<'a, 'w1, 's1, 'w2, 's2> {
     ) {
         let icon = self.params.icons.layer_visibility_of(Some(*vis));
         if ui
-            .add(Button::image_and_text(icon, [18., 18.], text))
+            .add(Button::image_and_text(icon, text))
             .on_hover_text(format!("Change to {}", vis.next(*default_alpha).label()))
             .clicked()
         {

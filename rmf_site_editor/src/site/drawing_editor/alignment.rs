@@ -22,15 +22,14 @@ use bevy::{
 };
 
 use crate::site::{
-    Affiliation, AlignSiteDrawings, Anchor, Angle, Category, Change, ConstraintMarker, Distance,
-    DrawingMarker, Edge, FiducialMarker, LevelElevation, MeasurementMarker, NameOfSite,
-    PixelsPerMeter, Point, Pose, Rotation, SiteProperties,
+    Affiliation, AlignSiteDrawings, Anchor, Angle, Category, Distance, DrawingMarker, Edge,
+    FiducialMarker, LevelElevation, MeasurementMarker, NameOfSite, PixelsPerMeter, Point, Pose,
+    Rotation,
 };
-use itertools::{Either, Itertools};
+
 use rmf_site_format::alignment::{
     align_site, DrawingVariables, FiducialVariables, MeasurementVariables, SiteVariables,
 };
-use std::collections::HashSet;
 
 #[derive(SystemParam)]
 pub struct OptimizationParams<'w, 's> {
@@ -57,7 +56,7 @@ pub fn align_site_drawings(
     mut events: EventReader<AlignSiteDrawings>,
     mut params: OptimizationParams,
 ) {
-    for AlignSiteDrawings(site) in events.iter() {
+    for AlignSiteDrawings(site) in events.read() {
         let mut site_variables = SiteVariables::<Entity>::default();
         let Ok(children) = sites.get(*site) else {
             continue;

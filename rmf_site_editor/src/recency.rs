@@ -210,7 +210,7 @@ fn update_recency_rankings<T: Component>(
     parents: Query<&Parent>,
     mut rank_changes: EventReader<ChangeRank<T>>,
 ) {
-    for e in new_entities.iter().chain(unsuppressed_entities.iter()) {
+    for e in new_entities.iter().chain(unsuppressed_entities.read()) {
         let mut next = Some(e);
         while let Some(in_scope) = next {
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {
@@ -262,14 +262,14 @@ fn update_recency_rankings<T: Component>(
 
     for e in newly_suppressed_entities
         .iter()
-        .chain(no_longer_relevant.iter())
+        .chain(no_longer_relevant.read())
     {
         for (_, mut ranking) in &mut rankings {
             ranking.entities.retain(|check| *check != e);
         }
     }
 
-    for ChangeRank { of, by, .. } in rank_changes.iter() {
+    for ChangeRank { of, by, .. } in rank_changes.read() {
         let mut next = Some(*of);
         while let Some(in_scope) = next {
             if let Ok((_, mut ranking)) = rankings.get_mut(in_scope) {

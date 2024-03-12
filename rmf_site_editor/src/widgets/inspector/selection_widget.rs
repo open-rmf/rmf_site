@@ -64,7 +64,7 @@ impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
             self.icons.select.egui()
         };
 
-        let response = ui.add(Button::image_and_text(icon, [18., 18.], text));
+        let response = ui.add(Button::image_and_text(icon, text));
 
         if response.clicked() {
             self.events.request.select.send(Select(Some(self.entity)));

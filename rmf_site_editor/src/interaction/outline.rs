@@ -17,7 +17,7 @@
 
 use crate::{interaction::*, site::DrawingMarker};
 use bevy::render::view::RenderLayers;
-use bevy_mod_outline::{OutlineBundle, OutlineRenderLayers, OutlineVolume, SetOutlineDepth};
+use bevy_mod_outline::{OutlineBundle, OutlineMode, OutlineRenderLayers, OutlineVolume};
 use rmf_site_format::{
     ConstraintMarker, DoorType, FiducialMarker, FloorMarker, LiftCabin, LightKind, LocationTags,
     MeasurementMarker, ModelMarker, PhysicalCameraProperties, PrimitiveShape, WallMarker,
@@ -81,8 +81,8 @@ impl OutlineVisualization {
         }
     }
 
-    pub fn depth(&self) -> SetOutlineDepth {
-        SetOutlineDepth::Flat {
+    pub fn depth(&self) -> OutlineMode {
+        OutlineMode::FlatVertex {
             model_origin: Vec3::ZERO,
         }
     }
@@ -187,7 +187,7 @@ pub fn update_outline_visualization(
                     commands
                         .entity(top)
                         .remove::<OutlineBundle>()
-                        .remove::<SetOutlineDepth>();
+                        .remove::<OutlineMode>();
                 }
 
                 if let Some(children) = children {

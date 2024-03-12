@@ -18,9 +18,14 @@
 use std::{f32::consts::PI, io::Write, path::PathBuf};
 
 use bevy::{
+    asset::{
+        io::{AssetReaderError, Reader, VecReader},
+        AssetPath,
+    },
     prelude::{Mesh, Vec2},
     render::{mesh::Indices, render_resource::PrimitiveTopology},
 };
+use itertools::Itertools;
 use utm::{lat_lon_to_zone_number, to_utm_wgs84};
 
 use crate::site_asset_io::cache_path;
@@ -33,16 +38,12 @@ fn haversine_distance(lat1: f32, lon1: f32, lat2: f32, lon2: f32) -> f32 {
     let lat2 = lat2.to_radians();
     let lon2 = lon2.to_radians();
 
-    let dLat = lat2 - lat1;
-    let dLon = lon2 - lon1;
+    let d_lan = lat2 - lat1;
+    let d_lon = lon2 - lon1;
 
-    let a = (dLat / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (dLon / 2.0).sin().powi(2);
+    let a = (d_lan / 2.0).sin().powi(2) + lat1.cos() * lat2.cos() * (d_lon / 2.0).sin().powi(2);
     let c = 2.0 * a.sqrt().atan2((1.0 - a).sqrt());
     return c * EARTH_RADIUS;
-}
-
-enum DistanceError {
-    DifferentZones,
 }
 
 #[test]
@@ -71,6 +72,38 @@ pub struct OSMTile {
     xtile: i32,
     ytile: i32,
     zoom: i32,
+}
+
+impl TryFrom<PathBuf> for OSMTile {
+    type Error = String;
+
+    fn try_from(p: PathBuf) -> Result<Self, Self::Error> {
+        let (zoom, xtile, ytile) = p
+            .components()
+            .map(|c| c.as_os_str().to_string_lossy())
+            .collect_tuple()
+            .ok_or(
+                "Invalid path when converting to OSMTile, three elements are required".to_owned(),
+            )?;
+        let ytile = ytile.strip_suffix(".png").ok_or("Suffix not found")?;
+        dbg!(&zoom, &xtile, &ytile);
+        Ok(OSMTile {
+            xtile: xtile.parse::<i32>().map_err(|e| e.to_string())?,
+            ytile: ytile.parse::<i32>().map_err(|e| e.to_string())?,
+            zoom: zoom.parse::<i32>().map_err(|e| e.to_string())?,
+        })
+    }
+}
+
+impl From<&OSMTile> for AssetPath<'_> {
+    fn from(t: &OSMTile) -> Self {
+        let mut path: PathBuf = [t.zoom, t.xtile, t.ytile]
+            .iter()
+            .map(|v| v.to_string())
+            .collect();
+        path.set_extension("png");
+        AssetPath::from(path).with_source("osm-tile")
+    }
 }
 
 impl OSMTile {
@@ -233,9 +266,9 @@ impl OSMTile {
         Self { xtile, ytile, zoom }
     }
 
-    pub async fn get_map_image(&self) -> Result<Vec<u8>, surf::Error> {
-        let mut cache_ok = false;
-        let mut cache_full_path = PathBuf::new();
+    pub async fn get_map_image<'a, 'b>(&'b self) -> Result<Box<Reader<'a>>, AssetReaderError> {
+        let cache_ok: bool;
+        let mut cache_full_path: PathBuf;
         #[cfg(not(target_arch = "wasm32"))]
         {
             let cache_file_name =
@@ -245,8 +278,11 @@ impl OSMTile {
             let err = std::fs::create_dir_all(cache_full_path.clone());
             cache_ok = err.is_ok();
             cache_full_path.push(cache_file_name);
+            // TODO(luca) check if we can have an async file read here instead?
             if std::path::Path::new(&cache_full_path).exists() && cache_ok {
-                return Ok(std::fs::read(&cache_full_path)?);
+                return Ok(Box::new(VecReader::new(
+                    std::fs::read(&cache_full_path).map_err(std::io::Error::other)?,
+                )));
             }
         }
 
@@ -256,9 +292,11 @@ impl OSMTile {
             self.zoom, self.xtile, self.ytile
         );
 
-        let mut result = surf::get(uri).await?;
-
-        let bytes = result.body_bytes().await?;
+        let request = ehttp::Request::get(uri);
+        let bytes = ehttp::fetch_async(request)
+            .await
+            .map_err(std::io::Error::other)?
+            .bytes;
 
         #[cfg(not(target_arch = "wasm32"))]
         {
@@ -272,7 +310,7 @@ impl OSMTile {
             }
         }
 
-        Ok(bytes)
+        Ok(Box::new(VecReader::new(bytes)))
     }
 }
 

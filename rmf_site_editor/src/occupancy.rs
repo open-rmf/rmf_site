@@ -164,7 +164,7 @@ fn calculate_grid(
     assets: Res<SiteAssets>,
     grids: Query<Entity, With<Grid>>,
 ) {
-    if let Some(request) = request.iter().last() {
+    if let Some(request) = request.read().last() {
         let start_time = Instant::now();
         // let mut occupied: HashSet<Cell> = HashSet::new();
         let mut occupied: HashMap<Entity, HashSet<Cell>> = HashMap::new();

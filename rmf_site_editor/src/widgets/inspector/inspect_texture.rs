@@ -18,7 +18,6 @@
 use crate::{
     inspector::{InspectAssetSource, InspectValue, SearchResult},
     site::{Category, Change, DefaultFile},
-    widgets::egui::RichText,
     AppEvents, Icons, WorkspaceMarker,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -47,7 +46,6 @@ pub struct InspectTextureAffiliationParams<'w, 's> {
 
 pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
     entity: Entity,
-    default_file: Option<&'a DefaultFile>,
     params: &'a InspectTextureAffiliationParams<'w1, 's1>,
     events: &'a mut AppEvents<'w2, 's2>,
 }
@@ -55,13 +53,11 @@ pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
 impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         entity: Entity,
-        default_file: Option<&'a DefaultFile>,
         params: &'a InspectTextureAffiliationParams<'w1, 's1>,
         events: &'a mut AppEvents<'w2, 's2>,
     ) -> Self {
         Self {
             entity,
-            default_file,
             params,
             events,
         }
@@ -118,27 +114,21 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         ui.horizontal(|ui| {
             if any_partial_matches {
                 if ui
-                    .add(ImageButton::new(
-                        self.params.icons.search.egui(),
-                        [18., 18.],
-                    ))
+                    .add(ImageButton::new(self.params.icons.search.egui()))
                     .on_hover_text("Search results for this text can be found below")
                     .clicked()
                 {
                     info!("Use the drop-down box to choose a texture");
                 }
             } else {
-                ui.add(ImageButton::new(self.params.icons.empty.egui(), [18., 18.]))
+                ui.add(ImageButton::new(self.params.icons.empty.egui()))
                     .on_hover_text("No search results can be found for this text");
             }
 
             match result {
                 SearchResult::Empty => {
                     if ui
-                        .add(ImageButton::new(
-                            self.params.icons.hidden.egui(),
-                            [18., 18.],
-                        ))
+                        .add(ImageButton::new(self.params.icons.hidden.egui()))
                         .on_hover_text("An empty string is not a good texture name")
                         .clicked()
                     {
@@ -147,10 +137,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 }
                 SearchResult::Current => {
                     if ui
-                        .add(ImageButton::new(
-                            self.params.icons.selected.egui(),
-                            [18., 18.],
-                        ))
+                        .add(ImageButton::new(self.params.icons.selected.egui()))
                         .on_hover_text("This is the name of the currently selected texture")
                         .clicked()
                     {
@@ -159,7 +146,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 }
                 SearchResult::NoMatch => {
                     if ui
-                        .add(ImageButton::new(self.params.icons.add.egui(), [18., 18.]))
+                        .add(ImageButton::new(self.params.icons.add.egui()))
                         .on_hover_text(if affiliation.0.is_some() {
                             "Create a new copy of the current texture"
                         } else {
@@ -195,10 +182,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 }
                 SearchResult::Match(group) => {
                     if ui
-                        .add(ImageButton::new(
-                            self.params.icons.confirm.egui(),
-                            [18., 18.],
-                        ))
+                        .add(ImageButton::new(self.params.icons.confirm.egui()))
                         .on_hover_text("Select this texture")
                         .clicked()
                     {
@@ -210,10 +194,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 }
                 SearchResult::Conflict(text) => {
                     if ui
-                        .add(ImageButton::new(
-                            self.params.icons.reject.egui(),
-                            [18., 18.],
-                        ))
+                        .add(ImageButton::new(self.params.icons.reject.egui()))
                         .on_hover_text(text)
                         .clicked()
                     {
@@ -226,7 +207,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 .on_hover_text("Search for or create a new texture");
         });
 
-        let (current_texture_name, current_texture) = if let Some(a) = affiliation.0 {
+        let (current_texture_name, _current_texture) = if let Some(a) = affiliation.0 {
             self.params
                 .texture_groups
                 .get(a)
@@ -240,7 +221,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
         let mut new_affiliation = affiliation.clone();
         ui.horizontal(|ui| {
             if ui
-                .add(ImageButton::new(self.params.icons.exit.egui(), [18., 18.]))
+                .add(ImageButton::new(self.params.icons.exit.egui()))
                 .on_hover_text(format!("Remove this texture from the {}", category.label()))
                 .clicked()
             {

@@ -201,7 +201,7 @@ fn handle_view_menu_events(
         *value = !*value;
         *value
     };
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == view_menu.doors {
             events.doors.send(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.floors {

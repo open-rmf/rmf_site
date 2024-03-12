@@ -16,7 +16,7 @@
 */
 
 use crate::site::DefaultFile;
-use bevy_egui::egui::{ComboBox, DragValue, Label, Ui};
+use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
 
@@ -45,19 +45,12 @@ impl<'a> InspectAssetSource<'a> {
     pub fn show(self, ui: &mut Ui) -> Option<AssetSource> {
         let mut new_source = self.source.clone();
 
-        let osm_string = "OpenStreetMaps".to_string();
         // TODO(luca) implement recall plugin
         let assumed_source = match self.source {
             AssetSource::Local(filename) => filename,
             AssetSource::Remote(uri) => uri,
             AssetSource::Search(name) => name,
-            AssetSource::Bundled(name) => name,
             AssetSource::Package(path) => path,
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => &osm_string,
         };
         ui.horizontal(|ui| {
             ui.label("Source");
@@ -68,7 +61,6 @@ impl<'a> InspectAssetSource<'a> {
                         AssetSource::Local(assumed_source.clone()),
                         AssetSource::Remote(assumed_source.clone()),
                         AssetSource::Search(assumed_source.clone()),
-                        AssetSource::Bundled(assumed_source.clone()),
                         AssetSource::Package(assumed_source.clone()),
                     ] {
                         ui.selectable_value(&mut new_source, variant.clone(), variant.label());
@@ -139,23 +131,8 @@ impl<'a> InspectAssetSource<'a> {
             AssetSource::Search(name) => {
                 ui.text_edit_singleline(name);
             }
-            AssetSource::Bundled(name) => {
-                ui.text_edit_singleline(name);
-            }
             AssetSource::Package(path) => {
                 ui.text_edit_singleline(path);
-            }
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => {
-                ui.horizontal(|ui| {
-                    ui.add(Label::new("Latitude"));
-                    ui.add(DragValue::new(latitude).speed(1e-8));
-                    ui.add(Label::new("Longitude"));
-                    ui.add(DragValue::new(longitude).speed(1e-8));
-                });
             }
         }
         if &new_source != self.source {

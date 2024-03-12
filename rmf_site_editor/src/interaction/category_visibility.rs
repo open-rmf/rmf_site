@@ -76,7 +76,7 @@ fn set_category_visibility<T: Component + Clone + Debug>(
     mut category_visibility: ResMut<CategoryVisibility<T>>,
     mut visibilities: Query<&mut Visibility, With<T>>,
 ) {
-    if let Some(visibility_event) = events.iter().last() {
+    if let Some(visibility_event) = events.read().last() {
         if visibility_event.0 != category_visibility.0 {
             for mut vis in &mut visibilities {
                 *vis = if visibility_event.0 {

@@ -16,7 +16,13 @@
 */
 
 use crate::{shapes::*, site::*};
-use bevy::{math::Affine3A, prelude::*};
+use bevy::{asset::embedded_asset, math::Affine3A, prelude::*};
+
+pub(crate) fn add_site_icons(app: &mut App) {
+    embedded_asset!(app, "icons/battery.png");
+    embedded_asset!(app, "icons/parking.png");
+    embedded_asset!(app, "icons/stopwatch.png");
+}
 
 #[derive(Resource)]
 pub struct SiteAssets {
@@ -80,15 +86,12 @@ pub fn old_default_material_t(base_color_texture: Handle<Image>) -> StandardMate
 impl FromWorld for SiteAssets {
     fn from_world(world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let charger_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/battery.png".to_string(),
-        )));
-        let holding_point_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/stopwatch.png".to_string(),
-        )));
-        let parking_texture = asset_server.load(&String::from(&AssetSource::Bundled(
-            "textures/parking.png".to_string(),
-        )));
+        let charger_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/battery.png");
+        let holding_point_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/stopwatch.png");
+        let parking_texture =
+            asset_server.load("embedded://librmf_site_editor/site/icons/parking.png");
 
         let mut materials = world
             .get_resource_mut::<Assets<StandardMaterial>>()

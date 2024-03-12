@@ -16,11 +16,7 @@
 */
 
 use crate::{interaction::Selectable, shapes::*, site::*, RecencyRanking};
-use bevy::{
-    math::Affine3A,
-    prelude::*,
-    render::mesh::{Indices, PrimitiveTopology},
-};
+use bevy::{math::Affine3A, prelude::*, render::mesh::PrimitiveTopology};
 use geo::{
     geometry::{LineString, MultiPolygon, Polygon},
     BooleanOps, CoordsIter, TriangulateSpade,
@@ -358,7 +354,7 @@ pub fn update_floors(
         if let Ok(mut mesh) = mesh_handles.get_mut(segment.mesh) {
             if let Ok(material) = material_handles.get(segment.mesh) {
                 *mesh = meshes.add(make_floor_mesh(e, path, &texture, &anchors, &lifts));
-                if let Some(mut material) = materials.get_mut(material) {
+                if let Some(material) = materials.get_mut(material) {
                     material.base_color_texture = base_color_texture;
                 }
             }
@@ -444,7 +440,7 @@ pub fn update_floor_visibility(
     );
 
     iter_update_floor_visibility(
-        removed_vis.iter().filter_map(|e| all_floors.get(e).ok()),
+        removed_vis.read().filter_map(|e| all_floors.get(e).ok()),
         &material_handles,
         &mut material_assets,
         &default_floor_vis,

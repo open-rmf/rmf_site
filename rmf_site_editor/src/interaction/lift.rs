@@ -54,7 +54,7 @@ pub fn handle_lift_doormat_clicks(
     mut toggle: EventWriter<ToggleLiftDoorAvailability>,
     mut select: EventWriter<Select>,
 ) {
-    for click in clicks.iter() {
+    for click in clicks.read() {
         if let Ok(doormat) = doormats.get(click.0) {
             toggle.send(doormat.toggle_availability());
             select.send(Select(Some(doormat.for_lift)));

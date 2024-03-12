@@ -17,13 +17,12 @@
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
 use bevy::{ecs::system::SystemState, prelude::*};
-use bevy_egui::{egui::TextureId, EguiContexts};
-use rmf_site_format::AssetSource;
+use bevy_egui::{egui::ImageSource, egui::TextureId, EguiContexts};
 
 struct IconBuilder(Handle<Image>);
 impl IconBuilder {
     pub fn new(name: &str, asset_server: &AssetServer) -> Self {
-        Self(asset_server.load(&String::from(&AssetSource::Bundled(name.to_owned()))))
+        Self(asset_server.load("embedded://librmf_site_editor/".to_owned() + name))
     }
 
     pub fn build(self, egui_context: &mut EguiContexts) -> Icon {
@@ -42,8 +41,10 @@ pub struct Icon {
 }
 
 impl Icon {
-    pub fn egui(&self) -> TextureId {
-        self.egui_handle
+    // TODO(luca) consider exposing parameter for size, all occurences in the codebase currently
+    // use [18., 18.]
+    pub fn egui(&self) -> ImageSource {
+        ImageSource::Texture((self.egui_handle, [18., 18.].into()).into())
     }
 }
 
@@ -76,32 +77,32 @@ pub struct Icons {
 impl FromWorld for Icons {
     fn from_world(mut world: &mut World) -> Self {
         let asset_server = world.get_resource::<AssetServer>().unwrap();
-        let select = IconBuilder::new("textures/select.png", &asset_server);
-        let selected = IconBuilder::new("textures/selected.png", &asset_server);
-        let edit = IconBuilder::new("textures/edit.png", &asset_server);
-        let exit = IconBuilder::new("textures/exit.png", &asset_server);
-        let trash = IconBuilder::new("textures/trash.png", &asset_server);
-        let merge = IconBuilder::new("textures/merge.png", &asset_server);
-        let confirm = IconBuilder::new("textures/confirm.png", &asset_server);
-        let add = IconBuilder::new("textures/add.png", &asset_server);
-        let reject = IconBuilder::new("textures/reject.png", &asset_server);
-        let search = IconBuilder::new("textures/search.png", &asset_server);
-        let empty = IconBuilder::new("textures/empty.png", &asset_server);
-        let alignment = IconBuilder::new("textures/alignment.png", &asset_server);
-        let layer_up = IconBuilder::new("textures/up.png", &asset_server);
-        let layer_down = IconBuilder::new("textures/down.png", &asset_server);
-        let layer_to_top = IconBuilder::new("textures/to_top.png", &asset_server);
-        let layer_to_bottom = IconBuilder::new("textures/to_bottom.png", &asset_server);
-        let opaque = IconBuilder::new("textures/opaque.png", &asset_server);
-        let alpha = IconBuilder::new("textures/alpha.png", &asset_server);
-        let hidden = IconBuilder::new("textures/hidden.png", &asset_server);
-        let global = IconBuilder::new("textures/global.png", &asset_server);
-        let hide = IconBuilder::new("textures/hide.png", &asset_server);
+        let select = IconBuilder::new("widgets/icons/select.png", &asset_server);
+        let selected = IconBuilder::new("widgets/icons/selected.png", &asset_server);
+        let edit = IconBuilder::new("widgets/icons/edit.png", &asset_server);
+        let exit = IconBuilder::new("widgets/icons/exit.png", &asset_server);
+        let trash = IconBuilder::new("widgets/icons/trash.png", &asset_server);
+        let merge = IconBuilder::new("widgets/icons/merge.png", &asset_server);
+        let confirm = IconBuilder::new("widgets/icons/confirm.png", &asset_server);
+        let add = IconBuilder::new("widgets/icons/add.png", &asset_server);
+        let reject = IconBuilder::new("widgets/icons/reject.png", &asset_server);
+        let search = IconBuilder::new("widgets/icons/search.png", &asset_server);
+        let empty = IconBuilder::new("widgets/icons/empty.png", &asset_server);
+        let alignment = IconBuilder::new("widgets/icons/alignment.png", &asset_server);
+        let layer_up = IconBuilder::new("widgets/icons/up.png", &asset_server);
+        let layer_down = IconBuilder::new("widgets/icons/down.png", &asset_server);
+        let layer_to_top = IconBuilder::new("widgets/icons/to_top.png", &asset_server);
+        let layer_to_bottom = IconBuilder::new("widgets/icons/to_bottom.png", &asset_server);
+        let opaque = IconBuilder::new("widgets/icons/opaque.png", &asset_server);
+        let alpha = IconBuilder::new("widgets/icons/alpha.png", &asset_server);
+        let hidden = IconBuilder::new("widgets/icons/hidden.png", &asset_server);
+        let global = IconBuilder::new("widgets/icons/global.png", &asset_server);
+        let hide = IconBuilder::new("widgets/icons/hide.png", &asset_server);
 
         // Note: Building the icons is a two-stage process because we cannot
         // get the mutable EguiContext resource at the same time as the
         // immutable AssetServer resource.
-        let mut system_state: SystemState<(EguiContexts)> = SystemState::new(&mut world);
+        let mut system_state: SystemState<EguiContexts> = SystemState::new(&mut world);
         let mut egui_context = system_state.get_mut(&mut world);
         Self {
             select: select.build(&mut egui_context),
@@ -130,7 +131,7 @@ impl FromWorld for Icons {
 }
 
 impl Icons {
-    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> TextureId {
+    pub fn layer_visibility_of(&self, vis: Option<LayerVisibility>) -> ImageSource {
         match vis {
             Some(v) => match v {
                 LayerVisibility::Opaque => self.opaque.egui(),
@@ -141,7 +142,7 @@ impl Icons {
         }
     }
 
-    pub fn move_rank(&self, adjustment: RankAdjustment) -> TextureId {
+    pub fn move_rank(&self, adjustment: RankAdjustment) -> ImageSource {
         match adjustment {
             RankAdjustment::Delta(delta) => {
                 if delta < 0 {

@@ -44,7 +44,7 @@ pub fn update_affiliations(
     mut merge_groups: EventReader<MergeGroups>,
     mut deleted_groups: RemovedComponents<Group>,
 ) {
-    for merge in merge_groups.iter() {
+    for merge in merge_groups.read() {
         for mut affiliation in &mut affiliations {
             if affiliation.0.is_some_and(|a| a == merge.from_group) {
                 affiliation.0 = Some(merge.into_group);
@@ -52,7 +52,7 @@ pub fn update_affiliations(
         }
     }
 
-    for deleted in deleted_groups.iter() {
+    for deleted in deleted_groups.read() {
         for mut affiliation in &mut affiliations {
             if affiliation.0.is_some_and(|a| a == deleted) {
                 affiliation.0 = None;

@@ -26,7 +26,7 @@ use crate::{
     CurrentWorkspace,
 };
 use bevy::{asset::LoadState, math::Affine3A, prelude::*};
-use rmf_site_format::{AssetSource, Category, DrawingProperties, NameInSite, PixelsPerMeter, Pose};
+use rmf_site_format::{AssetSource, Category, DrawingProperties, PixelsPerMeter, Pose};
 use std::path::PathBuf;
 
 #[derive(Bundle, Debug, Clone)]
@@ -36,7 +36,8 @@ pub struct DrawingBundle {
     pub transform: Transform,
     pub global_transform: GlobalTransform,
     pub visibility: Visibility,
-    pub computed: ComputedVisibility,
+    pub inherited: InheritedVisibility,
+    pub view: ViewVisibility,
     pub marker: DrawingMarker,
 }
 
@@ -48,7 +49,8 @@ impl DrawingBundle {
             transform: default(),
             global_transform: default(),
             visibility: default(),
-            computed: default(),
+            inherited: default(),
+            view: default(),
             marker: default(),
         }
     }
@@ -66,7 +68,7 @@ pub struct DrawingSegments {
 
 // We need to keep track of the drawing data until the image is loaded
 // since we will need to scale the mesh according to the size of the image
-#[derive(Component)]
+#[derive(Component, Deref, DerefMut)]
 pub struct LoadingDrawing(Handle<Image>);
 
 fn drawing_layer_height(rank: Option<&RecencyRank<DrawingMarker>>) -> f32 {
@@ -80,7 +82,6 @@ pub fn add_drawing_visuals(
     asset_server: Res<AssetServer>,
     current_workspace: Res<CurrentWorkspace>,
     site_files: Query<&DefaultFile>,
-    default_drawing_vis: Query<&GlobalDrawingVisibility>,
 ) {
     if changed_drawings.is_empty() {
         return;
@@ -130,7 +131,11 @@ pub fn handle_loaded_drawing(
     for (entity, source, pose, pixels_per_meter, handle, vis, parent, rank) in
         loading_drawings.iter()
     {
-        match asset_server.get_load_state(&handle.0) {
+        let Some(load_state) = asset_server.get_load_state(handle.id()) else {
+            warn!("Handle for drawing with source {:?} not found", source);
+            continue;
+        };
+        match load_state {
             LoadState::Loaded => {
                 let img = assets.get(&handle.0).unwrap();
                 let width = img.texture_descriptor.size.width as f32;
@@ -353,7 +358,7 @@ pub fn update_drawing_visibility(
     );
 
     iter_update_drawing_visibility(
-        removed_vis.iter().filter_map(|e| all_drawings.get(e).ok()),
+        removed_vis.read().filter_map(|e| all_drawings.get(e).ok()),
         &material_handles,
         &mut material_assets,
         &default_drawing_vis,

@@ -85,7 +85,7 @@ pub fn manage_previews(
     preview_windows: Query<&CameraPreviewWindow>,
     mut camera_children: Query<(Entity, &mut Projection), With<Camera>>,
 ) {
-    for event in preview_events.iter() {
+    for event in preview_events.read() {
         match event.entity {
             None => { // TODO clear all previews
             }
@@ -158,7 +158,7 @@ pub fn handle_preview_window_close(
     preview_windows: Query<(Entity, &CameraPreviewWindow)>,
     mut closed_windows: EventReader<WindowClosed>,
 ) {
-    for closed in closed_windows.iter() {
+    for closed in closed_windows.read() {
         for (e, window) in &preview_windows {
             if window.0 == closed.window {
                 commands.entity(e).remove::<CameraPreviewWindow>();
