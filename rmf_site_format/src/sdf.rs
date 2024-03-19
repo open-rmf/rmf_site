@@ -54,7 +54,7 @@ impl Pose {
                 rpy[1].radians(),
                 rpy[2].radians()
             ),
-            Rotation::Quat(quat) => format!("{} {} {} {}", quat[0], quat[1], quat[2], quat[3]),
+            Rotation::Quat(quat) => format!("{} {} {} {}", quat[3], quat[0], quat[1], quat[2]),
         };
         SdfPose {
             data: format!("{} {} {} {}", p[0], p[1], p[2] + elevation, r),
@@ -491,6 +491,40 @@ impl Site {
                 }],
                 ..Default::default()
             });
+            // TODO(luca) We need this because there is no concept of ingestor or dispenser in
+            // rmf_site yet. Remove when there is
+            for model in level.models.values() {
+                if model.source == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
+                {
+                    world.include.push(SdfWorldInclude {
+                        uri: "model://TeleportIngestor".to_string(),
+                        name: Some(model.name.0.clone()),
+                        pose: Some(model.pose.to_sdf(0.0)),
+                        ..Default::default()
+                    });
+                } else if model.source
+                    == AssetSource::Search("OpenRobotics/TeleportDispenser".to_string())
+                {
+                    world.include.push(SdfWorldInclude {
+                        uri: "model://TeleportDispenser".to_string(),
+                        name: Some(model.name.0.clone()),
+                        pose: Some(model.pose.to_sdf(0.0)),
+                        ..Default::default()
+                    });
+                }
+                // Non static models are included separately and are not part of the static world
+                // TODO(luca) this will duplicate multiple instances of the model since it uses
+                // NameInSite instead of AssetSource for the URI, fix
+                else if !model.is_static.0 {
+                    world.include.push(SdfWorldInclude {
+                        uri: format!("model://{}", model.name.0.clone()),
+                        name: Some(model.name.0.clone()),
+                        pose: Some(model.pose.to_sdf(0.0)),
+                        r#static: Some(model.is_static.0),
+                        ..Default::default()
+                    });
+                }
+            }
             // Now add all the doors
             for door in level.doors.values() {
                 // TODO(luca) doors into toggle floors
@@ -776,13 +810,21 @@ impl Site {
                 .find(|plugin| plugin.filename == "MinimalScene")
             {
                 if let Some(camera_pose) = minimal_scene.elements.get_mut("camera_pose") {
-                    if let Some(default_camera) = self
+                    if let Some(pose) = self
                         .levels
                         .first_key_value()
-                        .and_then(|(_, level)| level.properties.camera_poses.0.iter().next())
+                        .and_then(|(_, level)| level.properties.camera_poses.0.values().next())
                     {
-                        // TODO(luca) use level elevation here?
-                        camera_pose.data = ElementData::String(default_camera.1.to_sdf(0.0).data);
+                        // TODO(luca) use level elevation here? It also seems that quaternion
+                        // notation in Gazebo and Bevy is different, check
+                        let mut pose = pose.clone();
+                        pose.rot = Rotation::EulerExtrinsicXYZ([
+                            Angle::Rad(0.0),
+                            Angle::Rad(0.6),
+                            Angle::Rad(1.57),
+                        ]);
+                        pose.trans[0] = pose.trans[0] + 10.0;
+                        camera_pose.data = ElementData::String(pose.to_sdf(0.0).data);
                     }
                 }
             }
