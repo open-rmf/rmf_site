@@ -6,6 +6,9 @@
   <license>Apache License 2.0</license>
 
   <depend>rmf_site_format</depend>
+  <depend>gtk3</depend>
+  <depend>libudev-dev</depend>
+  <depend>libasound2-dev</depend>
 
   <export>
     <build_type>ament_cargo</build_type>
