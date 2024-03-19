@@ -15,22 +15,20 @@
  *
 */
 
-use bevy::{prelude::*, render::view::visibility::RenderLayers};
+use bevy::prelude::*;
 
 pub mod alignment;
 pub use alignment::*;
 
 use crate::AppState;
 use crate::{
-    interaction::{ChangeProjectionMode, Selection, SuppressHighlight, SuppressOutline},
+    interaction::{ChangeProjectionMode, Selection, SuppressHighlight},
     site::{
-        Anchor, DrawingMarker, Edge, FiducialMarker, MeasurementMarker, NameOfSite, NameOfWorkcell,
-        Pending, PixelsPerMeter, Point, PreventDeletion, SiteProperties,
+        DrawingMarker, Edge, MeasurementMarker, NameOfSite, NameOfWorkcell, Pending,
+        PreventDeletion,
     },
     CurrentWorkspace, WorkspaceMarker,
 };
-
-use std::collections::HashSet;
 
 #[derive(Clone, Copy, Event)]
 pub struct BeginEditDrawing(pub Entity);
@@ -97,7 +95,7 @@ fn switch_edit_drawing_mode(
     // We should also consider using an edit mode stack instead of simply
     // CurrentWorkspace and AppState.
     'handle_begin: {
-        if let Some(BeginEditDrawing(e)) = begin.iter().last() {
+        if let Some(BeginEditDrawing(e)) = begin.read().last() {
             if current.target().is_some_and(|c| c.drawing == *e) {
                 break 'handle_begin;
             }
@@ -120,8 +118,10 @@ fn switch_edit_drawing_mode(
             commands
                 .entity(*e)
                 .set_parent(current.editor)
-                .insert(Visibility::Inherited)
-                .insert(ComputedVisibility::default())
+                .insert(VisibilityBundle {
+                    visibility: Visibility::Inherited,
+                    ..default()
+                })
                 .insert(PreventDeletion::because(
                     "Cannot delete a drawing that is currently being edited".to_owned(),
                 ))
@@ -132,7 +132,7 @@ fn switch_edit_drawing_mode(
             change_camera_mode.send(ChangeProjectionMode::to_orthographic());
 
             if let Ok(mut editor_tf) = local_tf.get_mut(current.editor) {
-                if let Ok(mut level_tf) = global_tf.get(level) {
+                if let Ok(level_tf) = global_tf.get(level) {
                     *editor_tf = level_tf.compute_transform();
                 } else {
                     error!("Cannot get transform of current level");
@@ -149,7 +149,7 @@ fn switch_edit_drawing_mode(
         }
     }
 
-    for FinishEditDrawing(finish) in finish.iter() {
+    for FinishEditDrawing(finish) in finish.read() {
         let c = if let Some(c) = current.target() {
             if finish.is_some_and(|e| e != c.drawing) {
                 continue;

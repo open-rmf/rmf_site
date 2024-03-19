@@ -115,7 +115,7 @@ impl Plugin for DeletionPlugin {
 }
 
 fn handle_deletion_requests(mut deletions: EventReader<Delete>, mut params: DeletionParams) {
-    for delete in deletions.iter() {
+    for delete in deletions.read() {
         if delete.and_dependents {
             recursive_dependent_delete(delete.element, &mut params);
         } else {

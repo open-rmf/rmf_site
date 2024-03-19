@@ -88,8 +88,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectWorkcellParentWidget<'a, 'w1, 'w2, 's1, 's2>
                 )
                 .show(ui);
 
-                let assign_response =
-                    ui.add(ImageButton::new(self.params.icons.edit.egui(), [18., 18.]));
+                let assign_response = ui.add(ImageButton::new(self.params.icons.edit.egui()));
 
                 if assign_response.hovered() {
                     self.events.request.hover.send(Hover(Some(self.entity)));

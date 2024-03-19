@@ -21,7 +21,7 @@ use crate::{AppEvents, Icons, Issue};
 use crate::{IssueDictionary, ValidateWorkspace};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
-use bevy_egui::egui::{Button, Checkbox, Context, Grid, ImageButton, ScrollArea, Ui};
+use bevy_egui::egui::{Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
 
 #[derive(Resource, Debug, Clone, Default)]
 pub struct DiagnosticWindowState {
@@ -87,7 +87,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                             .unwrap_or("Unknown Type".to_owned());
                         ui.label(issue_type);
                         if ui
-                            .add(ImageButton::new(self.params.icons.trash.egui(), [16., 16.]))
+                            .add(ImageButton::new(self.params.icons.trash.egui()))
                             .on_hover_text("Remove this suppression")
                             .clicked()
                         {
@@ -136,7 +136,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                         issue_still_exists |= sel;
                         ui.horizontal(|ui| {
                             if ui
-                                .add(ImageButton::new(self.params.icons.hide.egui(), [16., 16.]))
+                                .add(ImageButton::new(self.params.icons.hide.egui()))
                                 .on_hover_text("Suppress this issue")
                                 .clicked()
                             {

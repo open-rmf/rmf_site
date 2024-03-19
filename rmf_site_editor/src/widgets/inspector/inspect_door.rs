@@ -48,7 +48,7 @@ impl<'a> InspectDoorType<'a> {
                 });
         });
 
-        fn left_right_ratio_ui(ui: &mut Ui, mut ratio: &mut f32) {
+        fn left_right_ratio_ui(ui: &mut Ui, ratio: &mut f32) {
             ui.horizontal(|ui| {
                 ui.label("Left : Right");
                 ui.add(
@@ -58,7 +58,7 @@ impl<'a> InspectDoorType<'a> {
                 )
                 .on_hover_text("(Left Door Length)/(Right Door Length)");
             });
-        };
+        }
 
         match &mut new_kind {
             DoorType::SingleSliding(door) => {

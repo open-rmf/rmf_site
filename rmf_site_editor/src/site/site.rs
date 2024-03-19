@@ -60,7 +60,7 @@ pub fn change_site(
         }
     };
 
-    if let Some(cmd) = change_current_site.iter().last() {
+    if let Some(cmd) = change_current_site.read().last() {
         if open_sites.get(cmd.site).is_err() {
             warn!(
                 "Requested workspace change to an entity that is not an open site: {:?}",

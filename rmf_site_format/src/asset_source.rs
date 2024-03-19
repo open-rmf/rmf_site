@@ -17,24 +17,19 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Component, Reflect, ReflectComponent};
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
 
 #[derive(Serialize, Deserialize, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
+#[cfg_attr(feature = "bevy", derive(Component, Reflect))]
+#[cfg_attr(feature = "bevy", reflect(Component))]
 pub enum AssetSource {
     Local(String),
     Remote(String),
     Search(String),
-    Bundled(String),
     Package(String),
-    OSMTile {
-        zoom: i32,
-        latitude: f32,
-        longitude: f32,
-    },
 }
 
 impl AssetSource {
@@ -43,13 +38,7 @@ impl AssetSource {
             Self::Local(_) => "Local",
             Self::Remote(_) => "Remote",
             Self::Search(_) => "Search",
-            Self::Bundled(_) => "Bundled",
             Self::Package(_) => "Package",
-            Self::OSMTile {
-                zoom: _,
-                latitude: _,
-                longitude: _,
-            } => "Map",
         }
     }
 
@@ -94,78 +83,31 @@ impl Default for AssetSource {
     }
 }
 
-// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&Path> for AssetSource {
-    fn from(path: &Path) -> Self {
-        if let Some(path) = path.to_str() {
-            AssetSource::from(path)
-        } else {
-            AssetSource::default()
-        }
-    }
-}
-
-// Utility functions to add / strip prefixes for using AssetSource in AssetIo objects
-impl From<&str> for AssetSource {
-    fn from(path: &str) -> Self {
-        // TODO(luca) pattern matching here would make sure unimplemented variants are a compile error
-        if let Some(path) = path.strip_prefix("rmf-server://").map(|p| p.to_string()) {
-            return AssetSource::Remote(path);
-        } else if let Some(path) = path.strip_prefix("file://").map(|p| p.to_string()) {
-            return AssetSource::Local(path);
-        } else if let Some(path) = path.strip_prefix("search://").map(|p| p.to_string()) {
-            return AssetSource::Search(path);
-        } else if let Some(path) = path.strip_prefix("bundled://").map(|p| p.to_string()) {
-            return AssetSource::Bundled(path);
-        } else if let Some(path) = path.strip_prefix("package://").map(|p| p.to_string()) {
-            return AssetSource::Package(path);
-        } else if let Some(path) = path.strip_prefix("osm-tile://").map(|p| p.to_string()) {
-            if let Some(path) = path.strip_suffix(".png") {
-                let coordinates: Result<Vec<_>, _> =
-                    path.split(",").map(|f| f.parse::<f32>()).collect();
-
-                match coordinates {
-                    Err(_) => {
-                        println!("Invalid map coordinates {}", path);
-                        return AssetSource::default();
-                    }
-                    Ok(coordinates) => {
-                        if coordinates.len() != 3 {
-                            println!("Invalid map coordinates {}", path);
-                            return AssetSource::default();
-                        }
-
-                        return AssetSource::OSMTile {
-                            zoom: coordinates[0] as i32,
-                            latitude: coordinates[1],
-                            longitude: coordinates[2],
-                        };
-                    }
-                }
-            } else {
-                println!("Invalid map coordinates {}", path);
-                return AssetSource::default();
-            }
-        }
-        AssetSource::default()
-    }
-}
-
 impl From<&AssetSource> for String {
     fn from(asset_source: &AssetSource) -> String {
         match asset_source {
             AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
             AssetSource::Local(filename) => String::from("file://") + filename,
             AssetSource::Search(name) => String::from("search://") + name,
-            AssetSource::Bundled(name) => String::from("bundled://") + name,
             AssetSource::Package(path) => String::from("package://") + path,
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => {
-                format!("osm-tile://{},{},{}.png", zoom, latitude, longitude)
-            }
+        }
+    }
+}
+
+impl TryFrom<&str> for AssetSource {
+    type Error = String;
+
+    fn try_from(s: &str) -> Result<Self, Self::Error> {
+        if let Some(uri) = s.strip_prefix("rmf-server://") {
+            Ok(AssetSource::Remote(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("file://") {
+            Ok(AssetSource::Local(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("search://") {
+            Ok(AssetSource::Search(uri.to_owned()))
+        } else if let Some(uri) = s.strip_prefix("package://") {
+            Ok(AssetSource::Package(uri.to_owned()))
+        } else {
+            Err(format!("Unsupported asset type: {}", s))
         }
     }
 }
@@ -198,18 +140,8 @@ impl Recall for RecallAssetSource {
             AssetSource::Search(name) => {
                 self.search_name = Some(name.clone());
             }
-            AssetSource::Bundled(name) => {
-                self.bundled_name = Some(name.clone());
-            }
             AssetSource::Package(path) => {
                 self.package_path = Some(path.clone());
-            }
-            AssetSource::OSMTile {
-                zoom,
-                latitude,
-                longitude,
-            } => {
-                self.map = Some((*zoom, *latitude, *longitude));
             }
         }
     }

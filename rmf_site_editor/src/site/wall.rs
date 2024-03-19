@@ -164,7 +164,7 @@ pub fn update_walls(
         };
         let (base_color_texture, texture) = from_texture_source(texture_source, &textures);
         *mesh = meshes.add(make_wall(e, edge, &texture, &anchors));
-        if let Some(mut material) = materials.get_mut(material) {
+        if let Some(material) = materials.get_mut(material) {
             let (base_color, alpha_mode) = if let Some(alpha) = texture.alpha.filter(|a| a < &1.0) {
                 (*Color::default().set_a(alpha), AlphaMode::Blend)
             } else {

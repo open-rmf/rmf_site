@@ -364,7 +364,7 @@ pub fn update_lift_door_availability(
     mut removed_levels: RemovedComponents<LevelElevation>,
     parents: Query<&Parent>,
 ) {
-    for toggle in toggles.iter() {
+    for toggle in toggles.read() {
         let (mut cabin, recall_cabin, anchor_group) = match lifts.get_mut(toggle.for_lift) {
             Ok(lift) => lift,
             Err(_) => continue,
@@ -530,7 +530,7 @@ pub fn update_lift_door_availability(
         }
     }
 
-    for removed_level in removed_levels.iter() {
+    for removed_level in removed_levels.read() {
         // When a level is removed, we should clear it from all visitation
         // information and redo the cabin rendering.
         let mut doors_to_remove = Vec::new();
@@ -630,7 +630,7 @@ pub fn check_for_duplicated_lift_names(
 ) {
     const ISSUE_HINT: &str = "Lifts use their names as identifiers with RMF and each lift should \
                               have a unique name, rename the affected lifts";
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, name) in &lift_names {
             if AncestorIter::new(&parents, e).any(|p| p == **root) {

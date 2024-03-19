@@ -17,9 +17,7 @@
 
 use crate::{interaction::*, site::Anchor, CurrentWorkspace};
 use bevy::prelude::*;
-use bevy_mod_raycast::{
-    deferred::RaycastMethod, deferred::RaycastSource, immediate::RaycastVisibility,
-};
+use bevy_mod_raycast::{deferred::RaycastSource, immediate::RaycastVisibility};
 
 /// A resource to track what kind of picking blockers are currently active
 #[derive(Resource)]

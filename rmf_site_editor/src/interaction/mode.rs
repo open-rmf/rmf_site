@@ -121,7 +121,7 @@ pub fn update_interaction_mode(
     mut change_mode: EventReader<ChangeMode>,
     mut backout: BackoutParams,
 ) {
-    for request in change_mode.iter() {
+    for request in change_mode.read() {
         match request {
             ChangeMode::To(new_mode) => {
                 mode.cancel(&mut backout);

@@ -154,6 +154,7 @@ pub struct SitePlugin;
 
 impl Plugin for SitePlugin {
     fn build(&self, app: &mut App) {
+        add_site_icons(app);
         app.configure_sets(
             PreUpdate,
             (
@@ -193,6 +194,16 @@ impl Plugin for SitePlugin {
         .init_resource::<PhysicalLightToggle>()
         .init_resource::<UpdateFuelCacheChannels>()
         .init_resource::<ModelTrashcan>()
+        .register_type::<NameInSite>()
+        .register_type::<AssetSource>()
+        .register_type::<Pose>()
+        .register_type::<IsStatic>()
+        .register_type::<Scale>()
+        .register_type::<ModelMarker>()
+        .register_type::<VisualMeshMarker>()
+        .register_type::<CollisionMeshMarker>()
+        .register_type::<Category>()
+        .register_type::<PrimitiveShape>()
         .add_event::<LoadSite>()
         .add_event::<ImportNavGraphs>()
         .add_event::<ChangeCurrentSite>()
@@ -345,7 +356,7 @@ impl Plugin for SitePlugin {
                 add_floor_visuals,
                 update_floors,
                 update_floors_for_moved_anchors,
-                update_floors,
+                update_floors_for_changed_lifts,
                 update_floor_visibility,
                 update_drawing_visibility,
                 add_lane_visuals,
@@ -391,7 +402,6 @@ impl Plugin for SitePlugin {
                 update_model_scenes,
                 update_affiliations,
                 update_members_of_groups.after(update_affiliations),
-                handle_new_sdf_roots,
                 update_model_scales,
                 make_models_selectable,
                 propagate_model_render_layers,

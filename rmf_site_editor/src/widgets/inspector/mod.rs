@@ -105,13 +105,13 @@ use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
-        EdgeLabels, LayerVisibility, Members, Original, SiteID,
+        EdgeLabels, LayerVisibility, Original, SiteID,
     },
     widgets::AppEvents,
     AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, RichText, Ui};
+use bevy_egui::egui::{Button, RichText, Ui};
 use rmf_site_format::*;
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
@@ -346,7 +346,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                     if ui
                         .add(Button::image_and_text(
                             self.events.layers.icons.edit.egui(),
-                            [18., 18.],
                             "Edit Drawing",
                         ))
                         .clicked()
@@ -361,7 +360,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 if ui
                     .add(Button::image_and_text(
                         self.events.layers.icons.alignment.egui(),
-                        [18., 18.],
                         "Align Drawings",
                     ))
                     .on_hover_text(
@@ -427,13 +425,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
-            InspectTextureAffiliation::new(
-                selection,
-                default_file,
-                &self.params.texture,
-                self.events,
-            )
-            .show(ui);
+            InspectTextureAffiliation::new(selection, &self.params.texture, self.events).show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));

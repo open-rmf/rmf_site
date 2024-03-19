@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    site::{Change, Dependents, FrameMarker, JointProperties, SiteID},
+    site::{Dependents, FrameMarker, JointProperties, SiteID},
     widgets::{inspector::SelectionWidget, AppEvents},
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{ComboBox, Ui};
+use bevy_egui::egui::Ui;
 
 #[derive(SystemParam)]
 pub struct InspectJointParams<'w, 's> {

@@ -313,7 +313,7 @@ pub fn update_visibility_for_locations(
     >,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
-    let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
+    let graph_change = !graph_changed_visibility.is_empty() || removed.read().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (point, associated, mut visibility, _) in &mut locations {
@@ -385,7 +385,7 @@ pub fn handle_consider_location_tag(
     mut recalls: Query<&mut RecallLocationTags>,
     mut considerations: EventReader<ConsiderLocationTag>,
 ) {
-    for consider in considerations.iter() {
+    for consider in considerations.read() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
             recall.consider_tag = consider.tag.clone();
             let r = recall.as_mut();

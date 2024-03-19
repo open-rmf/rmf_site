@@ -23,8 +23,8 @@ use smallvec::SmallVec;
 /// have that mesh.
 #[derive(Debug, Default, Clone, Resource)]
 pub struct EntityMeshMap {
-    entities_with_mesh: HashMap<Handle<Mesh>, SmallVec<[Entity; 1]>>,
-    mesh_for_entity: HashMap<Entity, Handle<Mesh>>,
+    entities_with_mesh: HashMap<AssetId<Mesh>, SmallVec<[Entity; 1]>>,
+    mesh_for_entity: HashMap<Entity, AssetId<Mesh>>,
 }
 
 impl EntityMeshMap {
@@ -34,11 +34,10 @@ impl EntityMeshMap {
         // times. This should be rare and only cause an additional `Aabb.clone()` in
         // `update_bounds` so it is preferable to a `HashSet` for now.
         self.entities_with_mesh
-            .entry(mesh_handle.clone_weak())
+            .entry(mesh_handle.into())
             .or_default()
             .push(entity);
-        self.mesh_for_entity
-            .insert(entity, mesh_handle.clone_weak());
+        self.mesh_for_entity.insert(entity, mesh_handle.into());
     }
 
     /// Deregisters the mapping between an `Entity` and `Mesh`. Used so [`update_bounds`] can
@@ -70,7 +69,7 @@ pub fn register_bounds(
     mut entity_mesh_map: ResMut<EntityMeshMap>,
 ) {
     for (e, mesh) in &new_aabb {
-        entity_mesh_map.register(e, mesh);
+        entity_mesh_map.register(e, mesh.into());
     }
 }
 
@@ -91,7 +90,7 @@ pub fn update_bounds(
     mut mesh_events: EventReader<AssetEvent<Mesh>>,
     mut entities_lost_mesh: RemovedComponents<Handle<Mesh>>,
 ) {
-    for entity in entities_lost_mesh.iter() {
+    for entity in entities_lost_mesh.read() {
         entity_mesh_map.deregister(entity);
     }
 
@@ -99,23 +98,23 @@ pub fn update_bounds(
         entity_mesh_map.deregister(entity);
         if let Some(mesh) = meshes.get(mesh_handle) {
             if let Some(new_aabb) = mesh.compute_aabb() {
-                entity_mesh_map.register(entity, mesh_handle);
+                entity_mesh_map.register(entity, mesh_handle.into());
                 *aabb = new_aabb;
             }
         }
     }
 
     let to_update = |event: &AssetEvent<Mesh>| {
-        let handle = match event {
-            AssetEvent::Modified { handle } => handle,
+        let id = match event {
+            AssetEvent::Modified { id } => id,
             _ => return None,
         };
-        let mesh = meshes.get(handle)?;
-        let entities_with_handle = entity_mesh_map.entities_with_mesh.get(handle)?;
+        let mesh = meshes.get(*id)?;
+        let entities_with_handle = entity_mesh_map.entities_with_mesh.get(id)?;
         let aabb = mesh.compute_aabb()?;
         Some((aabb, entities_with_handle))
     };
-    for (aabb, entities_with_handle) in mesh_events.iter().filter_map(to_update) {
+    for (aabb, entities_with_handle) in mesh_events.read().filter_map(to_update) {
         for entity in entities_with_handle {
             commands.entity(*entity).insert(aabb.clone());
         }

@@ -37,7 +37,7 @@ pub fn change_workcell(
     mut change_current_workcell: EventReader<ChangeCurrentWorkcell>,
     open_workcells: Query<Entity, With<NameOfWorkcell>>,
 ) {
-    if let Some(cmd) = change_current_workcell.iter().last() {
+    if let Some(cmd) = change_current_workcell.read().last() {
         if open_workcells.get(cmd.root).is_err() {
             error!(
                 "Requested workspace change to an entity that is not an open workcell: {:?}",

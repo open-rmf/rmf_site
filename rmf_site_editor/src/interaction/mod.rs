@@ -18,7 +18,7 @@
 use crate::site::{
     update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
-    ModelMarker, SiteUpdateSet, VisualMeshMarker, WallMarker,
+    SiteUpdateSet, VisualMeshMarker, WallMarker,
 };
 use crate::workcell::WorkcellVisualizationMarker;
 

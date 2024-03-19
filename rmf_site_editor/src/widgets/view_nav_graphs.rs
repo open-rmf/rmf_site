@@ -163,7 +163,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
             ui.horizontal(|ui| {
                 if self.events.display.nav_graph.removing {
                     if ui
-                        .add(ImageButton::new(self.params.icons.trash.egui(), [18., 18.]))
+                        .add(ImageButton::new(self.params.icons.trash.egui()))
                         .clicked()
                     {
                         self.events.request.delete.send(Delete::new(e));
