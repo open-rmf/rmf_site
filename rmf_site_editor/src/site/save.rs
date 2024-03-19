@@ -21,7 +21,6 @@ use bevy::{
 };
 use std::{
     collections::{BTreeMap, BTreeSet},
-    io::Write,
     path::PathBuf,
 };
 use thiserror::Error as ThisError;
@@ -1275,7 +1274,6 @@ pub fn save_site(world: &mut World) {
                 std::fs::create_dir(&meshes_dir).ok();
                 collect_site_meshes(world, save_event.site, &meshes_dir);
 
-                let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
                 migrate_relative_paths(save_event.site, &new_path, world);
 
                 let site = match generate_site(world, save_event.site) {
@@ -1300,7 +1298,7 @@ pub fn save_site(world: &mut World) {
                     write_document_declaration: true,
                     ..Default::default()
                 };
-                let s = yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
+                yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
                 let mut navgraph_dir = PathBuf::from(new_path.parent().unwrap());
                 navgraph_dir.push("nav_graphs");
                 std::fs::create_dir(&navgraph_dir).ok();

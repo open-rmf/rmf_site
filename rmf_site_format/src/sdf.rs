@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    Anchor, Angle, AssetSource, Category, Door, DoorMarker, DoorType, Level, LiftCabin, NameInSite,
-    Pose, Rotation, Side, Site, Swing,
+    Anchor, Angle, AssetSource, Category, Door, DoorMarker, DoorType, LiftCabin, NameInSite, Pose,
+    Rotation, Site, Swing,
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
@@ -114,7 +114,6 @@ impl Door<u32> {
         ros_interface: bool,
         name_override: Option<String>,
     ) -> Result<SdfModel, SdfConversionError> {
-        let door_mass = 50.0;
         let left_trans = left_anchor.translation_for_category(Category::Door);
         let right_trans = right_anchor.translation_for_category(Category::Door);
         let center = [
@@ -224,7 +223,7 @@ impl Door<u32> {
                     Swing::Forward(angle) => (angle.radians() as f64, side),
                     Swing::Backward(angle) => (angle.radians() as f64, -side),
                     // Only use the forward position for double doors
-                    Swing::Both { forward, backward } => (forward.radians() as f64, side),
+                    Swing::Both { forward, .. } => (forward.radians() as f64, side),
                 };
                 let lower = 0.0;
                 let upper = open.abs();
@@ -342,9 +341,8 @@ impl Door<u32> {
                     Swing::Forward(angle) => (angle.radians() as f64, -1.0),
                     Swing::Backward(angle) => (angle.radians() as f64, 1.0),
                     // Only use the forward position for double doors
-                    Swing::Both { forward, backward } => (forward.radians() as f64, -1.0),
+                    Swing::Both { forward, .. } => (forward.radians() as f64, -1.0),
                 };
-                let lower = 0.0;
                 let upper = open.abs();
                 let right_pose = Pose {
                     trans: [0.0, -door_length / 2.0, 1.25],
@@ -684,7 +682,7 @@ impl Site {
                     )?;
                     // Add the pose of the lift to have world coordinates
                     world.model.push(dummy_shaft);
-                    let mut level = levels.entry(*visit).or_default();
+                    let level = levels.entry(*visit).or_default();
                     let element = XmlElement {
                         name: "door_pair".into(),
                         attributes: [

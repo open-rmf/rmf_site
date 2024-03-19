@@ -2,16 +2,13 @@ use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
 use bevy_gltf_export::{export_meshes, CompressGltfOptions, GltfPose, MeshData, MeshExportError};
 
-use std::collections::BTreeMap;
 use std::path::Path;
 
 use crate::site::{
     ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
     VisualMeshMarker,
 };
-use rmf_site_format::{
-    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, SiteID, WallMarker,
-};
+use rmf_site_format::{IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, WallMarker};
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
     let mut state: SystemState<(
@@ -21,8 +18,8 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<&FloorSegments>,
         Query<(Option<&NameInSite>, &DoorSegments)>,
         Query<(Entity, &IsStatic, &NameInSite), With<ModelMarker>>,
-        Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
-        Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
+        Query<(), With<CollisionMeshMarker>>,
+        Query<(), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
         Query<(&NameInSite, &LiftCabin<Entity>, &ChildLiftCabinGroup)>,
         Query<((), With<LiftDoormat>)>,
@@ -125,10 +122,10 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                     // TODO(luca) don't do full descendant iter here or we might add twice?
                     // Iterate through children and select all meshes
                     for model_child in DescendantIter::new(&q_children, model) {
-                        if let Ok((entity, tf)) = q_collisions.get(model_child) {
+                        if q_collisions.get(model_child).is_ok() {
                             // Now iterate through the children of the collision and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
-                                let Some((mesh, material)) = get_mesh_and_material(entity) else {
+                                let Some((mesh, _)) = get_mesh_and_material(entity) else {
                                     continue;
                                 };
                                 let Ok(tf) = q_global_tfs.get(entity) else {
@@ -150,7 +147,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                     pose: Some(pose),
                                 });
                             }
-                        } else if let Ok((entity, tf)) = q_visuals.get(model_child) {
+                        } else if q_visuals.get(model_child).is_ok() {
                             // Now iterate through the children of the visuals and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
                                 let Some((mesh, material)) = get_mesh_and_material(entity) else {

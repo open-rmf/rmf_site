@@ -75,13 +75,14 @@ impl DoorBodyType {
 
     pub fn labels(&self) -> Vec<&str> {
         match self {
-            DoorBodyType::SingleSwing { body }
-            | DoorBodyType::SingleSliding { body }
-            | DoorBodyType::Model { body } => {
+            DoorBodyType::SingleSwing { .. }
+            | DoorBodyType::SingleSliding { .. }
+            | DoorBodyType::Model { .. } => {
                 vec!["body"]
             }
-            DoorBodyType::DoubleSwing { left, right }
-            | DoorBodyType::DoubleSliding { left, right } => vec!["left", "right"],
+            DoorBodyType::DoubleSwing { .. } | DoorBodyType::DoubleSliding { .. } => {
+                vec!["left", "right"]
+            }
         }
     }
 }
