@@ -10,7 +10,7 @@ use crate::site::{
     VisualMeshMarker,
 };
 use rmf_site_format::{
-    LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, SiteID, WallMarker,
+    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, Pose, SiteID, WallMarker,
 };
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
@@ -20,7 +20,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
         Query<Entity, With<WallMarker>>,
         Query<&FloorSegments>,
         Query<(Option<&NameInSite>, &DoorSegments)>,
-        Query<Entity, With<ModelMarker>>,
+        Query<(Entity, &IsStatic, &NameInSite), With<ModelMarker>>,
         Query<(Entity, &GlobalTransform), With<CollisionMeshMarker>>,
         Query<(Entity, &GlobalTransform), With<VisualMeshMarker>>,
         Query<(&Handle<Mesh>, &Handle<StandardMaterial>)>,
@@ -119,7 +119,9 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                         material: Some(material),
                         pose: Some(level_pose.clone()),
                     });
-                } else if let Ok(model) = q_models.get(*child) {
+                } else if let Ok((model, is_static, name)) = q_models.get(*child) {
+                    let mut model_collisions = vec![];
+                    let mut model_visuals = vec![];
                     // TODO(luca) don't do full descendant iter here or we might add twice?
                     // Iterate through children and select all meshes
                     for model_child in DescendantIter::new(&q_children, model) {
@@ -142,7 +144,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                     rotation: tf.rotation.to_array(),
                                     scale: Some(tf.scale.to_array()),
                                 };
-                                collision_data.push(MeshData {
+                                model_collisions.push(MeshData {
                                     mesh,
                                     material: None,
                                     pose: Some(pose),
@@ -167,13 +169,34 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                     rotation: tf.rotation.to_array(),
                                     scale: Some(tf.scale.to_array()),
                                 };
-                                visual_data.push(MeshData {
+                                model_visuals.push(MeshData {
                                     mesh,
                                     material: Some(material),
                                     pose: Some(pose),
                                 });
                             }
                         }
+                    }
+                    if **is_static {
+                        // This is part of the static world, add it to the static mesh
+                        collision_data.extend(model_collisions);
+                        visual_data.extend(model_visuals);
+                    } else {
+                        // Create a new mesh for it
+                        let filename = format!("{}/{}_collision.glb", folder.display(), **name);
+                        write_meshes_to_file(
+                            model_collisions,
+                            None,
+                            CompressGltfOptions::skip_materials(),
+                            filename,
+                        );
+                        let filename = format!("{}/{}_visual.glb", folder.display(), **name);
+                        write_meshes_to_file(
+                            model_visuals,
+                            Some(format!("{}_visual", **name)),
+                            CompressGltfOptions::default(),
+                            filename,
+                        );
                     }
                 } else if let Ok((door_name, segments)) = q_doors.get(*child) {
                     for (entity, segment_name) in segments
