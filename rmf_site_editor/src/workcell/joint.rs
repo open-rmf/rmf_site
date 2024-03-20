@@ -33,7 +33,7 @@ pub fn handle_create_joint_events(
     mut dependents: Query<&mut Dependents>,
     frames: Query<&NameInWorkcell, With<FrameMarker>>,
 ) {
-    for req in events.iter() {
+    for req in events.read() {
         let Ok(parent_name) = frames.get(req.parent) else {
             error!(
                 "Requested to create a joint with a parent that is not a frame, \

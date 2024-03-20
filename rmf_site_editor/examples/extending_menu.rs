@@ -78,15 +78,13 @@ fn watch_submenu_click(mut reader: EventReader<MenuEvent>, menu_handle: Res<MyMe
 impl Plugin for MyMenuPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MyMenuHandler>()
-            .add_system(watch_unique_export_click)
-            .add_system(watch_submenu_click);
+            .add_systems(Update, (watch_unique_export_click, watch_submenu_click));
     }
 }
 
 /// Lets embed site editor in our application with our own plugin
 fn main() {
     App::new()
-        .add_plugin(SiteEditor::default())
-        .add_plugin(MyMenuPlugin)
+        .add_plugins((SiteEditor::default(), MyMenuPlugin))
         .run();
 }

@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    interaction::{ChangeMode, Hover, MoveTo, SelectAnchor3D},
+    interaction::{Hover, MoveTo},
     site::{
         latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
         GeographicComponent, JointProperties, LocationTags, MeshConstraint, SiteID, Subordinate,
@@ -86,8 +86,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
             )
             .show(ui);
 
-            let assign_response =
-                ui.add(ImageButton::new(self.params.icons.edit.egui(), [18., 18.]));
+            let assign_response = ui.add(ImageButton::new(self.params.icons.edit.egui()));
 
             if assign_response.hovered() {
                 self.events.request.hover.send(Hover(Some(self.anchor)));
@@ -179,8 +178,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectAnchorWidget<'a, 'w1, 'w2, 's1, 's2> {
                             }
                         });
                     }
-                    Anchor::CategorizedTranslate2D(anchor) => {
-                        todo!("Categorized translate inspector not implemented yet");
+                    Anchor::CategorizedTranslate2D(_) => {
+                        warn!("Categorized translate inspector not implemented yet");
                     }
                     Anchor::Pose3D(pose) => {
                         ui.vertical(|ui| {

@@ -16,7 +16,6 @@
 */
 
 use crate::{
-    animate::*,
     interaction::IntersectGroundPlaneParams,
     interaction::*,
     keyboard::DebugMode,
@@ -94,7 +93,7 @@ pub fn move_anchor(
     mut anchors: Query<&mut Anchor, Without<Subordinate>>,
     mut move_to: EventReader<MoveTo>,
 ) {
-    for move_to in move_to.iter() {
+    for move_to in move_to.read() {
         if let Ok(mut anchor) = anchors.get_mut(move_to.entity) {
             anchor.move_to(&move_to.transform);
         }
@@ -311,7 +310,7 @@ pub fn remove_deleted_supports_from_visual_cues(
     mut selected: Query<&mut Selected, With<AnchorVisualization>>,
     mut deleted_elements: EventReader<Delete>,
 ) {
-    for deletion in deleted_elements.iter() {
+    for deletion in deleted_elements.read() {
         for mut h in &mut hovered {
             h.support_hovering.remove(&deletion.element);
         }

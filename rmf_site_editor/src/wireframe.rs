@@ -55,7 +55,7 @@ fn handle_wireframe_menu_events(
     children: Query<&Children>,
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
 ) {
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == wireframe_menu.toggle_wireframe {
             let Ok(mut checkbox) = menu_items.get_mut(wireframe_menu.toggle_wireframe) else {
                 error!("Wireframe button not found");
@@ -89,7 +89,6 @@ fn add_wireframe_to_new_models(
     models: Query<Entity, Or<(With<ModelMarker>, With<PrimitiveShape>)>>,
     wireframe_menu: Res<WireframeMenu>,
     menu_items: Query<&MenuItem>,
-    meshes: Query<Entity, With<Handle<Mesh>>>,
 ) {
     let Ok(checkbox) = menu_items.get(wireframe_menu.toggle_wireframe) else {
         error!("Wireframe button not found");
@@ -113,8 +112,10 @@ fn add_wireframe_to_new_models(
 impl Plugin for SiteWireframePlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<WireframeMenu>()
-            .add_plugin(WireframePlugin)
-            .add_system(handle_wireframe_menu_events)
-            .add_system(add_wireframe_to_new_models);
+            .add_plugins(WireframePlugin)
+            .add_systems(
+                Update,
+                (handle_wireframe_menu_events, add_wireframe_to_new_models),
+            );
     }
 }

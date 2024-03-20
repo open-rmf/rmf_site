@@ -16,12 +16,12 @@
 */
 
 use crate::{
-    site::{Change, FiducialMarker, Members, MergeGroups, NameInSite, SiteID, Texture},
+    site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
     widgets::{inspector::SelectionWidget, AppEvents},
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, CollapsingHeader, ImageButton, Ui};
+use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
 #[derive(Default, Clone, Copy)]
 pub enum GroupViewMode {
@@ -109,11 +109,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
         ui.horizontal(|ui| match mode {
             GroupViewMode::View => {
                 if ui
-                    .add(Button::image_and_text(
-                        icons.merge.egui(),
-                        [18., 18.],
-                        "merge",
-                    ))
+                    .add(Button::image_and_text(icons.merge.egui(), "merge"))
                     .on_hover_text("Merge two groups")
                     .clicked()
                 {
@@ -121,11 +117,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                     *mode = GroupViewMode::SelectMergeFrom;
                 }
                 if ui
-                    .add(Button::image_and_text(
-                        icons.trash.egui(),
-                        [18., 18.],
-                        "delete",
-                    ))
+                    .add(Button::image_and_text(icons.trash.egui(), "delete"))
                     .on_hover_text("Delete a group")
                     .clicked()
                 {
@@ -135,11 +127,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
             }
             GroupViewMode::MergeFrom(_) | GroupViewMode::SelectMergeFrom => {
                 if ui
-                    .add(Button::image_and_text(
-                        icons.exit.egui(),
-                        [18., 18.],
-                        "cancel",
-                    ))
+                    .add(Button::image_and_text(icons.exit.egui(), "cancel"))
                     .on_hover_text("Cancel the merge")
                     .clicked()
                 {
@@ -148,11 +136,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
             }
             GroupViewMode::Delete => {
                 if ui
-                    .add(Button::image_and_text(
-                        icons.exit.egui(),
-                        [18., 18.],
-                        "cancel",
-                    ))
+                    .add(Button::image_and_text(icons.exit.egui(), "cancel"))
                     .on_hover_text("Cancel the delete")
                     .clicked()
                 {
@@ -175,11 +159,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                     }
                     GroupViewMode::SelectMergeFrom => {
                         if ui
-                            .add(Button::image_and_text(
-                                icons.merge.egui(),
-                                [18., 18.],
-                                &text,
-                            ))
+                            .add(Button::image_and_text(icons.merge.egui(), &text))
                             .on_hover_text("Merge the members of this group into another group")
                             .clicked()
                         {
@@ -189,7 +169,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                     GroupViewMode::MergeFrom(merge_from) => {
                         if merge_from == *child {
                             if ui
-                                .add(Button::image_and_text(icons.exit.egui(), [18., 18.], &text))
+                                .add(Button::image_and_text(icons.exit.egui(), &text))
                                 .on_hover_text("Cancel merge")
                                 .clicked()
                             {
@@ -197,11 +177,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                             }
                         } else {
                             if ui
-                                .add(Button::image_and_text(
-                                    icons.confirm.egui(),
-                                    [18., 18.],
-                                    &text,
-                                ))
+                                .add(Button::image_and_text(icons.confirm.egui(), &text))
                                 .on_hover_text("Merge into this group")
                                 .clicked()
                             {
@@ -215,11 +191,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewGroups<'a, 'w1, 's1, 'w2, 's2> {
                     }
                     GroupViewMode::Delete => {
                         if ui
-                            .add(Button::image_and_text(
-                                icons.trash.egui(),
-                                [18., 18.],
-                                &text,
-                            ))
+                            .add(Button::image_and_text(icons.trash.egui(), &text))
                             .on_hover_text("Delete this group")
                             .clicked()
                         {

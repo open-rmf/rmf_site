@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, NameInSite, SiteID, Texture},
+    site::{Affiliation, Change, DefaultFile, Group, Members, SiteID, Texture},
     widgets::{
         inspector::{InspectTexture, SelectionWidget},
         AppEvents,

@@ -15,12 +15,12 @@
  *
 */
 
-use bevy::utils::tracing::{field::Field, span::Record, Event, Id, Level, Subscriber};
-use bevy::{ecs::system::SystemParam, prelude::*};
-use crossbeam_channel::{unbounded, Receiver, SendError, Sender, TryRecvError};
+use bevy::prelude::*;
+use bevy::utils::tracing::{field::Field, Level};
+use crossbeam_channel::{unbounded, Receiver, SendError, Sender};
 use std::collections::HashMap;
 use std::fmt::{self, Debug, Write};
-use tracing_subscriber::{field::Visit, layer::Context, prelude::*, EnvFilter, Layer};
+use tracing_subscriber::{field::Visit, prelude::*, EnvFilter, Layer};
 
 #[derive(Debug, Clone, Copy, Eq, Hash, PartialEq)]
 pub enum LogCategory {
@@ -129,7 +129,7 @@ impl Default for LogHistory {
         let rx_2 = rx.clone();
 
         let level_name = Level::INFO;
-        let filter_name = "bevy_asset=error,wgpu=error".to_string();
+        let filter_name = "bevy_asset=off,wgpu=error".to_string();
         let default_filter = { format!("{},{}", level_name, filter_name) };
         let filter_layer = EnvFilter::try_from_default_env()
             .or_else(|_| EnvFilter::try_new(&default_filter))
@@ -298,20 +298,19 @@ where
         event.record(&mut recorder);
 
         // Default category
-        let mut category = LogCategory::Status;
         let message = format!("{}", recorder);
 
         // Check if this is a Bevy or RMF Site log
-        if event.metadata().target().contains("bevy") {
-            category = LogCategory::Bevy;
+        let category = if event.metadata().target().contains("bevy") {
+            LogCategory::Bevy
         } else {
-            category = match *event.metadata().level() {
+            match *event.metadata().level() {
                 Level::INFO => LogCategory::Status,
                 Level::WARN => LogCategory::Warning,
                 Level::ERROR => LogCategory::Error,
                 _ => LogCategory::Error,
-            };
-        }
+            }
+        };
 
         let log = Log { category, message };
         let send_message = self.sender.send(log);
@@ -324,7 +323,7 @@ where
 
 fn receive_logs(mut log_history: ResMut<LogHistory>, mut log_events: EventReader<Log>) {
     log_history.receive_logs();
-    for log in log_events.iter() {
+    for log in log_events.read() {
         log_history.push(log.clone());
     }
 }

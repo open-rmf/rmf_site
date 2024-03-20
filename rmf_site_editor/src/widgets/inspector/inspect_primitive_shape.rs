@@ -15,7 +15,7 @@
  *
 */
 
-use bevy_egui::egui::{ComboBox, DragValue, Ui};
+use bevy_egui::egui::Ui;
 use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
 
 pub struct InspectPrimitiveShape<'a> {

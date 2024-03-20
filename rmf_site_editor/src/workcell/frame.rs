@@ -22,7 +22,6 @@ use rmf_site_format::FrameMarker;
 // TODO(luca) We should probably have a different mesh altogether for workcell anchors, rather than
 // a scaled down version of site anchors.
 pub fn scale_workcell_anchors(
-    parents: Query<&Parent>,
     new_frames: Query<&AnchorVisualization, With<FrameMarker>>,
     mut transforms: Query<&mut Transform>,
 ) {

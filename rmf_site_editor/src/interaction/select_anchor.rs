@@ -26,8 +26,7 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use rmf_site_format::{
-    Constraint, ConstraintDependents, Door, Edge, Fiducial, Floor, FrameMarker, Lane,
-    LiftProperties, Location, Measurement, MeshConstraint, MeshElement, Model, ModelMarker,
+    Door, Edge, Fiducial, Floor, FrameMarker, Lane, LiftProperties, Location, Measurement, Model,
     NameInWorkcell, NameOfSite, Path, PixelsPerMeter, Point, Pose, Side, Wall, WorkcellModel,
 };
 use std::collections::HashSet;
@@ -1109,18 +1108,14 @@ pub struct SelectAnchorPlacementParams<'w, 's> {
     >,
     points: Query<'w, 's, &'static mut Point<Entity>>,
     anchors: Query<'w, 's, (Entity, &'static mut Anchor)>,
-    models: Query<'w, 's, Entity, With<ModelMarker>>,
     parents: Query<'w, 's, &'static mut Parent>,
-    children: Query<'w, 's, &'static mut Children>,
     paths: Query<'w, 's, (&'static mut Path<Entity>, &'static PathBehavior)>,
     dependents: Query<'w, 's, &'static mut Dependents>,
-    constraint_dependents: Query<'w, 's, &'static mut ConstraintDependents>,
     commands: Commands<'w, 's>,
     cursor: ResMut<'w, Cursor>,
     visibility: Query<'w, 's, &'static mut Visibility>,
     drawings: Query<'w, 's, (Entity, &'static PixelsPerMeter), With<DrawingMarker>>,
     hidden_entities: ResMut<'w, HiddenSelectAnchorEntities>,
-    fiducials: Query<'w, 's, (), With<FiducialMarker>>,
 }
 
 impl<'w, 's> SelectAnchorPlacementParams<'w, 's> {
@@ -1450,7 +1445,7 @@ impl SelectAnchor {
 
     /// Move an existing location to a new anchor.
     // TODO(MXG): Make this accessible from the UI
-    pub fn replace_point(location: Entity, original_anchor: Entity) -> SelectAnchorPointBuilder {
+    pub fn replace_point(location: Entity, _original_anchor: Entity) -> SelectAnchorPointBuilder {
         SelectAnchorPointBuilder {
             for_element: Some(location),
             continuity: SelectAnchorContinuity::ReplaceAnchor {
@@ -1742,8 +1737,8 @@ impl SelectAnchor3D {
     /// return to Inspect mode.
     fn next<'w, 's>(
         &self,
-        anchor_selection: AnchorSelection,
-        params: &mut SelectAnchorPlacementParams<'w, 's>,
+        _anchor_selection: AnchorSelection,
+        _params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Option<Self> {
         None
     }
@@ -1751,7 +1746,7 @@ impl SelectAnchor3D {
     /// Used for updating parents on parent assignment
     fn update_parent<'w, 's>(
         &mut self,
-        mut anchor_selection: AnchorSelection,
+        anchor_selection: AnchorSelection,
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> Result<(), ()> {
         if let Some(target) = self.target {
@@ -1775,7 +1770,7 @@ impl SelectAnchor3D {
 
             if self.parent != Some(anchor_selection.entity()) {
                 match self.parent {
-                    Some(new_parent) => {
+                    Some(_new_parent) => {
                         if anchor_selection.entity() != target {
                             self.parent = Some(anchor_selection.entity());
                         }
@@ -1800,7 +1795,7 @@ impl SelectAnchor3D {
         params: &mut SelectAnchorPlacementParams<'w, 's>,
     ) -> PreviewResult {
         // The only live update we need to do is on parent entity change
-        if let SelectAnchorContinuity::ReplaceAnchor { original_anchor } = self.continuity {
+        if let SelectAnchorContinuity::ReplaceAnchor { original_anchor: _ } = self.continuity {
             match self.update_parent(AnchorSelection::Existing(anchor_selection), params) {
                 Ok(()) => {
                     return PreviewResult::Updated3D(Self {
@@ -2074,7 +2069,7 @@ pub fn handle_select_anchor_mode(
         }
     } else {
         for new_selection in select
-            .iter()
+            .read()
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {
@@ -2285,7 +2280,7 @@ pub fn handle_select_anchor_3d_mode(
                 // anchor is not the one currently assigned. Otherwise we
                 // are wasting query+command effort.
                 match request.preview(hovered, &mut params) {
-                    PreviewResult::Updated(next) => {
+                    PreviewResult::Updated(_next) => {
                         // We should never get here
                         unreachable!();
                     }
@@ -2306,7 +2301,7 @@ pub fn handle_select_anchor_3d_mode(
         }
     } else {
         for new_selection in select
-            .iter()
+            .read()
             .filter_map(|s| s.0)
             .filter(|s| anchors.contains(*s))
         {

@@ -16,11 +16,8 @@
 */
 
 use crate::{
-    interaction::{
-        camera_controls::{CameraControls, HeadlightToggle},
-        ChangeMode, ChangeProjectionMode, InteractionMode, Selection,
-    },
-    site::{AlignSiteDrawings, CurrentLevel, Delete},
+    interaction::{ChangeMode, ChangeProjectionMode, InteractionMode, Selection},
+    site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
@@ -55,7 +52,6 @@ fn handle_keyboard_input(
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
     mut change_camera_mode: EventWriter<ChangeProjectionMode>,
-    current_level: Res<CurrentLevel>,
     mut debug_mode: ResMut<DebugMode>,
     mut align_site: EventWriter<AlignSiteDrawings>,
     current_workspace: Res<CurrentWorkspace>,

@@ -277,7 +277,7 @@ pub fn remove_association_for_deleted_graphs(
     mut associaged_graphs: Query<&mut AssociatedGraphs<Entity>>,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
-    for e in removed.iter() {
+    for e in removed.read() {
         for mut associated in &mut associaged_graphs {
             match associated.as_mut() {
                 AssociatedGraphs::All => {}
@@ -322,7 +322,7 @@ pub fn update_visibility_for_lanes(
     >,
     mut removed: RemovedComponents<NavGraphMarker>,
 ) {
-    let graph_change = !graph_changed_visibility.is_empty() || removed.iter().next().is_some();
+    let graph_change = !graph_changed_visibility.is_empty() || removed.read().next().is_some();
     let update_all = current_level.is_changed() || graph_change;
     if update_all {
         for (edge, associated, _, mut visibility) in &mut lanes {
@@ -409,7 +409,7 @@ pub fn handle_consider_associated_graph(
     mut recalls: Query<&mut RecallAssociatedGraphs<Entity>>,
     mut considerations: EventReader<ConsiderAssociatedGraph>,
 ) {
-    for consider in considerations.iter() {
+    for consider in considerations.read() {
         if let Ok(mut recall) = recalls.get_mut(consider.for_element) {
             recall.consider = consider.graph;
         }
@@ -432,7 +432,7 @@ pub fn check_for_duplicated_dock_names(
                         the robots. Duplicated dock names would make such behavior ambiguous as \
                         it would be triggered in different parts of the map, rename the docks to \
                         be unique";
-    for root in validate_events.iter() {
+    for root in validate_events.read() {
         let mut names: HashMap<String, BTreeSet<Entity>> = HashMap::new();
         for (e, motion, reverse) in &lane_properties {
             if AncestorIter::new(&parents, e).any(|p| p == **root) {

@@ -27,7 +27,7 @@ use bevy::{
         view::VisibleEntities,
     },
 };
-use rmf_site_format::{Category, LevelElevation, Light, LightKind, NameInSite, Pose};
+use rmf_site_format::{Category, Light, LightKind, NameInSite, Pose};
 use std::collections::{BTreeMap, HashMap};
 
 /// True/false for whether the physical lights of an environment should be
@@ -58,7 +58,8 @@ pub fn add_physical_lights(
             } else {
                 Visibility::Hidden
             })
-            .insert(ComputedVisibility::default())
+            .insert(ViewVisibility::default())
+            .insert(InheritedVisibility::default())
             .insert(Frustum::default())
             .insert(VisibleEntities::default())
             .insert(CubemapFrusta::default())
@@ -151,7 +152,7 @@ pub fn export_lights(
     lights: Query<(&Pose, &LightKind, &Parent)>,
     levels: Query<&NameInSite>,
 ) {
-    for export in exports.iter() {
+    for export in exports.read() {
         let mut lights_per_level: BTreeMap<String, Vec<Light>> = BTreeMap::new();
         for (pose, kind, parent) in &lights {
             if let Ok(name) = levels.get(parent.get()) {

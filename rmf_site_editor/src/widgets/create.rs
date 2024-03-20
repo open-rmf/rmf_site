@@ -18,16 +18,13 @@
 use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall},
-    AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank,
+    site::{DefaultFile, DrawingBundle, Recall},
+    AppEvents, AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{
-    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending, RecallAssetSource,
-    Scale, WorkcellModel,
-};
+use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
 
 #[derive(SystemParam)]
 pub struct CreateParams<'w, 's> {

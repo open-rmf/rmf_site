@@ -47,12 +47,11 @@ impl FromWorld for ExportSdfMenu {
 }
 
 pub fn handle_export_sdf_menu_events(
-    mut commands: Commands,
     mut menu_events: EventReader<MenuEvent>,
     sdf_menu: Res<ExportSdfMenu>,
     mut save_events: EventWriter<SaveWorkspace>,
 ) {
-    for event in menu_events.iter() {
+    for event in menu_events.read() {
         if event.clicked() && event.source() == sdf_menu.export_sdf {
             save_events.send(SaveWorkspace {
                 destination: SaveWorkspaceDestination::Dialog,

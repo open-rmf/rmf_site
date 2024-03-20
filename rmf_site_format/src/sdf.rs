@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    Anchor, Angle, AssetSource, Category, Door, DoorMarker, DoorType, Level, LiftCabin, NameInSite,
-    Pose, Rotation, Side, Site, Swing,
+    Anchor, Angle, AssetSource, Category, Door, DoorMarker, DoorType, LiftCabin, NameInSite, Pose,
+    Rotation, Site, Swing,
 };
 use glam::Vec3;
 use once_cell::sync::Lazy;
@@ -114,7 +114,6 @@ impl Door<u32> {
         ros_interface: bool,
         name_override: Option<String>,
     ) -> Result<SdfModel, SdfConversionError> {
-        let door_mass = 50.0;
         let left_trans = left_anchor.translation_for_category(Category::Door);
         let right_trans = right_anchor.translation_for_category(Category::Door);
         let center = [
@@ -224,7 +223,7 @@ impl Door<u32> {
                     Swing::Forward(angle) => (angle.radians() as f64, side),
                     Swing::Backward(angle) => (angle.radians() as f64, -side),
                     // Only use the forward position for double doors
-                    Swing::Both { forward, backward } => (forward.radians() as f64, side),
+                    Swing::Both { forward, .. } => (forward.radians() as f64, side),
                 };
                 let lower = 0.0;
                 let upper = open.abs();
@@ -342,9 +341,8 @@ impl Door<u32> {
                     Swing::Forward(angle) => (angle.radians() as f64, -1.0),
                     Swing::Backward(angle) => (angle.radians() as f64, 1.0),
                     // Only use the forward position for double doors
-                    Swing::Both { forward, backward } => (forward.radians() as f64, -1.0),
+                    Swing::Both { forward, .. } => (forward.radians() as f64, -1.0),
                 };
-                let lower = 0.0;
                 let upper = open.abs();
                 let right_pose = Pose {
                     trans: [0.0, -door_length / 2.0, 1.25],
@@ -445,6 +443,8 @@ impl Site {
             ..Default::default()
         };
         for level in self.levels.values() {
+            let mut level_model_names = vec![];
+            let mut model_element_map = ElementMap::default();
             max_elevation = max_elevation.max(level.properties.elevation.0);
             min_elevation = min_elevation.min(level.properties.elevation.0);
             let mut floor_models_ele = XmlElement {
@@ -494,6 +494,7 @@ impl Site {
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
             for model in level.models.values() {
+                let mut added = false;
                 if model.source == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
                     world.include.push(SdfWorldInclude {
@@ -502,6 +503,7 @@ impl Site {
                         pose: Some(model.pose.to_sdf(0.0)),
                         ..Default::default()
                     });
+                    added = true;
                 } else if model.source
                     == AssetSource::Search("OpenRobotics/TeleportDispenser".to_string())
                 {
@@ -511,6 +513,7 @@ impl Site {
                         pose: Some(model.pose.to_sdf(0.0)),
                         ..Default::default()
                     });
+                    added = true;
                 }
                 // Non static models are included separately and are not part of the static world
                 // TODO(luca) this will duplicate multiple instances of the model since it uses
@@ -523,6 +526,10 @@ impl Site {
                         r#static: Some(model.is_static.0),
                         ..Default::default()
                     });
+                    added = true;
+                }
+                if added {
+                    level_model_names.push(model.name.0.clone());
                 }
             }
             // Now add all the doors
@@ -537,7 +544,17 @@ impl Site {
                     true,
                     None,
                 )?);
+                level_model_names.push(door.name.0.clone());
             }
+            for model_name in level_model_names.into_iter() {
+                let model_element = XmlElement {
+                    name: "model".into(),
+                    attributes: [("name".into(), model_name.into())].into(),
+                    ..Default::default()
+                };
+                model_element_map.push(model_element);
+            }
+            floor_models_ele.data = ElementData::Nested(model_element_map);
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for lift in self.lifts.values() {
@@ -684,12 +701,30 @@ impl Site {
                     )?;
                     // Add the pose of the lift to have world coordinates
                     world.model.push(dummy_shaft);
-                    let mut level = levels.entry(*visit).or_default();
+                    // Add the shaft door to the level transparency plugin
+                    if let Some(ElementData::Nested(ref mut map)) = toggle_floors_plugin
+                        .elements
+                        .get_all_mut("floor")
+                        .and_then(|mut elems| {
+                            elems
+                                .find(|el| {
+                                    el.attributes.get("name") == Some(&level.properties.name.0)
+                                })
+                                .map(|e| &mut e.data)
+                        })
+                    {
+                        map.push(XmlElement {
+                            name: "model".into(),
+                            attributes: [("name".into(), shaft_door_name.clone())].into(),
+                            ..Default::default()
+                        });
+                    };
+                    let level = levels.entry(*visit).or_default();
                     let element = XmlElement {
                         name: "door_pair".into(),
                         attributes: [
                             ("cabin_door".to_string(), cabin_door_name.clone()),
-                            ("shaft_door".to_string(), shaft_door_name.clone()),
+                            ("shaft_door".to_string(), shaft_door_name),
                         ]
                         .into(),
                         ..Default::default()
