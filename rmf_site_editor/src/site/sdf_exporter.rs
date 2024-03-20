@@ -51,7 +51,8 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                 filename: String|
      -> Result<(), String> {
         let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
-        let meshes = export_meshes(meshes, name, image_getter, options).map_err(|e| e.to_string())?;
+        let meshes =
+            export_meshes(meshes, name, image_getter, options).map_err(|e| e.to_string())?;
         let bytes = meshes.to_bytes().map_err(|e| e.to_string())?;
         std::fs::write(filename, bytes).map_err(|e| e.to_string())
     };
