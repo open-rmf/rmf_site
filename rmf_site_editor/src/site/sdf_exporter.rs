@@ -10,7 +10,7 @@ use crate::site::{
 };
 use rmf_site_format::{IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, WallMarker};
 
-pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
+pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Result<(), String> {
     let mut state: SystemState<(
         Query<&Children>,
         Query<(&NameInSite, &LevelElevation, &Children)>,
@@ -49,16 +49,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                                 name: Option<String>,
                                 options: CompressGltfOptions,
                                 filename: String|
-     -> Result<(), MeshExportError> {
+     -> Result<(), String> {
         let image_getter = |id: &Handle<Image>| image_assets.get(id).cloned();
-        let meshes = export_meshes(meshes, name, image_getter, options)?;
-        let bytes = meshes.to_bytes()?;
-        let Ok(_) = std::fs::write(filename, bytes) else {
-            // TODO(luca) make this an error
-            error!("Error writing mesh to file");
-            return Ok(());
-        };
-        Ok(())
+        let meshes = export_meshes(meshes, name, image_getter, options).map_err(|e| e.to_string())?;
+        let bytes = meshes.to_bytes().map_err(|e| e.to_string())?;
+        std::fs::write(filename, bytes).map_err(|e| e.to_string())
     };
 
     let get_mesh_and_material = |entity: Entity| -> Option<(&Mesh, &StandardMaterial)> {
@@ -77,7 +72,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
     };
 
     let Ok(site_children) = q_children.get(site) else {
-        return;
+        return Ok(());
     };
     for site_child in site_children.iter() {
         let mut collision_data = Vec::new();
@@ -186,14 +181,14 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             None,
                             CompressGltfOptions::skip_materials(),
                             filename,
-                        );
+                        )?;
                         let filename = format!("{}/{}_visual.glb", folder.display(), **name);
                         write_meshes_to_file(
                             model_visuals,
                             Some(format!("{}_visual", **name)),
                             CompressGltfOptions::default(),
                             filename,
-                        );
+                        )?;
                     }
                 } else if let Ok((door_name, segments)) = q_doors.get(*child) {
                     for (entity, segment_name) in segments
@@ -230,7 +225,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             None,
                             CompressGltfOptions::default(),
                             filename,
-                        );
+                        )?;
                     }
                 } else {
                     continue;
@@ -242,14 +237,14 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                 None,
                 CompressGltfOptions::skip_materials(),
                 filename,
-            );
+            )?;
             let filename = format!("{}/level_{}_visual.glb", folder.display(), **level_name);
             write_meshes_to_file(
                 visual_data,
                 Some(format!("level_{}_visuals", **level_name)),
                 CompressGltfOptions::default(),
                 filename,
-            );
+            )?;
         }
         // Lifts
         if let Ok((lift_name, cabin, cabin_children)) = q_lift_cabins.get(*site_child) {
@@ -272,7 +267,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                 });
             }
             let filename = format!("{}/{}.glb", folder.display(), **lift_name);
-            write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename);
+            write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename)?;
             // Now generate the lift doors
             let LiftCabin::Rect(cabin) = cabin;
             for (face, door) in cabin.doors().iter() {
@@ -319,10 +314,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) {
                             None,
                             CompressGltfOptions::default(),
                             filename,
-                        );
+                        )?;
                     }
                 }
             }
         }
     }
+    Ok(())
 }

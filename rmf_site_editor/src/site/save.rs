@@ -1272,7 +1272,9 @@ pub fn save_site(world: &mut World) {
                 let mut meshes_dir = PathBuf::from(new_path.parent().unwrap());
                 meshes_dir.push("meshes");
                 std::fs::create_dir(&meshes_dir).ok();
-                collect_site_meshes(world, save_event.site, &meshes_dir);
+                if let Err(e) = collect_site_meshes(world, save_event.site, &meshes_dir) {
+                    error!("Unable to collect site meshes {e}");
+                }
 
                 migrate_relative_paths(save_event.site, &new_path, world);
 
