@@ -247,7 +247,9 @@ impl Plugin for SiteEditor {
         // TODO(luca) This schedule runner plugin runs forever.
         // We might need to have a custom one where we can inject exit conditions.
         if let Some(path) = &self.headless {
-            app.add_plugins(ScheduleRunnerPlugin::default());
+            // We really don't need a high update rate here since we are IO bound, set a low rate
+            // to save CPU.
+            app.add_plugins(ScheduleRunnerPlugin::run_loop(std::time::Duration::from_secs_f64(1.0 / 10.0)));
             app.insert_resource(HeadlessExport(path.clone()));
             app.add_systems(Last, headless_sdf_export);
         }
