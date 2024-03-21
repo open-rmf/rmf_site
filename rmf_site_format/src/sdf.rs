@@ -43,7 +43,7 @@ pub enum SdfConversionError {
 }
 
 impl Pose {
-    fn to_sdf(&self, elevation: f32) -> SdfPose {
+    fn to_sdf(&self) -> SdfPose {
         let p = &self.trans;
         let r = match self.rot {
             Rotation::Yaw(angle) => format!("0 0 {}", angle.radians()),
@@ -56,7 +56,7 @@ impl Pose {
             Rotation::Quat(quat) => format!("{} {} {} {}", quat[3], quat[0], quat[1], quat[2]),
         };
         SdfPose {
-            data: format!("{} {} {} {}", p[0], p[1], p[2] + elevation, r),
+            data: format!("{} {} {} {}", p[0], p[1], p[2], r),
             ..Default::default()
         }
     }
@@ -155,7 +155,7 @@ fn make_sdf_door(
                 trans: (Vec3::from([center[0], center[1], 0.0]) + offset).to_array(),
                 rot: Rotation::Yaw(Angle::Rad(yaw)),
             }
-            .to_sdf(0.0),
+            .to_sdf(),
         ),
         r#static: Some(false),
         ..Default::default()
@@ -189,7 +189,7 @@ fn make_sdf_door(
                 trans: [0.0, (door_length / 2.0) * door.towards.sign(), 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             vec![SdfJoint {
                 name: prefix.clone() + "joint",
                 parent: "world".into(),
@@ -230,7 +230,7 @@ fn make_sdf_door(
                 trans: [0.0, (door_length / 2.0) * door.pivot_on.sign(), 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             let (left_joint_name, right_joint_name) = ("empty_joint", prefix.clone() + "joint");
             door_plugin_inner
                 .attributes
@@ -275,12 +275,12 @@ fn make_sdf_door(
                 trans: [0.0, -door_length / 2.0, 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             let left_pose = Pose {
                 trans: [0.0, door_length / 2.0, 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             let left_length = (door.left_right_ratio / (1.0 + door.left_right_ratio)) * door_length;
             let right_length = door_length - left_length;
             vec![
@@ -346,12 +346,12 @@ fn make_sdf_door(
                 trans: [0.0, -door_length / 2.0, 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             let left_pose = Pose {
                 trans: [0.0, door_length / 2.0, 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             vec![
                 SdfJoint {
                     name: prefix.clone() + "right_joint",
@@ -395,7 +395,7 @@ fn make_sdf_door(
                 trans: [0.0, door_length / 2.0, 1.25],
                 ..Default::default()
             }
-            .to_sdf(0.0);
+            .to_sdf();
             vec![SdfJoint {
                 name: prefix.clone() + "joint",
                 parent: "world".into(),
@@ -502,7 +502,7 @@ impl Site {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportIngestor".to_string(),
                         name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf(0.0)),
+                        pose: Some(model.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
@@ -512,7 +512,7 @@ impl Site {
                     world.include.push(SdfWorldInclude {
                         uri: "model://TeleportDispenser".to_string(),
                         name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf(0.0)),
+                        pose: Some(model.pose.to_sdf()),
                         ..Default::default()
                     });
                     added = true;
@@ -524,7 +524,7 @@ impl Site {
                     world.include.push(SdfWorldInclude {
                         uri: format!("model://{}", model.name.0.clone()),
                         name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf(0.0)),
+                        pose: Some(model.pose.to_sdf()),
                         r#static: Some(model.is_static.0),
                         ..Default::default()
                     });
@@ -728,7 +728,7 @@ impl Site {
             world.model.push(SdfModel {
                 name: lift.properties.name.0.clone(),
                 r#static: Some(lift.properties.is_static.0),
-                pose: Some(pose.to_sdf(0.0)),
+                pose: Some(pose.to_sdf()),
                 link: vec![SdfLink {
                     name: "platform".into(),
                     collision: vec![SdfCollision {
@@ -796,7 +796,7 @@ impl Site {
             world.include.push(SdfWorldInclude {
                 uri: "model://".to_string() + robot_type,
                 name: Some(robot.name.0.clone()),
-                pose: Some(pose.to_sdf(0.0)),
+                pose: Some(pose.to_sdf()),
                 r#static: Some(robot.is_static.0),
                 ..Default::default()
             });
@@ -824,7 +824,7 @@ impl Site {
                             Angle::Rad(1.57),
                         ]);
                         pose.trans[0] = pose.trans[0] + 10.0;
-                        camera_pose.data = ElementData::String(pose.to_sdf(0.0).data);
+                        camera_pose.data = ElementData::String(pose.to_sdf().data);
                     }
                 }
             }
