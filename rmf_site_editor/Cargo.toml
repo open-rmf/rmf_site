@@ -46,7 +46,7 @@ rfd = "0.12"
 urdf-rs = "0.7"
 yaserde = "0.7"
 utm = "0.1.6"
-sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "48ebcad"}
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
 gz-fuel = { git = "https://github.com/open-rmf/gz-fuel-rs", branch = "luca/ehttp" }
 pathdiff = "*"
 tera = "1.19.1"
