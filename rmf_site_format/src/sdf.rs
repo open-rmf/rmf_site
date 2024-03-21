@@ -558,6 +558,13 @@ impl Site {
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
         for lift in self.lifts.values() {
+            let get_lift_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
+                lift
+                    .cabin_anchors
+                    .get(&id)
+                    .ok_or(SdfConversionError::BrokenAnchorReference(id))
+                    .cloned()
+            };
             // Cabin
             let LiftCabin::Rect(ref cabin) = lift.properties.cabin;
             let pose = lift
@@ -628,20 +635,8 @@ impl Site {
                     kind: door.kind.clone(),
                     marker: DoorMarker,
                 };
-                let left_anchor = lift
-                    .cabin_anchors
-                    .get(&door.reference_anchors.left())
-                    .ok_or(SdfConversionError::BrokenAnchorReference(
-                        door.reference_anchors.left(),
-                    ))?
-                    .clone();
-                let right_anchor = lift
-                    .cabin_anchors
-                    .get(&door.reference_anchors.right())
-                    .ok_or(SdfConversionError::BrokenAnchorReference(
-                        door.reference_anchors.right(),
-                    ))?
-                    .clone();
+                let left_anchor = get_lift_anchor(door.reference_anchors.left())?;
+                let right_anchor = get_lift_anchor(door.reference_anchors.right())?;
                 let x_offset = -face.u()
                     * (door_placement.thickness() / 2.0
                         + door_placement
@@ -672,27 +667,15 @@ impl Site {
                         lift_name,
                         face.label()
                     );
-                    let dummy_shaft = Door {
+                    let dummy_shaft_door = Door {
                         anchors: door.reference_anchors.clone(),
                         name: NameInSite(shaft_door_name.clone()),
                         kind: door.kind.clone(),
                         marker: DoorMarker,
                     };
-                    let left_anchor = lift
-                        .cabin_anchors
-                        .get(&door.reference_anchors.left())
-                        .ok_or(SdfConversionError::BrokenAnchorReference(
-                            door.reference_anchors.left(),
-                        ))?
-                        .clone();
-                    let right_anchor = lift
-                        .cabin_anchors
-                        .get(&door.reference_anchors.right())
-                        .ok_or(SdfConversionError::BrokenAnchorReference(
-                            door.reference_anchors.right(),
-                        ))?
-                        .clone();
-                    let dummy_shaft = dummy_shaft.to_sdf(
+                    let left_anchor = get_lift_anchor(door.reference_anchors.left())?;
+                    let right_anchor = get_lift_anchor(door.reference_anchors.right())?;
+                    let shaft_door = dummy_shaft_door.to_sdf(
                         left_anchor,
                         right_anchor,
                         Vec3::from(pose.trans) + Vec3::new(0.0, 0.0, level.properties.elevation.0),
@@ -700,7 +683,7 @@ impl Site {
                         Some(cabin_mesh_prefix.clone()),
                     )?;
                     // Add the pose of the lift to have world coordinates
-                    world.model.push(dummy_shaft);
+                    world.model.push(shaft_door);
                     // Add the shaft door to the level transparency plugin
                     toggle_floors_plugin.elements.for_each_mut("floor", |elem| {
                         if elem.attributes.get("name") == Some(&level.properties.name.0) {
