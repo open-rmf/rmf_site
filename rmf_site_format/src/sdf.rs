@@ -702,23 +702,17 @@ impl Site {
                     // Add the pose of the lift to have world coordinates
                     world.model.push(dummy_shaft);
                     // Add the shaft door to the level transparency plugin
-                    if let Some(ElementData::Nested(ref mut map)) = toggle_floors_plugin
-                        .elements
-                        .get_all_mut("floor")
-                        .and_then(|mut elems| {
-                            elems
-                                .find(|el| {
-                                    el.attributes.get("name") == Some(&level.properties.name.0)
-                                })
-                                .map(|e| &mut e.data)
-                        })
-                    {
-                        map.push(XmlElement {
-                            name: "model".into(),
-                            attributes: [("name".into(), shaft_door_name.clone())].into(),
-                            ..Default::default()
-                        });
-                    };
+                    toggle_floors_plugin.elements.for_each_mut("floor", |elem| {
+                        if elem.attributes.get("name") == Some(&level.properties.name.0) {
+                            if let ElementData::Nested(ref mut map) = elem.data {
+                                map.push(XmlElement {
+                                    name: "model".into(),
+                                    attributes: [("name".into(), shaft_door_name.clone())].into(),
+                                    ..Default::default()
+                                });
+                            }
+                        }
+                    });
                     let level = levels.entry(*visit).or_default();
                     let element = XmlElement {
                         name: "door_pair".into(),
