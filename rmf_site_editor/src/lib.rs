@@ -131,6 +131,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn get_map_list() -> js_sys::Array;
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn send_nav_graph_total(total: &js_sys::Number);
 }
 
 #[cfg(target_arch = "wasm32")]

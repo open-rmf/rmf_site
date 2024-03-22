@@ -29,10 +29,11 @@ use crate::{
     log,
     main_menu::{SaveToWeb, UploadData, WebAutoLoad},
     recency::RecencyRanking,
-    save_nav_graph, save_site_map,
+    save_nav_graph, save_site_map,send_nav_graph_total,
     site::*,
 };
 use rmf_site_format::*;
+use js_sys::Number;
 
 #[derive(Event)]
 pub struct SaveSite {
@@ -1227,6 +1228,10 @@ pub fn save_site(world: &mut World) {
                     continue;
                 }
             };
+
+            let total = legacy::nav_graph::NavGraph::from_site(&site).len();
+            let js_number = Number::from(total as f64);
+            send_nav_graph_total(&js_number);
 
             for (name, nav_graph) in legacy::nav_graph::NavGraph::from_site(&site) {
                 // convert to yaml using serde yaml
