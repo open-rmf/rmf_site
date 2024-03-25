@@ -1,6 +1,7 @@
 use crate::{
     JsValue,
-    log
+    log,
+    site_mode
 };
 use js_sys::Boolean;
 use serde::Deserialize;
@@ -24,8 +25,24 @@ pub struct Maps {
     pub yaml_data: YamlData,
 }
 
+pub static mut SITE_MODE:String = String::new();
 pub static mut MAP_INDEX:u32=0;
 pub static mut SHOW_MAP_ASSET_SOURCE:u32=0; // Display whether map dropdown or text box on selecting "RCC" AssetSource
+
+
+
+pub fn set_site_mode() {
+    let js_value: JsValue = site_mode().into();
+    let rust_string: String = js_value.as_string().unwrap_or_default();
+    unsafe { SITE_MODE = rust_string.to_string() }
+    
+}
+
+pub fn is_site_in_view_mode() -> bool {
+
+    return  unsafe { &SITE_MODE } == "VIEW_MODE"
+}
+
 
 pub fn parse_js_value(val: &JsValue) -> Result<Maps, Box<dyn std::error::Error>> {
     let curr_map_str = js_sys::JSON::stringify(&val).unwrap().as_string().ok_or("Invalid string")?;

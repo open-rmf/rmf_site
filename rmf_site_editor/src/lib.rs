@@ -78,6 +78,8 @@ pub mod rcc;
 use crate::main_menu::UploadData;
 use crate::main_menu::WebAutoLoad;
 
+use crate::rcc::{set_site_mode,SITE_MODE};
+
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
     /// Filename of a Site (.site.ron) or Building (.building.yaml) file to load.
@@ -134,6 +136,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn send_nav_graph_total(total: &js_sys::Number);
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn site_mode() -> js_sys::JsString;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -154,6 +159,8 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValu
 
     #[cfg(target_arch = "wasm32")]
     log("Running RCC RMF Site Editor with map data");
+    set_site_mode();
+    unsafe { log(&SITE_MODE)}
 
     let array = Uint8Array::new(&buffer);
     let bytes: Vec<u8> = array.to_vec();
