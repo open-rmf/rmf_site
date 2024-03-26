@@ -397,11 +397,20 @@ fn update_robot_pose(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Re
             
             if let Some(robot_pose) = rcc::get_robot_pose_by_id(&robot_id) {
                 
-                let direction = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
+                let target_position = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
+                let direction = (target_position - transform.translation).normalize();
+
+                transform.translation += direction * cube.speed * timer.delta_seconds();
+
+                if (transform.translation.distance(target_position) <= cube.speed * timer.delta_seconds()) {
+                    // If close enough to the target position, you might want to directly set the position to the target
+                    transform.translation = target_position;
+                }
+                
                 // transform.translation += direction * cube.speed;
-                let speed : f32 = 1.0;
-                transform.translation += direction * speed * timer.delta_seconds();
-            
+                // let speed : f32 = 1.0;
+                // transform.translation += direction * speed * timer.delta_seconds();
+                // transform.translation = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
                 // if (cube.spawn - transform.translation).length() > cube.max_distance {
                 //     cube.speed *= -1.0;
                 // }
