@@ -228,6 +228,7 @@ pub fn send_robot_pose(robot_id: JsValue,robot_pose: js_sys::Object) {
 
     #[cfg(target_arch = "wasm32")]
     let robot_id: String = robot_id.as_string().unwrap();
+    log("set_robot_id");
     log(&robot_id);
    
     match rcc::parse_robot_pose(&robot_pose) {
@@ -391,6 +392,8 @@ fn update_robot_pose(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Re
     let mut index:u32 = 0;
     for (mut transform, mut cube) in &mut cubes {
         if let Some(robot_id) = rcc::get_robot_id(index) {
+            log("get_robot_id");
+            log(&robot_id);
             
             if let Some(robot_pose) = rcc::get_robot_pose_by_id(&robot_id) {
                 
