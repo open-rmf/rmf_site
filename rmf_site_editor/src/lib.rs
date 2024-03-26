@@ -400,7 +400,8 @@ fn update_robot_pose(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Re
                 let direction = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
                 // transform.translation += direction * cube.speed;
                 let speed : f32 = 1.0;
-                transform.translation += direction * speed;
+                transform.translation += direction * speed * timer.delta_seconds();
+            
                 // if (cube.spawn - transform.translation).length() > cube.max_distance {
                 //     cube.speed *= -1.0;
                 // }
