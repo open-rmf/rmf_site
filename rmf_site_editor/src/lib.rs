@@ -1,7 +1,7 @@
 extern crate console_error_panic_hook;
 
 use bevy::{
-    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::renderer::RenderAdapterInfo,
+    log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*, render::{mesh::shape::Cube, renderer::RenderAdapterInfo},
 };
 use bevy_egui::EguiPlugin;
 
@@ -78,7 +78,27 @@ pub mod rcc;
 use crate::main_menu::UploadData;
 use crate::main_menu::WebAutoLoad;
 
-use crate::rcc::{set_site_mode,SITE_MODE};
+use crate::rcc::{set_site_mode,is_site_in_view_mode};
+
+// Define a struct to keep some information about our entity.
+// Here it's an arbitrary movement speed, the spawn location, and a maximum distance from it.
+#[derive(Component)]
+struct Movable {
+    spawn: Vec3,
+    max_distance: f32,
+    speed: f32,
+}
+
+// Implement a utility function for easier Movable struct creation.
+impl Movable {
+    fn new(spawn: Vec3) -> Self {
+        Movable {
+            spawn,
+            max_distance: 5.0,
+            speed: 2.0,
+        }
+    }
+}
 
 #[cfg_attr(not(target_arch = "wasm32"), derive(Parser))]
 pub struct CommandLineArgs {
@@ -139,6 +159,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn site_mode() -> js_sys::JsString;
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn get_robots_list() -> js_sys::Array;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -160,7 +183,7 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValu
     #[cfg(target_arch = "wasm32")]
     log("Running RCC RMF Site Editor with map data");
     set_site_mode();
-    unsafe { log(&SITE_MODE)}
+    
 
     let array = Uint8Array::new(&buffer);
     let bytes: Vec<u8> = array.to_vec();
@@ -173,6 +196,12 @@ pub fn run_js_with_data(buffer: JsValue, file_type: JsValue, building_id: JsValu
     app.insert_resource(WebAutoLoad::file(bytes, file_type));
     app.insert_resource(UploadData::new(building_id));
     app.add_plugins(SiteEditor);
+
+    if is_site_in_view_mode() {
+        app.add_systems(Startup, set_initial_robot_pose);
+        app.add_systems(Update, update_robot_pose);
+    }
+
     app.run();
 }
 
@@ -190,6 +219,29 @@ pub fn run_js_new_site(building_id: JsValue) {
     app.insert_resource(UploadData::new(building_id));
     app.add_plugins(SiteEditor);
     app.run();
+}
+
+#[cfg(target_arch = "wasm32")]
+#[wasm_bindgen]
+pub fn send_robot_pose(robot_id: JsValue,robot_pose: js_sys::Object) {
+    panic::set_hook(Box::new(console_error_panic_hook::hook));
+
+    #[cfg(target_arch = "wasm32")]
+    let robot_id: String = robot_id.as_string().unwrap();
+    log(&robot_id);
+   
+    match rcc::parse_robot_pose(&robot_pose) {
+        Ok(obj)=>{
+            rcc::add_robot_pose_by_id(robot_id,obj);
+        },
+        Err(err)=>{
+            #[cfg(target_arch = "wasm32")]
+            {
+                log( &format!("Error parsing  robot pose: {}", err));
+            }
+        }
+    }
+
 }
 
 pub fn run(command_line_args: Vec<String>) {
@@ -299,5 +351,62 @@ impl Plugin for SiteEditor {
                 OSMViewPlugin,
                 SiteWireframePlugin,
             ));
+    }
+}
+
+fn set_initial_robot_pose(mut commands: Commands, mut meshes: ResMut<Assets<Mesh>>) {
+    let entity_spawn = Vec3::ZERO;
+    let robot_list = get_robots_list().clone();
+
+    for i in 0..robot_list.length() {
+        match rcc::parse_robot_data(&robot_list.get(i)) {
+            Ok(robot_id)=>{
+                rcc::add_robot_in_robot_list(robot_id, i);
+            },
+            Err(err)=>{
+                #[cfg(target_arch = "wasm32")]
+                {
+                    log( &format!("Error parsing  robot list items JSON: {}", err));
+                }
+            }
+        }
+
+        commands.spawn((
+            PbrBundle {
+                mesh: meshes.add(Mesh::from(shape::Cube {
+                    ..Default::default()
+                })),
+                transform: Transform::from_xyz(i as f32, 0.5, 0.0),
+                ..default()
+            },
+            Movable::new(entity_spawn),
+        ));
+    }
+}
+
+
+
+fn update_robot_pose(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Res<Time>) {
+    
+    let mut index:u32 = 0;
+    for (mut transform, mut cube) in &mut cubes {
+        if let Some(robot_id) = rcc::get_robot_id(index) {
+            
+            if let Some(robot_pose) = rcc::get_robot_pose_by_id(&robot_id) {
+                
+                let direction = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
+                transform.translation += direction * cube.speed * timer.delta_seconds();
+                if (cube.spawn - transform.translation).length() > cube.max_distance {
+                    cube.speed *= -1.0;
+                }
+            } else {
+                log("unable to get robot pose");
+            }
+           
+        } else {
+            log("unable to get robot id");
+        }
+
+        index += 1;
     }
 }

@@ -4590,6 +4590,7 @@ dependencies = [
  "itertools",
  "js-sys",
  "lyon",
+ "once_cell",
  "pathdiff",
  "rfd",
  "rmf_site_format",

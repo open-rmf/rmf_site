@@ -53,6 +53,7 @@ js-sys = "0.3.60"
 web-sys = "0.3.60"
 console_error_panic_hook = "0.1.7"
 ron = "0.8"
+once_cell = "1.8.0"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 clap = { version = "4.0.10", features = ["color", "derive", "help", "usage", "suggestions"] }
