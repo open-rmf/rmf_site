@@ -102,6 +102,10 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     let Some((mesh, material)) = get_mesh_and_material(res.mesh) else {
                         continue;
                     };
+                    // Remove transparency from floors
+                    let mut material = material.clone();
+                    material.alpha_mode = AlphaMode::Opaque;
+                    material.base_color.set_a(1.0);
                     collision_data.push(MeshData {
                         mesh,
                         material: None,
@@ -115,12 +119,15 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                 } else if let Ok((model, is_static, name)) = q_models.get(*child) {
                     let mut model_collisions = vec![];
                     let mut model_visuals = vec![];
-                    // TODO(luca) don't do full descendant iter here or we might add twice?
                     // Iterate through children and select all meshes
+                    let added_meshes = HashSet::new();
                     for model_child in DescendantIter::new(&q_children, model) {
                         if q_collisions.get(model_child).is_ok() {
                             // Now iterate through the children of the collision and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
+                                if added_meshes.contains(entity) {
+                                    continue;
+                                }
                                 let Some((mesh, _)) = get_mesh_and_material(entity) else {
                                     continue;
                                 };
@@ -142,10 +149,14 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                     material: None,
                                     pose: Some(pose),
                                 });
+                                added_meshes.insert(entity);
                             }
                         } else if q_visuals.get(model_child).is_ok() {
                             // Now iterate through the children of the visuals and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
+                                if added_meshes.contains(entity) {
+                                    continue;
+                                }
                                 let Some((mesh, material)) = get_mesh_and_material(entity) else {
                                     continue;
                                 };
@@ -167,6 +178,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                     material: Some(material),
                                     pose: Some(pose),
                                 });
+                                added_meshes.insert(entity);
                             }
                         }
                     }
