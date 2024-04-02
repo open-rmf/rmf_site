@@ -20,7 +20,7 @@ use crate::{
     site::{AlignSiteDrawings, Delete},
     CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
 };
-use bevy::{ecs::system::SystemParam, prelude::*, window::PrimaryWindow};
+use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_egui::EguiContexts;
 
 #[derive(Debug, Clone, Copy, Resource)]

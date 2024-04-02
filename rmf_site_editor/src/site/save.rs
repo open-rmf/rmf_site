@@ -1263,7 +1263,10 @@ pub fn save_site(world: &mut World) {
                 info!("Saving to {}", new_path.display());
                 let parent_folder = new_path.parent().unwrap();
                 if !parent_folder.exists() {
-                    std::fs::create_dir_all(new_path.parent().unwrap());
+                    if let Err(e) = std::fs::create_dir_all(new_path.parent().unwrap()) {
+                        error!("Unable to create folder {}: {e}", parent_folder.display());
+                        continue;
+                    }
                 }
                 let f = match std::fs::File::create(&new_path) {
                     Ok(f) => f,

@@ -1,7 +1,4 @@
-use bevy::{
-    app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*,
-    render::renderer::RenderAdapterInfo,
-};
+use bevy::{app::ScheduleRunnerPlugin, log::LogPlugin, pbr::DirectionalLightShadowMap, prelude::*};
 use bevy_egui::EguiPlugin;
 use main_menu::MainMenuPlugin;
 // use warehouse_generator::WarehouseGeneratorPlugin;
@@ -78,9 +75,9 @@ pub struct CommandLineArgs {
     /// Name of a Site (.site.ron) file to import on top of the base FILENAME.
     #[cfg_attr(not(target_arch = "wasm32"), arg(short, long))]
     pub import: Option<String>,
-    /// Run in headless mode.
+    /// Run in headless mode and export the loaded site to the requested path.
     #[cfg_attr(not(target_arch = "wasm32"), arg(long))]
-    pub headless: Option<String>,
+    pub headless_export: Option<String>,
 }
 
 #[derive(Clone, Default, Eq, PartialEq, Debug, Hash, States)]
@@ -123,7 +120,7 @@ pub fn run_js() {
 
 pub fn run(command_line_args: Vec<String>) {
     let mut app = App::new();
-    let mut headless = None;
+    let mut headless_export = None;
 
     #[cfg(not(target_arch = "wasm32"))]
     {
@@ -134,17 +131,17 @@ pub fn run(command_line_args: Vec<String>) {
                 command_line_args.import.map(Into::into),
             ));
         }
-        headless = command_line_args.headless;
+        headless_export = command_line_args.headless_export;
     }
 
-    app.add_plugins(SiteEditor { headless });
+    app.add_plugins(SiteEditor { headless_export });
     app.run();
 }
 
 #[derive(Default)]
 pub struct SiteEditor {
-    /// Whether to run the site editor in headless mode.
-    pub headless: Option<String>,
+    /// Contains Some(path) if the site editor is running in headless mode exporting its site.
+    pub headless_export: Option<String>,
 }
 
 impl Plugin for SiteEditor {
@@ -153,7 +150,7 @@ impl Plugin for SiteEditor {
         let headless = {
             #[cfg(not(target_arch = "wasm32"))]
             {
-                self.headless.is_some()
+                self.headless_export.is_some()
             }
             #[cfg(target_arch = "wasm32")]
             {
@@ -221,10 +218,10 @@ impl Plugin for SiteEditor {
                 WorkcellEditorPlugin,
                 SitePlugin,
                 InteractionPlugin {
-                    headless: self.headless.is_some(),
+                    headless: self.headless_export.is_some(),
                 },
                 StandardUiLayout {
-                    headless: self.headless.is_some(),
+                    headless: self.headless_export.is_some(),
                 },
                 AnimationPlugin,
                 OccupancyPlugin,
@@ -244,63 +241,15 @@ impl Plugin for SiteEditor {
         app.world
             .remove_resource::<bevy::ecs::event::EventUpdateSignal>();
 
-        // TODO(luca) This schedule runner plugin runs forever.
-        // We might need to have a custom one where we can inject exit conditions.
-        if let Some(path) = &self.headless {
+        if let Some(path) = &self.headless_export {
             // We really don't need a high update rate here since we are IO bound, set a low rate
             // to save CPU.
-            app.add_plugins(ScheduleRunnerPlugin::run_loop(std::time::Duration::from_secs_f64(1.0 / 10.0)));
-            app.insert_resource(HeadlessExport(path.clone()));
-            app.add_systems(Last, headless_sdf_export);
-        }
-    }
-}
-
-#[derive(Debug, Resource, Default)]
-pub struct HeadlessExport(String);
-
-#[derive(Debug, Resource, Default)]
-pub struct Counter(u32, bool, bool);
-
-pub fn headless_sdf_export(
-    mut export: EventWriter<SaveWorkspace>,
-    mut exit: EventWriter<bevy::app::AppExit>,
-    missing_models: Query<
-        (),
-        (
-            With<site::TentativeModelFormat>,
-            Without<site::ModelSceneRoot>,
-        ),
-    >,
-    mut export_state: Local<Counter>,
-    path: Res<HeadlessExport>,
-    sites: Query<(Entity, &rmf_site_format::NameOfSite)>,
-) {
-    export_state.0 += 1;
-    if export_state.0 < 5 {
-        return;
-    }
-    if sites.is_empty() {
-        warn!("Site loading failed, aborting");
-        exit.send(bevy::app::AppExit);
-    }
-    if !missing_models.is_empty() {
-        // TODO(luca) implement a timeout logic?
-    } else {
-        if !export_state.1 {
-            export_state.0 = 0;
-            export_state.1 = true;
-        } else {
-            if !export_state.2 && export_state.0 > 5 {
-                export_state.2 = true;
-                for (e, name) in &sites {
-                    let path = std::path::PathBuf::from(path.0.clone());
-                    export.send(SaveWorkspace::new().to_sdf().to_path(&path));
-                    info!("Sent");
-                }
-            } else if export_state.2 && export_state.0 > 15 {
-                exit.send(bevy::app::AppExit);
-            }
+            // TODO(luca) this still seems to take quite some time, check where the bottleneck is.
+            app.add_plugins(ScheduleRunnerPlugin::run_loop(
+                std::time::Duration::from_secs_f64(1.0 / 10.0),
+            ));
+            app.insert_resource(site::HeadlessSdfExportState::new(path));
+            app.add_systems(Last, site::headless_sdf_export);
         }
     }
 }

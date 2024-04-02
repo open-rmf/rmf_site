@@ -1,14 +1,83 @@
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData, MeshExportError};
+use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData};
 
 use std::path::Path;
 
+use crate::SaveWorkspace;
+
 use crate::site::{
-    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, FloorSegments, LiftDoormat,
-    VisualMeshMarker,
+    ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
+    LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
 };
-use rmf_site_format::{IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, WallMarker};
+use rmf_site_format::{
+    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, WallMarker,
+};
+
+/// Manages a simple state machine where we:
+///   * Wait for a few iterations,
+///   * Make sure the world is loaded.
+///   * Send a save event.
+///   * Wait for a few iterations.
+///   * Exit.
+#[derive(Debug, Resource)]
+pub struct HeadlessSdfExportState {
+    iterations: u32,
+    world_loaded: bool,
+    save_requested: bool,
+    target_path: String,
+}
+
+impl HeadlessSdfExportState {
+    pub fn new(path: &str) -> Self {
+        Self {
+            iterations: 0,
+            world_loaded: false,
+            save_requested: false,
+            target_path: path.into(),
+        }
+    }
+}
+
+pub fn headless_sdf_export(
+    mut commands: Commands,
+    mut export: EventWriter<SaveWorkspace>,
+    mut exit: EventWriter<bevy::app::AppExit>,
+    missing_models: Query<(), (With<TentativeModelFormat>, Without<ModelSceneRoot>)>,
+    mut export_state: ResMut<HeadlessSdfExportState>,
+    sites: Query<(Entity, &NameOfSite)>,
+    drawings: Query<Entity, With<DrawingMarker>>,
+) {
+    export_state.iterations += 1;
+    if export_state.iterations < 5 {
+        return;
+    }
+    if sites.is_empty() {
+        warn!("Site loading failed, aborting");
+        exit.send(bevy::app::AppExit);
+    }
+    if !missing_models.is_empty() {
+        // Despawn all drawings, otherwise floors will become transparent.
+        for e in drawings.iter() {
+            commands.entity(e).despawn_recursive();
+        }
+        // TODO(luca) implement a timeout logic?
+    } else {
+        if !export_state.world_loaded {
+            export_state.iterations = 0;
+            export_state.world_loaded = true;
+        } else {
+            if !export_state.save_requested && export_state.iterations > 5 {
+                let path = std::path::PathBuf::from(export_state.target_path.clone());
+                export.send(SaveWorkspace::new().to_sdf().to_path(&path));
+                export_state.save_requested = true;
+                export_state.iterations = 0;
+            } else if export_state.save_requested && export_state.iterations > 5 {
+                exit.send(bevy::app::AppExit);
+            }
+        }
+    }
+}
 
 pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Result<(), String> {
     let mut state: SystemState<(
@@ -254,9 +323,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                 let Some(door) = door else {
                     continue;
                 };
-                println!("Found door with label {}", face.label());
                 if let Ok((_, segments)) = q_doors.get(door.door) {
-                    println!("Segments found");
                     // TODO(luca) this is duplicated with door generation, refactor
                     for (entity, segment_name) in segments
                         .body
