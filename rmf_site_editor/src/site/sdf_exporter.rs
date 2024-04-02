@@ -1,6 +1,6 @@
 use bevy::ecs::system::SystemState;
 use bevy::prelude::*;
-use bevy_gltf_export::{export_meshes, CompressGltfOptions, GltfPose, MeshData, MeshExportError};
+use bevy_gltf_export::{export_meshes, CompressGltfOptions, MeshData, MeshExportError};
 
 use std::path::Path;
 
@@ -79,8 +79,8 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         let mut collision_data = Vec::new();
         let mut visual_data = Vec::new();
         if let Ok((level_name, elevation, children)) = q_levels.get(*site_child) {
-            let level_pose = GltfPose {
-                translation: [0.0, 0.0, **elevation],
+            let level_tf = Transform {
+                translation: Vec3::new(0.0, 0.0, **elevation),
                 ..Default::default()
             };
             for child in children.iter() {
@@ -91,12 +91,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     collision_data.push(MeshData {
                         mesh,
                         material: None,
-                        pose: Some(level_pose.clone()),
+                        transform: Some(level_tf.clone()),
                     });
                     visual_data.push(MeshData {
                         mesh,
                         material: Some(material),
-                        pose: Some(level_pose.clone()),
+                        transform: Some(level_tf.clone()),
                     });
                 } else if let Ok(res) = q_floors.get(*child) {
                     let Some((mesh, material)) = get_mesh_and_material(res.mesh) else {
@@ -105,12 +105,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     collision_data.push(MeshData {
                         mesh,
                         material: None,
-                        pose: Some(level_pose.clone()),
+                        transform: Some(level_tf.clone()),
                     });
                     visual_data.push(MeshData {
                         mesh,
                         material: Some(material),
-                        pose: Some(level_pose.clone()),
+                        transform: Some(level_tf.clone()),
                     });
                 } else if let Ok((model, is_static, name)) = q_models.get(*child) {
                     let mut model_collisions = vec![];
@@ -127,20 +127,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                 let Ok(tf) = q_global_tfs.get(entity) else {
                                     continue;
                                 };
-                                let tf = tf.compute_transform();
-                                let pose = GltfPose {
-                                    translation: [
-                                        tf.translation.x,
-                                        tf.translation.y,
-                                        tf.translation.z + **elevation,
-                                    ],
-                                    rotation: tf.rotation.to_array(),
-                                    scale: Some(tf.scale.to_array()),
-                                };
+                                let mut tf = tf.compute_transform();
+                                tf.translation.z = tf.translation.z + **elevation;
                                 model_collisions.push(MeshData {
                                     mesh,
                                     material: None,
-                                    pose: Some(pose),
+                                    transform: Some(tf),
                                 });
                             }
                         } else if q_visuals.get(model_child).is_ok() {
@@ -152,20 +144,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                 let Ok(tf) = q_global_tfs.get(entity) else {
                                     continue;
                                 };
-                                let tf = tf.compute_transform();
-                                let pose = GltfPose {
-                                    translation: [
-                                        tf.translation.x,
-                                        tf.translation.y,
-                                        tf.translation.z + **elevation,
-                                    ],
-                                    rotation: tf.rotation.to_array(),
-                                    scale: Some(tf.scale.to_array()),
-                                };
+                                let mut tf = tf.compute_transform();
+                                tf.translation.z = tf.translation.z + **elevation;
                                 model_visuals.push(MeshData {
                                     mesh,
                                     material: Some(material),
-                                    pose: Some(pose),
+                                    transform: Some(tf),
                                 });
                             }
                         }
@@ -208,16 +192,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let Some(door_name) = door_name else {
                             continue;
                         };
-                        let pose = GltfPose {
-                            translation: tf.translation.to_array(),
-                            rotation: tf.rotation.to_array(),
-                            scale: Some(tf.scale.to_array()),
-                        };
 
                         let data = MeshData {
                             mesh,
                             material: Some(material),
-                            pose: Some(pose.clone()),
+                            transform: Some(tf.clone()),
                         };
                         let filename =
                             format!("{}/{}_{}.glb", folder.display(), **door_name, segment_name);
@@ -264,7 +243,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                 lift_data.push(MeshData {
                     mesh,
                     material: Some(material),
-                    pose: None,
+                    transform: None,
                 });
             }
             let filename = format!("{}/{}.glb", folder.display(), **lift_name);
@@ -292,16 +271,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let Ok(tf) = q_tfs.get(*entity) else {
                             continue;
                         };
-                        let pose = GltfPose {
-                            translation: tf.translation.to_array(),
-                            rotation: tf.rotation.to_array(),
-                            scale: Some(tf.scale.to_array()),
-                        };
 
                         let data = MeshData {
                             mesh,
                             material: Some(material),
-                            pose: Some(pose.clone()),
+                            transform: Some(tf.clone()),
                         };
                         let filename = format!(
                             "{}/{}_{}_{}.glb",
