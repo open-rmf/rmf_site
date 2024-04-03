@@ -154,6 +154,8 @@ fn default_style_config() -> Style {
 }
 
 impl Site {
+    // TODO(luca) the functions below assume that we only serialize to ron, now that we are adding
+    // json these should probably be renamed or made to accept an enum for the format?
     pub fn to_writer<W: io::Write>(&self, writer: W) -> ron::Result<()> {
         ron::ser::to_writer_pretty(writer, self, default_style_config())
     }
@@ -168,6 +170,14 @@ impl Site {
 
     pub fn to_string_custom(&self, style: Style) -> ron::Result<String> {
         ron::ser::to_string_pretty(self, style)
+    }
+
+    pub fn to_writer_json<W: io::Write>(&self, writer: W) -> serde_json::Result<()> {
+        serde_json::to_writer_pretty(writer, self)
+    }
+
+    pub fn from_json_bytes(s: &[u8]) -> serde_json::Result<Self> {
+        serde_json::from_slice(s)
     }
 
     pub fn from_reader<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
@@ -204,10 +214,18 @@ mod tests {
     use crate::legacy::building_map::BuildingMap;
 
     #[test]
-    fn serde_roundtrip() {
+    fn ron_roundtrip() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
         let site_string = map.to_site().unwrap().to_string().unwrap();
         Site::from_str(&site_string).unwrap();
+    }
+
+    #[test]
+    fn json_roundtrip() {
+        let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
+        let map = BuildingMap::from_bytes(&data).unwrap();
+        let site_string = map.to_site().unwrap().to_json().unwrap();
+        Site::from_json_str(&site_string).unwrap();
     }
 }

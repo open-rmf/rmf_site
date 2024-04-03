@@ -1215,7 +1215,9 @@ pub fn save_site(world: &mut World) {
                 if path_str.ends_with(".building.yaml") {
                     warn!("Detected old file format, converting to new format");
                     new_path = path_str.replace(".building.yaml", ".site.ron").into();
-                } else if !path_str.ends_with("site.ron") {
+                } else if path_str.ends_with(".site.json") {
+                    // Noop
+                } else if !path_str.ends_with(".site.ron") {
                     info!("Appending .site.ron to {}", new_path.display());
                     new_path = new_path.with_extension("site.ron");
                 }
@@ -1239,27 +1241,34 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                match site.to_writer(f) {
-                    Ok(()) => {
-                        info!("Save successful");
-                    }
-                    Err(err) => {
-                        if let Some(old_default_path) = old_default_path {
-                            world.entity_mut(save_event.site).insert(old_default_path);
+                if new_path.extension().is_some_and(|e| e == "json") {
+                    match site.to_writer_json(f) {
+                        Ok(()) => {
+                            info!("Save successful");
                         }
-                        error!("Save failed: {err}");
+                        Err(err) => {
+                            if let Some(old_default_path) = old_default_path {
+                                world.entity_mut(save_event.site).insert(old_default_path);
+                            }
+                            error!("Save failed: {err}");
+                        }
+                    }
+                } else {
+                    match site.to_writer(f) {
+                        Ok(()) => {
+                            info!("Save successful");
+                        }
+                        Err(err) => {
+                            if let Some(old_default_path) = old_default_path {
+                                world.entity_mut(save_event.site).insert(old_default_path);
+                            }
+                            error!("Save failed: {err}");
+                        }
                     }
                 }
             }
             ExportFormat::Sdf => {
                 // TODO(luca) reduce code duplication with default exporting
-                if path_str.ends_with(".building.yaml") {
-                    warn!("Detected old file format, converting to new format");
-                    new_path = path_str.replace(".building.yaml", ".world").into();
-                } else if !path_str.ends_with("site.ron") {
-                    info!("Appending .world to {}", new_path.display());
-                    new_path = new_path.with_extension("world");
-                }
                 info!("Saving to {}", new_path.display());
                 let parent_folder = new_path.parent().unwrap();
                 if !parent_folder.exists() {
@@ -1280,7 +1289,7 @@ pub fn save_site(world: &mut World) {
                 meshes_dir.push("meshes");
                 std::fs::create_dir(&meshes_dir).ok();
                 if let Err(e) = collect_site_meshes(world, save_event.site, &meshes_dir) {
-                    error!("Unable to collect site meshes {e}");
+                    error!("Unable to collect site meshes: {e}");
                 }
 
                 migrate_relative_paths(save_event.site, &new_path, world);
@@ -1296,9 +1305,7 @@ pub fn save_site(world: &mut World) {
                 let sdf = match site.to_sdf() {
                     Ok(sdf) => sdf,
                     Err(err) => {
-                        //error!("Unable to convert site to sdf: {err}");
-                        error!("Unable to convert site to sdf");
-                        dbg!(err);
+                        error!("Unable to convert site to sdf: {err}");
                         continue;
                     }
                 };

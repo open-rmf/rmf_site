@@ -61,7 +61,8 @@ pub enum LoadWorkspace {
 #[derive(Clone)]
 pub enum WorkspaceData {
     LegacyBuilding(Vec<u8>),
-    Site(Vec<u8>),
+    RonSite(Vec<u8>),
+    JsonSite(Vec<u8>),
     Workcell(Vec<u8>),
     WorkcellUrdf(Vec<u8>),
 }
@@ -72,7 +73,9 @@ impl WorkspaceData {
         if filename.ends_with(".building.yaml") {
             Some(WorkspaceData::LegacyBuilding(data))
         } else if filename.ends_with("site.ron") {
-            Some(WorkspaceData::Site(data))
+            Some(WorkspaceData::RonSite(data))
+        } else if filename.ends_with("site.json") {
+            Some(WorkspaceData::JsonSite(data))
         } else if filename.ends_with("workcell.json") {
             Some(WorkspaceData::Workcell(data))
         } else if filename.ends_with("urdf") {
@@ -344,9 +347,27 @@ fn workspace_file_load_complete(
                     }
                 }
             }
-            WorkspaceData::Site(data) => {
+            WorkspaceData::RonSite(data) => {
                 info!("Opening site file");
                 match Site::from_bytes(&data) {
+                    Ok(site) => {
+                        // Switch state
+                        app_state.set(AppState::SiteEditor);
+                        load_site.send(LoadSite {
+                            site,
+                            focus: true,
+                            default_file,
+                        });
+                        interaction_state.set(InteractionState::Enable);
+                    }
+                    Err(err) => {
+                        error!("Failed loading site {:?}", err);
+                    }
+                }
+            }
+            WorkspaceData::JsonSite(data) => {
+                info!("Opening site file");
+                match Site::from_json_bytes(&data) {
                     Ok(site) => {
                         // Switch state
                         app_state.set(AppState::SiteEditor);

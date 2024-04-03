@@ -22,23 +22,24 @@ use glam::Vec3;
 use once_cell::sync::Lazy;
 use sdformat_rs::*;
 use std::collections::BTreeMap;
+use thiserror::Error;
 
 static WORLD_TEMPLATE: Lazy<SdfRoot> = Lazy::new(|| {
     yaserde::de::from_str(include_str!("templates/gz_world.sdf"))
         .expect("Failed deserializing template")
 });
 
-#[derive(Debug)]
+#[derive(Debug, Error)]
 pub enum SdfConversionError {
-    /// An asset that can't be converted to an sdf world was found.
+    #[error("An asset that can't be converted to an sdf world was found")]
     UnsupportedAssetType,
-    /// Entity referenced a non existing anchor.
+    #[error("Entity [{0}] referenced a non existing anchor")]
     BrokenAnchorReference(u32),
-    /// Entity referenced a non existing level.
+    #[error("Entity [{0}] referenced a non existing level")]
     BrokenLevelReference(u32),
-    /// Parsing of a lift cabin failed
+    #[error("Parsing lift cabin for lift [{0}] failed")]
     LiftParsingError(String),
-    /// A lift had no initial level where it could be spawned
+    #[error("Lift [{0}] had no initial level where it could be spawned")]
     MissingInitialLevel(String),
 }
 
