@@ -361,7 +361,7 @@ fn set_initial_robot_pose(mut commands: Commands, mut meshes: ResMut<Assets<Mesh
     for i in 0..robot_list.length() {
         match rcc::parse_robot_data(&robot_list.get(i)) {
             Ok(robot_id)=>{
-                rcc::add_robot_in_robot_list(robot_id, i);
+                rcc::add_robot_in_robot_list(&robot_id, i);
             },
             Err(err)=>{
                 #[cfg(target_arch = "wasm32")]
