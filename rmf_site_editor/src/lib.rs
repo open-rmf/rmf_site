@@ -162,6 +162,9 @@ extern "C" {
 
     #[wasm_bindgen(js_namespace = window)]
     pub fn get_robots_list() -> js_sys::Array;
+
+    #[wasm_bindgen(js_namespace = window)]
+    pub fn get_robot_initial_pose(id: &str) -> js_sys::Object;
 }
 
 #[cfg(target_arch = "wasm32")]
@@ -361,7 +364,33 @@ fn set_initial_robot_pose(mut commands: Commands, mut meshes: ResMut<Assets<Mesh
     for i in 0..robot_list.length() {
         match rcc::parse_robot_data(&robot_list.get(i)) {
             Ok(robot_id)=>{
+                //Add robot to the hashMap for later use
                 rcc::add_robot_in_robot_list(&robot_id, i);
+
+                 //Get robot's initial pose
+                 let robot_pose = get_robot_initial_pose(&robot_id);
+
+                 //Parse robot's pose & spawn
+                 match rcc::parse_robot_pose(&robot_pose) {
+                    Ok(obj)=>{
+                        commands.spawn((
+                            PbrBundle {
+                                mesh: meshes.add(Mesh::from(shape::Cube {
+                                    ..Default::default()
+                                })),
+                                transform: Transform::from_xyz(obj.x, obj.y, 0.0),
+                                ..default()
+                            },
+                            Movable::new(entity_spawn),
+                        ));
+                    },
+                    Err(err)=>{
+                        #[cfg(target_arch = "wasm32")]
+                        {
+                            log( &format!("Error parsing  robot pose: {}", err));
+                        }
+                    }
+                }
             },
             Err(err)=>{
                 #[cfg(target_arch = "wasm32")]
@@ -370,17 +399,6 @@ fn set_initial_robot_pose(mut commands: Commands, mut meshes: ResMut<Assets<Mesh
                 }
             }
         }
-
-        commands.spawn((
-            PbrBundle {
-                mesh: meshes.add(Mesh::from(shape::Cube {
-                    ..Default::default()
-                })),
-                transform: Transform::from_xyz(i as f32, 0.5, 0.0),
-                ..default()
-            },
-            Movable::new(entity_spawn),
-        ));
     }
 }
 

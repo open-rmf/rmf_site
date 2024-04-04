@@ -71,7 +71,6 @@ pub fn parse_robot_data(val: &JsValue) -> Result<String, Box<dyn std::error::Err
 
 pub fn add_robot_in_robot_list(id: &str,index: u32) {
     unsafe {
-        log(&format!("robot index  {:?} id {:?}", index,id.to_string()));
         ROBOT_LIST.insert(index, id.to_string());
     }
 }
