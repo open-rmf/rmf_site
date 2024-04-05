@@ -14,7 +14,7 @@ use std::{
 #[derive(Deserialize, Serialize, Clone)]
 pub struct LiftDoor {
     pub door_type: i32,
-    pub motion_axis_orientation: i32,
+    pub motion_axis_orientation: f32,
     pub width: f64,
     pub x: f64,
     pub y: f64,
