@@ -65,8 +65,8 @@ impl AssetSource {
             if Path::new(asset_path).is_relative() {
                 println!("Changing path for [{asset_path:?}]");
                 let new_path = diff_paths(
-                    &old_reference_path.with_file_name(asset_path.clone()),
-                    new_reference_path,
+                    old_reference_path.with_file_name(asset_path.clone()),
+                    new_reference_path.parent().ok_or(())?,
                 )
                 .ok_or(())?;
                 *asset_path = new_path.to_str().ok_or(())?.to_owned();
