@@ -42,7 +42,7 @@ pub struct FiducialVariables<T: RefTrait> {
     pub position: DVec2,
 }
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, Debug)]
 pub struct MeasurementVariables {
     pub in_pixels: f64,
     pub in_meters: f64,
@@ -135,6 +135,12 @@ pub fn align_legacy_building(building: &BuildingMap) -> HashMap<String, Alignmen
 
             initial_scale_numerator += m.in_meters / m.in_pixels;
         }
+        // If no measurements are available, default to a standard 5cm per pixel
+        let initial_scale = if !level.measurements.is_empty() {
+            initial_scale_numerator / level.measurements.len() as f64
+        } else {
+            0.05
+        };
         measurements.push(level_measurements);
 
         let mut level_fiducials = Vec::new();
@@ -148,12 +154,7 @@ pub fn align_legacy_building(building: &BuildingMap) -> HashMap<String, Alignmen
         }
         fiducials.push(level_fiducials);
 
-        u.extend([
-            0.0,
-            0.0,
-            0.0,
-            initial_scale_numerator / level.measurements.len() as f64,
-        ]);
+        u.extend([0.0, 0.0, 0.0, initial_scale]);
     }
 
     solve(&mut u, &fiducials, &measurements, false);
