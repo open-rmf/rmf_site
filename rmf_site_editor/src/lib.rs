@@ -415,9 +415,8 @@ fn update_robot_pose(mut cubes: Query<(&mut Transform, &mut Movable)>, timer: Re
                 let target_position = Vec3::new(robot_pose.x, robot_pose.y, 0.0);
                 let direction = (target_position - transform.translation).normalize();
 
-                if (!(transform.translation.distance(target_position) <= cube.speed * timer.delta_seconds())) {
-                    // If close enough to the target position, you might want to directly set the position to the target
-                    // transform.translation = target_position;
+                // Update the position only if the robot has not reached the position yet
+                if !(transform.translation.distance(target_position) <= cube.speed * timer.delta_seconds()) {
                     transform.translation += direction * cube.speed * timer.delta_seconds();
                 }
                 

@@ -15,6 +15,7 @@
  *
 */
 
+use crate::rcc;
 use crate::site::{
     update_anchor_transforms, CollisionMeshMarker, ConstraintMarker, DoorMarker, FiducialMarker,
     FloorMarker, LaneMarker, LiftCabin, LiftCabinDoorMarker, LocationTags, MeasurementMarker,
@@ -120,6 +121,11 @@ pub enum InteractionUpdateSet {
 
 impl Plugin for InteractionPlugin {
     fn build(&self, app: &mut App) {
+        let mut interactivity_condition = in_state(InteractionState::Enable);
+        if rcc::is_site_in_view_mode(){
+            interactivity_condition = in_state(InteractionState::Disable);
+        }
+
         app.add_state::<InteractionState>()
             .configure_sets(
                 Update,
@@ -193,7 +199,7 @@ impl Plugin for InteractionPlugin {
                     update_anchor_proximity_xray.after(update_cursor_transform),
                     remove_deleted_supports_from_visual_cues,
                 )
-                    .run_if(in_state(InteractionState::Enable)),
+                    .run_if(interactivity_condition.clone()),
             )
             // Split the above because of a compile error when the tuple is too large
             .add_systems(
@@ -218,7 +224,7 @@ impl Plugin for InteractionPlugin {
                     dirty_changed_lifts,
                     handle_preview_window_close,
                 )
-                    .run_if(in_state(InteractionState::Enable)),
+                    .run_if(interactivity_condition.clone()),
             )
             .add_systems(
                 Update,
@@ -241,7 +247,7 @@ impl Plugin for InteractionPlugin {
             .add_systems(
                 Update,
                 propagate_visual_cues
-                    .run_if(in_state(InteractionState::Enable))
+                    .run_if(interactivity_condition.clone())
                     .in_set(InteractionUpdateSet::ProcessVisuals),
             )
             .add_systems(OnExit(InteractionState::Enable), hide_cursor)
@@ -252,7 +258,7 @@ impl Plugin for InteractionPlugin {
                     move_pose,
                     make_gizmos_pickable,
                 )
-                    .run_if(in_state(InteractionState::Enable)),
+                    .run_if(interactivity_condition.clone()),
             )
             .add_systems(First, (update_picked, update_interaction_mode));
     }
