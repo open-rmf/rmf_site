@@ -16,8 +16,12 @@
 */
 
 use crate::{
-    site::{Category, Change, Delete, LevelElevation, LevelProperties, NameInSite},
+    site::{
+        Category, Change, Delete, LevelElevation, LevelProperties, NameInSite,
+        DrawingMarker, FloorMarker,
+    },
     widgets::{AppEvents, Icons},
+    RecencyRanking,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
@@ -86,13 +90,17 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLevels<'a, 'w1, 's1, 'w2, 's2> {
                 let new_level = self
                     .events
                     .commands
-                    .spawn(SpatialBundle::default())
-                    .insert(LevelProperties {
-                        elevation: LevelElevation(show_elevation),
-                        name: NameInSite(show_name.clone()),
-                        ..Default::default()
-                    })
-                    .insert(Category::Level)
+                    .spawn((
+                        SpatialBundle::default(),
+                        LevelProperties {
+                            elevation: LevelElevation(show_elevation),
+                            name: NameInSite(show_name.clone()),
+                            ..Default::default()
+                        },
+                        Category::Level,
+                        RecencyRanking::<DrawingMarker>::default(),
+                        RecencyRanking::<FloorMarker>::default(),
+                    ))
                     .id();
                 self.events.request.current_level.0 = Some(new_level);
             }
