@@ -226,6 +226,8 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
             {
                 new_affiliation = Affiliation(None);
             }
+
+            let mut clear_filter = false;
             ComboBox::from_id_source("fiducial_affiliation")
                 .selected_text(selected_text)
                 .show_ui(ui, |ui| {
@@ -239,7 +241,15 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                             ui.selectable_value(&mut new_affiliation, select_affiliation, name);
                         }
                     }
+
+                    if !self.events.change.search_for_fiducial.0.is_empty() {
+                        ui.selectable_value(&mut clear_filter, true, "<Clear Filter...>");
+                    }
                 });
+
+            if clear_filter {
+                self.events.change.search_for_fiducial.0.clear();
+            }
         });
 
         if new_affiliation != *affiliation {
