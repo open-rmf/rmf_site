@@ -35,6 +35,24 @@ pub struct LoadSite {
     pub default_file: Option<PathBuf>,
 }
 
+impl LoadSite {
+    #[allow(non_snake_case)]
+    pub fn blank_L1(name: String, default_file: Option<PathBuf>) -> Self {
+        let mut site = rmf_site_format::Site::default();
+        site.properties.name = NameOfSite(name);
+        site.levels.insert(1, Level::new(
+            LevelProperties {
+                name: NameInSite("L1".to_owned()),
+                elevation: LevelElevation(0.0),
+                ..Default::default()
+            },
+            RankingsInLevel::default(),
+        ));
+
+        Self { site, default_file, focus: true }
+    }
+}
+
 #[derive(ThisError, Debug)]
 #[error("The site has a broken internal reference: {broken}")]
 struct LoadSiteError {

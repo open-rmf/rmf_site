@@ -54,6 +54,7 @@ pub struct WorkspaceMarker;
 #[derive(Event)]
 pub enum LoadWorkspace {
     Dialog,
+    BlankFromDialog,
     Path(PathBuf),
     Data(WorkspaceData),
 }
@@ -64,6 +65,7 @@ pub enum WorkspaceData {
     Site(Vec<u8>),
     Workcell(Vec<u8>),
     WorkcellUrdf(Vec<u8>),
+    DeserializedSite(Site),
 }
 
 impl WorkspaceData {
@@ -281,6 +283,25 @@ pub fn dispatch_load_workspace_events(
                         }
                     })
                     .detach();
+            }
+            LoadWorkspace::BlankFromDialog => {
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    let sender = load_channels.sender.clone();
+                    AsyncComputeTaskPool::get()
+                        .spawn(async move {
+                            if let Some(file) = AsyncFileDialog::new().save_file().await {
+                                let file = file.path().to_path_buf();
+                                if let Some(stem) = file.file_stem() {
+
+                                }
+                            }
+                        })
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+
+                }
             }
             LoadWorkspace::Path(path) => {
                 if let Ok(data) = std::fs::read(&path) {

@@ -76,6 +76,10 @@ fn egui_ui(
                     _load_workspace.send(LoadWorkspace::Dialog);
                 }
 
+                if ui.button("Create new file").clicked() {
+                    _load_workspace.send(LoadWorkspace::BlankFromDialog);
+                }
+
                 // TODO(@mxgrey): Bring this back when we have finished developing
                 // the key features for workcell editing.
                 // if ui.button("Workcell Editor").clicked() {
