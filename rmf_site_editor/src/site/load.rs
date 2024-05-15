@@ -25,7 +25,7 @@ use thiserror::Error as ThisError;
 #[derive(Component, Clone, Debug, Deref)]
 pub struct DefaultFile(pub PathBuf);
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct LoadSite {
     /// The site data to load
     pub site: rmf_site_format::Site,

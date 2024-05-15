@@ -65,7 +65,7 @@ pub enum WorkspaceData {
     Site(Vec<u8>),
     Workcell(Vec<u8>),
     WorkcellUrdf(Vec<u8>),
-    DeserializedSite(Site),
+    LoadSite(LoadSite),
 }
 
 impl WorkspaceData {
@@ -292,15 +292,25 @@ pub fn dispatch_load_workspace_events(
                         .spawn(async move {
                             if let Some(file) = AsyncFileDialog::new().save_file().await {
                                 let file = file.path().to_path_buf();
-                                if let Some(stem) = file.file_stem() {
-
-                                }
+                                let name = file
+                                    .file_stem()
+                                    .map(|s| s.to_str().map(|s| s.to_owned()))
+                                    .flatten()
+                                    .unwrap_or_else(|| "blank".to_owned());
+                                let data = WorkspaceData::LoadSite(
+                                    LoadSite::blank_L1(name, Some(file.clone()))
+                                );
+                                sender.send(LoadWorkspaceFile(Some(file), data));
                             }
                         })
+                        .detach();
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
-
+                    let data = WorkspaceData::LoadSite(
+                        LoadSite::blank_L1("blank".to_owned(), None)
+                    );
+                    sender.send(LoadWorkspaceFile(None, data));
                 }
             }
             LoadWorkspace::Path(path) => {
@@ -424,6 +434,11 @@ fn workspace_file_load_complete(
                         error!("Failed loading urdf workcell {:?}", err);
                     }
                 }
+            }
+            WorkspaceData::LoadSite(site) => {
+                app_state.set(AppState::SiteEditor);
+                load_site.send(site);
+                interaction_state.set(InteractionState::Enable);
             }
         }
     }
