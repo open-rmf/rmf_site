@@ -243,7 +243,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectFiducialWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
 
                     if !self.events.change.search_for_fiducial.0.is_empty() {
-                        ui.selectable_value(&mut clear_filter, true, "<Clear Filter...>");
+                        ui.selectable_value(&mut clear_filter, true, "more...");
                     }
                 });
 

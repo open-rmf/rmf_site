@@ -228,6 +228,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                 new_affiliation = Affiliation(None);
             }
 
+            let mut clear_filter = false;
             ComboBox::from_id_source("texture_affiliation")
                 .selected_text(current_texture_name)
                 .show_ui(ui, |ui| {
@@ -237,13 +238,21 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
                         }
 
                         if let Ok((n, _)) = self.params.texture_groups.get(*child) {
-                            if n.0.contains(&*search) {
+                            if n.0.contains(&self.events.change.search_for_texture.0) {
                                 let select_affiliation = Affiliation(Some(*child));
                                 ui.selectable_value(&mut new_affiliation, select_affiliation, &n.0);
                             }
                         }
                     }
+
+                    if !self.events.change.search_for_texture.0.is_empty() {
+                        ui.selectable_value(&mut clear_filter, true, "more...");
+                    }
                 });
+
+            if clear_filter {
+                self.events.change.search_for_texture.0.clear();
+            }
         });
 
         if new_affiliation != *affiliation {
