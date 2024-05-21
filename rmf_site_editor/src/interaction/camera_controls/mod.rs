@@ -29,6 +29,9 @@ use bevy::{
     window::PrimaryWindow,
 };
 
+mod mouse;
+use mouse::{MouseCommand, update_mouse_command};
+
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
 /// cameras.
@@ -55,18 +58,6 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
-#[derive(Resource)]
-struct MouseLocation {
-    previous: Vec2,
-}
-
-impl Default for MouseLocation {
-    fn default() -> Self {
-        MouseLocation {
-            previous: Vec2::ZERO,
-        }
-    }
-}
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
     Perspective,
@@ -382,11 +373,7 @@ impl FromWorld for CameraControls {
 
 fn camera_controls(
     primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mut ev_cursor_moved: EventReader<CursorMoved>,
-    mut ev_scroll: EventReader<MouseWheel>,
-    input_mouse: Res<Input<MouseButton>>,
-    input_keyboard: Res<Input<KeyCode>>,
-    mut previous_mouse_location: ResMut<MouseLocation>,
+    mouse_command: ResMut<MouseCommand>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
@@ -413,43 +400,8 @@ fn camera_controls(
         return;
     }
 
-    let is_shifting =
-        input_keyboard.pressed(KeyCode::ShiftLeft) || input_keyboard.pressed(KeyCode::ShiftRight);
-    let is_panning = input_mouse.pressed(MouseButton::Right) && !is_shifting;
-
-    let is_orbiting = input_mouse.pressed(MouseButton::Middle)
-        || (input_mouse.pressed(MouseButton::Right) && is_shifting);
-    let started_orbiting = !controls.was_oribiting && is_orbiting;
-    let released_orbiting = controls.was_oribiting && !is_orbiting;
-    controls.was_oribiting = is_orbiting;
-
-    // spin through all mouse cursor-moved events to find the last one
-    let mut last_pos = previous_mouse_location.previous;
-    if let Some(ev) = ev_cursor_moved.read().last() {
-        last_pos.x = ev.position.x;
-        last_pos.y = ev.position.y;
-    }
-
-    let mut cursor_motion = Vec2::ZERO;
-    if is_panning || is_orbiting {
-        cursor_motion.x = last_pos.x - previous_mouse_location.previous.x;
-        cursor_motion.y = last_pos.y - previous_mouse_location.previous.y;
-    }
-
-    previous_mouse_location.previous = last_pos;
-
-    let mut scroll = 0.0;
-    for ev in ev_scroll.read() {
-        #[cfg(not(target_arch = "wasm32"))]
-        {
-            scroll += ev.y;
-        }
-        #[cfg(target_arch = "wasm32")]
-        {
-            // scrolling in wasm is a different beast
-            scroll += 0.4 * ev.y / ev.y.abs();
-        }
-    }
+    let mut cursor_motion = mouse_command.pan;    
+    let scroll = mouse_command.zoom_delta;
 
     if controls.mode() == ProjectionMode::Orthographic {
         let (mut ortho_proj, mut ortho_transform) = cameras
@@ -481,7 +433,9 @@ fn camera_controls(
         for (mut child_proj, _) in children {
             *child_proj = proj.clone();
         }
-    } else {
+    }
+
+    if controls.mode() == ProjectionMode::Perspective {
         // perspective mode
         let (mut persp_proj, mut persp_transform) = cameras
             .get_mut(controls.perspective_camera_entities[0])
@@ -489,14 +443,15 @@ fn camera_controls(
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             let mut changed = false;
 
-            if started_orbiting || released_orbiting {
+            if mouse_command.orbit_state_changed {
                 // only check for upside down when orbiting started or ended this frame
                 // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
                 let up = persp_transform.rotation * Vec3::Z;
                 controls.orbit_upside_down = up.z <= 0.0;
             }
 
-            if is_orbiting && cursor_motion.length_squared() > 0. {
+            if mouse_command.orbit.length_squared() > mouse_command.pan.length_squared() {
+                cursor_motion = mouse_command.orbit;
                 changed = true;
                 if let Ok(window) = primary_windows.get_single() {
                     let window_size = Vec2::new(window.width() as f32, window.height() as f32);
@@ -515,7 +470,8 @@ fn camera_controls(
                     persp_transform.rotation = persp_transform.rotation * pitch;
                     // local x
                 }
-            } else if is_panning && cursor_motion.length_squared() > 0. {
+            } else if mouse_command.pan.length_squared() > 0. {
+                cursor_motion = mouse_command.pan;
                 changed = true;
                 // make panning distance independent of resolution and FOV,
                 if let Ok(window) = primary_windows.get_single() {
@@ -549,6 +505,8 @@ fn camera_controls(
                     + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, controls.orbit_radius));
             }
         }
+
+
     }
 }
 
@@ -556,10 +514,11 @@ pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
-        app.insert_resource(MouseLocation::default())
-            .init_resource::<CameraControls>()
+        app.init_resource::<CameraControls>()
+            .init_resource::<MouseCommand>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
+            .add_systems(Update, update_mouse_command)
             .add_systems(Update, camera_controls);
     }
 }
