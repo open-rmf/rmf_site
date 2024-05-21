@@ -301,7 +301,8 @@ fn site_ui_layout(
                             CollapsingHeader::new("Navigation Graphs")
                                 .default_open(true)
                                 .show(ui, |ui| {
-                                    ViewNavGraphs::new(&nav_graphs, &mut events).show(ui, &open_sites);
+                                    ViewNavGraphs::new(&nav_graphs, &mut events)
+                                        .show(ui, &open_sites);
                                 });
                             ui.separator();
                             // TODO(MXG): Consider combining Nav Graphs and Layers
@@ -346,9 +347,7 @@ fn site_ui_layout(
                         });
                     });
             });
-    }
 
-    if !is_site_in_view_mode() {
         top_menu_bar(
             egui_context.ctx_mut(),
             &mut events.file_events,
@@ -357,16 +356,16 @@ fn site_ui_layout(
             &children,
             &mut menu_params,
         );
-    }
 
-    egui::TopBottomPanel::bottom("log_console")
-        .resizable(true)
-        .min_height(30.)
-        .max_height(300.)
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.add_space(10.0);
-            ConsoleWidget::new(&mut events).show(ui);
-        });
+        egui::TopBottomPanel::bottom("log_console")
+            .resizable(true)
+            .min_height(30.)
+            .max_height(300.)
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.add_space(10.0);
+                ConsoleWidget::new(&mut events).show(ui);
+            });
+    }
 
     if events.file_events.diagnostic_window.show {
         egui::SidePanel::left("diagnostic_window")
@@ -450,16 +449,16 @@ fn site_drawing_ui_layout(
                 });
         });
 
-    egui::TopBottomPanel::bottom("log_console")
-        .resizable(true)
-        .min_height(30.)
-        .max_height(300.)
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.add_space(10.0);
-            ConsoleWidget::new(&mut events).show(ui);
-        });
-
     if !is_site_in_view_mode() {
+        egui::TopBottomPanel::bottom("log_console")
+            .resizable(true)
+            .min_height(30.)
+            .max_height(300.)
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.add_space(10.0);
+                ConsoleWidget::new(&mut events).show(ui);
+            });
+
         top_menu_bar(
             egui_context.ctx_mut(),
             &mut events.file_events,
@@ -469,7 +468,7 @@ fn site_drawing_ui_layout(
             &mut menu_params,
         );
     }
-    
+
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -499,7 +498,7 @@ fn site_visualizer_ui_layout(
     mut menu_params: MenuParams,
 ) {
     if !is_site_in_view_mode() {
-    egui::SidePanel::right("right_panel")
+        egui::SidePanel::right("right_panel")
         .resizable(true)
         .default_width(300.0)
         .show(egui_context.ctx_mut(), |ui| {
@@ -535,18 +534,16 @@ fn site_visualizer_ui_layout(
                     });
                 });
         });
-    }
-    
-    egui::TopBottomPanel::bottom("log_console")
-        .resizable(true)
-        .min_height(30.)
-        .max_height(300.)
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.add_space(10.0);
-            ConsoleWidget::new(&mut events).show(ui);
-        });
 
-    if !is_site_in_view_mode() {
+        egui::TopBottomPanel::bottom("log_console")
+            .resizable(true)
+            .min_height(30.)
+            .max_height(300.)
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.add_space(10.0);
+                ConsoleWidget::new(&mut events).show(ui);
+            });
+
         top_menu_bar(
             egui_context.ctx_mut(),
             &mut events.file_events,
@@ -609,16 +606,16 @@ fn workcell_ui_layout(
                 });
         });
 
-    egui::TopBottomPanel::bottom("log_console")
-        .resizable(true)
-        .min_height(30.)
-        .max_height(300.)
-        .show(egui_context.ctx_mut(), |ui| {
-            ui.add_space(10.0);
-            ConsoleWidget::new(&mut events).show(ui);
-        });
-
     if !is_site_in_view_mode() {
+        egui::TopBottomPanel::bottom("log_console")
+            .resizable(true)
+            .min_height(30.)
+            .max_height(300.)
+            .show(egui_context.ctx_mut(), |ui| {
+                ui.add_space(10.0);
+                ConsoleWidget::new(&mut events).show(ui);
+            });
+
         top_menu_bar(
             egui_context.ctx_mut(),
             &mut events.file_events,
