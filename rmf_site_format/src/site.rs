@@ -190,6 +190,10 @@ impl Site {
         ron::de::from_str(s)
     }
 
+    pub fn to_json_str(&self) -> serde_json::Result<Vec<u8>> {
+        serde_json::to_vec_pretty(self)
+    }
+
     pub fn from_bytes<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
@@ -225,7 +229,7 @@ mod tests {
     fn json_roundtrip() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        let site_string = map.to_site().unwrap().to_json().unwrap();
-        Site::from_json_str(&site_string).unwrap();
+        let site_string = map.to_site().unwrap().to_json_str().unwrap();
+        Site::from_json_bytes(&site_string).unwrap();
     }
 }
