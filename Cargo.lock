@@ -3237,9 +3237,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.32.4"
+version = "0.32.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4541eb06dce09c0241ebbaab7102f0a01a0c8994afed2e5d0d66775016e25ac2"
+checksum = "3ea4908d4f23254adda3daa60ffef0f1ac7b8c3e9a864cf3cc154b251908a2ef"
 dependencies = [
  "approx",
  "matrixmultiply",
@@ -4112,6 +4112,7 @@ dependencies = [
  "geo",
  "gz-fuel",
  "itertools 0.12.1",
+ "nalgebra",
  "pathdiff",
  "rfd",
  "rmf_site_format",

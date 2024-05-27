@@ -29,8 +29,8 @@ use bevy::{
     window::PrimaryWindow,
 };
 
-mod mouse;
-use mouse::{MouseCommand, update_mouse_command};
+mod cursor;
+use cursor::{CursorCommand, update_cursor_command};
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -57,6 +57,21 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
+
+
+#[derive(PartialEq, Debug, Copy, Clone)]
+pub enum CameraCommandType {
+    Inactive,
+    Pan,
+    Orbit,
+    ZoomOnly
+}
+
+pub struct CameraCommand {
+    pub delta_translation: Vec3,
+    pub delta_rotation: Quat,
+    pub command_type: CameraCommandType
+}
 
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
@@ -372,8 +387,7 @@ impl FromWorld for CameraControls {
 }
 
 fn camera_controls(
-    primary_windows: Query<&Window, With<PrimaryWindow>>,
-    mouse_command: ResMut<MouseCommand>,
+    cursor_command: ResMut<CursorCommand>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
@@ -400,113 +414,22 @@ fn camera_controls(
         return;
     }
 
-    let mut cursor_motion = mouse_command.pan;    
-    let scroll = mouse_command.zoom_delta;
-
-    if controls.mode() == ProjectionMode::Orthographic {
-        let (mut ortho_proj, mut ortho_transform) = cameras
-            .get_mut(controls.orthographic_camera_entities[0])
-            .unwrap();
-        if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-            if let Ok(window) = primary_windows.get_single() {
-                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-                let aspect_ratio = window_size[0] / window_size[1];
-
-                if cursor_motion.length_squared() > 0.0 {
-                    cursor_motion *= 2. / window_size
-                        * Vec2::new(ortho_proj.scale * aspect_ratio, ortho_proj.scale);
-                    let right = -cursor_motion.x * Vec3::X;
-                    let up = cursor_motion.y * Vec3::Y;
-                    ortho_transform.translation += right + up;
-                }
-                if scroll.abs() > 0.0 {
-                    ortho_proj.scale -= scroll * ortho_proj.scale * 0.1;
-                    ortho_proj.scale = f32::max(ortho_proj.scale, 0.02);
-                }
-            }
-        }
-
-        let proj = ortho_proj.clone();
-        let children = cameras
-            .get_many_mut(controls.orthographic_camera_entities)
-            .unwrap();
-        for (mut child_proj, _) in children {
-            *child_proj = proj.clone();
-        }
-    }
-
     if controls.mode() == ProjectionMode::Perspective {
-        // perspective mode
         let (mut persp_proj, mut persp_transform) = cameras
             .get_mut(controls.perspective_camera_entities[0])
             .unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
-            let mut changed = false;
-
-            if mouse_command.orbit_state_changed {
-                // only check for upside down when orbiting started or ended this frame
-                // if the camera is "upside" down, panning horizontally would be inverted, so invert the input to make it correct
-                let up = persp_transform.rotation * Vec3::Z;
-                controls.orbit_upside_down = up.z <= 0.0;
-            }
-
-            if mouse_command.orbit.length_squared() > mouse_command.pan.length_squared() {
-                cursor_motion = mouse_command.orbit;
-                changed = true;
-                if let Ok(window) = primary_windows.get_single() {
-                    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-                    let delta_x = {
-                        let delta = cursor_motion.x / window_size.x * std::f32::consts::PI * 2.0;
-                        if controls.orbit_upside_down {
-                            -delta
-                        } else {
-                            delta
-                        }
-                    };
-                    let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI;
-                    let yaw = Quat::from_rotation_z(-delta_x);
-                    let pitch = Quat::from_rotation_x(-delta_y);
-                    persp_transform.rotation = yaw * persp_transform.rotation; // global y
-                    persp_transform.rotation = persp_transform.rotation * pitch;
-                    // local x
-                }
-            } else if mouse_command.pan.length_squared() > 0. {
-                cursor_motion = mouse_command.pan;
-                changed = true;
-                // make panning distance independent of resolution and FOV,
-                if let Ok(window) = primary_windows.get_single() {
-                    let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-
-                    cursor_motion *=
-                        Vec2::new(persp_proj.fov * persp_proj.aspect_ratio, persp_proj.fov)
-                            / window_size;
-                    // translate by local axes
-                    let right = persp_transform.rotation * Vec3::X * -cursor_motion.x;
-                    let up = persp_transform.rotation * Vec3::Y * cursor_motion.y;
-                    // make panning proportional to distance away from center point
-                    let translation = (right + up) * controls.orbit_radius;
-                    controls.orbit_center += translation;
-                }
-            }
-
-            if scroll.abs() > 0.0 {
-                changed = true;
-                controls.orbit_radius -= scroll * controls.orbit_radius * 0.2;
-                // dont allow zoom to reach zero or you get stuck
-                controls.orbit_radius = f32::max(controls.orbit_radius, 0.05);
-            }
-
-            if changed {
-                // emulating parent/child to make the yaw/y-axis rotation behave like a turntable
-                // parent = x and y rotation
-                // child = z-offset
-                let rot_matrix = Mat3::from_quat(persp_transform.rotation);
-                persp_transform.translation = controls.orbit_center
-                    + rot_matrix.mul_vec3(Vec3::new(0.0, 0.0, controls.orbit_radius));
-            }
+            let new_translation = persp_transform.translation + cursor_command.target_translation;
+            let new_rotation = persp_transform.rotation * cursor_command.target_rotation;
+            persp_transform.translation = new_translation;
+            persp_transform.rotation = new_rotation;
         }
 
 
+    }
+
+    if controls.mode() == ProjectionMode::Orthographic {
+        return;
     }
 }
 
@@ -515,10 +438,10 @@ pub struct CameraControlsPlugin;
 impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraControls>()
-            .init_resource::<MouseCommand>()
+            .init_resource::<CursorCommand>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_systems(Update, update_mouse_command)
+            .add_systems(Update, update_cursor_command)
             .add_systems(Update, camera_controls);
     }
 }
