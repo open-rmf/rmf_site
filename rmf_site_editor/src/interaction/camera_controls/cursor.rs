@@ -26,16 +26,18 @@ use crate::interaction::{PickingBlockers, SiteRaycastSet};
 
 #[derive(Resource)]
 pub struct CursorCommand {
-    pub target_translation: Vec3,
-    pub target_rotation: Quat,
+    pub translation_delta: Vec3,
+    pub rotation_delta: Quat,
+    pub cursor_selection: Option<Vec3>,
     pub command_type: CameraCommandType,
 }
 
 impl Default for CursorCommand {
     fn default() -> Self {
         Self {
-            target_translation: Vec3::ZERO,
-            target_rotation: Quat::IDENTITY,
+            translation_delta: Vec3::ZERO,
+            rotation_delta: Quat::IDENTITY,
+            cursor_selection: None,
             command_type: CameraCommandType::Inactive,
         }
     }
@@ -108,7 +110,10 @@ pub fn update_cursor_command(
             Some(ray) => ray,
             None => return,
         };
-        let cursor_selected_point = get_cursor_selected_point(&cursor_raycast_source);
+        let cursor_selection = match cursor_command.cursor_selection {
+            Some(selection) => selection,
+            None => get_cursor_selected_point(&cursor_raycast_source),
+        };
         let cursor_direction_now = cursor_ray.direction().normalize();
         let cursor_direction_prev = bevy_cameras
             .get(active_camera_entity)
@@ -117,6 +122,9 @@ pub fn update_cursor_command(
             .unwrap()
             .direction
             .normalize();
+        // print both cursor directions
+        println!("Cursor direction now: {:?}", cursor_direction_now);
+        println!("Cursor direction prev: {:?}", cursor_direction_prev);
     
         // 4. Perspective Mode
         *cursor_command = match camera_controls.mode() {
@@ -126,7 +134,7 @@ pub fn update_cursor_command(
                     command_type,
                     cursor_direction_prev,
                     cursor_direction_now,
-                    cursor_selected_point,
+                    cursor_selection,
                     scroll_motion
                 )
             },
@@ -149,7 +157,7 @@ fn get_perspective_cursor_command(
     command_type: CameraCommandType,
     cursor_direction_prev: Vec3,
     cursor_direction_now: Vec3,
-    cursor_selected_point: Vec3,
+    cursor_selection: Vec3,
     scroll_motion: f32
 ) -> CursorCommand {
     // Zoom towards the cursor if zooming only, otherwize zoom to center
@@ -158,45 +166,56 @@ fn get_perspective_cursor_command(
         _ => camera_transform.forward() * scroll_motion
     };
 
-    let mut target_translation = Vec3::ZERO;
-    let mut target_rotation = Quat::IDENTITY;
+    let mut translation_delta = Vec3::ZERO;
+    let mut rotation_delta = Quat::IDENTITY;
+    let mut is_cursor_selecting = false;
 
     match command_type {
         CameraCommandType::ZoomOnly => {
-            target_translation = zoom_translation;
-            target_rotation = Quat::IDENTITY;
+            translation_delta = zoom_translation;
         },
         CameraCommandType::Pan => {
-            // translation = x1 * right_ transltion + x2 * up_translation
+            // To keep the same point below the cursor, we solve
+            // selection_to_camera_now + translation_delta = selection_to_camera_next
+            // selection_to_camera_next = x3 * -cursor_direction_now
+            let selection_to_camera_now = cursor_selection - camera_transform.translation;
+
+            // translation_delta = x1 * right_ transltion + x2 * up_translation
             let right_translation = camera_transform.rotation * Vec3::X;
             let up_translation = camera_transform.rotation * Vec3::Y;
 
-            let camera_to_selection = cursor_selected_point - camera_transform.translation;
-
-            // Solving as a linear system
             let a = Matrix3::new(
-                right_translation.x, up_translation.x, -cursor_direction_prev.x,
-                right_translation.y, up_translation.y, -cursor_direction_prev.y,
-                right_translation.z, up_translation.z, -cursor_direction_prev.z,
+                right_translation.x, up_translation.x, -cursor_direction_now.x,
+                right_translation.y, up_translation.y, -cursor_direction_now.y,
+                right_translation.z, up_translation.z, -cursor_direction_now.z,
             );
             let b = Matrix3x1::new(
-                camera_to_selection.x,
-                camera_to_selection.y,
-                camera_to_selection.z,
+                selection_to_camera_now.x,
+                selection_to_camera_now.y,
+                selection_to_camera_now.z,
             );
             let x = a.lu().solve(&b).unwrap();
 
-            target_translation = zoom_translation + -x[0] * right_translation + -x[1] * up_translation;
-            target_rotation = Quat::IDENTITY;
+            translation_delta = zoom_translation + x[0] * right_translation + x[1] * up_translation;
+            rotation_delta = Quat::IDENTITY;
+            is_cursor_selecting = true;
         },  
         CameraCommandType::Orbit => {
+            is_cursor_selecting = true;
         }
         _ => ()
     }
 
+    let cursor_selection = if is_cursor_selecting {
+        Some(cursor_selection)
+    } else {
+        None
+    };
+
     return CursorCommand {
-        target_translation,
-        target_rotation,
+        translation_delta,
+        rotation_delta,
+        cursor_selection,
         command_type,
     };
 }

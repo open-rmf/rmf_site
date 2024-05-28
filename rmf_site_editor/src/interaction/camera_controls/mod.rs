@@ -67,12 +67,6 @@ pub enum CameraCommandType {
     ZoomOnly
 }
 
-pub struct CameraCommand {
-    pub delta_translation: Vec3,
-    pub delta_rotation: Quat,
-    pub command_type: CameraCommandType
-}
-
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
     Perspective,
@@ -419,13 +413,9 @@ fn camera_controls(
             .get_mut(controls.perspective_camera_entities[0])
             .unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
-            let new_translation = persp_transform.translation + cursor_command.target_translation;
-            let new_rotation = persp_transform.rotation * cursor_command.target_rotation;
-            persp_transform.translation = new_translation;
-            persp_transform.rotation = new_rotation;
+            persp_transform.translation += cursor_command.translation_delta;
+            persp_transform.rotation *= cursor_command.rotation_delta;
         }
-
-
     }
 
     if controls.mode() == ProjectionMode::Orthographic {
