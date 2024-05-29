@@ -21,8 +21,10 @@ use bevy::ecs::component::TableStorage;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
 use bevy::render::camera;
+use bevy::transform::helper::ComputeGlobalTransformError;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
+use geo::scale;
 use nalgebra::{Matrix3, Matrix3x1};
 
 #[derive(Resource)]
@@ -114,6 +116,15 @@ pub fn update_cursor_command(
         *cursor_command = match camera_controls.mode() {
             ProjectionMode::Perspective => get_perspective_cursor_command(
                 &camera_transform,
+                command_type,
+                cursor_motion,
+                cursor_direction,
+                cursor_selection,
+                scroll_motion,
+                window,
+            ),
+            ProjectionMode::Orthographic => get_orthographic_cursor_command(
+                &camera_transform,
                 &camera_proj,
                 command_type,
                 cursor_motion,
@@ -122,20 +133,75 @@ pub fn update_cursor_command(
                 scroll_motion,
                 window,
             ),
-            ProjectionMode::Orthographic => get_orthographic_cursor_command(),
         };
     } else {
         *cursor_command = CursorCommand::default();
     }
 }
 
-fn get_orthographic_cursor_command() -> CursorCommand {
-    CursorCommand::default()
+fn get_orthographic_cursor_command(
+    camera_transform: &Transform,
+    camera_proj: &Projection,
+    command_type: CameraCommandType,
+    cursor_motion: Vec2,
+    cursor_direction: Vec3,
+    cursor_selection: Vec3,
+    scroll_motion: f32,
+    window: &Window,
+) -> CursorCommand {
+    if let Projection::Orthographic(camera_proj) = camera_proj {
+        // Default Values
+        let mut translation_delta = Vec3::ZERO;
+        let mut rotation_delta = Quat::IDENTITY;
+        let mut scale_delta = 0.0;
+        let mut is_cursor_selecting = false;
+
+        match command_type {
+            CameraCommandType::TranslationZoom => {
+                scale_delta = -scroll_motion * camera_proj.scale * 0.1;
+            }
+            CameraCommandType::Pan => {
+                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+                let aspect_ratio = window_size[0] / window_size[1];
+                let cursor_motion_adj = cursor_motion * 2.0 / window_size
+                    * Vec2::new(camera_proj.scale * aspect_ratio, camera_proj.scale);
+                let right_translation =
+                    -cursor_motion_adj.x * (camera_transform.rotation * Vec3::X);
+                let up_translation = cursor_motion_adj.y * (camera_transform.rotation * Vec3::Y);
+
+                translation_delta = up_translation + right_translation;
+                scale_delta = -scroll_motion * camera_proj.scale * 0.1;
+            }
+            CameraCommandType::Orbit => {
+                let window_size = Vec2::new(window.width() as f32, window.height() as f32);
+                let delta_x = cursor_motion.x / window_size.x * std::f32::consts::PI;
+                let yaw = Quat::from_rotation_z(delta_x);
+                rotation_delta = yaw;
+                is_cursor_selecting = true;
+            }
+            CameraCommandType::Inactive => (),
+        }
+
+        let cursor_selection = if is_cursor_selecting {
+            Some(cursor_selection)
+        } else {
+            None
+        };
+
+        return CursorCommand {
+            translation_delta,
+            rotation_delta,
+            scale_delta,
+            cursor_selection,
+            command_type,
+        };
+    } else {
+        CursorCommand::default()
+    }
 }
 
 fn get_perspective_cursor_command(
     camera_transform: &Transform,
-    camera_proj: &Projection,
     command_type: CameraCommandType,
     cursor_motion: Vec2,
     cursor_direction: Vec3,
@@ -149,6 +215,7 @@ fn get_perspective_cursor_command(
         _ => camera_transform.forward() * scroll_motion,
     };
 
+    // Default values
     let mut translation_delta = Vec3::ZERO;
     let mut rotation_delta = Quat::IDENTITY;
     let mut scale_delta = 0.0;
@@ -220,7 +287,7 @@ fn get_perspective_cursor_command(
     return CursorCommand {
         translation_delta,
         rotation_delta,
-        scale_delta: 0.0,
+        scale_delta,
         cursor_selection,
         command_type,
     };

@@ -413,11 +413,29 @@ fn camera_controls(
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             persp_transform.translation += cursor_command.translation_delta;
             persp_transform.rotation *= cursor_command.rotation_delta;
+
+            // Ensure upright
+            let forward = persp_transform.forward();
+            persp_transform.look_to(forward, Vec3::Z);
         }
     }
 
     if controls.mode() == ProjectionMode::Orthographic {
-        return;
+        let (mut ortho_proj, mut ortho_transform) = cameras
+            .get_mut(controls.orthographic_camera_entities[0])
+            .unwrap();
+        if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
+            ortho_transform.translation += cursor_command.translation_delta;
+            ortho_transform.rotation *= cursor_command.rotation_delta;
+            ortho_proj.scale += cursor_command.scale_delta;
+        }
+        let proj = ortho_proj.clone();
+        let children = cameras
+            .get_many_mut(controls.orthographic_camera_entities)
+            .unwrap();
+        for (mut child_proj, _) in children {
+            *child_proj = proj.clone();
+        }
     }
 }
 
