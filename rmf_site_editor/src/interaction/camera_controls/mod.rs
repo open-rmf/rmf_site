@@ -28,9 +28,8 @@ use bevy::{
     },
     window::PrimaryWindow,
 };
-
 mod cursor;
-use cursor::{CursorCommand, update_cursor_command};
+use cursor::{update_cursor_command, CursorCommand};
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -58,13 +57,12 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
-
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
     Inactive,
     Pan,
     Orbit,
-    ZoomOnly
+    TranslationZoom,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
