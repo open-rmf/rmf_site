@@ -63,6 +63,7 @@ pub enum CameraCommandType {
     Pan,
     Orbit,
     TranslationZoom,
+    FovZoom,
 }
 
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
@@ -413,10 +414,19 @@ fn camera_controls(
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
             persp_transform.translation += cursor_command.translation_delta;
             persp_transform.rotation *= cursor_command.rotation_delta;
+            persp_proj.fov += cursor_command.fov_delta;
 
             // Ensure upright
             let forward = persp_transform.forward();
             persp_transform.look_to(forward, Vec3::Z);
+        }
+
+        let proj = persp_proj.clone();
+        let children = cameras
+            .get_many_mut(controls.perspective_camera_entities)
+            .unwrap();
+        for (mut child_proj, _) in children {
+            *child_proj = proj.clone();
         }
     }
 
@@ -429,6 +439,7 @@ fn camera_controls(
             ortho_transform.rotation *= cursor_command.rotation_delta;
             ortho_proj.scale += cursor_command.scale_delta;
         }
+        
         let proj = ortho_proj.clone();
         let children = cameras
             .get_many_mut(controls.orthographic_camera_entities)
