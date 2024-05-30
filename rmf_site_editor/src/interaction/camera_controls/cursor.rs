@@ -19,6 +19,7 @@ use super::{CameraCommandType, CameraControls, ProjectionMode};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
+use bevy::render::camera;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
 use nalgebra::{Matrix3, Matrix3x1};
@@ -155,11 +156,11 @@ fn get_orthographic_cursor_command(
         cursor_command.scale_delta = -scroll_motion * camera_proj.scale * 0.1;
     }
 
+    //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
+    let cursor_direction = (cursor_selection_new - camera_transform.translation).normalize();
+
     match command_type {
         CameraCommandType::Pan => {
-            //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
-            let cursor_direction =
-                (cursor_selection_new - camera_transform.translation).normalize();
             let selection_to_camera = cursor_selection - camera_transform.translation;
             let right_translation = camera_transform.rotation * Vec3::X;
             let up_translation = camera_transform.rotation * Vec3::Y;
@@ -186,9 +187,16 @@ fn get_orthographic_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-            let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-            let delta_x = cursor_motion.x / window_size.x * std::f32::consts::PI;
-            let yaw = Quat::from_rotation_z(delta_x);
+            let cursor_direction_prev =
+                (cursor_selection - camera_transform.translation).normalize();
+
+            let heading_0 =
+                (cursor_direction_prev - cursor_direction_prev.project_onto(Vec3::Z)).normalize();
+            let heading_1 = (cursor_direction - cursor_direction.project_onto(Vec3::Z)).normalize();
+            let is_clockwise = heading_0.cross(heading_1).dot(Vec3::Z) > 0.0;
+            let yaw = heading_0.angle_between(heading_1) * if is_clockwise { -1.0 } else { 1.0 };
+            let yaw = Quat::from_rotation_z(yaw);
+
             cursor_command.rotation_delta = yaw;
             is_cursor_selecting = true;
         }
@@ -263,23 +271,35 @@ fn get_perspective_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-            let window_size = Vec2::new(window.width() as f32, window.height() as f32);
-            let delta_x = cursor_motion.x / window_size.x * std::f32::consts::PI;
-            let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI;
+            let cursor_direction_prev =
+                (cursor_selection - camera_transform.translation).normalize();
 
-            let yaw = Quat::from_rotation_z(delta_x);
-            let pitch = Quat::from_rotation_x(delta_y);
+            let heading_0 =
+                (cursor_direction_prev - cursor_direction_prev.project_onto(Vec3::Z)).normalize();
+            let heading_1 = (cursor_direction - cursor_direction.project_onto(Vec3::Z)).normalize();
+            let is_clockwise = heading_0.cross(heading_1).dot(Vec3::Z) > 0.0;
+            let yaw = heading_0.angle_between(heading_1) * if is_clockwise { -1.0 } else { 1.0 };
+            let yaw = Quat::from_rotation_z(yaw);
 
-            let target_rotation = (yaw * camera_transform.rotation) * pitch;
+            let pitch_0 = cursor_direction_prev.z.acos();
+            let pitch_1 = cursor_direction.z.acos();
+            let pitch = pitch_1 - pitch_0;
+            let pitch = Quat::from_rotation_x(pitch);
 
-            // Do not allow rotations to upside down states
-            if Transform::from_rotation(target_rotation).up().dot(Vec3::Z) > 0.0 {
-                let start_rotation = Mat3::from_quat(camera_transform.rotation);
-                let target_rotation = Mat3::from_quat(target_rotation);
-                cursor_command.rotation_delta =
-                    Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
-            }
+            // Exclude pitch if end result is upside down
+            let mut target_rotation = (yaw * camera_transform.rotation) * pitch;
+            target_rotation = if Transform::from_rotation(target_rotation).up().dot(Vec3::Z) > 0.0 {
+                target_rotation
+            } else {
+                yaw * camera_transform.rotation
+            };
+
+            let start_rotation = Mat3::from_quat(camera_transform.rotation);
+            let target_rotation = Mat3::from_quat(target_rotation);
+            cursor_command.rotation_delta =
+                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
             cursor_command.translation_delta = zoom_translation;
+            is_cursor_selecting = true;
         }
         CameraCommandType::Inactive => (),
     }
