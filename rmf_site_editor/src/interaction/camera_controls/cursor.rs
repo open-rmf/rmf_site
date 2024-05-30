@@ -93,8 +93,7 @@ pub fn update_cursor_command(
             ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
             ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
         };
-        let (camera_proj, camera_transform, _) =
-            cameras.get(active_camera_entity).unwrap();
+        let (camera_proj, camera_transform, _) = cameras.get(active_camera_entity).unwrap();
 
         // Get selection under cursor, cursor direction
         let Ok(cursor_raycast_source) = raycast_sources.get_single() else {
@@ -104,7 +103,7 @@ pub fn update_cursor_command(
             Some(ray) => ray,
             None => return,
         };
-        let cursor_selection_new =  get_cursor_selected_point(&cursor_raycast_source);
+        let cursor_selection_new = get_cursor_selected_point(&cursor_raycast_source);
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
             None => cursor_selection_new,
@@ -148,7 +147,6 @@ fn get_orthographic_cursor_command(
     scroll_motion: f32,
     window: &Window,
 ) -> CursorCommand {
-
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
 
@@ -160,7 +158,8 @@ fn get_orthographic_cursor_command(
     match command_type {
         CameraCommandType::Pan => {
             //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
-            let cursor_direction = (cursor_selection_new - camera_transform.translation).normalize();
+            let cursor_direction =
+                (cursor_selection_new - camera_transform.translation).normalize();
             let selection_to_camera = cursor_selection - camera_transform.translation;
             let right_translation = camera_transform.rotation * Vec3::X;
             let up_translation = camera_transform.rotation * Vec3::Y;
@@ -258,7 +257,8 @@ fn get_perspective_cursor_command(
             );
             let x = a.lu().solve(&b).unwrap();
 
-            cursor_command.translation_delta = zoom_translation + x[0] * right_translation + x[1] * up_translation;
+            cursor_command.translation_delta =
+                zoom_translation + x[0] * right_translation + x[1] * up_translation;
             cursor_command.rotation_delta = Quat::IDENTITY;
             is_cursor_selecting = true;
         }
@@ -276,7 +276,8 @@ fn get_perspective_cursor_command(
             if Transform::from_rotation(target_rotation).up().dot(Vec3::Z) > 0.0 {
                 let start_rotation = Mat3::from_quat(camera_transform.rotation);
                 let target_rotation = Mat3::from_quat(target_rotation);
-                cursor_command.rotation_delta = Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+                cursor_command.rotation_delta =
+                    Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
             }
             cursor_command.translation_delta = zoom_translation;
         }

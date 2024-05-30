@@ -439,7 +439,7 @@ fn camera_controls(
             ortho_transform.rotation *= cursor_command.rotation_delta;
             ortho_proj.scale += cursor_command.scale_delta;
         }
-        
+
         let proj = ortho_proj.clone();
         let children = cameras
             .get_many_mut(controls.orthographic_camera_entities)
