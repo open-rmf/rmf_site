@@ -19,7 +19,6 @@ use super::{CameraCommandType, CameraControls, ProjectionMode};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
-use bevy::render::camera;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
 use nalgebra::{Matrix3, Matrix3x1};
@@ -58,7 +57,7 @@ pub fn update_cursor_command(
     cameras: Query<(&Projection, &Transform, &GlobalTransform)>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
-    if let Ok(window) = primary_windows.get_single() {
+    if let Ok(_) = primary_windows.get_single() {
         // Cursor and scroll inputs
         let cursor_motion = mouse_motion
             .read()
@@ -116,21 +115,17 @@ pub fn update_cursor_command(
             ProjectionMode::Perspective => get_perspective_cursor_command(
                 &camera_transform,
                 command_type,
-                cursor_motion,
                 cursor_direction,
                 cursor_selection,
                 scroll_motion,
-                window,
             ),
             ProjectionMode::Orthographic => get_orthographic_cursor_command(
                 &camera_transform,
                 &camera_proj,
                 command_type,
-                cursor_motion,
                 cursor_selection,
                 cursor_selection_new,
                 scroll_motion,
-                window,
             ),
         };
     } else {
@@ -142,11 +137,9 @@ fn get_orthographic_cursor_command(
     camera_transform: &Transform,
     camera_proj: &Projection,
     command_type: CameraCommandType,
-    cursor_motion: Vec2,
     cursor_selection: Vec3,
     cursor_selection_new: Vec3,
     scroll_motion: f32,
-    window: &Window,
 ) -> CursorCommand {
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
@@ -203,6 +196,7 @@ fn get_orthographic_cursor_command(
         _ => (),
     }
 
+    cursor_command.command_type = command_type;
     cursor_command.cursor_selection = if is_cursor_selecting {
         Some(cursor_selection)
     } else {
@@ -215,11 +209,9 @@ fn get_orthographic_cursor_command(
 fn get_perspective_cursor_command(
     camera_transform: &Transform,
     command_type: CameraCommandType,
-    cursor_motion: Vec2,
     cursor_direction: Vec3,
     cursor_selection: Vec3,
     scroll_motion: f32,
-    window: &Window,
 ) -> CursorCommand {
     // Zoom towards the cursor if zooming only, otherwize zoom to center
     let zoom_translation = match command_type {
@@ -304,6 +296,7 @@ fn get_perspective_cursor_command(
         CameraCommandType::Inactive => (),
     }
 
+    cursor_command.command_type = command_type;
     cursor_command.cursor_selection = if is_cursor_selecting {
         Some(cursor_selection)
     } else {

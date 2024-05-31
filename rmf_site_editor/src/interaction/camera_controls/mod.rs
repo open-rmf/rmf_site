@@ -20,13 +20,11 @@ use bevy::{
     core_pipeline::clear_color::ClearColorConfig,
     core_pipeline::core_3d::Camera3dBundle,
     core_pipeline::tonemapping::Tonemapping,
-    input::mouse::{MouseButton, MouseWheel},
     prelude::*,
     render::{
         camera::{Camera, Projection, ScalingMode},
         view::RenderLayers,
     },
-    window::PrimaryWindow,
 };
 mod cursor;
 use cursor::{update_cursor_command, CursorCommand};
