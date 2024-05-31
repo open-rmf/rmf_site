@@ -208,10 +208,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                 };
                                 let mut tf = tf.compute_transform();
                                 tf.translation.z = tf.translation.z + **elevation;
+                                // Non static meshes have their translation in the SDF element, not in the
+                                // gltf node
                                 model_collisions.push(MeshData {
                                     mesh,
                                     material: None,
-                                    transform: Some(tf),
+                                    transform: is_static.then_some(tf),
                                 });
                             }
                         } else if q_visuals.contains(model_child) {
@@ -228,7 +230,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                 model_visuals.push(MeshData {
                                     mesh,
                                     material: Some(material),
-                                    transform: Some(tf),
+                                    transform: is_static.then_some(tf),
                                 });
                             }
                         }

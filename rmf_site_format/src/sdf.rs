@@ -522,11 +522,30 @@ impl Site {
                 // TODO(luca) this will duplicate multiple instances of the model since it uses
                 // NameInSite instead of AssetSource for the URI, fix
                 else if !model.is_static.0 {
-                    world.include.push(SdfWorldInclude {
-                        uri: format!("model://{}", model.name.0.clone()),
-                        name: Some(model.name.0.clone()),
-                        pose: Some(model.pose.to_sdf()),
+                    world.model.push(SdfModel {
+                        name: model.name.0.clone(),
                         r#static: Some(model.is_static.0),
+                        pose: Some(model.pose.to_sdf()),
+                        link: vec![SdfLink {
+                            name: "link".into(),
+                            collision: vec![SdfCollision {
+                                name: "collision".into(),
+                                geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                    uri: format!("meshes/{}_collision.glb", model.name.0),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }],
+                            visual: vec![SdfVisual {
+                                name: "visual".into(),
+                                geometry: SdfGeometry::Mesh(SdfMeshShape {
+                                    uri: format!("meshes/{}_visual.glb", model.name.0),
+                                    ..Default::default()
+                                }),
+                                ..Default::default()
+                            }],
+                            ..Default::default()
+                        }],
                         ..Default::default()
                     });
                     added = true;
