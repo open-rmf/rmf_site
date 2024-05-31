@@ -3,13 +3,12 @@ use super::{
 };
 use crate::{
     alignment::align_legacy_building, Affiliation, Anchor, Angle, AssetSource, AssociatedGraphs,
-    CameraPoses, Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing,
-    DrawingProperties, Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided,
-    Lane as SiteLane, LaneMarker, Level as SiteLevel, LevelElevation,
-    LevelProperties as SiteLevelProperties, Motion, NameInSite, NameOfSite, NavGraph, Navigation,
-    OrientationConstraint, PixelsPerMeter, Pose, PreferredSemiTransparency, RankingsInLevel,
-    ReverseLane, Rotation, Site, SiteProperties, Texture as SiteTexture, TextureGroup,
-    DEFAULT_NAV_GRAPH_COLORS,
+    Category, DisplayColor, Dock as SiteDock, Drawing as SiteDrawing, DrawingProperties,
+    Fiducial as SiteFiducial, FiducialGroup, FiducialMarker, Guided, Lane as SiteLane, LaneMarker,
+    Level as SiteLevel, LevelElevation, LevelProperties as SiteLevelProperties, Motion, NameInSite,
+    NameOfSite, NavGraph, Navigation, OrientationConstraint, PixelsPerMeter, Pose,
+    PreferredSemiTransparency, RankingsInLevel, ReverseLane, Rotation, Site, SiteProperties,
+    Texture as SiteTexture, TextureGroup, UserCameraPose, DEFAULT_NAV_GRAPH_COLORS,
 };
 use glam::{DAffine2, DMat3, DQuat, DVec2, DVec3, EulerRot};
 use serde::{Deserialize, Serialize};
@@ -528,7 +527,11 @@ impl BuildingMap {
                 walls.insert(site_id.next().unwrap(), site_wall);
             }
 
-            let elevation = level.elevation as f32;
+            let mut user_camera_poses = BTreeMap::new();
+            user_camera_poses.insert(
+                site_id.next().unwrap(),
+                UserCameraPose::from_anchors("default", level_anchors.values()),
+            );
 
             level_name_to_id.insert(level_name.clone(), level_id);
             levels.insert(
@@ -536,10 +539,9 @@ impl BuildingMap {
                 SiteLevel {
                     properties: SiteLevelProperties {
                         name: NameInSite(level_name.clone()),
-                        elevation: LevelElevation(elevation),
+                        elevation: LevelElevation(level.elevation as f32),
                         global_floor_visibility: Default::default(),
                         global_drawing_visibility: Default::default(),
-                        camera_poses: CameraPoses::from_anchors(level_anchors.values()),
                     },
                     anchors: level_anchors,
                     doors,
@@ -550,6 +552,7 @@ impl BuildingMap {
                     physical_cameras,
                     walls,
                     rankings,
+                    user_camera_poses,
                 },
             );
 

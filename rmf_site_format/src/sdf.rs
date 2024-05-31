@@ -811,14 +811,14 @@ impl Site {
                 .find(|plugin| plugin.filename == "MinimalScene")
             {
                 if let Some(camera_pose) = minimal_scene.elements.get_mut("camera_pose") {
-                    if let Some(pose) = self
+                    if let Some(user_camera_pose) = self
                         .levels
                         .first_key_value()
-                        .and_then(|(_, level)| level.properties.camera_poses.0.values().next())
+                        .and_then(|(_, level)| level.user_camera_poses.values().next())
                     {
                         // TODO(luca) use level elevation here? It also seems that quaternion
                         // notation in Gazebo and Bevy is different, check
-                        let mut pose = pose.clone();
+                        let mut pose = user_camera_pose.pose.clone();
                         pose.rot = Rotation::EulerExtrinsicXYZ([
                             Angle::Rad(0.0),
                             Angle::Rad(0.6),

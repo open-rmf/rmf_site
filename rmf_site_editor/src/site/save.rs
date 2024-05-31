@@ -345,11 +345,11 @@ fn generate_levels(
                 &Children,
                 Option<&RecencyRanking<FloorMarker>>,
                 Option<&RecencyRanking<DrawingMarker>>,
-                &CameraPoses,
             ),
             Without<Pending>,
         >,
         Query<&SiteID>,
+        Query<(&Pose, &NameInSite, &SiteID), With<UserCameraPoseMarker>>,
     )> = SystemState::new(world);
 
     let (
@@ -367,6 +367,7 @@ fn generate_levels(
         q_walls,
         q_levels,
         q_site_ids,
+        q_user_camera_poses,
     ) = state.get(world);
 
     let get_anchor_id = |entity| {
@@ -411,7 +412,6 @@ fn generate_levels(
                 level_children,
                 floor_ranking,
                 drawing_ranking,
-                camera_poses,
             )) = q_levels.get(*c)
             {
                 let mut level = Level::new(
@@ -420,7 +420,6 @@ fn generate_levels(
                         elevation: elevation.clone(),
                         global_floor_visibility: floor_vis.clone(),
                         global_drawing_visibility: drawing_vis.clone(),
-                        camera_poses: camera_poses.clone(),
                     },
                     RankingsInLevel {
                         floors: floor_ranking
@@ -578,6 +577,16 @@ fn generate_levels(
                                 anchors,
                                 texture,
                                 marker: WallMarker,
+                            },
+                        );
+                    }
+                    if let Ok((pose, name, id)) = q_user_camera_poses.get(*c) {
+                        level.user_camera_poses.insert(
+                            id.0,
+                            UserCameraPose {
+                                name: name.clone(),
+                                pose: pose.clone(),
+                                marker: UserCameraPoseMarker,
                             },
                         );
                     }

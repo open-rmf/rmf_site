@@ -15,19 +15,27 @@
  *
 */
 
-use crate::{Anchor, Category, Pose, Rotation};
+use crate::{Anchor, Category, NameInSite, Pose, Rotation};
 #[cfg(feature = "bevy")]
-use bevy::prelude::Component;
+use bevy::prelude::{Bundle, Component};
 use glam::{Affine3A, Quat, Vec3};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
-#[cfg_attr(feature = "bevy", derive(Component))]
-pub struct CameraPoses(pub HashMap<String, Pose>);
+#[cfg_attr(feature = "bevy", derive(Bundle))]
+pub struct UserCameraPose {
+    pub pose: Pose,
+    pub name: NameInSite,
+    pub marker: UserCameraPoseMarker,
+}
 
-impl CameraPoses {
-    pub fn from_anchors<'a, I>(anchors: I) -> Self
+#[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
+#[cfg_attr(feature = "bevy", derive(Component))]
+pub struct UserCameraPoseMarker;
+
+impl UserCameraPose {
+    pub fn from_anchors<'a, I>(name: &str, anchors: I) -> Self
     where
         I: Iterator<Item = &'a Anchor>,
     {
@@ -56,6 +64,10 @@ impl CameraPoses {
             trans: (trans + offset).into(),
             rot: Rotation::Quat(rot),
         };
-        Self(HashMap::from([("default".to_string(), pose)]))
+        Self {
+            pose,
+            name: NameInSite(name.into()),
+            marker: Default::default(),
+        }
     }
 }

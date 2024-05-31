@@ -30,8 +30,6 @@ pub struct LevelProperties {
     pub global_floor_visibility: GlobalFloorVisibility,
     #[serde(default, skip_serializing_if = "is_default")]
     pub global_drawing_visibility: GlobalDrawingVisibility,
-    #[serde(default, skip_serializing_if = "is_default")]
-    pub camera_poses: CameraPoses,
 }
 
 impl Default for LevelProperties {
@@ -41,7 +39,6 @@ impl Default for LevelProperties {
             elevation: LevelElevation(0.0),
             global_floor_visibility: Default::default(),
             global_drawing_visibility: Default::default(),
-            camera_poses: Default::default(),
         }
     }
 }
@@ -71,6 +68,8 @@ pub struct Level {
     pub walls: BTreeMap<u32, Wall<u32>>,
     #[serde(default, skip_serializing_if = "RankingsInLevel::is_empty")]
     pub rankings: RankingsInLevel,
+    #[serde(default, skip_serializing_if = "BTreeMap::is_empty")]
+    pub user_camera_poses: BTreeMap<u32, UserCameraPose>,
 }
 
 impl Level {
@@ -86,6 +85,7 @@ impl Level {
             models: Default::default(),
             physical_cameras: Default::default(),
             walls: Default::default(),
+            user_camera_poses: Default::default(),
         }
     }
 }
