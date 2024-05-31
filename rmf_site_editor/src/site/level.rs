@@ -66,33 +66,3 @@ pub fn assign_orphan_elements_to_level<T: Component>(
         commands.entity(current_level).add_child(orphan);
     }
 }
-
-pub fn set_camera_transform_on_level_change(
-    current_level: Res<CurrentLevel>,
-    mut camera_controls: ResMut<CameraControls>,
-    camera_poses: Query<&CameraPoses>,
-    mut transforms: Query<&mut Transform>,
-) {
-    if current_level.is_changed() {
-        let Some(level) = current_level.0 else {
-            return;
-        };
-
-        if let Ok(poses) = camera_poses.get(level) {
-            // TODO(luca) Add an actual default pose rather than first in map
-            let Some(pose) = poses.0.values().next() else {
-                return;
-            };
-            if let Ok(mut tf) = transforms.get_mut(camera_controls.perspective_camera_entities[0]) {
-                *tf = pose.transform();
-            }
-            let mut translation = pose.transform().translation;
-            // TODO(luca) these are the same value that are in rmf_site_format, should we change
-            // them?
-            translation.x = translation.x + 10.0;
-            translation.y = translation.y + 10.0;
-            translation.z = 0.0;
-            camera_controls.orbit_center = translation;
-        }
-    }
-}
