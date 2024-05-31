@@ -73,7 +73,7 @@ impl DoorBodyType {
         }
     }
 
-    pub fn labels(&self) -> Vec<&str> {
+    pub fn links(&self) -> Vec<&str> {
         match self {
             DoorBodyType::SingleSwing { .. }
             | DoorBodyType::SingleSliding { .. }

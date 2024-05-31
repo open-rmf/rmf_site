@@ -154,21 +154,19 @@ fn default_style_config() -> Style {
 }
 
 impl Site {
-    // TODO(luca) the functions below assume that we only serialize to ron, now that we are adding
-    // json these should probably be renamed or made to accept an enum for the format?
-    pub fn to_writer<W: io::Write>(&self, writer: W) -> ron::Result<()> {
+    pub fn to_writer_ron<W: io::Write>(&self, writer: W) -> ron::Result<()> {
         ron::ser::to_writer_pretty(writer, self, default_style_config())
     }
 
-    pub fn to_writer_custom<W: io::Write>(&self, writer: W, style: Style) -> ron::Result<()> {
+    pub fn to_writer_custom_ron<W: io::Write>(&self, writer: W, style: Style) -> ron::Result<()> {
         ron::ser::to_writer_pretty(writer, self, style)
     }
 
-    pub fn to_string(&self) -> ron::Result<String> {
+    pub fn to_string_ron(&self) -> ron::Result<String> {
         ron::ser::to_string_pretty(self, default_style_config())
     }
 
-    pub fn to_string_custom(&self, style: Style) -> ron::Result<String> {
+    pub fn to_string_custom_ron(&self, style: Style) -> ron::Result<String> {
         ron::ser::to_string_pretty(self, style)
     }
 
@@ -176,25 +174,25 @@ impl Site {
         serde_json::to_writer_pretty(writer, self)
     }
 
-    pub fn from_json_bytes(s: &[u8]) -> serde_json::Result<Self> {
+    pub fn from_bytes_json(s: &[u8]) -> serde_json::Result<Self> {
         serde_json::from_slice(s)
     }
 
-    pub fn from_reader<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
+    pub fn from_reader_ron<R: io::Read>(reader: R) -> ron::error::SpannedResult<Self> {
         // TODO(MXG): Validate the parsed data, e.g. make sure anchor pairs
         // belong to the same level.
         ron::de::from_reader(reader)
     }
 
-    pub fn from_str<'a>(s: &'a str) -> ron::error::SpannedResult<Self> {
+    pub fn from_str_ron<'a>(s: &'a str) -> ron::error::SpannedResult<Self> {
         ron::de::from_str(s)
     }
 
-    pub fn to_json_str(&self) -> serde_json::Result<Vec<u8>> {
+    pub fn to_bytes_json(&self) -> serde_json::Result<Vec<u8>> {
         serde_json::to_vec_pretty(self)
     }
 
-    pub fn from_bytes<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
+    pub fn from_bytes_ron<'a>(s: &'a [u8]) -> ron::error::SpannedResult<Self> {
         ron::de::from_bytes(s)
     }
 
@@ -221,15 +219,15 @@ mod tests {
     fn ron_roundtrip() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        let site_string = map.to_site().unwrap().to_string().unwrap();
-        Site::from_str(&site_string).unwrap();
+        let site_string = map.to_site().unwrap().to_string_ron().unwrap();
+        Site::from_str_ron(&site_string).unwrap();
     }
 
     #[test]
     fn json_roundtrip() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        let site_string = map.to_site().unwrap().to_json_str().unwrap();
-        Site::from_json_bytes(&site_string).unwrap();
+        let site_string = map.to_site().unwrap().to_bytes_json().unwrap();
+        Site::from_bytes_json(&site_string).unwrap();
     }
 }

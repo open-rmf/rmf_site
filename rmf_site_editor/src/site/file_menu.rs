@@ -26,6 +26,12 @@ pub struct ExportSdfMenu {
     export_sdf: Entity,
 }
 
+impl ExportSdfMenu {
+    pub fn get(&self) -> Entity {
+        self.export_sdf
+    }
+}
+
 impl FromWorld for ExportSdfMenu {
     fn from_world(world: &mut World) -> Self {
         let site_states = HashSet::from([
@@ -52,7 +58,7 @@ pub fn handle_export_sdf_menu_events(
     mut save_events: EventWriter<SaveWorkspace>,
 ) {
     for event in menu_events.read() {
-        if event.clicked() && event.source() == sdf_menu.export_sdf {
+        if event.clicked() && event.source() == sdf_menu.get() {
             save_events.send(SaveWorkspace {
                 destination: SaveWorkspaceDestination::Dialog,
                 format: ExportFormat::Sdf,

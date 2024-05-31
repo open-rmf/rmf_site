@@ -1254,7 +1254,7 @@ pub fn save_site(world: &mut World) {
                         }
                     }
                 } else {
-                    match site.to_writer(f) {
+                    match site.to_writer_ron(f) {
                         Ok(()) => {
                             info!("Save successful");
                         }
@@ -1270,9 +1270,12 @@ pub fn save_site(world: &mut World) {
             ExportFormat::Sdf => {
                 // TODO(luca) reduce code duplication with default exporting
                 info!("Saving to {}", new_path.display());
-                let parent_folder = new_path.parent().unwrap();
+                let Some(parent_folder) = new_path.parent() else {
+                    error!("Unable to save SDF. Please select a save path that has a parent directory.");
+                    continue;
+                };
                 if !parent_folder.exists() {
-                    if let Err(e) = std::fs::create_dir_all(new_path.parent().unwrap()) {
+                    if let Err(e) = std::fs::create_dir_all(parent_folder) {
                         error!("Unable to create folder {}: {e}", parent_folder.display());
                         continue;
                     }
@@ -1285,11 +1288,15 @@ pub fn save_site(world: &mut World) {
                     }
                 };
 
-                let mut meshes_dir = PathBuf::from(new_path.parent().unwrap());
+                let mut meshes_dir = PathBuf::from(parent_folder);
                 meshes_dir.push("meshes");
-                std::fs::create_dir(&meshes_dir).ok();
+                if let Err(e) = std::fs::create_dir_all(&meshes_dir) {
+                    error!("Unable to create folder {}: {e}", meshes_dir.display());
+                    continue;
+                }
                 if let Err(e) = collect_site_meshes(world, save_event.site, &meshes_dir) {
                     error!("Unable to collect site meshes: {e}");
+                    continue;
                 }
 
                 migrate_relative_paths(save_event.site, &new_path, world);
@@ -1314,10 +1321,16 @@ pub fn save_site(world: &mut World) {
                     write_document_declaration: true,
                     ..Default::default()
                 };
-                yaserde::ser::serialize_with_writer(&sdf, f, &config).unwrap();
-                let mut navgraph_dir = PathBuf::from(new_path.parent().unwrap());
+                if let Err(e) = yaserde::ser::serialize_with_writer(&sdf, f, &config) {
+                    error!("Failed serializing site to sdf: {e}");
+                    continue;
+                }
+                let mut navgraph_dir = PathBuf::from(parent_folder);
                 navgraph_dir.push("nav_graphs");
-                std::fs::create_dir(&navgraph_dir).ok();
+                if let Err(e) = std::fs::create_dir_all(&navgraph_dir) {
+                    error!("Unable to create folder {}: {e}", navgraph_dir.display());
+                    continue;
+                }
                 for (name, graph) in &graphs {
                     let mut graph_file = navgraph_dir.clone();
                     graph_file.push(name.to_owned() + ".yaml");
@@ -1402,7 +1415,7 @@ pub fn save_nav_graphs(world: &mut World) {
             }
         };
 
-        match site.to_writer(f) {
+        match site.to_writer_ron(f) {
             Ok(()) => {
                 info!("Save successful");
             }

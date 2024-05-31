@@ -11,7 +11,7 @@ use crate::site::{
     LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
 };
 use rmf_site_format::{
-    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, WallMarker,
+    IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, SiteID, WallMarker,
 };
 
 /// Manages a simple state machine where we:
@@ -94,6 +94,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         Query<((), With<LiftDoormat>)>,
         Query<&GlobalTransform>,
         Query<&Transform>,
+        Query<&SiteID>,
     )> = SystemState::new(world);
     let (
         q_children,
@@ -109,6 +110,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
         q_lift_door_mats,
         q_global_tfs,
         q_tfs,
+        q_site_ids,
     ) = state.get(world);
 
     let image_assets = world.resource::<Assets<Image>>();
@@ -131,11 +133,19 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             return None;
         };
         let Some(mesh) = mesh_assets.get(mesh) else {
-            warn!("Mesh asset not found");
+            let site_id = q_site_ids.get(entity);
+            warn!(
+                "Mesh asset not found for entity {:?} with Site ID {:?} while exporting assets",
+                entity, site_id
+            );
             return None;
         };
         let Some(material) = material_assets.get(material) else {
-            warn!("Material asset not found");
+            let site_id = q_site_ids.get(entity);
+            warn!(
+                "Material asset not found for entity {:?} with Site ID {:?} while exporting assets",
+                entity, site_id
+            );
             return None;
         };
         Some((mesh, material))
@@ -187,7 +197,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     // TODO(luca) don't do full descendant iter here or we might add twice?
                     // Iterate through children and select all meshes
                     for model_child in DescendantIter::new(&q_children, model) {
-                        if q_collisions.get(model_child).is_ok() {
+                        if q_collisions.contains(model_child) {
                             // Now iterate through the children of the collision and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
                                 let Some((mesh, _)) = get_mesh_and_material(entity) else {
@@ -204,7 +214,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                                     transform: Some(tf),
                                 });
                             }
-                        } else if q_visuals.get(model_child).is_ok() {
+                        } else if q_visuals.contains(model_child) {
                             // Now iterate through the children of the visuals and add them
                             for entity in DescendantIter::new(&q_children, model_child) {
                                 let Some((mesh, material)) = get_mesh_and_material(entity) else {
@@ -249,7 +259,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         .body
                         .entities()
                         .iter()
-                        .zip(segments.body.labels().into_iter())
+                        .zip(segments.body.links().into_iter())
                     {
                         // Generate the visual and collisions here
                         let Some((mesh, material)) = get_mesh_and_material(*entity) else {
@@ -329,7 +339,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         .body
                         .entities()
                         .iter()
-                        .zip(segments.body.labels().into_iter())
+                        .zip(segments.body.links().into_iter())
                     {
                         // Generate the visual and collisions here
                         let Some((mesh, material)) = get_mesh_and_material(*entity) else {

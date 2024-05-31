@@ -349,7 +349,7 @@ fn workspace_file_load_complete(
             }
             WorkspaceData::RonSite(data) => {
                 info!("Opening site file");
-                match Site::from_bytes(&data) {
+                match Site::from_bytes_ron(&data) {
                     Ok(site) => {
                         // Switch state
                         app_state.set(AppState::SiteEditor);
@@ -367,7 +367,7 @@ fn workspace_file_load_complete(
             }
             WorkspaceData::JsonSite(data) => {
                 info!("Opening site file");
-                match Site::from_json_bytes(&data) {
+                match Site::from_bytes_json(&data) {
                     Ok(site) => {
                         // Switch state
                         app_state.set(AppState::SiteEditor);

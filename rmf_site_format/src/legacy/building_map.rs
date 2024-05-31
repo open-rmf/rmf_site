@@ -736,7 +736,10 @@ mod tests {
     fn site_conversion() {
         let data = std::fs::read("../assets/demo_maps/office.building.yaml").unwrap();
         let map = BuildingMap::from_bytes(&data).unwrap();
-        println!("{}", map.to_site().unwrap().to_string().unwrap());
+        println!(
+            "{}",
+            String::from_utf8_lossy(&map.to_site().unwrap().to_bytes_json().unwrap())
+        );
     }
 
     #[test]

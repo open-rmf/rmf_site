@@ -157,31 +157,29 @@ impl Plugin for SiteEditor {
                 false
             }
         };
-        {
-            plugins = if headless {
-                plugins
-                    .set(WindowPlugin {
-                        primary_window: None,
-                        exit_condition: bevy::window::ExitCondition::DontExit,
-                        close_when_requested: false,
-                    })
-                    .disable::<bevy::winit::WinitPlugin>()
-            } else {
-                plugins.set(WindowPlugin {
-                    primary_window: Some(Window {
-                        title: "RMF Site Editor".to_owned(),
-                        #[cfg(not(target_arch = "wasm32"))]
-                        resolution: (1600., 900.).into(),
-                        #[cfg(target_arch = "wasm32")]
-                        canvas: Some(String::from("#rmf_site_editor_canvas")),
-                        #[cfg(target_arch = "wasm32")]
-                        fit_canvas_to_parent: true,
-                        ..default()
-                    }),
-                    ..default()
+        plugins = if headless {
+            plugins
+                .set(WindowPlugin {
+                    primary_window: None,
+                    exit_condition: bevy::window::ExitCondition::DontExit,
+                    close_when_requested: false,
                 })
-            };
-        }
+                .disable::<bevy::winit::WinitPlugin>()
+        } else {
+            plugins.set(WindowPlugin {
+                primary_window: Some(Window {
+                    title: "RMF Site Editor".to_owned(),
+                    #[cfg(not(target_arch = "wasm32"))]
+                    resolution: (1600., 900.).into(),
+                    #[cfg(target_arch = "wasm32")]
+                    canvas: Some(String::from("#rmf_site_editor_canvas")),
+                    #[cfg(target_arch = "wasm32")]
+                    fit_canvas_to_parent: true,
+                    ..default()
+                }),
+                ..default()
+            })
+        };
         app.add_plugins((
             SiteAssetIoPlugin,
             plugins
