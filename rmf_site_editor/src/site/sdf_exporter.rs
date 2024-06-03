@@ -132,9 +132,7 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
     };
 
     let get_site_id = |e: Entity| -> Result<u32, String> {
-        q_site_ids.get(e)
-        .map(|id| id.0)
-        .map_err(|_| {
+        q_site_ids.get(e).map(|id| id.0).map_err(|_| {
             let backtrace = std::backtrace::Backtrace::force_capture();
             format!("Site ID was not available for entity {e:?}. Backtrace:\n{backtrace}")
         })
@@ -357,7 +355,11 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     transform: None,
                 });
             }
-            let filename = format!("{}/lift_{}.glb", folder.display(), get_site_id(*site_child)?);
+            let filename = format!(
+                "{}/lift_{}.glb",
+                folder.display(),
+                get_site_id(*site_child)?
+            );
             write_meshes_to_file(
                 lift_data,
                 Some(format!("lift_{}", **lift_name)),
@@ -400,7 +402,12 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         );
                         write_meshes_to_file(
                             vec![data],
-                            Some(format!("lift_{}_{}_{}", **lift_name, face.label(), segment_name)),
+                            Some(format!(
+                                "lift_{}_{}_{}",
+                                **lift_name,
+                                face.label(),
+                                segment_name
+                            )),
                             CompressGltfOptions::default(),
                             filename,
                         )?;

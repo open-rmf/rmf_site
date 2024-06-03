@@ -226,7 +226,8 @@ fn make_sdf_door(
                 ..Default::default()
             }
             .to_sdf();
-            let (left_joint_name, right_joint_name) = ("empty_joint", model_name.to_owned() + "_joint");
+            let (left_joint_name, right_joint_name) =
+                ("empty_joint", model_name.to_owned() + "_joint");
             door_plugin_inner
                 .attributes
                 .insert("left_joint_name".into(), left_joint_name.into());
@@ -255,12 +256,14 @@ fn make_sdf_door(
             door_plugin_inner
                 .attributes
                 .insert("type".into(), "DoubleSlidingDoor".into());
-            door_plugin_inner
-                .attributes
-                .insert("left_joint_name".into(), model_name.to_owned() + "_left_joint");
-            door_plugin_inner
-                .attributes
-                .insert("right_joint_name".into(), model_name.to_owned() + "_right_joint");
+            door_plugin_inner.attributes.insert(
+                "left_joint_name".into(),
+                model_name.to_owned() + "_left_joint",
+            );
+            door_plugin_inner.attributes.insert(
+                "right_joint_name".into(),
+                model_name.to_owned() + "_right_joint",
+            );
             door_motion_params.push(("v_max_door", "0.2"));
             door_motion_params.push(("a_max_door", "0.2"));
             door_motion_params.push(("a_nom_door", "0.08"));
@@ -319,12 +322,14 @@ fn make_sdf_door(
             door_plugin_inner
                 .attributes
                 .insert("type".into(), "DoubleSwingDoor".into());
-            door_plugin_inner
-                .attributes
-                .insert("left_joint_name".into(), model_name.to_owned() + "_left_joint");
-            door_plugin_inner
-                .attributes
-                .insert("right_joint_name".into(), model_name.to_owned() + "_right_joint");
+            door_plugin_inner.attributes.insert(
+                "left_joint_name".into(),
+                model_name.to_owned() + "_left_joint",
+            );
+            door_plugin_inner.attributes.insert(
+                "right_joint_name".into(),
+                model_name.to_owned() + "_right_joint",
+            );
             door_motion_params.push(("v_max_door", "0.5"));
             door_motion_params.push(("a_max_door", "0.3"));
             door_motion_params.push(("a_nom_door", "0.15"));
