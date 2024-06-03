@@ -53,7 +53,10 @@ pub fn headless_sdf_export(
         return;
     }
     if sites.is_empty() {
-        warn!("Site loading failed, aborting");
+        warn!(
+            "Unable to load site from file [{}] so we cannot export an SDF from it",
+            export_state.target_path,
+        );
         exit.send(bevy::app::AppExit);
     }
     if !missing_models.is_empty() {
@@ -126,6 +129,15 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
             export_meshes(meshes, name, image_getter, options).map_err(|e| e.to_string())?;
         let bytes = meshes.to_bytes().map_err(|e| e.to_string())?;
         std::fs::write(filename, bytes).map_err(|e| e.to_string())
+    };
+
+    let get_site_id = |e: Entity| -> Result<u32, String> {
+        q_site_ids.get(e)
+        .map(|id| id.0)
+        .map_err(|_| {
+            let backtrace = std::backtrace::Backtrace::force_capture();
+            format!("Site ID was not available for entity {e:?}. Backtrace:\n{backtrace}")
+        })
     };
 
     let get_mesh_and_material = |entity: Entity| -> Option<(&Mesh, &StandardMaterial)> {
@@ -241,14 +253,22 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         visual_data.extend(model_visuals);
                     } else {
                         // Create a new mesh for it
-                        let filename = format!("{}/{}_collision.glb", folder.display(), **name);
+                        let filename = format!(
+                            "{}/model_{}_collision.glb",
+                            folder.display(),
+                            get_site_id(*child)?,
+                        );
                         write_meshes_to_file(
                             model_collisions,
                             None,
                             CompressGltfOptions::skip_materials(),
                             filename,
                         )?;
-                        let filename = format!("{}/{}_visual.glb", folder.display(), **name);
+                        let filename = format!(
+                            "{}/model_{}_visual.glb",
+                            folder.display(),
+                            get_site_id(*child)?,
+                        );
                         write_meshes_to_file(
                             model_visuals,
                             Some(format!("{}_visual", **name)),
@@ -270,20 +290,22 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                         let Ok(tf) = q_tfs.get(*entity) else {
                             continue;
                         };
-                        let Some(door_name) = door_name else {
-                            continue;
-                        };
 
                         let data = MeshData {
                             mesh,
                             material: Some(material),
                             transform: Some(tf.clone()),
                         };
-                        let filename =
-                            format!("{}/{}_{}.glb", folder.display(), **door_name, segment_name);
+                        let filename = format!(
+                            "{}/door_{}_{}.glb",
+                            folder.display(),
+                            get_site_id(*child)?,
+                            segment_name,
+                        );
+                        let door_name = door_name.map(|n| n.0.as_str()).unwrap_or("");
                         write_meshes_to_file(
                             vec![data],
-                            None,
+                            Some(format!("door_{}_{}", door_name, segment_name)),
                             CompressGltfOptions::default(),
                             filename,
                         )?;
@@ -292,17 +314,25 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     continue;
                 };
             }
-            let filename = format!("{}/level_{}_collision.glb", folder.display(), **level_name);
+            let filename = format!(
+                "{}/level_{}_collision.glb",
+                folder.display(),
+                get_site_id(*site_child)?,
+            );
             write_meshes_to_file(
                 collision_data,
-                None,
+                Some(format!("level_{}_collision", **level_name)),
                 CompressGltfOptions::skip_materials(),
                 filename,
             )?;
-            let filename = format!("{}/level_{}_visual.glb", folder.display(), **level_name);
+            let filename = format!(
+                "{}/level_{}_visual.glb",
+                folder.display(),
+                get_site_id(*site_child)?,
+            );
             write_meshes_to_file(
                 visual_data,
-                Some(format!("level_{}_visuals", **level_name)),
+                Some(format!("level_{}_visual", **level_name)),
                 CompressGltfOptions::default(),
                 filename,
             )?;
@@ -327,8 +357,13 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                     transform: None,
                 });
             }
-            let filename = format!("{}/{}.glb", folder.display(), **lift_name);
-            write_meshes_to_file(lift_data, None, CompressGltfOptions::default(), filename)?;
+            let filename = format!("{}/lift_{}.glb", folder.display(), get_site_id(*site_child)?);
+            write_meshes_to_file(
+                lift_data,
+                Some(format!("lift_{}", **lift_name)),
+                CompressGltfOptions::default(),
+                filename,
+            )?;
             // Now generate the lift doors
             let LiftCabin::Rect(cabin) = cabin;
             for (face, door) in cabin.doors().iter() {
@@ -357,15 +392,15 @@ pub fn collect_site_meshes(world: &mut World, site: Entity, folder: &Path) -> Re
                             transform: Some(tf.clone()),
                         };
                         let filename = format!(
-                            "{}/{}_{}_{}.glb",
+                            "{}/lift_{}_{}_{}.glb",
                             folder.display(),
-                            **lift_name,
+                            get_site_id(*site_child)?,
                             face.label(),
-                            segment_name
+                            segment_name,
                         );
                         write_meshes_to_file(
                             vec![data],
-                            None,
+                            Some(format!("lift_{}_{}_{}", **lift_name, face.label(), segment_name)),
                             CompressGltfOptions::default(),
                             filename,
                         )?;

@@ -63,14 +63,14 @@ impl Pose {
     }
 }
 
-fn make_sdf_door_link(door_name: &str, link_name: &str) -> SdfLink {
+fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
     let door_mass = 50.0;
     SdfLink {
         name: link_name.to_string(),
         collision: vec![SdfCollision {
-            name: format!("{}_collision", link_name),
+            name: format!("{link_name}_collision"),
             geometry: SdfGeometry::Mesh(SdfMeshShape {
-                uri: format!("meshes/{}_{}.glb", door_name, link_name),
+                uri: format!("meshes/{mesh_prefix}_{link_name}.glb"),
                 ..Default::default()
             }),
             surface: Some(SdfSurface {
@@ -83,9 +83,9 @@ fn make_sdf_door_link(door_name: &str, link_name: &str) -> SdfLink {
             ..Default::default()
         }],
         visual: vec![SdfVisual {
-            name: format!("{}_visual", link_name),
+            name: format!("{link_name}_visual"),
             geometry: SdfGeometry::Mesh(SdfMeshShape {
-                uri: format!("meshes/{}_{}.glb", door_name, link_name),
+                uri: format!("meshes/{mesh_prefix}_{link_name}.glb"),
                 ..Default::default()
             }),
             ..Default::default()
@@ -110,9 +110,9 @@ fn make_sdf_door(
     right_anchor: Anchor,
     offset: Vec3,
     ros_interface: bool,
-    name_override: Option<&str>,
     kind: &DoorType,
-    door_name: &str,
+    mesh_prefix: &str,
+    model_name: &str,
 ) -> Result<SdfModel, SdfConversionError> {
     let left_trans = left_anchor.translation_for_category(Category::Door);
     let right_trans = right_anchor.translation_for_category(Category::Door);
@@ -124,7 +124,6 @@ fn make_sdf_door(
     let dy = left_trans[1] - right_trans[1];
     let door_length = (dx * dx + dy * dy).sqrt();
     let yaw = -dx.atan2(dy);
-    let prefix = name_override.unwrap_or_default().to_string();
     let labels = match kind {
         DoorType::SingleSliding(_) | DoorType::SingleSwing(_) | DoorType::Model(_) => {
             Vec::from(["body"])
@@ -148,9 +147,9 @@ fn make_sdf_door(
     let mut component_data = ElementMap::default();
     door_plugin_inner
         .attributes
-        .insert("name".to_string(), door_name.to_string());
+        .insert("name".to_string(), model_name.to_owned());
     let mut door_model = SdfModel {
-        name: door_name.to_string(),
+        name: model_name.to_owned(),
         pose: Some(
             Pose {
                 trans: (Vec3::from([center[0], center[1], 0.0]) + offset).to_array(),
@@ -161,13 +160,8 @@ fn make_sdf_door(
         r#static: Some(false),
         ..Default::default()
     };
-    let link_name = if let Some(name_override) = name_override.as_ref() {
-        name_override
-    } else {
-        &door_name
-    };
     for label in labels.iter() {
-        door_model.link.push(make_sdf_door_link(link_name, label));
+        door_model.link.push(make_sdf_door_link(mesh_prefix, label));
     }
     let mut door_motion_params = vec![];
     let joints = match kind {
@@ -180,7 +174,7 @@ fn make_sdf_door(
                 .insert("left_joint_name".into(), "empty_joint".into());
             door_plugin_inner
                 .attributes
-                .insert("right_joint_name".into(), prefix.clone() + "joint");
+                .insert("right_joint_name".into(), model_name.to_owned() + "_joint");
             door_motion_params.push(("v_max_door", "0.2"));
             door_motion_params.push(("a_max_door", "0.2"));
             door_motion_params.push(("a_nom_door", "0.08"));
@@ -192,7 +186,7 @@ fn make_sdf_door(
             }
             .to_sdf();
             vec![SdfJoint {
-                name: prefix.clone() + "joint",
+                name: model_name.to_owned() + "_joint",
                 parent: "world".into(),
                 child: "body".into(),
                 r#type: "prismatic".into(),
@@ -232,7 +226,7 @@ fn make_sdf_door(
                 ..Default::default()
             }
             .to_sdf();
-            let (left_joint_name, right_joint_name) = ("empty_joint", prefix.clone() + "joint");
+            let (left_joint_name, right_joint_name) = ("empty_joint", model_name.to_owned() + "_joint");
             door_plugin_inner
                 .attributes
                 .insert("left_joint_name".into(), left_joint_name.into());
@@ -240,7 +234,7 @@ fn make_sdf_door(
                 .attributes
                 .insert("right_joint_name".into(), right_joint_name);
             vec![SdfJoint {
-                name: prefix.clone() + "joint",
+                name: model_name.to_owned() + "_joint",
                 parent: "world".into(),
                 child: "body".into(),
                 r#type: "revolute".into(),
@@ -263,10 +257,10 @@ fn make_sdf_door(
                 .insert("type".into(), "DoubleSlidingDoor".into());
             door_plugin_inner
                 .attributes
-                .insert("left_joint_name".into(), prefix.clone() + "left_joint");
+                .insert("left_joint_name".into(), model_name.to_owned() + "_left_joint");
             door_plugin_inner
                 .attributes
-                .insert("right_joint_name".into(), prefix.clone() + "right_joint");
+                .insert("right_joint_name".into(), model_name.to_owned() + "_right_joint");
             door_motion_params.push(("v_max_door", "0.2"));
             door_motion_params.push(("a_max_door", "0.2"));
             door_motion_params.push(("a_nom_door", "0.08"));
@@ -286,7 +280,7 @@ fn make_sdf_door(
             let right_length = door_length - left_length;
             vec![
                 SdfJoint {
-                    name: prefix.clone() + "right_joint",
+                    name: model_name.to_owned() + "_right_joint",
                     parent: "world".into(),
                     child: "right".into(),
                     r#type: "prismatic".into(),
@@ -303,7 +297,7 @@ fn make_sdf_door(
                     ..Default::default()
                 },
                 SdfJoint {
-                    name: prefix.clone() + "left_joint",
+                    name: model_name.to_owned() + "_left_joint",
                     parent: "world".into(),
                     child: "left".into(),
                     r#type: "prismatic".into(),
@@ -327,10 +321,10 @@ fn make_sdf_door(
                 .insert("type".into(), "DoubleSwingDoor".into());
             door_plugin_inner
                 .attributes
-                .insert("left_joint_name".into(), prefix.clone() + "left_joint");
+                .insert("left_joint_name".into(), model_name.to_owned() + "_left_joint");
             door_plugin_inner
                 .attributes
-                .insert("right_joint_name".into(), prefix.clone() + "right_joint");
+                .insert("right_joint_name".into(), model_name.to_owned() + "_right_joint");
             door_motion_params.push(("v_max_door", "0.5"));
             door_motion_params.push(("a_max_door", "0.3"));
             door_motion_params.push(("a_nom_door", "0.15"));
@@ -355,7 +349,7 @@ fn make_sdf_door(
             .to_sdf();
             vec![
                 SdfJoint {
-                    name: prefix.clone() + "right_joint",
+                    name: model_name.to_owned() + "_right_joint",
                     parent: "world".into(),
                     child: "right".into(),
                     r#type: "revolute".into(),
@@ -372,7 +366,7 @@ fn make_sdf_door(
                     ..Default::default()
                 },
                 SdfJoint {
-                    name: prefix.clone() + "left_joint",
+                    name: model_name.to_owned() + "_left_joint",
                     parent: "world".into(),
                     child: "left".into(),
                     r#type: "revolute".into(),
@@ -398,7 +392,7 @@ fn make_sdf_door(
             }
             .to_sdf();
             vec![SdfJoint {
-                name: prefix.clone() + "joint",
+                name: model_name.to_owned() + "_joint",
                 parent: "world".into(),
                 child: "body".into(),
                 r#type: "fixed".into(),
@@ -445,7 +439,7 @@ impl Site {
             filename: "toggle_floors".into(),
             ..Default::default()
         };
-        for level in self.levels.values() {
+        for (level_id, level) in &self.levels {
             let mut level_model_names = vec![];
             let mut model_element_map = ElementMap::default();
             max_elevation = max_elevation.max(level.properties.elevation.0);
@@ -454,7 +448,7 @@ impl Site {
                 name: "floor".into(),
                 ..Default::default()
             };
-            let level_model_name = format!("level_{}", level.properties.name.0);
+            let level_model_name = &level.properties.name.0;
             floor_models_ele
                 .attributes
                 .insert("name".into(), level.properties.name.0.clone());
@@ -463,14 +457,14 @@ impl Site {
                 .insert("model_name".into(), level_model_name.clone());
             // Floors walls and static models are included in the level mesh
             world.model.push(SdfModel {
-                name: level_model_name,
+                name: level_model_name.clone(),
                 r#static: Some(true),
                 link: vec![SdfLink {
                     name: "link".into(),
                     collision: vec![SdfCollision {
                         name: "collision".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                            uri: format!("meshes/level_{}_collision.glb", level.properties.name.0),
+                            uri: format!("meshes/level_{}_collision.glb", level_id),
                             ..Default::default()
                         }),
                         surface: Some(SdfSurface {
@@ -485,7 +479,7 @@ impl Site {
                     visual: vec![SdfVisual {
                         name: "visual".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                            uri: format!("meshes/level_{}_visual.glb", level.properties.name.0),
+                            uri: format!("meshes/level_{}_visual.glb", level_id),
                             ..Default::default()
                         }),
                         ..Default::default()
@@ -496,7 +490,7 @@ impl Site {
             });
             // TODO(luca) We need this because there is no concept of ingestor or dispenser in
             // rmf_site yet. Remove when there is
-            for model in level.models.values() {
+            for (model_id, model) in &level.models {
                 let mut added = false;
                 if model.source == AssetSource::Search("OpenRobotics/TeleportIngestor".to_string())
                 {
@@ -531,7 +525,7 @@ impl Site {
                             collision: vec![SdfCollision {
                                 name: "collision".into(),
                                 geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!("meshes/{}_collision.glb", model.name.0),
+                                    uri: format!("meshes/model_{}_collision.glb", model_id),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
@@ -539,7 +533,7 @@ impl Site {
                             visual: vec![SdfVisual {
                                 name: "visual".into(),
                                 geometry: SdfGeometry::Mesh(SdfMeshShape {
-                                    uri: format!("meshes/{}_visual.glb", model.name.0),
+                                    uri: format!("meshes/model_{}_visual.glb", model_id),
                                     ..Default::default()
                                 }),
                                 ..Default::default()
@@ -555,7 +549,7 @@ impl Site {
                 }
             }
             // Now add all the doors
-            for door in level.doors.values() {
+            for (door_id, door) in &level.doors {
                 // TODO(luca) doors into toggle floors
                 let left_anchor = get_anchor(door.anchors.left())?;
                 let right_anchor = get_anchor(door.anchors.right())?;
@@ -564,9 +558,9 @@ impl Site {
                     right_anchor,
                     Vec3::new(0.0, 0.0, level.properties.elevation.0),
                     true,
-                    None,
                     &door.kind,
-                    &door.name.0,
+                    format!("door_{door_id}").as_str(),
+                    door.name.0.as_str(),
                 )?);
                 level_model_names.push(door.name.0.clone());
             }
@@ -581,7 +575,7 @@ impl Site {
             floor_models_ele.data = ElementData::Nested(model_element_map);
             toggle_floors_plugin.elements.push(floor_models_ele);
         }
-        for lift in self.lifts.values() {
+        for (lift_id, lift) in &self.lifts {
             let get_lift_anchor = |id: u32| -> Result<Anchor, SdfConversionError> {
                 lift.cabin_anchors
                     .get(&id)
@@ -650,7 +644,7 @@ impl Site {
                 // TODO(luca) remove unwrap
                 let door = lift.cabin_doors.get(&door_placement.door).unwrap();
                 let cabin_door_name = format!("CabinDoor_{}_door_{}", lift_name, face.label());
-                let cabin_mesh_prefix = format!("{}_{}", lift_name, face.label());
+                let cabin_mesh_prefix = format!("lift_{}_{}", lift_id, face.label());
                 let left_anchor = get_lift_anchor(door.reference_anchors.left())?;
                 let right_anchor = get_lift_anchor(door.reference_anchors.right())?;
                 let x_offset = -face.u()
@@ -663,8 +657,8 @@ impl Site {
                     right_anchor,
                     x_offset,
                     false,
-                    Some(&cabin_mesh_prefix),
                     &door.kind,
+                    &cabin_mesh_prefix,
                     &cabin_door_name,
                 )?;
                 for mut joint in cabin_door.joint.drain(..) {
@@ -689,8 +683,8 @@ impl Site {
                         right_anchor,
                         Vec3::from(pose.trans) + Vec3::new(0.0, 0.0, level.properties.elevation.0),
                         false,
-                        Some(&cabin_mesh_prefix),
                         &door.kind,
+                        &cabin_mesh_prefix,
                         &shaft_door_name,
                     )?;
                     // Add the pose of the lift to have world coordinates
@@ -754,7 +748,7 @@ impl Site {
                     collision: vec![SdfCollision {
                         name: "collision".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                            uri: format!("meshes/{}.glb", lift.properties.name.0),
+                            uri: format!("meshes/lift_{}.glb", lift_id),
                             ..Default::default()
                         }),
                         surface: Some(SdfSurface {
@@ -769,7 +763,7 @@ impl Site {
                     visual: vec![SdfVisual {
                         name: "visual".into(),
                         geometry: SdfGeometry::Mesh(SdfMeshShape {
-                            uri: format!("meshes/{}.glb", lift.properties.name.0),
+                            uri: format!("meshes/lift_{}.glb", lift_id),
                             ..Default::default()
                         }),
                         ..Default::default()
