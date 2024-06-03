@@ -19,6 +19,7 @@ use super::{CameraCommandType, CameraControls, ProjectionMode};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
+use bevy::render::camera;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
 use nalgebra::{Matrix3, Matrix3x1};
@@ -30,6 +31,7 @@ pub struct CursorCommand {
     pub scale_delta: f32,
     pub fov_delta: f32,
     pub cursor_selection: Option<Vec3>,
+    pub camera_selection: Vec3,
     pub command_type: CameraCommandType,
 }
 
@@ -41,6 +43,7 @@ impl Default for CursorCommand {
             scale_delta: 0.0,
             fov_delta: 0.0,
             cursor_selection: None,
+            camera_selection: Vec3::ZERO,
             command_type: CameraCommandType::Inactive,
         }
     }
@@ -57,7 +60,7 @@ pub fn update_cursor_command(
     cameras: Query<(&Projection, &Transform, &GlobalTransform)>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
-    if let Ok(_) = primary_windows.get_single() {
+    if let Ok(window) = primary_windows.get_single() {
         // Cursor and scroll inputs
         let cursor_motion = mouse_motion
             .read()
@@ -117,7 +120,11 @@ pub fn update_cursor_command(
                 command_type,
                 cursor_direction,
                 cursor_selection,
+                cursor_motion,
+                camera_controls.orbit_center,
+                camera_controls.orbit_radius,
                 scroll_motion,
+                window,
             ),
             ProjectionMode::Orthographic => get_orthographic_cursor_command(
                 &camera_transform,
@@ -211,7 +218,11 @@ fn get_perspective_cursor_command(
     command_type: CameraCommandType,
     cursor_direction: Vec3,
     cursor_selection: Vec3,
+    cursor_motion: Vec2,
+    orbit_center: Vec3,
+    orbit_radius: f32,
     scroll_motion: f32,
+    window: &Window,
 ) -> CursorCommand {
     // Zoom towards the cursor if zooming only, otherwize zoom to center
     let zoom_translation = match command_type {
@@ -227,7 +238,7 @@ fn get_perspective_cursor_command(
             cursor_command.fov_delta = -scroll_motion * 0.1;
         }
         CameraCommandType::TranslationZoom => {
-            cursor_command.translation_delta = zoom_translation;
+            cursor_command.translation_delta = cursor_direction * 0.5 * scroll_motion;
         }
         CameraCommandType::Pan => {
             // To keep the same point below the cursor, we solve
@@ -263,34 +274,33 @@ fn get_perspective_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-            let cursor_direction_prev =
-                (cursor_selection - camera_transform.translation).normalize();
 
-            let heading_0 =
-                (cursor_direction_prev - cursor_direction_prev.project_onto(Vec3::Z)).normalize();
-            let heading_1 = (cursor_direction - cursor_direction.project_onto(Vec3::Z)).normalize();
-            let is_clockwise = heading_0.cross(heading_1).dot(Vec3::Z) > 0.0;
-            let yaw = heading_0.angle_between(heading_1) * if is_clockwise { -1.0 } else { 1.0 };
-            let yaw = Quat::from_rotation_z(yaw);
+            // Adjust orbit to the window size
+            // TODO(@reuben-thomas) also adjust to fov
+            let window_size = Vec2::new(window.width(), window.height());
+            let orbit_sensitivity = 1.0;
+            let delta_x = cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
+            let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
+            let yaw = Quat::from_rotation_z(-delta_x);
+            let pitch = Quat::from_rotation_x(-delta_y);
 
-            let pitch_0 = cursor_direction_prev.z.acos();
-            let pitch_1 = cursor_direction.z.acos();
-            let pitch = pitch_1 - pitch_0;
-            let pitch = Quat::from_rotation_x(pitch);
-
-            // Exclude pitch if end result is upside down
-            let mut target_rotation = (yaw * camera_transform.rotation) * pitch;
-            target_rotation = if Transform::from_rotation(target_rotation).up().dot(Vec3::Z) > 0.0 {
-                target_rotation
-            } else {
-                yaw * camera_transform.rotation
+            // Get target rotation, excluding pitch if upside down
+            let mut target_transform = camera_transform.clone();
+            target_transform.rotation = (yaw * camera_transform.rotation) * pitch;
+            if target_transform.up().dot(Vec3::Z) <= 0.0 {
+                target_transform.rotation = yaw * camera_transform.rotation;
             };
 
+            // Calculate translation to orbit around camera centre
+            let orbit_radius = orbit_radius - 0.5 * scroll_motion;
+            let target_rotation = Mat3::from_quat(target_transform.rotation);
+            target_transform.translation = orbit_center
+                + target_rotation.mul_vec3(Vec3::new(0.0, 0.0, orbit_radius));
+            
+            // Get the rotation difference to be multiplied into the current rotation
             let start_rotation = Mat3::from_quat(camera_transform.rotation);
-            let target_rotation = Mat3::from_quat(target_rotation);
-            cursor_command.rotation_delta =
-                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
-            cursor_command.translation_delta = zoom_translation;
+            cursor_command.rotation_delta = Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+            cursor_command.translation_delta = target_transform.translation - camera_transform.translation;
             is_cursor_selecting = true;
         }
         CameraCommandType::Inactive => (),
@@ -305,6 +315,7 @@ fn get_perspective_cursor_command(
 
     return cursor_command;
 }
+
 
 // Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
 fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSet>) -> Vec3 {

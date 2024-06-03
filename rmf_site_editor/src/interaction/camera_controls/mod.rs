@@ -102,8 +102,6 @@ pub struct CameraControls {
     pub orthographic_headlight: Entity,
     pub orbit_center: Vec3,
     pub orbit_radius: f32,
-    pub orbit_upside_down: bool,
-    pub was_oribiting: bool,
 }
 
 /// True/false for whether the headlight should be on or off
@@ -371,9 +369,20 @@ impl FromWorld for CameraControls {
             orthographic_headlight,
             orbit_center: Vec3::ZERO,
             orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
-            orbit_upside_down: false,
-            was_oribiting: false,
         }
+    }
+}
+
+// Get groundplane intersection of camera direction
+fn get_camera_selected_point(camera_transform: &Transform) -> Option<Vec3> {
+    let n_p = Vec3::Z;
+    let n_r = camera_transform.forward();
+    let denom = n_p.dot(n_r);
+    if denom > 0.1 {
+        return None
+    } else {
+        let t = (Vec3::Z - camera_transform.translation).dot(n_p) / denom;
+        return Some(camera_transform.translation + t * camera_transform.forward());
     }
 }
 
@@ -417,6 +426,14 @@ fn camera_controls(
             // Ensure upright
             let forward = persp_transform.forward();
             persp_transform.look_to(forward, Vec3::Z);
+
+            // If pan operation, redefine the orbit center as the point on the groundplane in camera center
+            if cursor_command.command_type == CameraCommandType::Pan {
+                let lateral_translation = cursor_command.translation_delta - cursor_command.translation_delta.project_onto(Vec3::Y);
+                controls.orbit_center = get_camera_selected_point(&persp_transform)
+                    .unwrap_or(controls.orbit_center + lateral_translation);
+                controls.orbit_radius = (persp_transform.translation - controls.orbit_center).length();
+            }
         }
 
         let proj = persp_proj.clone();
