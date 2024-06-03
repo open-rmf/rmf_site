@@ -274,13 +274,14 @@ fn get_perspective_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-
             // Adjust orbit to the window size
             // TODO(@reuben-thomas) also adjust to fov
             let window_size = Vec2::new(window.width(), window.height());
             let orbit_sensitivity = 1.0;
-            let delta_x = cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
-            let delta_y = cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
+            let delta_x =
+                cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
+            let delta_y =
+                cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
             let yaw = Quat::from_rotation_z(-delta_x);
             let pitch = Quat::from_rotation_x(-delta_y);
 
@@ -294,13 +295,15 @@ fn get_perspective_cursor_command(
             // Calculate translation to orbit around camera centre
             let orbit_radius = orbit_radius - 0.5 * scroll_motion;
             let target_rotation = Mat3::from_quat(target_transform.rotation);
-            target_transform.translation = orbit_center
-                + target_rotation.mul_vec3(Vec3::new(0.0, 0.0, orbit_radius));
-            
+            target_transform.translation =
+                orbit_center + target_rotation.mul_vec3(Vec3::new(0.0, 0.0, orbit_radius));
+
             // Get the rotation difference to be multiplied into the current rotation
             let start_rotation = Mat3::from_quat(camera_transform.rotation);
-            cursor_command.rotation_delta = Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
-            cursor_command.translation_delta = target_transform.translation - camera_transform.translation;
+            cursor_command.rotation_delta =
+                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+            cursor_command.translation_delta =
+                target_transform.translation - camera_transform.translation;
             is_cursor_selecting = true;
         }
         CameraCommandType::Inactive => (),
@@ -315,7 +318,6 @@ fn get_perspective_cursor_command(
 
     return cursor_command;
 }
-
 
 // Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
 fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSet>) -> Vec3 {

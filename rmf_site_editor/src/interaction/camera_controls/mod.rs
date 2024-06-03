@@ -17,9 +17,10 @@
 
 use crate::interaction::PickingBlockers;
 use bevy::{
-    core_pipeline::clear_color::ClearColorConfig,
-    core_pipeline::core_3d::Camera3dBundle,
-    core_pipeline::tonemapping::Tonemapping,
+    core_pipeline::{
+        clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
+    },
+    pbr::deferred::prepare_deferred_lighting_pipelines,
     prelude::*,
     render::{
         camera::{Camera, Projection, ScalingMode},
@@ -54,6 +55,10 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 /// The Model Preview layer is used by model previews to spawn and render
 /// models in the engine without having them being visible to general cameras
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
+
+/// Camera limits
+pub const CAMERA_MIN_FOV: f32 = 5.0;
+pub const CAMERA_MAX_FOV: f32 = 120.0;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
@@ -378,8 +383,8 @@ fn get_camera_selected_point(camera_transform: &Transform) -> Option<Vec3> {
     let n_p = Vec3::Z;
     let n_r = camera_transform.forward();
     let denom = n_p.dot(n_r);
-    if denom > 0.1 {
-        return None
+    if denom > 1e3 {
+        return None;
     } else {
         let t = (Vec3::Z - camera_transform.translation).dot(n_p) / denom;
         return Some(camera_transform.translation + t * camera_transform.forward());
@@ -422,6 +427,9 @@ fn camera_controls(
             persp_transform.translation += cursor_command.translation_delta;
             persp_transform.rotation *= cursor_command.rotation_delta;
             persp_proj.fov += cursor_command.fov_delta;
+            persp_proj.fov = persp_proj
+                .fov
+                .clamp(CAMERA_MIN_FOV.to_radians(), CAMERA_MAX_FOV.to_radians());
 
             // Ensure upright
             let forward = persp_transform.forward();
@@ -429,10 +437,12 @@ fn camera_controls(
 
             // If pan operation, redefine the orbit center as the point on the groundplane in camera center
             if cursor_command.command_type == CameraCommandType::Pan {
-                let lateral_translation = cursor_command.translation_delta - cursor_command.translation_delta.project_onto(Vec3::Y);
+                let lateral_translation = cursor_command.translation_delta
+                    - cursor_command.translation_delta.project_onto(Vec3::Y);
                 controls.orbit_center = get_camera_selected_point(&persp_transform)
                     .unwrap_or(controls.orbit_center + lateral_translation);
-                controls.orbit_radius = (persp_transform.translation - controls.orbit_center).length();
+                controls.orbit_radius =
+                    (persp_transform.translation - controls.orbit_center).length();
             }
         }
 
