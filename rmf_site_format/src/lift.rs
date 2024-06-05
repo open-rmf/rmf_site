@@ -233,6 +233,21 @@ impl<T: RefTrait> LiftCabin<T> {
         };
         Ok(result)
     }
+
+    pub fn moment_of_inertia(&self, mass: f64) -> sdformat_rs::SdfInertialInertia {
+        match self {
+            Self::Rect(params) => {
+                sdformat_rs::SdfInertialInertia {
+                    ixx: mass/12.0 * (params.width.powi(2) + DEFAULT_CABIN_WALL_THICKNESS.powi(2)) as f64,
+                    iyy: mass/12.0 * (params.depth.powi(2) + DEFAULT_CABIN_WALL_THICKNESS.powi(2)) as f64,
+                    izz: mass/12.0 * (params.width.powi(2) + params.depth.powi(2)) as f64,
+                    ixy: 0.0,
+                    ixz: 0.0,
+                    iyz: 0.0,
+                }
+            }
+        }
+    }
 }
 
 #[derive(Clone, Debug)]
