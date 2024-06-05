@@ -57,8 +57,9 @@ pub const XRAY_RENDER_LAYER: u8 = 5;
 pub const MODEL_PREVIEW_LAYER: u8 = 6;
 
 /// Camera limits
-pub const CAMERA_MIN_FOV: f32 = 5.0;
-pub const CAMERA_MAX_FOV: f32 = 120.0;
+pub const MIN_FOV: f32 = 5.0;
+pub const MAX_FOV: f32 = 120.0;
+pub const MIN_SELECTION_ANGLE: f32 = 10.0;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
@@ -380,15 +381,15 @@ impl FromWorld for CameraControls {
 
 // Get groundplane intersection of camera direction
 fn get_camera_selected_point(camera_transform: &Transform) -> Option<Vec3> {
-    let n_p = Vec3::Z;
-    let n_r = camera_transform.forward();
-    let denom = n_p.dot(n_r);
-    if denom > 1e3 {
-        return None;
-    } else {
-        let t = (Vec3::Z - camera_transform.translation).dot(n_p) / denom;
-        return Some(camera_transform.translation + t * camera_transform.forward());
+    let pitch = camera_transform.forward().z.acos().to_degrees() - 90.0;
+    let denom = Vec3::Z.dot(camera_transform.forward());
+    if denom.abs() > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
+        let dist = (-1.0 * camera_transform.translation).dot(Vec3::Z) / denom;
+        if dist > f32::EPSILON {
+            return Some(camera_transform.translation + dist * camera_transform.forward());
+        }
     }
+    return None;
 }
 
 fn camera_controls(
@@ -429,20 +430,35 @@ fn camera_controls(
             persp_proj.fov += cursor_command.fov_delta;
             persp_proj.fov = persp_proj
                 .fov
-                .clamp(CAMERA_MIN_FOV.to_radians(), CAMERA_MAX_FOV.to_radians());
+                .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
 
             // Ensure upright
             let forward = persp_transform.forward();
             persp_transform.look_to(forward, Vec3::Z);
 
-            // If pan operation, redefine the orbit center as the point on the groundplane in camera center
-            if cursor_command.command_type == CameraCommandType::Pan {
-                let lateral_translation = cursor_command.translation_delta
-                    - cursor_command.translation_delta.project_onto(Vec3::Y);
-                controls.orbit_center = get_camera_selected_point(&persp_transform)
-                    .unwrap_or(controls.orbit_center + lateral_translation);
-                controls.orbit_radius =
-                    (persp_transform.translation - controls.orbit_center).length();
+            // Update orbit center and radius if camera translates
+            if cursor_command.command_type == CameraCommandType::Pan || cursor_command.command_type == CameraCommandType::TranslationZoom {
+                let is_facing_groundplane = persp_transform.forward().z.signum() == -persp_transform.translation.z.signum();
+                let denom = Vec3::Z.dot(persp_transform.forward());
+                if is_facing_groundplane && denom.abs() > f32::EPSILON {
+                    let pitch = persp_transform.forward().z.acos().to_degrees() - 90.0;
+                    let dist = (-1.0 * persp_transform.translation).dot(Vec3::Z) / denom;
+                    if dist > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
+                        // println!("looking");
+                        controls.orbit_center = persp_transform.translation + dist * persp_transform.forward();
+                    } else {
+                        // println!("translated");
+                        //TODO Translation above groundplane results in a jump
+                        // relationship between vertical translation and orbit not well defined
+                        controls.orbit_center += cursor_command.translation_delta - cursor_command.translation_delta.project_onto(Vec3::Z);
+                    }
+                    controls.orbit_radius = (persp_transform.translation - controls.orbit_center).length();
+                } else {
+                    // If camera not looking at groundplane, orbit around point 1m ahead
+                    // println!("orbiting around 1m ahead");
+                    controls.orbit_center = persp_transform.translation + persp_transform.forward() * 1.0;
+                    controls.orbit_radius = 1.0;
+                }
             }
         }
 

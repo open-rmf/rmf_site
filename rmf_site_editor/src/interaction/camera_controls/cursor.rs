@@ -15,7 +15,7 @@
  *
 */
 
-use super::{CameraCommandType, CameraControls, ProjectionMode};
+use super::{CameraCommandType, CameraControls, ProjectionMode, MIN_SELECTION_ANGLE};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -61,6 +61,12 @@ pub fn update_cursor_command(
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     if let Ok(window) = primary_windows.get_single() {
+        // Return if cursor not within window
+        if window.cursor_position().is_none() {
+            *cursor_command = CursorCommand::default();
+            return;
+        }
+
         // Cursor and scroll inputs
         let cursor_motion = mouse_motion
             .read()
@@ -113,7 +119,6 @@ pub fn update_cursor_command(
         };
         let cursor_direction = cursor_ray.direction().normalize();
 
-        // 4. Perspective Mode
         *cursor_command = match camera_controls.mode() {
             ProjectionMode::Perspective => get_perspective_cursor_command(
                 &camera_transform,
@@ -322,19 +327,25 @@ fn get_perspective_cursor_command(
 // Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
 fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSet>) -> Vec3 {
     let cursor_ray = cursor_raycast_source.get_ray().unwrap();
-    let default_dist = 100.0;
+
     match cursor_raycast_source.get_nearest_intersection() {
         Some((_, intersection)) => intersection.position(),
         None => {
-            let n_p = Vec3::Z;
-            let n_r = cursor_ray.direction();
-            let denom = n_p.dot(n_r);
-            if denom > 1e-3 {
-                cursor_ray.origin() + (default_dist * cursor_ray.direction())
-            } else {
-                let t = (Vec3::Z - cursor_ray.origin()).dot(n_p) / denom;
-                cursor_ray.origin() + t * cursor_ray.direction()
+            // If valid intersection with groundplane
+            let pitch = cursor_ray.direction().z.acos().to_degrees() - 90.0;
+            let denom = Vec3::Z.dot(cursor_ray.direction());
+            if denom.abs() > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
+                let dist = (-1.0 * cursor_ray.origin()).dot(Vec3::Z) / denom;
+                if dist > f32::EPSILON {
+                    return cursor_ray.origin() + cursor_ray.direction() * dist;
+                }
             }
+
+            // No groundplane intersection
+            // Pick a point of a virtual sphere around the camera, of same radius as its height
+            let height = cursor_ray.origin().y.abs();
+            let radius = if height < 1.0 { 1.0 } else { height };
+            return cursor_ray.origin() + cursor_ray.direction() * radius;
         }
     }
 }
