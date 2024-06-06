@@ -25,7 +25,7 @@ use thiserror::Error as ThisError;
 #[derive(Component, Clone, Debug, Deref)]
 pub struct DefaultFile(pub PathBuf);
 
-#[derive(Event)]
+#[derive(Event, Clone)]
 pub struct LoadSite {
     /// The site data to load
     pub site: rmf_site_format::Site,
@@ -33,6 +33,17 @@ pub struct LoadSite {
     pub focus: bool,
     /// The default file path that should be assigned to the site
     pub default_file: Option<PathBuf>,
+}
+
+impl LoadSite {
+    #[allow(non_snake_case)]
+    pub fn blank_L1(name: String, default_file: Option<PathBuf>) -> Self {
+        Self {
+            site: rmf_site_format::Site::blank_L1(name),
+            default_file,
+            focus: true,
+        }
+    }
 }
 
 #[derive(ThisError, Debug)]

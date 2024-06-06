@@ -17,7 +17,6 @@
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
@@ -25,7 +24,7 @@ use crate::site::{DefaultFile, LoadSite, SaveSite};
 use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, NameOfSite, Site, Workcell};
+use rmf_site_format::{NameOfSite, Site, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -54,6 +53,7 @@ pub struct WorkspaceMarker;
 #[derive(Event)]
 pub enum LoadWorkspace {
     Dialog,
+    BlankFromDialog,
     Path(PathBuf),
     Data(WorkspaceData),
 }
@@ -64,6 +64,7 @@ pub enum WorkspaceData {
     Site(Vec<u8>),
     Workcell(Vec<u8>),
     WorkcellUrdf(Vec<u8>),
+    LoadSite(LoadSite),
 }
 
 impl WorkspaceData {
@@ -235,13 +236,8 @@ pub fn dispatch_new_workspace_events(
                 error!("Sent generic new workspace while in main menu");
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-                let mut levels = BTreeMap::new();
-                levels.insert(0, Level::default());
                 load_site.send(LoadSite {
-                    site: Site {
-                        levels,
-                        ..default()
-                    },
+                    site: Site::blank_L1("new".to_owned()),
                     focus: true,
                     default_file: None,
                 });
@@ -281,6 +277,35 @@ pub fn dispatch_load_workspace_events(
                         }
                     })
                     .detach();
+            }
+            LoadWorkspace::BlankFromDialog => {
+                let sender = load_channels.sender.clone();
+                #[cfg(not(target_arch = "wasm32"))]
+                {
+                    AsyncComputeTaskPool::get()
+                        .spawn(async move {
+                            if let Some(file) = AsyncFileDialog::new().save_file().await {
+                                let file = file.path().to_path_buf();
+                                let name = file
+                                    .file_stem()
+                                    .map(|s| s.to_str().map(|s| s.to_owned()))
+                                    .flatten()
+                                    .unwrap_or_else(|| "blank".to_owned());
+                                let data = WorkspaceData::LoadSite(LoadSite::blank_L1(
+                                    name,
+                                    Some(file.clone()),
+                                ));
+                                let _ = sender.send(LoadWorkspaceFile(Some(file), data));
+                            }
+                        })
+                        .detach();
+                }
+                #[cfg(target_arch = "wasm32")]
+                {
+                    let data =
+                        WorkspaceData::LoadSite(LoadSite::blank_L1("blank".to_owned(), None));
+                    sender.send(LoadWorkspaceFile(None, data));
+                }
             }
             LoadWorkspace::Path(path) => {
                 if let Ok(data) = std::fs::read(&path) {
@@ -403,6 +428,11 @@ fn workspace_file_load_complete(
                         error!("Failed loading urdf workcell {:?}", err);
                     }
                 }
+            }
+            WorkspaceData::LoadSite(site) => {
+                app_state.set(AppState::SiteEditor);
+                load_site.send(site);
+                interaction_state.set(InteractionState::Enable);
             }
         }
     }
