@@ -18,8 +18,8 @@
 use crate::*;
 #[cfg(feature = "bevy")]
 use bevy::{
-    prelude::{Component, Reflect, ReflectComponent},
     asset::{AssetPath, ParseAssetPathError},
+    prelude::{Component, Reflect, ReflectComponent},
 };
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};

@@ -346,7 +346,10 @@ pub fn update_model_tentative_formats(
                     _ => "Failed parsing file".to_owned(),
                 }
             };
-            warn!("Failed loading Model with source {}: {}", asset_path, reason);
+            warn!(
+                "Failed loading Model with source {}: {}",
+                asset_path, reason
+            );
             cmd.remove::<TentativeModelFormat>();
         }
     }
