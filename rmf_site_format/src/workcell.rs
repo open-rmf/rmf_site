@@ -494,7 +494,10 @@ impl From<Geometry> for urdf_rs::Geometry {
     fn from(geometry: Geometry) -> Self {
         match geometry {
             Geometry::Mesh { source, scale } => urdf_rs::Geometry::Mesh {
-                filename: (&source).into(),
+                // SAFETY: We don't need to validate the syntax of the asset
+                // path because that will be done later when we attempt to load
+                // this as an asset.
+                filename: unsafe { (&source).as_unvalidated_asset_path() },
                 scale: scale.map(|v| urdf_rs::Vec3([v.x as f64, v.y as f64, v.z as f64])),
             },
             Geometry::Primitive(PrimitiveShape::Box { size: [x, y, z] }) => {

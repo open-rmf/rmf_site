@@ -82,7 +82,7 @@ fn convert_and_copy_meshes(
 fn get_path_to_asset_file(asset_source: &AssetSource) -> Result<PathBuf, Box<dyn Error>> {
     match asset_source {
         AssetSource::Package(_) => Ok(urdf_rs::utils::expand_package_path(
-            &(String::from(asset_source)),
+            &(String::try_from(asset_source)?),
             None,
         )
         .to_string()

@@ -230,7 +230,19 @@ pub fn update_model_scenes(
             }
             _ => source.clone(),
         };
-        let handle = asset_server.load_untyped(&String::from(&asset_source));
+        let asset_path = match String::try_from(&asset_source) {
+            Ok(asset_path) => asset_path,
+            Err(err) => {
+                error!(
+                    "Invalid syntax while creating asset path for a model: {err}. \
+                    Check that your asset information was input correctly. \
+                    Current value:\n{:?}",
+                    asset_source,
+                );
+                return;
+            }
+        };
+        let handle = asset_server.load_untyped(asset_path);
         commands
             .insert(PreventDeletion::because(
                 "Waiting for model to spawn".to_string(),
@@ -305,8 +317,19 @@ pub fn update_model_tentative_formats(
                     continue;
                 }
             }
-            let path = String::from(source);
-            let model_ext = path
+            let asset_path = match String::try_from(source) {
+                Ok(asset_path) => asset_path,
+                Err(err) => {
+                    error!(
+                        "Invalid syntax while creating asset path to load a model: {err}. \
+                        Check that your asset information was input correctly. \
+                        Current value:\n{:?}",
+                        source,
+                    );
+                    continue;
+                }
+            };
+            let model_ext = asset_path
                 .rsplit_once('.')
                 .map(|s| s.1.to_owned())
                 .unwrap_or_else(|| tentative_format.to_string(""));
@@ -323,7 +346,7 @@ pub fn update_model_tentative_formats(
                     _ => "Failed parsing file".to_owned(),
                 }
             };
-            warn!("Failed loading Model with source {}: {}", path, reason);
+            warn!("Failed loading Model with source {}: {}", asset_path, reason);
             cmd.remove::<TentativeModelFormat>();
         }
     }
