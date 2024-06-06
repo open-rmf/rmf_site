@@ -17,8 +17,8 @@
 
 use crate::{
     site::{
-        Category, Change, Delete, LevelElevation, LevelProperties, NameInSite,
-        DrawingMarker, FloorMarker,
+        Category, Change, Delete, DrawingMarker, FloorMarker, LevelElevation, LevelProperties,
+        NameInSite,
     },
     widgets::{AppEvents, Icons},
     RecencyRanking,

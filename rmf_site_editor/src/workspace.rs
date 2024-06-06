@@ -297,9 +297,10 @@ pub fn dispatch_load_workspace_events(
                                     .map(|s| s.to_str().map(|s| s.to_owned()))
                                     .flatten()
                                     .unwrap_or_else(|| "blank".to_owned());
-                                let data = WorkspaceData::LoadSite(
-                                    LoadSite::blank_L1(name, Some(file.clone()))
-                                );
+                                let data = WorkspaceData::LoadSite(LoadSite::blank_L1(
+                                    name,
+                                    Some(file.clone()),
+                                ));
                                 sender.send(LoadWorkspaceFile(Some(file), data));
                             }
                         })
@@ -307,9 +308,8 @@ pub fn dispatch_load_workspace_events(
                 }
                 #[cfg(target_arch = "wasm32")]
                 {
-                    let data = WorkspaceData::LoadSite(
-                        LoadSite::blank_L1("blank".to_owned(), None)
-                    );
+                    let data =
+                        WorkspaceData::LoadSite(LoadSite::blank_L1("blank".to_owned(), None));
                     sender.send(LoadWorkspaceFile(None, data));
                 }
             }
