@@ -285,9 +285,9 @@ pub fn dispatch_load_workspace_events(
                     .detach();
             }
             LoadWorkspace::BlankFromDialog => {
+                let sender = load_channels.sender.clone();
                 #[cfg(not(target_arch = "wasm32"))]
                 {
-                    let sender = load_channels.sender.clone();
                     AsyncComputeTaskPool::get()
                         .spawn(async move {
                             if let Some(file) = AsyncFileDialog::new().save_file().await {
