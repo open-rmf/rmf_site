@@ -15,7 +15,7 @@
  *
 */
 
-use bevy::prelude::*;
+use bevy::{prelude::*, asset::AssetPath};
 use rmf_site_format::{Affiliation, Category, Group, Texture};
 
 #[derive(Component)]
@@ -28,10 +28,20 @@ pub fn fetch_image_for_texture(
     asset_server: Res<AssetServer>,
 ) {
     for (e, image, texture) in &mut changed_textures {
+        let asset_path = String::from(&texture.source);
+        if AssetPath::try_parse(&asset_path).is_err() {
+            error!(
+                "Asset path could not be parsed [{asset_path}]. Verify that \
+                your asset source was input correctly. Current value:\n{:?}",
+                texture.source,
+            );
+            continue;
+        }
+
         if let Some(mut image) = image {
-            *image = asset_server.load(String::from(&texture.source));
+            *image = asset_server.load(asset_path);
         } else {
-            let image: Handle<Image> = asset_server.load(String::from(&texture.source));
+            let image: Handle<Image> = asset_server.load(asset_path);
             commands.entity(e).insert(image);
         }
     }
