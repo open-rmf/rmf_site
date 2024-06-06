@@ -20,9 +20,11 @@ use crate::site::{
     CollisionMeshMarker, DoorMarker, FiducialMarker, FloorMarker, LaneMarker, LiftCabin,
     LiftCabinDoorMarker, LocationTags, MeasurementMarker, VisualMeshMarker, WallMarker,
 };
-use crate::widgets::menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ViewMenu};
-use crate::workcell::WorkcellVisualizationMarker;
-use crate::AppState;
+use crate::{
+    widgets::menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ViewMenu},
+    workcell::WorkcellVisualizationMarker,
+    AppState, FloorGrid,
+};
 use bevy::ecs::system::SystemParam;
 use bevy::prelude::*;
 use std::collections::HashSet;
@@ -59,6 +61,7 @@ pub struct ViewMenuItems {
     visuals: Entity,
     walls: Entity,
     origin_axis: Entity,
+    floor_grid: Entity,
 }
 
 impl FromWorld for ViewMenuItems {
@@ -150,7 +153,7 @@ impl FromWorld for ViewMenuItems {
                 "Visual meshes".to_string(),
                 default_visibility.0,
             ))
-            .insert(MenuVisualizationStates(active_states))
+            .insert(MenuVisualizationStates(active_states.clone()))
             .set_parent(view_header)
             .id();
         let default_visibility = world.resource::<CategoryVisibility<WallMarker>>();
@@ -172,6 +175,14 @@ impl FromWorld for ViewMenuItems {
             .insert(MenuVisualizationStates(workcell_states))
             .set_parent(view_header)
             .id();
+        let floor_grid = world
+            .spawn(MenuItem::CheckBox(
+                "Floor grid".to_string(),
+                true,
+            ))
+            .insert(MenuVisualizationStates(active_states))
+            .set_parent(view_header)
+            .id();
 
         ViewMenuItems {
             doors,
@@ -185,6 +196,7 @@ impl FromWorld for ViewMenuItems {
             visuals,
             walls,
             origin_axis,
+            floor_grid,
         }
     }
 }
@@ -194,6 +206,8 @@ fn handle_view_menu_events(
     view_menu: Res<ViewMenuItems>,
     mut menu_items: Query<&mut MenuItem>,
     mut events: VisibilityEvents,
+    floor_grid: Res<FloorGrid>,
+    mut visibility: Query<&mut Visibility>,
 ) {
     let mut toggle = |entity| {
         let mut menu = menu_items.get_mut(entity).unwrap();
@@ -226,6 +240,15 @@ fn handle_view_menu_events(
             events.walls.send(toggle(event.source()).into());
         } else if event.clicked() && event.source() == view_menu.origin_axis {
             events.origin_axis.send(toggle(event.source()).into());
+        } else if event.clicked() && event.source() == view_menu.floor_grid {
+            let floor_grid_visible = toggle(event.source());
+            if let Ok(mut vis) = visibility.get_mut(floor_grid.get()) {
+                if floor_grid_visible {
+                    *vis = Visibility::Visible;
+                } else {
+                    *vis = Visibility::Hidden;
+                }
+            }
         }
     }
 }

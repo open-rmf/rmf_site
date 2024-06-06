@@ -53,6 +53,9 @@ use view_menu::*;
 pub mod wireframe;
 use wireframe::*;
 
+pub mod floor_grid;
+use floor_grid::*;
+
 use aabb::AabbUpdatePlugin;
 use animate::AnimationPlugin;
 use interaction::InteractionPlugin;
@@ -190,6 +193,7 @@ impl Plugin for SiteEditor {
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,
+                FloorGridPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
             .add_plugins((
