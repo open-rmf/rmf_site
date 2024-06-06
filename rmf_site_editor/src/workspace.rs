@@ -17,7 +17,6 @@
 
 use bevy::{prelude::*, tasks::AsyncComputeTaskPool};
 use rfd::AsyncFileDialog;
-use std::collections::BTreeMap;
 use std::path::PathBuf;
 
 use crate::interaction::InteractionState;
@@ -25,7 +24,7 @@ use crate::site::{DefaultFile, LoadSite, SaveSite};
 use crate::workcell::{LoadWorkcell, SaveWorkcell};
 use crate::AppState;
 use rmf_site_format::legacy::building_map::BuildingMap;
-use rmf_site_format::{Level, NameOfSite, Site, Workcell};
+use rmf_site_format::{NameOfSite, Site, Workcell};
 
 use crossbeam_channel::{Receiver, Sender};
 
@@ -237,13 +236,8 @@ pub fn dispatch_new_workspace_events(
                 error!("Sent generic new workspace while in main menu");
             }
             AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::SiteVisualizer => {
-                let mut levels = BTreeMap::new();
-                levels.insert(0, Level::default());
                 load_site.send(LoadSite {
-                    site: Site {
-                        levels,
-                        ..default()
-                    },
+                    site: Site::blank_L1("new".to_owned()),
                     focus: true,
                     default_file: None,
                 });
@@ -301,7 +295,7 @@ pub fn dispatch_load_workspace_events(
                                     name,
                                     Some(file.clone()),
                                 ));
-                                sender.send(LoadWorkspaceFile(Some(file), data));
+                                let _ = sender.send(LoadWorkspaceFile(Some(file), data));
                             }
                         })
                         .detach();

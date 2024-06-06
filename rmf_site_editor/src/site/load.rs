@@ -38,22 +38,8 @@ pub struct LoadSite {
 impl LoadSite {
     #[allow(non_snake_case)]
     pub fn blank_L1(name: String, default_file: Option<PathBuf>) -> Self {
-        let mut site = rmf_site_format::Site::default();
-        site.properties.name = NameOfSite(name);
-        site.levels.insert(
-            1,
-            Level::new(
-                LevelProperties {
-                    name: NameInSite("L1".to_owned()),
-                    elevation: LevelElevation(0.0),
-                    ..Default::default()
-                },
-                RankingsInLevel::default(),
-            ),
-        );
-
         Self {
-            site,
+            site: rmf_site_format::Site::blank_L1(name),
             default_file,
             focus: true,
         }
