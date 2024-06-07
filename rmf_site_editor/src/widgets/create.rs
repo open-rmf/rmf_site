@@ -20,8 +20,7 @@ use crate::{
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
     log,
-    main_menu::load_milestones,
-    rcc::{self, MAP_INDEX},
+    rcc::{self, load_milestones, MAP_INDEX},
     site::{DefaultFile, DrawingBundle, Recall},
     AppEvents, AppState, LoadWorkspace, WorkspaceData,
 };
