@@ -103,7 +103,19 @@ pub fn add_drawing_visuals(
             )),
             _ => source.clone(),
         };
-        let texture_handle: Handle<Image> = asset_server.load(&String::from(&asset_source));
+        let asset_path = match String::try_from(&asset_source) {
+            Ok(asset_path) => asset_path,
+            Err(err) => {
+                error!(
+                    "Invalid syntax while creating asset path for a drawing: {err}. \
+                    Check that your asset information was input correctly. \
+                    Current value:\n{:?}",
+                    asset_source,
+                );
+                continue;
+            }
+        };
+        let texture_handle: Handle<Image> = asset_server.load(asset_path);
         commands.entity(e).insert(LoadingDrawing(texture_handle));
     }
 }
@@ -194,7 +206,7 @@ pub fn handle_loaded_drawing(
                     .remove::<LoadingDrawing>();
             }
             LoadState::Failed => {
-                error!("Failed loading drawing {:?}", String::from(source));
+                error!("Failed loading drawing {:?}", source);
                 commands.entity(entity).remove::<LoadingDrawing>();
             }
             _ => {}
