@@ -16,17 +16,21 @@
 */
 
 use crate::{
-    inspector::{InspectAssetSource, InspectScale}, interaction::{ChangeMode, SelectAnchor, SelectAnchor3D}, rcc, site::{Change, DefaultFile, DrawingBundle, DrawingMarker, Recall}, AppEvents, AppState, CurrentWorkspace, SuppressRecencyRank
+    get_map_list,
+    inspector::{InspectAssetSource, InspectScale},
+    interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
+    log,
+    main_menu::load_milestones,
+    rcc::{self, MAP_INDEX},
+    site::{DefaultFile, DrawingBundle, Recall},
+    AppEvents, AppState, LoadWorkspace, WorkspaceData,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
-use rmf_site_format::{
-    AssetSource, DrawingProperties, Geometry, Model, ModelMarker, Pending, RecallAssetSource,
-    Scale, WorkcellModel,
-};
+use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
 
-#[derive(SystemParam)]
+#[derive(SystemParam, Debug)]
 pub struct CreateParams<'w, 's> {
     pub default_file: Query<'w, 's, &'static DefaultFile>,
 }
@@ -90,7 +94,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                     }
 
                     ui.add_space(10.0);
-                    unsafe { rcc::SHOW_MAP_ASSET_SOURCE=1 };
+                    unsafe { rcc::SHOW_MAP_ASSET_SOURCE = 1 };
                     CollapsingHeader::new("New drawing")
                         .default_open(false)
                         .show(ui, |ui| {
@@ -117,14 +121,52 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                             }
                             ui.add_space(5.0);
                             if ui.button("Add Drawing").clicked() {
-                                self.events
-                                    .commands
-                                    .spawn(DrawingBundle::new(DrawingProperties {
-                                        source: self.events.display.pending_drawings.source.clone(),
-                                        ..default()
-                                    }));
+                                let is_rccmap = self
+                                    .events
+                                    .display
+                                    .pending_drawings
+                                    .source
+                                    .clone()
+                                    .label()
+                                    .eq("RCC");
+                                if is_rccmap {
+                                    let map_list = get_map_list().clone();
+                                    unsafe {
+                                        match rcc::parse_js_value(&map_list.get(MAP_INDEX)) {
+                                            Ok(data) => {
+                                                let site_bytes = load_milestones(data);
+                                                self.events.file_events.load_workspace.send(
+                                                    LoadWorkspace::Data(WorkspaceData::Site(
+                                                        site_bytes,
+                                                    )),
+                                                );
+                                            }
+                                            Err(err) => {
+                                                #[cfg(target_arch = "wasm32")]
+                                                {
+                                                    log(&format!(
+                                                        "Error parsing  map list items JSON: {}",
+                                                        err
+                                                    ));
+                                                }
+                                            }
+                                        }
+                                    }
+                                } else {
+                                    self.events.commands.spawn(DrawingBundle::new(
+                                        DrawingProperties {
+                                            source: self
+                                                .events
+                                                .display
+                                                .pending_drawings
+                                                .source
+                                                .clone(),
+                                            ..default()
+                                        },
+                                    ));
+                                }
                             }
-                            unsafe { rcc::SHOW_MAP_ASSET_SOURCE=0 };
+                            unsafe { rcc::SHOW_MAP_ASSET_SOURCE = 0 };
                         });
                 }
                 AppState::SiteDrawingEditor => {
