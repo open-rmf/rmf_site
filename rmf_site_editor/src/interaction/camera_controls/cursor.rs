@@ -15,7 +15,7 @@
  *
 */
 
-use super::{CameraCommandType, CameraControls, ProjectionMode, MIN_SELECTION_ANGLE};
+use super::{CameraCommandType, CameraControls, ProjectionMode, MAX_PITCH, MAX_SELECTION_DIST};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -31,7 +31,6 @@ pub struct CursorCommand {
     pub scale_delta: f32,
     pub fov_delta: f32,
     pub cursor_selection: Option<Vec3>,
-    pub camera_selection: Vec3,
     pub command_type: CameraCommandType,
 }
 
@@ -43,14 +42,13 @@ impl Default for CursorCommand {
             scale_delta: 0.0,
             fov_delta: 0.0,
             cursor_selection: None,
-            camera_selection: Vec3::ZERO,
             command_type: CameraCommandType::Inactive,
         }
     }
 }
 
 pub fn update_cursor_command(
-    camera_controls: Res<CameraControls>,
+    mut camera_controls: ResMut<CameraControls>,
     mut cursor_command: ResMut<CursorCommand>,
     mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
@@ -91,6 +89,8 @@ pub fn update_cursor_command(
             &mouse_input,
             &cursor_motion,
             &scroll_motion,
+            cursor_command.command_type,
+            camera_controls.mode(),
         );
         if command_type == CameraCommandType::Inactive {
             *cursor_command = CursorCommand::default();
@@ -119,6 +119,19 @@ pub fn update_cursor_command(
         };
         let cursor_direction = cursor_ray.direction().normalize();
 
+        // Update obrit center if this is a select / deselect operation
+        if command_type == CameraCommandType::SelectOrbitCenter {
+            camera_controls.orbit_center = Some(cursor_selection_new);
+            *cursor_command = CursorCommand::default();
+            cursor_command.command_type = CameraCommandType::SelectOrbitCenter;
+            return;
+        } else if command_type == CameraCommandType::DeselectOrbitCenter {
+            camera_controls.orbit_center = None;
+            *cursor_command = CursorCommand::default();
+            cursor_command.command_type = CameraCommandType::DeselectOrbitCenter;
+            return;
+        }
+
         *cursor_command = match camera_controls.mode() {
             ProjectionMode::Perspective => get_perspective_cursor_command(
                 &camera_transform,
@@ -127,7 +140,6 @@ pub fn update_cursor_command(
                 cursor_selection,
                 cursor_motion,
                 camera_controls.orbit_center,
-                camera_controls.orbit_radius,
                 scroll_motion,
                 window,
             ),
@@ -224,26 +236,24 @@ fn get_perspective_cursor_command(
     cursor_direction: Vec3,
     cursor_selection: Vec3,
     cursor_motion: Vec2,
-    orbit_center: Vec3,
-    orbit_radius: f32,
+    orbit_center: Option<Vec3>,
     scroll_motion: f32,
     window: &Window,
 ) -> CursorCommand {
-    // Zoom towards the cursor if zooming only, otherwize zoom to center
-    let zoom_translation = match command_type {
-        CameraCommandType::TranslationZoom => cursor_direction * 0.5 * scroll_motion,
-        _ => camera_transform.forward() * scroll_motion,
-    };
+    let translation_zoom_sensitivity = 0.5;
+    let fov_zoom_sensitivity = 0.1;
+    let orbit_sensitivity = 1.0;
 
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
 
     match command_type {
         CameraCommandType::FovZoom => {
-            cursor_command.fov_delta = -scroll_motion * 0.1;
+            cursor_command.fov_delta = -scroll_motion * fov_zoom_sensitivity;
         }
         CameraCommandType::TranslationZoom => {
-            cursor_command.translation_delta = cursor_direction * 0.5 * scroll_motion;
+            cursor_command.translation_delta =
+                cursor_direction * translation_zoom_sensitivity * scroll_motion;
         }
         CameraCommandType::Pan => {
             // To keep the same point below the cursor, we solve
@@ -273,6 +283,9 @@ fn get_perspective_cursor_command(
             );
             let x = a.lu().solve(&b).unwrap();
 
+            let zoom_translation =
+                camera_transform.forward() * translation_zoom_sensitivity * scroll_motion;
+
             cursor_command.translation_delta =
                 zoom_translation + x[0] * right_translation + x[1] * up_translation;
             cursor_command.rotation_delta = Quat::IDENTITY;
@@ -282,36 +295,46 @@ fn get_perspective_cursor_command(
             // Adjust orbit to the window size
             // TODO(@reuben-thomas) also adjust to fov
             let window_size = Vec2::new(window.width(), window.height());
-            let orbit_sensitivity = 1.0;
             let delta_x =
                 cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
             let delta_y =
                 cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
-            let yaw = Quat::from_rotation_z(-delta_x);
-            let pitch = Quat::from_rotation_x(-delta_y);
+            let yaw = Quat::from_rotation_z(delta_x);
+            let pitch = Quat::from_rotation_x(delta_y);
 
-            // Get target rotation, excluding pitch if upside down
             let mut target_transform = camera_transform.clone();
+            // Exclude pitch if exceeds maximum angle
             target_transform.rotation = (yaw * camera_transform.rotation) * pitch;
-            if target_transform.up().dot(Vec3::Z) <= 0.0 {
+            if target_transform.up().z.acos().to_degrees() > MAX_PITCH {
                 target_transform.rotation = yaw * camera_transform.rotation;
             };
 
-            // Calculate translation to orbit around camera centre
-            let orbit_radius = orbit_radius - 0.5 * scroll_motion;
-            let target_rotation = Mat3::from_quat(target_transform.rotation);
-            target_transform.translation =
-                orbit_center + target_rotation.mul_vec3(Vec3::new(0.0, 0.0, orbit_radius));
+            // Translation if orbitting a point
+            if let Some(orbit_center) = orbit_center {
+                let camera_to_orbit_center = orbit_center - camera_transform.translation;
+                let x = camera_to_orbit_center.dot(camera_transform.local_x());
+                let y = camera_to_orbit_center.dot(camera_transform.local_y());
+                let z = camera_to_orbit_center.dot(camera_transform.local_z());
+                let camera_to_orbit_center_next = target_transform.local_x() * x
+                    + target_transform.local_y() * y
+                    + target_transform.local_z() * z;
 
-            // Get the rotation difference to be multiplied into the current rotation
-            let start_rotation = Mat3::from_quat(camera_transform.rotation);
-            cursor_command.rotation_delta =
-                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+                let zoom_translation = camera_to_orbit_center_next.normalize()
+                    * translation_zoom_sensitivity
+                    * scroll_motion;
+                target_transform.translation =
+                    orbit_center - camera_to_orbit_center_next - zoom_translation;
+            }
+
             cursor_command.translation_delta =
                 target_transform.translation - camera_transform.translation;
+            let start_rotation = Mat3::from_quat(camera_transform.rotation);
+            let target_rotation = Mat3::from_quat(target_transform.rotation);
+            cursor_command.rotation_delta =
+                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
             is_cursor_selecting = true;
         }
-        CameraCommandType::Inactive => (),
+        _ => (),
     }
 
     cursor_command.command_type = command_type;
@@ -332,11 +355,10 @@ fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSe
         Some((_, intersection)) => intersection.position(),
         None => {
             // If valid intersection with groundplane
-            let pitch = cursor_ray.direction().z.acos().to_degrees() - 90.0;
             let denom = Vec3::Z.dot(cursor_ray.direction());
-            if denom.abs() > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
+            if denom.abs() > f32::EPSILON {
                 let dist = (-1.0 * cursor_ray.origin()).dot(Vec3::Z) / denom;
-                if dist > f32::EPSILON {
+                if dist > f32::EPSILON && dist < MAX_SELECTION_DIST {
                     return cursor_ray.origin() + cursor_ray.direction() * dist;
                 }
             }
@@ -355,6 +377,8 @@ fn get_command_type(
     mouse_input: &Res<Input<MouseButton>>,
     cursor_motion: &Vec2,
     scroll_motion: &f32,
+    prev_command_type: CameraCommandType,
+    projection_mode: ProjectionMode,
 ) -> CameraCommandType {
     // Inputs
     let is_cursor_moving = cursor_motion.length() > 0.;
@@ -375,10 +399,26 @@ fn get_command_type(
     }
 
     // Zoom
-    if is_scrolling && is_shifting {
-        return CameraCommandType::FovZoom;
-    } else if is_scrolling {
-        return CameraCommandType::TranslationZoom;
+    if projection_mode.is_orthographic() && is_scrolling {
+        return CameraCommandType::ScaleZoom;
+    }
+    if projection_mode.is_perspective() && is_scrolling {
+        if is_shifting {
+            return CameraCommandType::FovZoom;
+        } else {
+            return CameraCommandType::TranslationZoom;
+        }
+    }
+
+    // Select / Deselect Orbit Center
+    if projection_mode.is_perspective() {
+        if mouse_input.just_pressed(MouseButton::Right)
+            && prev_command_type == CameraCommandType::Inactive
+        {
+            return CameraCommandType::SelectOrbitCenter;
+        } else if keyboard_input.just_pressed(KeyCode::Escape) {
+            return CameraCommandType::DeselectOrbitCenter;
+        }
     }
 
     return CameraCommandType::Inactive;

@@ -20,7 +20,6 @@ use bevy::{
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
     },
-    pbr::deferred::prepare_deferred_lighting_pipelines,
     prelude::*,
     render::{
         camera::{Camera, Projection, ScalingMode},
@@ -59,7 +58,8 @@ pub const MODEL_PREVIEW_LAYER: u8 = 6;
 /// Camera limits
 pub const MIN_FOV: f32 = 5.0;
 pub const MAX_FOV: f32 = 120.0;
-pub const MIN_SELECTION_ANGLE: f32 = 10.0;
+pub const MAX_PITCH: f32 = 85.0;
+pub const MAX_SELECTION_DIST: f32 = 100.0;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
@@ -67,8 +67,14 @@ pub enum CameraCommandType {
     Pan,
     Orbit,
     TranslationZoom,
+    ScaleZoom,
     FovZoom,
+    SelectOrbitCenter,
+    DeselectOrbitCenter,
 }
+
+#[derive(Default, Reflect)]
+struct OrbitCenterGizmo {}
 
 #[derive(PartialEq, Debug, Copy, Clone, Reflect, Resource)]
 pub enum ProjectionMode {
@@ -106,8 +112,7 @@ pub struct CameraControls {
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
-    pub orbit_center: Vec3,
-    pub orbit_radius: f32,
+    pub orbit_center: Option<Vec3>,
 }
 
 /// True/false for whether the headlight should be on or off
@@ -373,23 +378,9 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
-            orbit_center: Vec3::ZERO,
-            orbit_radius: (3.0 * 10.0 * 10.0 as f32).sqrt(),
+            orbit_center: None,
         }
     }
-}
-
-// Get groundplane intersection of camera direction
-fn get_camera_selected_point(camera_transform: &Transform) -> Option<Vec3> {
-    let pitch = camera_transform.forward().z.acos().to_degrees() - 90.0;
-    let denom = Vec3::Z.dot(camera_transform.forward());
-    if denom.abs() > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
-        let dist = (-1.0 * camera_transform.translation).dot(Vec3::Z) / denom;
-        if dist > f32::EPSILON {
-            return Some(camera_transform.translation + dist * camera_transform.forward());
-        }
-    }
-    return None;
 }
 
 fn camera_controls(
@@ -435,31 +426,6 @@ fn camera_controls(
             // Ensure upright
             let forward = persp_transform.forward();
             persp_transform.look_to(forward, Vec3::Z);
-
-            // Update orbit center and radius if camera translates
-            if cursor_command.command_type == CameraCommandType::Pan || cursor_command.command_type == CameraCommandType::TranslationZoom {
-                let is_facing_groundplane = persp_transform.forward().z.signum() == -persp_transform.translation.z.signum();
-                let denom = Vec3::Z.dot(persp_transform.forward());
-                if is_facing_groundplane && denom.abs() > f32::EPSILON {
-                    let pitch = persp_transform.forward().z.acos().to_degrees() - 90.0;
-                    let dist = (-1.0 * persp_transform.translation).dot(Vec3::Z) / denom;
-                    if dist > f32::EPSILON && pitch.abs() >= MIN_SELECTION_ANGLE {
-                        // println!("looking");
-                        controls.orbit_center = persp_transform.translation + dist * persp_transform.forward();
-                    } else {
-                        // println!("translated");
-                        //TODO Translation above groundplane results in a jump
-                        // relationship between vertical translation and orbit not well defined
-                        controls.orbit_center += cursor_command.translation_delta - cursor_command.translation_delta.project_onto(Vec3::Z);
-                    }
-                    controls.orbit_radius = (persp_transform.translation - controls.orbit_center).length();
-                } else {
-                    // If camera not looking at groundplane, orbit around point 1m ahead
-                    // println!("orbiting around 1m ahead");
-                    controls.orbit_center = persp_transform.translation + persp_transform.forward() * 1.0;
-                    controls.orbit_radius = 1.0;
-                }
-            }
         }
 
         let proj = persp_proj.clone();
@@ -491,6 +457,23 @@ fn camera_controls(
     }
 }
 
+// TODO(@reuben-thomas) Should be moved to material supporting depth bias
+fn update_orbit_center_marker(
+    controls: Res<CameraControls>,
+    cursor_command: Res<CursorCommand>,
+    mut gizmo: Gizmos,
+) {
+    if let Some(orbit_center) = controls.orbit_center {
+        let color = match cursor_command.command_type {
+            CameraCommandType::SelectOrbitCenter => Color::BLUE,
+            CameraCommandType::DeselectOrbitCenter => Color::RED,
+            CameraCommandType::Orbit => Color::WHITE,
+            _ => Color::GRAY,
+        };
+        gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, color);
+    }
+}
+
 pub struct CameraControlsPlugin;
 
 impl Plugin for CameraControlsPlugin {
@@ -500,6 +483,7 @@ impl Plugin for CameraControlsPlugin {
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
             .add_systems(Update, update_cursor_command)
-            .add_systems(Update, camera_controls);
+            .add_systems(Update, camera_controls)
+            .add_systems(Update, update_orbit_center_marker);
     }
 }
