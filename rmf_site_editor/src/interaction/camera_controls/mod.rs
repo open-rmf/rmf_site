@@ -14,8 +14,7 @@
  * limitations under the License.
  *
 */
-
-use crate::interaction::PickingBlockers;
+use crate::interaction::{InteractionAssets, PickingBlockers};
 use bevy::{
     core_pipeline::{
         clear_color::ClearColorConfig, core_3d::Camera3dBundle, tonemapping::Tonemapping,
@@ -112,6 +111,7 @@ pub struct CameraControls {
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
+    pub orbit_center_marker: Entity,
     pub orbit_center: Option<Vec3>,
 }
 
@@ -233,6 +233,18 @@ impl CameraControls {
 
 impl FromWorld for CameraControls {
     fn from_world(world: &mut World) -> Self {
+        let interaction_assets = world.get_resource::<InteractionAssets>().expect(
+            "make sure that the InteractionAssets resource is initialized before the camera plugin",
+        );
+        let orbit_center_mesh = interaction_assets.orbit_center_mesh.clone();
+        let orbit_center_marker = world
+            .spawn(PbrBundle {
+                mesh: orbit_center_mesh,
+                visibility: Visibility::Visible,
+                ..default()
+            })
+            .id();
+
         let perspective_headlight = world
             .spawn(DirectionalLightBundle {
                 directional_light: DirectionalLight {
@@ -378,6 +390,7 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
+            orbit_center_marker,
             orbit_center: None,
         }
     }
@@ -457,20 +470,44 @@ fn camera_controls(
     }
 }
 
-// TODO(@reuben-thomas) Should be moved to material supporting depth bias
 fn update_orbit_center_marker(
     controls: Res<CameraControls>,
     cursor_command: Res<CursorCommand>,
-    mut gizmo: Gizmos,
+    interaction_assets: Res<InteractionAssets>,
+    camera_query: Query<&Transform, With<Projection>>,
+    mut marker_query: Query<
+        (
+            &mut Transform,
+            &mut Visibility,
+            &mut Handle<StandardMaterial>,
+        ),
+        Without<Projection>,
+    >,
 ) {
-    if let Some(orbit_center) = controls.orbit_center {
-        let color = match cursor_command.command_type {
-            CameraCommandType::SelectOrbitCenter => Color::BLUE,
-            CameraCommandType::DeselectOrbitCenter => Color::RED,
-            CameraCommandType::Orbit => Color::WHITE,
-            _ => Color::GRAY,
-        };
-        gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, color);
+    if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
+        marker_query.get_mut(controls.orbit_center_marker)
+    {
+        if let Some(orbit_center) = controls.orbit_center {
+            *marker_material = match cursor_command.command_type {
+                CameraCommandType::DeselectOrbitCenter => {
+                    interaction_assets.orbit_center_active_material.clone()
+                }
+                CameraCommandType::SelectOrbitCenter => {
+                    interaction_assets.orbit_center_active_material.clone()
+                }
+                CameraCommandType::Orbit => interaction_assets.orbit_center_active_material.clone(),
+                _ => interaction_assets.orbit_center_inactive_material.clone(),
+            };
+
+            let camera_transform = camera_query.get(controls.active_camera()).unwrap();
+            let camera_to_orbit_dir = (orbit_center - camera_transform.translation).normalize();
+            marker_transform.translation = orbit_center;
+            marker_transform.rotation = Quat::from_rotation_arc(Vec3::Y, camera_to_orbit_dir);
+
+            *marker_visibility = Visibility::Visible;
+        } else {
+            *marker_visibility = Visibility::Hidden;
+        }
     }
 }
 
@@ -482,8 +519,7 @@ impl Plugin for CameraControlsPlugin {
             .init_resource::<CursorCommand>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_systems(Update, update_cursor_command)
-            .add_systems(Update, camera_controls)
+            .add_systems(Update, (update_cursor_command, camera_controls).chain())
             .add_systems(Update, update_orbit_center_marker);
     }
 }

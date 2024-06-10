@@ -16,7 +16,7 @@
 */
 
 use crate::{interaction::*, shapes::*};
-use bevy::{math::Affine3A, prelude::*};
+use bevy::{math::Affine3A, prelude::*, render::mesh::shape::Torus};
 use bevy_polyline::{
     material::PolylineMaterial,
     polyline::{Polyline, PolylineBundle},
@@ -28,6 +28,9 @@ pub struct InteractionAssets {
     pub dagger_material: Handle<StandardMaterial>,
     pub halo_mesh: Handle<Mesh>,
     pub halo_material: Handle<StandardMaterial>,
+    pub orbit_center_mesh: Handle<Mesh>,
+    pub orbit_center_active_material: Handle<StandardMaterial>,
+    pub orbit_center_inactive_material: Handle<StandardMaterial>,
     pub arrow_mesh: Handle<Mesh>,
     pub point_light_socket_mesh: Handle<Mesh>,
     pub point_light_shine_mesh: Handle<Mesh>,
@@ -224,6 +227,11 @@ impl FromWorld for InteractionAssets {
         let mut meshes = world.get_resource_mut::<Assets<Mesh>>().unwrap();
         let dagger_mesh = meshes.add(make_dagger_mesh());
         let halo_mesh = meshes.add(make_halo_mesh());
+        let orbit_center_mesh = meshes.add(Mesh::from(Torus {
+            radius: 0.1,
+            ring_radius: 0.03,
+            ..Default::default()
+        }));
         let arrow_mesh = meshes.add(make_cylinder_arrow_mesh());
         let point_light_socket_mesh = meshes.add(
             make_cylinder(0.06, 0.02)
@@ -298,8 +306,23 @@ impl FromWorld for InteractionAssets {
         });
         let dagger_material = materials.add(StandardMaterial {
             base_color: Color::WHITE,
+            emissive: Color::WHITE,
             perceptual_roughness: 0.089,
             metallic: 0.01,
+            ..default()
+        });
+        let orbit_center_active_material = materials.add(StandardMaterial {
+            base_color: Color::GREEN,
+            emissive: Color::GREEN,
+            depth_bias: f32::MAX,
+            unlit: true,
+            ..default()
+        });
+        let orbit_center_inactive_material = materials.add(StandardMaterial {
+            base_color: Color::WHITE,
+            emissive: Color::WHITE,
+            // depth_bias: f32::MAX,
+            unlit: true,
             ..default()
         });
         let light_cover_color = Color::rgb(0.6, 0.7, 0.8);
@@ -401,6 +424,9 @@ impl FromWorld for InteractionAssets {
             dagger_material,
             halo_mesh,
             halo_material,
+            orbit_center_mesh,
+            orbit_center_active_material,
+            orbit_center_inactive_material,
             arrow_mesh,
             point_light_socket_mesh,
             point_light_shine_mesh,
