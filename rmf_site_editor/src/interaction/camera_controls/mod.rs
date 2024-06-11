@@ -25,8 +25,12 @@ use bevy::{
         view::RenderLayers,
     },
 };
+
 mod cursor;
 use cursor::{update_cursor_command, CursorCommand};
+
+mod keyboard;
+use keyboard::{update_keyboard_command, KeyboardCommand};
 
 /// RenderLayers are used to inform cameras which entities they should render.
 /// The General render layer is for things that should be visible to all
@@ -398,6 +402,7 @@ impl FromWorld for CameraControls {
 
 fn camera_controls(
     cursor_command: ResMut<CursorCommand>,
+    keyboard_command: ResMut<KeyboardCommand>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
@@ -424,14 +429,31 @@ fn camera_controls(
         return;
     }
 
+    let mut translation_delta: Vec3;
+    let mut rotation_delta: Quat;
+    let mut fov_delta: f32;
+    let mut scale_delta: f32;
+    if cursor_command.command_type != CameraCommandType::Inactive {
+        translation_delta = cursor_command.translation_delta;
+        rotation_delta = cursor_command.rotation_delta;
+        fov_delta = cursor_command.fov_delta;
+        scale_delta = cursor_command.scale_delta;
+    } else {
+        translation_delta = cursor_command.translation_delta;
+        translation_delta = keyboard_command.translation_delta;
+        rotation_delta = keyboard_command.rotation_delta;
+        fov_delta = keyboard_command.fov_delta;
+        scale_delta = keyboard_command.scale_delta;
+    }
+
     if controls.mode() == ProjectionMode::Perspective {
         let (mut persp_proj, mut persp_transform) = cameras
             .get_mut(controls.perspective_camera_entities[0])
             .unwrap();
         if let Projection::Perspective(persp_proj) = persp_proj.as_mut() {
-            persp_transform.translation += cursor_command.translation_delta;
-            persp_transform.rotation *= cursor_command.rotation_delta;
-            persp_proj.fov += cursor_command.fov_delta;
+            persp_transform.translation += translation_delta;
+            persp_transform.rotation *= rotation_delta;
+            persp_proj.fov += fov_delta;
             persp_proj.fov = persp_proj
                 .fov
                 .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
@@ -455,9 +477,9 @@ fn camera_controls(
             .get_mut(controls.orthographic_camera_entities[0])
             .unwrap();
         if let Projection::Orthographic(ortho_proj) = ortho_proj.as_mut() {
-            ortho_transform.translation += cursor_command.translation_delta;
-            ortho_transform.rotation *= cursor_command.rotation_delta;
-            ortho_proj.scale += cursor_command.scale_delta;
+            ortho_transform.translation += translation_delta;
+            ortho_transform.rotation *= rotation_delta;
+            ortho_proj.scale += scale_delta;
         }
 
         let proj = ortho_proj.clone();
@@ -515,9 +537,18 @@ impl Plugin for CameraControlsPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<CameraControls>()
             .init_resource::<CursorCommand>()
+            .init_resource::<KeyboardCommand>()
             .init_resource::<HeadlightToggle>()
             .add_event::<ChangeProjectionMode>()
-            .add_systems(Update, (update_cursor_command, camera_controls).chain())
+            .add_systems(
+                Update,
+                (
+                    update_cursor_command,
+                    update_keyboard_command,
+                    camera_controls,
+                )
+                    .chain(),
+            )
             .add_systems(Update, update_orbit_center_marker);
     }
 }
