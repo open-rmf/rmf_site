@@ -474,36 +474,34 @@ fn update_orbit_center_marker(
     controls: Res<CameraControls>,
     cursor_command: Res<CursorCommand>,
     interaction_assets: Res<InteractionAssets>,
-    camera_query: Query<&Transform, With<Projection>>,
-    mut marker_query: Query<
-        (
-            &mut Transform,
-            &mut Visibility,
-            &mut Handle<StandardMaterial>,
-        ),
-        Without<Projection>,
-    >,
+    mut gizmo: Gizmos,
+    mut marker_query: Query<(
+        &mut Transform,
+        &mut Visibility,
+        &mut Handle<StandardMaterial>,
+    )>,
 ) {
     if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
         marker_query.get_mut(controls.orbit_center_marker)
     {
         if let Some(orbit_center) = controls.orbit_center {
-            *marker_material = match cursor_command.command_type {
-                CameraCommandType::DeselectOrbitCenter => {
-                    interaction_assets.orbit_center_active_material.clone()
+            let sphere_color: Color;
+            match cursor_command.command_type {
+                CameraCommandType::Orbit
+                | CameraCommandType::DeselectOrbitCenter
+                | CameraCommandType::SelectOrbitCenter => {
+                    *marker_material = interaction_assets.orbit_center_active_material.clone();
+                    sphere_color = Color::GREEN;
                 }
-                CameraCommandType::SelectOrbitCenter => {
-                    interaction_assets.orbit_center_active_material.clone()
+                _ => {
+                    *marker_material = interaction_assets.orbit_center_inactive_material.clone();
+                    sphere_color = Color::WHITE;
                 }
-                CameraCommandType::Orbit => interaction_assets.orbit_center_active_material.clone(),
-                _ => interaction_assets.orbit_center_inactive_material.clone(),
             };
 
-            let camera_transform = camera_query.get(controls.active_camera()).unwrap();
-            let camera_to_orbit_dir = (orbit_center - camera_transform.translation).normalize();
+            //TODO(@reuben-thomas) scale to be of constant size in camera
+            gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, sphere_color);
             marker_transform.translation = orbit_center;
-            marker_transform.rotation = Quat::from_rotation_arc(Vec3::Y, camera_to_orbit_dir);
-
             *marker_visibility = Visibility::Visible;
         } else {
             *marker_visibility = Visibility::Hidden;
