@@ -1,8 +1,18 @@
-use crate::{log, site_mode, JsValue};
+use crate::{
+    site::{AnchorBundle, DrawingBundle, LoadResult},
+    site_mode, JsValue, WorkspaceMarker,
+};
+use bevy::prelude::{Commands, SpatialBundle};
 use bevy_utils::default;
 use once_cell::sync::Lazy;
-use rmf_site_format::{Anchor, Level, Location, LocationTag, NameInSite, NavGraph};
-use std::collections::{BTreeMap, HashMap};
+use rmf_site_format::{
+    Anchor, Category, DrawingProperties, Location, LocationTag, NameInSite, SiteID,
+};
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::RangeFrom,
+};
+use tracing::error;
 
 use serde::Deserialize;
 
@@ -127,40 +137,31 @@ pub fn add_robot_pose_by_id(id: String, pose: RobotPose) {
     }
 }
 
-pub fn load_milestones(map: Maps) -> Vec<u8> {
-    #[cfg(target_arch = "wasm32")]
-    {
-        log(&format!("Main Menu - Loading Milestones"));
-    }
-    let mut site_id = 0_u32..;
-    let level_id = site_id.next().unwrap();
-    let mut levels = BTreeMap::new();
+pub fn load_milestones(map: Maps, level: &mut RangeFrom<u32>, commands: &mut Commands) {
+    let site_id = commands
+        .spawn(SpatialBundle::HIDDEN_IDENTITY)
+        .insert(Category::Site)
+        .insert(WorkspaceMarker)
+        .id();
 
-    let mut drawings: BTreeMap<u32, rmf_site_format::Drawing> = BTreeMap::new();
-    drawings.insert(
-        level_id,
-        rmf_site_format::Drawing {
-            properties: (rmf_site_format::DrawingProperties {
-                name: NameInSite((map.name).to_string()),
-                source: rmf_site_format::AssetSource::RCC((map.image_url).to_string()),
-                pixels_per_meter: rmf_site_format::PixelsPerMeter(20.0),
-                ..default()
-            }),
-            ..default()
-        },
-    );
+    commands
+        .spawn(DrawingBundle::new(DrawingProperties {
+            name: NameInSite(map.name.clone()),
+            pixels_per_meter: rmf_site_format::PixelsPerMeter(20.0),
+            source: rmf_site_format::AssetSource::RCC(map.image_url.clone()),
+            ..Default::default()
+        }))
+        .insert(SiteID(level.next().unwrap()));
 
     let mut anchors: BTreeMap<u32, Anchor> = BTreeMap::new();
     let mut locations = BTreeMap::new();
-    let mut tags = Vec::new();
 
     let mut initial = true;
+    let mut tags = Vec::new();
+    tags.push(LocationTag::Charger);
+
     map.markers.iter().for_each(|marker| {
-        if initial {
-            tags.push(LocationTag::Charger);
-            initial = false;
-        }
-        let anchor = site_id.next().unwrap();
+        let anchor = level.next().unwrap();
         anchors.insert(
             anchor,
             [
@@ -170,55 +171,36 @@ pub fn load_milestones(map: Maps) -> Vec<u8> {
             .into(),
         );
 
-        locations.insert(
-            site_id.next().unwrap(),
-            Location {
-                name: NameInSite(marker.1.meta.name.clone()),
-                tags: rmf_site_format::LocationTags(tags.clone()),
-                graphs: rmf_site_format::AssociatedGraphs::All,
-                anchor: rmf_site_format::Point(anchor),
-            },
-        );
+        let mut location = Location {
+            name: NameInSite(marker.1.meta.name.clone()),
+            graphs: rmf_site_format::AssociatedGraphs::All,
+            anchor: rmf_site_format::Point(anchor),
+            tags: default(),
+        };
+
+        if initial {
+            location.tags = rmf_site_format::LocationTags(tags.clone());
+            initial = false;
+        }
+
+        locations.insert(level.next().unwrap(), location);
     });
 
-    levels.insert(
-        level_id,
-        Level {
-            properties: rmf_site_format::LevelProperties {
-                name: NameInSite("l1".to_string()),
-                ..default()
-            },
-            drawings: drawings.clone(),
-            anchors: anchors.clone(),
-            ..default()
-        },
-    );
+    let mut id_to_entity = HashMap::new();
 
-    let mut graphs = BTreeMap::new();
-    graphs.insert(
-        site_id.next().unwrap(),
-        NavGraph {
-            name: NameInSite("navgraph".to_string()),
-            ..default()
-        },
-    );
+    for (anchor_id, anchor) in &anchors {
+        let anchor_entity = commands
+            .spawn(AnchorBundle::new(anchor.clone()))
+            .insert(SiteID(*anchor_id))
+            .id();
+        id_to_entity.insert(*anchor_id, anchor_entity);
+    }
 
-    let guided = rmf_site_format::Guided {
-        graphs,
-        locations,
-        ..default()
-    };
-
-    // create new site and convert to bytes
-    let site = rmf_site_format::Site {
-        levels,
-        navigation: rmf_site_format::Navigation { guided },
-        ..default()
-    };
-
-    log(&format!("New site: {:?}", site));
-
-    // convert site to bytes
-    let site_bytes: Vec<u8> = ron::to_string(&site).unwrap().as_bytes().to_vec();
-    return site_bytes;
+    for (location_id, location_data) in &locations {
+        let entity = match location_data.convert(&id_to_entity).for_site(site_id) {
+            Ok(e) => e,
+            Err(err) => return error!("Failed to convert location {:?}", err),
+        };
+        commands.spawn(entity).insert(SiteID(*location_id));
+    }
 }

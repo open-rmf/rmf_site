@@ -14,15 +14,13 @@
  * limitations under the License.
  *
 */
-
 use crate::{
     get_map_list,
     inspector::{InspectAssetSource, InspectScale},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    log,
     rcc::{self, load_milestones, MAP_INDEX},
     site::{DefaultFile, DrawingBundle, Recall},
-    AppEvents, AppState, LoadWorkspace, WorkspaceData,
+    AppEvents, AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
@@ -130,26 +128,21 @@ impl<'a, 'w1, 'w2, 's1, 's2> CreateWidget<'a, 'w1, 'w2, 's1, 's2> {
                                     .eq("RCC");
                                 if is_rccmap {
                                     let map_list = get_map_list().clone();
+
                                     unsafe {
-                                        match rcc::parse_js_value(&map_list.get(MAP_INDEX)) {
-                                            Ok(data) => {
-                                                let site_bytes = load_milestones(data);
-                                                self.events.file_events.load_workspace.send(
-                                                    LoadWorkspace::Data(WorkspaceData::Site(
-                                                        site_bytes,
-                                                    )),
-                                                );
-                                            }
-                                            Err(err) => {
-                                                #[cfg(target_arch = "wasm32")]
-                                                {
-                                                    log(&format!(
-                                                        "Error parsing  map list items JSON: {}",
-                                                        err
-                                                    ));
-                                                }
-                                            }
-                                        }
+                                        let map =
+                                            match rcc::parse_js_value(&map_list.get(MAP_INDEX)) {
+                                                Ok(data) => data,
+                                                Err(_) => return,
+                                            };
+
+                                        let current_level =
+                                            match &self.events.request.current_level.0 {
+                                                Some(s) => *s,
+                                                None => return,
+                                            };
+                                        let mut level = current_level.index()..;
+                                        load_milestones(map, &mut level, &mut self.events.commands);
                                     }
                                 } else {
                                     self.events.commands.spawn(DrawingBundle::new(

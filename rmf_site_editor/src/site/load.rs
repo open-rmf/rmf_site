@@ -37,7 +37,7 @@ pub struct LoadSite {
 
 #[derive(ThisError, Debug)]
 #[error("The site has a broken internal reference: {broken}")]
-struct LoadSiteError {
+pub struct LoadSiteError {
     site: Entity,
     broken: u32,
     // TODO(@mxgrey): reintroduce Backtrack when it's supported on stable
@@ -50,7 +50,7 @@ impl LoadSiteError {
     }
 }
 
-trait LoadResult<T> {
+pub trait LoadResult<T> {
     fn for_site(self, site: Entity) -> Result<T, LoadSiteError>;
 }
 
