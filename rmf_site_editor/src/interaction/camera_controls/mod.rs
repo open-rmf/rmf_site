@@ -62,7 +62,7 @@ pub const MODEL_PREVIEW_LAYER: u8 = 6;
 pub const MIN_FOV: f32 = 5.0;
 pub const MAX_FOV: f32 = 120.0;
 pub const MAX_PITCH: f32 = 85.0;
-pub const MAX_SELECTION_DIST: f32 = 100.0;
+pub const MAX_SELECTION_DIST: f32 = 30.0; // [m]
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
@@ -494,6 +494,7 @@ fn camera_controls(
 
 fn update_orbit_center_marker(
     controls: Res<CameraControls>,
+    keyboard_command: Res<KeyboardCommand>,
     cursor_command: Res<CursorCommand>,
     interaction_assets: Res<InteractionAssets>,
     mut gizmo: Gizmos,
@@ -506,19 +507,18 @@ fn update_orbit_center_marker(
     if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
         marker_query.get_mut(controls.orbit_center_marker)
     {
-        if let Some(orbit_center) = controls.orbit_center {
+        if controls.orbit_center.is_some() && controls.mode() == ProjectionMode::Perspective {
+            let orbit_center = controls.orbit_center.unwrap();
+
             let sphere_color: Color;
-            match cursor_command.command_type {
-                CameraCommandType::Orbit
-                | CameraCommandType::DeselectOrbitCenter
-                | CameraCommandType::SelectOrbitCenter => {
-                    *marker_material = interaction_assets.orbit_center_active_material.clone();
-                    sphere_color = Color::GREEN;
-                }
-                _ => {
-                    *marker_material = interaction_assets.orbit_center_inactive_material.clone();
-                    sphere_color = Color::WHITE;
-                }
+            let is_orbitting = cursor_command.command_type == CameraCommandType::Orbit
+                || keyboard_command.command_type == CameraCommandType::Orbit;
+            if is_orbitting {
+                *marker_material = interaction_assets.orbit_center_active_material.clone();
+                sphere_color = Color::GREEN;
+            } else {
+                *marker_material = interaction_assets.orbit_center_inactive_material.clone();
+                sphere_color = Color::WHITE;
             };
 
             //TODO(@reuben-thomas) scale to be of constant size in camera
