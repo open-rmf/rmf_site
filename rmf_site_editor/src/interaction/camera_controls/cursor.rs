@@ -15,7 +15,10 @@
  *
 */
 
-use super::{CameraCommandType, CameraControls, ProjectionMode, MAX_PITCH, MAX_SELECTION_DIST};
+use super::{
+    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_PITCH, MAX_SELECTION_DIST,
+    MIN_FOV,
+};
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
 use bevy::prelude::*;
@@ -134,9 +137,11 @@ pub fn update_cursor_command(
         *cursor_command = match camera_controls.mode() {
             ProjectionMode::Perspective => get_perspective_cursor_command(
                 &camera_transform,
+                &camera_proj,
                 command_type,
                 cursor_direction,
                 cursor_selection,
+                cursor_selection_new,
                 cursor_motion,
                 camera_controls.orbit_center,
                 scroll_motion,
@@ -231,9 +236,11 @@ fn get_orthographic_cursor_command(
 
 fn get_perspective_cursor_command(
     camera_transform: &Transform,
+    camera_proj: &Projection,
     command_type: CameraCommandType,
     cursor_direction: Vec3,
     cursor_selection: Vec3,
+    cursor_selection_new: Vec3,
     cursor_motion: Vec2,
     orbit_center: Option<Vec3>,
     scroll_motion: f32,
@@ -248,7 +255,11 @@ fn get_perspective_cursor_command(
 
     match command_type {
         CameraCommandType::FovZoom => {
-            cursor_command.fov_delta = -scroll_motion * fov_zoom_sensitivity;
+            if let Projection::Perspective(camera_proj) = camera_proj {
+                let target_fov = (camera_proj.fov - scroll_motion * fov_zoom_sensitivity)
+                    .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
+                cursor_command.fov_delta = target_fov - camera_proj.fov;
+            }
         }
         CameraCommandType::TranslationZoom => {
             cursor_command.translation_delta =
@@ -298,8 +309,8 @@ fn get_perspective_cursor_command(
                 cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
             let delta_y =
                 cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
-            let yaw = Quat::from_rotation_z(delta_x);
-            let pitch = Quat::from_rotation_x(delta_y);
+            let yaw = Quat::from_rotation_z(-delta_x);
+            let pitch = Quat::from_rotation_x(-delta_y);
 
             let mut target_transform = camera_transform.clone();
             // Exclude pitch if exceeds maximum angle
@@ -364,7 +375,7 @@ fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSe
 
             // No groundplane intersection
             // Pick a point of a virtual sphere around the camera, of same radius as its height
-            let height = cursor_ray.origin().y.abs();
+            let height = cursor_ray.origin().z.abs();
             let radius = if height < 1.0 { 1.0 } else { height };
             return cursor_ray.origin() + cursor_ray.direction() * radius;
         }

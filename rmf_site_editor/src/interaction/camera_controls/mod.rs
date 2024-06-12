@@ -429,17 +429,16 @@ fn camera_controls(
         return;
     }
 
-    let mut translation_delta: Vec3;
-    let mut rotation_delta: Quat;
-    let mut fov_delta: f32;
-    let mut scale_delta: f32;
+    let translation_delta: Vec3;
+    let rotation_delta: Quat;
+    let fov_delta: f32;
+    let scale_delta: f32;
     if cursor_command.command_type != CameraCommandType::Inactive {
         translation_delta = cursor_command.translation_delta;
         rotation_delta = cursor_command.rotation_delta;
         fov_delta = cursor_command.fov_delta;
         scale_delta = cursor_command.scale_delta;
     } else {
-        translation_delta = cursor_command.translation_delta;
         translation_delta = keyboard_command.translation_delta;
         rotation_delta = keyboard_command.rotation_delta;
         fov_delta = keyboard_command.fov_delta;
@@ -498,11 +497,18 @@ fn update_orbit_center_marker(
     cursor_command: Res<CursorCommand>,
     interaction_assets: Res<InteractionAssets>,
     mut gizmo: Gizmos,
-    mut marker_query: Query<(
-        &mut Transform,
-        &mut Visibility,
-        &mut Handle<StandardMaterial>,
-    )>,
+    // camera_query: Query<(
+    //     &Transform,
+    //     &Projection
+    // )>,
+    mut marker_query: Query<
+        (
+            &mut Transform,
+            &mut Visibility,
+            &mut Handle<StandardMaterial>,
+        ),
+        Without<Projection>,
+    >,
 ) {
     if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
         marker_query.get_mut(controls.orbit_center_marker)
@@ -510,6 +516,7 @@ fn update_orbit_center_marker(
         if controls.orbit_center.is_some() && controls.mode() == ProjectionMode::Perspective {
             let orbit_center = controls.orbit_center.unwrap();
 
+            // Color by current action
             let sphere_color: Color;
             let is_orbitting = cursor_command.command_type == CameraCommandType::Orbit
                 || keyboard_command.command_type == CameraCommandType::Orbit;
@@ -521,7 +528,11 @@ fn update_orbit_center_marker(
                 sphere_color = Color::WHITE;
             };
 
-            //TODO(@reuben-thomas) scale to be of constant size in camera
+            // Scale to maintain size in camera space
+            // let mut scale_factor = 1.0;
+            // let (camera_transform, camera_proj) = camera_query.get(controls.active_camera()).unwrap();
+            // let orbit_radius = (orbit_center - camera_transform).length();
+
             gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, sphere_color);
             marker_transform.translation = orbit_center;
             *marker_visibility = Visibility::Visible;
