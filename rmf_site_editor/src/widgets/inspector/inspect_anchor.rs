@@ -21,7 +21,10 @@ use crate::{
         latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
         GeographicComponent, JointProperties, LocationTags, MeshConstraint, SiteID, Subordinate,
     },
-    widgets::{inspector::{InspectPose, SelectionWidget, Inspect}, AppEvents, Icons, prelude::*},
+    widgets::{
+        inspector::{InspectPose, SelectionWidget, Inspect},
+        AppEvents, SelectorWidget, Icons, prelude::*,
+    },
     workcell::CreateJoint,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -46,12 +49,17 @@ pub struct ExInspectAnchor<'w, 's> {
     pub site_id: Query<'w, 's, &'static SiteID>,
     pub joints: Query<'w, 's, Entity, With<JointProperties>>,
     pub geographical_offset: Query<'w, 's, &'static GeographicComponent>,
+    pub hover: EventWriter<'w, Hover>,
     pub move_to: EventWriter<'w, MoveTo>,
+    pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
+    pub create_joint: EventWriter<'w, CreateJoint>,
 }
+
+impl<'w, 's> ShareableWidget for ExInspectAnchor<'w, 's> { }
 
 impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
     fn show(
-        Inspect { selection: anchor, inspector }: Inspect,
+        Inspect { selection: anchor, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,
@@ -59,7 +67,18 @@ impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
         impl_inspect_anchor(
             InspectAnchorInput { anchor, is_dependency: false },
             ui, state, world,
-        )
+        );
+    }
+}
+
+impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>> for ExInspectAnchor<'w, 's> {
+    fn show(
+        input: InspectAnchorInput,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World
+    ) -> Option<InspectAnchorResponse> {
+        impl_inspect_anchor(input, ui, state, world)
     }
 }
 
@@ -73,51 +92,147 @@ fn impl_inspect_anchor(
     ui: &mut Ui,
     state: &mut SystemState<ExInspectAnchor>,
     world: &mut World,
-) {
-    // if is_dependency {
+) -> Option<InspectAnchorResponse> {
+    if world.get::<Anchor>(id).is_none() {
+        return None;
+    }
 
-    // }
+    let mut replace = false;
+    if is_dependency {
+        world.show::<SelectorWidget, _, _>(id, ui);
+
+        let mut params = state.get_mut(world);
+        let edit_icon = params.icons.edit.egui();
+        let assign_response = ui.add(ImageButton::new(edit_icon));
+
+        if assign_response.hovered() {
+            params.hover.send(Hover(Some(id)));
+        }
+
+        replace = assign_response.clicked();
+        assign_response.on_hover_text("Reassign");
+    }
 
     let mut params = state.get_mut(world);
 
     if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) =
         params.anchors.get(id)
     {
-        // if let Some(subordinate) = subordinate {
-        //     ui.horizontal(|ui| {
-        //         if let Some(boss) = subordinate.0 {
-        //             ui.
-        //         }
-        //     })
-        // }
-        match anchor {
-            Anchor::Translate2D(_) => {
-                ui.horizontal(|ui| {
-                    dbg!();
-                    ui.label("x");
-                    let mut x = tf.translation.x;
-                    ui.add(DragValue::new(&mut x).speed(0.01));
+        if let Some(subordinate) = subordinate.map(|s| s.0) {
+            ui.horizontal(|ui| {
+                if let Some(boss) = subordinate {
+                    ui.label("Subordinate to ").on_hover_text(
+                        "The position of a subordinate anchor is \
+                        managed by the properties of another entity.",
+                    );
+                    world.show::<SelectorWidget, _, _>(boss, ui);
+                } else {
+                    ui.label("Anonymous subordinate");
+                }
+            });
+        } else {
+            match anchor {
+                Anchor::Translate2D(_) => {
+                    ui.vertical(|ui| {
+                        ui.horizontal(|ui| {
+                            dbg!();
+                            ui.label("x");
+                            let mut x = tf.translation.x;
+                            ui.add(DragValue::new(&mut x).speed(0.01));
 
-                    ui.label("y");
-                    let mut y = tf.translation.y;
-                    ui.add(DragValue::new(&mut y).speed(0.01));
+                            ui.label("y");
+                            let mut y = tf.translation.y;
+                            ui.add(DragValue::new(&mut y).speed(0.01));
 
-                    if x != tf.translation.x || y != tf.translation.y {
-                        params.move_to.send(MoveTo {
-                            entity: id,
-                            transform: Transform::from_translation([x, y, 0.0].into()),
+                            if x != tf.translation.x || y != tf.translation.y { {}
+                                params.move_to.send(MoveTo {
+                                    entity: id,
+                                    transform: Transform::from_translation([x, y, 0.0].into()),
+                                });
+                            }
                         });
-                    }
-                });
-            }
-            Anchor::CategorizedTranslate2D(_) => {
-                warn!("Categorized translate inspector not implemented yet");
-            }
-            Anchor::Pose3D(pose) => {
 
+                        if !is_dependency {
+                            for comp in &params.geographical_offset {
+                                let Some(offset) = comp.0 else {
+                                    continue;
+                                };
+                                let Ok((mut lat, mut lon)) =
+                                    world_to_latlon(tf.translation, offset.anchor)
+                                else {
+                                    continue;
+                                };
+
+                                let old_lat = lat.clone();
+                                let old_lon = lon.clone();
+
+                                ui.label("Latitude");
+                                ui.add(DragValue::new(&mut lat).speed(1e-16));
+                                ui.label("Longitude");
+                                ui.add(DragValue::new(&mut lon).speed(1e-16));
+
+                                if old_lat != lat || old_lon != lon {
+                                    params.move_to.send(MoveTo {
+                                        entity: id,
+                                        transform: Transform::from_translation(
+                                            latlon_to_world(
+                                                lat as f32,
+                                                lon as f32,
+                                                offset.anchor,
+                                            ),
+                                        ),
+                                    });
+                                }
+                            }
+                        }
+                    });
+                }
+                Anchor::CategorizedTranslate2D(_) => {
+                    warn!("Categorized translate inspector not implemented yet");
+                }
+                Anchor::Pose3D(pose) => {
+                    ui.vertical(|ui| {
+                        if let Some(c) = mesh_constraint {
+                            if let Some(new_pose) =
+                                InspectPose::new(&c.relative_pose).for_rotation().show(ui)
+                            {
+                                // TODO(luca) Using moveto doesn't allow switching between
+                                // variants of Pose3D
+                                params.mesh_constraints.send(Change::new(
+                                    MeshConstraint {
+                                        entity: c.entity,
+                                        element: c.element.clone(),
+                                        relative_pose: new_pose,
+                                    },
+                                    id,
+                                ));
+                            }
+                        } else {
+                            if let Some(new_pose) = InspectPose::new(pose).show(ui) {
+                                // TODO(luca) Using moveto doesn't allow switching between variants of
+                                // Pose3D
+                                params.move_to.send(MoveTo {
+                                    entity: id,
+                                    transform: new_pose.transform(),
+                                });
+                            }
+                        }
+                        // If the parent is not a joint, add a joint creation widget
+                        if params.joints.get(parent.get()).is_err() {
+                            if ui.button("Create joint").on_hover_text("Create a fixed joint and place it between the parent frame and this frame").clicked() {
+                                params.create_joint.send(CreateJoint {
+                                    parent: parent.get(),
+                                    child: id,
+                                });
+                            }
+                        }
+                    });
+                }
             }
         }
     }
+
+    Some(InspectAnchorResponse{ replace })
 }
 
 #[derive(SystemParam)]

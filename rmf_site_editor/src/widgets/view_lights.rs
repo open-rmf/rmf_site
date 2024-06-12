@@ -23,7 +23,7 @@ use crate::{
         SiteID,
     },
     widgets::{
-        inspector::{InspectLightKind, InspectPose, SelectionWidget},
+        inspector::{InspectLightKind, InspectPose}, SelectionWidget,
         AppEvents,
     },
 };

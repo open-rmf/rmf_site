@@ -15,7 +15,7 @@
  *
 */
 
-use crate::inspector::SelectionWidget;
+use crate::SelectionWidget;
 use crate::site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey, SiteID};
 use crate::{AppEvents, Icons, Issue};
 use crate::{IssueDictionary, ValidateWorkspace};

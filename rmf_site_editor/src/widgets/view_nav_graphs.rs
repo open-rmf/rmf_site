@@ -23,8 +23,8 @@ use crate::{
         NavGraphMarker, SaveNavGraphs, SiteID, DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{
-        inspector::{color_edit, selection_widget::SelectionWidget},
-        AppEvents, Icons, MoveLayerButton,
+        inspector::{color_edit},
+        AppEvents, Icons, MoveLayerButton, SelectionWidget,
     },
     Autoload, CurrentWorkspace,
 };

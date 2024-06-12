@@ -19,13 +19,31 @@ use crate::{
     interaction::{ChangeMode, SelectAnchor},
     site::{Category, EdgeLabels, Original},
     widgets::{
-        inspector::{InspectAnchorParams, InspectAnchorWidget},
-        AppEvents,
+        inspector::{Inspect, InspectAnchorParams, InspectAnchorWidget},
+        AppEvents, prelude::*,
     },
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::{Edge, Side};
+
+#[derive(SystemParam)]
+pub struct ExInspectEdge<'w, 's> {
+
+}
+
+impl<'w, 's> ShareableWidget for ExInspectEdge<'w, 's> { }
+
+impl<'w, 's> WidgetSystem<Inspect> for ExInspectEdge<'w, 's> {
+    fn show(
+        Inspect { selection: edge, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World
+    ) -> () {
+
+    }
+}
 
 pub struct InspectEdgeWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub entity: Entity,

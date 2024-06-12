@@ -96,9 +96,6 @@ pub use inspect_value::*;
 pub mod inspect_workcell_parent;
 pub use inspect_workcell_parent::*;
 
-pub mod selection_widget;
-pub use selection_widget::*;
-
 use super::move_layer::MoveLayer;
 
 use crate::{
@@ -107,7 +104,7 @@ use crate::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
         EdgeLabels, LayerVisibility, Original, SiteID,
     },
-    widgets::{AppEvents, prelude::*},
+    widgets::{AppEvents, SelectionWidget, prelude::*},
     AppState,
 };
 use bevy::{
@@ -143,7 +140,7 @@ impl FromWorld for ExInspectorWidget {
         );
         let id = world.spawn(widget).set_parent(right).id();
 
-        let inspect_anchor = Widget::new::<ExInspectAnchor>(world);
+        let inspect_anchor = Widget::<Inspect>::new::<ExInspectAnchor>(world);
         world.spawn(inspect_anchor).set_parent(id);
 
         Self { id }

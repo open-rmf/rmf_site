@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
-    widgets::{inspector::SelectionWidget, AppEvents},
+    widgets::{SelectionWidget, AppEvents},
     Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};

@@ -91,6 +91,9 @@ pub use move_layer::*;
 pub mod new_model;
 pub use new_model::*;
 
+pub mod selection_widget;
+pub use selection_widget::*;
+
 #[derive(Resource, Clone, Default)]
 pub struct PendingDrawing {
     pub source: AssetSource,
@@ -381,6 +384,47 @@ impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
     }
 }
 
+/// This is a marker trait to indicate that the system state of a widget can be
+/// safely shared across multiple renders of the widget. For example, the system
+/// parameters do not use the [`Changed`] filter. It is the responsibility of
+/// the user to ensure that sharing this widget will not have any bad side
+/// effects.
+pub trait ShareableWidget { }
+
+/// A resource to store a widget so that it can be reused multiple times in one
+/// render pass.
+#[derive(Resource)]
+pub struct SharedWidget<W: SystemParam + ShareableWidget + 'static> {
+    state: SystemState<W>,
+}
+
+/// This gives a convenient function for rendering a widget using a world.
+pub trait ShowSharedWidget {
+    fn show<W, Output, Input>(&mut self, input: Input, ui: &mut Ui) -> Output
+    where
+        W: ShareableWidget + WidgetSystem<Input, Output> + 'static;
+}
+
+impl ShowSharedWidget for World {
+    fn show<W, Output, Input>(&mut self, input: Input, ui: &mut Ui) -> Output
+    where
+        W: ShareableWidget + WidgetSystem<Input, Output> + 'static
+    {
+        if !self.contains_resource::<SharedWidget<W>>() {
+            let widget = SharedWidget::<W> {
+                state: SystemState::new(self),
+            };
+            self.insert_resource(widget);
+        }
+
+        self.resource_scope::<SharedWidget<W>, Output>(|world, mut widget| {
+            let u = W::show(input, ui, &mut widget.state, world);
+            widget.state.apply(world);
+            u
+        })
+    }
+}
+
 pub struct Tile {
     pub id: Entity,
 }
@@ -388,9 +432,9 @@ pub struct Tile {
 pub mod prelude {
     pub use super::{
         Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
-        ShowResult, ShowError, Tile, Panels,
+        ShowResult, ShowError, Tile, Panels, ShowSharedWidget, ShareableWidget,
     };
-    pub use bevy::ecs::system::SystemState;
+    pub use bevy::ecs::system::{SystemState, SystemParam};
 }
 
 #[derive(Resource)]
