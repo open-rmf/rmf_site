@@ -107,12 +107,89 @@ use crate::{
         AlignSiteDrawings, BeginEditDrawing, Category, Change, DefaultFile, DrawingMarker,
         EdgeLabels, LayerVisibility, Original, SiteID,
     },
-    widgets::AppEvents,
+    widgets::{AppEvents, prelude::*},
     AppState,
 };
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::{
+    ecs::system::{SystemParam, SystemState},
+    prelude::*
+};
 use bevy_egui::egui::{Button, RichText, Ui};
 use rmf_site_format::*;
+use smallvec::SmallVec;
+
+#[derive(Clone, Copy)]
+pub struct Inspect {
+    pub selection: Entity,
+    pub inspector: Entity,
+}
+
+#[derive(Resource)]
+pub struct ExInspectorWidget {
+    id: Entity,
+}
+
+impl ExInspectorWidget {
+    pub fn get(&self) -> Entity {
+        self.id
+    }
+}
+
+impl FromWorld for ExInspectorWidget {
+    fn from_world(world: &mut World) -> Self {
+        let widget = Widget::new::<ExInspectorWidgetParams>(world);
+        let right = world.resource_mut::<Panels>().right.expect(
+            "Trying to add an inspector widget without a right egui panel"
+        );
+        let id = world.spawn(widget).set_parent(right).id();
+
+        let inspect_anchor = Widget::new::<ExInspectAnchor>(world);
+        world.spawn(inspect_anchor).set_parent(id);
+
+        Self { id }
+    }
+}
+
+#[derive(SystemParam)]
+struct ExInspectorWidgetParams<'w, 's> {
+    children: Query<'w, 's, &'static Children>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
+    fn show(
+        Tile{ id }: Tile,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World
+    ) {
+        let Some(selection) = world.get_resource::<Selection>() else {
+            return;
+        };
+
+        let Some(selection) = selection.0 else {
+            return;
+        };
+        dbg!();
+
+        let params = state.get(world);
+
+        let children: Result<SmallVec<[_; 16]>, _> = params.children
+            .get(id)
+            .map(|children| children.iter().copied().collect());
+        let Ok(children) = children else {
+            return;
+        };
+
+        dbg!();
+        ui.vertical(|ui| {
+            for child in children {
+                dbg!(child);
+                let inspect = Inspect { selection, inspector: child };
+                let _ = world.try_show_in(child, inspect, ui);
+            }
+        });
+    }
+}
 
 // Bevy seems to have a limit of 16 fields in a SystemParam struct, so we split
 // some of the InspectorParams fields into the InspectorComponentParams struct.

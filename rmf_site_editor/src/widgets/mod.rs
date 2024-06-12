@@ -32,11 +32,20 @@ use crate::{
     AppState, CreateNewWorkspace, CurrentWorkspace, LoadWorkspace, SaveWorkspace,
     ValidateWorkspace,
 };
-use bevy::{asset::embedded_asset, ecs::query::Has, ecs::system::SystemParam, prelude::*};
+use bevy::{
+    asset::embedded_asset,
+    ecs::{
+        query::Has,
+        system::{SystemParam, SystemState},
+        world::EntityWorldMut,
+    },
+    prelude::*,
+};
 use bevy_egui::{
-    egui::{self, Button, CollapsingHeader},
+    egui::{self, Button, CollapsingHeader, Ui},
     EguiContexts,
 };
+use smallvec::SmallVec;
 use rmf_site_format::*;
 
 pub mod create;
@@ -73,7 +82,8 @@ pub mod icons;
 pub use icons::*;
 
 pub mod inspector;
-use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture};
+// use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture, ExInspectorWidget};
+use inspector::*;
 
 pub mod move_layer;
 pub use move_layer::*;
@@ -153,7 +163,10 @@ fn add_widgets_icons(app: &mut App) {
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         add_widgets_icons(app);
-        app.init_resource::<Icons>()
+        app
+            .init_resource::<Panels>()
+            .init_resource::<ExInspectorWidget>()
+            .init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
@@ -169,7 +182,7 @@ impl Plugin for StandardUiLayout {
             .add_systems(Startup, init_ui_style)
             .add_systems(
                 Update,
-                site_ui_layout.run_if(in_state(AppState::SiteEditor)),
+                ex_site_ui_layout.run_if(in_state(AppState::SiteEditor)),
             )
             .add_systems(
                 Update,
@@ -192,6 +205,233 @@ impl Plugin for StandardUiLayout {
                     .run_if(AppState::in_site_mode()),
             );
     }
+}
+
+#[derive(Component)]
+pub struct Widget<Input = (), Output = ()> {
+    inner: Option<Box<dyn ExecuteWidget<Input, Output> + 'static + Send + Sync>>,
+    _ignore: std::marker::PhantomData<(Input, Output)>,
+}
+
+impl<Input, Output> Widget<Input, Output>
+where
+    Input: 'static + Send + Sync,
+    Output: 'static + Send + Sync,
+{
+    pub fn new<W>(world: &mut World) -> Self
+    where
+        W: WidgetSystem<Input, Output> + 'static + Send + Sync,
+    {
+        let inner = InnerWidget::<Input, Output, W> {
+            state: SystemState::new(world),
+            _ignore: Default::default(),
+        };
+
+        Self {
+            inner: Some(Box::new(inner)),
+            _ignore: Default::default(),
+        }
+    }
+}
+
+pub trait ExecuteWidget<Input, Output> {
+    fn show(&mut self, input: Input, ui: &mut Ui, world: &mut World) -> Output;
+}
+
+pub trait WidgetSystem<Input = (), Output = ()>: SystemParam {
+    fn show(input: Input, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> Output;
+}
+
+struct InnerWidget<Input, Output, W: WidgetSystem<Input, Output> + 'static> {
+    state: SystemState<W>,
+    _ignore: std::marker::PhantomData<(Input, Output)>,
+}
+
+impl<Input, Output, W> ExecuteWidget<Input, Output> for InnerWidget<Input, Output, W>
+where
+    W: WidgetSystem<Input, Output>,
+{
+    fn show(&mut self, input: Input, ui: &mut Ui, world: &mut World) -> Output {
+        let u = W::show(input, ui, &mut self.state, world);
+        self.state.apply(world);
+        u
+    }
+}
+
+pub type ShowResult<T=()> = Result<T, ShowError>;
+
+#[derive(Debug)]
+pub enum ShowError {
+    /// The entity whose widget you are trying to show is missing from the world
+    EntityMissing,
+    /// There is no [`Widget`] component for the entity
+    WidgetMissing,
+    /// The entity has a [`Widget`] component, but the widget is already in use,
+    /// which implies that we are trying to render the widget recursively, and
+    /// that is not supported due to soundness issues.
+    Recursion,
+}
+
+pub trait TryShowWidgetWorld {
+    fn try_show(
+        &mut self,
+        entity: Entity,
+        ui: &mut Ui,
+    ) -> ShowResult<()> {
+        self.try_show_out(entity, (), ui)
+    }
+
+    fn try_show_in<Input>(
+        &mut self,
+        entity: Entity,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<()>
+    where
+        Input: 'static + Send + Sync,
+    {
+        self.try_show_out(entity, input, ui)
+    }
+
+    fn try_show_out<Output, Input>(
+        &mut self,
+        entity: Entity,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<Output>
+    where
+        Input: 'static + Send + Sync,
+        Output: 'static + Send + Sync;
+}
+
+impl TryShowWidgetWorld for World {
+    fn try_show_out<Output, Input>(
+        &mut self,
+        entity: Entity,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<Output>
+    where
+        Input: 'static + Send + Sync,
+        Output: 'static + Send + Sync,
+    {
+        let Some(mut entity_mut) = self.get_entity_mut(entity) else {
+            return Err(ShowError::EntityMissing);
+        };
+        entity_mut.try_show_out(input, ui)
+    }
+}
+
+pub trait TryShowWidgetEntity {
+    fn try_show(
+        &mut self,
+        ui: &mut Ui,
+    ) -> ShowResult<()> {
+        self.try_show_out((), ui)
+    }
+
+    fn try_show_in<Input>(
+        &mut self,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<()>
+    where
+        Input: 'static + Send + Sync,
+    {
+        self.try_show_out(input, ui)
+    }
+
+    fn try_show_out<Output, Input>(
+        &mut self,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<Output>
+    where
+        Input: 'static + Send + Sync,
+        Output: 'static + Send + Sync;
+}
+
+impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
+    fn try_show_out<Output, Input>(
+        &mut self,
+        input: Input,
+        ui: &mut Ui,
+    ) -> ShowResult<Output>
+    where
+        Input: 'static + Send + Sync,
+        Output: 'static + Send + Sync,
+    {
+        let Some(mut widget) = self.get_mut::<Widget<Input, Output>>() else {
+            return Err(ShowError::WidgetMissing);
+        };
+
+        let Some(mut inner) = widget.inner.take() else {
+            return Err(ShowError::Recursion);
+        };
+
+        let output = self.world_scope(|world| {
+            inner.show(input, ui, world)
+        });
+
+        if let Some(mut widget) = self.get_mut::<Widget<Input, Output>>() {
+            widget.inner = Some(inner);
+        }
+
+        Ok(output)
+    }
+}
+
+pub struct Tile {
+    pub id: Entity,
+}
+
+pub mod prelude {
+    pub use super::{
+        Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
+        ShowResult, ShowError, Tile, Panels,
+    };
+    pub use bevy::ecs::system::SystemState;
+}
+
+#[derive(Resource)]
+pub struct Panels {
+    pub right: Option<Entity>,
+}
+
+impl FromWorld for Panels {
+    fn from_world(world: &mut World) -> Self {
+        let right = world.spawn(()).id();
+        Panels { right: Some(right) }
+    }
+}
+
+fn ex_site_ui_layout(
+    world: &mut World,
+    egui_context_state: &mut SystemState<EguiContexts>,
+) {
+    let Some(right_panel) = world.get_resource::<Panels>().map(|p| p.right).flatten() else {
+        return;
+    };
+    let children: Option<SmallVec<[Entity; 16]>> = world
+        .get::<Children>(right_panel)
+        .map(|children| children.iter().copied().collect());
+    let Some(children) = children else {
+        warn!("No children found for the right widget panel");
+        return;
+    };
+
+    let egui_context = egui_context_state.get_mut(world).ctx_mut().clone();
+    egui::SidePanel::right("right_panel")
+        .resizable(true)
+        .default_width(300.0)
+        .show(&egui_context, |ui| {
+            dbg!();
+            for child in children {
+                dbg!(child);
+                let tile = Tile { id: child };
+                dbg!(world.try_show_in(child, tile, ui));
+            }
+        });
 }
 
 #[derive(SystemParam)]

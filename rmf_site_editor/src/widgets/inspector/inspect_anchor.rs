@@ -21,12 +21,104 @@ use crate::{
         latlon_to_world, world_to_latlon, Anchor, AssociatedGraphs, Category, Change, Dependents,
         GeographicComponent, JointProperties, LocationTags, MeshConstraint, SiteID, Subordinate,
     },
-    widgets::{inspector::InspectPose, inspector::SelectionWidget, AppEvents, Icons},
+    widgets::{inspector::{InspectPose, SelectionWidget, Inspect}, AppEvents, Icons, prelude::*},
     workcell::CreateJoint,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::collections::{BTreeMap, HashSet};
+
+
+#[derive(SystemParam)]
+pub struct ExInspectAnchor<'w, 's> {
+    pub anchors: Query<
+        'w,
+        's,
+        (
+            &'static Anchor,
+            &'static Transform,
+            Option<&'static Subordinate>,
+            &'static Parent,
+            Option<&'static MeshConstraint<Entity>>,
+        ),
+    >,
+    pub icons: Res<'w, Icons>,
+    pub site_id: Query<'w, 's, &'static SiteID>,
+    pub joints: Query<'w, 's, Entity, With<JointProperties>>,
+    pub geographical_offset: Query<'w, 's, &'static GeographicComponent>,
+    pub move_to: EventWriter<'w, MoveTo>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
+    fn show(
+        Inspect { selection: anchor, inspector }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        impl_inspect_anchor(
+            InspectAnchorInput { anchor, is_dependency: false },
+            ui, state, world,
+        )
+    }
+}
+
+pub struct InspectAnchorInput {
+    pub anchor: Entity,
+    pub is_dependency: bool,
+}
+
+fn impl_inspect_anchor(
+    InspectAnchorInput { anchor: id, is_dependency }: InspectAnchorInput,
+    ui: &mut Ui,
+    state: &mut SystemState<ExInspectAnchor>,
+    world: &mut World,
+) {
+    // if is_dependency {
+
+    // }
+
+    let mut params = state.get_mut(world);
+
+    if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) =
+        params.anchors.get(id)
+    {
+        // if let Some(subordinate) = subordinate {
+        //     ui.horizontal(|ui| {
+        //         if let Some(boss) = subordinate.0 {
+        //             ui.
+        //         }
+        //     })
+        // }
+        match anchor {
+            Anchor::Translate2D(_) => {
+                ui.horizontal(|ui| {
+                    dbg!();
+                    ui.label("x");
+                    let mut x = tf.translation.x;
+                    ui.add(DragValue::new(&mut x).speed(0.01));
+
+                    ui.label("y");
+                    let mut y = tf.translation.y;
+                    ui.add(DragValue::new(&mut y).speed(0.01));
+
+                    if x != tf.translation.x || y != tf.translation.y {
+                        params.move_to.send(MoveTo {
+                            entity: id,
+                            transform: Transform::from_translation([x, y, 0.0].into()),
+                        });
+                    }
+                });
+            }
+            Anchor::CategorizedTranslate2D(_) => {
+                warn!("Categorized translate inspector not implemented yet");
+            }
+            Anchor::Pose3D(pose) => {
+
+            }
+        }
+    }
+}
 
 #[derive(SystemParam)]
 pub struct InspectAnchorParams<'w, 's> {
