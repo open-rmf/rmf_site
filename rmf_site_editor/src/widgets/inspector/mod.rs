@@ -129,9 +129,11 @@ impl Plugin for StandardInspectorPlugin {
             .init_resource::<ExInspectorWidget>()
             .add_plugins((
                 InspectionPlugin::<ExInspectAnchor>::new(),
+                InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<ExInspectEdge>::new(),
                 InspectionPlugin::<InspectGeography>::new(),
                 InspectionPlugin::<InspectFiducial>::new(),
+                InspectionPlugin::<ExInspectLayer>::new(),
             ));
     }
 }
@@ -236,8 +238,6 @@ impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
 pub struct InspectorParams<'w, 's> {
     pub selection: Res<'w, Selection>,
     pub heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
-    pub anchor_params: InspectAnchorParams<'w, 's>,
-    pub anchor_dependents_params: InspectAnchorDependentsParams<'w, 's>,
     pub workcell_params: InspectorWorkcellParams<'w, 's>,
     pub component: InspectorComponentParams<'w, 's>,
     pub drawing: InspectDrawingParams<'w, 's>,
@@ -363,20 +363,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
 
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
-            if self.params.anchor_params.anchors.contains(selection) {
-                ui.horizontal(|ui| {
-                    InspectAnchorWidget::new(selection, &self.params.anchor_params, self.events)
-                        .show(ui);
-                });
-                ui.separator();
-                InspectAnchorDependentsWidget::new(
-                    selection,
-                    &self.params.anchor_dependents_params,
-                    self.events,
-                )
-                .show(ui);
-                ui.add_space(10.0);
-            }
 
             if let Ok(name) = self.params.component.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {
@@ -408,49 +394,49 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 ui.add_space(10.0);
             }
 
-            if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
-                ui.horizontal(|ui| {
-                    MoveLayer::new(
-                        selection,
-                        &mut self.events.layers.floors,
-                        &self.events.layers.icons,
-                    )
-                    .show(ui);
-                });
-                ui.horizontal(|ui| {
-                    InspectLayer::new(
-                        selection,
-                        &self.params.anchor_params.icons,
-                        self.events,
-                        floor_vis.copied(),
-                        alpha.0,
-                        true,
-                    )
-                    .show(ui);
-                });
-            }
+            // if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
+            //     ui.horizontal(|ui| {
+            //         MoveLayer::new(
+            //             selection,
+            //             &mut self.events.layers.floors,
+            //             &self.events.layers.icons,
+            //         )
+            //         .show(ui);
+            //     });
+            //     ui.horizontal(|ui| {
+            //         InspectLayer::new(
+            //             selection,
+            //             &self.params.anchor_params.icons,
+            //             self.events,
+            //             floor_vis.copied(),
+            //             alpha.0,
+            //             true,
+            //         )
+            //         .show(ui);
+            //     });
+            // }
 
-            if let Ok((drawing_vis, alpha)) = self.params.layer.drawings.get(selection) {
-                ui.horizontal(|ui| {
-                    MoveLayer::new(
-                        selection,
-                        &mut self.events.layers.drawings,
-                        &self.events.layers.icons,
-                    )
-                    .show(ui);
-                });
-                ui.horizontal(|ui| {
-                    InspectLayer::new(
-                        selection,
-                        &self.params.anchor_params.icons,
-                        self.events,
-                        drawing_vis.copied(),
-                        alpha.0,
-                        false,
-                    )
-                    .show(ui);
-                });
-            }
+            // if let Ok((drawing_vis, alpha)) = self.params.layer.drawings.get(selection) {
+            //     ui.horizontal(|ui| {
+            //         MoveLayer::new(
+            //             selection,
+            //             &mut self.events.layers.drawings,
+            //             &self.events.layers.icons,
+            //         )
+            //         .show(ui);
+            //     });
+            //     ui.horizontal(|ui| {
+            //         InspectLayer::new(
+            //             selection,
+            //             &self.params.anchor_params.icons,
+            //             self.events,
+            //             drawing_vis.copied(),
+            //             alpha.0,
+            //             false,
+            //         )
+            //         .show(ui);
+            //     });
+            // }
 
             if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
                 if *self.events.app_state.get() == AppState::SiteEditor {
@@ -497,22 +483,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 }
             }
 
-            if let Ok((edge, original, labels, category)) =
-                self.params.component.edges.get(selection)
-            {
-                InspectEdgeWidget::new(
-                    selection,
-                    category,
-                    edge,
-                    original,
-                    labels,
-                    &self.params.anchor_params,
-                    self.events,
-                )
-                .show(ui);
-                ui.add_space(10.0);
-            }
-
             InspectAssociatedGraphsWidget::new(
                 selection,
                 &self.params.component.associated_graphs,
@@ -520,22 +490,22 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             )
             .show(ui);
 
-            if let Ok((tags, recall)) = self.params.component.location_tags.get(selection) {
-                if let Some(new_tags) = InspectLocationWidget::new(
-                    selection,
-                    tags,
-                    recall,
-                    &self.params.anchor_params.icons,
-                    self.events,
-                )
-                .show(ui)
-                {
-                    self.events
-                        .change
-                        .location_tags
-                        .send(Change::new(new_tags, selection));
-                }
-            }
+            // if let Ok((tags, recall)) = self.params.component.location_tags.get(selection) {
+            //     if let Some(new_tags) = InspectLocationWidget::new(
+            //         selection,
+            //         tags,
+            //         recall,
+            //         &self.params.anchor_params.icons,
+            //         self.events,
+            //     )
+            //     .show(ui)
+            //     {
+            //         self.events
+            //             .change
+            //             .location_tags
+            //             .send(Change::new(new_tags, selection));
+            //     }
+            // }
 
             InspectTextureAffiliation::new(selection, &self.params.texture, self.events).show(ui);
 

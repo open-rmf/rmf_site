@@ -16,15 +16,145 @@
 */
 
 use crate::{
-    interaction::Hover,
+    interaction::{Hover, Selection},
     site::{
         BeginEditDrawing, Change, LayerVisibility, PreferredSemiTransparency, SiteID,
-        VisibilityCycle,
+        VisibilityCycle, FloorMarker, DrawingMarker,
     },
-    widgets::{inspector::SelectionWidget, AppEvents, Icons},
+    widgets::{
+        inspector::{SelectionWidget, Inspect},
+        ExMoveLayer, SelectorWidget, AppEvents, Icons, prelude::*,
+    },
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
+
+#[derive(SystemParam)]
+pub struct ExInspectLayer<'w, 's> {
+    drawings: Query<'w, 's, (), With<DrawingMarker>>,
+    layer: Query<
+        'w,
+        's,
+        (
+            Option<&'static LayerVisibility>,
+            &'static PreferredSemiTransparency,
+        ),
+        Or<(With<FloorMarker>, With<DrawingMarker>)>,
+    >,
+    icons: Res<'w, Icons>,
+    selection: Res<'w, Selection>,
+    hover: EventWriter<'w, Hover>,
+    begin_edit_drawing: EventWriter<'w, BeginEditDrawing>,
+    change_layer_visibility: EventWriter<'w, Change<LayerVisibility>>,
+    change_preferred_alpha: EventWriter<'w, Change<PreferredSemiTransparency>>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for ExInspectLayer<'w, 's> {
+    fn show(
+        Inspect { selection: id, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        view_layer(InspectLayerInput { id, with_moving: true, with_selecting: false }, ui, state, world);
+    }
+}
+
+impl<'w, 's> WidgetSystem<InspectLayerInput> for ExInspectLayer<'w, 's> {
+    fn show(input: InspectLayerInput, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+        view_layer(input, ui, state, world);
+    }
+}
+
+pub struct InspectLayerInput {
+    pub id: Entity,
+    pub with_selecting: bool,
+    pub with_moving: bool,
+}
+
+fn view_layer(
+    InspectLayerInput { id, with_selecting, with_moving }: InspectLayerInput,
+    ui: &mut Ui,
+    state: &mut SystemState<ExInspectLayer>,
+    world: &mut World,
+) {
+    if !state.get_mut(world).layer.contains(id) {
+        return;
+    }
+
+    if with_moving {
+        if world.get::<DrawingMarker>(id).is_some() {
+            world.show::<ExMoveLayer<DrawingMarker>, _, _>(id, ui);
+        }
+
+        if world.get::<FloorMarker>(id).is_some() {
+            world.show::<ExMoveLayer<FloorMarker>, _, _>(id, ui);
+        }
+    }
+
+    if with_selecting {
+        world.show::<SelectorWidget, _, _>(id, ui);
+    }
+
+    let mut params = state.get_mut(world);
+
+    if with_selecting{
+        if params.drawings.contains(id) {
+            let response = ui
+                .add(ImageButton::new(params.icons.edit.egui()))
+                .on_hover_text("Edit Drawing");
+
+            if response.hovered() {
+                params.hover.send(Hover(Some(id)));
+            }
+
+            if response.clicked() {
+                params.begin_edit_drawing.send(BeginEditDrawing(id));
+            }
+        }
+    }
+
+    let Ok((vis, default_alpha)) = params.layer.get(id) else {
+        return;
+    };
+    let vis = vis.copied();
+    let default_alpha = default_alpha.0;
+
+    let icon = params.icons.layer_visibility_of(vis);
+    let resp = ui.add(ImageButton::new(icon)).on_hover_text(format!(
+        "Change to {}",
+        vis.next(default_alpha).label()
+    ));
+    if resp.hovered() {
+        params.hover.send(Hover(Some(id)));
+    }
+    if resp.clicked() {
+        match vis.next(default_alpha) {
+            Some(v) => {
+                params.change_layer_visibility.send(Change::new(v, id).or_insert());
+            }
+            None => {
+                params.commands.entity(id).remove::<LayerVisibility>();
+            }
+        }
+    }
+
+    if let Some(LayerVisibility::Alpha(mut alpha)) = vis {
+        if ui.add(
+            DragValue::new(&mut alpha)
+                .clamp_range(0_f32..=1_f32)
+                .speed(0.01),
+        ).changed() {
+            params.change_layer_visibility.send(
+                Change::new(LayerVisibility::Alpha(alpha), id)
+            );
+            params.change_preferred_alpha.send(Change::new(
+                PreferredSemiTransparency(alpha), id,
+            ));
+        }
+    }
+}
 
 pub struct InspectLayer<'a, 'w, 's> {
     pub entity: Entity,
