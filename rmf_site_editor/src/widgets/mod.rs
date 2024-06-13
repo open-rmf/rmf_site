@@ -168,8 +168,11 @@ impl Plugin for StandardUiLayout {
         add_widgets_icons(app);
         app
             // .add_plugins(PropertiesPanelPlugin::default())
-            .add_plugins(PropertiesPanelPlugin::new(PanelSide::Right))
-            .add_plugins(StandardInspectorPlugin::default())
+            .add_plugins((
+                PropertiesPanelPlugin::new(PanelSide::Right),
+                StandardInspectorPlugin::default(),
+                ConsoleWidgetPlugin::default(),
+            ))
             .init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
@@ -441,7 +444,7 @@ pub mod prelude {
     pub use super::{
         Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
         ShowResult, ShowError, Tile, ShowSharedWidget, ShareableWidget,
-        Panel, PanelSide, PropertiesPanel,
+        Panel, PanelSide, PropertiesPanel, PanelWidget,
     };
     pub use bevy::ecs::system::{SystemState, SystemParam};
 }

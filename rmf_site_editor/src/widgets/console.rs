@@ -15,8 +15,111 @@
  *
 */
 
-use crate::{log::*, widgets::AppEvents};
-use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText, Ui};
+use crate::{log::*, widgets::{AppEvents, prelude::*}};
+use bevy::prelude::*;
+use bevy_egui::{
+    egui::{self, CollapsingHeader, Color32, RichText, Ui},
+    EguiContexts,
+};
+
+#[derive(Default)]
+pub struct ConsoleWidgetPlugin {
+
+}
+
+impl Plugin for ConsoleWidgetPlugin {
+    fn build(&self, app: &mut App) {
+        let widget = PanelWidget::new(console_widget, &mut app.world);
+        app.world.spawn(widget);
+    }
+}
+
+fn console_widget(
+    In(_): In<Entity>,
+    mut log_history: ResMut<LogHistory>,
+    mut egui_context: EguiContexts,
+) {
+    egui::TopBottomPanel::bottom("log_consolse")
+        .resizable(true)
+        .min_height(30.0)
+        .max_height(300.0)
+        .show(egui_context.ctx_mut(), |ui| {
+            ui.horizontal_wrapped(|ui| {
+                ui.spacing_mut().item_spacing.x = 0.5;
+                let status = log_history.top();
+                if let Some(log) = status {
+                    print_log(ui, log);
+                }
+            });
+            ui.add_space(5.0);
+            CollapsingHeader::new("Log Console")
+                .default_open(false)
+                .show(ui, |ui| {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.spacing_mut().item_spacing.x = 10.0;
+                        // Filter logs by category
+                        let mut all_are_checked = log_history
+                            .all_categories_are_selected();
+                        let all_were_checked = all_are_checked;
+                        ui.checkbox(&mut all_are_checked, "All");
+                        ui.checkbox(
+                            log_history.category_present_mut(LogCategory::Status),
+                            "Status",
+                        );
+                        ui.checkbox(
+                            log_history.category_present_mut(LogCategory::Warning),
+                            "Warning",
+                        );
+                        ui.checkbox(
+                            log_history.category_present_mut(LogCategory::Error),
+                            "Error",
+                        );
+                        ui.checkbox(
+                            log_history.category_present_mut(LogCategory::Bevy),
+                            "Bevy",
+                        );
+                        // Copy full log history to clipboard
+                        if ui.button("Copy Log History").clicked() {
+                            ui.output_mut(|o| {
+                                o.copied_text = log_history.copy_log_history();
+                            });
+                        }
+                        // Slider to adjust display limit
+                        // TODO(@mxgrey): Consider allowing this range to
+                        // automatically grow/shrink when the selected value
+                        // approaches or leaves the upper limit.
+                        ui.add(egui::Slider::new(
+                            log_history.display_limit_mut(),
+                            10..=1000,
+                        ));
+
+                        if !all_were_checked && all_are_checked {
+                            log_history.select_all_categories();
+                        }
+                    });
+                    ui.add_space(10.0);
+
+                    egui::ScrollArea::both()
+                        .auto_shrink([false, false])
+                        .stick_to_bottom(true)
+                        .show(ui, |ui| {
+                            let mut count = 0;
+                            for element in log_history.iter() {
+                                print_log(ui, element);
+                                count += 1;
+                            }
+                            if count >= log_history.display_limit() {
+                                ui.add_space(5.0);
+                                if ui.button("See more").clicked() {
+                                    *log_history.display_limit_mut() += 100;
+                                }
+                            }
+                        });
+                    ui.add_space(10.0);
+                });
+        });
+
+}
 
 pub struct ConsoleWidget<'a, 'w2, 's2> {
     events: &'a mut AppEvents<'w2, 's2>,
