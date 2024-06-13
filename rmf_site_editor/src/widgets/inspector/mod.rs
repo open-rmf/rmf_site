@@ -131,6 +131,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<ExInspectAnchor>::new(),
                 InspectionPlugin::<ExInspectEdge>::new(),
                 InspectionPlugin::<InspectGeography>::new(),
+                InspectionPlugin::<InspectFiducial>::new(),
             ));
     }
 }
@@ -292,7 +293,6 @@ pub struct InspectorComponentParams<'w, 's> {
 #[derive(SystemParam)]
 pub struct InspectDrawingParams<'w, 's> {
     pub distance: Query<'w, 's, &'static Distance>,
-    pub fiducial: InspectFiducialParams<'w, 's>,
 }
 
 #[derive(SystemParam)]
@@ -377,9 +377,6 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
                 .show(ui);
                 ui.add_space(10.0);
             }
-
-            InspectFiducialWidget::new(selection, &self.params.drawing.fiducial, &mut self.events)
-                .show(ui);
 
             if let Ok(name) = self.params.component.names.get(selection) {
                 if let Some(new_name) = InspectName::new(name).show(ui) {

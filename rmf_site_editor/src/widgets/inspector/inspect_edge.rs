@@ -135,7 +135,6 @@ impl<'w, 's> ExInspectEdge<'w, 's> {
                 );
             }
         }
-
     }
 }
 
