@@ -83,77 +83,85 @@ fn view_layer(
         return;
     }
 
-    if with_moving {
-        if world.get::<DrawingMarker>(id).is_some() {
-            world.show::<ExMoveLayer<DrawingMarker>, _, _>(id, ui);
+    ui.vertical(|ui| {
+        if with_moving {
+            if world.get::<DrawingMarker>(id).is_some() {
+                ui.horizontal(|ui| {
+                    world.show::<ExMoveLayer<DrawingMarker>, _, _>(id, ui);
+                });
+            }
+
+            if world.get::<FloorMarker>(id).is_some() {
+                ui.horizontal(|ui| {
+                    world.show::<ExMoveLayer<FloorMarker>, _, _>(id, ui);
+                });
+            }
         }
 
-        if world.get::<FloorMarker>(id).is_some() {
-            world.show::<ExMoveLayer<FloorMarker>, _, _>(id, ui);
-        }
-    }
+        ui.horizontal(|ui| {
+            if with_selecting {
+                world.show::<SelectorWidget, _, _>(id, ui);
+            }
 
-    if with_selecting {
-        world.show::<SelectorWidget, _, _>(id, ui);
-    }
+            let mut params = state.get_mut(world);
 
-    let mut params = state.get_mut(world);
+            if with_selecting{
+                if params.drawings.contains(id) {
+                    let response = ui
+                        .add(ImageButton::new(params.icons.edit.egui()))
+                        .on_hover_text("Edit Drawing");
 
-    if with_selecting{
-        if params.drawings.contains(id) {
-            let response = ui
-                .add(ImageButton::new(params.icons.edit.egui()))
-                .on_hover_text("Edit Drawing");
+                    if response.hovered() {
+                        params.hover.send(Hover(Some(id)));
+                    }
 
-            if response.hovered() {
+                    if response.clicked() {
+                        params.begin_edit_drawing.send(BeginEditDrawing(id));
+                    }
+                }
+            }
+
+            let Ok((vis, default_alpha)) = params.layer.get(id) else {
+                return;
+            };
+            let vis = vis.copied();
+            let default_alpha = default_alpha.0;
+
+            let icon = params.icons.layer_visibility_of(vis);
+            let resp = ui.add(ImageButton::new(icon)).on_hover_text(format!(
+                "Change to {}",
+                vis.next(default_alpha).label()
+            ));
+            if resp.hovered() {
                 params.hover.send(Hover(Some(id)));
             }
-
-            if response.clicked() {
-                params.begin_edit_drawing.send(BeginEditDrawing(id));
+            if resp.clicked() {
+                match vis.next(default_alpha) {
+                    Some(v) => {
+                        params.change_layer_visibility.send(Change::new(v, id).or_insert());
+                    }
+                    None => {
+                        params.commands.entity(id).remove::<LayerVisibility>();
+                    }
+                }
             }
-        }
-    }
 
-    let Ok((vis, default_alpha)) = params.layer.get(id) else {
-        return;
-    };
-    let vis = vis.copied();
-    let default_alpha = default_alpha.0;
-
-    let icon = params.icons.layer_visibility_of(vis);
-    let resp = ui.add(ImageButton::new(icon)).on_hover_text(format!(
-        "Change to {}",
-        vis.next(default_alpha).label()
-    ));
-    if resp.hovered() {
-        params.hover.send(Hover(Some(id)));
-    }
-    if resp.clicked() {
-        match vis.next(default_alpha) {
-            Some(v) => {
-                params.change_layer_visibility.send(Change::new(v, id).or_insert());
+            if let Some(LayerVisibility::Alpha(mut alpha)) = vis {
+                if ui.add(
+                    DragValue::new(&mut alpha)
+                        .clamp_range(0_f32..=1_f32)
+                        .speed(0.01),
+                ).changed() {
+                    params.change_layer_visibility.send(
+                        Change::new(LayerVisibility::Alpha(alpha), id)
+                    );
+                    params.change_preferred_alpha.send(Change::new(
+                        PreferredSemiTransparency(alpha), id,
+                    ));
+                }
             }
-            None => {
-                params.commands.entity(id).remove::<LayerVisibility>();
-            }
-        }
-    }
-
-    if let Some(LayerVisibility::Alpha(mut alpha)) = vis {
-        if ui.add(
-            DragValue::new(&mut alpha)
-                .clamp_range(0_f32..=1_f32)
-                .speed(0.01),
-        ).changed() {
-            params.change_layer_visibility.send(
-                Change::new(LayerVisibility::Alpha(alpha), id)
-            );
-            params.change_preferred_alpha.send(Change::new(
-                PreferredSemiTransparency(alpha), id,
-            ));
-        }
-    }
+        });
+    });
 }
 
 pub struct InspectLayer<'a, 'w, 's> {
