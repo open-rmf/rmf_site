@@ -27,7 +27,12 @@ use crate::{
 #[derive(SystemParam)]
 pub struct InspectGeography<'w, 's> {
     geographical: Query<'w, 's, &'static GeographicComponent>,
-    tfs: Query<'w, 's, &'static Transform>,
+    tfs: Query<
+        'w,
+        's,
+        &'static Transform,
+        Or<(With<Anchor>, With<Pose>)>,
+    >,
     move_to: EventWriter<'w, MoveTo>,
     current_workspace: Res<'w, CurrentWorkspace>,
 }

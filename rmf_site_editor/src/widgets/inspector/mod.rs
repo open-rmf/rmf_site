@@ -129,8 +129,8 @@ impl Plugin for StandardInspectorPlugin {
             .init_resource::<ExInspectorWidget>()
             .add_plugins((
                 InspectionPlugin::<ExInspectAnchor>::new(),
-                InspectionPlugin::<InspectGeography>::new(),
                 InspectionPlugin::<ExInspectEdge>::new(),
+                InspectionPlugin::<InspectGeography>::new(),
             ));
     }
 }

@@ -172,6 +172,7 @@ impl Plugin for StandardUiLayout {
                 PropertiesPanelPlugin::new(PanelSide::Right),
                 StandardInspectorPlugin::default(),
                 ConsoleWidgetPlugin::default(),
+                MenuBarPlugin::default(),
             ))
             .init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
@@ -781,16 +782,6 @@ pub struct LayerEvents<'w> {
     pub icons: Res<'w, Icons>,
 }
 
-#[derive(SystemParam)]
-pub struct MenuParams<'w, 's> {
-    state: Res<'w, State<AppState>>,
-    menus: Query<'w, 's, (&'static Menu, Entity)>,
-    menu_items: Query<'w, 's, (&'static mut MenuItem, Has<MenuDisabled>)>,
-    menu_states: Query<'w, 's, Option<&'static MenuVisualizationStates>>,
-    extension_events: EventWriter<'w, MenuEvent>,
-    view_menu: Res<'w, ViewMenu>,
-}
-
 /// We collect all the events into its own SystemParam because we are not
 /// allowed to receive more than one EventWriter of a given type per system call
 /// (for borrow-checker reasons). Bundling them all up into an AppEvents
@@ -825,7 +816,6 @@ fn site_ui_layout(
     file_menu: Res<FileMenu>,
     children: Query<&Children>,
     top_level_components: Query<(), Without<Parent>>,
-    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -892,15 +882,6 @@ fn site_ui_layout(
                 });
         });
 
-    top_menu_bar(
-        egui_context.ctx_mut(),
-        &mut events.file_events,
-        &file_menu,
-        &top_level_components,
-        &children,
-        &mut menu_params,
-    );
-
     egui::TopBottomPanel::bottom("log_console")
         .resizable(true)
         .min_height(30.)
@@ -954,7 +935,6 @@ fn site_drawing_ui_layout(
     file_menu: Res<FileMenu>,
     children: Query<&Children>,
     top_level_components: Query<(), Without<Parent>>,
-    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -1000,15 +980,6 @@ fn site_drawing_ui_layout(
             ConsoleWidget::new(&mut events).show(ui);
         });
 
-    top_menu_bar(
-        egui_context.ctx_mut(),
-        &mut events.file_events,
-        &file_menu,
-        &top_level_components,
-        &children,
-        &mut menu_params,
-    );
-
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -1035,7 +1006,6 @@ fn site_visualizer_ui_layout(
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
-    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -1081,15 +1051,6 @@ fn site_visualizer_ui_layout(
             ConsoleWidget::new(&mut events).show(ui);
         });
 
-    top_menu_bar(
-        egui_context.ctx_mut(),
-        &mut events.file_events,
-        &file_menu,
-        &top_level_components,
-        &children,
-        &mut menu_params,
-    );
-
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -1117,7 +1078,6 @@ fn workcell_ui_layout(
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
     children: Query<&Children>,
-    mut menu_params: MenuParams,
 ) {
     egui::SidePanel::right("right_panel")
         .resizable(true)
@@ -1150,15 +1110,6 @@ fn workcell_ui_layout(
             ui.add_space(10.0);
             ConsoleWidget::new(&mut events).show(ui);
         });
-
-    top_menu_bar(
-        egui_context.ctx_mut(),
-        &mut events.file_events,
-        &file_menu,
-        &top_level_components,
-        &children,
-        &mut menu_params,
-    );
 
     if events.new_model.asset_gallery_status.show {
         egui::SidePanel::left("asset_gallery")
