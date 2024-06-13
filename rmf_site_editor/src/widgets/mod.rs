@@ -467,6 +467,7 @@ impl PanelWidget {
 fn ex_site_ui_layout(
     world: &mut World,
     panel_widgets: &mut QueryState<(Entity, &mut PanelWidget)>,
+    egui_context_state: &mut SystemState<EguiContexts>,
 ) {
     let mut panels: SmallVec<[_; 16]> = panel_widgets
         .iter_mut(world)
@@ -485,6 +486,25 @@ fn ex_site_ui_layout(
             let _ = widget.inner.insert(inner);
         }
     }
+
+    let mut egui_context = egui_context_state.get_mut(world);
+    let ctx = egui_context.ctx_mut();
+    let ui_has_focus = ctx.wants_pointer_input()
+        || ctx.wants_keyboard_input()
+        || ctx.is_pointer_over_area();
+
+    if let Some(mut picking_blocker) = world.get_resource_mut::<PickingBlockers>() {
+        picking_blocker.ui = ui_has_focus;
+    }
+
+    if ui_has_focus {
+        // If the UI has focus and there were no hover events emitted by the UI,
+        // then we should emit a None hover event
+        let mut hover = world.resource_mut::<Events<Hover>>();
+        if hover.is_empty() {
+            hover.send(Hover(None));
+        }
+    }
 }
 
 #[derive(Clone, Copy, Debug, Component)]
@@ -495,7 +515,7 @@ pub enum PanelSide {
     Right,
 }
 
-enum EguiPanel {
+pub enum EguiPanel {
     Vertical(egui::SidePanel),
     Horizontal(egui::TopBottomPanel),
 }
@@ -587,6 +607,16 @@ pub struct PropertiesPanel {
     id: Entity,
 }
 
+impl PropertiesPanel {
+    pub fn side(&self) -> PanelSide {
+        self.side
+    }
+
+    pub fn id(&self) -> Entity {
+        self.id
+    }
+}
+
 pub struct PropertiesPanelPlugin {
     side: PanelSide,
 }
@@ -645,7 +675,12 @@ fn tile_panel_widget(
         .show(&ctx, |ui| {
             for child in children {
                 let tile = Tile { id: child, panel: side };
-                world.try_show_in(child, tile, ui);
+                if let Err(err) = world.try_show_in(child, tile, ui) {
+                    error!(
+                        "Could not render child widget {child:?} in tile panel \
+                        {panel:?} on side {side:?}: {err:?}"
+                    );
+                }
             }
         });
 }
