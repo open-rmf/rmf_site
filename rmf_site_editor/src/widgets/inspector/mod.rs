@@ -36,6 +36,9 @@ pub use inspect_edge::*;
 pub mod inspect_fiducial;
 pub use inspect_fiducial::*;
 
+pub mod inspect_geography;
+pub use inspect_geography::*;
+
 pub mod inspect_group;
 pub use inspect_group::*;
 
@@ -115,10 +118,55 @@ use bevy_egui::egui::{Button, RichText, Ui};
 use rmf_site_format::*;
 use smallvec::SmallVec;
 
+#[derive(Default)]
+pub struct StandardInspectorPlugin {
+
+}
+
+impl Plugin for StandardInspectorPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<ExInspectorWidget>()
+            .add_plugins((
+                InspectionPlugin::<ExInspectAnchor>::new(),
+                InspectionPlugin::<InspectGeography>::new(),
+                InspectionPlugin::<ExInspectEdge>::new(),
+            ));
+    }
+}
+
+pub struct InspectionPlugin<W>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+{
+    _ignore: std::marker::PhantomData<W>,
+}
+
+impl<W> InspectionPlugin<W>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+{
+    pub fn new() -> Self {
+        Self { _ignore: Default::default() }
+    }
+}
+
+impl<W> Plugin for InspectionPlugin<W>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+{
+    fn build(&self, app: &mut App) {
+        let inspector = app.world.resource::<ExInspectorWidget>().id;
+        let widget = Widget::<Inspect>::new::<W>(&mut app.world);
+        app.world.spawn(widget).set_parent(inspector);
+    }
+}
+
 #[derive(Clone, Copy)]
 pub struct Inspect {
     pub selection: Entity,
     pub inspector: Entity,
+    pub panel: PanelSide,
 }
 
 #[derive(Resource)]
@@ -135,14 +183,8 @@ impl ExInspectorWidget {
 impl FromWorld for ExInspectorWidget {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<ExInspectorWidgetParams>(world);
-        let right = world.resource_mut::<Panels>().right.expect(
-            "Trying to add an inspector widget without a right egui panel"
-        );
-        let id = world.spawn(widget).set_parent(right).id();
-
-        let inspect_anchor = Widget::<Inspect>::new::<ExInspectAnchor>(world);
-        world.spawn(inspect_anchor).set_parent(id);
-
+        let properties_panel = world.resource::<PropertiesPanel>().id;
+        let id = world.spawn(widget).set_parent(properties_panel).id();
         Self { id }
     }
 }
@@ -154,7 +196,7 @@ struct ExInspectorWidgetParams<'w, 's> {
 
 impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
     fn show(
-        Tile{ id }: Tile,
+        Tile{ id, panel }: Tile,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World
@@ -166,7 +208,6 @@ impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
         let Some(selection) = selection.0 else {
             return;
         };
-        dbg!();
 
         let params = state.get(world);
 
@@ -177,12 +218,12 @@ impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
             return;
         };
 
-        dbg!();
-        ui.vertical(|ui| {
+        panel.align(ui, |ui| {
             for child in children {
-                dbg!(child);
-                let inspect = Inspect { selection, inspector: child };
-                let _ = world.try_show_in(child, inspect, ui);
+                panel.orthogonal(ui, |ui| {
+                    let inspect = Inspect { selection, inspector: child, panel };
+                    let _ = world.try_show_in(child, inspect, ui);
+                });
             }
         });
     }

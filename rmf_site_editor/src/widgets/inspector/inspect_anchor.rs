@@ -31,10 +31,9 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::collections::{BTreeMap, HashSet};
 
-
 #[derive(SystemParam)]
 pub struct ExInspectAnchor<'w, 's> {
-    pub anchors: Query<
+    anchors: Query<
         'w,
         's,
         (
@@ -45,27 +44,25 @@ pub struct ExInspectAnchor<'w, 's> {
             Option<&'static MeshConstraint<Entity>>,
         ),
     >,
-    pub icons: Res<'w, Icons>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub joints: Query<'w, 's, Entity, With<JointProperties>>,
-    pub geographical_offset: Query<'w, 's, &'static GeographicComponent>,
-    pub hover: EventWriter<'w, Hover>,
-    pub move_to: EventWriter<'w, MoveTo>,
-    pub mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
-    pub create_joint: EventWriter<'w, CreateJoint>,
+    icons: Res<'w, Icons>,
+    joints: Query<'w, 's, Entity, With<JointProperties>>,
+    hover: EventWriter<'w, Hover>,
+    move_to: EventWriter<'w, MoveTo>,
+    mesh_constraints: EventWriter<'w, Change<MeshConstraint<Entity>>>,
+    create_joint: EventWriter<'w, CreateJoint>,
 }
 
 impl<'w, 's> ShareableWidget for ExInspectAnchor<'w, 's> { }
 
 impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
     fn show(
-        Inspect { selection: anchor, .. }: Inspect,
+        Inspect { selection: anchor, panel, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
         impl_inspect_anchor(
-            InspectAnchorInput { anchor, is_dependency: false },
+            InspectAnchorInput { anchor, is_dependency: false, panel },
             ui, state, world,
         );
     }
@@ -85,10 +82,11 @@ impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>> for
 pub struct InspectAnchorInput {
     pub anchor: Entity,
     pub is_dependency: bool,
+    pub panel: PanelSide,
 }
 
 fn impl_inspect_anchor(
-    InspectAnchorInput { anchor: id, is_dependency }: InspectAnchorInput,
+    InspectAnchorInput { anchor: id, is_dependency, panel }: InspectAnchorInput,
     ui: &mut Ui,
     state: &mut SystemState<ExInspectAnchor>,
     world: &mut World,
@@ -119,7 +117,7 @@ fn impl_inspect_anchor(
         params.anchors.get(id)
     {
         if let Some(subordinate) = subordinate.map(|s| s.0) {
-            ui.horizontal(|ui| {
+            panel.orthogonal(ui, |ui| {
                 if let Some(boss) = subordinate {
                     ui.label("Subordinate to ").on_hover_text(
                         "The position of a subordinate anchor is \
@@ -133,65 +131,30 @@ fn impl_inspect_anchor(
         } else {
             match anchor {
                 Anchor::Translate2D(_) => {
-                    ui.vertical(|ui| {
-                        ui.horizontal(|ui| {
-                            dbg!();
-                            ui.label("x");
-                            let mut x = tf.translation.x;
-                            ui.add(DragValue::new(&mut x).speed(0.01));
+                    if !is_dependency {
+                        ui.label("x");
+                    }
+                    let mut x = tf.translation.x;
+                    ui.add(DragValue::new(&mut x).speed(0.01));
 
-                            ui.label("y");
-                            let mut y = tf.translation.y;
-                            ui.add(DragValue::new(&mut y).speed(0.01));
+                    if !is_dependency {
+                        ui.label("y");
+                    }
+                    let mut y = tf.translation.y;
+                    ui.add(DragValue::new(&mut y).speed(0.01));
 
-                            if x != tf.translation.x || y != tf.translation.y { {}
-                                params.move_to.send(MoveTo {
-                                    entity: id,
-                                    transform: Transform::from_translation([x, y, 0.0].into()),
-                                });
-                            }
+                    if x != tf.translation.x || y != tf.translation.y { {}
+                        params.move_to.send(MoveTo {
+                            entity: id,
+                            transform: Transform::from_translation([x, y, 0.0].into()),
                         });
-
-                        if !is_dependency {
-                            for comp in &params.geographical_offset {
-                                let Some(offset) = comp.0 else {
-                                    continue;
-                                };
-                                let Ok((mut lat, mut lon)) =
-                                    world_to_latlon(tf.translation, offset.anchor)
-                                else {
-                                    continue;
-                                };
-
-                                let old_lat = lat.clone();
-                                let old_lon = lon.clone();
-
-                                ui.label("Latitude");
-                                ui.add(DragValue::new(&mut lat).speed(1e-16));
-                                ui.label("Longitude");
-                                ui.add(DragValue::new(&mut lon).speed(1e-16));
-
-                                if old_lat != lat || old_lon != lon {
-                                    params.move_to.send(MoveTo {
-                                        entity: id,
-                                        transform: Transform::from_translation(
-                                            latlon_to_world(
-                                                lat as f32,
-                                                lon as f32,
-                                                offset.anchor,
-                                            ),
-                                        ),
-                                    });
-                                }
-                            }
-                        }
-                    });
+                    }
                 }
                 Anchor::CategorizedTranslate2D(_) => {
                     warn!("Categorized translate inspector not implemented yet");
                 }
                 Anchor::Pose3D(pose) => {
-                    ui.vertical(|ui| {
+                    panel.align(ui, |ui| {
                         if let Some(c) = mesh_constraint {
                             if let Some(new_pose) =
                                 InspectPose::new(&c.relative_pose).for_rotation().show(ui)

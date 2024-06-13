@@ -17,9 +17,12 @@
 
 use crate::{
     interaction::{ChangeMode, SelectAnchor},
-    site::{Category, EdgeLabels, Original},
+    site::{Category, EdgeLabels, Original, SiteID},
     widgets::{
-        inspector::{Inspect, InspectAnchorParams, InspectAnchorWidget},
+        inspector::{
+            Inspect, InspectAnchorParams, InspectAnchorWidget, ExInspectAnchor,
+            InspectAnchorInput,
+        },
         AppEvents, prelude::*,
     },
 };
@@ -29,18 +32,109 @@ use rmf_site_format::{Edge, Side};
 
 #[derive(SystemParam)]
 pub struct ExInspectEdge<'w, 's> {
-
+    edges: Query<
+        'w,
+        's,
+        (
+            &'static Category,
+            &'static Edge<Entity>,
+            Option<&'static Original<Edge<Entity>>>,
+            Option<&'static EdgeLabels>,
+        ),
+    >,
+    change_mode: EventWriter<'w, ChangeMode>,
 }
 
 impl<'w, 's> ShareableWidget for ExInspectEdge<'w, 's> { }
 
 impl<'w, 's> WidgetSystem<Inspect> for ExInspectEdge<'w, 's> {
     fn show(
-        Inspect { selection: edge, .. }: Inspect,
+        Inspect { selection: id, panel, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World
-    ) -> () {
+    ) {
+        let params = state.get_mut(world);
+        let Ok((category, current_edge, original, labels)) = params.edges.get(id) else {
+            return;
+        };
+
+        let edge = if let Some(original) = original {
+            if original.is_reverse_of(current_edge) {
+                // The user is previewing a flipped edge. To avoid ugly high
+                // frequency UI flipping, we will display the edge in its
+                // original form until the user has committed to the flip.
+                original.0
+            } else {
+                *current_edge
+            }
+        } else {
+            *current_edge
+        };
+
+        let labels = labels.copied().unwrap_or_default();
+        let category = *category;
+
+        Grid::new("inspect_edge").show(ui, |ui| {
+            ui.label("");
+            ui.label("ID");
+            ui.label("");
+            ui.label("x");
+            ui.label("y");
+            ui.end_row();
+
+            Self::show_anchor(Side::Left, id, edge, labels, category, panel, ui, state, world);
+            Self::show_anchor(Side::Right, id, edge, labels, category, panel, ui, state, world);
+        });
+    }
+}
+
+impl<'w, 's> ExInspectEdge<'w, 's> {
+    fn show_anchor(
+        side: Side,
+        id: Entity,
+        edge: Edge<Entity>,
+        labels: EdgeLabels,
+        category: Category,
+        panel: PanelSide,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        ui.label(labels.side(side));
+        let anchor = edge.side(side);
+        let response = world.show::<ExInspectAnchor, _, _>(
+            InspectAnchorInput { anchor, is_dependency: true, panel }, ui,
+        );
+        ui.end_row();
+
+        match response {
+            Some(response) => {
+                if response.replace {
+                    if let Some(request) = SelectAnchor::replace_side(id, side).for_category(category) {
+                        info!(
+                            "Triggered anchor replacement for side \
+                            {side:?} of edge {edge:?} with category {category:?}"
+                        );
+                        let mut params = state.get_mut(world);
+                        params.change_mode.send(ChangeMode::To(request.into()));
+                    } else {
+                        error!(
+                            "Failed to trigger an anchor replacement for side \
+                            {side:?} of edge {edge:?} with category {category:?}"
+                        );
+                    }
+                }
+            }
+            None => {
+                error!(
+                    "An endpoint in the edge {id:?} (Site ID {:?}) is not an \
+                    anchor: {anchor:?}! This should never happen! Please report \
+                    this to the site editor developers.",
+                    world.get::<SiteID>(anchor),
+                );
+            }
+        }
 
     }
 }

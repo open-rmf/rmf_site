@@ -36,7 +36,7 @@ use bevy::{
     asset::embedded_asset,
     ecs::{
         query::Has,
-        system::{SystemParam, SystemState},
+        system::{SystemParam, SystemState, BoxedSystem},
         world::EntityWorldMut,
     },
     prelude::*,
@@ -167,8 +167,9 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         add_widgets_icons(app);
         app
-            .init_resource::<Panels>()
-            .init_resource::<ExInspectorWidget>()
+            // .add_plugins(PropertiesPanelPlugin::default())
+            .add_plugins(PropertiesPanelPlugin::new(PanelSide::Right))
+            .add_plugins(StandardInspectorPlugin::default())
             .init_resource::<Icons>()
             .init_resource::<LevelDisplay>()
             .init_resource::<NavGraphDisplay>()
@@ -425,55 +426,226 @@ impl ShowSharedWidget for World {
     }
 }
 
+#[derive(Clone, Copy, Debug)]
+pub struct Panel {
+    pub id: Entity,
+    pub side: PanelSide,
+}
+
 pub struct Tile {
     pub id: Entity,
+    pub panel: PanelSide,
 }
 
 pub mod prelude {
     pub use super::{
         Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
-        ShowResult, ShowError, Tile, Panels, ShowSharedWidget, ShareableWidget,
+        ShowResult, ShowError, Tile, ShowSharedWidget, ShareableWidget,
+        Panel, PanelSide, PropertiesPanel,
     };
     pub use bevy::ecs::system::{SystemState, SystemParam};
 }
 
-#[derive(Resource)]
-pub struct Panels {
-    pub right: Option<Entity>,
+/// To create a panel widget (a widget that renders itself directly to one of
+/// the egui side panels), add this component to an entity.
+#[derive(Component)]
+pub struct PanelWidget {
+    inner: Option<BoxedSystem<Entity>>,
 }
 
-impl FromWorld for Panels {
-    fn from_world(world: &mut World) -> Self {
-        let right = world.spawn(()).id();
-        Panels { right: Some(right) }
+impl PanelWidget {
+    pub fn new<M, S: IntoSystem<Entity, (), M>>(
+        system: S,
+        world: &mut World,
+    ) -> Self {
+        let mut system = Box::new(IntoSystem::into_system(system));
+        system.initialize(world);
+        Self { inner: Some(system) }
     }
 }
 
 fn ex_site_ui_layout(
     world: &mut World,
-    egui_context_state: &mut SystemState<EguiContexts>,
+    panel_widgets: &mut QueryState<(Entity, &mut PanelWidget)>,
 ) {
-    let Some(right_panel) = world.get_resource::<Panels>().map(|p| p.right).flatten() else {
+    let mut panels: SmallVec<[_; 16]> = panel_widgets
+        .iter_mut(world)
+        .map(|(entity, mut widget)| {
+            (entity, widget.inner.take().expect("Inner system of PanelWidget is missing"))
+        })
+        .collect();
+
+    for (e, inner) in &mut panels {
+        inner.run(*e, world);
+        inner.apply_deferred(world);
+    }
+
+    for (e, inner) in panels {
+        if let Some(mut widget) = world.get_mut::<PanelWidget>(e) {
+            let _ = widget.inner.insert(inner);
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, Component)]
+pub enum PanelSide {
+    Top,
+    Bottom,
+    Left,
+    Right,
+}
+
+enum EguiPanel {
+    Vertical(egui::SidePanel),
+    Horizontal(egui::TopBottomPanel),
+}
+
+impl EguiPanel {
+    pub fn map_vertical(
+        self,
+        f: impl FnOnce(egui::SidePanel) -> egui::SidePanel,
+    ) -> Self {
+        match self {
+            Self::Vertical(panel) => Self::Vertical(f(panel)),
+            other => other,
+        }
+    }
+
+    pub fn map_horizontal(
+        self,
+        f: impl FnOnce(egui::TopBottomPanel) -> egui::TopBottomPanel,
+    ) -> Self {
+        match self {
+            Self::Horizontal(panel) => Self::Horizontal(f(panel)),
+            other => other,
+        }
+    }
+
+    pub fn show<R>(
+        self,
+        ctx: &egui::Context,
+        add_content: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::InnerResponse<R> {
+        match self {
+            Self::Vertical(panel) => panel.show(ctx, add_content),
+            Self::Horizontal(panel) => panel.show(ctx, add_content),
+        }
+    }
+}
+
+impl PanelSide {
+    /// Is the long direction of the panel horizontal
+    pub fn is_horizontal(&self) -> bool {
+        matches!(self, Self::Top | Self::Bottom)
+    }
+
+    /// Is the long direction of the panel vertical
+    pub fn is_vertical(&self) -> bool {
+        matches!(self, Self::Left | Self::Right)
+    }
+
+    /// Align the Ui to line up with the long direction of the panel
+    pub fn align<R>(
+        self,
+        ui: &mut Ui,
+        f: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::InnerResponse<R> {
+        if self.is_horizontal() {
+            ui.horizontal(f)
+        } else {
+            ui.vertical(f)
+        }
+    }
+
+    /// Align the Ui to run orthogonal to long direction of the panel,
+    /// i.e. the Ui will run along the short direction of the panel.
+    pub fn orthogonal<R>(
+        self,
+        ui: &mut Ui,
+        f: impl FnOnce(&mut Ui) -> R,
+    ) -> egui::InnerResponse<R> {
+        if self.is_horizontal() {
+            ui.vertical(f)
+        } else {
+            ui.horizontal(f)
+        }
+    }
+
+    pub fn get_panel(self) -> EguiPanel {
+        match self {
+            Self::Left => EguiPanel::Vertical(egui::SidePanel::left("left_panel")),
+            Self::Right => EguiPanel::Vertical(egui::SidePanel::right("right_panel")),
+            Self::Top => EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel")),
+            Self::Bottom => EguiPanel::Horizontal(egui::TopBottomPanel::bottom("bottom_panel")),
+        }
+    }
+}
+
+#[derive(Resource)]
+pub struct PropertiesPanel {
+    side: PanelSide,
+    id: Entity,
+}
+
+pub struct PropertiesPanelPlugin {
+    side: PanelSide,
+}
+
+impl PropertiesPanelPlugin {
+    pub fn new(side: PanelSide) -> Self {
+        Self { side }
+    }
+}
+
+impl Default for PropertiesPanelPlugin {
+    fn default() -> Self {
+        Self::new(PanelSide::Right)
+    }
+}
+
+impl Plugin for PropertiesPanelPlugin {
+    fn build(&self, app: &mut App) {
+        let widget = PanelWidget::new(tile_panel_widget, &mut app.world);
+        let id = app.world.spawn((widget, self.side)).id();
+        app.world.insert_resource(PropertiesPanel { side: self.side, id });
+    }
+}
+
+fn tile_panel_widget(
+    In(panel): In<Entity>,
+    world: &mut World,
+    egui_contexts: &mut SystemState<EguiContexts>,
+) {
+    let children: Option<SmallVec<[Entity; 16]>> = world
+        .get::<Children>(panel)
+        .map(|children| children.iter().copied().collect());
+
+    let Some(children) = children else {
         return;
     };
-    let children: Option<SmallVec<[Entity; 16]>> = world
-        .get::<Children>(right_panel)
-        .map(|children| children.iter().copied().collect());
-    let Some(children) = children else {
-        warn!("No children found for the right widget panel");
+    if children.is_empty() {
+        // Do not even begin to create a panel if there are no children to render
+        return;
+    }
+
+    let Some(side) = world.get::<PanelSide>(panel) else {
+        error!("Side component missing for tile_panel_widget {panel:?}");
         return;
     };
 
-    let egui_context = egui_context_state.get_mut(world).ctx_mut().clone();
-    egui::SidePanel::right("right_panel")
-        .resizable(true)
-        .default_width(300.0)
-        .show(&egui_context, |ui| {
-            dbg!();
+    let side = *side;
+    let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
+    side.get_panel()
+        .map_vertical(|panel| {
+            // TODO(@mxgrey): Make this configurable via a component
+            panel
+            .resizable(true)
+            .default_width(300.0)
+        })
+        .show(&ctx, |ui| {
             for child in children {
-                dbg!(child);
-                let tile = Tile { id: child };
-                dbg!(world.try_show_in(child, tile, ui));
+                let tile = Tile { id: child, panel: side };
+                world.try_show_in(child, tile, ui);
             }
         });
 }
