@@ -17,7 +17,10 @@
 
 use crate::*;
 #[cfg(feature = "bevy")]
-use bevy::prelude::{Component, Reflect, ReflectComponent};
+use bevy::{
+    asset::{AssetPath, ParseAssetPathError},
+    prelude::{Component, Reflect, ReflectComponent},
+};
 use pathdiff::diff_paths;
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
@@ -75,6 +78,17 @@ impl AssetSource {
 
         Ok(())
     }
+
+    /// Convert the asset source into an asset path without attempting to validate
+    /// whether the asset path has valid syntax.
+    pub unsafe fn as_unvalidated_asset_path(&self) -> String {
+        match self {
+            AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
+            AssetSource::Local(filename) => String::from("file://") + filename,
+            AssetSource::Search(name) => String::from("search://") + name,
+            AssetSource::Package(path) => String::from("package://") + path,
+        }
+    }
 }
 
 impl Default for AssetSource {
@@ -83,14 +97,19 @@ impl Default for AssetSource {
     }
 }
 
-impl From<&AssetSource> for String {
-    fn from(asset_source: &AssetSource) -> String {
-        match asset_source {
-            AssetSource::Remote(uri) => String::from("rmf-server://") + uri,
-            AssetSource::Local(filename) => String::from("file://") + filename,
-            AssetSource::Search(name) => String::from("search://") + name,
-            AssetSource::Package(path) => String::from("package://") + path,
-        }
+#[cfg(feature = "bevy")]
+impl TryFrom<&AssetSource> for String {
+    type Error = ParseAssetPathError;
+    fn try_from(asset_source: &AssetSource) -> Result<String, ParseAssetPathError> {
+        // SAFETY: After we get this string, we immediately validate it before
+        // returning it.
+        let result = unsafe { asset_source.as_unvalidated_asset_path() };
+
+        // Verify that the string can be parsed as an asset path before we
+        // return it.
+        AssetPath::try_parse(&result)
+            .map(|_| ()) // drop the borrowing of result
+            .map(|_| result)
     }
 }
 

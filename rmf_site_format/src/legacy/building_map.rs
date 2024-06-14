@@ -670,7 +670,11 @@ impl BuildingMap {
         let textures = textures
             .into_iter()
             .map(|(id, texture)| {
-                let name: String = (&texture.source).into();
+                // SAFETY: We're picking the string apart to automatically generate
+                // a name for the texture. We don't need to validate the syntax
+                // because what we produce here will only exist to be viewed by
+                // humans.
+                let name: String = unsafe { (&texture.source).as_unvalidated_asset_path() };
                 let name = Path::new(&name)
                     .file_stem()
                     .map(|s| s.to_str().map(|s| s.to_owned()))
