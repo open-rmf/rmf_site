@@ -144,16 +144,12 @@ pub fn update_keyboard_command(
             ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
             ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
         };
-        let (camera_proj, camera_transform) =
-            cameras.get(active_camera_entity).unwrap();
+        let (camera_proj, camera_transform) = cameras.get(active_camera_entity).unwrap();
 
         // Set camera selection as orbit center, discard once orbit operation complete
         let camera_selection = match keyboard_command.camera_selection {
             Some(camera_selection) => camera_selection,
-            None => get_camera_selected_point(
-                camera_transform,
-                immediate_raycast,
-            ),
+            None => get_camera_selected_point(camera_transform, immediate_raycast),
         };
         if command_type == CameraCommandType::Orbit {
             camera_controls.orbit_center = Some(camera_selection);

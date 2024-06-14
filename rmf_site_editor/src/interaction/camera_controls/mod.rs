@@ -69,11 +69,10 @@ pub enum CameraCommandType {
     Inactive,
     Pan,
     Orbit,
+    HoldOrbitSelection,
     TranslationZoom,
     ScaleZoom,
     FovZoom,
-    SelectOrbitCenter,
-    DeselectOrbitCenter,
 }
 
 #[derive(Default, Reflect)]
@@ -433,7 +432,9 @@ fn camera_controls(
     let rotation_delta: Quat;
     let fov_delta: f32;
     let scale_delta: f32;
-    if cursor_command.command_type != CameraCommandType::Inactive {
+    if cursor_command.command_type != CameraCommandType::Inactive
+        && cursor_command.command_type != CameraCommandType::HoldOrbitSelection
+    {
         translation_delta = cursor_command.translation_delta;
         rotation_delta = cursor_command.rotation_delta;
         fov_delta = cursor_command.fov_delta;
@@ -513,13 +514,18 @@ fn update_orbit_center_marker(
     if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
         marker_query.get_mut(controls.orbit_center_marker)
     {
-        if controls.orbit_center.is_some() && controls.mode() == ProjectionMode::Perspective {
+        let is_orbitting = cursor_command.command_type == CameraCommandType::Orbit
+            || cursor_command.command_type == CameraCommandType::HoldOrbitSelection
+            || keyboard_command.command_type == CameraCommandType::Orbit;
+
+        if is_orbitting
+            && controls.orbit_center.is_some()
+            && controls.mode() == ProjectionMode::Perspective
+        {
             let orbit_center = controls.orbit_center.unwrap();
 
             // Color by current action
             let sphere_color: Color;
-            let is_orbitting = cursor_command.command_type == CameraCommandType::Orbit
-                || keyboard_command.command_type == CameraCommandType::Orbit;
             if is_orbitting {
                 *marker_material = interaction_assets.orbit_center_active_material.clone();
                 sphere_color = Color::GREEN;
@@ -527,11 +533,6 @@ fn update_orbit_center_marker(
                 *marker_material = interaction_assets.orbit_center_inactive_material.clone();
                 sphere_color = Color::WHITE;
             };
-
-            // Scale to maintain size in camera space
-            // let mut scale_factor = 1.0;
-            // let (camera_transform, camera_proj) = camera_query.get(controls.active_camera()).unwrap();
-            // let orbit_radius = (orbit_center - camera_transform).length();
 
             gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, sphere_color);
             marker_transform.translation = orbit_center;

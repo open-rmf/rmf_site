@@ -86,13 +86,14 @@ pub fn update_cursor_command(
         }
 
         // Command type, return if inactive
+        let prev_command_type = cursor_command.command_type;
         let command_type = get_command_type(
             &keyboard_input,
             &mouse_input,
             &cursor_motion,
             &scroll_motion,
-            cursor_command.command_type,
             camera_controls.mode(),
+            &prev_command_type,
         );
         if command_type == CameraCommandType::Inactive {
             *cursor_command = CursorCommand::default();
@@ -114,24 +115,22 @@ pub fn update_cursor_command(
             Some(ray) => ray,
             None => return,
         };
-        let cursor_selection_new = get_cursor_selected_point(&cursor_raycast_source);
+        let new_cursor_selection = get_cursor_selected_point(&cursor_raycast_source);
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
-            None => cursor_selection_new,
+            None => new_cursor_selection,
         };
         let cursor_direction = cursor_ray.direction().normalize();
 
-        // Update obrit center if this is a select / deselect operation
-        if command_type == CameraCommandType::SelectOrbitCenter {
-            camera_controls.orbit_center = Some(cursor_selection_new);
-            *cursor_command = CursorCommand::default();
-            cursor_command.command_type = CameraCommandType::SelectOrbitCenter;
-            return;
-        } else if command_type == CameraCommandType::DeselectOrbitCenter {
+        // Update orbit center
+        let was_orbittting = prev_command_type == CameraCommandType::Orbit
+            || prev_command_type == CameraCommandType::HoldOrbitSelection;
+        let is_orbitting = command_type == CameraCommandType::Orbit
+            || command_type == CameraCommandType::HoldOrbitSelection;
+        if !is_orbitting {
             camera_controls.orbit_center = None;
-            *cursor_command = CursorCommand::default();
-            cursor_command.command_type = CameraCommandType::DeselectOrbitCenter;
-            return;
+        } else if !was_orbittting && is_orbitting {
+            camera_controls.orbit_center = Some(cursor_selection);
         }
 
         *cursor_command = match camera_controls.mode() {
@@ -141,7 +140,6 @@ pub fn update_cursor_command(
                 command_type,
                 cursor_direction,
                 cursor_selection,
-                cursor_selection_new,
                 cursor_motion,
                 camera_controls.orbit_center,
                 scroll_motion,
@@ -152,7 +150,7 @@ pub fn update_cursor_command(
                 &camera_proj,
                 command_type,
                 cursor_selection,
-                cursor_selection_new,
+                new_cursor_selection,
                 scroll_motion,
             ),
         };
@@ -166,7 +164,7 @@ fn get_orthographic_cursor_command(
     camera_proj: &Projection,
     command_type: CameraCommandType,
     cursor_selection: Vec3,
-    cursor_selection_new: Vec3,
+    new_cursor_selection: Vec3,
     scroll_motion: f32,
 ) -> CursorCommand {
     let mut cursor_command = CursorCommand::default();
@@ -178,7 +176,7 @@ fn get_orthographic_cursor_command(
     }
 
     //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
-    let cursor_direction = (cursor_selection_new - camera_transform.translation).normalize();
+    let cursor_direction = (new_cursor_selection - camera_transform.translation).normalize();
 
     match command_type {
         CameraCommandType::Pan => {
@@ -240,7 +238,6 @@ fn get_perspective_cursor_command(
     command_type: CameraCommandType,
     cursor_direction: Vec3,
     cursor_selection: Vec3,
-    cursor_selection_new: Vec3,
     cursor_motion: Vec2,
     orbit_center: Option<Vec3>,
     scroll_motion: f32,
@@ -311,15 +308,16 @@ fn get_perspective_cursor_command(
                 cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
             let yaw = Quat::from_rotation_z(-delta_x);
             let pitch = Quat::from_rotation_x(-delta_y);
-
             let mut target_transform = camera_transform.clone();
+
+            // Rotation
             // Exclude pitch if exceeds maximum angle
             target_transform.rotation = (yaw * camera_transform.rotation) * pitch;
             if target_transform.up().z.acos().to_degrees() > MAX_PITCH {
                 target_transform.rotation = yaw * camera_transform.rotation;
             };
 
-            // Translation if orbitting a point
+            // Translation
             if let Some(orbit_center) = orbit_center {
                 let camera_to_orbit_center = orbit_center - camera_transform.translation;
                 let x = camera_to_orbit_center.dot(camera_transform.local_x());
@@ -387,8 +385,8 @@ fn get_command_type(
     mouse_input: &Res<Input<MouseButton>>,
     cursor_motion: &Vec2,
     scroll_motion: &f32,
-    prev_command_type: CameraCommandType,
     projection_mode: ProjectionMode,
+    prev_command_type: &CameraCommandType,
 ) -> CameraCommandType {
     // Inputs
     let is_cursor_moving = cursor_motion.length() > 0.;
@@ -403,9 +401,15 @@ fn get_command_type(
 
     // Orbitting
     if is_cursor_moving && mouse_input.pressed(MouseButton::Middle)
-        || (mouse_input.pressed(MouseButton::Right) && is_shifting)
+        || (is_shifting && mouse_input.pressed(MouseButton::Right))
     {
         return CameraCommandType::Orbit;
+    } else if is_shifting
+        && (*prev_command_type == CameraCommandType::Orbit
+            || *prev_command_type == CameraCommandType::HoldOrbitSelection)
+        && projection_mode.is_perspective()
+    {
+        return CameraCommandType::HoldOrbitSelection;
     }
 
     // Zoom
@@ -417,17 +421,6 @@ fn get_command_type(
             return CameraCommandType::FovZoom;
         } else {
             return CameraCommandType::TranslationZoom;
-        }
-    }
-
-    // Select / Deselect Orbit Center
-    if projection_mode.is_perspective() {
-        if mouse_input.just_pressed(MouseButton::Right)
-            && prev_command_type == CameraCommandType::Inactive
-        {
-            return CameraCommandType::SelectOrbitCenter;
-        } else if keyboard_input.just_pressed(KeyCode::Escape) {
-            return CameraCommandType::DeselectOrbitCenter;
         }
     }
 
