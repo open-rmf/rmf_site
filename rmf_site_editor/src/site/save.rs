@@ -1278,6 +1278,19 @@ pub fn save_site(world: &mut World) {
             }
             ExportFormat::Sdf => {
                 // TODO(luca) reduce code duplication with default exporting
+
+                // Make sure to generate the site before anything else, because
+                // generating the site will ensure that all items are assigned a
+                // SiteID, and the SDF export process will not work correctly if
+                // any are unassigned.
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+
                 info!("Saving to {}", new_path.display());
                 let Some(parent_folder) = new_path.parent() else {
                     error!("Unable to save SDF. Please select a save path that has a parent directory.");
@@ -1309,14 +1322,6 @@ pub fn save_site(world: &mut World) {
                 }
 
                 migrate_relative_paths(save_event.site, &new_path, world);
-
-                let site = match generate_site(world, save_event.site) {
-                    Ok(site) => site,
-                    Err(err) => {
-                        error!("Unable to compile site: {err}");
-                        continue;
-                    }
-                };
                 let graphs = legacy::nav_graph::NavGraph::from_site(&site);
                 let sdf = match site.to_sdf() {
                     Ok(sdf) => sdf,

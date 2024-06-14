@@ -299,6 +299,8 @@ pub fn dispatch_load_workspace_events(
                             .send(LoadWorkspaceFile(Some(path.clone()), data))
                             .expect("Failed sending load event");
                     }
+                } else {
+                    warn!("Unable to read file [{path:?}] so it cannot be loaded");
                 }
             }
             LoadWorkspace::Data(data) => {
