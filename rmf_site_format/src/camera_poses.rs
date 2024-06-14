@@ -20,7 +20,6 @@ use crate::{Anchor, Category, NameInSite, Pose, Rotation};
 use bevy::prelude::{Bundle, Component};
 use glam::{Affine3A, Quat, Vec3};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
 
 #[derive(Serialize, Deserialize, Default, Debug, Clone, PartialEq)]
 #[cfg_attr(feature = "bevy", derive(Bundle))]
