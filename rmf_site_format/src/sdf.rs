@@ -545,10 +545,9 @@ impl Site {
             }
             // Now add all the doors
             for (door_id, door) in &level.doors {
-                // TODO(luca) doors into toggle floors
                 let left_anchor = get_anchor(door.anchors.left())?;
                 let right_anchor = get_anchor(door.anchors.right())?;
-                world.model.push(make_sdf_door(
+                let door_model = make_sdf_door(
                     left_anchor,
                     right_anchor,
                     Vec3::new(0.0, 0.0, level.properties.elevation.0),
@@ -556,8 +555,9 @@ impl Site {
                     &door.kind,
                     format!("door_{door_id}").as_str(),
                     door.name.0.as_str(),
-                )?);
-                level_model_names.push(door.name.0.clone());
+                )?;
+                level_model_names.push(door_model.name.clone());
+                world.model.push(door_model);
             }
             for model_name in level_model_names.into_iter() {
                 let model_element = XmlElement {
