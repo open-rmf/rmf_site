@@ -33,7 +33,7 @@ pub struct CursorCommand {
     pub scale_delta: f32,
     pub fov_delta: f32,
     pub cursor_selection: Option<Vec3>,
-    pub cursor_direction_camera_frame: Vec3,
+    pub cursor_direction_camera_frame: Option<Vec3>,
     pub command_type: CameraCommandType,
 }
 
@@ -45,7 +45,7 @@ impl Default for CursorCommand {
             scale_delta: 0.0,
             fov_delta: 0.0,
             cursor_selection: None,
-            cursor_direction_camera_frame: Vec3::ZERO,
+            cursor_direction_camera_frame: None,
             command_type: CameraCommandType::Inactive,
         }
     }
@@ -88,19 +88,19 @@ pub fn update_cursor_command(
         }
 
         // Command type, return if inactive
-        let prev_command_type = cursor_command.command_type;
+        let command_type_prev = cursor_command.command_type;
         let command_type = get_command_type(
             &keyboard_input,
             &mouse_input,
             &cursor_motion,
             &scroll_motion,
             camera_controls.mode(),
-            &prev_command_type,
+            &command_type_prev,
         );
-        // if command_type == CameraCommandType::Inactive {
-        //     *cursor_command = CursorCommand::default();
-        //     return;
-        // }
+        if command_type == CameraCommandType::Inactive {
+            *cursor_command = CursorCommand::default();
+            return;
+        }
 
         // Camera projection and transform
         let active_camera_entity = match camera_controls.mode() {
@@ -117,16 +117,20 @@ pub fn update_cursor_command(
             Some(ray) => ray,
             None => return,
         };
-        let new_cursor_selection = get_cursor_selected_point(&cursor_raycast_source);
+        let cursor_selection_new = get_cursor_selected_point(&cursor_raycast_source);
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
-            None => new_cursor_selection,
+            None => cursor_selection_new,
         };
         let cursor_direction = cursor_ray.direction().normalize();
+        let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
+        let cursor_direction_camera_frame_prev = cursor_command
+            .cursor_direction_camera_frame
+            .unwrap_or(cursor_direction_camera_frame);
 
         // Update orbit center
-        let was_orbittting = prev_command_type == CameraCommandType::Orbit
-            || prev_command_type == CameraCommandType::HoldOrbitSelection;
+        let was_orbittting = command_type_prev == CameraCommandType::Orbit
+            || command_type_prev == CameraCommandType::HoldOrbitSelection;
         let is_orbitting = command_type == CameraCommandType::Orbit
             || command_type == CameraCommandType::HoldOrbitSelection;
         if !is_orbitting {
@@ -143,7 +147,7 @@ pub fn update_cursor_command(
                         &camera_proj,
                         command_type,
                         cursor_selection,
-                        new_cursor_selection,
+                        cursor_selection_new,
                         scroll_motion,
                     );
                 }
@@ -155,10 +159,12 @@ pub fn update_cursor_command(
                         &camera_proj,
                         command_type,
                         cursor_direction,
-                        cursor_command.cursor_direction_camera_frame,
+                        cursor_direction_camera_frame,
+                        cursor_direction_camera_frame_prev,
                         cursor_selection,
-                        camera_controls.orbit_center,
                         scroll_motion,
+                        camera_controls.orbit_center,
+                        window,
                     );
                 }
             }
@@ -173,7 +179,7 @@ fn get_orthographic_cursor_command(
     camera_proj: &OrthographicProjection,
     command_type: CameraCommandType,
     cursor_selection: Vec3,
-    new_cursor_selection: Vec3,
+    cursor_selection_new: Vec3,
     scroll_motion: f32,
 ) -> CursorCommand {
     let mut cursor_command = CursorCommand::default();
@@ -183,7 +189,7 @@ fn get_orthographic_cursor_command(
     cursor_command.scale_delta = -scroll_motion * camera_proj.scale * 0.1;
 
     //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
-    let cursor_direction = (new_cursor_selection - camera_transform.translation).normalize();
+    let cursor_direction = (cursor_selection_new - camera_transform.translation).normalize();
 
     match command_type {
         CameraCommandType::Pan => {
@@ -244,18 +250,18 @@ fn get_perspective_cursor_command(
     camera_proj: &PerspectiveProjection,
     command_type: CameraCommandType,
     cursor_direction: Vec3,
+    cursor_direction_camera_frame: Vec3,
     cursor_direction_camera_frame_prev: Vec3,
     cursor_selection: Vec3,
-    orbit_center: Option<Vec3>,
     scroll_motion: f32,
+    orbit_center: Option<Vec3>,
+    window: &Window,
 ) -> CursorCommand {
     let translation_zoom_sensitivity = 0.5;
     let fov_zoom_sensitivity = 0.1;
 
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
-
-    let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
 
     match command_type {
         CameraCommandType::FovZoom => {
@@ -304,16 +310,24 @@ fn get_perspective_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-            let pitch = cursor_direction_camera_frame_prev.y.acos()
+            // Pitch and yaw inputs from cursor direction vector as spherical coordinates
+            let pitch_input = cursor_direction_camera_frame_prev.y.acos()
                 - cursor_direction_camera_frame.y.acos();
-            let yaw = (cursor_direction_camera_frame_prev
+            let yaw_input = (cursor_direction_camera_frame_prev
                 .z
                 .atan2(cursor_direction_camera_frame_prev.x))
                 - (cursor_direction_camera_frame
                     .z
                     .atan2(cursor_direction_camera_frame.x));
-            let yaw = Quat::from_rotation_z(-yaw);
-            let pitch = Quat::from_rotation_x(-pitch);
+
+            // Scale inputs to viewport range
+            let pitch_viewport_range = camera_proj.fov;
+            let pitch = pitch_input / pitch_viewport_range * std::f32::consts::PI;
+            let pitch = Quat::from_rotation_x(pitch);
+            let yaw_viewport_range = camera_proj.fov * camera_proj.aspect_ratio;
+            let yaw = yaw_input / yaw_viewport_range * 2.0 * std::f32::consts::PI;
+            let yaw = Quat::from_rotation_z(yaw);
+
             let mut target_transform = camera_transform.clone();
 
             // Rotation
@@ -346,15 +360,13 @@ fn get_perspective_cursor_command(
             let target_rotation = Mat3::from_quat(target_transform.rotation);
             cursor_command.rotation_delta =
                 Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
-            cursor_command.cursor_direction_camera_frame =
-                camera_transform.rotation.inverse() * cursor_direction;
             is_cursor_selecting = true;
         }
         _ => (),
     }
 
     cursor_command.command_type = command_type;
-    cursor_command.cursor_direction_camera_frame = cursor_direction_camera_frame;
+    cursor_command.cursor_direction_camera_frame = Some(cursor_direction_camera_frame);
     cursor_command.cursor_selection = if is_cursor_selecting {
         Some(cursor_selection)
     } else {
@@ -395,7 +407,7 @@ fn get_command_type(
     cursor_motion: &Vec2,
     scroll_motion: &f32,
     projection_mode: ProjectionMode,
-    prev_command_type: &CameraCommandType,
+    command_type_prev: &CameraCommandType,
 ) -> CameraCommandType {
     // Inputs
     let is_cursor_moving = cursor_motion.length() > 0.;
@@ -414,8 +426,8 @@ fn get_command_type(
     {
         return CameraCommandType::Orbit;
     } else if is_shifting
-        && (*prev_command_type == CameraCommandType::Orbit
-            || *prev_command_type == CameraCommandType::HoldOrbitSelection)
+        && (*command_type_prev == CameraCommandType::Orbit
+            || *command_type_prev == CameraCommandType::HoldOrbitSelection)
         && projection_mode.is_perspective()
     {
         return CameraCommandType::HoldOrbitSelection;
