@@ -65,16 +65,16 @@ pub fn update_keyboard_command(
         let is_shifting = keyboard_input.pressed(KeyCode::ShiftLeft)
             || keyboard_input.pressed(KeyCode::ShiftRight);
         let mut target_keyboard_motion = Vec2::ZERO;
-        if keyboard_input.pressed(KeyCode::W) {
+        if keyboard_input.pressed(KeyCode::Up) {
             target_keyboard_motion.y += 1.0;
         }
-        if keyboard_input.pressed(KeyCode::A) {
+        if keyboard_input.pressed(KeyCode::Left) {
             target_keyboard_motion.x += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::S) {
+        if keyboard_input.pressed(KeyCode::Down) {
             target_keyboard_motion.y += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::D) {
+        if keyboard_input.pressed(KeyCode::Right) {
             target_keyboard_motion.x += 1.0;
         }
         if target_keyboard_motion.length() > 0.0 {
@@ -82,10 +82,10 @@ pub fn update_keyboard_command(
         }
 
         let mut target_zoom_motion = 0.0;
-        if keyboard_input.pressed(KeyCode::Q) {
+        if keyboard_input.pressed(KeyCode::Minus) {
             target_zoom_motion += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::E) {
+        if keyboard_input.pressed(KeyCode::Plus) {
             target_zoom_motion += 1.0;
         }
 
@@ -160,7 +160,6 @@ pub fn update_keyboard_command(
             camera_controls.orbit_center = None;
         }
 
-        // Orthographic
         match camera_controls.mode() {
             ProjectionMode::Orthographic => {
                 if let Projection::Orthographic(camera_proj) = camera_proj {

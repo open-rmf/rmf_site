@@ -33,6 +33,7 @@ pub struct CursorCommand {
     pub scale_delta: f32,
     pub fov_delta: f32,
     pub cursor_selection: Option<Vec3>,
+    pub cursor_direction_camera_frame: Vec3,
     pub command_type: CameraCommandType,
 }
 
@@ -44,6 +45,7 @@ impl Default for CursorCommand {
             scale_delta: 0.0,
             fov_delta: 0.0,
             cursor_selection: None,
+            cursor_direction_camera_frame: Vec3::ZERO,
             command_type: CameraCommandType::Inactive,
         }
     }
@@ -95,10 +97,10 @@ pub fn update_cursor_command(
             camera_controls.mode(),
             &prev_command_type,
         );
-        if command_type == CameraCommandType::Inactive {
-            *cursor_command = CursorCommand::default();
-            return;
-        }
+        // if command_type == CameraCommandType::Inactive {
+        //     *cursor_command = CursorCommand::default();
+        //     return;
+        // }
 
         // Camera projection and transform
         let active_camera_entity = match camera_controls.mode() {
@@ -133,27 +135,34 @@ pub fn update_cursor_command(
             camera_controls.orbit_center = Some(cursor_selection);
         }
 
-        *cursor_command = match camera_controls.mode() {
-            ProjectionMode::Perspective => get_perspective_cursor_command(
-                &camera_transform,
-                &camera_proj,
-                command_type,
-                cursor_direction,
-                cursor_selection,
-                cursor_motion,
-                camera_controls.orbit_center,
-                scroll_motion,
-                window,
-            ),
-            ProjectionMode::Orthographic => get_orthographic_cursor_command(
-                &camera_transform,
-                &camera_proj,
-                command_type,
-                cursor_selection,
-                new_cursor_selection,
-                scroll_motion,
-            ),
-        };
+        match camera_controls.mode() {
+            ProjectionMode::Orthographic => {
+                if let Projection::Orthographic(camera_proj) = camera_proj {
+                    *cursor_command = get_orthographic_cursor_command(
+                        &camera_transform,
+                        &camera_proj,
+                        command_type,
+                        cursor_selection,
+                        new_cursor_selection,
+                        scroll_motion,
+                    );
+                }
+            }
+            ProjectionMode::Perspective => {
+                if let Projection::Perspective(camera_proj) = camera_proj {
+                    *cursor_command = get_perspective_cursor_command(
+                        &camera_transform,
+                        &camera_proj,
+                        command_type,
+                        cursor_direction,
+                        cursor_command.cursor_direction_camera_frame,
+                        cursor_selection,
+                        camera_controls.orbit_center,
+                        scroll_motion,
+                    );
+                }
+            }
+        }
     } else {
         *cursor_command = CursorCommand::default();
     }
@@ -161,7 +170,7 @@ pub fn update_cursor_command(
 
 fn get_orthographic_cursor_command(
     camera_transform: &Transform,
-    camera_proj: &Projection,
+    camera_proj: &OrthographicProjection,
     command_type: CameraCommandType,
     cursor_selection: Vec3,
     new_cursor_selection: Vec3,
@@ -171,9 +180,7 @@ fn get_orthographic_cursor_command(
     let mut is_cursor_selecting = false;
 
     // Zoom
-    if let Projection::Orthographic(camera_proj) = camera_proj {
-        cursor_command.scale_delta = -scroll_motion * camera_proj.scale * 0.1;
-    }
+    cursor_command.scale_delta = -scroll_motion * camera_proj.scale * 0.1;
 
     //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
     let cursor_direction = (new_cursor_selection - camera_transform.translation).normalize();
@@ -234,29 +241,27 @@ fn get_orthographic_cursor_command(
 
 fn get_perspective_cursor_command(
     camera_transform: &Transform,
-    camera_proj: &Projection,
+    camera_proj: &PerspectiveProjection,
     command_type: CameraCommandType,
     cursor_direction: Vec3,
+    cursor_direction_camera_frame_prev: Vec3,
     cursor_selection: Vec3,
-    cursor_motion: Vec2,
     orbit_center: Option<Vec3>,
     scroll_motion: f32,
-    window: &Window,
 ) -> CursorCommand {
     let translation_zoom_sensitivity = 0.5;
     let fov_zoom_sensitivity = 0.1;
-    let orbit_sensitivity = 1.0;
 
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
 
+    let cursor_direction_camera_frame = camera_transform.rotation.inverse() * cursor_direction;
+
     match command_type {
         CameraCommandType::FovZoom => {
-            if let Projection::Perspective(camera_proj) = camera_proj {
-                let target_fov = (camera_proj.fov - scroll_motion * fov_zoom_sensitivity)
-                    .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
-                cursor_command.fov_delta = target_fov - camera_proj.fov;
-            }
+            let target_fov = (camera_proj.fov - scroll_motion * fov_zoom_sensitivity)
+                .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
+            cursor_command.fov_delta = target_fov - camera_proj.fov;
         }
         CameraCommandType::TranslationZoom => {
             cursor_command.translation_delta =
@@ -299,15 +304,16 @@ fn get_perspective_cursor_command(
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
-            // Adjust orbit to the window size
-            // TODO(@reuben-thomas) also adjust to fov
-            let window_size = Vec2::new(window.width(), window.height());
-            let delta_x =
-                cursor_motion.x / window_size.x * std::f32::consts::PI * orbit_sensitivity;
-            let delta_y =
-                cursor_motion.y / window_size.y * std::f32::consts::PI * orbit_sensitivity;
-            let yaw = Quat::from_rotation_z(-delta_x);
-            let pitch = Quat::from_rotation_x(-delta_y);
+            let pitch = cursor_direction_camera_frame_prev.y.acos()
+                - cursor_direction_camera_frame.y.acos();
+            let yaw = (cursor_direction_camera_frame_prev
+                .z
+                .atan2(cursor_direction_camera_frame_prev.x))
+                - (cursor_direction_camera_frame
+                    .z
+                    .atan2(cursor_direction_camera_frame.x));
+            let yaw = Quat::from_rotation_z(-yaw);
+            let pitch = Quat::from_rotation_x(-pitch);
             let mut target_transform = camera_transform.clone();
 
             // Rotation
@@ -340,12 +346,15 @@ fn get_perspective_cursor_command(
             let target_rotation = Mat3::from_quat(target_transform.rotation);
             cursor_command.rotation_delta =
                 Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+            cursor_command.cursor_direction_camera_frame =
+                camera_transform.rotation.inverse() * cursor_direction;
             is_cursor_selecting = true;
         }
         _ => (),
     }
 
     cursor_command.command_type = command_type;
+    cursor_command.cursor_direction_camera_frame = cursor_direction_camera_frame;
     cursor_command.cursor_selection = if is_cursor_selecting {
         Some(cursor_selection)
     } else {
