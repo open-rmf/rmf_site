@@ -24,6 +24,8 @@ use sdformat_rs::*;
 use std::collections::BTreeMap;
 use thiserror::Error;
 
+const DEFAULT_CABIN_MASS: f64 = 1200.0;
+
 static WORLD_TEMPLATE: Lazy<SdfRoot> = Lazy::new(|| {
     yaserde::de::from_str(include_str!("templates/gz_world.sdf"))
         .expect("Failed deserializing template")
@@ -64,7 +66,6 @@ impl Pose {
 }
 
 fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
-    let door_mass = 50.0;
     SdfLink {
         name: link_name.to_string(),
         collision: vec![SdfCollision {
@@ -90,17 +91,6 @@ fn make_sdf_door_link(mesh_prefix: &str, link_name: &str) -> SdfLink {
             }),
             ..Default::default()
         }],
-        // TODO(luca) calculate inertia based on door properties
-        inertial: Some(SdfInertial {
-            mass: Some(door_mass),
-            inertia: Some(SdfInertialInertia {
-                ixx: 20.0,
-                iyy: 20.0,
-                izz: 5.0,
-                ..Default::default()
-            }),
-            ..Default::default()
-        }),
         ..Default::default()
     }
 }
@@ -633,8 +623,8 @@ impl Site {
                 axis: Some(SdfJointAxis {
                     xyz: Vector3d::new(0.0, 0.0, 1.0),
                     limit: SdfJointAxisLimit {
-                        lower: min_elevation.into(),
-                        upper: max_elevation.into(),
+                        lower: -std::f64::INFINITY,
+                        upper: std::f64::INFINITY,
                         ..Default::default()
                     },
                     ..Default::default()
@@ -773,6 +763,11 @@ impl Site {
                         }),
                         ..Default::default()
                     }],
+                    inertial: Some(SdfInertial {
+                        mass: Some(DEFAULT_CABIN_MASS),
+                        inertia: Some(lift.properties.cabin.moment_of_inertia(DEFAULT_CABIN_MASS)),
+                        ..Default::default()
+                    }),
                     ..Default::default()
                 }],
                 joint: lift_joints,
