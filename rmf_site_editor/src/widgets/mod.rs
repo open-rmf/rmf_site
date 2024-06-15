@@ -225,6 +225,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewLayersPlugin::default(),
             StandardInspectorPlugin::default(),
             CreationPlugin::default(),
+            ViewGroupsPlugin::default(),
         ));
     }
 }
