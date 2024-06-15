@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::Selection,
-    recency::{RecencyRanking, ChangeRank},
+    recency::RecencyRanking,
     site::*,
     widgets::{
         prelude::*,

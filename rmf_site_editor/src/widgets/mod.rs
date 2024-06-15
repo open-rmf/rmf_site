@@ -64,7 +64,7 @@ pub mod view_layers;
 use view_layers::*;
 
 pub mod view_levels;
-use view_levels::{LevelDisplay, LevelParams, ViewLevels};
+use view_levels::{LevelDisplay, LevelParams, ViewLevels, ViewLevelsPlugin};
 
 pub mod view_lights;
 use view_lights::*;
@@ -170,6 +170,7 @@ impl Plugin for StandardUiLayout {
             // .add_plugins(PropertiesPanelPlugin::default())
             .add_plugins((
                 PropertiesPanelPlugin::new(PanelSide::Right),
+                ViewLevelsPlugin::default(),
                 ViewLayersPlugin::default(),
                 StandardInspectorPlugin::default(),
                 ConsoleWidgetPlugin::default(),

@@ -105,6 +105,10 @@ impl AppState {
             | AppState::SiteDrawingEditor => true,
         })
     }
+
+    pub fn editing(&self) -> bool {
+        !matches!(self, Self::SiteVisualizer)
+    }
 }
 
 #[cfg(target_arch = "wasm32")]
