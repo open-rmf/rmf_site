@@ -23,7 +23,7 @@ use crate::{
         NavGraphMarker, SaveNavGraphs, SiteID, DEFAULT_NAV_GRAPH_COLORS,
     },
     widgets::{
-        inspector::{color_edit}, prelude::*,
+        inspector::color_edit, prelude::*,
         AppEvents, Icons, MoveLayerButton, SelectionWidget, SelectorWidget,
     },
     Autoload, CurrentWorkspace, ChangeRank,
@@ -46,6 +46,7 @@ pub struct ViewNavGraphsPlugin {
 
 impl Plugin for ViewNavGraphsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<NavGraphDisplay>();
         let widget = Widget::new::<ExViewNavGraphs>(&mut app.world);
         let properties_panel = app.world.resource::<PropertiesPanel>().id;
         app.world.spawn(widget).set_parent(properties_panel);

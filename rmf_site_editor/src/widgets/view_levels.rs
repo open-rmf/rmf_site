@@ -34,6 +34,7 @@ pub struct ViewLevelsPlugin {
 
 impl Plugin for ViewLevelsPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<LevelDisplay>();
         let widget = Widget::new::<ExViewLevels>(&mut app.world);
         let properties_panel = app.world.resource::<PropertiesPanel>().id;
         app.world.spawn(widget).set_parent(properties_panel);

@@ -29,6 +29,7 @@ pub struct ConsoleWidgetPlugin {
 
 impl Plugin for ConsoleWidgetPlugin {
     fn build(&self, app: &mut App) {
+        app.init_resource::<LogHistory>();
         let widget = PanelWidget::new(console_widget, &mut app.world);
         app.world.spawn(widget);
     }

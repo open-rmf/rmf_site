@@ -167,19 +167,12 @@ impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         add_widgets_icons(app);
         app
-            // .add_plugins(PropertiesPanelPlugin::default())
+            .init_resource::<Icons>()
             .add_plugins((
-                PropertiesPanelPlugin::new(PanelSide::Right),
-                ViewLevelsPlugin::default(),
-                ViewNavGraphsPlugin::default(),
-                ViewLayersPlugin::default(),
-                StandardInspectorPlugin::default(),
+                StandardPropertiesPanelPlugin::default(),
                 ConsoleWidgetPlugin::default(),
                 MenuBarPlugin::default(),
             ))
-            .init_resource::<Icons>()
-            .init_resource::<LevelDisplay>()
-            .init_resource::<NavGraphDisplay>()
             .init_resource::<LightDisplay>()
             .init_resource::<AssetGalleryStatus>()
             .init_resource::<OccupancyDisplay>()
@@ -215,6 +208,24 @@ impl Plugin for StandardUiLayout {
                 )
                     .run_if(AppState::in_site_mode()),
             );
+    }
+}
+
+#[derive(Default)]
+pub struct StandardPropertiesPanelPlugin {
+
+}
+
+impl Plugin for StandardPropertiesPanelPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_plugins((
+            PropertiesPanelPlugin::new(PanelSide::Right),
+            ViewLevelsPlugin::default(),
+            ViewNavGraphsPlugin::default(),
+            ViewLayersPlugin::default(),
+            StandardInspectorPlugin::default(),
+            CreationPlugin::default(),
+        ));
     }
 }
 
