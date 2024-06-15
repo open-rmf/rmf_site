@@ -226,6 +226,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             StandardInspectorPlugin::default(),
             CreationPlugin::default(),
             ViewGroupsPlugin::default(),
+            ViewLightsPlugin::default(),
         ));
     }
 }
@@ -692,15 +693,19 @@ fn tile_panel_widget(
             .default_width(300.0)
         })
         .show(&ctx, |ui| {
-            for child in children {
-                let tile = Tile { id: child, panel: side };
-                if let Err(err) = world.try_show_in(child, tile, ui) {
-                    error!(
-                        "Could not render child widget {child:?} in tile panel \
-                        {panel:?} on side {side:?}: {err:?}"
-                    );
-                }
-            }
+            egui::ScrollArea::both()
+                .auto_shrink([false, false])
+                .show(ui, |ui| {
+                    for child in children {
+                        let tile = Tile { id: child, panel: side };
+                        if let Err(err) = world.try_show_in(child, tile, ui) {
+                            error!(
+                                "Could not render child widget {child:?} in \
+                                tile panel {panel:?} on side {side:?}: {err:?}"
+                            );
+                        }
+                    }
+                });
         });
 }
 

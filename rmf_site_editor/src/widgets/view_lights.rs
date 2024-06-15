@@ -17,14 +17,15 @@
 
 use crate::{
     icons::Icons,
-    interaction::Select,
+    interaction::{Select, HeadlightToggle},
     site::{
         Angle, Category, ExportLights, Light, LightKind, Pose, Recall, RecallLightKind, Rotation,
-        SiteID,
+        SiteID, PhysicalLightToggle,
     },
     widgets::{
+        prelude::*,
         inspector::{InspectLightKind, InspectPose}, SelectionWidget,
-        AppEvents,
+        AppEvents, SelectorWidget,
     },
 };
 use bevy::{
@@ -32,12 +33,166 @@ use bevy::{
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use bevy_egui::egui::Ui;
+use bevy_egui::egui::{CollapsingHeader, Ui};
 use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
+
+#[derive(Default)]
+pub struct ViewLightsPlugin {
+
+}
+
+impl Plugin for ViewLightsPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<LightDisplay>();
+        let widget = Widget::new::<ExViewLights>(&mut app.world);
+        let properties_panel = app.world.resource::<PropertiesPanel>().id;
+        app.world.spawn(widget).set_parent(properties_panel);
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ExViewLights<'w, 's> {
+    lights: Query<'w, 's, (Entity, &'static LightKind, Option<&'static SiteID>)>,
+    icons: Res<'w, Icons>,
+    toggle_headlights: ResMut<'w, HeadlightToggle>,
+    toggle_physical_lights: ResMut<'w, PhysicalLightToggle>,
+    export_lights: EventWriter<'w, ExportLights>,
+    display_light: ResMut<'w, LightDisplay>,
+    selector: SelectorWidget<'w, 's>,
+    commands: Commands<'w, 's>,
+}
+
+impl<'w, 's> WidgetSystem<Tile> for ExViewLights<'w, 's> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        CollapsingHeader::new("Lights")
+            .default_open(false)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
+    }
+}
+
+impl<'w, 's> ExViewLights<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        let mut use_headlight = self.toggle_headlights.0;
+        ui.checkbox(&mut use_headlight, "Use Headlight");
+        if use_headlight != self.toggle_headlights.0 {
+            self.toggle_headlights.0 = use_headlight;
+        }
+
+        let mut use_physical_lights = self.toggle_physical_lights.0;
+        ui.checkbox(&mut use_physical_lights, "Use Physical Lights");
+        if use_physical_lights != self.toggle_physical_lights.0 {
+            self.toggle_physical_lights.0 = use_physical_lights;
+        }
+
+        ui.separator();
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            ui.horizontal(|ui| {
+                if let Some(export_file) = &self.display_light.export_file {
+                    if ui.button("Export").clicked() {
+                        self.export_lights.send(ExportLights(export_file.clone()));
+                    }
+                }
+                if ui.button("Export Lights As...").clicked() {
+                    match &self.display_light.choosing_file_for_export {
+                        Some(_) => {
+                            warn!("A file is already being chosen!");
+                        }
+                        None => {
+                            let future = AsyncComputeTaskPool::get().spawn(async move {
+                                let file = match AsyncFileDialog::new().save_file().await {
+                                    Some(file) => file,
+                                    None => return None,
+                                };
+
+                                Some(file.path().to_path_buf())
+                            });
+                            self.display_light.choosing_file_for_export = Some(future);
+                        }
+                    }
+                }
+            });
+            match &self.display_light.export_file {
+                Some(path) => match path.to_str() {
+                    Some(s) => {
+                        ui.label(s);
+                    }
+                    None => {
+                        ui.label("unable to render path");
+                    }
+                },
+                None => {
+                    ui.label("<no file chosen>");
+                }
+            }
+            ui.separator();
+        }
+
+        ui.heading("Create new light");
+        if let Some(new_pose) = InspectPose::new(&self.display_light.pose).show(ui) {
+            self.display_light.pose = new_pose;
+        }
+
+        ui.push_id("Add Light", |ui| {
+            if let Some(new_kind) = InspectLightKind::new(
+                &self.display_light.kind,
+                &self.display_light.recall,
+            )
+            .show(ui)
+            {
+                self.display_light.recall.remember(&new_kind);
+                self.display_light.kind = new_kind;
+            }
+        });
+
+        // TODO(MXG): Add a + icon to this button to make it more visible
+        if ui.button("Add").clicked() {
+            let new_light = self
+                .commands
+                .spawn(Light {
+                    pose: self.display_light.pose,
+                    kind: self.display_light.kind,
+                })
+                .insert(Category::Light)
+                .id();
+            self.selector.select.send(Select(Some(new_light)));
+        }
+
+        ui.separator();
+
+        let mut unsaved_lights = BTreeMap::new();
+        let mut saved_lights = BTreeMap::new();
+        for (e, kind, site_id) in &self.lights {
+            if let Some(site_id) = site_id {
+                saved_lights.insert(Reverse(site_id.0), (e, kind.label()));
+            } else {
+                unsaved_lights.insert(Reverse(e), kind.label());
+            }
+        }
+
+        for (e, label) in unsaved_lights {
+            ui.horizontal(|ui| {
+                self.selector.show_widget(e.0, ui);
+                ui.label(label);
+            });
+        }
+
+        for (_, (e, label)) in saved_lights {
+            ui.horizontal(|ui| {
+                self.selector.show_widget(e, ui);
+                ui.label(label);
+            });
+        }
+    }
+}
 
 #[derive(Resource)]
 pub struct LightDisplay {
