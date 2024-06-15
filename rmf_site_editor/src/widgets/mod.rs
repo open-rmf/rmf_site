@@ -171,6 +171,7 @@ impl Plugin for StandardUiLayout {
             .add_plugins((
                 PropertiesPanelPlugin::new(PanelSide::Right),
                 ViewLevelsPlugin::default(),
+                ViewNavGraphsPlugin::default(),
                 ViewLayersPlugin::default(),
                 StandardInspectorPlugin::default(),
                 ConsoleWidgetPlugin::default(),
