@@ -25,18 +25,24 @@ use bevy_egui::egui::{Button, Ui};
 
 #[derive(SystemParam)]
 pub struct SelectorWidget<'w, 's> {
-    site_id: Query<'w, 's, &'static SiteID>,
-    icons: Res<'w, Icons>,
-    selection: Res<'w, Selection>,
-    select: EventWriter<'w, Select>,
-    hover: EventWriter<'w, Hover>,
+    pub site_id: Query<'w, 's, &'static SiteID>,
+    pub icons: Res<'w, Icons>,
+    pub selection: Res<'w, Selection>,
+    pub select: EventWriter<'w, Select>,
+    pub hover: EventWriter<'w, Hover>,
 }
 
 impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
     fn show(entity: Entity, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        let site_id = params.site_id.get(entity).ok().cloned();
-        let is_selected = params.selection.0.is_some_and(|s| s == entity);
+        params.show_widget(entity, ui);
+    }
+}
+
+impl<'w, 's> SelectorWidget<'w, 's> {
+    pub fn show_widget(&mut self, entity: Entity, ui: &mut Ui) {
+        let site_id = self.site_id.get(entity).ok().cloned();
+        let is_selected = self.selection.0.is_some_and(|s| s == entity);
 
         let text = match site_id {
             Some(id) => format!("#{}", id.0),
@@ -44,17 +50,17 @@ impl<'w, 's> WidgetSystem<Entity, ()> for SelectorWidget<'w, 's> {
         };
 
         let icon = if is_selected {
-            params.icons.selected.egui()
+            self.icons.selected.egui()
         } else {
-            params.icons.select.egui()
+            self.icons.select.egui()
         };
 
         let response = ui.add(Button::image_and_text(icon, text));
 
         if response.clicked() {
-            params.select.send(Select(Some(entity)));
+            self.select.send(Select(Some(entity)));
         } else if response.hovered() {
-            params.hover.send(Hover(Some(entity)));
+            self.hover.send(Hover(Some(entity)));
         }
 
         response.on_hover_text("Select");

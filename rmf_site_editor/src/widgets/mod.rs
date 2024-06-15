@@ -170,6 +170,7 @@ impl Plugin for StandardUiLayout {
             // .add_plugins(PropertiesPanelPlugin::default())
             .add_plugins((
                 PropertiesPanelPlugin::new(PanelSide::Right),
+                ViewLayersPlugin::default(),
                 StandardInspectorPlugin::default(),
                 ConsoleWidgetPlugin::default(),
                 MenuBarPlugin::default(),

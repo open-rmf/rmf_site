@@ -22,31 +22,6 @@ use crate::{
 use bevy::prelude::*;
 use bevy_egui::egui::{ImageButton, Ui};
 
-#[derive(SystemParam)]
-pub struct ExMoveLayer<'w, T: Component> {
-    rank_events: EventWriter<'w, ChangeRank<T>>,
-    icons: Res<'w, Icons>,
-}
-
-impl<'w, T: Component> ShareableWidget for ExMoveLayer<'w, T> {
-
-}
-
-impl<'w, T: Component> WidgetSystem<Entity> for ExMoveLayer<'w, T> {
-    fn show(
-        id: Entity,
-        ui: &mut Ui,
-        state: &mut SystemState<Self>,
-        world: &mut World,
-    ) {
-        let mut params = state.get_mut(world);
-        MoveLayerButton::to_top(id, &mut params.rank_events, &params.icons).show(ui);
-        MoveLayerButton::up(id, &mut params.rank_events, &params.icons).show(ui);
-        MoveLayerButton::down(id, &mut params.rank_events, &params.icons).show(ui);
-        MoveLayerButton::to_bottom(id, &mut params.rank_events, &params.icons).show(ui);
-    }
-}
-
 pub struct MoveLayer<'a, 'w, T: Component> {
     entity: Entity,
     rank_events: &'a mut EventWriter<'w, ChangeRank<T>>,
@@ -68,11 +43,8 @@ impl<'a, 'w, 's, T: Component> MoveLayer<'a, 'w, T> {
 
     pub fn show(self, ui: &mut Ui) {
         MoveLayerButton::to_top(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::up(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::down(self.entity, self.rank_events, self.icons).show(ui);
-
         MoveLayerButton::to_bottom(self.entity, self.rank_events, self.icons).show(ui);
     }
 }

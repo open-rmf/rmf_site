@@ -99,8 +99,6 @@ pub use inspect_value::*;
 pub mod inspect_workcell_parent;
 pub use inspect_workcell_parent::*;
 
-use super::move_layer::MoveLayer;
-
 use crate::{
     interaction::{Selection, SpawnPreview},
     site::{
@@ -114,7 +112,7 @@ use bevy::{
     ecs::system::{SystemParam, SystemState},
     prelude::*
 };
-use bevy_egui::egui::{Button, RichText, Ui};
+use bevy_egui::egui::{Button, RichText, Ui, CollapsingHeader};
 use rmf_site_format::*;
 use smallvec::SmallVec;
 
@@ -195,6 +193,7 @@ impl FromWorld for ExInspectorWidget {
 #[derive(SystemParam)]
 struct ExInspectorWidgetParams<'w, 's> {
     children: Query<'w, 's, &'static Children>,
+    heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
@@ -204,31 +203,48 @@ impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World
     ) {
-        let Some(selection) = world.get_resource::<Selection>() else {
-            return;
-        };
+        CollapsingHeader::new("Inspect")
+            .default_open(true)
+            .show(ui, |ui| {
+                let Some(selection) = world.get_resource::<Selection>() else {
+                    return;
+                };
 
-        let Some(selection) = selection.0 else {
-            return;
-        };
+                let Some(selection) = selection.0 else {
+                    return;
+                };
 
-        let params = state.get(world);
+                let params = state.get(world);
 
-        let children: Result<SmallVec<[_; 16]>, _> = params.children
-            .get(id)
-            .map(|children| children.iter().copied().collect());
-        let Ok(children) = children else {
-            return;
-        };
+                let (label, site_id) = if let Ok((category, site_id)) = params.heading.get(selection) {
+                    (
+                        category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
+                        site_id,
+                    )
+                } else {
+                    ("<Unknown Type>", None)
+                };
 
-        panel.align(ui, |ui| {
-            for child in children {
-                panel.orthogonal(ui, |ui| {
-                    let inspect = Inspect { selection, inspector: child, panel };
-                    let _ = world.try_show_in(child, inspect, ui);
+                if let Some(site_id) = site_id {
+                    ui.heading(format!("{} #{}", label, site_id.0));
+                } else {
+                    ui.heading(format!("{} (unsaved)", label));
+                }
+
+                let children: Result<SmallVec<[_; 16]>, _> = params.children
+                    .get(id)
+                    .map(|children| children.iter().copied().collect());
+                let Ok(children) = children else {
+                    return;
+                };
+
+                panel.align(ui, |ui| {
+                    for child in children {
+                        let inspect = Inspect { selection, inspector: child, panel };
+                        let _ = world.try_show_in(child, inspect, ui);
+                    }
                 });
-            }
-        });
+            });
     }
 }
 
