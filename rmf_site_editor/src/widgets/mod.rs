@@ -48,6 +48,9 @@ use bevy_egui::{
 use smallvec::SmallVec;
 use rmf_site_format::*;
 
+pub mod building_preview;
+use building_preview::*;
+
 pub mod create;
 use create::*;
 
@@ -228,6 +231,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
             ViewOccupancyPlugin::default(),
+            BuildingPreviewPlugin::default(),
         ));
     }
 }
