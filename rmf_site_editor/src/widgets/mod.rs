@@ -227,6 +227,7 @@ impl Plugin for StandardPropertiesPanelPlugin {
             CreationPlugin::default(),
             ViewGroupsPlugin::default(),
             ViewLightsPlugin::default(),
+            ViewOccupancyPlugin::default(),
         ));
     }
 }
@@ -463,7 +464,10 @@ pub mod prelude {
         ShowResult, ShowError, Tile, ShowSharedWidget, ShareableWidget,
         Panel, PanelSide, PropertiesPanel, PanelWidget,
     };
-    pub use bevy::ecs::system::{SystemState, SystemParam};
+    pub use bevy::ecs::{
+        system::{SystemState, SystemParam},
+        world::World,
+    };
 }
 
 /// To create a panel widget (a widget that renders itself directly to one of

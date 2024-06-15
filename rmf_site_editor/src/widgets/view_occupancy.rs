@@ -15,9 +15,70 @@
  *
 */
 
-use crate::{occupancy::CalculateGrid, widgets::AppEvents};
-use bevy::prelude::Resource;
-use bevy_egui::egui::{DragValue, Ui};
+use crate::{occupancy::CalculateGrid, widgets::{AppEvents, prelude::*}};
+use bevy::prelude::*;
+use bevy_egui::egui::{DragValue, CollapsingHeader, Ui};
+
+#[derive(Default)]
+pub struct ViewOccupancyPlugin {
+
+}
+
+impl Plugin for ViewOccupancyPlugin {
+    fn build(&self, app: &mut bevy::prelude::App) {
+        app.init_resource::<OccupancyDisplay>();
+        let widget = Widget::new::<ExViewOccupancy>(&mut app.world);
+        let properties_panel = app.world.resource::<PropertiesPanel>().id;
+        app.world.spawn(widget).set_parent(properties_panel);
+    }
+}
+
+#[derive(SystemParam)]
+pub struct ExViewOccupancy<'w> {
+    calculate_grid: EventWriter<'w, CalculateGrid>,
+    display_occupancy: ResMut<'w, OccupancyDisplay>,
+}
+
+impl<'w> WidgetSystem<Tile> for ExViewOccupancy<'w> {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+        let mut params = state.get_mut(world);
+        CollapsingHeader::new("Occupancy")
+            .default_open(false)
+            .show(ui, |ui| {
+                params.show_widget(ui);
+            });
+    }
+}
+
+impl<'w> ExViewOccupancy<'w> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        ui.horizontal(|ui| {
+            if ui.button("Calculate Occupancy").clicked() {
+                self.calculate_grid.send(CalculateGrid {
+                    cell_size: self.display_occupancy.cell_size,
+                    floor: 0.01,
+                    ceiling: 1.5,
+                });
+            }
+            if ui
+                .add(
+                    DragValue::new(&mut self.display_occupancy.cell_size)
+                        .clamp_range(0.01..=f32::INFINITY)
+                        .speed(0.01),
+                )
+                .changed()
+            {
+                if self.display_occupancy.cell_size > 0.1 {
+                    self.calculate_grid.send(CalculateGrid {
+                        cell_size: self.display_occupancy.cell_size,
+                        floor: 0.01,
+                        ceiling: 1.5,
+                    });
+                }
+            }
+        });
+    }
+}
 
 #[derive(Resource)]
 pub struct OccupancyDisplay {
