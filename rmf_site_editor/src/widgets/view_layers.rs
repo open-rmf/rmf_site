@@ -24,6 +24,7 @@ use crate::{
         inspector::{InspectLayer, ExInspectLayer, InspectLayerInput},
         AppEvents, Icons, MoveLayer, PropertiesPanel,
     },
+    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ScrollArea, Ui};
@@ -82,6 +83,7 @@ pub struct ExViewLayers<'w, 's> {
     global_floor_vis: EventWriter<'w, Change<GlobalFloorVisibility>>,
     global_drawing_vis: EventWriter<'w, Change<GlobalDrawingVisibility>>,
     view_layer: ExInspectLayer<'w, 's>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ExViewLayers<'w, 's> {
@@ -92,6 +94,9 @@ impl<'w, 's> WidgetSystem<Tile> for ExViewLayers<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
         ui.separator();
         CollapsingHeader::new("Layers")
             .default_open(false)

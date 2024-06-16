@@ -17,7 +17,7 @@
 
 use crate::{
     recency::{ChangeRank, RankAdjustment},
-    widgets::{Icons, prelude::*},
+    widgets::Icons,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ImageButton, Ui};

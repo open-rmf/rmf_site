@@ -46,7 +46,7 @@ pub struct ExViewLevels<'w, 's> {
     levels: Query<'w, 's, (Entity, &'static NameInSite, &'static LevelElevation)>,
     parents: Query<'w, 's, &'static Parent>,
     icons: Res<'w, Icons>,
-    level_display: ResMut<'w, LevelDisplay>,
+    display_levels: ResMut<'w, LevelDisplay>,
     current_level: ResMut<'w, CurrentLevel>,
     current_workspace: ResMut<'w, CurrentWorkspace>,
     change_name: EventWriter<'w, Change<NameInSite>>,
@@ -69,39 +69,52 @@ impl<'w, 's> WidgetSystem<Tile> for ExViewLevels<'w, 's> {
 
 impl<'w, 's> ExViewLevels<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
-        ui.horizontal(|ui| {
-            let make_new_level = ui.button("Add").clicked();
-            let mut show_elevation = self.level_display.new_elevation;
-            ui.add(DragValue::new(&mut show_elevation).suffix("m"))
-                .on_hover_text("Elevation for the new level");
+        let editing = match self.app_state.get() {
+            AppState::SiteEditor => true,
+            AppState::SiteVisualizer => false,
+            _ => return,
+        };
 
-            let mut show_name = self.level_display.new_name.clone();
-            ui.text_edit_singleline(&mut show_name)
-                .on_hover_text("Name for the new level");
+        if !editing {
+            self.display_levels.removing = false;
 
-            if make_new_level {
-                let new_level = self
-                    .commands
-                    .spawn((
-                        SpatialBundle::default(),
-                        LevelProperties {
-                            elevation: LevelElevation(show_elevation),
-                            name: NameInSite(show_name.clone()),
-                            ..Default::default()
-                        },
-                        Category::Level,
-                        RecencyRanking::<DrawingMarker>::default(),
-                        RecencyRanking::<FloorMarker>::default(),
-                    ))
-                    .id();
-                self.current_level.0 = Some(new_level);
-            }
+        }
 
-            self.level_display.new_elevation = show_elevation;
-            self.level_display.new_name = show_name;
-        });
+        if editing {
+            ui.horizontal(|ui| {
+                let make_new_level = ui.button("Add").clicked();
+                let mut show_elevation = self.display_levels.new_elevation;
+                ui.add(DragValue::new(&mut show_elevation).suffix("m"))
+                    .on_hover_text("Elevation for the new level");
 
-        if !self.level_display.freeze {
+                let mut show_name = self.display_levels.new_name.clone();
+                ui.text_edit_singleline(&mut show_name)
+                    .on_hover_text("Name for the new level");
+
+                if make_new_level {
+                    let new_level = self
+                        .commands
+                        .spawn((
+                            SpatialBundle::default(),
+                            LevelProperties {
+                                elevation: LevelElevation(show_elevation),
+                                name: NameInSite(show_name.clone()),
+                                ..Default::default()
+                            },
+                            Category::Level,
+                            RecencyRanking::<DrawingMarker>::default(),
+                            RecencyRanking::<FloorMarker>::default(),
+                        ))
+                        .id();
+                    self.current_level.0 = Some(new_level);
+                }
+
+                self.display_levels.new_elevation = show_elevation;
+                self.display_levels.new_name = show_name;
+            });
+        }
+
+        if !self.display_levels.freeze {
             let mut ordered_level_list: Vec<_> = self
                 .levels
                 .iter()
@@ -123,34 +136,34 @@ impl<'w, 's> ExViewLevels<'w, 's> {
                 }
             });
 
-            self.level_display.order =
+            self.display_levels.order =
                 ordered_level_list.into_iter().map(|(_, e)| e).collect();
         }
 
-        if self.level_display.removing {
+        if self.display_levels.removing {
             ui.horizontal(|ui| {
                 if ui.button("Select").clicked() {
-                    self.level_display.removing = false;
+                    self.display_levels.removing = false;
                 }
                 ui.label("Remove");
             });
-        } else {
+        } else if editing {
             ui.horizontal(|ui| {
                 ui.label("Select");
                 if ui.button("Remove").clicked() {
-                    self.level_display.removing = true;
+                    self.display_levels.removing = true;
                 }
             });
         }
 
         let mut any_dragging = false;
         let mut any_deleted = false;
-        for e in self.level_display.order.iter().copied() {
+        for e in self.display_levels.order.iter().copied() {
             if let Ok((_, name, elevation)) = self.levels.get(e) {
                 let mut shown_elevation = elevation.clone().0;
                 let mut shown_name = name.clone().0;
                 ui.horizontal(|ui| {
-                    if self.level_display.removing {
+                    if self.display_levels.removing {
                         if ui
                             .add(ImageButton::new(self.icons.trash.egui()))
                             .on_hover_text("Remove this level")
@@ -159,7 +172,7 @@ impl<'w, 's> ExViewLevels<'w, 's> {
                             self.delete.send(Delete::new(e).and_dependents());
                             any_deleted = true;
                         }
-                    } else if self.app_state.editing() {
+                    } else if editing {
                         if ui
                             .radio(Some(e) == **self.current_level, "")
                             .clicked()
@@ -190,9 +203,9 @@ impl<'w, 's> ExViewLevels<'w, 's> {
             }
         }
 
-        self.level_display.freeze = any_dragging;
+        self.display_levels.freeze = any_dragging;
         if any_deleted {
-            self.level_display.removing = false;
+            self.display_levels.removing = false;
         }
     }
 }

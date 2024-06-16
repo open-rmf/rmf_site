@@ -17,7 +17,8 @@
 
 use crate::{
     widgets::prelude::*,
-    AppState,
+    site::AlignSiteDrawings,
+    AppState, Icons, CurrentWorkspace,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Ui};
@@ -37,14 +38,41 @@ impl Plugin for BuildingPreviewPlugin {
 
 #[derive(SystemParam)]
 pub struct BuildingPreview<'w> {
+    app_state: Res<'w, State<AppState>>,
     next_app_state: ResMut<'w, NextState<AppState>>,
+    icons: Res<'w, Icons>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    align_site: EventWriter<'w, AlignSiteDrawings>,
 }
 
 impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
-        if ui.add(Button::new("Building preview")).clicked() {
-            params.next_app_state.set(AppState::SiteVisualizer);
+        if *params.app_state == AppState::SiteEditor {
+            if ui.add(Button::new("Building preview")).clicked() {
+                params.next_app_state.set(AppState::SiteVisualizer);
+            }
+        }
+
+        if *params.app_state == AppState::SiteVisualizer {
+            if ui.add(Button::image_and_text(
+                params.icons.alignment.egui(),
+                "Align Drawings",
+            ))
+                .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+                .clicked()
+            {
+                if let Some(site) = params.current_workspace.root {
+                    params.align_site.send(AlignSiteDrawings(site));
+                }
+            }
+
+            if ui.add(Button::image_and_text(
+                params.icons.exit.egui(),
+                "Return to site editor",
+            )).clicked() {
+                params.next_app_state.set(AppState::SiteEditor);
+            }
         }
     }
 }

@@ -203,6 +203,11 @@ impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
         state: &mut SystemState<Self>,
         world: &mut World
     ) {
+        match world.resource::<State<AppState>>().get() {
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => { }
+            _ => return,
+        }
+
         CollapsingHeader::new("Inspect")
             .default_open(true)
             .show(ui, |ui| {

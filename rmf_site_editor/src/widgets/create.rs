@@ -48,13 +48,17 @@ pub struct Creation<'w, 's> {
     current_workspace: Res<'w, CurrentWorkspace>,
     pending_drawings: ResMut<'w, PendingDrawing>,
     pending_model: ResMut<'w, PendingModel>,
-    pub new_model: NewModelParams<'w>,
+    new_model: NewModelParams<'w>,
     commands: Commands<'w, 's>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
+        match params.app_state.get() {
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => { }
+            AppState::MainMenu | AppState::SiteVisualizer => return,
+        }
         CollapsingHeader::new("Create")
             .default_open(true)
             .show(ui, |ui| {

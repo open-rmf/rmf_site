@@ -15,7 +15,7 @@
  *
 */
 
-use crate::{occupancy::CalculateGrid, widgets::{AppEvents, prelude::*}};
+use crate::{AppState, occupancy::CalculateGrid, widgets::{AppEvents, prelude::*}};
 use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, CollapsingHeader, Ui};
 
@@ -37,11 +37,15 @@ impl Plugin for ViewOccupancyPlugin {
 pub struct ExViewOccupancy<'w> {
     calculate_grid: EventWriter<'w, CalculateGrid>,
     display_occupancy: ResMut<'w, OccupancyDisplay>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 impl<'w> WidgetSystem<Tile> for ExViewOccupancy<'w> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
         CollapsingHeader::new("Occupancy")
             .default_open(false)
             .show(ui, |ui| {

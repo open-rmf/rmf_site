@@ -189,20 +189,20 @@ impl Plugin for StandardUiLayout {
             .add_systems(Startup, init_ui_style)
             .add_systems(
                 Update,
-                ex_site_ui_layout.run_if(in_state(AppState::SiteEditor)),
+                ex_site_ui_layout.run_if(AppState::in_displaying_mode()),
             )
-            .add_systems(
-                Update,
-                workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                Update,
-                site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
-            )
-            .add_systems(
-                Update,
-                site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
-            )
+            // .add_systems(
+            //     Update,
+            //     workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
+            // )
+            // .add_systems(
+            //     Update,
+            //     site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
+            // )
+            // .add_systems(
+            //     Update,
+            //     site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
+            // )
             .add_systems(
                 PostUpdate,
                 (

@@ -26,7 +26,7 @@ use crate::{
         inspector::color_edit, prelude::*,
         AppEvents, Icons, MoveLayerButton, SelectionWidget, SelectorWidget,
     },
-    Autoload, CurrentWorkspace, ChangeRank,
+    Autoload, CurrentWorkspace, ChangeRank, AppState,
 };
 use bevy::{
     ecs::system::SystemParam,
@@ -79,6 +79,7 @@ pub struct ExViewNavGraphs<'w, 's> {
     save_nav_graphs: EventWriter<'w, SaveNavGraphs>,
     selector: SelectorWidget<'w, 's>,
     commands: Commands<'w, 's>,
+    app_state: Res<'w, State<AppState>>,
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ExViewNavGraphs<'w, 's> {
@@ -89,6 +90,9 @@ impl<'w, 's> WidgetSystem<Tile> for ExViewNavGraphs<'w, 's> {
         world: &mut World,
     ) {
         let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
         CollapsingHeader::new("Navigation")
             .default_open(true)
             .show(ui, |ui| {

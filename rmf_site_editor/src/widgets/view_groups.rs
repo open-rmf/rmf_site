@@ -18,7 +18,7 @@
 use crate::{
     site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
     widgets::{SelectionWidget, SelectorWidget, AppEvents, prelude::*},
-    Icons, CurrentWorkspace,
+    Icons, CurrentWorkspace, AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
@@ -44,6 +44,7 @@ pub struct ExViewGroups<'w, 's> {
     fiducials: Query<'w, 's, (&'static NameInSite, Option<&'static SiteID>), With<FiducialMarker>>,
     icons: Res<'w, Icons>,
     group_view_modes: ResMut<'w, GroupViewModes>,
+    app_state: Res<'w, State<AppState>>,
     events: ViewGroupsEvents<'w, 's>,
 }
 
@@ -59,6 +60,9 @@ pub struct ViewGroupsEvents<'w, 's> {
 impl<'w, 's> WidgetSystem<Tile> for ExViewGroups<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
+        if *params.app_state.get() != AppState::SiteEditor {
+            return;
+        }
         CollapsingHeader::new("Groups")
             .default_open(false)
             .show(ui, |ui| {
