@@ -16,15 +16,8 @@
 */
 
 use crate::site::ChangePlugin;
-use crate::widgets::{
-    diagnostic_window::DiagnosticWindowState,
-    menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
-};
-use crate::AppState;
-use bevy::prelude::*;
-use bevy::utils::{HashMap, Uuid};
+use bevy::{prelude::*, utils::{HashMap, Uuid}};
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
-use std::collections::HashSet;
 
 #[derive(Component, Debug, Clone)]
 pub struct Issue {
@@ -60,55 +53,15 @@ pub struct IssueDictionary(HashMap<Uuid, String>);
 #[derive(Default)]
 pub struct IssuePlugin;
 
-#[derive(Resource)]
-pub struct IssueMenu {
-    diagnostic_tool: Entity,
-}
-
-impl FromWorld for IssueMenu {
-    fn from_world(world: &mut World) -> Self {
-        let target_states = HashSet::from([
-            AppState::SiteEditor,
-            AppState::SiteDrawingEditor,
-            AppState::SiteVisualizer,
-        ]);
-        // Tools menu
-        let diagnostic_tool = world
-            .spawn(MenuItem::Text("Diagnostic Tool".to_string()))
-            .insert(MenuVisualizationStates(target_states))
-            .id();
-
-        let tool_header = world.resource::<ToolMenu>().get();
-        world
-            .entity_mut(tool_header)
-            .push_children(&[diagnostic_tool]);
-
-        IssueMenu { diagnostic_tool }
-    }
-}
-
-fn handle_diagnostic_window_visibility(
-    mut menu_events: EventReader<MenuEvent>,
-    issue_menu: Res<IssueMenu>,
-    mut diagnostic_window: ResMut<DiagnosticWindowState>,
-) {
-    for event in menu_events.read() {
-        if event.clicked() && event.source() == issue_menu.diagnostic_tool {
-            diagnostic_window.show = true;
-        }
-    }
-}
-
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
-        app.add_event::<ValidateWorkspace>()
+        app
+            .add_event::<ValidateWorkspace>()
             .add_plugins((
                 ChangePlugin::<FilteredIssues<Entity>>::default(),
                 ChangePlugin::<FilteredIssueKinds>::default(),
             ))
-            .init_resource::<IssueDictionary>()
-            .init_resource::<IssueMenu>()
-            .add_systems(Update, handle_diagnostic_window_visibility);
+            .init_resource::<IssueDictionary>();
     }
 }
 

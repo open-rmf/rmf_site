@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2023 Open Source Robotics Foundation
+ * Copyright (C) 2024 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -15,12 +15,32 @@
  *
 */
 
-use crate::interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D};
-use crate::site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache};
-use crate::AppEvents;
+use crate::{
+    interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
+    site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
+    widgets::prelude::*,
+    AppState,
+};
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
+use bevy_egui::{
+    EguiContexts,
+    egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window},
+};
 use gz_fuel::FuelModel;
+
+#[derive(Default)]
+pub struct FuelAssetBrowserPlugin {
+
+}
+
+impl Plugin for FuelAssetBrowserPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<AssetGalleryStatus>();
+        let panel = PanelWidget::new(fuel_asset_browser_panel, &mut app.world);
+        let widget = Widget::new::<FuelAssetBrowser>(&mut app.world);
+        app.world.spawn((panel, widget));
+    }
+}
 
 /// Filters applied to models in the fuel list
 #[derive(Default)]
@@ -33,7 +53,7 @@ pub struct ShowAssetFilters {
     pub recall_private: Option<bool>,
 }
 
-/// Used to signals whether to show or hide the left side panel with the asset gallery
+/// Used to indicate whether to show or hide the left side panel with the asset gallery
 #[derive(Resource, Default)]
 pub struct AssetGalleryStatus {
     pub show: bool,
@@ -47,27 +67,52 @@ pub struct AssetGalleryStatus {
 }
 
 #[derive(SystemParam)]
-pub struct NewModelParams<'w> {
-    pub fuel_client: ResMut<'w, FuelClient>,
+pub struct FuelAssetBrowser<'w, 's> {
+    fuel_client: ResMut<'w, FuelClient>,
     // TODO(luca) refactor to see whether we need
-    pub asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
-    pub model_preview_camera: Res<'w, ModelPreviewCamera>,
-    pub update_cache: EventWriter<'w, UpdateFuelCache>,
-    pub set_api_key: EventWriter<'w, SetFuelApiKey>,
+    asset_gallery_status: ResMut<'w, AssetGalleryStatus>,
+    model_preview_camera: Res<'w, ModelPreviewCamera>,
+    update_cache: EventWriter<'w, UpdateFuelCache>,
+    set_api_key: EventWriter<'w, SetFuelApiKey>,
+    commands: Commands<'w, 's>,
+    change_mode: EventWriter<'w, ChangeMode>,
+    app_state: Res<'w, State<AppState>>,
 }
 
-pub struct NewModel<'a, 'w, 's> {
-    events: &'a mut AppEvents<'w, 's>,
-}
-
-impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
-    pub fn new(events: &'a mut AppEvents<'w, 's>) -> Self {
-        Self { events }
+fn fuel_asset_browser_panel(
+    In(panel): In<Entity>,
+    world: &mut World,
+    egui_contexts: &mut SystemState<EguiContexts>,
+) {
+    if world.resource::<AssetGalleryStatus>().show {
+        let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
+        egui::SidePanel::left("asset_gallery")
+            .resizable(true)
+            .min_width(320.0)
+            .show(&ctx, |ui| {
+                if let Err(err) = world.try_show(panel, ui) {
+                    error!("Unable to display asset gallery: {err:?}");
+                }
+            });
     }
+}
 
-    pub fn show(self, ui: &mut Ui) {
-        let fuel_client = &mut self.events.new_model.fuel_client;
-        let gallery_status = &mut self.events.new_model.asset_gallery_status;
+impl<'w, 's> WidgetSystem for FuelAssetBrowser<'w, 's> {
+    fn show(
+        _: (),
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(ui);
+    }
+}
+
+impl<'w, 's> FuelAssetBrowser<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
+        let fuel_client = &mut self.fuel_client;
+        let gallery_status = &mut self.asset_gallery_status;
         ui.label(RichText::new("Asset Gallery").size(18.0));
         ui.add_space(10.0);
         match &fuel_client.models {
@@ -213,7 +258,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
 
                 ui.image(ImageSource::Texture(
                     (
-                        self.events.new_model.model_preview_camera.egui_handle,
+                        self.model_preview_camera.egui_handle,
                         [320.0, 240.0].into(),
                     )
                         .into(),
@@ -223,14 +268,14 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 if gallery_status.selected.as_ref() != new_selected {
                     if let Some(selected) = new_selected {
                         // Set the model preview source to what is selected
-                        let model_entity = self.events.new_model.model_preview_camera.model_entity;
+                        let model_entity = self.model_preview_camera.model_entity;
                         let model = Model {
                             source: AssetSource::Remote(
                                 selected.owner.clone() + "/" + &selected.name + "/model.sdf",
                             ),
                             ..default()
                         };
-                        self.events.commands.entity(model_entity).insert(model);
+                        self.commands.entity(model_entity).insert(model);
                         gallery_status.selected = Some(selected.clone());
                     }
                 }
@@ -243,7 +288,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                             ),
                             ..default()
                         };
-                        self.events.request.change_mode.send(ChangeMode::To(
+                        self.change_mode.send(ChangeMode::To(
                             SelectAnchor3D::create_new_point().for_model(model).into(),
                         ));
                     }
@@ -260,10 +305,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
                 ui.text_edit_singleline(&mut gallery_status.proposed_api_key);
                 if ui.add(Button::new("Save")).clicked() {
                     // Take it to avoid leaking the information in the dialog
-                    self.events
-                        .new_model
-                        .set_api_key
-                        .send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
+                    self.set_api_key.send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
                     fuel_client.token = Some(std::mem::take(&mut gallery_status.proposed_api_key));
                     gallery_status.show_api_window = false;
                 } else if ui.add(Button::new("Close")).clicked() {
@@ -279,7 +321,7 @@ impl<'a, 'w, 's> NewModel<'a, 'w, 's> {
             ui.label("Updating model cache...");
         } else {
             if ui.add(Button::new("Update model cache")).clicked() {
-                self.events.new_model.update_cache.send(UpdateFuelCache);
+                self.update_cache.send(UpdateFuelCache);
             }
         }
         if ui.add(Button::new("Close")).clicked() {

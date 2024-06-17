@@ -40,12 +40,26 @@ pub struct SetFuelApiKey(pub String);
 /// Using channels instead of events to allow usage in wasm since, unlike event writers, they can
 /// be cloned and moved into async functions therefore don't have lifetime issues
 #[derive(Debug, Resource)]
-pub struct UpdateFuelCacheChannels {
+pub struct FuelCacheUpdateChannel {
     pub sender: Sender<FuelCacheUpdated>,
     pub receiver: Receiver<FuelCacheUpdated>,
 }
 
-impl Default for UpdateFuelCacheChannels {
+impl Default for FuelCacheUpdateChannel {
+    fn default() -> Self {
+        let (sender, receiver) = crossbeam_channel::unbounded();
+        Self { sender, receiver }
+    }
+}
+
+/// Channels that give incremental updates about what models have been fetched.
+#[derive(Debug, Resource)]
+pub struct FuelCacheProgressChannel {
+    pub sender: Sender<FuelModel>,
+    pub receiver: Receiver<FuelModel>,
+}
+
+impl Default for FuelCacheProgressChannel {
     fn default() -> Self {
         let (sender, receiver) = crossbeam_channel::unbounded();
         Self { sender, receiver }
@@ -56,13 +70,15 @@ pub fn handle_update_fuel_cache_requests(
     mut events: EventReader<UpdateFuelCache>,
     mut gallery_status: ResMut<AssetGalleryStatus>,
     fuel_client: Res<FuelClient>,
-    channels: Res<UpdateFuelCacheChannels>,
+    update_channel: Res<FuelCacheUpdateChannel>,
+    progress_channel: Res<FuelCacheProgressChannel>,
 ) {
     if events.read().last().is_some() {
         info!("Updating fuel cache, this might take a few minutes");
         gallery_status.fetching_cache = true;
         let mut fuel_client = fuel_client.clone();
-        let sender = channels.sender.clone();
+        let sender = update_channel.sender.clone();
+        let progress = progress_channel.sender.clone();
         IoTaskPool::get()
             .spawn(async move {
                 // Only write to cache in non wasm, no file system in web
@@ -71,17 +87,29 @@ pub fn handle_update_fuel_cache_requests(
                 #[cfg(not(target_arch = "wasm32"))]
                 let write_to_disk = true;
                 // Send client if update was successful
-                let res = fuel_client.update_cache(write_to_disk).await;
+
+                let res = fuel_client.update_cache_with_progress(
+                    write_to_disk,
+                    Some(progress),
+                ).await;
                 sender
                     .send(FuelCacheUpdated(res))
                     .expect("Failed sending fuel cache update event");
             })
             .detach();
     }
+
+    while let Ok(next_model) = progress_channel.receiver.try_recv() {
+        info!(
+            "Received model {} owned by {}",
+            next_model.name,
+            next_model.owner,
+        );
+    }
 }
 
 pub fn read_update_fuel_cache_results(
-    channels: Res<UpdateFuelCacheChannels>,
+    channels: Res<FuelCacheUpdateChannel>,
     mut fuel_client: ResMut<FuelClient>,
     mut gallery_status: ResMut<AssetGalleryStatus>,
 ) {

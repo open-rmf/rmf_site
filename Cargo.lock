@@ -2637,12 +2637,13 @@ dependencies = [
 [[package]]
 name = "gz-fuel"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/gz-fuel-rs?branch=luca/ehttp#44b3fc616146a9f0b32652ba9a9fe34eaf40a629"
+source = "git+https://github.com/open-rmf/gz-fuel-rs?branch=progress_tracker#938b633ee2ba19adba09df267aea26ffaea46b26"
 dependencies = [
+ "crossbeam-channel",
  "dirs",
  "ehttp",
- "futures-lite 2.2.0",
- "itertools 0.12.1",
+ "futures-lite 1.13.0",
+ "itertools 0.11.0",
  "serde",
  "serde_json",
 ]

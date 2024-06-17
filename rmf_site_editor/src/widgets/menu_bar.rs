@@ -38,6 +38,12 @@ impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
         let widget = PanelWidget::new(top_menu_bar, &mut app.world);
         app.world.spawn(widget);
+
+        app
+            .add_event::<MenuEvent>()
+            .init_resource::<FileMenu>()
+            .init_resource::<ToolMenu>()
+            .init_resource::<ViewMenu>();
     }
 }
 
@@ -180,17 +186,6 @@ impl MenuEvent {
         match self {
             Self::MenuClickEvent(entity) => *entity,
         }
-    }
-}
-
-pub struct MenuPluginManager;
-
-impl Plugin for MenuPluginManager {
-    fn build(&self, app: &mut App) {
-        app.add_event::<MenuEvent>()
-            .init_resource::<FileMenu>()
-            .init_resource::<ToolMenu>()
-            .init_resource::<ViewMenu>();
     }
 }
 

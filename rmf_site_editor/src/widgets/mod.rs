@@ -35,7 +35,6 @@ use crate::{
 use bevy::{
     asset::embedded_asset,
     ecs::{
-        query::Has,
         system::{SystemParam, SystemState, BoxedSystem},
         world::EntityWorldMut,
     },
@@ -54,14 +53,17 @@ use building_preview::*;
 pub mod create;
 use create::*;
 
+pub mod fuel_asset_browser;
+pub use fuel_asset_browser::*;
+
 pub mod menu_bar;
 use menu_bar::*;
 
 pub mod view_groups;
 use view_groups::*;
 
-pub mod diagnostic_window;
-use diagnostic_window::*;
+pub mod diagnostics;
+use diagnostics::*;
 
 pub mod view_layers;
 use view_layers::*;
@@ -90,9 +92,6 @@ use inspector::*;
 
 pub mod move_layer;
 pub use move_layer::*;
-
-pub mod new_model;
-pub use new_model::*;
 
 pub mod selection_widget;
 pub use selection_widget::*;
@@ -172,18 +171,12 @@ impl Plugin for StandardUiLayout {
         app
             .init_resource::<Icons>()
             .add_plugins((
-                StandardPropertiesPanelPlugin::default(),
-                ConsoleWidgetPlugin::default(),
                 MenuBarPlugin::default(),
+                StandardPropertiesPanelPlugin::default(),
+                FuelAssetBrowserPlugin::default(),
+                DiagnosticsPlugin::default(),
+                ConsoleWidgetPlugin::default(),
             ))
-            .init_resource::<LightDisplay>()
-            .init_resource::<AssetGalleryStatus>()
-            .init_resource::<OccupancyDisplay>()
-            .init_resource::<DiagnosticWindowState>()
-            .init_resource::<PendingDrawing>()
-            .init_resource::<PendingModel>()
-            .init_resource::<SearchForFiducial>()
-            .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
             .init_resource::<GroupViewModes>()
             .add_systems(Startup, init_ui_style)
@@ -759,7 +752,6 @@ pub struct FileEvents<'w> {
     pub save: EventWriter<'w, SaveWorkspace>,
     pub load_workspace: EventWriter<'w, LoadWorkspace>,
     pub new_workspace: EventWriter<'w, CreateNewWorkspace>,
-    pub diagnostic_window: ResMut<'w, DiagnosticWindowState>,
 }
 
 #[derive(SystemParam)]
@@ -823,7 +815,6 @@ pub struct AppEvents<'w, 's> {
     pub request: Requests<'w>,
     pub file_events: FileEvents<'w>,
     pub layers: LayerEvents<'w>,
-    pub new_model: NewModelParams<'w>,
     pub app_state: Res<'w, State<AppState>>,
     pub next_app_state: ResMut<'w, NextState<AppState>>,
 }
@@ -833,11 +824,10 @@ fn site_ui_layout(
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<NameOfSite>>,
     inspector_params: InspectorParams,
-    create_params: CreateParams,
+    // create_params: CreateParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
-    diagnostic_params: DiagnosticParams,
     layers: LayersParams,
     mut groups: GroupParams,
     mut events: AppEvents,
@@ -880,11 +870,11 @@ fn site_ui_layout(
                                 InspectorWidget::new(&inspector_params, &mut events).show(ui);
                             });
                         ui.separator();
-                        CollapsingHeader::new("Create")
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                CreateWidget::new(&create_params, &mut events).show(ui);
-                            });
+                        // CollapsingHeader::new("Create")
+                        //     .default_open(false)
+                        //     .show(ui, |ui| {
+                        //         CreateWidget::new(&create_params, &mut events).show(ui);
+                        //     });
                         ui.separator();
                         CollapsingHeader::new("Groups")
                             .default_open(false)
@@ -919,23 +909,6 @@ fn site_ui_layout(
             ConsoleWidget::new(&mut events).show(ui);
         });
 
-    if events.file_events.diagnostic_window.show {
-        egui::SidePanel::left("diagnostic_window")
-            .resizable(true)
-            .exact_width(320.0)
-            .show(egui_context.ctx_mut(), |ui| {
-                DiagnosticWindow::new(&mut events, &diagnostic_params).show(ui);
-            });
-    }
-    if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("asset_gallery")
-            .resizable(true)
-            .exact_width(320.0)
-            .show(egui_context.ctx_mut(), |ui| {
-                NewModel::new(&mut events).show(ui);
-            });
-    }
-
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()
         || egui_context.wants_keyboard_input()
@@ -958,7 +931,7 @@ fn site_drawing_ui_layout(
     mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    create_params: CreateParams,
+    // create_params: CreateParams,
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
     children: Query<&Children>,
@@ -977,12 +950,12 @@ fn site_drawing_ui_layout(
                                 InspectorWidget::new(&inspector_params, &mut events).show(ui);
                             });
                         ui.separator();
-                        CollapsingHeader::new("Create")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                CreateWidget::new(&create_params, &mut events).show(ui);
-                            });
-                        ui.separator();
+                        // CollapsingHeader::new("Create")
+                        //     .default_open(true)
+                        //     .show(ui, |ui| {
+                        //         CreateWidget::new(&create_params, &mut events).show(ui);
+                        //     });
+                        // ui.separator();
                         if ui
                             .add(Button::image_and_text(
                                 events.layers.icons.exit.egui(),
@@ -1101,7 +1074,7 @@ fn workcell_ui_layout(
     mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     inspector_params: InspectorParams,
-    create_params: CreateParams,
+    // create_params: CreateParams,
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
     top_level_components: Query<(), Without<Parent>>,
@@ -1120,12 +1093,6 @@ fn workcell_ui_layout(
                                 InspectorWidget::new(&inspector_params, &mut events).show(ui);
                             });
                         ui.separator();
-                        CollapsingHeader::new("Create")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                CreateWidget::new(&create_params, &mut events).show(ui);
-                            });
-                        ui.separator();
                     });
                 });
         });
@@ -1138,15 +1105,6 @@ fn workcell_ui_layout(
             ui.add_space(10.0);
             ConsoleWidget::new(&mut events).show(ui);
         });
-
-    if events.new_model.asset_gallery_status.show {
-        egui::SidePanel::left("asset_gallery")
-            .resizable(true)
-            .exact_width(320.0)
-            .show(egui_context.ctx_mut(), |ui| {
-                NewModel::new(&mut events).show(ui);
-            });
-    }
 
     let egui_context = egui_context.ctx_mut();
     let ui_has_focus = egui_context.wants_pointer_input()

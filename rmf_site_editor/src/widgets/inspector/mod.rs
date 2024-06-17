@@ -125,6 +125,7 @@ impl Plugin for StandardInspectorPlugin {
     fn build(&self, app: &mut App) {
         app
             .init_resource::<ExInspectorWidget>()
+            .init_resource::<SearchForFiducial>()
             .add_plugins((
                 InspectionPlugin::<ExInspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),

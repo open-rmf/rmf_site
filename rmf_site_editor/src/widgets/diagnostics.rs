@@ -15,56 +15,96 @@
  *
 */
 
-use crate::SelectionWidget;
-use crate::site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey, SiteID};
-use crate::{AppEvents, Icons, Issue};
-use crate::{IssueDictionary, ValidateWorkspace};
-use bevy::ecs::system::SystemParam;
-use bevy::prelude::*;
-use bevy_egui::egui::{Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
+use crate::{
+    widgets::{
+        prelude::*,
+        menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
+        SelectorWidget,
+    },
+    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey, SiteID},
+    Icons, Issue, IssueDictionary, ValidateWorkspace, CurrentWorkspace, AppState,
+};
+use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy_egui::{
+    EguiContexts,
+    egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui},
+};
+use std::collections::HashSet;
 
-#[derive(Resource, Debug, Clone, Default)]
-pub struct DiagnosticWindowState {
-    pub show: bool,
-    pub selected: Option<IssueKey<Entity>>,
+#[derive(Default)]
+pub struct DiagnosticsPlugin {
+
+}
+
+impl Plugin for DiagnosticsPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<IssueDictionary>()
+            .init_resource::<IssueMenu>()
+            .init_resource::<DiagnosticsDisplay>()
+            .add_systems(Update, handle_diagnostic_panel_visibility);
+
+        let panel = PanelWidget::new(diagnostics_panel, &mut app.world);
+        let widget = Widget::new::<Diagnostics>(&mut app.world);
+        app.world.spawn((panel, widget));
+    }
+}
+
+fn diagnostics_panel(
+    In(panel): In<Entity>,
+    world: &mut World,
+    egui_contexts: &mut SystemState<EguiContexts>,
+) {
+    if world.resource::<DiagnosticsDisplay>().show {
+        let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
+        egui::SidePanel::left("diagnsotics")
+            .resizable(true)
+            .min_width(320.0)
+            .show(&ctx, |ui| {
+                if let Err(err) = world.try_show(panel, ui) {
+                    error!("Unable to display diagnostics panel: {err:?}");
+                }
+            });
+    }
 }
 
 #[derive(SystemParam)]
-pub struct DiagnosticParams<'w, 's> {
-    pub icons: Res<'w, Icons>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
-    pub issue_dictionary: Res<'w, IssueDictionary>,
-    pub issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
+pub struct Diagnostics<'w, 's> {
+    icons: Res<'w, Icons>,
+    site_id: Query<'w, 's, &'static SiteID>,
+    filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
+    issue_dictionary: Res<'w, IssueDictionary>,
+    issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
+    display_diagnostics: ResMut<'w, DiagnosticsDisplay>,
+    current_workspace: ResMut<'w, CurrentWorkspace>,
+    validate_workspace: EventWriter<'w, ValidateWorkspace>,
+    change_filtered_issues: EventWriter<'w, Change<FilteredIssues<Entity>>>,
+    change_filtered_issue_kinds: EventWriter<'w, Change<FilteredIssueKinds>>,
+    selector: SelectorWidget<'w, 's>,
 }
 
-pub struct DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
-    events: &'a mut AppEvents<'w1, 's1>,
-    params: &'a DiagnosticParams<'w2, 's2>,
-}
-
-impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
-    pub fn new(
-        events: &'a mut AppEvents<'w1, 's1>,
-        params: &'a DiagnosticParams<'w2, 's2>,
-    ) -> Self {
-        Self { events, params }
+impl<'w, 's> WidgetSystem for Diagnostics<'w, 's> {
+    fn show(_: (), ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+        let mut params = state.get_mut(world);
+        params.show_widget(ui);
     }
+}
 
-    pub fn show(self, ui: &mut Ui) {
+impl<'w, 's> Diagnostics<'w, 's> {
+    pub fn show_widget(&mut self, ui: &mut Ui) {
         //let state = &mut self.events.file_events.diagnostic_window;
-        let mut state = (*self.events.file_events.diagnostic_window).clone();
-        let Some(root) = self.events.request.current_workspace.root else {
+        let mut state = (*self.display_diagnostics).clone();
+        let Some(root) = self.current_workspace.root else {
             return;
         };
-        let Ok((filtered_issues, filtered_issue_kinds)) = self.params.filters.get(root) else {
+        let Ok((filtered_issues, filtered_issue_kinds)) = self.filters.get(root) else {
             return;
         };
         let mut new_filtered_issues = filtered_issues.clone();
         let mut new_filtered_issue_kinds = filtered_issue_kinds.clone();
         ui.vertical(|ui| {
             ui.collapsing("Filters", |ui| {
-                for (uuid, name) in self.params.issue_dictionary.iter() {
+                for (uuid, name) in self.issue_dictionary.iter() {
                     let mut show_category = !new_filtered_issue_kinds.contains(uuid);
                     if ui.add(Checkbox::new(&mut show_category, name)).clicked() {
                         match show_category {
@@ -80,14 +120,13 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                 for (idx, issue) in new_filtered_issues.iter().enumerate() {
                     ui.horizontal(|ui| {
                         let issue_type = self
-                            .params
                             .issue_dictionary
                             .get(&issue.kind)
                             .cloned()
                             .unwrap_or("Unknown Type".to_owned());
                         ui.label(issue_type);
                         if ui
-                            .add(ImageButton::new(self.params.icons.trash.egui()))
+                            .add(ImageButton::new(self.icons.trash.egui()))
                             .on_hover_text("Remove this suppression")
                             .clicked()
                         {
@@ -98,13 +137,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                         ui,
                         |ui| {
                             for e in &issue.entities {
-                                SelectionWidget::new(
-                                    *e,
-                                    self.params.site_id.get(*e).ok().cloned(),
-                                    self.params.icons.as_ref(),
-                                    self.events,
-                                )
-                                .show(ui);
+                                self.selector.show_widget(*e, ui);
                             }
                         },
                     );
@@ -122,10 +155,10 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     let mut issue_still_exists = false;
-                    if self.params.issues.is_empty() {
+                    if self.issues.is_empty() {
                         ui.label("No issues found");
                     }
-                    for (issue, parent) in &self.params.issues {
+                    for (issue, parent) in &self.issues {
                         if new_filtered_issue_kinds.contains(&issue.key.kind)
                             || new_filtered_issues.contains(&issue.key)
                             || **parent != root
@@ -136,7 +169,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                         issue_still_exists |= sel;
                         ui.horizontal(|ui| {
                             if ui
-                                .add(ImageButton::new(self.params.icons.hide.egui()))
+                                .add(ImageButton::new(self.icons.hide.egui()))
                                 .on_hover_text("Suppress this issue")
                                 .clicked()
                             {
@@ -164,39 +197,72 @@ impl<'a, 'w1, 's1, 'w2, 's2> DiagnosticWindow<'a, 'w1, 's1, 'w2, 's2> {
                 ui.label("Affected entities");
                 Grid::new("diagnostic_affected_entities").show(ui, |ui| {
                     for e in &sel.entities {
-                        SelectionWidget::new(
-                            *e,
-                            self.params.site_id.get(*e).ok().cloned(),
-                            self.params.icons.as_ref(),
-                            self.events,
-                        )
-                        .show(ui);
+                        self.selector.show_widget(*e, ui);
                     }
                 });
             }
 
             if ui.add(Button::new("Validate")).clicked() {
-                self.events
-                    .request
-                    .validate_workspace
-                    .send(ValidateWorkspace(root));
+                self.validate_workspace.send(ValidateWorkspace(root));
             }
             if ui.add(Button::new("Close")).clicked() {
                 state.show = false;
             }
         });
         if new_filtered_issues != *filtered_issues {
-            self.events
-                .change
-                .filtered_issues
+            self.change_filtered_issues
                 .send(Change::new(new_filtered_issues, root));
         }
         if new_filtered_issue_kinds != *filtered_issue_kinds {
-            self.events
-                .change
-                .filtered_issue_kinds
+            self.change_filtered_issue_kinds
                 .send(Change::new(new_filtered_issue_kinds, root));
         }
-        *self.events.file_events.diagnostic_window = state;
+        *self.display_diagnostics = state;
+    }
+}
+
+#[derive(Resource, Debug, Clone, Default)]
+pub struct DiagnosticsDisplay {
+    pub show: bool,
+    pub selected: Option<IssueKey<Entity>>,
+}
+
+fn handle_diagnostic_panel_visibility(
+    mut menu_events: EventReader<MenuEvent>,
+    issue_menu: Res<IssueMenu>,
+    mut diagnostic_window: ResMut<DiagnosticsDisplay>,
+) {
+    for event in menu_events.read() {
+        if event.clicked() && event.source() == issue_menu.diagnostic_tool {
+            diagnostic_window.show = true;
+        }
+    }
+}
+
+
+#[derive(Resource)]
+pub struct IssueMenu {
+    diagnostic_tool: Entity,
+}
+
+impl FromWorld for IssueMenu {
+    fn from_world(world: &mut World) -> Self {
+        let target_states = HashSet::from([
+            AppState::SiteEditor,
+            AppState::SiteDrawingEditor,
+            AppState::SiteVisualizer,
+        ]);
+        // Tools menu
+        let diagnostic_tool = world
+            .spawn(MenuItem::Text("Diagnostic Tool".to_string()))
+            .insert(MenuVisualizationStates(target_states))
+            .id();
+
+        let tool_header = world.resource::<ToolMenu>().get();
+        world
+            .entity_mut(tool_header)
+            .push_children(&[diagnostic_tool]);
+
+        IssueMenu { diagnostic_tool }
     }
 }
