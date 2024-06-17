@@ -16,14 +16,23 @@
 */
 
 use super::{
-    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_PITCH, MAX_SELECTION_DIST,
-    MIN_FOV,
+    get_groundplane_else_default_selection, CameraCommandType, CameraControls, ProjectionMode,
+    MAX_FOV, MAX_PITCH, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{
     immediate::{Raycast, RaycastSettings, RaycastVisibility},
     primitives::Ray3d,
 };
+
+// Keyboard control limits
+pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
+pub const MAX_RESPONSE_TIME: f32 = 1.5; // [s] time taken to reach maximum input
+pub const MAX_FOV_DELTA: f32 = 0.5; // [rad/s]
+pub const MAX_ANGULAR_VEL: f32 = 3.5; // [rad/s]
+pub const MAX_TRANSLATION_VEL: f32 = 8.0; // [m/s]
+pub const SCALE_ZOOM_SENSITIVITY: f32 = 0.035;
+pub const ORTHOGRAPHIC_PAN_SENSITIVITY: f32 = 0.015;
 
 #[derive(Resource)]
 pub struct KeyboardCommand {
@@ -58,6 +67,7 @@ pub fn update_keyboard_command(
     keyboard_input: Res<Input<KeyCode>>,
     cameras: Query<(&Projection, &Transform)>,
     immediate_raycast: Raycast,
+    time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
 ) {
     if let Ok(_) = primary_windows.get_single() {
@@ -82,35 +92,50 @@ pub fn update_keyboard_command(
         }
 
         let mut target_zoom_motion = 0.0;
-        if keyboard_input.pressed(KeyCode::Minus) {
+        if keyboard_input.pressed(KeyCode::N) {
             target_zoom_motion += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::Plus) {
+        if keyboard_input.pressed(KeyCode::M) {
             target_zoom_motion += 1.0;
         }
+        // Temporarily use M, N as zoom keys since +-, <>, [] cannot be detected with shift
+        // keyboard_input.get_pressed().for_each(|key| {
+        //     println!("Pressed key: {:?}", key);
+        // });
 
-        // Smoothen motion using current state
-        // (1 / reponse_factor) = number of frames to reach maximum keyboard input
-        let response_factor = 0.08;
+        // Smooth and normalize keyboard
+        let delta_seconds = time.delta_seconds();
         let prev_keyboard_motion = keyboard_command.keyboard_motion;
-        let mut keyboard_motion = prev_keyboard_motion
-            + (target_keyboard_motion - prev_keyboard_motion).normalize_or_zero() * response_factor;
+        let keyboard_motion_delta =
+            (target_keyboard_motion - prev_keyboard_motion).normalize_or_zero();
+        let keyboard_response_factor = if keyboard_motion_delta.dot(prev_keyboard_motion) > 0.0 {
+            delta_seconds / MAX_RESPONSE_TIME
+        } else {
+            delta_seconds / MIN_RESPONSE_TIME
+        };
+        let mut keyboard_motion =
+            prev_keyboard_motion + keyboard_motion_delta * keyboard_response_factor;
         if keyboard_motion.length() > 1.0 {
             keyboard_motion = keyboard_motion.normalize();
-        } else if keyboard_motion.length() < response_factor {
+        } else if keyboard_motion.length() < keyboard_response_factor {
             keyboard_motion = Vec2::ZERO;
         }
 
+        // Smooth and normalize zoom motion
         let prev_zoom_motion = keyboard_command.zoom_motion;
-        let zoom_motion_delta = if (target_zoom_motion - prev_zoom_motion).abs() < response_factor {
-            0.0
+        let zoom_motion_delta = target_zoom_motion - prev_zoom_motion;
+        let zoom_response_factor = if prev_zoom_motion.signum() == zoom_motion_delta.signum() {
+            delta_seconds / MAX_RESPONSE_TIME
         } else {
-            (target_zoom_motion - prev_zoom_motion).signum()
+            delta_seconds / MIN_RESPONSE_TIME
         };
-        let mut zoom_motion = prev_zoom_motion + zoom_motion_delta * response_factor;
-        if zoom_motion.abs() > 1.0 {
-            zoom_motion = zoom_motion.signum();
-        } else if zoom_motion.abs() < response_factor {
+        let mut zoom_motion = if zoom_motion_delta.abs() < zoom_response_factor {
+            prev_zoom_motion
+        } else {
+            prev_zoom_motion + zoom_motion_delta.signum() * zoom_response_factor
+        };
+        zoom_motion = zoom_motion.clamp(-1.0, 1.0);
+        if zoom_motion.abs() < zoom_response_factor {
             zoom_motion = 0.0;
         }
 
@@ -135,8 +160,8 @@ pub fn update_keyboard_command(
         if command_type != keyboard_command.command_type
             && command_type != CameraCommandType::Inactive
         {
-            zoom_motion = response_factor * target_zoom_motion;
-            keyboard_motion = response_factor * target_keyboard_motion;
+            zoom_motion = delta_seconds / MAX_RESPONSE_TIME * target_zoom_motion;
+            keyboard_motion = delta_seconds / MAX_RESPONSE_TIME * target_keyboard_motion;
         }
 
         // Camera projection and transform
@@ -169,6 +194,7 @@ pub fn update_keyboard_command(
                         camera_transform,
                         keyboard_motion,
                         zoom_motion,
+                        delta_seconds,
                     )
                 }
             }
@@ -181,6 +207,7 @@ pub fn update_keyboard_command(
                         camera_selection,
                         keyboard_motion,
                         zoom_motion,
+                        delta_seconds,
                     )
                 }
             }
@@ -194,29 +221,28 @@ fn get_orthographic_command(
     camera_transform: &Transform,
     keyboard_motion: Vec2,
     zoom_motion: f32,
+    delta_seconds: f32,
 ) -> KeyboardCommand {
-    let pan_sensitivity = 0.015;
-    let orbit_sensitivity = 0.04;
-    let scale_zoom_sensitivity = 0.035;
-
     let mut keyboard_command = KeyboardCommand::default();
 
     // Zoom by scaling
-    keyboard_command.scale_delta = -zoom_motion * camera_proj.scale * scale_zoom_sensitivity;
+    let target_scale = (camera_proj.scale
+        - zoom_motion * camera_proj.scale * SCALE_ZOOM_SENSITIVITY)
+        .clamp(MIN_SCALE, MAX_SCALE);
+    keyboard_command.scale_delta = target_scale - camera_proj.scale;
 
     match command_type {
         CameraCommandType::Orbit => {
-            let yaw = -keyboard_motion.x * orbit_sensitivity;
+            let yaw = -keyboard_motion.x * MAX_ANGULAR_VEL * delta_seconds;
             let yaw = Quat::from_rotation_z(yaw);
             keyboard_command.rotation_delta = yaw;
         }
         CameraCommandType::Pan => {
             let right_translation = camera_transform.rotation * Vec3::X;
             let up_translation = camera_transform.rotation * Vec3::Y;
-
             keyboard_command.translation_delta =
                 up_translation * keyboard_motion.y + right_translation * keyboard_motion.x;
-            keyboard_command.translation_delta *= pan_sensitivity * camera_proj.scale;
+            keyboard_command.translation_delta *= ORTHOGRAPHIC_PAN_SENSITIVITY * camera_proj.scale;
         }
         _ => (),
     }
@@ -235,42 +261,38 @@ fn get_perspective_command(
     camera_selection: Vec3,
     keyboard_motion: Vec2,
     zoom_motion: f32,
+    delta_seconds: f32,
 ) -> KeyboardCommand {
-    let pan_sensitivity = 0.1;
-    let orbit_sensitivity = 0.005;
-    let fov_zoom_sensitivity = 0.03;
-    let translation_zoom_sensitivity = 0.1;
-
     let mut keyboard_command = KeyboardCommand::default();
 
-    // Scale zoom by distance to object in camera center
-    let dist_to_selection = (camera_transform.translation - camera_selection)
-        .length()
-        .max(1.0);
+    let zoom_distance_factor =
+        (0.2 * (camera_transform.translation - camera_selection).length()).max(1.0);
     let zoom_translation = camera_transform.forward()
-        * (zoom_motion * translation_zoom_sensitivity)
-        * (dist_to_selection * 0.2);
+        * zoom_motion
+        * zoom_distance_factor
+        * MAX_TRANSLATION_VEL
+        * delta_seconds;
 
     match command_type {
         CameraCommandType::FovZoom => {
-            let target_fov = (camera_proj.fov - zoom_motion * fov_zoom_sensitivity)
+            let target_fov = (camera_proj.fov - zoom_motion * MAX_FOV_DELTA * delta_seconds)
                 .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
             keyboard_command.fov_delta = target_fov - camera_proj.fov;
         }
         CameraCommandType::TranslationZoom => keyboard_command.translation_delta = zoom_translation,
         CameraCommandType::Pan => {
-            let keyboard_motion_adj = keyboard_motion * pan_sensitivity * camera_proj.fov;
             let right_translation = camera_transform.rotation * Vec3::X;
             let up_translation = -camera_transform.rotation * Vec3::Y;
-            keyboard_command.translation_delta = up_translation * keyboard_motion_adj.y
-                + right_translation * keyboard_motion_adj.x
-                + zoom_translation;
+            let pan_translation = (right_translation * keyboard_motion.x
+                + up_translation * keyboard_motion.y)
+                * MAX_TRANSLATION_VEL
+                * delta_seconds;
+            keyboard_command.translation_delta = pan_translation + zoom_translation;
         }
         CameraCommandType::Orbit => {
             let mut target_transform = camera_transform.clone();
-            let keyboard_motion_adj = keyboard_motion * orbit_sensitivity * camera_proj.fov;
-            let delta_x = keyboard_motion_adj.x * std::f32::consts::PI * 2.0;
-            let delta_y = keyboard_motion_adj.y * std::f32::consts::PI;
+            let delta_x = keyboard_motion.x * MAX_ANGULAR_VEL * delta_seconds;
+            let delta_y = keyboard_motion.y * MAX_ANGULAR_VEL * delta_seconds;
             let yaw = Quat::from_rotation_z(delta_x);
             let pitch = Quat::from_rotation_x(-delta_y);
 
@@ -314,25 +336,16 @@ pub fn get_camera_selected_point(
         .always_early_exit()
         .with_visibility(RaycastVisibility::MustBeVisible);
 
-    let intersections = immediate_raycast.cast_ray(camera_ray, &raycast_setting);
-
     //TODO(@reuben-thomas) Filter for selectable entities
+    let intersections = immediate_raycast.cast_ray(camera_ray, &raycast_setting);
     if intersections.len() > 0 {
         let (_, intersection_data) = &intersections[0];
         return intersection_data.position();
+    } else {
+        return get_groundplane_else_default_selection(
+            camera_ray.origin(),
+            camera_ray.direction(),
+            camera_ray.direction(),
+        );
     }
-
-    // If valid intersection with groundplane
-    let denom = Vec3::Z.dot(camera_transform.forward());
-    if denom.abs() > f32::EPSILON {
-        let dist = (-1.0 * camera_transform.translation).dot(Vec3::Z) / denom;
-        if dist > f32::EPSILON && dist < MAX_SELECTION_DIST {
-            return camera_transform.translation + camera_transform.forward() * dist;
-        }
-    }
-
-    // No groundplne intersection
-    let height = camera_transform.translation.z.abs();
-    let radius = if height < 1.0 { 1.0 } else { height };
-    return camera_transform.translation + camera_transform.forward() * radius;
 }

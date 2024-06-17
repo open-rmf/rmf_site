@@ -16,8 +16,8 @@
 */
 
 use super::{
-    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_PITCH, MAX_SELECTION_DIST,
-    MIN_FOV,
+    get_groundplane_else_default_selection, CameraCommandType, CameraControls, ProjectionMode,
+    MAX_FOV, MAX_PITCH, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::{MouseMotion, MouseWheel};
@@ -25,6 +25,10 @@ use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
 use nalgebra::{Matrix3, Matrix3x1};
+
+pub const SCALE_ZOOM_SENSITIVITY: f32 = 0.1;
+pub const TRANSLATION_ZOOM_SENSITIVITY: f32 = 0.2;
+pub const FOV_ZOOM_SENSITIVITY: f32 = 0.1;
 
 #[derive(Resource)]
 pub struct CursorCommand {
@@ -117,7 +121,8 @@ pub fn update_cursor_command(
             Some(ray) => ray,
             None => return,
         };
-        let cursor_selection_new = get_cursor_selected_point(&cursor_raycast_source);
+        let cursor_selection_new =
+            get_cursor_selected_point(&camera_transform, &cursor_raycast_source);
         let cursor_selection = match cursor_command.cursor_selection {
             Some(selection) => selection,
             None => cursor_selection_new,
@@ -164,7 +169,6 @@ pub fn update_cursor_command(
                         cursor_selection,
                         scroll_motion,
                         camera_controls.orbit_center,
-                        window,
                     );
                 }
             }
@@ -186,7 +190,10 @@ fn get_orthographic_cursor_command(
     let mut is_cursor_selecting = false;
 
     // Zoom
-    cursor_command.scale_delta = -scroll_motion * camera_proj.scale * 0.1;
+    let target_scale = (camera_proj.scale
+        - scroll_motion * camera_proj.scale * SCALE_ZOOM_SENSITIVITY)
+        .clamp(MIN_SCALE, MAX_SCALE);
+    cursor_command.scale_delta = target_scale - camera_proj.scale;
 
     //TODO(@reuben-thomas) Find out why cursor ray cannot be used for direction
     let cursor_direction = (cursor_selection_new - camera_transform.translation).normalize();
@@ -255,23 +262,24 @@ fn get_perspective_cursor_command(
     cursor_selection: Vec3,
     scroll_motion: f32,
     orbit_center: Option<Vec3>,
-    window: &Window,
 ) -> CursorCommand {
-    let translation_zoom_sensitivity = 0.5;
-    let fov_zoom_sensitivity = 0.1;
-
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
 
+    let zoom_distance_factor =
+        (0.2 * (camera_transform.translation - cursor_selection).length()).max(1.0);
+
     match command_type {
         CameraCommandType::FovZoom => {
-            let target_fov = (camera_proj.fov - scroll_motion * fov_zoom_sensitivity)
+            let target_fov = (camera_proj.fov - scroll_motion * FOV_ZOOM_SENSITIVITY)
                 .clamp(MIN_FOV.to_radians(), MAX_FOV.to_radians());
             cursor_command.fov_delta = target_fov - camera_proj.fov;
         }
         CameraCommandType::TranslationZoom => {
-            cursor_command.translation_delta =
-                cursor_direction * translation_zoom_sensitivity * scroll_motion;
+            cursor_command.translation_delta = cursor_direction
+                * TRANSLATION_ZOOM_SENSITIVITY
+                * scroll_motion
+                * zoom_distance_factor;
         }
         CameraCommandType::Pan => {
             // To keep the same point below the cursor, we solve
@@ -301,8 +309,10 @@ fn get_perspective_cursor_command(
             );
             let x = a.lu().solve(&b).unwrap();
 
-            let zoom_translation =
-                camera_transform.forward() * translation_zoom_sensitivity * scroll_motion;
+            let zoom_translation = camera_transform.forward()
+                * TRANSLATION_ZOOM_SENSITIVITY
+                * scroll_motion
+                * zoom_distance_factor;
 
             cursor_command.translation_delta =
                 zoom_translation + x[0] * right_translation + x[1] * up_translation;
@@ -348,8 +358,9 @@ fn get_perspective_cursor_command(
                     + target_transform.local_z() * z;
 
                 let zoom_translation = camera_to_orbit_center_next.normalize()
-                    * translation_zoom_sensitivity
-                    * scroll_motion;
+                    * TRANSLATION_ZOOM_SENSITIVITY
+                    * scroll_motion
+                    * zoom_distance_factor;
                 target_transform.translation =
                     orbit_center - camera_to_orbit_center_next - zoom_translation;
             }
@@ -377,27 +388,19 @@ fn get_perspective_cursor_command(
 }
 
 // Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
-fn get_cursor_selected_point(cursor_raycast_source: &RaycastSource<SiteRaycastSet>) -> Vec3 {
+fn get_cursor_selected_point(
+    camera_transform: &Transform,
+    cursor_raycast_source: &RaycastSource<SiteRaycastSet>,
+) -> Vec3 {
     let cursor_ray = cursor_raycast_source.get_ray().unwrap();
 
     match cursor_raycast_source.get_nearest_intersection() {
         Some((_, intersection)) => intersection.position(),
-        None => {
-            // If valid intersection with groundplane
-            let denom = Vec3::Z.dot(cursor_ray.direction());
-            if denom.abs() > f32::EPSILON {
-                let dist = (-1.0 * cursor_ray.origin()).dot(Vec3::Z) / denom;
-                if dist > f32::EPSILON && dist < MAX_SELECTION_DIST {
-                    return cursor_ray.origin() + cursor_ray.direction() * dist;
-                }
-            }
-
-            // No groundplane intersection
-            // Pick a point of a virtual sphere around the camera, of same radius as its height
-            let height = cursor_ray.origin().z.abs();
-            let radius = if height < 1.0 { 1.0 } else { height };
-            return cursor_ray.origin() + cursor_ray.direction() * radius;
-        }
+        None => get_groundplane_else_default_selection(
+            cursor_ray.origin(),
+            cursor_ray.direction(),
+            camera_transform.forward(),
+        ),
     }
 }
 

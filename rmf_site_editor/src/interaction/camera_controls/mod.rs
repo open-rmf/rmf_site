@@ -61,8 +61,11 @@ pub const MODEL_PREVIEW_LAYER: u8 = 6;
 /// Camera limits
 pub const MIN_FOV: f32 = 5.0;
 pub const MAX_FOV: f32 = 120.0;
+pub const MIN_SCALE: f32 = 0.5;
+pub const MAX_SCALE: f32 = 500.0;
 pub const MAX_PITCH: f32 = 85.0;
-pub const MAX_SELECTION_DIST: f32 = 30.0; // [m]
+pub const MIN_SELECTION_DIST: f32 = 10.0;
+pub const MAX_SELECTION_DIST: f32 = 30.0;
 
 #[derive(PartialEq, Debug, Copy, Clone)]
 pub enum CameraCommandType {
@@ -492,16 +495,34 @@ fn camera_controls(
     }
 }
 
+fn get_groundplane_else_default_selection(
+    selector_origin: Vec3,
+    selector_direction: Vec3,
+    camera_direction: Vec3,
+) -> Vec3 {
+    // If valid intersection with groundplane
+    let denom = Vec3::Z.dot(selector_direction);
+    if denom.abs() > f32::EPSILON {
+        let dist = (-1.0 * selector_origin).dot(Vec3::Z) / denom;
+        if dist > f32::EPSILON && dist < MAX_SELECTION_DIST {
+            return selector_origin + selector_direction * dist;
+        }
+    }
+
+    // No groundplane intersection,
+    // Pick a point on arbitrary plane in front
+    let height = selector_origin.z.abs();
+    let plane_dist = height.max(MIN_SELECTION_DIST);
+    return selector_origin
+        + selector_direction * (plane_dist / selector_direction.dot(camera_direction));
+}
+
 fn update_orbit_center_marker(
     controls: Res<CameraControls>,
     keyboard_command: Res<KeyboardCommand>,
     cursor_command: Res<CursorCommand>,
     interaction_assets: Res<InteractionAssets>,
     mut gizmo: Gizmos,
-    // camera_query: Query<(
-    //     &Transform,
-    //     &Projection
-    // )>,
     mut marker_query: Query<
         (
             &mut Transform,
