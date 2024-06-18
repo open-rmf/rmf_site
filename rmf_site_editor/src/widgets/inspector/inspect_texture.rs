@@ -18,6 +18,7 @@
 use crate::{
     inspector::{InspectAssetSource, InspectValue, SearchResult},
     site::{Category, Change, DefaultFile},
+    widgets::{Inspect, InspectionPlugin, prelude::*},
     AppEvents, Icons, WorkspaceMarker,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -26,6 +27,245 @@ use rmf_site_format::{
     Affiliation, FloorMarker, Group, NameInSite, RecallAssetSource, Texture, TextureGroup,
     WallMarker,
 };
+
+#[derive(Default)]
+pub struct InspectTexturePlugin {
+
+}
+
+impl Plugin for InspectTexturePlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<SearchForTexture>()
+            .add_plugins(InspectionPlugin::<InspectTextureAffiliation>::new());
+    }
+}
+
+#[derive(SystemParam)]
+pub struct InspectTextureAffiliation<'w, 's> {
+    with_texture: Query<
+        'w,
+        's,
+        (&'static Category, &'static Affiliation<Entity>),
+        Or<(With<FloorMarker>, With<WallMarker>)>,
+    >,
+    texture_groups: Query<'w, 's, (&'static NameInSite, &'static Texture), With<Group>>,
+    parents: Query<'w, 's, &'static Parent>,
+    sites: Query<'w, 's, &'static Children, With<WorkspaceMarker>>,
+    icons: Res<'w, Icons>,
+    search_for_texture: ResMut<'w, SearchForTexture>,
+    commands: Commands<'w, 's>,
+    change_affiliation: EventWriter<'w, Change<Affiliation<Entity>>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectTextureAffiliation<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
+    }
+}
+
+impl<'w, 's> InspectTextureAffiliation<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
+        let Ok((category, affiliation)) = self.with_texture.get(id) else {
+            return;
+        };
+        let mut site = id;
+        let children = loop {
+            if let Ok(children) = self.sites.get(site) {
+                break children;
+            }
+
+            if let Ok(parent) = self.parents.get(site) {
+                site = parent.get();
+            } else {
+                return;
+            }
+        };
+        let site = site;
+
+        let search = &mut self.search_for_texture.0;
+
+        let mut any_partial_matches = false;
+        let mut result = SearchResult::NoMatch;
+        for child in children {
+            let Ok((name, _)) = self.texture_groups.get(*child) else {
+                continue;
+            };
+            if name.0.contains(&*search) {
+                any_partial_matches = true;
+            }
+
+            if name.0 == *search {
+                result.consider(*child);
+            }
+        }
+        let any_partial_matches = any_partial_matches;
+
+        if search.is_empty() {
+            result = SearchResult::Empty;
+        }
+
+        if let (SearchResult::Match(e), Some(current)) = (&result, &affiliation.0) {
+            if *e == *current {
+                result = SearchResult::Current;
+            }
+        }
+
+        ui.separator();
+        ui.label("Texture");
+        ui.horizontal(|ui| {
+            if any_partial_matches {
+                if ui
+                    .add(ImageButton::new(self.icons.search.egui()))
+                    .on_hover_text("Search results for this text can be found below")
+                    .clicked()
+                {
+                    info!("Use the drop-down box to choose a texture");
+                }
+            } else {
+                ui.add(ImageButton::new(self.icons.empty.egui()))
+                    .on_hover_text("No search results can be found for this text");
+            }
+
+            match result {
+                SearchResult::Empty => {
+                    if ui
+                        .add(ImageButton::new(self.icons.hidden.egui()))
+                        .on_hover_text("An empty string is not a good texture name")
+                        .clicked()
+                    {
+                        warn!("You should not use an empty string as a texture name");
+                    }
+                }
+                SearchResult::Current => {
+                    if ui
+                        .add(ImageButton::new(self.icons.selected.egui()))
+                        .on_hover_text("This is the name of the currently selected texture")
+                        .clicked()
+                    {
+                        info!("This texture is already selected");
+                    }
+                }
+                SearchResult::NoMatch => {
+                    if ui
+                        .add(ImageButton::new(self.icons.add.egui()))
+                        .on_hover_text(if affiliation.0.is_some() {
+                            "Create a new copy of the current texture"
+                        } else {
+                            "Create a new texture"
+                        })
+                        .clicked()
+                    {
+                        let new_texture = if let Some((_, t)) = affiliation
+                            .0
+                            .map(|a| self.texture_groups.get(a).ok())
+                            .flatten()
+                        {
+                            t.clone()
+                        } else {
+                            Texture::default()
+                        };
+
+                        let new_texture_group = self
+                            .commands
+                            .spawn(TextureGroup {
+                                name: NameInSite(search.clone()),
+                                texture: new_texture,
+                                group: default(),
+                            })
+                            .set_parent(site)
+                            .id();
+                        self.change_affiliation.send(Change::new(
+                            Affiliation(Some(new_texture_group)),
+                            id,
+                        ));
+                    }
+                }
+                SearchResult::Match(group) => {
+                    if ui
+                        .add(ImageButton::new(self.icons.confirm.egui()))
+                        .on_hover_text("Select this texture")
+                        .clicked()
+                    {
+                        self.change_affiliation.send(
+                            Change::new(Affiliation(Some(group)), id)
+                        );
+                    }
+                }
+                SearchResult::Conflict(text) => {
+                    if ui
+                        .add(ImageButton::new(self.icons.reject.egui()))
+                        .on_hover_text(text)
+                        .clicked()
+                    {
+                        warn!("Cannot set {search} as the texture: {text}");
+                    }
+                }
+            }
+
+            ui.text_edit_singleline(search)
+                .on_hover_text("Search for or create a new texture");
+        });
+
+        let (current_texture_name, _current_texture) = if let Some(a) = affiliation.0 {
+            self.texture_groups
+                .get(a)
+                .ok()
+                .map(|(n, t)| (n.0.as_str(), Some((a, t))))
+        } else {
+            None
+        }
+        .unwrap_or(("<none>", None));
+
+        let mut new_affiliation = affiliation.clone();
+        ui.horizontal(|ui| {
+            if ui
+                .add(ImageButton::new(self.icons.exit.egui()))
+                .on_hover_text(format!("Remove this texture from the {}", category.label()))
+                .clicked()
+            {
+                new_affiliation = Affiliation(None);
+            }
+
+            let mut clear_filter = false;
+            ComboBox::from_id_source("texture_affiliation")
+                .selected_text(current_texture_name)
+                .show_ui(ui, |ui| {
+                    for child in children {
+                        if affiliation.0.is_some_and(|a| a == *child) {
+                            continue;
+                        }
+
+                        if let Ok((n, _)) = self.texture_groups.get(*child) {
+                            if n.0.contains(&self.search_for_texture.0) {
+                                let select_affiliation = Affiliation(Some(*child));
+                                ui.selectable_value(&mut new_affiliation, select_affiliation, &n.0);
+                            }
+                        }
+                    }
+
+                    if !self.search_for_texture.0.is_empty() {
+                        ui.selectable_value(&mut clear_filter, true, "more...");
+                    }
+                });
+
+            if clear_filter {
+                self.search_for_texture.0.clear();
+            }
+        });
+
+        if new_affiliation != *affiliation {
+            self.change_affiliation.send(Change::new(new_affiliation, id));
+        }
+        ui.add_space(10.0);
+    }
+}
 
 #[derive(Resource, Default)]
 pub struct SearchForTexture(pub String);
@@ -44,13 +284,13 @@ pub struct InspectTextureAffiliationParams<'w, 's> {
     icons: Res<'w, Icons>,
 }
 
-pub struct InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
+pub struct InspectTextureAffiliationWidget<'a, 'w1, 'w2, 's1, 's2> {
     entity: Entity,
     params: &'a InspectTextureAffiliationParams<'w1, 's1>,
     events: &'a mut AppEvents<'w2, 's2>,
 }
 
-impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliation<'a, 'w1, 'w2, 's1, 's2> {
+impl<'a, 'w1, 'w2, 's1, 's2> InspectTextureAffiliationWidget<'a, 'w1, 'w2, 's1, 's2> {
     pub fn new(
         entity: Entity,
         params: &'a InspectTextureAffiliationParams<'w1, 's1>,

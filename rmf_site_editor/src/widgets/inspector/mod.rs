@@ -139,6 +139,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<ExInspectLayer>::new(),
                 InspectionPlugin::<InspectDrawing>::new(),
                 InspectionPlugin::<InspectAssociatedGraphs>::new(),
+                InspectTexturePlugin::default(),
             ));
     }
 }
@@ -546,7 +547,7 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             //     }
             // }
 
-            InspectTextureAffiliation::new(selection, &self.params.texture, self.events).show(ui);
+            InspectTextureAffiliationWidget::new(selection, &self.params.texture, self.events).show(ui);
 
             if let Ok((motion, recall)) = self.params.component.motions.get(selection) {
                 ui.label(RichText::new("Forward Motion").size(18.0));
