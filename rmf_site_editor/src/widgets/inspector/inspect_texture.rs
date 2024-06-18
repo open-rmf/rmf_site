@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    inspector::{InspectAssetSource, InspectValue, SearchResult},
+    inspector::{InspectAssetSourceComponent, InspectValue, SearchResult},
     site::{Category, Change, DefaultFile},
     widgets::{Inspect, InspectionPlugin, prelude::*},
     AppEvents, Icons, WorkspaceMarker,
@@ -522,7 +522,7 @@ impl<'a> InspectTexture<'a> {
         let mut new_texture = self.texture.clone();
 
         // TODO(luca) recall
-        if let Some(new_source) = InspectAssetSource::new(
+        if let Some(new_source) = InspectAssetSourceComponent::new(
             &new_texture.source,
             &RecallAssetSource::default(),
             self.default_file,

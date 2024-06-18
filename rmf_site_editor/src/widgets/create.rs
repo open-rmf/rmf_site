@@ -16,7 +16,7 @@
 */
 
 use crate::{
-    inspector::{InspectAssetSource, InspectScale},
+    inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
     site::{DefaultFile, DrawingBundle, Recall},
     widgets::{prelude::*, AssetGalleryStatus},
@@ -128,7 +128,7 @@ impl<'w, 's> Creation<'w, 's> {
                                 .root
                                 .map(|e| self.default_file.get(e).ok())
                                 .flatten();
-                            if let Some(new_asset_source) = InspectAssetSource::new(
+                            if let Some(new_asset_source) = InspectAssetSourceComponent::new(
                                 &self.pending_drawings.source,
                                 &self.pending_drawings.recall_source,
                                 default_file,
@@ -184,7 +184,7 @@ impl<'w, 's> Creation<'w, 's> {
                                 .root
                                 .map(|e| self.default_file.get(e).ok())
                                 .flatten();
-                            if let Some(new_asset_source) = InspectAssetSource::new(
+                            if let Some(new_asset_source) = InspectAssetSourceComponent::new(
                                 &self.pending_model.source,
                                 &self.pending_model.recall_source,
                                 default_file,
@@ -198,7 +198,7 @@ impl<'w, 's> Creation<'w, 's> {
                             }
                             ui.add_space(5.0);
                             if let Some(new_scale) =
-                                InspectScale::new(&self.pending_model.scale).show(ui)
+                                InspectScaleComponent::new(&self.pending_model.scale).show(ui)
                             {
                                 self.pending_model.scale = new_scale;
                             }

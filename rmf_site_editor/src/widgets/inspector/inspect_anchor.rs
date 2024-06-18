@@ -22,7 +22,7 @@ use crate::{
         JointProperties, LocationTags, MeshConstraint, Subordinate,
     },
     widgets::{
-        inspector::{InspectPose, Inspect},
+        inspector::{InspectPoseComponent, Inspect},
         SelectorWidget, Icons, prelude::*,
     },
     workcell::CreateJoint,
@@ -157,7 +157,7 @@ fn impl_inspect_anchor(
                     panel.align(ui, |ui| {
                         if let Some(c) = mesh_constraint {
                             if let Some(new_pose) =
-                                InspectPose::new(&c.relative_pose).for_rotation().show(ui)
+                                InspectPoseComponent::new(&c.relative_pose).for_rotation().show(ui)
                             {
                                 // TODO(luca) Using moveto doesn't allow switching between
                                 // variants of Pose3D
@@ -171,7 +171,7 @@ fn impl_inspect_anchor(
                                 ));
                             }
                         } else {
-                            if let Some(new_pose) = InspectPose::new(pose).show(ui) {
+                            if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
                                 // TODO(luca) Using moveto doesn't allow switching between variants of
                                 // Pose3D
                                 params.move_to.send(MoveTo {

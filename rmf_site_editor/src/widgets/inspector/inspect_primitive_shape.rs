@@ -15,15 +15,44 @@
  *
 */
 
-use bevy_egui::egui::Ui;
+use crate::{
+    site::Change,
+    widgets::{Inspect, prelude::*},
+};
+use bevy::prelude::*;
 use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
 
-pub struct InspectPrimitiveShape<'a> {
+#[derive(SystemParam)]
+pub struct InspectPrimitiveShape<'w, 's> {
+    primitive_shapes: Query<'w, 's, (&'static PrimitiveShape, &'static RecallPrimitiveShape)>,
+    change_primitive_shape: EventWriter<'w, Change<PrimitiveShape>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectPrimitiveShape<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok((shape, recall)) = params.primitive_shapes.get(selection) else {
+            return;
+        };
+
+        if let Some(new_shape) = InspectPrimitiveShapeComponent::new(shape, recall).show(ui) {
+            params.change_primitive_shape.send(Change::new(new_shape, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+pub struct InspectPrimitiveShapeComponent<'a> {
     pub primitive: &'a PrimitiveShape,
     pub recall: &'a RecallPrimitiveShape,
 }
 
-impl<'a> InspectPrimitiveShape<'a> {
+impl<'a> InspectPrimitiveShapeComponent<'a> {
     pub fn new(primitive: &'a PrimitiveShape, recall: &'a RecallPrimitiveShape) -> Self {
         Self { primitive, recall }
     }

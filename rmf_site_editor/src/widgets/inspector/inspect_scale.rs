@@ -15,14 +15,44 @@
  *
 */
 
+use crate::{
+    site::Change,
+    widgets::{Inspect, prelude::*},
+};
+use bevy::prelude::*;
 use bevy_egui::egui::{DragValue, Grid, Ui};
 use rmf_site_format::Scale;
 
-pub struct InspectScale<'a> {
+#[derive(SystemParam)]
+pub struct InspectScale<'w, 's> {
+    scales: Query<'w, 's, &'static Scale>,
+    change_scale: EventWriter<'w, Change<Scale>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectScale<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok(scale) = params.scales.get(selection) else {
+            return;
+        };
+
+        if let Some(new_scale) = InspectScaleComponent::new(scale).show(ui) {
+            params.change_scale.send(Change::new(new_scale, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+pub struct InspectScaleComponent<'a> {
     pub scale: &'a Scale,
 }
 
-impl<'a> InspectScale<'a> {
+impl<'a> InspectScaleComponent<'a> {
     pub fn new(scale: &'a Scale) -> Self {
         Self { scale }
     }

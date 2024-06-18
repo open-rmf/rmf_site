@@ -18,20 +18,20 @@
 use bevy_egui::egui::{DragValue, Ui};
 use std::ops::RangeInclusive;
 
-pub struct InspectOptionF32 {
-    title: String,
+pub struct InspectOptionF32<'a> {
+    title: &'a str,
     current_value: Option<f32>,
     assumed_value: f32,
     range: RangeInclusive<f32>,
     min_decimals: usize,
     max_decimals: Option<usize>,
     speed: f64,
-    suffix: String,
-    tooltip: Option<String>,
+    suffix: &'a str,
+    tooltip: Option<&'a str>,
 }
 
-impl InspectOptionF32 {
-    pub fn new(title: String, current_value: Option<f32>, assumed_value: f32) -> Self {
+impl<'a> InspectOptionF32<'a> {
+    pub fn new(title: &'a str, current_value: Option<f32>, assumed_value: f32) -> Self {
         Self {
             title,
             current_value,
@@ -65,12 +65,12 @@ impl InspectOptionF32 {
         self
     }
 
-    pub fn suffix(mut self, suffix: String) -> Self {
+    pub fn suffix(mut self, suffix: &'a str) -> Self {
         self.suffix = suffix;
         self
     }
 
-    pub fn tooltip(mut self, tooltip: String) -> Self {
+    pub fn tooltip(mut self, tooltip: &'a str) -> Self {
         self.tooltip = Some(tooltip);
         self
     }

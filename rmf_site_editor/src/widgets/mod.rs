@@ -824,12 +824,10 @@ fn site_ui_layout(
     mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
     open_sites: Query<Entity, With<NameOfSite>>,
-    inspector_params: InspectorParams,
     // create_params: CreateParams,
     levels: LevelParams,
     lights: LightParams,
     nav_graphs: NavGraphParams,
-    layers: LayersParams,
     mut groups: GroupParams,
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
@@ -857,20 +855,20 @@ fn site_ui_layout(
                             .show(ui, |ui| {
                                 ViewNavGraphs::new(&nav_graphs, &mut events).show(ui, &open_sites);
                             });
-                        ui.separator();
+                        // ui.separator();
                         // TODO(MXG): Consider combining Nav Graphs and Layers
-                        CollapsingHeader::new("Layers")
-                            .default_open(false)
-                            .show(ui, |ui| {
-                                ViewLayers::new(&layers, &mut events).show(ui);
-                            });
-                        ui.separator();
-                        CollapsingHeader::new("Inspect")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
-                            });
-                        ui.separator();
+                        // CollapsingHeader::new("Layers")
+                        //     .default_open(false)
+                        //     .show(ui, |ui| {
+                        //         ViewLayers::new(&layers, &mut events).show(ui);
+                        //     });
+                        // ui.separator();
+                        // CollapsingHeader::new("Inspect")
+                        //     .default_open(true)
+                        //     .show(ui, |ui| {
+                        //         InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                        //     });
+                        // ui.separator();
                         // CollapsingHeader::new("Create")
                         //     .default_open(false)
                         //     .show(ui, |ui| {
@@ -931,7 +929,7 @@ fn site_ui_layout(
 fn site_drawing_ui_layout(
     mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    inspector_params: InspectorParams,
+    // inspector_params: InspectorParams,
     // create_params: CreateParams,
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
@@ -945,12 +943,12 @@ fn site_drawing_ui_layout(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
-                        CollapsingHeader::new("Inspect")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
-                            });
-                        ui.separator();
+                        // CollapsingHeader::new("Inspect")
+                        //     .default_open(true)
+                        //     .show(ui, |ui| {
+                        //         InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                        //     });
+                        // ui.separator();
                         // CollapsingHeader::new("Create")
                         //     .default_open(true)
                         //     .show(ui, |ui| {
@@ -1074,7 +1072,7 @@ fn site_visualizer_ui_layout(
 fn workcell_ui_layout(
     mut egui_context: EguiContexts,
     mut picking_blocker: Option<ResMut<PickingBlockers>>,
-    inspector_params: InspectorParams,
+    // inspector_params: InspectorParams,
     // create_params: CreateParams,
     mut events: AppEvents,
     file_menu: Res<FileMenu>,
@@ -1088,12 +1086,12 @@ fn workcell_ui_layout(
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     ui.vertical(|ui| {
-                        CollapsingHeader::new("Inspect")
-                            .default_open(true)
-                            .show(ui, |ui| {
-                                InspectorWidget::new(&inspector_params, &mut events).show(ui);
-                            });
-                        ui.separator();
+                        // CollapsingHeader::new("Inspect")
+                        //     .default_open(true)
+                        //     .show(ui, |ui| {
+                        //         InspectorWidget::new(&inspector_params, &mut events).show(ui);
+                        //     });
+                        // ui.separator();
                     });
                 });
         });

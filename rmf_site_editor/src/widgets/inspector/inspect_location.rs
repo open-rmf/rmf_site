@@ -21,7 +21,7 @@ use crate::{
         RecallLocationTags, Change,
     },
     widgets::{
-        inspector::{InspectAssetSource, InspectName},
+        inspector::{InspectAssetSourceComponent, InspectName},
         AppEvents, Icons, Inspect,
         prelude::*,
     },
@@ -259,7 +259,7 @@ impl<'a, 'w1, 'w2, 's2> InspectLocationWidget<'a, 'w1, 'w2, 's2> {
     ) -> Option<Model> {
         let new_name = InspectName::new(&model.name).show(ui);
         let new_source =
-            InspectAssetSource::new(&model.source, &recall_asset, default_file).show(ui);
+            InspectAssetSourceComponent::new(&model.source, &recall_asset, default_file).show(ui);
 
         if new_name.is_some() || new_source.is_some() {
             let mut new_model = model.clone();

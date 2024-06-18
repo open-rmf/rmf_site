@@ -18,15 +18,15 @@
 use crate::{
     interaction::{ChangeMode, Hover, SelectAnchor3D},
     site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell, SiteID},
-    widgets::{inspector::SelectionWidget, AppEvents, Icons},
+    widgets::{SelectorWidget, Inspect, Icons, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ImageButton, Ui};
 
 #[derive(SystemParam)]
-pub struct InspectWorkcellParentParams<'w, 's> {
-    pub parents: Query<'w, 's, &'static Parent>,
-    pub workcell_elements: Query<
+pub struct InspectWorkcellParent<'w, 's> {
+    parents: Query<'w, 's, &'static Parent>,
+    workcell_elements: Query<
         'w,
         's,
         Entity,
@@ -36,74 +36,52 @@ pub struct InspectWorkcellParentParams<'w, 's> {
             With<NameOfWorkcell>,
         )>,
     >,
-    pub mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub icons: Res<'w, Icons>,
+    mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
+    site_id: Query<'w, 's, &'static SiteID>,
+    icons: Res<'w, Icons>,
+    selector: SelectorWidget<'w, 's>,
+    change_mode: ResMut<'w, Events<ChangeMode>>,
 }
 
-pub struct InspectWorkcellParentWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub entity: Entity,
-    pub params: &'a InspectWorkcellParentParams<'w1, 's1>,
-    pub events: &'a mut AppEvents<'w2, 's2>,
-}
-
-impl<'a, 'w1, 'w2, 's1, 's2> InspectWorkcellParentWidget<'a, 'w1, 'w2, 's1, 's2> {
-    pub fn new(
-        entity: Entity,
-        params: &'a InspectWorkcellParentParams<'w1, 's1>,
-        events: &'a mut AppEvents<'w2, 's2>,
-    ) -> Self {
-        Self {
-            entity,
-            params,
-            events,
-        }
+impl<'w, 's> WidgetSystem<Inspect> for InspectWorkcellParent<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        params.show_widget(selection, ui);
     }
+}
 
-    pub fn show(self, ui: &mut Ui) {
+impl<'w, 's> InspectWorkcellParent<'w, 's> {
+    pub fn show_widget(&mut self, id: Entity, ui: &mut Ui) {
         // If the parent is a frame it should be reassignable
         if let Ok(parent) = self
-            .params
             .parents
-            .get(self.entity)
-            .and_then(|p| self.params.workcell_elements.get(**p))
+            .get(id)
+            .and_then(|p| self.workcell_elements.get(**p))
         {
             ui.vertical(|ui| {
-                if let Ok(c) = self.params.mesh_constraints.get(self.entity) {
+                if let Ok(c) = self.mesh_constraints.get(id) {
                     ui.label("Mesh Parent");
-                    SelectionWidget::new(
-                        c.entity,
-                        self.params.site_id.get(c.entity).ok().cloned(),
-                        self.params.icons.as_ref(),
-                        self.events,
-                    )
-                    .show(ui);
+                    self.selector.show_widget(c.entity, ui);
                 }
                 ui.label("Parent Frame");
-                SelectionWidget::new(
-                    parent,
-                    self.params.site_id.get(parent).ok().cloned(),
-                    self.params.icons.as_ref(),
-                    self.events,
-                )
-                .show(ui);
-
-                let assign_response = ui.add(ImageButton::new(self.params.icons.edit.egui()));
-
+                self.selector.show_widget(parent, ui);
+                let assign_response = ui.add(ImageButton::new(self.icons.edit.egui()));
                 if assign_response.hovered() {
-                    self.events.request.hover.send(Hover(Some(self.entity)));
+                    self.selector.hover.send(Hover(Some(id)));
                 }
 
                 let parent_replace = assign_response.clicked();
                 assign_response.on_hover_text("Reassign");
 
                 if parent_replace {
-                    let request =
-                        SelectAnchor3D::replace_point(self.entity, parent).for_anchor(Some(parent));
-                    self.events
-                        .request
-                        .change_mode
-                        .send(ChangeMode::To(request.into()));
+                    let request = SelectAnchor3D::replace_point(id, parent)
+                        .for_anchor(Some(parent));
+                    self.change_mode.send(ChangeMode::To(request.into()));
                 }
             });
         }

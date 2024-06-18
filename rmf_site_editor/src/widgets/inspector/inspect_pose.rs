@@ -15,17 +15,44 @@
  *
 */
 
-use crate::widgets::inspector::InspectAngle;
-use bevy::math::Quat;
+use crate::{
+    site::Change,
+    widgets::{inspector::InspectAngle, Inspect, prelude::*}
+};
+use bevy::{math::Quat, prelude::*};
 use bevy_egui::egui::{ComboBox, DragValue, Grid, Ui};
 use rmf_site_format::{Pose, Rotation};
 
-pub struct InspectPose<'a> {
+#[derive(SystemParam)]
+pub struct InspectPose<'w, 's> {
+    poses: Query<'w, 's, &'static Pose>,
+    change_pose: EventWriter<'w, Change<Pose>>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectPose<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok(pose) = params.poses.get(selection) else {
+            return;
+        };
+        if let Some(new_pose) = InspectPoseComponent::new(pose).show(ui) {
+            params.change_pose.send(Change::new(new_pose, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+pub struct InspectPoseComponent<'a> {
     pub pose: &'a Pose,
     pub for_rotation: &'a bool,
 }
 
-impl<'a> InspectPose<'a> {
+impl<'a> InspectPoseComponent<'a> {
     pub fn new(pose: &'a Pose) -> Self {
         Self {
             pose,

@@ -25,7 +25,7 @@ use crate::{
     },
     widgets::{
         prelude::*,
-        inspector::{InspectLightKind, InspectPose}, SelectionWidget,
+        inspector::{InspectLightKind, InspectPoseComponent}, SelectionWidget,
         AppEvents, SelectorWidget,
     },
 };
@@ -142,7 +142,7 @@ impl<'w, 's> ExViewLights<'w, 's> {
         }
 
         ui.heading("Create new light");
-        if let Some(new_pose) = InspectPose::new(&self.display_light.pose).show(ui) {
+        if let Some(new_pose) = InspectPoseComponent::new(&self.display_light.pose).show(ui) {
             self.display_light.pose = new_pose;
         }
 
@@ -305,7 +305,7 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewLights<'a, 'w1, 's1, 'w2, 's2> {
         }
 
         ui.heading("Create new light");
-        if let Some(new_pose) = InspectPose::new(&self.events.display.light.pose).show(ui) {
+        if let Some(new_pose) = InspectPoseComponent::new(&self.events.display.light.pose).show(ui) {
             self.events.display.light.pose = new_pose;
         }
 

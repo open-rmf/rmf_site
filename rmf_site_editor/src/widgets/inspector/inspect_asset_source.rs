@@ -15,7 +15,12 @@
  *
 */
 
-use crate::site::DefaultFile;
+use crate::{
+    CurrentWorkspace,
+    site::{DefaultFile, Change, Pending},
+    widgets::{Inspect, prelude::*},
+};
+use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
 use pathdiff::diff_paths;
 use rmf_site_format::{AssetSource, RecallAssetSource};
@@ -23,13 +28,48 @@ use rmf_site_format::{AssetSource, RecallAssetSource};
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::FileDialog;
 
-pub struct InspectAssetSource<'a> {
+#[derive(SystemParam)]
+pub struct InspectAssetSource<'w, 's> {
+    asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
+    change_asset_source: EventWriter<'w, Change<AssetSource>>,
+    current_workspace: Res<'w, CurrentWorkspace>,
+    default_file: Query<'w, 's, &'static DefaultFile>,
+}
+
+impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
+    fn show(
+        Inspect { selection, .. }: Inspect,
+        ui: &mut Ui,
+        state: &mut SystemState<Self>,
+        world: &mut World,
+    ) {
+        let mut params = state.get_mut(world);
+        let Ok((source, recall)) = params.asset_sources.get(selection) else {
+            return;
+        };
+
+        let default_file = params
+            .current_workspace
+            .root
+            .map(|e| params.default_file.get(e).ok())
+            .flatten();
+
+        if let Some(new_source) = InspectAssetSourceComponent::new(
+            source, recall, default_file,
+        ).show(ui) {
+            params.change_asset_source.send(Change::new(new_source, selection));
+        }
+        ui.add_space(10.0);
+    }
+}
+
+pub struct InspectAssetSourceComponent<'a> {
     pub source: &'a AssetSource,
     pub recall: &'a RecallAssetSource,
     pub default_file: Option<&'a DefaultFile>,
 }
 
-impl<'a> InspectAssetSource<'a> {
+impl<'a> InspectAssetSourceComponent<'a> {
     pub fn new(
         source: &'a AssetSource,
         recall: &'a RecallAssetSource,

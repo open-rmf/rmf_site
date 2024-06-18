@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
-    widgets::{AppEvents, Icons, prelude::*, Inspect},
+    widgets::{AppEvents, Icons, prelude::*, Inspect, InspectionPlugin},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
@@ -54,6 +54,19 @@ impl SearchResult {
             // fiducial name
             _ => *self = Self::Conflict(text),
         }
+    }
+}
+
+#[derive(Default)]
+pub struct InspectFiducialPlugin {
+
+}
+
+impl Plugin for InspectFiducialPlugin {
+    fn build(&self, app: &mut App) {
+        app
+            .init_resource::<SearchForFiducial>()
+            .add_plugins(InspectionPlugin::<InspectFiducial>::new());
     }
 }
 
