@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
-    widgets::{Icons, prelude::*, Inspect, InspectionPlugin},
+    widgets::{prelude::*, Icons, Inspect, InspectionPlugin},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
@@ -58,14 +58,11 @@ impl SearchResult {
 }
 
 #[derive(Default)]
-pub struct InspectFiducialPlugin {
-
-}
+pub struct InspectFiducialPlugin {}
 
 impl Plugin for InspectFiducialPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<SearchForFiducial>()
+        app.init_resource::<SearchForFiducial>()
             .add_plugins(InspectionPlugin::<InspectFiducial>::new());
     }
 }
@@ -83,7 +80,9 @@ pub struct InspectFiducial<'w, 's> {
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectFiducial<'w, 's> {
     fn show(
-        Inspect { selection, panel, .. }: Inspect,
+        Inspect {
+            selection, panel, ..
+        }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,

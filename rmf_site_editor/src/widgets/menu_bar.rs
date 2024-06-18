@@ -15,10 +15,7 @@
  *
 */
 
-use crate::{
-    AppState, CreateNewWorkspace, LoadWorkspace, SaveWorkspace,
-    widgets::prelude::*,
-};
+use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, LoadWorkspace, SaveWorkspace};
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
@@ -30,17 +27,14 @@ use bevy_egui::{
 use std::collections::HashSet;
 
 #[derive(Default)]
-pub struct MenuBarPlugin {
-
-}
+pub struct MenuBarPlugin {}
 
 impl Plugin for MenuBarPlugin {
     fn build(&self, app: &mut App) {
         let widget = PanelWidget::new(top_menu_bar, &mut app.world);
         app.world.spawn(widget);
 
-        app
-            .add_event::<MenuEvent>()
+        app.add_event::<MenuEvent>()
             .init_resource::<FileMenu>()
             .init_resource::<ToolMenu>()
             .init_resource::<ViewMenu>();

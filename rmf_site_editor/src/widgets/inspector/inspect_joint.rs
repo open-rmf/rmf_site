@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Dependents, FrameMarker, JointProperties},
-    widgets::{SelectorWidget, Inspect, prelude::*},
+    widgets::{prelude::*, Inspect, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;

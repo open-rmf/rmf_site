@@ -15,13 +15,13 @@
  *
 */
 
+use crate::{
+    site::Change,
+    widgets::{prelude::*, Inspect},
+};
 use bevy::prelude::*;
 use bevy_egui::egui::Ui;
 use rmf_site_format::{NameInSite, NameInWorkcell, NameOfWorkcell};
-use crate::{
-    site::Change,
-    widgets::{prelude::*, Inspect}
-};
 
 #[derive(SystemParam)]
 pub struct InspectName<'w, 's> {
@@ -33,14 +33,14 @@ pub struct InspectName<'w, 's> {
     change_name_of_workcell: EventWriter<'w, Change<NameOfWorkcell>>,
 }
 
-impl<'w, 's> ShareableWidget for InspectName<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectName<'w, 's> {}
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) {
         let mut params = state.get_mut(world);
         if let Ok(name) = params.names_in_site.get(selection) {
@@ -50,7 +50,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
                 ui.text_edit_singleline(&mut new_name.0);
             });
             if new_name != *name {
-                params.change_name_in_site.send(Change::new(new_name, selection));
+                params
+                    .change_name_in_site
+                    .send(Change::new(new_name, selection));
             }
         }
 
@@ -61,7 +63,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
                 ui.text_edit_singleline(&mut new_name.0);
             });
             if new_name != *name {
-                params.change_name_in_workcell.send(Change::new(new_name, selection));
+                params
+                    .change_name_in_workcell
+                    .send(Change::new(new_name, selection));
             }
         }
 
@@ -72,7 +76,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
                 ui.text_edit_singleline(&mut new_name.0);
             });
             if new_name != *name {
-                params.change_name_of_workcell.send(Change::new(new_name, selection));
+                params
+                    .change_name_of_workcell
+                    .send(Change::new(new_name, selection));
             }
         }
     }

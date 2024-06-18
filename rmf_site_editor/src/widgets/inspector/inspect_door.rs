@@ -17,7 +17,11 @@
 
 use crate::{
     site::Change,
-    widgets::{inspector::{InspectAngle, InspectSide}, Inspect, prelude::*}
+    widgets::{
+        inspector::{InspectAngle, InspectSide},
+        prelude::*,
+        Inspect,
+    },
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, DragValue, Ui};

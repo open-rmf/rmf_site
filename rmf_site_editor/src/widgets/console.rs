@@ -23,9 +23,7 @@ use bevy_egui::{
 };
 
 #[derive(Default)]
-pub struct ConsoleWidgetPlugin {
-
-}
+pub struct ConsoleWidgetPlugin {}
 
 impl Plugin for ConsoleWidgetPlugin {
     fn build(&self, app: &mut App) {
@@ -59,8 +57,7 @@ fn console_widget(
                     ui.horizontal_wrapped(|ui| {
                         ui.spacing_mut().item_spacing.x = 10.0;
                         // Filter logs by category
-                        let mut all_are_checked = log_history
-                            .all_categories_are_selected();
+                        let mut all_are_checked = log_history.all_categories_are_selected();
                         let all_were_checked = all_are_checked;
                         ui.checkbox(&mut all_are_checked, "All");
                         ui.checkbox(
@@ -75,10 +72,7 @@ fn console_widget(
                             log_history.category_present_mut(LogCategory::Error),
                             "Error",
                         );
-                        ui.checkbox(
-                            log_history.category_present_mut(LogCategory::Bevy),
-                            "Bevy",
-                        );
+                        ui.checkbox(log_history.category_present_mut(LogCategory::Bevy), "Bevy");
                         // Copy full log history to clipboard
                         if ui.button("Copy Log History").clicked() {
                             ui.output_mut(|o| {

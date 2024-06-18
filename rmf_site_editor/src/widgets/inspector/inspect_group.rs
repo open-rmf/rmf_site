@@ -16,12 +16,8 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, Texture, NameInSite},
-    widgets::{
-        prelude::*,
-        inspector::InspectTexture,
-        SelectorWidget, Inspect,
-    },
+    site::{Affiliation, Change, DefaultFile, Group, Members, NameInSite, Texture},
+    widgets::{inspector::InspectTexture, prelude::*, Inspect, SelectorWidget},
     CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -60,22 +56,14 @@ impl<'w, 's> InspectGroup<'w, 's> {
 
         if let Ok(Affiliation(Some(group))) = self.affiliation.get(id) {
             ui.separator();
-            let name = self
-                .names
-                .get(*group)
-                .map(|n| n.0.as_str())
-                .unwrap_or("");
+            let name = self.names.get(*group).map(|n| n.0.as_str()).unwrap_or("");
             ui.label(RichText::new(format!("Group Properties of [{}]", name)).size(18.0));
             ui.add_space(5.0);
             self.show_group_properties(*group, ui);
         }
     }
 
-    pub fn show_group_properties(
-        &mut self,
-        id: Entity,
-        ui: &mut Ui,
-    ) {
+    pub fn show_group_properties(&mut self, id: Entity, ui: &mut Ui) {
         let default_file = self
             .current_workspace
             .root

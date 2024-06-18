@@ -20,7 +20,7 @@ use crate::{
         AssociatedGraphs, Change, ConsiderAssociatedGraph, NameInSite, NavGraphMarker,
         RecallAssociatedGraphs,
     },
-    widgets::{Icons, Inspect, prelude::*},
+    widgets::{prelude::*, Icons, Inspect},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};
@@ -88,19 +88,15 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
                         _ => continue,
                     };
                     ui.horizontal(|ui| {
-                        if ui
-                            .add(ImageButton::new(self.icons.trash.egui()))
-                            .clicked()
-                        {
+                        if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
                             removed_graphs.push(*g);
                         }
                         ui.label(&name.0);
                     });
                 }
 
-                let unused_graphs: BTreeMap<Entity, &NameInSite> = BTreeMap::from_iter(
-                    self.graphs.iter().filter(|(e, _)| !set.contains(e)),
-                );
+                let unused_graphs: BTreeMap<Entity, &NameInSite> =
+                    BTreeMap::from_iter(self.graphs.iter().filter(|(e, _)| !set.contains(e)));
 
                 if let Some((first, _)) = unused_graphs.iter().next() {
                     ui.horizontal(|ui| {
@@ -120,14 +116,12 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
 
                         if add_graph {
                             set.insert(choice);
-                            self.consider_graph.send(
-                                ConsiderAssociatedGraph::new(None, id)
-                            );
+                            self.consider_graph
+                                .send(ConsiderAssociatedGraph::new(None, id));
                         } else {
                             if Some(choice) != recall.consider {
-                                self.consider_graph.send(
-                                    ConsiderAssociatedGraph::new(Some(choice), id)
-                                );
+                                self.consider_graph
+                                    .send(ConsiderAssociatedGraph::new(Some(choice), id));
                             }
                         }
                     });
@@ -140,7 +134,8 @@ impl<'w, 's> InspectAssociatedGraphs<'w, 's> {
         }
 
         if new_associated != *associated {
-            self.change_associated_graphs.send(Change::new(new_associated, id));
+            self.change_associated_graphs
+                .send(Change::new(new_associated, id));
         }
 
         ui.add_space(10.0);

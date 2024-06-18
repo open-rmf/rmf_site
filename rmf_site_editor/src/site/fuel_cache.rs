@@ -88,10 +88,9 @@ pub fn handle_update_fuel_cache_requests(
                 let write_to_disk = true;
                 // Send client if update was successful
 
-                let res = fuel_client.update_cache_with_progress(
-                    write_to_disk,
-                    Some(progress),
-                ).await;
+                let res = fuel_client
+                    .update_cache_with_progress(write_to_disk, Some(progress))
+                    .await;
                 sender
                     .send(FuelCacheUpdated(res))
                     .expect("Failed sending fuel cache update event");
@@ -102,8 +101,7 @@ pub fn handle_update_fuel_cache_requests(
     while let Ok(next_model) = progress_channel.receiver.try_recv() {
         info!(
             "Received model {} owned by {}",
-            next_model.name,
-            next_model.owner,
+            next_model.name, next_model.owner,
         );
     }
 }

@@ -17,13 +17,11 @@
 
 use crate::{
     site::{
-        Change, CabinDoorId, LevelElevation, NameInSite, ToggleLiftDoorAvailability,
-        CurrentLevel,
+        CabinDoorId, Change, CurrentLevel, LevelElevation, NameInSite, ToggleLiftDoorAvailability,
     },
     widgets::{
-        inspector::InspectOptionF32,
-        prelude::*,
-        Inspect, SelectorWidget, LevelDisplay, InspectionPlugin,
+        inspector::InspectOptionF32, prelude::*, Inspect, InspectionPlugin, LevelDisplay,
+        SelectorWidget,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -31,14 +29,11 @@ use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 use rmf_site_format::lift::*;
 
 #[derive(Default)]
-pub struct InspectLiftPlugin {
-
-}
+pub struct InspectLiftPlugin {}
 
 impl Plugin for InspectLiftPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<LevelDisplay>()
+        app.init_resource::<LevelDisplay>()
             .add_plugins(InspectionPlugin::<InspectLiftCabin>::new());
     }
 }
@@ -129,16 +124,13 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                     params.gap = new_gap;
                 }
 
-                if let Some(new_shift) = InspectOptionF32::new(
-                    "Shift",
-                    params.shift,
-                    recall.shift.unwrap_or(0.0),
-                )
-                .suffix("m")
-                .min_decimals(2)
-                .max_decimals(4)
-                .speed(0.001)
-                .show(ui)
+                if let Some(new_shift) =
+                    InspectOptionF32::new("Shift", params.shift, recall.shift.unwrap_or(0.0))
+                        .suffix("m")
+                        .min_decimals(2)
+                        .max_decimals(4)
+                        .speed(0.001)
+                        .show(ui)
                 {
                     params.shift = new_shift;
                 }
@@ -163,16 +155,13 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                                     );
                                 });
 
-                                if let Some(new_shift) = InspectOptionF32::new(
-                                    "Shifted",
-                                    placement.shifted,
-                                    0.0,
-                                )
-                                .suffix("m")
-                                .min_decimals(2)
-                                .max_decimals(4)
-                                .speed(0.005)
-                                .show(ui)
+                                if let Some(new_shift) =
+                                    InspectOptionF32::new("Shifted", placement.shifted, 0.0)
+                                        .suffix("m")
+                                        .min_decimals(2)
+                                        .max_decimals(4)
+                                        .speed(0.005)
+                                        .show(ui)
                                 {
                                     placement.shifted = new_shift;
                                 }
@@ -238,14 +227,12 @@ impl<'w, 's> InspectLiftCabin<'w, 's> {
                             });
                     } else if let Some(current_level) = **self.current_level {
                         if ui.button(format!("Add {} Door", face.label())).clicked() {
-                            self.toggle_door_levels.send(
-                                ToggleLiftDoorAvailability {
-                                    for_lift: id,
-                                    on_level: current_level,
-                                    cabin_door: CabinDoorId::RectFace(face),
-                                    door_available: true,
-                                },
-                            );
+                            self.toggle_door_levels.send(ToggleLiftDoorAvailability {
+                                for_lift: id,
+                                on_level: current_level,
+                                cabin_door: CabinDoorId::RectFace(face),
+                                door_available: true,
+                            });
                         }
                     }
                 }

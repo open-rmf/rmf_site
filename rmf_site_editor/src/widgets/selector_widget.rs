@@ -18,9 +18,9 @@
 use crate::{
     interaction::{Hover, Select, Selection},
     site::SiteID,
-    widgets::{Icons, prelude::*},
+    widgets::{prelude::*, Icons},
 };
-use bevy::{prelude::*, ecs::system::SystemParam};
+use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
 
 #[derive(SystemParam)]
@@ -67,4 +67,4 @@ impl<'w, 's> SelectorWidget<'w, 's> {
     }
 }
 
-impl<'w, 's> ShareableWidget for SelectorWidget<'w, 's> { }
+impl<'w, 's> ShareableWidget for SelectorWidget<'w, 's> {}

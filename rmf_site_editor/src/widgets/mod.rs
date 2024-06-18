@@ -15,18 +15,24 @@
  *
 */
 
-use crate::{interaction::{Hover, PickingBlockers}, AppState};
+use crate::{
+    interaction::{Hover, PickingBlockers},
+    AppState,
+};
 use bevy::{
     asset::embedded_asset,
     ecs::{
-        system::{SystemParam, SystemState, BoxedSystem},
+        system::{BoxedSystem, SystemParam, SystemState},
         world::EntityWorldMut,
     },
     prelude::*,
 };
-use bevy_egui::{egui::{self, Ui}, EguiContexts};
-use smallvec::SmallVec;
+use bevy_egui::{
+    egui::{self, Ui},
+    EguiContexts,
+};
 use rmf_site_format::*;
+use smallvec::SmallVec;
 
 pub mod building_preview;
 use building_preview::*;
@@ -152,8 +158,7 @@ fn add_widgets_icons(app: &mut App) {
 impl Plugin for StandardUiLayout {
     fn build(&self, app: &mut App) {
         add_widgets_icons(app);
-        app
-            .init_resource::<Icons>()
+        app.init_resource::<Icons>()
             .add_plugins((
                 MenuBarPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
@@ -180,9 +185,7 @@ impl Plugin for StandardUiLayout {
 }
 
 #[derive(Default)]
-pub struct StandardPropertiesPanelPlugin {
-
-}
+pub struct StandardPropertiesPanelPlugin {}
 
 impl Plugin for StandardPropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
@@ -252,7 +255,7 @@ where
     }
 }
 
-pub type ShowResult<T=()> = Result<T, ShowError>;
+pub type ShowResult<T = ()> = Result<T, ShowError>;
 
 #[derive(Debug)]
 pub enum ShowError {
@@ -267,20 +270,11 @@ pub enum ShowError {
 }
 
 pub trait TryShowWidgetWorld {
-    fn try_show(
-        &mut self,
-        entity: Entity,
-        ui: &mut Ui,
-    ) -> ShowResult<()> {
+    fn try_show(&mut self, entity: Entity, ui: &mut Ui) -> ShowResult<()> {
         self.try_show_out(entity, (), ui)
     }
 
-    fn try_show_in<Input>(
-        &mut self,
-        entity: Entity,
-        input: Input,
-        ui: &mut Ui,
-    ) -> ShowResult<()>
+    fn try_show_in<Input>(&mut self, entity: Entity, input: Input, ui: &mut Ui) -> ShowResult<()>
     where
         Input: 'static + Send + Sync,
     {
@@ -317,40 +311,25 @@ impl TryShowWidgetWorld for World {
 }
 
 pub trait TryShowWidgetEntity {
-    fn try_show(
-        &mut self,
-        ui: &mut Ui,
-    ) -> ShowResult<()> {
+    fn try_show(&mut self, ui: &mut Ui) -> ShowResult<()> {
         self.try_show_out((), ui)
     }
 
-    fn try_show_in<Input>(
-        &mut self,
-        input: Input,
-        ui: &mut Ui,
-    ) -> ShowResult<()>
+    fn try_show_in<Input>(&mut self, input: Input, ui: &mut Ui) -> ShowResult<()>
     where
         Input: 'static + Send + Sync,
     {
         self.try_show_out(input, ui)
     }
 
-    fn try_show_out<Output, Input>(
-        &mut self,
-        input: Input,
-        ui: &mut Ui,
-    ) -> ShowResult<Output>
+    fn try_show_out<Output, Input>(&mut self, input: Input, ui: &mut Ui) -> ShowResult<Output>
     where
         Input: 'static + Send + Sync,
         Output: 'static + Send + Sync;
 }
 
 impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
-    fn try_show_out<Output, Input>(
-        &mut self,
-        input: Input,
-        ui: &mut Ui,
-    ) -> ShowResult<Output>
+    fn try_show_out<Output, Input>(&mut self, input: Input, ui: &mut Ui) -> ShowResult<Output>
     where
         Input: 'static + Send + Sync,
         Output: 'static + Send + Sync,
@@ -363,9 +342,7 @@ impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
             return Err(ShowError::Recursion);
         };
 
-        let output = self.world_scope(|world| {
-            inner.show(input, ui, world)
-        });
+        let output = self.world_scope(|world| inner.show(input, ui, world));
 
         if let Some(mut widget) = self.get_mut::<Widget<Input, Output>>() {
             widget.inner = Some(inner);
@@ -380,7 +357,7 @@ impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
 /// parameters do not use the [`Changed`] filter. It is the responsibility of
 /// the user to ensure that sharing this widget will not have any bad side
 /// effects.
-pub trait ShareableWidget { }
+pub trait ShareableWidget {}
 
 /// A resource to store a widget so that it can be reused multiple times in one
 /// render pass.
@@ -399,7 +376,7 @@ pub trait ShowSharedWidget {
 impl ShowSharedWidget for World {
     fn show<W, Output, Input>(&mut self, input: Input, ui: &mut Ui) -> Output
     where
-        W: ShareableWidget + WidgetSystem<Input, Output> + 'static
+        W: ShareableWidget + WidgetSystem<Input, Output> + 'static,
     {
         if !self.contains_resource::<SharedWidget<W>>() {
             let widget = SharedWidget::<W> {
@@ -429,13 +406,12 @@ pub struct Tile {
 
 pub mod prelude {
     pub use super::{
-        Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
-        ShowResult, ShowError, Tile, ShowSharedWidget, ShareableWidget,
-        Panel, PanelSide, PropertiesPanel, PanelWidget,
-        properties_panel::*,
+        properties_panel::*, Panel, PanelSide, PanelWidget, PropertiesPanel, ShareableWidget,
+        ShowError, ShowResult, ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld,
+        Widget, WidgetSystem,
     };
     pub use bevy::ecs::{
-        system::{SystemState, SystemParam},
+        system::{SystemParam, SystemState},
         world::World,
     };
     pub use bevy_egui::egui::Ui;
@@ -449,13 +425,12 @@ pub struct PanelWidget {
 }
 
 impl PanelWidget {
-    pub fn new<M, S: IntoSystem<Entity, (), M>>(
-        system: S,
-        world: &mut World,
-    ) -> Self {
+    pub fn new<M, S: IntoSystem<Entity, (), M>>(system: S, world: &mut World) -> Self {
         let mut system = Box::new(IntoSystem::into_system(system));
         system.initialize(world);
-        Self { inner: Some(system) }
+        Self {
+            inner: Some(system),
+        }
     }
 }
 
@@ -467,7 +442,13 @@ fn site_ui_layout(
     let mut panels: SmallVec<[_; 16]> = panel_widgets
         .iter_mut(world)
         .map(|(entity, mut widget)| {
-            (entity, widget.inner.take().expect("Inner system of PanelWidget is missing"))
+            (
+                entity,
+                widget
+                    .inner
+                    .take()
+                    .expect("Inner system of PanelWidget is missing"),
+            )
         })
         .collect();
 
@@ -484,9 +465,8 @@ fn site_ui_layout(
 
     let mut egui_context = egui_context_state.get_mut(world);
     let ctx = egui_context.ctx_mut();
-    let ui_has_focus = ctx.wants_pointer_input()
-        || ctx.wants_keyboard_input()
-        || ctx.is_pointer_over_area();
+    let ui_has_focus =
+        ctx.wants_pointer_input() || ctx.wants_keyboard_input() || ctx.is_pointer_over_area();
 
     if let Some(mut picking_blocker) = world.get_resource_mut::<PickingBlockers>() {
         picking_blocker.ui = ui_has_focus;
@@ -516,10 +496,7 @@ pub enum EguiPanel {
 }
 
 impl EguiPanel {
-    pub fn map_vertical(
-        self,
-        f: impl FnOnce(egui::SidePanel) -> egui::SidePanel,
-    ) -> Self {
+    pub fn map_vertical(self, f: impl FnOnce(egui::SidePanel) -> egui::SidePanel) -> Self {
         match self {
             Self::Vertical(panel) => Self::Vertical(f(panel)),
             other => other,
@@ -560,11 +537,7 @@ impl PanelSide {
     }
 
     /// Align the Ui to line up with the long direction of the panel
-    pub fn align<R>(
-        self,
-        ui: &mut Ui,
-        f: impl FnOnce(&mut Ui) -> R,
-    ) -> egui::InnerResponse<R> {
+    pub fn align<R>(self, ui: &mut Ui, f: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
         if self.is_horizontal() {
             ui.horizontal(f)
         } else {
@@ -624,16 +597,17 @@ pub fn tile_panel_widget(
     side.get_panel()
         .map_vertical(|panel| {
             // TODO(@mxgrey): Make this configurable via a component
-            panel
-            .resizable(true)
-            .default_width(300.0)
+            panel.resizable(true).default_width(300.0)
         })
         .show(&ctx, |ui| {
             egui::ScrollArea::both()
                 .auto_shrink([false, false])
                 .show(ui, |ui| {
                     for child in children {
-                        let tile = Tile { id: child, panel: side };
+                        let tile = Tile {
+                            id: child,
+                            panel: side,
+                        };
                         if let Err(err) = world.try_show_in(child, tile, ui) {
                             error!(
                                 "Could not render child widget {child:?} in \
@@ -653,6 +627,4 @@ fn init_ui_style(mut egui_context: EguiContexts) {
     egui_context.ctx_mut().set_visuals(visuals);
 }
 
-pub struct PropertiesTilePlugin {
-
-}
+pub struct PropertiesTilePlugin {}

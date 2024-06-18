@@ -17,21 +17,18 @@
 
 use crate::{
     site::{Change, FiducialMarker, MergeGroups, NameInSite, SiteID, Texture},
-    widgets::{SelectorWidget, prelude::*},
-    Icons, CurrentWorkspace, AppState,
+    widgets::{prelude::*, SelectorWidget},
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
 #[derive(Default)]
-pub struct ViewGroupsPlugin {
-
-}
+pub struct ViewGroupsPlugin {}
 
 impl Plugin for ViewGroupsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<GroupViewModes>()
+        app.init_resource::<GroupViewModes>()
             .add_plugins(PropertiesTilePlugin::<ViewGroups>::new());
     }
 }

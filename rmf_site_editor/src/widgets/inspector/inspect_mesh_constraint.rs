@@ -15,7 +15,7 @@
  *
 */
 
-use crate::widgets::{Inspect, SelectorWidget, prelude::*};
+use crate::widgets::{prelude::*, Inspect, SelectorWidget};
 use bevy::prelude::*;
 use rmf_site_format::*;
 use std::collections::{BTreeMap, BTreeSet};
@@ -55,10 +55,7 @@ impl<'w, 's> InspectModelDependents<'w, 's> {
                 let mut category_map: BTreeMap<Category, BTreeSet<Entity>> = BTreeMap::new();
                 for e in &dependents.0 {
                     if let Ok(category) = self.categories.get(*e) {
-                        category_map
-                            .entry(*category)
-                            .or_default()
-                            .insert(*e);
+                        category_map.entry(*category).or_default().insert(*e);
                     } else {
                         ui.label(format!("ERROR: Broken reference to entity {e:?}"));
                     }

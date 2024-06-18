@@ -16,7 +16,10 @@
 */
 
 use crate::site::ChangePlugin;
-use bevy::{prelude::*, utils::{HashMap, Uuid}};
+use bevy::{
+    prelude::*,
+    utils::{HashMap, Uuid},
+};
 use rmf_site_format::{FilteredIssueKinds, FilteredIssues, IssueKey};
 
 #[derive(Component, Debug, Clone)]
@@ -55,8 +58,7 @@ pub struct IssuePlugin;
 
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<ValidateWorkspace>()
+        app.add_event::<ValidateWorkspace>()
             .add_plugins((
                 ChangePlugin::<FilteredIssues<Entity>>::default(),
                 ChangePlugin::<FilteredIssueKinds>::default(),

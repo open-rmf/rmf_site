@@ -116,21 +116,18 @@ use crate::{
 };
 use bevy::{
     ecs::system::{SystemParam, SystemState},
-    prelude::*
+    prelude::*,
 };
-use bevy_egui::egui::{Ui, CollapsingHeader};
+use bevy_egui::egui::{CollapsingHeader, Ui};
 use rmf_site_format::*;
 use smallvec::SmallVec;
 
 #[derive(Default)]
-pub struct StandardInspectorPlugin {
-
-}
+pub struct StandardInspectorPlugin {}
 
 impl Plugin for StandardInspectorPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins(MinimalInspectorPlugin::default())
+        app.add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
                 InspectionPlugin::<InspectName>::new(),
                 InspectionPlugin::<InspectAnchor>::new(),
@@ -166,9 +163,7 @@ impl Plugin for StandardInspectorPlugin {
 }
 
 #[derive(Default)]
-pub struct MinimalInspectorPlugin {
-
-}
+pub struct MinimalInspectorPlugin {}
 
 impl Plugin for MinimalInspectorPlugin {
     fn build(&self, app: &mut App) {
@@ -188,7 +183,9 @@ where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
 {
     pub fn new() -> Self {
-        Self { _ignore: Default::default() }
+        Self {
+            _ignore: Default::default(),
+        }
     }
 }
 
@@ -238,13 +235,13 @@ struct Inspector<'w, 's> {
 
 impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
     fn show(
-        Tile{ id, panel }: Tile,
+        Tile { id, panel }: Tile,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) {
         match world.resource::<State<AppState>>().get() {
-            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => { }
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
             _ => return,
         }
 
@@ -263,14 +260,15 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
 
                 let params = state.get(world);
 
-                let (label, site_id) = if let Ok((category, site_id)) = params.heading.get(selection) {
-                    (
-                        category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
-                        site_id,
-                    )
-                } else {
-                    ("<Unknown Type>", None)
-                };
+                let (label, site_id) =
+                    if let Ok((category, site_id)) = params.heading.get(selection) {
+                        (
+                            category.map(|x| x.label()).unwrap_or("<Unknown Type>"),
+                            site_id,
+                        )
+                    } else {
+                        ("<Unknown Type>", None)
+                    };
 
                 if let Some(site_id) = site_id {
                     ui.heading(format!("{} #{}", label, site_id.0));
@@ -278,7 +276,8 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     ui.heading(format!("{} (unsaved)", label));
                 }
 
-                let children: Result<SmallVec<[_; 16]>, _> = params.children
+                let children: Result<SmallVec<[_; 16]>, _> = params
+                    .children
                     .get(id)
                     .map(|children| children.iter().copied().collect());
                 let Ok(children) = children else {
@@ -287,7 +286,11 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
 
                 panel.align(ui, |ui| {
                     for child in children {
-                        let inspect = Inspect { selection, inspector: child, panel };
+                        let inspect = Inspect {
+                            selection,
+                            inspector: child,
+                            panel,
+                        };
                         let _ = world.try_show_in(child, inspect, ui);
                     }
                 });

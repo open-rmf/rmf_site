@@ -16,30 +16,27 @@
 */
 
 use crate::{
+    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
     widgets::{
-        prelude::*,
         menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
+        prelude::*,
         SelectorWidget,
     },
-    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
-    Icons, Issue, IssueDictionary, ValidateWorkspace, CurrentWorkspace, AppState,
+    AppState, CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    EguiContexts,
     egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui},
+    EguiContexts,
 };
 use std::collections::HashSet;
 
 #[derive(Default)]
-pub struct DiagnosticsPlugin {
-
-}
+pub struct DiagnosticsPlugin {}
 
 impl Plugin for DiagnosticsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<IssueDictionary>()
+        app.init_resource::<IssueDictionary>()
             .init_resource::<IssueMenu>()
             .init_resource::<DiagnosticsDisplay>()
             .add_systems(Update, handle_diagnostic_panel_visibility);

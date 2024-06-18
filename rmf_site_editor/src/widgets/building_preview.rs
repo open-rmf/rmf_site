@@ -16,17 +16,15 @@
 */
 
 use crate::{
-    widgets::prelude::*,
     site::{AlignSiteDrawings, FinishEditDrawing},
-    AppState, Icons, CurrentWorkspace,
+    widgets::prelude::*,
+    AppState, CurrentWorkspace, Icons,
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Button, Ui};
 
 #[derive(Default)]
-pub struct BuildingPreviewPlugin {
-
-}
+pub struct BuildingPreviewPlugin {}
 
 impl Plugin for BuildingPreviewPlugin {
     fn build(&self, app: &mut App) {
@@ -54,11 +52,14 @@ impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
         }
 
         if *params.app_state == AppState::SiteVisualizer {
-            if ui.add(Button::image_and_text(
-                params.icons.alignment.egui(),
-                "Align Drawings",
-            ))
-                .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+            if ui
+                .add(Button::image_and_text(
+                    params.icons.alignment.egui(),
+                    "Align Drawings",
+                ))
+                .on_hover_text(
+                    "Align all drawings in the site based on their fiducials and measurements",
+                )
                 .clicked()
             {
                 if let Some(site) = params.current_workspace.root {
@@ -66,19 +67,25 @@ impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
                 }
             }
 
-            if ui.add(Button::image_and_text(
-                params.icons.exit.egui(),
-                "Return to site editor",
-            )).clicked() {
+            if ui
+                .add(Button::image_and_text(
+                    params.icons.exit.egui(),
+                    "Return to site editor",
+                ))
+                .clicked()
+            {
                 params.next_app_state.set(AppState::SiteEditor);
             }
         }
 
         if *params.app_state == AppState::SiteDrawingEditor {
-            if ui.add(Button::image_and_text(
-                params.icons.exit.egui(),
-                "Return to site editor",
-            )).clicked() {
+            if ui
+                .add(Button::image_and_text(
+                    params.icons.exit.egui(),
+                    "Return to site editor",
+                ))
+                .clicked()
+            {
                 params.finish_edit_drawing.send(FinishEditDrawing(None));
             }
         }

@@ -16,9 +16,9 @@
 */
 
 use crate::{
+    site::{Change, DefaultFile, Pending},
+    widgets::{prelude::*, Inspect},
     CurrentWorkspace,
-    site::{DefaultFile, Change, Pending},
-    widgets::{Inspect, prelude::*},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, Ui};
@@ -30,7 +30,8 @@ use rfd::FileDialog;
 
 #[derive(SystemParam)]
 pub struct InspectAssetSource<'w, 's> {
-    asset_sources: Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
+    asset_sources:
+        Query<'w, 's, (&'static AssetSource, &'static RecallAssetSource), Without<Pending>>,
     change_asset_source: EventWriter<'w, Change<AssetSource>>,
     current_workspace: Res<'w, CurrentWorkspace>,
     default_file: Query<'w, 's, &'static DefaultFile>,
@@ -54,10 +55,12 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectAssetSource<'w, 's> {
             .map(|e| params.default_file.get(e).ok())
             .flatten();
 
-        if let Some(new_source) = InspectAssetSourceComponent::new(
-            source, recall, default_file,
-        ).show(ui) {
-            params.change_asset_source.send(Change::new(new_source, selection));
+        if let Some(new_source) =
+            InspectAssetSourceComponent::new(source, recall, default_file).show(ui)
+        {
+            params
+                .change_asset_source
+                .send(Change::new(new_source, selection));
         }
         ui.add_space(10.0);
     }

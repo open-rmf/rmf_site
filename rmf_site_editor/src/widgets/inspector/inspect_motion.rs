@@ -18,8 +18,9 @@
 use crate::{
     site::Change,
     widgets::{
-        prelude::*, Inspect,
-        inspector::{InspectAngle, InspectOptionF32}
+        inspector::{InspectAngle, InspectOptionF32},
+        prelude::*,
+        Inspect,
     },
 };
 use bevy::prelude::*;
@@ -38,7 +39,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMotion<'w, 's> {
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) {
         let mut params = state.get_mut(world);
         params.forward.show_widget(selection, ui);

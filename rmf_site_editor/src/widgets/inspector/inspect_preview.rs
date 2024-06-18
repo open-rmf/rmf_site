@@ -18,7 +18,7 @@
 use crate::{
     interaction::SpawnPreview,
     site::PreviewableMarker,
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 
@@ -38,7 +38,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPreview<'w, 's> {
         let mut params = state.get_mut(world);
         if params.previewable.contains(selection) {
             if ui.button("Preview").clicked() {
-                params.spawn_preview.send(SpawnPreview::new(Some(selection)));
+                params
+                    .spawn_preview
+                    .send(SpawnPreview::new(Some(selection)));
             }
             ui.add_space(10.0);
         }

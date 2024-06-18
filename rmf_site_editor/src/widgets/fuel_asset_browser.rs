@@ -22,15 +22,13 @@ use crate::{
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
-    EguiContexts,
     egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window},
+    EguiContexts,
 };
 use gz_fuel::FuelModel;
 
 #[derive(Default)]
-pub struct FuelAssetBrowserPlugin {
-
-}
+pub struct FuelAssetBrowserPlugin {}
 
 impl Plugin for FuelAssetBrowserPlugin {
     fn build(&self, app: &mut App) {
@@ -96,12 +94,7 @@ fn fuel_asset_browser_panel(
 }
 
 impl<'w, 's> WidgetSystem for FuelAssetBrowser<'w, 's> {
-    fn show(
-        _: (),
-        ui: &mut Ui,
-        state: &mut SystemState<Self>,
-        world: &mut World,
-    ) {
+    fn show(_: (), ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         params.show_widget(ui);
     }
@@ -255,11 +248,7 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 ui.add_space(10.0);
 
                 ui.image(ImageSource::Texture(
-                    (
-                        self.model_preview_camera.egui_handle,
-                        [320.0, 240.0].into(),
-                    )
-                        .into(),
+                    (self.model_preview_camera.egui_handle, [320.0, 240.0].into()).into(),
                 ));
                 ui.add_space(10.0);
 
@@ -303,7 +292,8 @@ impl<'w, 's> FuelAssetBrowser<'w, 's> {
                 ui.text_edit_singleline(&mut gallery_status.proposed_api_key);
                 if ui.add(Button::new("Save")).clicked() {
                     // Take it to avoid leaking the information in the dialog
-                    self.set_api_key.send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
+                    self.set_api_key
+                        .send(SetFuelApiKey(gallery_status.proposed_api_key.clone()));
                     fuel_client.token = Some(std::mem::take(&mut gallery_status.proposed_api_key));
                     gallery_status.show_api_window = false;
                 } else if ui.add(Button::new("Close")).clicked() {

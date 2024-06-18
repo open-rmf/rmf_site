@@ -21,32 +21,26 @@ use crate::{
         Change, Delete, DisplayColor, ImportNavGraphs, NameInSite, NameOfSite, NavGraph,
         NavGraphMarker, SaveNavGraphs, DEFAULT_NAV_GRAPH_COLORS,
     },
-    widgets::{
-        inspector::color_edit, prelude::*,
-        Icons, MoveLayerButton, SelectorWidget,
-    },
-    Autoload, CurrentWorkspace, ChangeRank, AppState,
+    widgets::{inspector::color_edit, prelude::*, Icons, MoveLayerButton, SelectorWidget},
+    AppState, Autoload, ChangeRank, CurrentWorkspace,
 };
 use bevy::{
     ecs::system::SystemParam,
     prelude::*,
     tasks::{AsyncComputeTaskPool, Task},
 };
-use bevy_egui::egui::{ImageButton, CollapsingHeader, Ui};
+use bevy_egui::egui::{CollapsingHeader, ImageButton, Ui};
 use futures_lite::future;
 
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 
 #[derive(Default)]
-pub struct ViewNavGraphsPlugin {
-
-}
+pub struct ViewNavGraphsPlugin {}
 
 impl Plugin for ViewNavGraphsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<NavGraphDisplay>()
+        app.init_resource::<NavGraphDisplay>()
             .add_plugins(PropertiesTilePlugin::<ViewNavGraphs>::new());
     }
 }
@@ -80,12 +74,7 @@ pub struct ViewNavGraphs<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewNavGraphs<'w, 's> {
-    fn show(
-        _: Tile,
-        ui: &mut Ui,
-        state: &mut SystemState<Self>,
-        world: &mut World,
-    ) {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         if *params.app_state.get() != AppState::SiteEditor {
             return;
@@ -135,8 +124,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             let add = ui.button("Add").clicked();
             if self.display_nav_graph.color.is_none() {
                 let next_color_index = graph_count % DEFAULT_NAV_GRAPH_COLORS.len();
-                self.display_nav_graph.color =
-                    Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
+                self.display_nav_graph.color = Some(DEFAULT_NAV_GRAPH_COLORS[next_color_index]);
             }
             if let Some(color) = &mut self.display_nav_graph.color {
                 color_edit(ui, color);
@@ -166,10 +154,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             };
             ui.horizontal(|ui| {
                 if self.display_nav_graph.removing {
-                    if ui
-                        .add(ImageButton::new(self.icons.trash.egui()))
-                        .clicked()
-                    {
+                    if ui.add(ImageButton::new(self.icons.trash.egui())).clicked() {
                         self.delete.send(Delete::new(e));
                         self.display_nav_graph.removing = false;
                     }
@@ -198,7 +183,8 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
                 let mut new_color = color.0;
                 color_edit(ui, &mut new_color);
                 if new_color != color.0 {
-                    self.change_color.send(Change::new(DisplayColor(new_color), e));
+                    self.change_color
+                        .send(Change::new(DisplayColor(new_color), e));
                 }
 
                 let mut new_name = name.0.clone();
@@ -222,37 +208,34 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             ui.separator();
             if ui.button("Import Graphs...").clicked() {
                 match self.current_workspace.to_site(&self.open_sites) {
-                    Some(into_site) => {
-                        match &self.display_nav_graph.choosing_file_to_import {
-                            Some(_) => {
-                                warn!("A file is already being chosen!");
-                            }
-                            None => {
-                                let future = AsyncComputeTaskPool::get().spawn(async move {
-                                    let file = match AsyncFileDialog::new().pick_file().await {
-                                        Some(file) => file,
-                                        None => return None,
-                                    };
-
-                                    match rmf_site_format::Site::from_bytes(&file.read().await) {
-                                        Ok(from_site) => Some((
-                                            file.path().to_owned(),
-                                            ImportNavGraphs {
-                                                into_site,
-                                                from_site,
-                                            },
-                                        )),
-                                        Err(err) => {
-                                            error!("Unable to parse file:\n{err}");
-                                            None
-                                        }
-                                    }
-                                });
-                                self.display_nav_graph.choosing_file_to_import =
-                                    Some(future);
-                            }
+                    Some(into_site) => match &self.display_nav_graph.choosing_file_to_import {
+                        Some(_) => {
+                            warn!("A file is already being chosen!");
                         }
-                    }
+                        None => {
+                            let future = AsyncComputeTaskPool::get().spawn(async move {
+                                let file = match AsyncFileDialog::new().pick_file().await {
+                                    Some(file) => file,
+                                    None => return None,
+                                };
+
+                                match rmf_site_format::Site::from_bytes(&file.read().await) {
+                                    Ok(from_site) => Some((
+                                        file.path().to_owned(),
+                                        ImportNavGraphs {
+                                            into_site,
+                                            from_site,
+                                        },
+                                    )),
+                                    Err(err) => {
+                                        error!("Unable to parse file:\n{err}");
+                                        None
+                                    }
+                                }
+                            });
+                            self.display_nav_graph.choosing_file_to_import = Some(future);
+                        }
+                    },
                     None => {
                         error!("No current site??");
                     }
@@ -262,8 +245,7 @@ impl<'w, 's> ViewNavGraphs<'w, 's> {
             ui.horizontal(|ui| {
                 if let Some(export_file) = &self.display_nav_graph.export_file {
                     if ui.button("Export").clicked() {
-                        if let Some(current_site) =
-                            self.current_workspace.to_site(&self.open_sites)
+                        if let Some(current_site) = self.current_workspace.to_site(&self.open_sites)
                         {
                             self.save_nav_graphs.send(SaveNavGraphs {
                                 site: current_site,

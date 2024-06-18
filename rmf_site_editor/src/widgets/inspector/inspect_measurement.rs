@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Change, Distance},
-    widgets::{Inspect, InspectOptionF32, prelude::*},
+    widgets::{prelude::*, Inspect, InspectOptionF32},
 };
 use bevy::prelude::*;
 
@@ -47,7 +47,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectMeasurement<'w, 's> {
             .suffix(" m")
             .show(ui)
         {
-            params.change_distance.send(Change::new(Distance(new_distance), selection));
+            params
+                .change_distance
+                .send(Change::new(Distance(new_distance), selection));
         }
         ui.add_space(10.0);
     }

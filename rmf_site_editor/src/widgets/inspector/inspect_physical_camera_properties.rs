@@ -16,9 +16,9 @@
 */
 
 use crate::{
+    inspector::{Inspect, InspectAngle, InspectValue},
     site::Change,
     widgets::{egui::RichText, prelude::*},
-    inspector::{Inspect, InspectAngle, InspectValue}
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{Grid, Ui};
@@ -45,20 +45,18 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPhysicalCameraProperties<'w, 's> {
         let mut new_properties = properties.clone();
         ui.label(RichText::new("Camera Properties").size(18.0));
         Grid::new("physical_camera_properties").show(ui, |ui| {
-            if let Some(new_width) =
-                InspectValue::<u32>::new("Width", new_properties.width)
-                    .clamp_range(1..=std::u32::MAX)
-                    .tooltip("Image width in pixels")
-                    .show(ui)
+            if let Some(new_width) = InspectValue::<u32>::new("Width", new_properties.width)
+                .clamp_range(1..=std::u32::MAX)
+                .tooltip("Image width in pixels")
+                .show(ui)
             {
                 new_properties.width = new_width;
             }
             ui.end_row();
-            if let Some(new_height) =
-                InspectValue::<u32>::new("Height", new_properties.height)
-                    .clamp_range(1..=std::u32::MAX)
-                    .tooltip("Image height in pixels")
-                    .show(ui)
+            if let Some(new_height) = InspectValue::<u32>::new("Height", new_properties.height)
+                .clamp_range(1..=std::u32::MAX)
+                .tooltip("Image height in pixels")
+                .show(ui)
             {
                 new_properties.height = new_height;
             }
@@ -85,9 +83,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPhysicalCameraProperties<'w, 's> {
             || new_properties.horizontal_fov != properties.horizontal_fov
             || new_properties.frame_rate != properties.frame_rate
         {
-            params.change_physical_camera_properties.send(
-                Change::new(new_properties, selection)
-            );
+            params
+                .change_physical_camera_properties
+                .send(Change::new(new_properties, selection));
         }
         ui.add_space(10.0);
     }

@@ -17,13 +17,11 @@
 
 use crate::{
     interaction::{Hover, MoveTo},
-    site::{
-        Anchor, Category, Change, Dependents,
-        JointProperties, MeshConstraint, Subordinate,
-    },
+    site::{Anchor, Category, Change, Dependents, JointProperties, MeshConstraint, Subordinate},
     widgets::{
-        inspector::{InspectPoseComponent, Inspect},
-        SelectorWidget, Icons, prelude::*,
+        inspector::{Inspect, InspectPoseComponent},
+        prelude::*,
+        Icons, SelectorWidget,
     },
     workcell::CreateJoint,
 };
@@ -52,28 +50,40 @@ pub struct InspectAnchor<'w, 's> {
     create_joint: EventWriter<'w, CreateJoint>,
 }
 
-impl<'w, 's> ShareableWidget for InspectAnchor<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectAnchor<'w, 's> {}
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAnchor<'w, 's> {
     fn show(
-        Inspect { selection: anchor, panel, .. }: Inspect,
+        Inspect {
+            selection: anchor,
+            panel,
+            ..
+        }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,
     ) {
         impl_inspect_anchor(
-            InspectAnchorInput { anchor, is_dependency: false, panel },
-            ui, state, world,
+            InspectAnchorInput {
+                anchor,
+                is_dependency: false,
+                panel,
+            },
+            ui,
+            state,
+            world,
         );
     }
 }
 
-impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>> for InspectAnchor<'w, 's> {
+impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>>
+    for InspectAnchor<'w, 's>
+{
     fn show(
         input: InspectAnchorInput,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) -> Option<InspectAnchorResponse> {
         impl_inspect_anchor(input, ui, state, world)
     }
@@ -86,7 +96,11 @@ pub struct InspectAnchorInput {
 }
 
 fn impl_inspect_anchor(
-    InspectAnchorInput { anchor: id, is_dependency, panel }: InspectAnchorInput,
+    InspectAnchorInput {
+        anchor: id,
+        is_dependency,
+        panel,
+    }: InspectAnchorInput,
     ui: &mut Ui,
     state: &mut SystemState<InspectAnchor>,
     world: &mut World,
@@ -113,9 +127,7 @@ fn impl_inspect_anchor(
 
     let mut params = state.get_mut(world);
 
-    if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) =
-        params.anchors.get(id)
-    {
+    if let Ok((anchor, tf, subordinate, parent, mesh_constraint)) = params.anchors.get(id) {
         if let Some(subordinate) = subordinate.map(|s| s.0) {
             panel.orthogonal(ui, |ui| {
                 if let Some(boss) = subordinate {
@@ -143,7 +155,8 @@ fn impl_inspect_anchor(
                     let mut y = tf.translation.y;
                     ui.add(DragValue::new(&mut y).speed(0.01));
 
-                    if x != tf.translation.x || y != tf.translation.y { {}
+                    if x != tf.translation.x || y != tf.translation.y {
+                        {}
                         params.move_to.send(MoveTo {
                             entity: id,
                             transform: Transform::from_translation([x, y, 0.0].into()),
@@ -195,7 +208,7 @@ fn impl_inspect_anchor(
         }
     }
 
-    Some(InspectAnchorResponse{ replace })
+    Some(InspectAnchorResponse { replace })
 }
 
 #[derive(SystemParam)]
@@ -206,7 +219,9 @@ pub struct InspectAnchorDependents<'w, 's> {
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAnchorDependents<'w, 's> {
     fn show(
-        Inspect { selection, panel, .. }: Inspect,
+        Inspect {
+            selection, panel, ..
+        }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
         world: &mut World,

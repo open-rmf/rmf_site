@@ -17,25 +17,22 @@
 
 use crate::{
     site::{
-        Category, Change, Delete, DrawingMarker, FloorMarker, LevelElevation, LevelProperties,
-        NameInSite, CurrentLevel,
+        Category, Change, CurrentLevel, Delete, DrawingMarker, FloorMarker, LevelElevation,
+        LevelProperties, NameInSite,
     },
-    widgets::{Icons, prelude::*},
-    RecencyRanking, CurrentWorkspace, AppState,
+    widgets::{prelude::*, Icons},
+    AppState, CurrentWorkspace, RecencyRanking,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{DragValue, ImageButton, CollapsingHeader, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
 #[derive(Default)]
-pub struct ViewLevelsPlugin {
-
-}
+pub struct ViewLevelsPlugin {}
 
 impl Plugin for ViewLevelsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<LevelDisplay>()
+        app.init_resource::<LevelDisplay>()
             .add_plugins(PropertiesTilePlugin::<ViewLevels>::new());
     }
 }
@@ -76,7 +73,6 @@ impl<'w, 's> ViewLevels<'w, 's> {
 
         if !editing {
             self.display_levels.removing = false;
-
         }
 
         if editing {
@@ -135,8 +131,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                 }
             });
 
-            self.display_levels.order =
-                ordered_level_list.into_iter().map(|(_, e)| e).collect();
+            self.display_levels.order = ordered_level_list.into_iter().map(|(_, e)| e).collect();
         }
 
         if self.display_levels.removing {
@@ -172,10 +167,7 @@ impl<'w, 's> ViewLevels<'w, 's> {
                             any_deleted = true;
                         }
                     } else if editing {
-                        if ui
-                            .radio(Some(e) == **self.current_level, "")
-                            .clicked()
-                        {
+                        if ui.radio(Some(e) == **self.current_level, "").clicked() {
                             self.current_level.0 = Some(e);
                         }
                     }
@@ -192,7 +184,8 @@ impl<'w, 's> ViewLevels<'w, 's> {
                 });
 
                 if shown_name != name.0 {
-                    self.change_name.send(Change::new(NameInSite(shown_name), e));
+                    self.change_name
+                        .send(Change::new(NameInSite(shown_name), e));
                 }
 
                 if shown_elevation != elevation.0 {

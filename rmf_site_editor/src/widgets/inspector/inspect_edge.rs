@@ -42,14 +42,18 @@ pub struct InspectEdge<'w, 's> {
     change_mode: EventWriter<'w, ChangeMode>,
 }
 
-impl<'w, 's> ShareableWidget for InspectEdge<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectEdge<'w, 's> {}
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
     fn show(
-        Inspect { selection: id, panel, .. }: Inspect,
+        Inspect {
+            selection: id,
+            panel,
+            ..
+        }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) {
         let params = state.get_mut(world);
         let Ok((category, current_edge, original, labels)) = params.edges.get(id) else {
@@ -80,8 +84,28 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
             ui.label("y");
             ui.end_row();
 
-            Self::show_anchor(Side::Left, id, edge, labels, category, panel, ui, state, world);
-            Self::show_anchor(Side::Right, id, edge, labels, category, panel, ui, state, world);
+            Self::show_anchor(
+                Side::Left,
+                id,
+                edge,
+                labels,
+                category,
+                panel,
+                ui,
+                state,
+                world,
+            );
+            Self::show_anchor(
+                Side::Right,
+                id,
+                edge,
+                labels,
+                category,
+                panel,
+                ui,
+                state,
+                world,
+            );
         });
         ui.add_space(10.0);
     }
@@ -102,14 +126,21 @@ impl<'w, 's> InspectEdge<'w, 's> {
         ui.label(labels.side(side));
         let anchor = edge.side(side);
         let response = world.show::<InspectAnchor, _, _>(
-            InspectAnchorInput { anchor, is_dependency: true, panel }, ui,
+            InspectAnchorInput {
+                anchor,
+                is_dependency: true,
+                panel,
+            },
+            ui,
         );
         ui.end_row();
 
         match response {
             Some(response) => {
                 if response.replace {
-                    if let Some(request) = SelectAnchor::replace_side(id, side).for_category(category) {
+                    if let Some(request) =
+                        SelectAnchor::replace_side(id, side).for_category(category)
+                    {
                         info!(
                             "Triggered anchor replacement for side \
                             {side:?} of edge {edge:?} with category {category:?}"

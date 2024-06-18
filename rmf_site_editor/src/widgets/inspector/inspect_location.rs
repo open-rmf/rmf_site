@@ -16,11 +16,8 @@
 */
 
 use crate::{
-    site::{
-        ConsiderLocationTag, LocationTag, LocationTags,
-        RecallLocationTags, Change,
-    },
-    widgets::{Icons, Inspect, prelude::*},
+    site::{Change, ConsiderLocationTag, LocationTag, LocationTags, RecallLocationTags},
+    widgets::{prelude::*, Icons, Inspect},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{ComboBox, ImageButton, RichText, Ui};
@@ -104,9 +101,8 @@ impl<'w, 's> InspectLocation<'w, 's> {
                     true
                 };
                 if consider_changed {
-                    self.consider_tag.send(
-                        ConsiderLocationTag::new(Some(consider.clone()), id)
-                    );
+                    self.consider_tag
+                        .send(ConsiderLocationTag::new(Some(consider.clone()), id));
                 }
 
                 if add {

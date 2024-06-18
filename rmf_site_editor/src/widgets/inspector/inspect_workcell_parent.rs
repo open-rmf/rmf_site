@@ -18,7 +18,7 @@
 use crate::{
     interaction::{ChangeMode, Hover, SelectAnchor3D},
     site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell},
-    widgets::{SelectorWidget, Inspect, Icons, prelude::*},
+    widgets::{prelude::*, Icons, Inspect, SelectorWidget},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ImageButton, Ui};
@@ -78,8 +78,8 @@ impl<'w, 's> InspectWorkcellParent<'w, 's> {
                 assign_response.on_hover_text("Reassign");
 
                 if parent_replace {
-                    let request = SelectAnchor3D::replace_point(id, parent)
-                        .for_anchor(Some(parent));
+                    let request =
+                        SelectAnchor3D::replace_point(id, parent).for_anchor(Some(parent));
                     self.change_mode.send(ChangeMode::To(request.into()));
                 }
             });

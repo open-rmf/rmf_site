@@ -15,19 +15,16 @@
  *
 */
 
-use crate::{AppState, occupancy::CalculateGrid, widgets::prelude::*};
+use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
 use bevy::prelude::*;
-use bevy_egui::egui::{DragValue, CollapsingHeader, Ui};
+use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 
 #[derive(Default)]
-pub struct ViewOccupancyPlugin {
-
-}
+pub struct ViewOccupancyPlugin {}
 
 impl Plugin for ViewOccupancyPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app
-            .init_resource::<OccupancyDisplay>()
+        app.init_resource::<OccupancyDisplay>()
             .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new());
     }
 }

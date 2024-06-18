@@ -16,8 +16,8 @@
 */
 
 use crate::{
-    site::{LightKind, RecallLightKind, Change},
-    widgets::{Inspect, prelude::*},
+    site::{Change, LightKind, RecallLightKind},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 use bevy_egui::egui::{

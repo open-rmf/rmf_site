@@ -20,8 +20,8 @@ use crate::{
     recency::RecencyRanking,
     site::*,
     widgets::{
-        prelude::*,
         inspector::{InspectLayer, InspectLayerInput},
+        prelude::*,
         Icons, MoveLayer,
     },
     AppState,
@@ -30,9 +30,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ScrollArea, Ui};
 
 #[derive(Default)]
-pub struct ViewLayersPlugin {
-
-}
+pub struct ViewLayersPlugin {}
 
 impl Plugin for ViewLayersPlugin {
     fn build(&self, app: &mut App) {
@@ -68,12 +66,7 @@ pub struct ViewLayers<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewLayers<'w, 's> {
-    fn show(
-        _: Tile,
-        ui: &mut Ui,
-        state: &mut SystemState<Self>,
-        world: &mut World,
-    ) {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         if *params.app_state.get() != AppState::SiteEditor {
             return;
@@ -234,9 +227,7 @@ impl<'w, 's> ViewLayers<'w, 's> {
                         layer_selected = Some(id);
                     }
                     ui.horizontal(|ui| {
-                        view_layer.show_widget(
-                            InspectLayerInput::new(id).with_selecting(), ui,
-                        );
+                        view_layer.show_widget(InspectLayerInput::new(id).with_selecting(), ui);
                     });
                 }
             });

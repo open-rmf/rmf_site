@@ -16,17 +16,17 @@
 */
 
 use crate::{
-    AppState,
-    interaction::{Select, HeadlightToggle},
+    interaction::{HeadlightToggle, Select},
     site::{
-        Angle, Category, ExportLights, Light, LightKind, Pose, Recall, RecallLightKind, Rotation,
-        SiteID, PhysicalLightToggle,
+        Angle, Category, ExportLights, Light, LightKind, PhysicalLightToggle, Pose, Recall,
+        RecallLightKind, Rotation, SiteID,
     },
     widgets::{
-        prelude::*,
         inspector::{InspectLightKind, InspectPoseComponent},
+        prelude::*,
         SelectorWidget,
     },
+    AppState,
 };
 use bevy::{
     ecs::system::SystemParam,
@@ -41,14 +41,11 @@ use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
 #[derive(Default)]
-pub struct ViewLightsPlugin {
-
-}
+pub struct ViewLightsPlugin {}
 
 impl Plugin for ViewLightsPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<LightDisplay>()
+        app.init_resource::<LightDisplay>()
             .add_plugins(PropertiesTilePlugin::<ViewLights>::new());
     }
 }
@@ -144,11 +141,8 @@ impl<'w, 's> ViewLights<'w, 's> {
         }
 
         ui.push_id("Add Light", |ui| {
-            if let Some(new_kind) = InspectLightKind::new(
-                &self.display_light.kind,
-                &self.display_light.recall,
-            )
-            .show(ui)
+            if let Some(new_kind) =
+                InspectLightKind::new(&self.display_light.kind, &self.display_light.recall).show(ui)
             {
                 self.display_light.recall.remember(&new_kind);
                 self.display_light.kind = new_kind;

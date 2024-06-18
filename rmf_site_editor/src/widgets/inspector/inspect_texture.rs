@@ -18,7 +18,7 @@
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectValue, SearchResult},
     site::{Category, Change, DefaultFile},
-    widgets::{Inspect, InspectionPlugin, prelude::*},
+    widgets::{prelude::*, Inspect, InspectionPlugin},
     Icons, WorkspaceMarker,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -29,14 +29,11 @@ use rmf_site_format::{
 };
 
 #[derive(Default)]
-pub struct InspectTexturePlugin {
-
-}
+pub struct InspectTexturePlugin {}
 
 impl Plugin for InspectTexturePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<SearchForTexture>()
+        app.init_resource::<SearchForTexture>()
             .add_plugins(InspectionPlugin::<InspectTextureAffiliation>::new());
     }
 }
@@ -181,10 +178,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                             })
                             .set_parent(site)
                             .id();
-                        self.change_affiliation.send(Change::new(
-                            Affiliation(Some(new_texture_group)),
-                            id,
-                        ));
+                        self.change_affiliation
+                            .send(Change::new(Affiliation(Some(new_texture_group)), id));
                     }
                 }
                 SearchResult::Match(group) => {
@@ -193,9 +188,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
                         .on_hover_text("Select this texture")
                         .clicked()
                     {
-                        self.change_affiliation.send(
-                            Change::new(Affiliation(Some(group)), id)
-                        );
+                        self.change_affiliation
+                            .send(Change::new(Affiliation(Some(group)), id));
                     }
                 }
                 SearchResult::Conflict(text) => {
@@ -261,7 +255,8 @@ impl<'w, 's> InspectTextureAffiliation<'w, 's> {
         });
 
         if new_affiliation != *affiliation {
-            self.change_affiliation.send(Change::new(new_affiliation, id));
+            self.change_affiliation
+                .send(Change::new(new_affiliation, id));
         }
         ui.add_space(10.0);
     }

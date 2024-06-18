@@ -15,9 +15,7 @@
  *
 */
 
-use crate::widgets::{
-    WidgetSystem, Widget, PanelSide, PanelWidget, Tile, tile_panel_widget,
-};
+use crate::widgets::{tile_panel_widget, PanelSide, PanelWidget, Tile, Widget, WidgetSystem};
 use bevy::prelude::*;
 
 #[derive(Resource)]
@@ -56,7 +54,10 @@ impl Plugin for PropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
         let widget = PanelWidget::new(tile_panel_widget, &mut app.world);
         let id = app.world.spawn((widget, self.side)).id();
-        app.world.insert_resource(PropertiesPanel { side: self.side, id });
+        app.world.insert_resource(PropertiesPanel {
+            side: self.side,
+            id,
+        });
     }
 }
 
@@ -73,7 +74,9 @@ where
     W: WidgetSystem<Tile> + 'static + Send + Sync,
 {
     pub fn new() -> Self {
-        Self { _ignore: Default::default() }
+        Self {
+            _ignore: Default::default(),
+        }
     }
 }
 

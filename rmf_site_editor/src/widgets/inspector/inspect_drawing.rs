@@ -15,13 +15,13 @@
  *
 */
 
+use crate::{
+    site::{AlignSiteDrawings, BeginEditDrawing, Change, PixelsPerMeter},
+    widgets::{prelude::*, Inspect, InspectValue},
+    AppState, CurrentWorkspace, Icons,
+};
 use bevy::prelude::*;
 use bevy_egui::egui::Button;
-use crate::{
-    CurrentWorkspace, AppState, Icons,
-    site::{PixelsPerMeter, AlignSiteDrawings, BeginEditDrawing, Change},
-    widgets::{prelude::*, Inspect, InspectValue},
-};
 
 #[derive(SystemParam)]
 pub struct InspectDrawing<'w, 's> {
@@ -48,17 +48,26 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
 
         if *params.app_state.get() == AppState::SiteEditor {
             ui.add_space(10.0);
-            if ui.add(
-                Button::image_and_text(params.icons.edit.egui(), "Edit Drawing")
-            ).clicked() {
+            if ui
+                .add(Button::image_and_text(
+                    params.icons.edit.egui(),
+                    "Edit Drawing",
+                ))
+                .clicked()
+            {
                 params.begin_edit_drawing.send(BeginEditDrawing(selection));
             }
         }
         ui.add_space(10.0);
 
         if ui
-            .add(Button::image_and_text(params.icons.alignment.egui(), "Align Drawings"))
-            .on_hover_text("Align all drawings in the site based on their fiducials and measurements")
+            .add(Button::image_and_text(
+                params.icons.alignment.egui(),
+                "Align Drawings",
+            ))
+            .on_hover_text(
+                "Align all drawings in the site based on their fiducials and measurements",
+            )
             .clicked()
         {
             if let Some(site) = params.current_workspace.root {
@@ -71,10 +80,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
             .tooltip("How many image pixels per meter")
             .show(ui)
         {
-            params.change_pixels_per_meter.send(Change::new(
-                PixelsPerMeter(new_ppm),
-                selection,
-            ));
+            params
+                .change_pixels_per_meter
+                .send(Change::new(PixelsPerMeter(new_ppm), selection));
         }
     }
 }

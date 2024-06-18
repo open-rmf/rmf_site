@@ -28,14 +28,11 @@ use bevy_egui::egui::{CollapsingHeader, Ui};
 use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
 
 #[derive(Default)]
-pub struct CreationPlugin {
-
-}
+pub struct CreationPlugin {}
 
 impl Plugin for CreationPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<PendingDrawing>()
+        app.init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .add_plugins(PropertiesTilePlugin::<Creation>::new());
     }
@@ -57,7 +54,7 @@ impl<'w, 's> WidgetSystem<Tile> for Creation<'w, 's> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
         let mut params = state.get_mut(world);
         match params.app_state.get() {
-            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => { }
+            AppState::SiteEditor | AppState::SiteDrawingEditor | AppState::WorkcellEditor => {}
             AppState::MainMenu | AppState::SiteVisualizer => return,
         }
         CollapsingHeader::new("Create")
@@ -140,11 +137,10 @@ impl<'w, 's> Creation<'w, 's> {
                             }
                             ui.add_space(5.0);
                             if ui.button("Add Drawing").clicked() {
-                                self.commands
-                                    .spawn(DrawingBundle::new(DrawingProperties {
-                                        source: self.pending_drawings.source.clone(),
-                                        ..default()
-                                    }));
+                                self.commands.spawn(DrawingBundle::new(DrawingProperties {
+                                    source: self.pending_drawings.source.clone(),
+                                    ..default()
+                                }));
                             }
                         });
                 }
@@ -189,9 +185,7 @@ impl<'w, 's> Creation<'w, 's> {
                             )
                             .show(ui)
                             {
-                                self.pending_model
-                                    .recall_source
-                                    .remember(&new_asset_source);
+                                self.pending_model.recall_source.remember(&new_asset_source);
                                 self.pending_model.source = new_asset_source;
                             }
                             ui.add_space(5.0);
@@ -212,10 +206,7 @@ impl<'w, 's> Creation<'w, 's> {
                                         }
                                         if ui.button("Spawn model").clicked() {
                                             let model = Model {
-                                                source: self
-                                                    .pending_model
-                                                    .source
-                                                    .clone(),
+                                                source: self.pending_model.source.clone(),
                                                 scale: self.pending_model.scale,
                                                 ..default()
                                             };
@@ -233,13 +224,8 @@ impl<'w, 's> Creation<'w, 's> {
                                         if ui.button("Spawn visual").clicked() {
                                             let workcell_model = WorkcellModel {
                                                 geometry: Geometry::Mesh {
-                                                    source: self
-                                                        .pending_model
-                                                        .source
-                                                        .clone(),
-                                                    scale: Some(
-                                                        *self.pending_model.scale,
-                                                    ),
+                                                    source: self.pending_model.source.clone(),
+                                                    scale: Some(*self.pending_model.scale),
                                                 },
                                                 ..default()
                                             };
@@ -252,13 +238,8 @@ impl<'w, 's> Creation<'w, 's> {
                                         if ui.button("Spawn collision").clicked() {
                                             let workcell_model = WorkcellModel {
                                                 geometry: Geometry::Mesh {
-                                                    source: self
-                                                        .pending_model
-                                                        .source
-                                                        .clone(),
-                                                    scale: Some(
-                                                        *self.pending_model.scale,
-                                                    ),
+                                                    source: self.pending_model.source.clone(),
+                                                    scale: Some(*self.pending_model.scale),
                                                 },
                                                 ..default()
                                             };

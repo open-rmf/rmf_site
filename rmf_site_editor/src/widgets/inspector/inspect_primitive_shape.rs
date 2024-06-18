@@ -17,7 +17,7 @@
 
 use crate::{
     site::Change,
-    widgets::{Inspect, prelude::*},
+    widgets::{prelude::*, Inspect},
 };
 use bevy::prelude::*;
 use rmf_site_format::{PrimitiveShape, RecallPrimitiveShape};
@@ -41,7 +41,9 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectPrimitiveShape<'w, 's> {
         };
 
         if let Some(new_shape) = InspectPrimitiveShapeComponent::new(shape, recall).show(ui) {
-            params.change_primitive_shape.send(Change::new(new_shape, selection));
+            params
+                .change_primitive_shape
+                .send(Change::new(new_shape, selection));
         }
         ui.add_space(10.0);
     }

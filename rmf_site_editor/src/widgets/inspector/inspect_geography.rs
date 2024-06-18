@@ -15,24 +15,19 @@
  *
 */
 
-use bevy::prelude::*;
-use bevy_egui::egui::DragValue;
 use crate::{
-    site::*,
-    widgets::{prelude::*, inspector::*},
     interaction::MoveTo,
+    site::*,
+    widgets::{inspector::*, prelude::*},
     CurrentWorkspace,
 };
+use bevy::prelude::*;
+use bevy_egui::egui::DragValue;
 
 #[derive(SystemParam)]
 pub struct InspectGeography<'w, 's> {
     geographical: Query<'w, 's, &'static GeographicComponent>,
-    tfs: Query<
-        'w,
-        's,
-        &'static Transform,
-        Or<(With<Anchor>, With<Pose>)>,
-    >,
+    tfs: Query<'w, 's, &'static Transform, Or<(With<Anchor>, With<Pose>)>>,
     move_to: EventWriter<'w, MoveTo>,
     current_workspace: Res<'w, CurrentWorkspace>,
 }
@@ -42,7 +37,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectGeography<'w, 's> {
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
         state: &mut SystemState<Self>,
-        world: &mut World
+        world: &mut World,
     ) {
         let mut param = state.get_mut(world);
         let Some(workspace) = param.current_workspace.root else {
@@ -56,9 +51,7 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectGeography<'w, 's> {
         };
 
         if let Some(offset) = geo.0 {
-            let (mut lat, mut lon) = match world_to_latlon(
-                tf.translation, offset.anchor,
-            ) {
+            let (mut lat, mut lon) = match world_to_latlon(tf.translation, offset.anchor) {
                 Ok(values) => values,
                 Err(err) => {
                     warn!("Unable to obtain latitude and longitude: {err:?}");
@@ -77,9 +70,11 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectGeography<'w, 's> {
             if old_lat != lat || old_lon != lon {
                 param.move_to.send(MoveTo {
                     entity: selection,
-                    transform: Transform::from_translation(
-                        latlon_to_world(lat as f32, lon as f32, offset.anchor)
-                    ),
+                    transform: Transform::from_translation(latlon_to_world(
+                        lat as f32,
+                        lon as f32,
+                        offset.anchor,
+                    )),
                 });
             }
         }
