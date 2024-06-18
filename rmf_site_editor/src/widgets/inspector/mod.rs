@@ -138,6 +138,7 @@ impl Plugin for StandardInspectorPlugin {
                 InspectionPlugin::<InspectFiducial>::new(),
                 InspectionPlugin::<ExInspectLayer>::new(),
                 InspectionPlugin::<InspectDrawing>::new(),
+                InspectionPlugin::<InspectAssociatedGraphs>::new(),
             ));
     }
 }
@@ -521,12 +522,12 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             //     }
             // }
 
-            InspectAssociatedGraphsWidget::new(
-                selection,
-                &self.params.component.associated_graphs,
-                self.events,
-            )
-            .show(ui);
+            // InspectAssociatedGraphsWidget::new(
+            //     selection,
+            //     &self.params.component.associated_graphs,
+            //     self.events,
+            // )
+            // .show(ui);
 
             // if let Ok((tags, recall)) = self.params.component.location_tags.get(selection) {
             //     if let Some(new_tags) = InspectLocationWidget::new(

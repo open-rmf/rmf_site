@@ -2637,7 +2637,7 @@ dependencies = [
 [[package]]
 name = "gz-fuel"
 version = "0.1.0"
-source = "git+https://github.com/open-rmf/gz-fuel-rs?branch=progress_tracker#938b633ee2ba19adba09df267aea26ffaea46b26"
+source = "git+https://github.com/open-rmf/gz-fuel-rs?branch=main#cbdb4b587834ac9af78d0018c6dcd9ab3efd3cb2"
 dependencies = [
  "crossbeam-channel",
  "dirs",

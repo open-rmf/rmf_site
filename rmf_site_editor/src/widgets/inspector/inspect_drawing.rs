@@ -43,12 +43,10 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
     ) {
         let mut params = state.get_mut(world);
         let Ok(ppm) = params.pixels_per_meter.get(selection) else {
-            dbg!("no drawing");
             return;
         };
 
         if *params.app_state.get() == AppState::SiteEditor {
-            dbg!();
             ui.add_space(10.0);
             if ui.add(
                 Button::image_and_text(params.icons.edit.egui(), "Edit Drawing")

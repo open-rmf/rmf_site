@@ -17,7 +17,7 @@
 
 use crate::{
     widgets::prelude::*,
-    site::AlignSiteDrawings,
+    site::{AlignSiteDrawings, FinishEditDrawing},
     AppState, Icons, CurrentWorkspace,
 };
 use bevy::prelude::*;
@@ -43,6 +43,7 @@ pub struct BuildingPreview<'w> {
     icons: Res<'w, Icons>,
     current_workspace: Res<'w, CurrentWorkspace>,
     align_site: EventWriter<'w, AlignSiteDrawings>,
+    finish_edit_drawing: EventWriter<'w, FinishEditDrawing>,
 }
 
 impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
@@ -72,6 +73,15 @@ impl<'w> WidgetSystem<Tile> for BuildingPreview<'w> {
                 "Return to site editor",
             )).clicked() {
                 params.next_app_state.set(AppState::SiteEditor);
+            }
+        }
+
+        if *params.app_state == AppState::SiteDrawingEditor {
+            if ui.add(Button::image_and_text(
+                params.icons.exit.egui(),
+                "Return to site editor",
+            )).clicked() {
+                params.finish_edit_drawing.send(FinishEditDrawing(None));
             }
         }
     }
