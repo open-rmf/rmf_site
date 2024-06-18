@@ -30,6 +30,9 @@ pub use inspect_asset_source::*;
 pub mod inspect_door;
 pub use inspect_door::*;
 
+pub mod inspect_drawing;
+pub use inspect_drawing::*;
+
 pub mod inspect_edge;
 pub use inspect_edge::*;
 
@@ -124,16 +127,29 @@ pub struct StandardInspectorPlugin {
 impl Plugin for StandardInspectorPlugin {
     fn build(&self, app: &mut App) {
         app
-            .init_resource::<ExInspectorWidget>()
+            .add_plugins(MinimalInspectorPlugin::default())
             .init_resource::<SearchForFiducial>()
             .add_plugins((
+                InspectionPlugin::<ExInspectName>::new(),
                 InspectionPlugin::<ExInspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
                 InspectionPlugin::<ExInspectEdge>::new(),
                 InspectionPlugin::<InspectGeography>::new(),
                 InspectionPlugin::<InspectFiducial>::new(),
                 InspectionPlugin::<ExInspectLayer>::new(),
+                InspectionPlugin::<InspectDrawing>::new(),
             ));
+    }
+}
+
+#[derive(Default)]
+pub struct MinimalInspectorPlugin {
+
+}
+
+impl Plugin for MinimalInspectorPlugin {
+    fn build(&self, app: &mut App) {
+        app.init_resource::<ExInspectorWidget>();
     }
 }
 
@@ -386,35 +402,35 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
         if let Some(selection) = self.params.selection.0 {
             self.heading(selection, ui);
 
-            if let Ok(name) = self.params.component.names.get(selection) {
-                if let Some(new_name) = InspectName::new(name).show(ui) {
-                    self.events
-                        .change
-                        .name
-                        .send(Change::new(new_name, selection));
-                }
-                ui.add_space(10.0);
-            }
+            // if let Ok(name) = self.params.component.names.get(selection) {
+            //     if let Some(new_name) = InspectName::new(name).show(ui) {
+            //         self.events
+            //             .change
+            //             .name
+            //             .send(Change::new(new_name, selection));
+            //     }
+            //     ui.add_space(10.0);
+            // }
 
-            if let Ok(name) = self.params.workcell_params.names_in_workcell.get(selection) {
-                if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
-                    self.events
-                        .workcell_change
-                        .name_in_workcell
-                        .send(Change::new(new_name, selection));
-                }
-                ui.add_space(10.0);
-            }
+            // if let Ok(name) = self.params.workcell_params.names_in_workcell.get(selection) {
+            //     if let Some(new_name) = InspectNameInWorkcell::new(name).show(ui) {
+            //         self.events
+            //             .workcell_change
+            //             .name_in_workcell
+            //             .send(Change::new(new_name, selection));
+            //     }
+            //     ui.add_space(10.0);
+            // }
 
-            if let Ok(name) = self.params.workcell_params.workcell_names.get(selection) {
-                if let Some(new_name) = InspectNameOfWorkcell::new(name).show(ui) {
-                    self.events
-                        .workcell_change
-                        .workcell_name
-                        .send(Change::new(new_name, selection));
-                }
-                ui.add_space(10.0);
-            }
+            // if let Ok(name) = self.params.workcell_params.workcell_names.get(selection) {
+            //     if let Some(new_name) = InspectNameOfWorkcell::new(name).show(ui) {
+            //         self.events
+            //             .workcell_change
+            //             .workcell_name
+            //             .send(Change::new(new_name, selection));
+            //     }
+            //     ui.add_space(10.0);
+            // }
 
             // if let Ok((floor_vis, alpha)) = self.params.layer.floors.get(selection) {
             //     ui.horizontal(|ui| {
@@ -460,50 +476,50 @@ impl<'a, 'w1, 'w2, 's1, 's2> InspectorWidget<'a, 'w1, 'w2, 's1, 's2> {
             //     });
             // }
 
-            if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
-                if *self.events.app_state.get() == AppState::SiteEditor {
-                    ui.add_space(10.0);
-                    if ui
-                        .add(Button::image_and_text(
-                            self.events.layers.icons.edit.egui(),
-                            "Edit Drawing",
-                        ))
-                        .clicked()
-                    {
-                        self.events
-                            .layers
-                            .begin_edit_drawing
-                            .send(BeginEditDrawing(selection));
-                    }
-                }
-                ui.add_space(10.0);
-                if ui
-                    .add(Button::image_and_text(
-                        self.events.layers.icons.alignment.egui(),
-                        "Align Drawings",
-                    ))
-                    .on_hover_text(
-                        "Align all drawings in the site based on their fiducials and measurements",
-                    )
-                    .clicked()
-                {
-                    if let Some(site) = self.events.request.current_workspace.root {
-                        self.events.request.align_site.send(AlignSiteDrawings(site));
-                    }
-                }
-                ui.add_space(10.0);
-                if let Some(new_ppm) =
-                    InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
-                        .clamp_range(0.0001..=std::f32::INFINITY)
-                        .tooltip("How many image pixels per meter".to_string())
-                        .show(ui)
-                {
-                    self.events
-                        .change
-                        .pixels_per_meter
-                        .send(Change::new(PixelsPerMeter(new_ppm), selection));
-                }
-            }
+            // if let Ok(ppm) = self.params.component.pixels_per_meter.get(selection) {
+            //     if *self.events.app_state.get() == AppState::SiteEditor {
+            //         ui.add_space(10.0);
+            //         if ui
+            //             .add(Button::image_and_text(
+            //                 self.events.layers.icons.edit.egui(),
+            //                 "Edit Drawing",
+            //             ))
+            //             .clicked()
+            //         {
+            //             self.events
+            //                 .layers
+            //                 .begin_edit_drawing
+            //                 .send(BeginEditDrawing(selection));
+            //         }
+            //     }
+            //     ui.add_space(10.0);
+            //     if ui
+            //         .add(Button::image_and_text(
+            //             self.events.layers.icons.alignment.egui(),
+            //             "Align Drawings",
+            //         ))
+            //         .on_hover_text(
+            //             "Align all drawings in the site based on their fiducials and measurements",
+            //         )
+            //         .clicked()
+            //     {
+            //         if let Some(site) = self.events.request.current_workspace.root {
+            //             self.events.request.align_site.send(AlignSiteDrawings(site));
+            //         }
+            //     }
+            //     ui.add_space(10.0);
+            //     if let Some(new_ppm) =
+            //         InspectValue::<f32>::new(String::from("Pixels per meter"), ppm.0)
+            //             .clamp_range(0.0001..=std::f32::INFINITY)
+            //             .tooltip("How many image pixels per meter".to_string())
+            //             .show(ui)
+            //     {
+            //         self.events
+            //             .change
+            //             .pixels_per_meter
+            //             .send(Change::new(PixelsPerMeter(new_ppm), selection));
+            //     }
+            // }
 
             InspectAssociatedGraphsWidget::new(
                 selection,

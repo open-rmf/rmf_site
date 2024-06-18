@@ -15,7 +15,7 @@
  *
 */
 
-use crate::menu_bar::{MenuEvent, MenuItem, ViewMenu};
+use crate::widgets::menu_bar::{MenuEvent, MenuItem, ViewMenu};
 use bevy::pbr::wireframe::{Wireframe, WireframePlugin};
 use bevy::prelude::*;
 

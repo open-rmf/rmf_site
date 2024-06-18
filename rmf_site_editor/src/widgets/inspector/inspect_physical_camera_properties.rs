@@ -34,27 +34,27 @@ impl<'a> InspectPhysicalCameraProperties<'a> {
         ui.label(RichText::new("Camera Properties").size(18.0));
         Grid::new("physical_camera_properties").show(ui, |ui| {
             if let Some(new_width) =
-                InspectValue::<u32>::new(String::from("Width"), new_properties.width)
+                InspectValue::<u32>::new("Width", new_properties.width)
                     .clamp_range(1..=std::u32::MAX)
-                    .tooltip("Image width in pixels".to_string())
+                    .tooltip("Image width in pixels")
                     .show(ui)
             {
                 new_properties.width = new_width;
             }
             ui.end_row();
             if let Some(new_height) =
-                InspectValue::<u32>::new(String::from("Height"), new_properties.height)
+                InspectValue::<u32>::new("Height", new_properties.height)
                     .clamp_range(1..=std::u32::MAX)
-                    .tooltip("Image height in pixels".to_string())
+                    .tooltip("Image height in pixels")
                     .show(ui)
             {
                 new_properties.height = new_height;
             }
             ui.end_row();
             if let Some(new_frame_rate) =
-                InspectValue::<f32>::new(String::from("Frame rate"), new_properties.frame_rate)
+                InspectValue::<f32>::new("Frame rate", new_properties.frame_rate)
                     .clamp_range(0.0..=std::f32::MAX)
-                    .tooltip("Frame rate in images per second".to_string())
+                    .tooltip("Frame rate in images per second")
                     .show(ui)
             {
                 new_properties.frame_rate = new_frame_rate;

@@ -465,6 +465,7 @@ pub mod prelude {
         system::{SystemState, SystemParam},
         world::World,
     };
+    pub use bevy_egui::egui::Ui;
 }
 
 /// To create a panel widget (a widget that renders itself directly to one of

@@ -294,10 +294,10 @@ impl<'a> InspectTexture<'a> {
         ui.add_space(10.0);
         Grid::new("texture_properties").show(ui, |ui| {
             if let Some(width) = new_texture.width {
-                if let Some(new_width) = InspectValue::<f32>::new(String::from("Width"), width)
+                if let Some(new_width) = InspectValue::<f32>::new("Width", width)
                     .clamp_range(0.001..=std::f32::MAX)
                     .speed(0.01)
-                    .tooltip("Texture width in meters".to_string())
+                    .tooltip("Texture width in meters")
                     .show(ui)
                 {
                     new_texture.width = Some(new_width);
@@ -305,10 +305,10 @@ impl<'a> InspectTexture<'a> {
                 ui.end_row();
             }
             if let Some(height) = new_texture.height {
-                if let Some(new_height) = InspectValue::<f32>::new(String::from("Height"), height)
+                if let Some(new_height) = InspectValue::<f32>::new("Height", height)
                     .clamp_range(0.001..=std::f32::MAX)
                     .speed(0.01)
-                    .tooltip("Texture height in meters".to_string())
+                    .tooltip("Texture height in meters")
                     .show(ui)
                 {
                     new_texture.height = Some(new_height);
@@ -316,10 +316,10 @@ impl<'a> InspectTexture<'a> {
                 ui.end_row();
             }
             if let Some(alpha) = new_texture.alpha {
-                if let Some(new_alpha) = InspectValue::<f32>::new(String::from("Alpha"), alpha)
+                if let Some(new_alpha) = InspectValue::<f32>::new("Alpha", alpha)
                     .clamp_range(0.0..=1.0)
                     .speed(0.1)
-                    .tooltip("Transparency (0 = transparent, 1 = opaque)".to_string())
+                    .tooltip("Transparency (0 = transparent, 1 = opaque)")
                     .show(ui)
                 {
                     new_texture.alpha = Some(new_alpha);
