@@ -21,7 +21,7 @@ use crate::{
         menu_bar::{MenuEvent, MenuItem, MenuVisualizationStates, ToolMenu},
         SelectorWidget,
     },
-    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey, SiteID},
+    site::{Change, FilteredIssueKinds, FilteredIssues, IssueKey},
     Icons, Issue, IssueDictionary, ValidateWorkspace, CurrentWorkspace, AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -71,7 +71,6 @@ fn diagnostics_panel(
 #[derive(SystemParam)]
 pub struct Diagnostics<'w, 's> {
     icons: Res<'w, Icons>,
-    site_id: Query<'w, 's, &'static SiteID>,
     filters: Query<'w, 's, (&'static FilteredIssues<Entity>, &'static FilteredIssueKinds)>,
     issue_dictionary: Res<'w, IssueDictionary>,
     issues: Query<'w, 's, (&'static Issue, &'static Parent)>,
@@ -238,7 +237,6 @@ fn handle_diagnostic_panel_visibility(
         }
     }
 }
-
 
 #[derive(Resource)]
 pub struct IssueMenu {

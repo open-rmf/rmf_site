@@ -16,9 +16,8 @@
 */
 
 use crate::{
-    site::{Dependents, FrameMarker, JointProperties, SiteID},
-    widgets::{SelectorWidget, Inspect, AppEvents, prelude::*},
-    Icons,
+    site::{Dependents, FrameMarker, JointProperties},
+    widgets::{SelectorWidget, Inspect, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::Ui;
@@ -34,8 +33,6 @@ pub struct InspectJoint<'w, 's> {
             &'static JointProperties,
         ),
     >,
-    icons: Res<'w, Icons>,
-    site_id: Query<'w, 's, &'static SiteID>,
     frames: Query<'w, 's, (), With<FrameMarker>>,
     selector: SelectorWidget<'w, 's>,
 }
@@ -73,20 +70,4 @@ impl<'w, 's> InspectJoint<'w, 's> {
         });
         // TODO(luca) add joint limit and joint axis inspectors
     }
-}
-
-#[derive(SystemParam)]
-pub struct InspectJointParams<'w, 's> {
-    pub joints: Query<
-        'w,
-        's,
-        (
-            &'static Parent,
-            &'static Dependents,
-            &'static JointProperties,
-        ),
-    >,
-    pub icons: Res<'w, Icons>,
-    pub site_id: Query<'w, 's, &'static SiteID>,
-    pub frames: Query<'w, 's, (), With<FrameMarker>>,
 }

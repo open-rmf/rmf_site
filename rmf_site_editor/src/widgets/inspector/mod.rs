@@ -132,10 +132,10 @@ impl Plugin for StandardInspectorPlugin {
         app
             .add_plugins(MinimalInspectorPlugin::default())
             .add_plugins((
-                InspectionPlugin::<ExInspectName>::new(),
-                InspectionPlugin::<ExInspectAnchor>::new(),
+                InspectionPlugin::<InspectName>::new(),
+                InspectionPlugin::<InspectAnchor>::new(),
                 InspectionPlugin::<InspectAnchorDependents>::new(),
-                InspectionPlugin::<ExInspectEdge>::new(),
+                InspectionPlugin::<InspectEdge>::new(),
                 InspectionPlugin::<InspectGeography>::new(),
                 InspectFiducialPlugin::default(),
                 InspectionPlugin::<InspectLayer>::new(),
@@ -172,7 +172,7 @@ pub struct MinimalInspectorPlugin {
 
 impl Plugin for MinimalInspectorPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<ExInspectorWidget>();
+        app.init_resource::<MainInspector>();
     }
 }
 
@@ -197,7 +197,7 @@ where
     W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
 {
     fn build(&self, app: &mut App) {
-        let inspector = app.world.resource::<ExInspectorWidget>().id;
+        let inspector = app.world.resource::<MainInspector>().id;
         let widget = Widget::<Inspect>::new::<W>(&mut app.world);
         app.world.spawn(widget).set_parent(inspector);
     }
@@ -211,19 +211,19 @@ pub struct Inspect {
 }
 
 #[derive(Resource)]
-pub struct ExInspectorWidget {
+pub struct MainInspector {
     id: Entity,
 }
 
-impl ExInspectorWidget {
+impl MainInspector {
     pub fn get(&self) -> Entity {
         self.id
     }
 }
 
-impl FromWorld for ExInspectorWidget {
+impl FromWorld for MainInspector {
     fn from_world(world: &mut World) -> Self {
-        let widget = Widget::new::<ExInspectorWidgetParams>(world);
+        let widget = Widget::new::<Inspector>(world);
         let properties_panel = world.resource::<PropertiesPanel>().id;
         let id = world.spawn(widget).set_parent(properties_panel).id();
         Self { id }
@@ -231,12 +231,12 @@ impl FromWorld for ExInspectorWidget {
 }
 
 #[derive(SystemParam)]
-struct ExInspectorWidgetParams<'w, 's> {
+struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
 }
 
-impl<'w, 's> WidgetSystem<Tile> for ExInspectorWidgetParams<'w, 's> {
+impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
     fn show(
         Tile{ id, panel }: Tile,
         ui: &mut Ui,

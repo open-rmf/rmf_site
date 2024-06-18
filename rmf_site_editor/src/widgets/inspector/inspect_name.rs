@@ -24,7 +24,7 @@ use crate::{
 };
 
 #[derive(SystemParam)]
-pub struct ExInspectName<'w, 's> {
+pub struct InspectName<'w, 's> {
     names_in_site: Query<'w, 's, &'static NameInSite>,
     change_name_in_site: EventWriter<'w, Change<NameInSite>>,
     names_in_workcell: Query<'w, 's, &'static NameInWorkcell>,
@@ -33,9 +33,9 @@ pub struct ExInspectName<'w, 's> {
     change_name_of_workcell: EventWriter<'w, Change<NameOfWorkcell>>,
 }
 
-impl<'w, 's> ShareableWidget for ExInspectName<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectName<'w, 's> { }
 
-impl<'w, 's> WidgetSystem<Inspect> for ExInspectName<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectName<'w, 's> {
     fn show(
         Inspect { selection, .. }: Inspect,
         ui: &mut Ui,
@@ -75,79 +75,5 @@ impl<'w, 's> WidgetSystem<Inspect> for ExInspectName<'w, 's> {
                 params.change_name_of_workcell.send(Change::new(new_name, selection));
             }
         }
-    }
-}
-
-
-// TODO(luca) refactor all these into a generic name inspection widget
-pub struct InspectName<'a> {
-    pub name: &'a NameInSite,
-}
-
-impl<'a> InspectName<'a> {
-    pub fn new(name: &'a NameInSite) -> Self {
-        Self { name }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Option<NameInSite> {
-        ui.horizontal(|ui| {
-            ui.label("Name");
-            let mut new_name = self.name.clone();
-            ui.text_edit_singleline(&mut new_name.0);
-            if new_name != *self.name {
-                Some(new_name)
-            } else {
-                None
-            }
-        })
-        .inner
-    }
-}
-
-pub struct InspectNameInWorkcell<'a> {
-    pub name: &'a NameInWorkcell,
-}
-
-impl<'a> InspectNameInWorkcell<'a> {
-    pub fn new(name: &'a NameInWorkcell) -> Self {
-        Self { name }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Option<NameInWorkcell> {
-        ui.horizontal(|ui| {
-            ui.label("Name");
-            let mut new_name = self.name.clone();
-            ui.text_edit_singleline(&mut new_name.0);
-            if new_name != *self.name {
-                Some(new_name)
-            } else {
-                None
-            }
-        })
-        .inner
-    }
-}
-
-pub struct InspectNameOfWorkcell<'a> {
-    pub name: &'a NameOfWorkcell,
-}
-
-impl<'a> InspectNameOfWorkcell<'a> {
-    pub fn new(name: &'a NameOfWorkcell) -> Self {
-        Self { name }
-    }
-
-    pub fn show(self, ui: &mut Ui) -> Option<NameOfWorkcell> {
-        ui.horizontal(|ui| {
-            ui.label("Name");
-            let mut new_name = self.name.clone();
-            ui.text_edit_singleline(&mut new_name.0);
-            if new_name != *self.name {
-                Some(new_name)
-            } else {
-                None
-            }
-        })
-        .inner
     }
 }

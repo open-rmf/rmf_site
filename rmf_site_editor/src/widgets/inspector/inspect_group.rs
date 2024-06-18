@@ -16,13 +16,13 @@
 */
 
 use crate::{
-    site::{Affiliation, Change, DefaultFile, Group, Members, SiteID, Texture, NameInSite},
+    site::{Affiliation, Change, DefaultFile, Group, Members, Texture, NameInSite},
     widgets::{
         prelude::*,
         inspector::InspectTexture,
         SelectorWidget, Inspect,
     },
-    Icons, CurrentWorkspace,
+    CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, RichText, Ui};
@@ -34,9 +34,7 @@ pub struct InspectGroup<'w, 's> {
     names: Query<'w, 's, &'static NameInSite>,
     textures: Query<'w, 's, &'static Texture>,
     members: Query<'w, 's, &'static Members>,
-    site_id: Query<'w, 's, &'static SiteID>,
     default_file: Query<'w, 's, &'static DefaultFile>,
-    icons: Res<'w, Icons>,
     current_workspace: Res<'w, CurrentWorkspace>,
     change_texture: EventWriter<'w, Change<Texture>>,
     selector: SelectorWidget<'w, 's>,

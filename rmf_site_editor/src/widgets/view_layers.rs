@@ -36,14 +36,14 @@ pub struct ViewLayersPlugin {
 
 impl Plugin for ViewLayersPlugin {
     fn build(&self, app: &mut App) {
-        let widget = Widget::new::<ExViewLayers>(&mut app.world);
+        let widget = Widget::new::<ViewLayers>(&mut app.world);
         let properties_panel = app.world.resource::<PropertiesPanel>().id;
         app.world.spawn(widget).set_parent(properties_panel);
     }
 }
 
 #[derive(SystemParam)]
-pub struct ExViewLayers<'w, 's> {
+pub struct ViewLayers<'w, 's> {
     floors: Query<
         'w,
         's,
@@ -60,23 +60,6 @@ pub struct ExViewLayers<'w, 's> {
             &'static GlobalDrawingVisibility,
         ),
     >,
-    layer_visibility: Query<
-        'w,
-        's,
-        (
-            Option<&'static LayerVisibility>,
-            &'static PreferredSemiTransparency,
-        ),
-    >,
-    levels: Query<
-        'w,
-        's,
-        (
-            &'static GlobalFloorVisibility,
-            &'static GlobalDrawingVisibility,
-        ),
-    >,
-    site_id: Query<'w, 's, Option<&'static SiteID>>,
     icons: Res<'w, Icons>,
     selection: Res<'w, Selection>,
     current_level: Res<'w, CurrentLevel>,
@@ -86,7 +69,7 @@ pub struct ExViewLayers<'w, 's> {
     app_state: Res<'w, State<AppState>>,
 }
 
-impl<'w, 's> WidgetSystem<Tile> for ExViewLayers<'w, 's> {
+impl<'w, 's> WidgetSystem<Tile> for ViewLayers<'w, 's> {
     fn show(
         _: Tile,
         ui: &mut Ui,
@@ -106,7 +89,7 @@ impl<'w, 's> WidgetSystem<Tile> for ExViewLayers<'w, 's> {
     }
 }
 
-impl<'w, 's> ExViewLayers<'w, 's> {
+impl<'w, 's> ViewLayers<'w, 's> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         let Some(current_level) = self.current_level.0 else {
             return;

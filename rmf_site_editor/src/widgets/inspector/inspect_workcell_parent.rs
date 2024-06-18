@@ -17,7 +17,7 @@
 
 use crate::{
     interaction::{ChangeMode, Hover, SelectAnchor3D},
-    site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell, SiteID},
+    site::{FrameMarker, MeshConstraint, NameInWorkcell, NameOfWorkcell},
     widgets::{SelectorWidget, Inspect, Icons, prelude::*},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -37,7 +37,6 @@ pub struct InspectWorkcellParent<'w, 's> {
         )>,
     >,
     mesh_constraints: Query<'w, 's, &'static MeshConstraint<Entity>>,
-    site_id: Query<'w, 's, &'static SiteID>,
     icons: Res<'w, Icons>,
     selector: SelectorWidget<'w, 's>,
     change_mode: ResMut<'w, Events<ChangeMode>>,

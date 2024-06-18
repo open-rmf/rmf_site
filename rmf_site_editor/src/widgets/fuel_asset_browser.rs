@@ -19,7 +19,6 @@ use crate::{
     interaction::{ChangeMode, ModelPreviewCamera, SelectAnchor3D},
     site::{AssetSource, FuelClient, Model, SetFuelApiKey, UpdateFuelCache},
     widgets::prelude::*,
-    AppState,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::{
@@ -76,7 +75,6 @@ pub struct FuelAssetBrowser<'w, 's> {
     set_api_key: EventWriter<'w, SetFuelApiKey>,
     commands: Commands<'w, 's>,
     change_mode: EventWriter<'w, ChangeMode>,
-    app_state: Res<'w, State<AppState>>,
 }
 
 fn fuel_asset_browser_panel(

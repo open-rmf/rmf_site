@@ -19,7 +19,7 @@ use bevy::prelude::*;
 use bevy_egui::egui::Button;
 use crate::{
     CurrentWorkspace, AppState, Icons,
-    site::{PixelsPerMeter, AlignSiteDrawings, BeginEditDrawing, FinishEditDrawing, Change},
+    site::{PixelsPerMeter, AlignSiteDrawings, BeginEditDrawing, Change},
     widgets::{prelude::*, Inspect, InspectValue},
 };
 

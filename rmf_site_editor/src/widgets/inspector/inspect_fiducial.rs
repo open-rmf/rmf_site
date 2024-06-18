@@ -17,7 +17,7 @@
 
 use crate::{
     site::{Affiliation, Change, FiducialGroup, FiducialMarker, FiducialUsage, Group, NameInSite},
-    widgets::{AppEvents, Icons, prelude::*, Inspect, InspectionPlugin},
+    widgets::{Icons, prelude::*, Inspect, InspectionPlugin},
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{ComboBox, ImageButton, Ui};

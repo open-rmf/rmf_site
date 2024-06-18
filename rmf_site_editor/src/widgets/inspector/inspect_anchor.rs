@@ -18,8 +18,8 @@
 use crate::{
     interaction::{Hover, MoveTo},
     site::{
-        Anchor, AssociatedGraphs, Category, Change, Dependents,
-        JointProperties, LocationTags, MeshConstraint, Subordinate,
+        Anchor, Category, Change, Dependents,
+        JointProperties, MeshConstraint, Subordinate,
     },
     widgets::{
         inspector::{InspectPoseComponent, Inspect},
@@ -32,7 +32,7 @@ use bevy_egui::egui::{DragValue, ImageButton, Ui};
 use std::collections::{BTreeMap, BTreeSet};
 
 #[derive(SystemParam)]
-pub struct ExInspectAnchor<'w, 's> {
+pub struct InspectAnchor<'w, 's> {
     anchors: Query<
         'w,
         's,
@@ -52,9 +52,9 @@ pub struct ExInspectAnchor<'w, 's> {
     create_joint: EventWriter<'w, CreateJoint>,
 }
 
-impl<'w, 's> ShareableWidget for ExInspectAnchor<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectAnchor<'w, 's> { }
 
-impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectAnchor<'w, 's> {
     fn show(
         Inspect { selection: anchor, panel, .. }: Inspect,
         ui: &mut Ui,
@@ -68,7 +68,7 @@ impl<'w, 's> WidgetSystem<Inspect> for ExInspectAnchor<'w, 's> {
     }
 }
 
-impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>> for ExInspectAnchor<'w, 's> {
+impl<'w, 's> WidgetSystem<InspectAnchorInput, Option<InspectAnchorResponse>> for InspectAnchor<'w, 's> {
     fn show(
         input: InspectAnchorInput,
         ui: &mut Ui,
@@ -88,7 +88,7 @@ pub struct InspectAnchorInput {
 fn impl_inspect_anchor(
     InspectAnchorInput { anchor: id, is_dependency, panel }: InspectAnchorInput,
     ui: &mut Ui,
-    state: &mut SystemState<ExInspectAnchor>,
+    state: &mut SystemState<InspectAnchor>,
     world: &mut World,
 ) -> Option<InspectAnchorResponse> {
     if world.get::<Anchor>(id).is_none() {
@@ -201,9 +201,7 @@ fn impl_inspect_anchor(
 #[derive(SystemParam)]
 pub struct InspectAnchorDependents<'w, 's> {
     dependents: Query<'w, 's, &'static Dependents, With<Anchor>>,
-    locations: Query<'w, 's, &'static LocationTags, &'static AssociatedGraphs<Entity>>,
     category: Query<'w, 's, &'static Category>,
-    icons: Res<'w, Icons>,
 }
 
 impl<'w, 's> WidgetSystem<Inspect> for InspectAnchorDependents<'w, 's> {

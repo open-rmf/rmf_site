@@ -23,7 +23,7 @@ use crate::{
     widgets::{
         inspector::InspectOptionF32,
         prelude::*,
-        Icons, Inspect, SelectorWidget, LevelDisplay, InspectionPlugin,
+        Inspect, SelectorWidget, LevelDisplay, InspectionPlugin,
     },
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
@@ -49,7 +49,6 @@ pub struct InspectLiftCabin<'w, 's> {
     doors: Query<'w, 's, &'static LevelVisits<Entity>>,
     levels: Query<'w, 's, (&'static NameInSite, &'static LevelElevation)>,
     display_level: Res<'w, LevelDisplay>,
-    icons: Res<'w, Icons>,
     change_lift_cabin: EventWriter<'w, Change<LiftCabin<Entity>>>,
     selector: SelectorWidget<'w, 's>,
     toggle_door_levels: EventWriter<'w, ToggleLiftDoorAvailability>,

@@ -18,7 +18,7 @@
 use crate::{
     interaction::{Hover, Select, Selection},
     site::SiteID,
-    widgets::{AppEvents, Icons, prelude::*},
+    widgets::{Icons, prelude::*},
 };
 use bevy::{prelude::*, ecs::system::SystemParam};
 use bevy_egui::egui::{Button, Ui};
@@ -68,56 +68,3 @@ impl<'w, 's> SelectorWidget<'w, 's> {
 }
 
 impl<'w, 's> ShareableWidget for SelectorWidget<'w, 's> { }
-
-pub struct SelectionWidget<'a, 'w, 's> {
-    entity: Entity,
-    site_id: Option<SiteID>,
-    icons: &'a Icons,
-    events: &'a mut AppEvents<'w, 's>,
-    as_selected: bool,
-}
-
-impl<'a, 'w, 's> SelectionWidget<'a, 'w, 's> {
-    pub fn new(
-        entity: Entity,
-        site_id: Option<SiteID>,
-        icons: &'a Icons,
-        events: &'a mut AppEvents<'w, 's>,
-    ) -> Self {
-        Self {
-            entity,
-            site_id,
-            icons,
-            events,
-            as_selected: false,
-        }
-    }
-
-    pub fn as_selected(mut self, as_selected: bool) -> Self {
-        self.as_selected = as_selected;
-        self
-    }
-
-    pub fn show(self, ui: &mut Ui) {
-        let text = match self.site_id {
-            Some(id) => format!("#{}", id.0),
-            None => "*".to_string(),
-        };
-
-        let icon = if self.as_selected {
-            self.icons.selected.egui()
-        } else {
-            self.icons.select.egui()
-        };
-
-        let response = ui.add(Button::image_and_text(icon, text));
-
-        if response.clicked() {
-            self.events.request.select.send(Select(Some(self.entity)));
-        } else if response.hovered() {
-            self.events.request.hover.send(Hover(Some(self.entity)));
-        }
-
-        response.on_hover_text("Select");
-    }
-}

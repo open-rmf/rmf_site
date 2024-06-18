@@ -20,16 +20,12 @@ use bevy::prelude::*;
 use rmf_site_format::*;
 use std::collections::{BTreeMap, BTreeSet};
 
-use crate::{
-    site::Category,
-    widgets::Icons,
-};
+use crate::site::Category;
 
 #[derive(SystemParam)]
 pub struct InspectModelDependents<'w, 's> {
     dependents: Query<'w, 's, &'static ConstraintDependents, With<ModelMarker>>,
     categories: Query<'w, 's, &'static Category>,
-    icons: Res<'w, Icons>,
     selector: SelectorWidget<'w, 's>,
 }
 

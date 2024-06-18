@@ -19,7 +19,7 @@ use crate::{
     interaction::{ChangeMode, SelectAnchor},
     site::{Category, EdgeLabels, Original, SiteID},
     widgets::{
-        inspector::{Inspect, ExInspectAnchor, InspectAnchorInput},
+        inspector::{Inspect, InspectAnchor, InspectAnchorInput},
         prelude::*,
     },
 };
@@ -28,7 +28,7 @@ use bevy_egui::egui::{Grid, Ui};
 use rmf_site_format::{Edge, Side};
 
 #[derive(SystemParam)]
-pub struct ExInspectEdge<'w, 's> {
+pub struct InspectEdge<'w, 's> {
     edges: Query<
         'w,
         's,
@@ -42,9 +42,9 @@ pub struct ExInspectEdge<'w, 's> {
     change_mode: EventWriter<'w, ChangeMode>,
 }
 
-impl<'w, 's> ShareableWidget for ExInspectEdge<'w, 's> { }
+impl<'w, 's> ShareableWidget for InspectEdge<'w, 's> { }
 
-impl<'w, 's> WidgetSystem<Inspect> for ExInspectEdge<'w, 's> {
+impl<'w, 's> WidgetSystem<Inspect> for InspectEdge<'w, 's> {
     fn show(
         Inspect { selection: id, panel, .. }: Inspect,
         ui: &mut Ui,
@@ -87,7 +87,7 @@ impl<'w, 's> WidgetSystem<Inspect> for ExInspectEdge<'w, 's> {
     }
 }
 
-impl<'w, 's> ExInspectEdge<'w, 's> {
+impl<'w, 's> InspectEdge<'w, 's> {
     fn show_anchor(
         side: Side,
         id: Entity,
@@ -101,7 +101,7 @@ impl<'w, 's> ExInspectEdge<'w, 's> {
     ) {
         ui.label(labels.side(side));
         let anchor = edge.side(side);
-        let response = world.show::<ExInspectAnchor, _, _>(
+        let response = world.show::<InspectAnchor, _, _>(
             InspectAnchorInput { anchor, is_dependency: true, panel }, ui,
         );
         ui.end_row();
