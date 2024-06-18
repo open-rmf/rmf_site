@@ -47,10 +47,9 @@ pub struct ViewLightsPlugin {
 
 impl Plugin for ViewLightsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<LightDisplay>();
-        let widget = Widget::new::<ViewLights>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app
+            .init_resource::<LightDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewLights>::new());
     }
 }
 

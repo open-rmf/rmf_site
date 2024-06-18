@@ -46,6 +46,9 @@ use view_groups::*;
 pub mod diagnostics;
 use diagnostics::*;
 
+pub mod properties_panel;
+pub use properties_panel::*;
+
 pub mod view_layers;
 use view_layers::*;
 
@@ -429,6 +432,7 @@ pub mod prelude {
         Widget, WidgetSystem, TryShowWidgetWorld, TryShowWidgetEntity,
         ShowResult, ShowError, Tile, ShowSharedWidget, ShareableWidget,
         Panel, PanelSide, PropertiesPanel, PanelWidget,
+        properties_panel::*,
     };
     pub use bevy::ecs::{
         system::{SystemState, SystemParam},
@@ -592,47 +596,8 @@ impl PanelSide {
     }
 }
 
-#[derive(Resource)]
-pub struct PropertiesPanel {
-    side: PanelSide,
-    id: Entity,
-}
-
-impl PropertiesPanel {
-    pub fn side(&self) -> PanelSide {
-        self.side
-    }
-
-    pub fn id(&self) -> Entity {
-        self.id
-    }
-}
-
-pub struct PropertiesPanelPlugin {
-    side: PanelSide,
-}
-
-impl PropertiesPanelPlugin {
-    pub fn new(side: PanelSide) -> Self {
-        Self { side }
-    }
-}
-
-impl Default for PropertiesPanelPlugin {
-    fn default() -> Self {
-        Self::new(PanelSide::Right)
-    }
-}
-
-impl Plugin for PropertiesPanelPlugin {
-    fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(tile_panel_widget, &mut app.world);
-        let id = app.world.spawn((widget, self.side)).id();
-        app.world.insert_resource(PropertiesPanel { side: self.side, id });
-    }
-}
-
-fn tile_panel_widget(
+/// Reusable widget that defines a panel with "tiles" where each tile is a child widget.
+pub fn tile_panel_widget(
     In(panel): In<Entity>,
     world: &mut World,
     egui_contexts: &mut SystemState<EguiContexts>,
@@ -686,4 +651,8 @@ fn init_ui_style(mut egui_context: EguiContexts) {
     let mut visuals = egui::Visuals::dark();
     visuals.override_text_color = Some(egui::Color32::from_rgb(250, 250, 250));
     egui_context.ctx_mut().set_visuals(visuals);
+}
+
+pub struct PropertiesTilePlugin {
+
 }

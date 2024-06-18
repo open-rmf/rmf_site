@@ -45,10 +45,9 @@ pub struct ViewNavGraphsPlugin {
 
 impl Plugin for ViewNavGraphsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<NavGraphDisplay>();
-        let widget = Widget::new::<ViewNavGraphs>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app
+            .init_resource::<NavGraphDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewNavGraphs>::new());
     }
 }
 

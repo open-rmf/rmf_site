@@ -30,10 +30,9 @@ pub struct ViewGroupsPlugin {
 
 impl Plugin for ViewGroupsPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<GroupViewModes>();
-        let widget = Widget::new::<ViewGroups>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app
+            .init_resource::<GroupViewModes>()
+            .add_plugins(PropertiesTilePlugin::<ViewGroups>::new());
     }
 }
 

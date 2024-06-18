@@ -34,12 +34,10 @@ pub struct CreationPlugin {
 
 impl Plugin for CreationPlugin {
     fn build(&self, app: &mut App) {
-        let widget = Widget::new::<Creation>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
         app
             .init_resource::<PendingDrawing>()
-            .init_resource::<PendingModel>();
-        app.world.spawn(widget).set_parent(properties_panel);
+            .init_resource::<PendingModel>()
+            .add_plugins(PropertiesTilePlugin::<Creation>::new());
     }
 }
 

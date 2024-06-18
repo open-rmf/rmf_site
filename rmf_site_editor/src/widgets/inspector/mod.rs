@@ -224,7 +224,7 @@ impl MainInspector {
 impl FromWorld for MainInspector {
     fn from_world(world: &mut World) -> Self {
         let widget = Widget::new::<Inspector>(world);
-        let properties_panel = world.resource::<PropertiesPanel>().id;
+        let properties_panel = world.resource::<PropertiesPanel>().id();
         let id = world.spawn(widget).set_parent(properties_panel).id();
         Self { id }
     }

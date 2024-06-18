@@ -22,7 +22,7 @@ use crate::{
     widgets::{
         prelude::*,
         inspector::{InspectLayer, InspectLayerInput},
-        Icons, MoveLayer, PropertiesPanel,
+        Icons, MoveLayer,
     },
     AppState,
 };
@@ -36,9 +36,7 @@ pub struct ViewLayersPlugin {
 
 impl Plugin for ViewLayersPlugin {
     fn build(&self, app: &mut App) {
-        let widget = Widget::new::<ViewLayers>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app.add_plugins(PropertiesTilePlugin::<ViewLayers>::new());
     }
 }
 

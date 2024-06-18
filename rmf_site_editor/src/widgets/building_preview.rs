@@ -30,9 +30,7 @@ pub struct BuildingPreviewPlugin {
 
 impl Plugin for BuildingPreviewPlugin {
     fn build(&self, app: &mut App) {
-        let widget = Widget::new::<BuildingPreview>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app.add_plugins(PropertiesTilePlugin::<BuildingPreview>::new());
     }
 }
 

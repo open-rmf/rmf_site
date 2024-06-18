@@ -26,21 +26,20 @@ pub struct ViewOccupancyPlugin {
 
 impl Plugin for ViewOccupancyPlugin {
     fn build(&self, app: &mut bevy::prelude::App) {
-        app.init_resource::<OccupancyDisplay>();
-        let widget = Widget::new::<ExViewOccupancy>(&mut app.world);
-        let properties_panel = app.world.resource::<PropertiesPanel>().id;
-        app.world.spawn(widget).set_parent(properties_panel);
+        app
+            .init_resource::<OccupancyDisplay>()
+            .add_plugins(PropertiesTilePlugin::<ViewOccupancy>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct ExViewOccupancy<'w> {
+pub struct ViewOccupancy<'w> {
     calculate_grid: EventWriter<'w, CalculateGrid>,
     display_occupancy: ResMut<'w, OccupancyDisplay>,
     app_state: Res<'w, State<AppState>>,
 }
 
-impl<'w> WidgetSystem<Tile> for ExViewOccupancy<'w> {
+impl<'w> WidgetSystem<Tile> for ViewOccupancy<'w> {
     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         if *params.app_state.get() != AppState::SiteEditor {
@@ -54,7 +53,7 @@ impl<'w> WidgetSystem<Tile> for ExViewOccupancy<'w> {
     }
 }
 
-impl<'w> ExViewOccupancy<'w> {
+impl<'w> ViewOccupancy<'w> {
     pub fn show_widget(&mut self, ui: &mut Ui) {
         ui.horizontal(|ui| {
             if ui.button("Calculate Occupancy").clicked() {
