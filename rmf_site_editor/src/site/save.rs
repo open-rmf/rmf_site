@@ -136,6 +136,8 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
             ),
         >,
         Query<(), With<DrawingMarker>>,
+        Query<&ChildCabinAnchorGroup>,
+        Query<Entity, (With<Anchor>, Without<Pending>)>,
         Query<&NextSiteID>,
         Query<&SiteID>,
         Query<&Children>,
@@ -148,6 +150,8 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         lifts,
         drawing_children,
         drawings,
+        cabin_anchor_groups,
+        cabin_anchor_group_children,
         sites,
         site_ids,
         children,
@@ -209,6 +213,17 @@ fn assign_site_ids(world: &mut World, site: Entity) -> Result<(), SiteGeneration
         }
 
         if let Ok(lift) = lifts.get(*site_child) {
+            if let Ok(anchor_group) = cabin_anchor_groups.get(*site_child) {
+                if let Ok(anchor_children) = children.get(**anchor_group) {
+                    for anchor_child in anchor_children {
+                        if let Ok(e) = cabin_anchor_group_children.get(*anchor_child) {
+                            if !site_ids.contains(e) {
+                                new_entities.push(e);
+                            }
+                        }
+                    }
+                }
+            }
             if !site_ids.contains(lift) {
                 new_entities.push(lift);
             }
