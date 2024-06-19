@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2022 Open Source Robotics Foundation
+ * Copyright (C) 2024 Open Source Robotics Foundation
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -116,10 +116,6 @@ pub fn update_keyboard_command(
         if keyboard_input.pressed(KeyCode::M) {
             target_zoom_motion += 1.0;
         }
-        // Temporarily use M, N as zoom keys since +-, <>, [] cannot be detected with shift
-        // keyboard_input.get_pressed().for_each(|key| {
-        //     println!("Pressed key: {:?}", key);
-        // });
 
         // Smooth and normalize keyboard
         let delta_seconds = time.delta_seconds();
