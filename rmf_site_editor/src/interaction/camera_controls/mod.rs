@@ -72,7 +72,6 @@ pub enum CameraCommandType {
     Inactive,
     Pan,
     Orbit,
-    HoldOrbitSelection,
     TranslationZoom,
     ScaleZoom,
     FovZoom,
@@ -117,7 +116,7 @@ pub struct CameraControls {
     pub perspective_headlight: Entity,
     pub orthographic_camera_entities: [Entity; 4],
     pub orthographic_headlight: Entity,
-    pub orbit_center_marker: Entity,
+    pub selection_marker: Entity,
     pub orbit_center: Option<Vec3>,
 }
 
@@ -242,10 +241,10 @@ impl FromWorld for CameraControls {
         let interaction_assets = world.get_resource::<InteractionAssets>().expect(
             "make sure that the InteractionAssets resource is initialized before the camera plugin",
         );
-        let orbit_center_mesh = interaction_assets.orbit_center_mesh.clone();
-        let orbit_center_marker = world
+        let selection_mesh = interaction_assets.camera_control_mesh.clone();
+        let selection_marker = world
             .spawn(PbrBundle {
-                mesh: orbit_center_mesh,
+                mesh: selection_mesh,
                 visibility: Visibility::Visible,
                 ..default()
             })
@@ -396,7 +395,7 @@ impl FromWorld for CameraControls {
                 orthographic_child_cameras[2],
             ],
             orthographic_headlight,
-            orbit_center_marker,
+            selection_marker,
             orbit_center: None,
         }
     }
@@ -435,9 +434,7 @@ fn camera_controls(
     let rotation_delta: Quat;
     let fov_delta: f32;
     let scale_delta: f32;
-    if cursor_command.command_type != CameraCommandType::Inactive
-        && cursor_command.command_type != CameraCommandType::HoldOrbitSelection
-    {
+    if cursor_command.command_type != CameraCommandType::Inactive {
         translation_delta = cursor_command.translation_delta;
         rotation_delta = cursor_command.rotation_delta;
         fov_delta = cursor_command.fov_delta;
@@ -533,31 +530,27 @@ fn update_orbit_center_marker(
     >,
 ) {
     if let Ok((mut marker_transform, mut marker_visibility, mut marker_material)) =
-        marker_query.get_mut(controls.orbit_center_marker)
+        marker_query.get_mut(controls.selection_marker)
     {
-        let is_orbitting = cursor_command.command_type == CameraCommandType::Orbit
-            || cursor_command.command_type == CameraCommandType::HoldOrbitSelection
-            || keyboard_command.command_type == CameraCommandType::Orbit;
-
-        if is_orbitting
-            && controls.orbit_center.is_some()
+        // Orbitting
+        if (cursor_command.command_type == CameraCommandType::Orbit
+            || keyboard_command.command_type == CameraCommandType::Orbit)
             && controls.mode() == ProjectionMode::Perspective
         {
-            let orbit_center = controls.orbit_center.unwrap();
-
-            // Color by current action
-            let sphere_color: Color;
-            if is_orbitting {
-                *marker_material = interaction_assets.orbit_center_active_material.clone();
-                sphere_color = Color::GREEN;
-            } else {
-                *marker_material = interaction_assets.orbit_center_inactive_material.clone();
-                sphere_color = Color::WHITE;
-            };
-
-            gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, sphere_color);
-            marker_transform.translation = orbit_center;
-            *marker_visibility = Visibility::Visible;
+            if let Some(orbit_center) = controls.orbit_center {
+                *marker_visibility = Visibility::Visible;
+                *marker_material = interaction_assets.camera_control_orbit_material.clone();
+                marker_transform.translation = orbit_center;
+                gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
+            }
+        // Panning
+        } else if (cursor_command.command_type == CameraCommandType::Pan) {
+            if let Some(cursor_selection) = cursor_command.cursor_selection {
+                *marker_visibility = Visibility::Visible;
+                *marker_material = interaction_assets.camera_control_pan_material.clone();
+                marker_transform.translation = cursor_selection;
+                gizmo.sphere(cursor_selection, Quat::IDENTITY, 0.1, Color::WHITE);
+            }
         } else {
             *marker_visibility = Visibility::Hidden;
         }

@@ -96,10 +96,8 @@ pub fn update_cursor_command(
         let command_type = get_command_type(
             &keyboard_input,
             &mouse_input,
-            &cursor_motion,
             &scroll_motion,
             camera_controls.mode(),
-            &command_type_prev,
         );
         if command_type == CameraCommandType::Inactive {
             *cursor_command = CursorCommand::default();
@@ -134,13 +132,9 @@ pub fn update_cursor_command(
             .unwrap_or(cursor_direction_camera_frame);
 
         // Update orbit center
-        let was_orbittting = command_type_prev == CameraCommandType::Orbit
-            || command_type_prev == CameraCommandType::HoldOrbitSelection;
-        let is_orbitting = command_type == CameraCommandType::Orbit
-            || command_type == CameraCommandType::HoldOrbitSelection;
-        if !is_orbitting {
+        if command_type != CameraCommandType::Orbit {
             camera_controls.orbit_center = None;
-        } else if !was_orbittting && is_orbitting {
+        } else if command_type == CameraCommandType::Orbit && command_type != command_type_prev {
             camera_controls.orbit_center = Some(cursor_selection);
         }
 
@@ -406,33 +400,24 @@ fn get_cursor_selected_point(
 fn get_command_type(
     keyboard_input: &Res<Input<KeyCode>>,
     mouse_input: &Res<Input<MouseButton>>,
-    cursor_motion: &Vec2,
     scroll_motion: &f32,
     projection_mode: ProjectionMode,
-    command_type_prev: &CameraCommandType,
 ) -> CameraCommandType {
     // Inputs
-    let is_cursor_moving = cursor_motion.length() > 0.;
     let is_scrolling = *scroll_motion != 0.;
     let is_shifting =
         keyboard_input.pressed(KeyCode::ShiftLeft) || keyboard_input.pressed(KeyCode::ShiftRight);
 
     // Panning
-    if is_cursor_moving && !is_shifting && mouse_input.pressed(MouseButton::Right) {
+    if !is_shifting && mouse_input.pressed(MouseButton::Right) {
         return CameraCommandType::Pan;
     }
 
     // Orbitting
-    if is_cursor_moving && mouse_input.pressed(MouseButton::Middle)
+    if mouse_input.pressed(MouseButton::Middle)
         || (is_shifting && mouse_input.pressed(MouseButton::Right))
     {
         return CameraCommandType::Orbit;
-    } else if is_shifting
-        && (*command_type_prev == CameraCommandType::Orbit
-            || *command_type_prev == CameraCommandType::HoldOrbitSelection)
-        && projection_mode.is_perspective()
-    {
-        return CameraCommandType::HoldOrbitSelection;
     }
 
     // Zoom
