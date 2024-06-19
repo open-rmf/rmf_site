@@ -371,7 +371,6 @@ fn get_perspective_cursor_command(
             let target_rotation = Mat3::from_quat(target_transform.rotation);
             cursor_command.rotation_delta =
                 Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
-            is_cursor_selecting = true;
         }
         _ => (),
     }
