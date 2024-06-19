@@ -42,42 +42,26 @@ pub mod workcell;
 pub use workcell::*;
 
 use bevy::prelude::*;
-use bevy_infinite_grid::{InfiniteGrid, InfiniteGridPlugin};
 
 use crate::AppState;
-use crate::{
-    shapes::make_infinite_grid,
-    site::{
-        clear_model_trashcan, handle_model_loaded_events, handle_new_primitive_shapes,
-        handle_update_fuel_cache_requests, make_models_selectable, propagate_model_render_layers,
-        read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
-        update_anchor_transforms, update_model_scales, update_model_scenes,
-        update_model_tentative_formats, update_transforms_for_changed_poses,
-    },
+use crate::site::{
+    clear_model_trashcan, handle_model_loaded_events, handle_new_primitive_shapes,
+    handle_update_fuel_cache_requests, make_models_selectable, propagate_model_render_layers,
+    read_update_fuel_cache_results, reload_failed_models_with_new_api_key,
+    update_anchor_transforms, update_model_scales, update_model_scenes,
+    update_model_tentative_formats, update_transforms_for_changed_poses,
 };
 
 #[derive(Default)]
 pub struct WorkcellEditorPlugin;
 
-fn spawn_grid(mut commands: Commands) {
-    commands.spawn(make_infinite_grid(1.0, 100.0, None));
-}
-
-fn delete_grid(mut commands: Commands, grids: Query<Entity, With<InfiniteGrid>>) {
-    for grid in grids.iter() {
-        commands.entity(grid).despawn_recursive();
-    }
-}
-
 impl Plugin for WorkcellEditorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_plugins(InfiniteGridPlugin)
+        app
             .add_event::<CreateJoint>()
             .add_event::<SaveWorkcell>()
             .add_event::<LoadWorkcell>()
             .add_event::<ChangeCurrentWorkcell>()
-            .add_systems(OnEnter(AppState::WorkcellEditor), spawn_grid)
-            .add_systems(OnExit(AppState::WorkcellEditor), delete_grid)
             .add_systems(
                 Update,
                 (

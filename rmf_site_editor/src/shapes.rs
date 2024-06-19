@@ -1254,7 +1254,8 @@ pub(crate) fn make_infinite_grid(
     settings.fadeout_distance = fadeout_distance;
     settings.shadow_color = shadow_color;
     let transform = Transform::from_rotation(Quat::from_rotation_x(90_f32.to_radians()))
-        .with_scale(Vec3::splat(scale));
+        .with_scale(Vec3::splat(scale))
+        .with_translation(Vec3::new(0.0, 0.0, -0.005));
 
     InfiniteGridBundle {
         settings,
