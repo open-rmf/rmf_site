@@ -61,6 +61,24 @@ impl Default for KeyboardCommand {
     }
 }
 
+impl KeyboardCommand {
+    pub fn take_translation_delta(&mut self) -> Vec3 {
+        std::mem::replace(&mut self.translation_delta, Vec3::ZERO)
+    }
+
+    pub fn take_rotation_delta(&mut self) -> Quat {
+        std::mem::replace(&mut self.rotation_delta, Quat::IDENTITY)
+    }
+
+    pub fn take_scale_delta(&mut self) -> f32 {
+        std::mem::replace(&mut self.scale_delta, 0.0)
+    }
+
+    pub fn take_fov_delta(&mut self) -> f32 {
+        std::mem::replace(&mut self.fov_delta, 0.0)
+    }
+}
+
 pub fn update_keyboard_command(
     mut camera_controls: ResMut<CameraControls>,
     mut keyboard_command: ResMut<KeyboardCommand>,

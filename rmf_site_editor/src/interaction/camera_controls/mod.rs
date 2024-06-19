@@ -402,8 +402,8 @@ impl FromWorld for CameraControls {
 }
 
 fn camera_controls(
-    cursor_command: ResMut<CursorCommand>,
-    keyboard_command: ResMut<KeyboardCommand>,
+    mut cursor_command: ResMut<CursorCommand>,
+    mut keyboard_command: ResMut<KeyboardCommand>,
     mut controls: ResMut<CameraControls>,
     mut cameras: Query<(&mut Projection, &mut Transform)>,
     mut bevy_cameras: Query<&mut Camera>,
@@ -435,15 +435,15 @@ fn camera_controls(
     let fov_delta: f32;
     let scale_delta: f32;
     if cursor_command.command_type != CameraCommandType::Inactive {
-        translation_delta = cursor_command.translation_delta;
-        rotation_delta = cursor_command.rotation_delta;
-        fov_delta = cursor_command.fov_delta;
-        scale_delta = cursor_command.scale_delta;
+        translation_delta = cursor_command.take_translation_delta();
+        rotation_delta = cursor_command.take_rotation_delta();
+        fov_delta = cursor_command.take_fov_delta();
+        scale_delta = cursor_command.take_scale_delta();
     } else {
-        translation_delta = keyboard_command.translation_delta;
-        rotation_delta = keyboard_command.rotation_delta;
-        fov_delta = keyboard_command.fov_delta;
-        scale_delta = keyboard_command.scale_delta;
+        translation_delta = keyboard_command.take_translation_delta();
+        rotation_delta = keyboard_command.take_rotation_delta();
+        fov_delta = keyboard_command.take_fov_delta();
+        scale_delta = keyboard_command.take_scale_delta();
     }
 
     if controls.mode() == ProjectionMode::Perspective {
