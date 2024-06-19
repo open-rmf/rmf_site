@@ -320,7 +320,7 @@ fn get_perspective_cursor_command(
             );
             let x = a.lu().solve(&b).unwrap();
 
-            let zoom_translation = camera_transform.forward()
+            let zoom_translation = cursor_direction
                 * TRANSLATION_ZOOM_SENSITIVITY
                 * scroll_motion
                 * zoom_distance_factor;
