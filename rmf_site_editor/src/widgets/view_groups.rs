@@ -23,6 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, Ui};
 
+/// Add a widget for viewing different kinds of groups.
 #[derive(Default)]
 pub struct ViewGroupsPlugin {}
 
@@ -54,7 +55,7 @@ pub struct ViewGroupsEvents<'w, 's> {
 }
 
 impl<'w, 's> WidgetSystem<Tile> for ViewGroups<'w, 's> {
-    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> () {
+    fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
         let mut params = state.get_mut(world);
         if *params.app_state.get() != AppState::SiteEditor {
             return;

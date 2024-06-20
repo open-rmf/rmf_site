@@ -186,7 +186,7 @@ impl Plugin for SiteEditor {
                 WorkcellEditorPlugin,
                 SitePlugin,
                 InteractionPlugin,
-                StandardUiLayout,
+                StandardUiPlugin::default(),
                 AnimationPlugin,
                 OccupancyPlugin,
                 WorkspacePlugin,

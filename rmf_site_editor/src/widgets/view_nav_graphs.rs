@@ -35,6 +35,7 @@ use futures_lite::future;
 #[cfg(not(target_arch = "wasm32"))]
 use rfd::AsyncFileDialog;
 
+/// Add a widget for viewing and editing navigation graphs.
 #[derive(Default)]
 pub struct ViewNavGraphsPlugin {}
 

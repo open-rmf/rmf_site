@@ -18,28 +18,30 @@
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{DefaultFile, DrawingBundle, Recall},
+    site::{DefaultFile, DrawingBundle, Recall, AssetSource, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
-    AppState, CurrentWorkspace, PendingDrawing, PendingModel,
+    AppState, CurrentWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, Ui};
 
 use rmf_site_format::{DrawingProperties, Geometry, Model, WorkcellModel};
 
+/// This widget provides a widget with buttons for creating new site elements.
 #[derive(Default)]
 pub struct CreationPlugin {}
 
 impl Plugin for CreationPlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<PendingDrawing>()
+        app
+            .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .add_plugins(PropertiesTilePlugin::<Creation>::new());
     }
 }
 
 #[derive(SystemParam)]
-pub struct Creation<'w, 's> {
+struct Creation<'w, 's> {
     default_file: Query<'w, 's, &'static DefaultFile>,
     app_state: Res<'w, State<AppState>>,
     change_mode: EventWriter<'w, ChangeMode>,
@@ -258,4 +260,18 @@ impl<'w, 's> Creation<'w, 's> {
             }
         });
     }
+}
+
+#[derive(Resource, Clone, Default)]
+struct PendingDrawing {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+}
+
+
+#[derive(Resource, Clone, Default)]
+struct PendingModel {
+    pub source: AssetSource,
+    pub recall_source: RecallAssetSource,
+    pub scale: Scale,
 }

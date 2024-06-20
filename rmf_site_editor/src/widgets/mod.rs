@@ -15,14 +15,39 @@
  *
 */
 
+//! The site editor allows you to insert your own egui widgets into the UI.
+//!
+//! There are three categories of widgets that the site editor provides
+//! out-of-the-box support for inserting, but the widget system itself is
+//! highly extensible, allowing you to define your own categories of widgets.
+//!
+//! The three categories provided out of the box include:
+//! - [Panel widget][1]: Add a new panel to the UI.
+//! - Tile widget: Add a tile into a [panel of tiles][2] such as the [`PropertiesPanel`]. Use [`PropertiesTilePlugin`] to make a new tile widget that goes inside of the standard `PropertiesPanel`.
+//! - [`InspectionPlugin`]: Add a widget to the [`MainInspector`] to display more information about the currently selected entity.
+//!
+//! In our terminology, there are two kinds of panels:
+//! - Side panels: A vertical column widget on the left or right side of the screen.
+//!   - [`PropertiesPanel`] is usually a side panel placed on the right side of the screen.
+//!   - [`FuelAssetBrowser`] is a side panel typically placed on the left side of the screen.
+//!   - [`Diagnostics`] is a side panel that interactively flags issues that have been found in the site.
+//! - Top / Bottom Panels:
+//!   - The [`MenuBarPlugin`] provides a menu bar at the top of the screen.
+//!     - Create an entity with a [`Menu`] component to create a new menu inside the menu bar.
+//!     - Add an entity with a [`MenuItem`] component as a child to a menu entity to add a new item into a menu.
+//!     - The [`FileMenu`], [`ToolMenu`], and [`ViewMenu`] are resources that provide access to various standard menus.
+//!   - The [`ConsoleWidgetPlugin`] provides a console at the bottom of the screen to display information, warning, and error messages.
+//!
+//! [1]: crate::widgets::PanelWidget
+//! [2]: crate::widgets::show_panel_of_tiles
+
 use crate::{
     interaction::{Hover, PickingBlockers},
     AppState,
 };
 use bevy::{
-    asset::embedded_asset,
     ecs::{
-        system::{BoxedSystem, SystemParam, SystemState},
+        system::{SystemParam, SystemState},
         world::EntityWorldMut,
     },
     prelude::*,
@@ -31,35 +56,54 @@ use bevy_egui::{
     egui::{self, Ui},
     EguiContexts,
 };
-use rmf_site_format::*;
-use smallvec::SmallVec;
 
 pub mod building_preview;
 use building_preview::*;
 
+pub mod console;
+use console::*;
+
 pub mod creation;
 use creation::*;
-
-pub mod fuel_asset_browser;
-pub use fuel_asset_browser::*;
-
-pub mod menu_bar;
-use menu_bar::*;
-
-pub mod view_groups;
-use view_groups::*;
 
 pub mod diagnostics;
 use diagnostics::*;
 
+pub mod fuel_asset_browser;
+pub use fuel_asset_browser::*;
+
+pub mod icons;
+pub use icons::*;
+
+pub mod inspector;
+pub use inspector::*;
+
+pub mod menu_bar;
+pub use menu_bar::*;
+
+pub mod move_layer;
+pub use move_layer::*;
+
+pub mod panel_of_tiles;
+pub use panel_of_tiles::*;
+
+pub mod panel;
+pub use panel::*;
+
 pub mod properties_panel;
 pub use properties_panel::*;
+
+pub mod selector_widget;
+pub use selector_widget::*;
+
+pub mod view_groups;
+use view_groups::*;
 
 pub mod view_layers;
 use view_layers::*;
 
 pub mod view_levels;
-use view_levels::{LevelDisplay, ViewLevelsPlugin};
+use view_levels::*;
 
 pub mod view_lights;
 use view_lights::*;
@@ -70,104 +114,40 @@ use view_nav_graphs::*;
 pub mod view_occupancy;
 use view_occupancy::*;
 
-pub mod console;
-pub use console::*;
+pub mod prelude {
+    //! This module gives easy access to the traits, structs, and plugins that
+    //! we expect downstream users are likely to want easy access to if they are
+    //! implementing and inserting their own widgets.
 
-pub mod icons;
-pub use icons::*;
-
-pub mod inspector;
-// use inspector::{InspectorParams, InspectorWidget, SearchForFiducial, SearchForTexture, ExInspectorWidget};
-use inspector::*;
-
-pub mod move_layer;
-pub use move_layer::*;
-
-pub mod selector_widget;
-pub use selector_widget::*;
-
-#[derive(Resource, Clone, Default)]
-pub struct PendingDrawing {
-    pub source: AssetSource,
-    pub recall_source: RecallAssetSource,
+    pub use super::{
+        properties_panel::*, PanelSide, PanelWidget, PropertiesPanel,
+        ShareableWidget, ShowError, ShowResult, ShowSharedWidget, Tile,
+        TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem, Inspect,
+        InspectionPlugin, PropertiesTilePlugin, PanelWidgetInput,
+    };
+    pub use bevy::ecs::{
+        system::{SystemParam, SystemState},
+        world::World,
+    };
+    pub use bevy_egui::egui::Ui;
 }
 
-#[derive(Resource, Clone, Default)]
-pub struct PendingModel {
-    pub source: AssetSource,
-    pub recall_source: RecallAssetSource,
-    pub scale: Scale,
-}
-
+/// This plugin provides the standard UI layout that was designed for the common
+/// use cases of the site editor.
 #[derive(Default)]
-pub struct StandardUiLayout;
+pub struct StandardUiPlugin {}
 
-fn add_widgets_icons(app: &mut App) {
-    // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
-    // TODO(luca) remove once we migrate to Bevy 0.13 that includes the fix
-    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
-    {
-        embedded_asset!(app, "src/", "icons/add.png");
-        embedded_asset!(app, "src/", "icons/alignment.png");
-        embedded_asset!(app, "src/", "icons/alpha.png");
-        embedded_asset!(app, "src/", "icons/confirm.png");
-        embedded_asset!(app, "src/", "icons/down.png");
-        embedded_asset!(app, "src/", "icons/edit.png");
-        embedded_asset!(app, "src/", "icons/empty.png");
-        embedded_asset!(app, "src/", "icons/exit.png");
-        embedded_asset!(app, "src/", "icons/global.png");
-        embedded_asset!(app, "src/", "icons/hidden.png");
-        embedded_asset!(app, "src/", "icons/hide.png");
-        embedded_asset!(app, "src/", "icons/merge.png");
-        embedded_asset!(app, "src/", "icons/opaque.png");
-        embedded_asset!(app, "src/", "icons/reject.png");
-        embedded_asset!(app, "src/", "icons/search.png");
-        embedded_asset!(app, "src/", "icons/select.png");
-        embedded_asset!(app, "src/", "icons/selected.png");
-        embedded_asset!(app, "src/", "icons/to_bottom.png");
-        embedded_asset!(app, "src/", "icons/to_top.png");
-        embedded_asset!(app, "src/", "icons/trash.png");
-        embedded_asset!(app, "src/", "icons/up.png");
-    }
-    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
-    {
-        embedded_asset!(app, "src\\", "icons\\add.png");
-        embedded_asset!(app, "src\\", "icons\\alignment.png");
-        embedded_asset!(app, "src\\", "icons\\alpha.png");
-        embedded_asset!(app, "src\\", "icons\\confirm.png");
-        embedded_asset!(app, "src\\", "icons\\down.png");
-        embedded_asset!(app, "src\\", "icons\\edit.png");
-        embedded_asset!(app, "src\\", "icons\\empty.png");
-        embedded_asset!(app, "src\\", "icons\\exit.png");
-        embedded_asset!(app, "src\\", "icons\\global.png");
-        embedded_asset!(app, "src\\", "icons\\hidden.png");
-        embedded_asset!(app, "src\\", "icons\\hide.png");
-        embedded_asset!(app, "src\\", "icons\\merge.png");
-        embedded_asset!(app, "src\\", "icons\\opaque.png");
-        embedded_asset!(app, "src\\", "icons\\reject.png");
-        embedded_asset!(app, "src\\", "icons\\search.png");
-        embedded_asset!(app, "src\\", "icons\\select.png");
-        embedded_asset!(app, "src\\", "icons\\selected.png");
-        embedded_asset!(app, "src\\", "icons\\to_bottom.png");
-        embedded_asset!(app, "src\\", "icons\\to_top.png");
-        embedded_asset!(app, "src\\", "icons\\trash.png");
-        embedded_asset!(app, "src\\", "icons\\up.png");
-    }
-}
-
-impl Plugin for StandardUiLayout {
+impl Plugin for StandardUiPlugin {
     fn build(&self, app: &mut App) {
-        add_widgets_icons(app);
-        app.init_resource::<Icons>()
+        app
             .add_plugins((
+                IconsPlugin::default(),
                 MenuBarPlugin::default(),
                 StandardPropertiesPanelPlugin::default(),
                 FuelAssetBrowserPlugin::default(),
                 DiagnosticsPlugin::default(),
                 ConsoleWidgetPlugin::default(),
             ))
-            .init_resource::<SearchForTexture>()
-            .init_resource::<GroupViewModes>()
             .add_systems(Startup, init_ui_style)
             .add_systems(
                 Update,
@@ -184,26 +164,13 @@ impl Plugin for StandardUiLayout {
     }
 }
 
-#[derive(Default)]
-pub struct StandardPropertiesPanelPlugin {}
-
-impl Plugin for StandardPropertiesPanelPlugin {
-    fn build(&self, app: &mut App) {
-        app.add_plugins((
-            PropertiesPanelPlugin::new(PanelSide::Right),
-            ViewLevelsPlugin::default(),
-            ViewNavGraphsPlugin::default(),
-            ViewLayersPlugin::default(),
-            StandardInspectorPlugin::default(),
-            CreationPlugin::default(),
-            ViewGroupsPlugin::default(),
-            ViewLightsPlugin::default(),
-            ViewOccupancyPlugin::default(),
-            BuildingPreviewPlugin::default(),
-        ));
-    }
-}
-
+/// This component should be given to an entity that needs to be rendered as a
+/// nested widget in the UI.
+///
+/// For standard types of widgets you don't need to create this component yourself,
+/// instead use one of the generic convenience plugins:
+/// - [`InspectionPlugin`]
+/// - [`PropertiesTilePlugin`]
 #[derive(Component)]
 pub struct Widget<Input = (), Output = ()> {
     inner: Option<Box<dyn ExecuteWidget<Input, Output> + 'static + Send + Sync>>,
@@ -231,10 +198,17 @@ where
     }
 }
 
+/// Do not implement this widget directly. Instead create a struct that derives
+/// [`SystemParam`] and then implement [`WidgetSystem`] for that struct.
 pub trait ExecuteWidget<Input, Output> {
     fn show(&mut self, input: Input, ui: &mut Ui, world: &mut World) -> Output;
 }
 
+/// Implement this on a [`SystemParam`] struct to make it a widget that can be
+/// plugged into the site editor UI.
+///
+/// See documentation of [`PropertiesTilePlugin`] or [`InspectionPlugin`] to see
+/// examples of using this.
 pub trait WidgetSystem<Input = (), Output = ()>: SystemParam {
     fn show(input: Input, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) -> Output;
 }
@@ -257,6 +231,7 @@ where
 
 pub type ShowResult<T = ()> = Result<T, ShowError>;
 
+/// Errors that can happen while attempting to show a widget.
 #[derive(Debug)]
 pub enum ShowError {
     /// The entity whose widget you are trying to show is missing from the world
@@ -269,11 +244,17 @@ pub enum ShowError {
     Recursion,
 }
 
+/// Trait implemented on [`World`] to let it render child widgets. Note that
+/// this is not able to render widgets recursively, so you should make sure not
+/// to have circular dependencies in your widget structure.
 pub trait TryShowWidgetWorld {
+    /// Try to show a widget that has `()` for input and output belonging to the
+    /// specified entity.
     fn try_show(&mut self, entity: Entity, ui: &mut Ui) -> ShowResult<()> {
         self.try_show_out(entity, (), ui)
     }
 
+    /// Same as [`Self::try_show`] but takes an input that will be fed to the widget.
     fn try_show_in<Input>(&mut self, entity: Entity, input: Input, ui: &mut Ui) -> ShowResult<()>
     where
         Input: 'static + Send + Sync,
@@ -281,6 +262,8 @@ pub trait TryShowWidgetWorld {
         self.try_show_out(entity, input, ui)
     }
 
+    /// Same as [`Self::try_show`] but takes an input for the widget and provides
+    /// an output from the widget.
     fn try_show_out<Output, Input>(
         &mut self,
         entity: Entity,
@@ -310,7 +293,10 @@ impl TryShowWidgetWorld for World {
     }
 }
 
+/// Same as [`TryShowWidgetWorld`] but is implemented for [`EntityWorldMut`] so
+/// you do not need to specify the target entity.
 pub trait TryShowWidgetEntity {
+    /// Try to show a widget that has `()` for input and output
     fn try_show(&mut self, ui: &mut Ui) -> ShowResult<()> {
         self.try_show_out((), ui)
     }
@@ -357,6 +343,9 @@ impl<'w> TryShowWidgetEntity for EntityWorldMut<'w> {
 /// parameters do not use the [`Changed`] filter. It is the responsibility of
 /// the user to ensure that sharing this widget will not have any bad side
 /// effects.
+///
+/// [`ShareableWidget`]s can be used by the [`ShowSharedWidget`] trait which is
+/// implemented for the [`World`] struct.
 pub trait ShareableWidget {}
 
 /// A resource to store a widget so that it can be reused multiple times in one
@@ -393,75 +382,15 @@ impl ShowSharedWidget for World {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
-pub struct Panel {
-    pub id: Entity,
-    pub side: PanelSide,
-}
-
-pub struct Tile {
-    pub id: Entity,
-    pub panel: PanelSide,
-}
-
-pub mod prelude {
-    pub use super::{
-        properties_panel::*, Panel, PanelSide, PanelWidget, PropertiesPanel, ShareableWidget,
-        ShowError, ShowResult, ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld,
-        Widget, WidgetSystem,
-    };
-    pub use bevy::ecs::{
-        system::{SystemParam, SystemState},
-        world::World,
-    };
-    pub use bevy_egui::egui::Ui;
-}
-
-/// To create a panel widget (a widget that renders itself directly to one of
-/// the egui side panels), add this component to an entity.
-#[derive(Component)]
-pub struct PanelWidget {
-    inner: Option<BoxedSystem<Entity>>,
-}
-
-impl PanelWidget {
-    pub fn new<M, S: IntoSystem<Entity, (), M>>(system: S, world: &mut World) -> Self {
-        let mut system = Box::new(IntoSystem::into_system(system));
-        system.initialize(world);
-        Self {
-            inner: Some(system),
-        }
-    }
-}
-
-fn site_ui_layout(
+/// This system renders all UI panels in the application and makes sure that the
+/// UI rendering works correctly with the picking system, and any other systems
+/// as needed.
+pub fn site_ui_layout(
     world: &mut World,
     panel_widgets: &mut QueryState<(Entity, &mut PanelWidget)>,
     egui_context_state: &mut SystemState<EguiContexts>,
 ) {
-    let mut panels: SmallVec<[_; 16]> = panel_widgets
-        .iter_mut(world)
-        .map(|(entity, mut widget)| {
-            (
-                entity,
-                widget
-                    .inner
-                    .take()
-                    .expect("Inner system of PanelWidget is missing"),
-            )
-        })
-        .collect();
-
-    for (e, inner) in &mut panels {
-        inner.run(*e, world);
-        inner.apply_deferred(world);
-    }
-
-    for (e, inner) in panels {
-        if let Some(mut widget) = world.get_mut::<PanelWidget>(e) {
-            let _ = widget.inner.insert(inner);
-        }
-    }
+    render_panels(world, panel_widgets, egui_context_state);
 
     let mut egui_context = egui_context_state.get_mut(world);
     let ctx = egui_context.ctx_mut();
@@ -482,143 +411,6 @@ fn site_ui_layout(
     }
 }
 
-#[derive(Clone, Copy, Debug, Component)]
-pub enum PanelSide {
-    Top,
-    Bottom,
-    Left,
-    Right,
-}
-
-pub enum EguiPanel {
-    Vertical(egui::SidePanel),
-    Horizontal(egui::TopBottomPanel),
-}
-
-impl EguiPanel {
-    pub fn map_vertical(self, f: impl FnOnce(egui::SidePanel) -> egui::SidePanel) -> Self {
-        match self {
-            Self::Vertical(panel) => Self::Vertical(f(panel)),
-            other => other,
-        }
-    }
-
-    pub fn map_horizontal(
-        self,
-        f: impl FnOnce(egui::TopBottomPanel) -> egui::TopBottomPanel,
-    ) -> Self {
-        match self {
-            Self::Horizontal(panel) => Self::Horizontal(f(panel)),
-            other => other,
-        }
-    }
-
-    pub fn show<R>(
-        self,
-        ctx: &egui::Context,
-        add_content: impl FnOnce(&mut Ui) -> R,
-    ) -> egui::InnerResponse<R> {
-        match self {
-            Self::Vertical(panel) => panel.show(ctx, add_content),
-            Self::Horizontal(panel) => panel.show(ctx, add_content),
-        }
-    }
-}
-
-impl PanelSide {
-    /// Is the long direction of the panel horizontal
-    pub fn is_horizontal(&self) -> bool {
-        matches!(self, Self::Top | Self::Bottom)
-    }
-
-    /// Is the long direction of the panel vertical
-    pub fn is_vertical(&self) -> bool {
-        matches!(self, Self::Left | Self::Right)
-    }
-
-    /// Align the Ui to line up with the long direction of the panel
-    pub fn align<R>(self, ui: &mut Ui, f: impl FnOnce(&mut Ui) -> R) -> egui::InnerResponse<R> {
-        if self.is_horizontal() {
-            ui.horizontal(f)
-        } else {
-            ui.vertical(f)
-        }
-    }
-
-    /// Align the Ui to run orthogonal to long direction of the panel,
-    /// i.e. the Ui will run along the short direction of the panel.
-    pub fn orthogonal<R>(
-        self,
-        ui: &mut Ui,
-        f: impl FnOnce(&mut Ui) -> R,
-    ) -> egui::InnerResponse<R> {
-        if self.is_horizontal() {
-            ui.vertical(f)
-        } else {
-            ui.horizontal(f)
-        }
-    }
-
-    pub fn get_panel(self) -> EguiPanel {
-        match self {
-            Self::Left => EguiPanel::Vertical(egui::SidePanel::left("left_panel")),
-            Self::Right => EguiPanel::Vertical(egui::SidePanel::right("right_panel")),
-            Self::Top => EguiPanel::Horizontal(egui::TopBottomPanel::top("top_panel")),
-            Self::Bottom => EguiPanel::Horizontal(egui::TopBottomPanel::bottom("bottom_panel")),
-        }
-    }
-}
-
-/// Reusable widget that defines a panel with "tiles" where each tile is a child widget.
-pub fn tile_panel_widget(
-    In(panel): In<Entity>,
-    world: &mut World,
-    egui_contexts: &mut SystemState<EguiContexts>,
-) {
-    let children: Option<SmallVec<[Entity; 16]>> = world
-        .get::<Children>(panel)
-        .map(|children| children.iter().copied().collect());
-
-    let Some(children) = children else {
-        return;
-    };
-    if children.is_empty() {
-        // Do not even begin to create a panel if there are no children to render
-        return;
-    }
-
-    let Some(side) = world.get::<PanelSide>(panel) else {
-        error!("Side component missing for tile_panel_widget {panel:?}");
-        return;
-    };
-
-    let side = *side;
-    let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
-    side.get_panel()
-        .map_vertical(|panel| {
-            // TODO(@mxgrey): Make this configurable via a component
-            panel.resizable(true).default_width(300.0)
-        })
-        .show(&ctx, |ui| {
-            egui::ScrollArea::both()
-                .auto_shrink([false, false])
-                .show(ui, |ui| {
-                    for child in children {
-                        let tile = Tile {
-                            id: child,
-                            panel: side,
-                        };
-                        if let Err(err) = world.try_show_in(child, tile, ui) {
-                            error!(
-                                "Could not render child widget {child:?} in \
-                                tile panel {panel:?} on side {side:?}: {err:?}"
-                            );
-                        }
-                    }
-                });
-        });
-}
-
 fn init_ui_style(mut egui_context: EguiContexts) {
     // I think the default egui dark mode text color is too dim, so this changes
     // it to a brighter white.
@@ -626,5 +418,3 @@ fn init_ui_style(mut egui_context: EguiContexts) {
     visuals.override_text_color = Some(egui::Color32::from_rgb(250, 250, 250));
     egui_context.ctx_mut().set_visuals(visuals);
 }
-
-pub struct PropertiesTilePlugin {}

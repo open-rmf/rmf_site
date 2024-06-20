@@ -21,12 +21,12 @@ use crate::{
     widgets::prelude::*,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::{
-    egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window},
-    EguiContexts,
+use bevy_egui::egui::{
+    self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window,
 };
 use gz_fuel::FuelModel;
 
+/// Add a [`FuelAssetBrowser`] widget to your application.
 #[derive(Default)]
 pub struct FuelAssetBrowserPlugin {}
 
@@ -50,7 +50,7 @@ pub struct ShowAssetFilters {
     pub recall_private: Option<bool>,
 }
 
-/// Used to indicate whether to show or hide the left side panel with the asset gallery
+/// Used to indicate whether to show or hide the [`FuelAssetBrowser`].
 #[derive(Resource, Default)]
 pub struct AssetGalleryStatus {
     pub show: bool,
@@ -63,6 +63,13 @@ pub struct AssetGalleryStatus {
     pub show_api_window: bool,
 }
 
+/// A widget for browsing models that can be downloaded from fuel.
+///
+/// This is part of the [`StandardUiPlugin`][1]. If you are not using the
+/// `StandardUiLayout` then it is recommended that you use the
+/// [`FuelAssetBrowserPlugin`] to add this to the editor.
+///
+/// [1]: crate::widgets::StandardUiPlugin
 #[derive(SystemParam)]
 pub struct FuelAssetBrowser<'w, 's> {
     fuel_client: ResMut<'w, FuelClient>,
@@ -76,17 +83,15 @@ pub struct FuelAssetBrowser<'w, 's> {
 }
 
 fn fuel_asset_browser_panel(
-    In(panel): In<Entity>,
+    In(input): In<PanelWidgetInput>,
     world: &mut World,
-    egui_contexts: &mut SystemState<EguiContexts>,
 ) {
     if world.resource::<AssetGalleryStatus>().show {
-        let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
         egui::SidePanel::left("asset_gallery")
             .resizable(true)
             .min_width(320.0)
-            .show(&ctx, |ui| {
-                if let Err(err) = world.try_show(panel, ui) {
+            .show(&input.context, |ui| {
+                if let Err(err) = world.try_show(input.id, ui) {
                     error!("Unable to display asset gallery: {err:?}");
                 }
             });

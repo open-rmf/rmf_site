@@ -19,13 +19,11 @@ use crate::{widgets::prelude::*, AppState, CreateNewWorkspace, LoadWorkspace, Sa
 
 use bevy::ecs::query::Has;
 use bevy::prelude::*;
-use bevy_egui::{
-    egui::{self, Button, Ui},
-    EguiContexts,
-};
+use bevy_egui::egui::{self, Button, Ui};
 
 use std::collections::HashSet;
 
+/// Add the standard menu bar to the application.
 #[derive(Default)]
 pub struct MenuBarPlugin {}
 
@@ -41,8 +39,8 @@ impl Plugin for MenuBarPlugin {
     }
 }
 
-/// Adding this to an entity to an entity with the MenuItem component
-/// will grey out and disable a MenuItem.
+/// Adding this to an entity to an entity with the [`MenuItem`] component
+/// will grey out and disable a [`MenuItem`].
 #[derive(Component)]
 pub struct MenuDisabled;
 
@@ -276,8 +274,7 @@ struct MenuParams<'w, 's> {
 }
 
 fn top_menu_bar(
-    In(_): In<Entity>,
-    mut egui_context: EguiContexts,
+    In(input): In<PanelWidgetInput>,
     mut new_workspace: EventWriter<CreateNewWorkspace>,
     mut save: EventWriter<SaveWorkspace>,
     mut load_workspace: EventWriter<LoadWorkspace>,
@@ -286,7 +283,7 @@ fn top_menu_bar(
     children: Query<&Children>,
     mut menu_params: MenuParams,
 ) {
-    egui::TopBottomPanel::top("top_panel").show(egui_context.ctx_mut(), |ui| {
+    egui::TopBottomPanel::top("top_panel").show(&input.context, |ui| {
         egui::menu::bar(ui, |ui| {
             ui.menu_button("File", |ui| {
                 if ui.add(Button::new("New").shortcut_text("Ctrl+N")).clicked() {

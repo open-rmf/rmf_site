@@ -33,7 +33,8 @@ pub struct InspectTexturePlugin {}
 
 impl Plugin for InspectTexturePlugin {
     fn build(&self, app: &mut App) {
-        app.init_resource::<SearchForTexture>()
+        app
+            .init_resource::<SearchForTexture>()
             .add_plugins(InspectionPlugin::<InspectTextureAffiliation>::new());
     }
 }

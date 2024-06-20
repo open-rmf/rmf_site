@@ -40,6 +40,7 @@ use rfd::AsyncFileDialog;
 use std::cmp::Reverse;
 use std::collections::BTreeMap;
 
+/// Add a plugin for viewing and editing a list of all lights
 #[derive(Default)]
 pub struct ViewLightsPlugin {}
 

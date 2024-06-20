@@ -16,8 +16,23 @@
 */
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
-use bevy::{ecs::system::SystemState, prelude::*};
+use bevy::{
+    asset::embedded_asset,
+    ecs::system::SystemState,
+    prelude::*
+};
 use bevy_egui::{egui::ImageSource, egui::TextureId, EguiContexts};
+
+/// Add a resource for the common icons of the application.
+#[derive(Default)]
+pub struct IconsPlugin {}
+
+impl Plugin for IconsPlugin {
+    fn build(&self, app: &mut App) {
+        add_widgets_icons(app);
+        app.init_resource::<Icons>();
+    }
+}
 
 struct IconBuilder(Handle<Image>);
 impl IconBuilder {
@@ -48,7 +63,7 @@ impl Icon {
     }
 }
 
-// TODO(MXG): Create a struct to manage bevy-egui image pairs
+/// A collection of icons used by the standard widgets.
 #[derive(Clone, Debug, Resource)]
 pub struct Icons {
     pub select: Icon,
@@ -154,5 +169,58 @@ impl Icons {
             RankAdjustment::ToTop => self.layer_to_top.egui(),
             RankAdjustment::ToBottom => self.layer_to_bottom.egui(),
         }
+    }
+}
+
+fn add_widgets_icons(app: &mut App) {
+    // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
+    // TODO(luca) remove once we migrate to Bevy 0.13 that includes the fix
+    #[cfg(any(not(target_family = "windows"), target_env = "gnu"))]
+    {
+        embedded_asset!(app, "src/", "icons/add.png");
+        embedded_asset!(app, "src/", "icons/alignment.png");
+        embedded_asset!(app, "src/", "icons/alpha.png");
+        embedded_asset!(app, "src/", "icons/confirm.png");
+        embedded_asset!(app, "src/", "icons/down.png");
+        embedded_asset!(app, "src/", "icons/edit.png");
+        embedded_asset!(app, "src/", "icons/empty.png");
+        embedded_asset!(app, "src/", "icons/exit.png");
+        embedded_asset!(app, "src/", "icons/global.png");
+        embedded_asset!(app, "src/", "icons/hidden.png");
+        embedded_asset!(app, "src/", "icons/hide.png");
+        embedded_asset!(app, "src/", "icons/merge.png");
+        embedded_asset!(app, "src/", "icons/opaque.png");
+        embedded_asset!(app, "src/", "icons/reject.png");
+        embedded_asset!(app, "src/", "icons/search.png");
+        embedded_asset!(app, "src/", "icons/select.png");
+        embedded_asset!(app, "src/", "icons/selected.png");
+        embedded_asset!(app, "src/", "icons/to_bottom.png");
+        embedded_asset!(app, "src/", "icons/to_top.png");
+        embedded_asset!(app, "src/", "icons/trash.png");
+        embedded_asset!(app, "src/", "icons/up.png");
+    }
+    #[cfg(all(target_family = "windows", not(target_env = "gnu")))]
+    {
+        embedded_asset!(app, "src\\", "icons\\add.png");
+        embedded_asset!(app, "src\\", "icons\\alignment.png");
+        embedded_asset!(app, "src\\", "icons\\alpha.png");
+        embedded_asset!(app, "src\\", "icons\\confirm.png");
+        embedded_asset!(app, "src\\", "icons\\down.png");
+        embedded_asset!(app, "src\\", "icons\\edit.png");
+        embedded_asset!(app, "src\\", "icons\\empty.png");
+        embedded_asset!(app, "src\\", "icons\\exit.png");
+        embedded_asset!(app, "src\\", "icons\\global.png");
+        embedded_asset!(app, "src\\", "icons\\hidden.png");
+        embedded_asset!(app, "src\\", "icons\\hide.png");
+        embedded_asset!(app, "src\\", "icons\\merge.png");
+        embedded_asset!(app, "src\\", "icons\\opaque.png");
+        embedded_asset!(app, "src\\", "icons\\reject.png");
+        embedded_asset!(app, "src\\", "icons\\search.png");
+        embedded_asset!(app, "src\\", "icons\\select.png");
+        embedded_asset!(app, "src\\", "icons\\selected.png");
+        embedded_asset!(app, "src\\", "icons\\to_bottom.png");
+        embedded_asset!(app, "src\\", "icons\\to_top.png");
+        embedded_asset!(app, "src\\", "icons\\trash.png");
+        embedded_asset!(app, "src\\", "icons\\up.png");
     }
 }

@@ -122,6 +122,54 @@ use bevy_egui::egui::{CollapsingHeader, Ui};
 use rmf_site_format::*;
 use smallvec::SmallVec;
 
+/// Use this plugin to add a single inspection tile into the [`MainInspector`]
+/// widget.
+///
+/// ```no_run
+/// use bevy::prelude::{App, Query, Entity, Res};
+/// use librmf_site_editor::{SiteEditor, site::NameInSite, widgets::prelude::*};
+///
+/// #[derive(SystemParam)]
+/// pub struct HelloSelection<'w, 's> {
+///     names: Query<'w, 's, &'static NameInSite>,
+/// }
+///
+/// impl<'w, 's> WidgetSystem<Inspect> for HelloSelection<'w, 's> {
+///     fn show(
+///         Inspect { selection, .. }: Inspect,
+///         ui: &mut Ui,
+///         state: &mut SystemState<Self>,
+///         world: &mut World,
+///     ) {
+///         let mut params = state.get_mut(world);
+///         let name = params.names.get(selection)
+///             .map(|name| name.as_str())
+///             .unwrap_or("<unknown>");
+///         ui.add_space(20.0);
+///         ui.heading(format!("Hello, {name}!"));
+///         ui.add_space(20.0);
+///     }
+/// }
+///
+/// fn main() {
+///     let mut app = App::new();
+///     app.add_plugins((
+///         SiteEditor,
+///         InspectionPlugin::<HelloSelection>::new(),
+///     ));
+///
+///     app.run();
+/// }
+/// ```
+pub struct InspectionPlugin<W>
+where
+    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
+{
+    _ignore: std::marker::PhantomData<W>,
+}
+
+/// Use this to create a standard inspector plugin that covers the common use
+/// cases of the site editor.
 #[derive(Default)]
 pub struct StandardInspectorPlugin {}
 
@@ -162,6 +210,9 @@ impl Plugin for StandardInspectorPlugin {
     }
 }
 
+/// Use this to create a minimal inspector plugin. You will be able to add your
+/// own [`InspectionPlugin`]s to the application, but none of the standard
+/// inspection plugins will be included.
 #[derive(Default)]
 pub struct MinimalInspectorPlugin {}
 
@@ -169,13 +220,6 @@ impl Plugin for MinimalInspectorPlugin {
     fn build(&self, app: &mut App) {
         app.init_resource::<MainInspector>();
     }
-}
-
-pub struct InspectionPlugin<W>
-where
-    W: WidgetSystem<Inspect, ()> + 'static + Send + Sync,
-{
-    _ignore: std::marker::PhantomData<W>,
 }
 
 impl<W> InspectionPlugin<W>
@@ -200,13 +244,19 @@ where
     }
 }
 
+/// This is the input type for inspection widgets. Use [`InspectionPlugin`] to
+/// add the widget to the application.
 #[derive(Clone, Copy)]
 pub struct Inspect {
+    /// What entity should be treated as selected.
     pub selection: Entity,
-    pub inspector: Entity,
+    /// What entity is the current inspection widget attached to.
+    pub inspection: Entity,
+    /// What kind of panel is the inspector rendered on.
     pub panel: PanelSide,
 }
 
+/// This contains a reference to the main inspector widget of the application.
 #[derive(Resource)]
 pub struct MainInspector {
     id: Entity,
@@ -228,7 +278,7 @@ impl FromWorld for MainInspector {
 }
 
 #[derive(SystemParam)]
-struct Inspector<'w, 's> {
+pub struct Inspector<'w, 's> {
     children: Query<'w, 's, &'static Children>,
     heading: Query<'w, 's, (Option<&'static Category>, Option<&'static SiteID>)>,
 }
@@ -288,7 +338,7 @@ impl<'w, 's> WidgetSystem<Tile> for Inspector<'w, 's> {
                     for child in children {
                         let inspect = Inspect {
                             selection,
-                            inspector: child,
+                            inspection: child,
                             panel,
                         };
                         let _ = world.try_show_in(child, inspect, ui);

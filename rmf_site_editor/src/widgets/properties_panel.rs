@@ -15,53 +15,74 @@
  *
 */
 
-use crate::widgets::{tile_panel_widget, PanelSide, PanelWidget, Tile, Widget, WidgetSystem};
+use crate::widgets::{
+    show_panel_of_tiles,
+    ViewLevelsPlugin, ViewNavGraphsPlugin, ViewLayersPlugin,
+    StandardInspectorPlugin, CreationPlugin, ViewGroupsPlugin, ViewLightsPlugin,
+    ViewOccupancyPlugin, BuildingPreviewPlugin, PanelSide, PanelWidget, Tile,
+    Widget, WidgetSystem,
+};
 use bevy::prelude::*;
 
-#[derive(Resource)]
-pub struct PropertiesPanel {
-    side: PanelSide,
-    id: Entity,
-}
+/// This plugins produces the standard properties panel. This is the panel which
+/// includes widgets to display and edit all the properties in a site that we
+/// expect are needed by common use cases of the editor.
+#[derive(Default)]
+pub struct StandardPropertiesPanelPlugin {}
 
-impl PropertiesPanel {
-    pub fn side(&self) -> PanelSide {
-        self.side
-    }
-
-    pub fn id(&self) -> Entity {
-        self.id
-    }
-}
-
-pub struct PropertiesPanelPlugin {
-    side: PanelSide,
-}
-
-impl PropertiesPanelPlugin {
-    pub fn new(side: PanelSide) -> Self {
-        Self { side }
-    }
-}
-
-impl Default for PropertiesPanelPlugin {
-    fn default() -> Self {
-        Self::new(PanelSide::Right)
-    }
-}
-
-impl Plugin for PropertiesPanelPlugin {
+impl Plugin for StandardPropertiesPanelPlugin {
     fn build(&self, app: &mut App) {
-        let widget = PanelWidget::new(tile_panel_widget, &mut app.world);
-        let id = app.world.spawn((widget, self.side)).id();
-        app.world.insert_resource(PropertiesPanel {
-            side: self.side,
-            id,
-        });
+        app.add_plugins((
+            PropertiesPanelPlugin::new(PanelSide::Right),
+            ViewLevelsPlugin::default(),
+            ViewNavGraphsPlugin::default(),
+            ViewLayersPlugin::default(),
+            StandardInspectorPlugin::default(),
+            CreationPlugin::default(),
+            ViewGroupsPlugin::default(),
+            ViewLightsPlugin::default(),
+            ViewOccupancyPlugin::default(),
+            BuildingPreviewPlugin::default(),
+        ));
     }
 }
 
-/// Create a plugin for a single tile in the properties panel
+/// Use this plugin to add a single tile into the properties panel.
+///
+/// ```no_run
+/// use bevy::prelude::{App, Query, Entity, Res};
+/// use librmf_site_editor::{
+///     SiteEditor, workspace::CurrentWorkspace,
+///     site::NameOfSite,
+///     widgets::prelude::*,
+/// };
+///
+/// #[derive(SystemParam)]
+/// pub struct HelloSiteWidget<'w, 's> {
+///     sites: Query<'w, 's, &'static NameOfSite>,
+///     current: Res<'w, CurrentWorkspace>,
+/// }
+///
+/// impl<'w, 's> WidgetSystem<Tile> for HelloSiteWidget<'w, 's> {
+///     fn show(_: Tile, ui: &mut Ui, state: &mut SystemState<Self>, world: &mut World) {
+///         let mut params = state.get_mut(world);
+///         if let Some(name) = params.current.root.map(|e| params.sites.get(e).ok()).flatten() {
+///             ui.add_space(20.0);
+///             ui.heading(format!("Hello, {}!", name.0));
+///         }
+///     }
+/// }
+///
+/// fn main() {
+///     let mut app = App::new();
+///     app.add_plugins((
+///         SiteEditor,
+///         PropertiesTilePlugin::<HelloSiteWidget>::new(),
+///     ));
+///
+///     app.run();
+/// }
+/// ```
 pub struct PropertiesTilePlugin<W>
 where
     W: WidgetSystem<Tile> + 'static + Send + Sync,
@@ -88,5 +109,52 @@ where
         let widget = Widget::<Tile>::new::<W>(&mut app.world);
         let properties_panel = app.world.resource::<PropertiesPanel>().id;
         app.world.spawn(widget).set_parent(properties_panel);
+    }
+}
+
+/// Get the ID of the properties panel.
+#[derive(Resource)]
+pub struct PropertiesPanel {
+    side: PanelSide,
+    id: Entity,
+}
+
+impl PropertiesPanel {
+    pub fn side(&self) -> PanelSide {
+        self.side
+    }
+
+    pub fn id(&self) -> Entity {
+        self.id
+    }
+}
+
+/// This plugin builds a properties panel for the editor. It is usually recommended
+/// to use [`StandardPropertiesPanelPlugin`] unless you need very specific
+/// customization of the properties panel.
+pub struct PropertiesPanelPlugin {
+    side: PanelSide,
+}
+
+impl PropertiesPanelPlugin {
+    pub fn new(side: PanelSide) -> Self {
+        Self { side }
+    }
+}
+
+impl Default for PropertiesPanelPlugin {
+    fn default() -> Self {
+        Self::new(PanelSide::Right)
+    }
+}
+
+impl Plugin for PropertiesPanelPlugin {
+    fn build(&self, app: &mut App) {
+        let widget = PanelWidget::new(show_panel_of_tiles, &mut app.world);
+        let id = app.world.spawn((widget, self.side)).id();
+        app.world.insert_resource(PropertiesPanel {
+            side: self.side,
+            id,
+        });
     }
 }

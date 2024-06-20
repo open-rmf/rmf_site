@@ -19,6 +19,8 @@ use crate::{occupancy::CalculateGrid, widgets::prelude::*, AppState};
 use bevy::prelude::*;
 use bevy_egui::egui::{CollapsingHeader, DragValue, Ui};
 
+/// Add a widget that provides a button for producing an occupancy grid
+/// visualization.
 #[derive(Default)]
 pub struct ViewOccupancyPlugin {}
 

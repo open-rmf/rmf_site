@@ -17,11 +17,10 @@
 
 use crate::{log::*, widgets::prelude::*};
 use bevy::prelude::*;
-use bevy_egui::{
-    egui::{self, CollapsingHeader, Color32, RichText},
-    EguiContexts,
-};
+use bevy_egui::egui::{self, CollapsingHeader, Color32, RichText};
 
+/// This widget provides a console that displays information, warning, and error
+/// messages.
 #[derive(Default)]
 pub struct ConsoleWidgetPlugin {}
 
@@ -34,15 +33,14 @@ impl Plugin for ConsoleWidgetPlugin {
 }
 
 fn console_widget(
-    In(_): In<Entity>,
+    In(input): In<PanelWidgetInput>,
     mut log_history: ResMut<LogHistory>,
-    mut egui_context: EguiContexts,
 ) {
     egui::TopBottomPanel::bottom("log_consolse")
         .resizable(true)
         .min_height(30.0)
         .max_height(300.0)
-        .show(egui_context.ctx_mut(), |ui| {
+        .show(&input.context, |ui| {
             ui.horizontal_wrapped(|ui| {
                 ui.spacing_mut().item_spacing.x = 0.5;
                 let status = log_history.top();

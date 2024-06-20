@@ -27,6 +27,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{CollapsingHeader, DragValue, ImageButton, Ui};
 use std::cmp::{Ordering, Reverse};
 
+/// Add a plugin for viewing and editing a list of all levels
 #[derive(Default)]
 pub struct ViewLevelsPlugin {}
 

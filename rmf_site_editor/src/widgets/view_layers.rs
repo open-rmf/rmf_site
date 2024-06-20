@@ -29,6 +29,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, CollapsingHeader, DragValue, ScrollArea, Ui};
 
+/// Add a widget for viewing a list of layers
 #[derive(Default)]
 pub struct ViewLayersPlugin {}
 

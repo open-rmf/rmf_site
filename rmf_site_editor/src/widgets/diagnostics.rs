@@ -25,12 +25,10 @@ use crate::{
     AppState, CurrentWorkspace, Icons, Issue, IssueDictionary, ValidateWorkspace,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::{
-    egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui},
-    EguiContexts,
-};
+use bevy_egui::egui::{self, Button, Checkbox, Grid, ImageButton, ScrollArea, Ui};
 use std::collections::HashSet;
 
+/// Add a [`Diagnostics`] widget to your application.
 #[derive(Default)]
 pub struct DiagnosticsPlugin {}
 
@@ -48,23 +46,25 @@ impl Plugin for DiagnosticsPlugin {
 }
 
 fn diagnostics_panel(
-    In(panel): In<Entity>,
+    In(input): In<PanelWidgetInput>,
     world: &mut World,
-    egui_contexts: &mut SystemState<EguiContexts>,
 ) {
     if world.resource::<DiagnosticsDisplay>().show {
-        let ctx = egui_contexts.get_mut(world).ctx_mut().clone();
         egui::SidePanel::left("diagnsotics")
             .resizable(true)
             .min_width(320.0)
-            .show(&ctx, |ui| {
-                if let Err(err) = world.try_show(panel, ui) {
+            .show(&input.context, |ui| {
+                if let Err(err) = world.try_show(input.id, ui) {
                     error!("Unable to display diagnostics panel: {err:?}");
                 }
             });
     }
 }
 
+/// A widget that displays diagnostic information about the current site. This
+/// helps identify potential problems that you should consider addressing.
+///
+/// Use [`DiagnosticsPlugin`] to add this to your application.
 #[derive(SystemParam)]
 pub struct Diagnostics<'w, 's> {
     icons: Res<'w, Icons>,

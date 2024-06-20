@@ -23,6 +23,7 @@ use crate::{
 use bevy::{ecs::system::SystemParam, prelude::*};
 use bevy_egui::egui::{Button, Ui};
 
+/// A widget that can be used to select entities.
 #[derive(SystemParam)]
 pub struct SelectorWidget<'w, 's> {
     pub site_id: Query<'w, 's, &'static SiteID>,
