@@ -57,24 +57,27 @@ impl<'w, 's> WidgetSystem<Inspect> for InspectDrawing<'w, 's> {
             {
                 params.begin_edit_drawing.send(BeginEditDrawing(selection));
             }
+            ui.add_space(10.0);
         }
-        ui.add_space(10.0);
 
-        if ui
-            .add(Button::image_and_text(
-                params.icons.alignment.egui(),
-                "Align Drawings",
-            ))
-            .on_hover_text(
-                "Align all drawings in the site based on their fiducials and measurements",
-            )
-            .clicked()
-        {
-            if let Some(site) = params.current_workspace.root {
-                params.align_site.send(AlignSiteDrawings(site));
+        if *params.app_state.get() != AppState::SiteDrawingEditor {
+            if ui
+                .add(Button::image_and_text(
+                    params.icons.alignment.egui(),
+                    "Align Drawings",
+                ))
+                .on_hover_text(
+                    "Align all drawings in the site based on their fiducials and measurements",
+                )
+                .clicked()
+            {
+                if let Some(site) = params.current_workspace.root {
+                    params.align_site.send(AlignSiteDrawings(site));
+                }
             }
+            ui.add_space(10.0);
         }
-        ui.add_space(10.0);
+
         if let Some(new_ppm) = InspectValue::<f32>::new("Pixels per meter", ppm.0)
             .clamp_range(0.0001..=std::f32::INFINITY)
             .tooltip("How many image pixels per meter")
