@@ -18,7 +18,7 @@
 use crate::{
     inspector::{InspectAssetSourceComponent, InspectScaleComponent},
     interaction::{ChangeMode, SelectAnchor, SelectAnchor3D},
-    site::{DefaultFile, DrawingBundle, Recall, AssetSource, RecallAssetSource, Scale},
+    site::{AssetSource, DefaultFile, DrawingBundle, Recall, RecallAssetSource, Scale},
     widgets::{prelude::*, AssetGalleryStatus},
     AppState, CurrentWorkspace,
 };
@@ -33,8 +33,7 @@ pub struct CreationPlugin {}
 
 impl Plugin for CreationPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .init_resource::<PendingDrawing>()
+        app.init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
             .add_plugins(PropertiesTilePlugin::<Creation>::new());
     }
@@ -267,7 +266,6 @@ struct PendingDrawing {
     pub source: AssetSource,
     pub recall_source: RecallAssetSource,
 }
-
 
 #[derive(Resource, Clone, Default)]
 struct PendingModel {

@@ -16,11 +16,9 @@
 */
 
 use crate::widgets::{
-    show_panel_of_tiles,
-    ViewLevelsPlugin, ViewNavGraphsPlugin, ViewLayersPlugin,
-    StandardInspectorPlugin, CreationPlugin, ViewGroupsPlugin, ViewLightsPlugin,
-    ViewOccupancyPlugin, BuildingPreviewPlugin, PanelSide, PanelWidget, Tile,
-    Widget, WidgetSystem,
+    show_panel_of_tiles, BuildingPreviewPlugin, CreationPlugin, PanelSide, PanelWidget,
+    StandardInspectorPlugin, Tile, ViewGroupsPlugin, ViewLayersPlugin, ViewLevelsPlugin,
+    ViewLightsPlugin, ViewNavGraphsPlugin, ViewOccupancyPlugin, Widget, WidgetSystem,
 };
 use bevy::prelude::*;
 

@@ -16,11 +16,7 @@
 */
 
 use crate::{recency::RankAdjustment, site::LayerVisibility};
-use bevy::{
-    asset::embedded_asset,
-    ecs::system::SystemState,
-    prelude::*
-};
+use bevy::{asset::embedded_asset, ecs::system::SystemState, prelude::*};
 use bevy_egui::{egui::ImageSource, egui::TextureId, EguiContexts};
 
 /// Add a resource for the common icons of the application.

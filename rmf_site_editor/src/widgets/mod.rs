@@ -120,10 +120,9 @@ pub mod prelude {
     //! implementing and inserting their own widgets.
 
     pub use super::{
-        properties_panel::*, PanelSide, PanelWidget, PropertiesPanel,
-        ShareableWidget, ShowError, ShowResult, ShowSharedWidget, Tile,
-        TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem, Inspect,
-        InspectionPlugin, PropertiesTilePlugin, PanelWidgetInput,
+        properties_panel::*, Inspect, InspectionPlugin, PanelSide, PanelWidget, PanelWidgetInput,
+        PropertiesPanel, PropertiesTilePlugin, ShareableWidget, ShowError, ShowResult,
+        ShowSharedWidget, Tile, TryShowWidgetEntity, TryShowWidgetWorld, Widget, WidgetSystem,
     };
     pub use bevy::ecs::{
         system::{SystemParam, SystemState},
@@ -139,28 +138,27 @@ pub struct StandardUiPlugin {}
 
 impl Plugin for StandardUiPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_plugins((
-                IconsPlugin::default(),
-                MenuBarPlugin::default(),
-                StandardPropertiesPanelPlugin::default(),
-                FuelAssetBrowserPlugin::default(),
-                DiagnosticsPlugin::default(),
-                ConsoleWidgetPlugin::default(),
-            ))
-            .add_systems(Startup, init_ui_style)
-            .add_systems(
-                Update,
-                site_ui_layout.run_if(AppState::in_displaying_mode()),
+        app.add_plugins((
+            IconsPlugin::default(),
+            MenuBarPlugin::default(),
+            StandardPropertiesPanelPlugin::default(),
+            FuelAssetBrowserPlugin::default(),
+            DiagnosticsPlugin::default(),
+            ConsoleWidgetPlugin::default(),
+        ))
+        .add_systems(Startup, init_ui_style)
+        .add_systems(
+            Update,
+            site_ui_layout.run_if(AppState::in_displaying_mode()),
+        )
+        .add_systems(
+            PostUpdate,
+            (
+                resolve_light_export_file,
+                resolve_nav_graph_import_export_files,
             )
-            .add_systems(
-                PostUpdate,
-                (
-                    resolve_light_export_file,
-                    resolve_nav_graph_import_export_files,
-                )
-                    .run_if(AppState::in_site_mode()),
-            );
+                .run_if(AppState::in_site_mode()),
+        );
     }
 }
 

@@ -32,10 +32,7 @@ impl Plugin for ConsoleWidgetPlugin {
     }
 }
 
-fn console_widget(
-    In(input): In<PanelWidgetInput>,
-    mut log_history: ResMut<LogHistory>,
-) {
+fn console_widget(In(input): In<PanelWidgetInput>, mut log_history: ResMut<LogHistory>) {
     egui::TopBottomPanel::bottom("log_consolse")
         .resizable(true)
         .min_height(30.0)

@@ -15,8 +15,14 @@
  *
 */
 
-use bevy::{prelude::*, ecs::system::{BoxedSystem, SystemState}};
-use bevy_egui::{EguiContexts, egui::{self, Ui}};
+use bevy::{
+    ecs::system::{BoxedSystem, SystemState},
+    prelude::*,
+};
+use bevy_egui::{
+    egui::{self, Ui},
+    EguiContexts,
+};
 use smallvec::SmallVec;
 
 /// To create a panel widget (a widget that renders itself directly to one of
@@ -79,9 +85,14 @@ pub fn render_panels(
         })
         .collect();
 
-
     for (e, inner) in &mut panels {
-        inner.run(PanelWidgetInput{ id: *e, context: context.clone() }, world);
+        inner.run(
+            PanelWidgetInput {
+                id: *e,
+                context: context.clone(),
+            },
+            world,
+        );
         inner.apply_deferred(world);
     }
 

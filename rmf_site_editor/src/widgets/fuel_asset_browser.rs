@@ -21,9 +21,7 @@ use crate::{
     widgets::prelude::*,
 };
 use bevy::{ecs::system::SystemParam, prelude::*};
-use bevy_egui::egui::{
-    self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window,
-};
+use bevy_egui::egui::{self, Button, ComboBox, ImageSource, RichText, ScrollArea, Ui, Window};
 use gz_fuel::FuelModel;
 
 /// Add a [`FuelAssetBrowser`] widget to your application.
@@ -82,10 +80,7 @@ pub struct FuelAssetBrowser<'w, 's> {
     change_mode: EventWriter<'w, ChangeMode>,
 }
 
-fn fuel_asset_browser_panel(
-    In(input): In<PanelWidgetInput>,
-    world: &mut World,
-) {
+fn fuel_asset_browser_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
     if world.resource::<AssetGalleryStatus>().show {
         egui::SidePanel::left("asset_gallery")
             .resizable(true)

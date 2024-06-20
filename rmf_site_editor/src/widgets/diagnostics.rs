@@ -45,10 +45,7 @@ impl Plugin for DiagnosticsPlugin {
     }
 }
 
-fn diagnostics_panel(
-    In(input): In<PanelWidgetInput>,
-    world: &mut World,
-) {
+fn diagnostics_panel(In(input): In<PanelWidgetInput>, world: &mut World) {
     if world.resource::<DiagnosticsDisplay>().show {
         egui::SidePanel::left("diagnostics")
             .resizable(true)
