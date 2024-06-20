@@ -94,6 +94,11 @@ pub struct PendingModel {
     pub scale: Scale,
 }
 
+#[derive(Resource, Clone, Default)]
+pub struct UncoveredWindow {
+    pub area: Rect,
+}
+
 #[derive(Default)]
 pub struct StandardUiLayout;
 
@@ -162,6 +167,7 @@ impl Plugin for StandardUiLayout {
             .init_resource::<DiagnosticWindowState>()
             .init_resource::<PendingDrawing>()
             .init_resource::<PendingModel>()
+            .init_resource::<UncoveredWindow>()
             .init_resource::<SearchForFiducial>()
             .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
@@ -182,6 +188,14 @@ impl Plugin for StandardUiLayout {
             .add_systems(
                 Update,
                 site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
+            )
+            .add_systems(
+                Update,
+                update_uncovered_window
+                    .after(site_ui_layout)
+                    .after(workcell_ui_layout)
+                    .after(site_drawing_ui_layout)
+                    .after(site_visualizer_ui_layout),
             )
             .add_systems(
                 PostUpdate,
@@ -248,6 +262,7 @@ pub struct PanelResources<'w> {
     pub log_history: ResMut<'w, LogHistory>,
     pub pending_model: ResMut<'w, PendingModel>,
     pub pending_drawings: ResMut<'w, PendingDrawing>,
+    pub uncovered_window: ResMut<'w, UncoveredWindow>,
 }
 
 #[derive(SystemParam)]
@@ -699,4 +714,17 @@ fn init_ui_style(mut egui_context: EguiContexts) {
     let mut visuals = egui::Visuals::dark();
     visuals.override_text_color = Some(egui::Color32::from_rgb(250, 250, 250));
     egui_context.ctx_mut().set_visuals(visuals);
+}
+
+fn update_uncovered_window(
+    mut uncovered_window: ResMut<UncoveredWindow>,
+    mut egui_context: EguiContexts,
+) {
+    let available_rect = egui_context.ctx_mut().available_rect();
+    uncovered_window.area = Rect::new(
+        available_rect.min.x,
+        available_rect.min.y,
+        available_rect.max.x,
+        available_rect.max.y,
+    );
 }

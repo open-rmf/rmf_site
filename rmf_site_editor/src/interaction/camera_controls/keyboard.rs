@@ -19,11 +19,13 @@ use super::{
     get_groundplane_else_default_selection, CameraCommandType, CameraControls, ProjectionMode,
     MAX_FOV, MAX_PITCH, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
+use crate::widgets::UncoveredWindow;
 use bevy::{prelude::*, window::PrimaryWindow};
 use bevy_mod_raycast::{
     immediate::{Raycast, RaycastSettings, RaycastVisibility},
     primitives::Ray3d,
 };
+use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
 // Keyboard control limits
 pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
@@ -83,10 +85,11 @@ pub fn update_keyboard_command(
     mut camera_controls: ResMut<CameraControls>,
     mut keyboard_command: ResMut<KeyboardCommand>,
     keyboard_input: Res<Input<KeyCode>>,
-    cameras: Query<(&Projection, &Transform)>,
+    cameras: Query<(&Camera, &Projection, &Transform, &GlobalTransform)>,
     immediate_raycast: Raycast,
     time: Res<Time>,
     primary_windows: Query<&Window, With<PrimaryWindow>>,
+    uncovered_window_area: Res<UncoveredWindow>,
 ) {
     if let Ok(_) = primary_windows.get_single() {
         // User inputs
@@ -183,12 +186,18 @@ pub fn update_keyboard_command(
             ProjectionMode::Orthographic => camera_controls.orthographic_camera_entities[0],
             ProjectionMode::Perspective => camera_controls.perspective_camera_entities[0],
         };
-        let (camera_proj, camera_transform) = cameras.get(active_camera_entity).unwrap();
+        let (camera, camera_proj, camera_transform, camera_global_transform) =
+            cameras.get(active_camera_entity).unwrap();
 
         // Set camera selection as orbit center, discard once orbit operation complete
         let camera_selection = match keyboard_command.camera_selection {
             Some(camera_selection) => camera_selection,
-            None => get_camera_selected_point(camera_transform, immediate_raycast),
+            None => get_camera_selected_point(
+                &camera,
+                &camera_global_transform,
+                uncovered_window_area,
+                immediate_raycast,
+            ),
         };
         if command_type == CameraCommandType::Orbit {
             camera_controls.orbit_center = Some(camera_selection);
@@ -318,18 +327,29 @@ fn get_perspective_command(
             };
 
             // Translation around orbit center
-            let target_rotation = Mat3::from_quat(target_transform.rotation);
             let orbit_center = camera_selection;
-            let orbit_radius =
-                (orbit_center - (camera_transform.translation + zoom_translation)).length();
-            target_transform.translation =
-                orbit_center + target_rotation * Vec3::new(0.0, 0.0, orbit_radius);
+            let camera_to_orbit_center = orbit_center - camera_transform.translation;
+            let x = camera_to_orbit_center.dot(camera_transform.local_x());
+            let y = camera_to_orbit_center.dot(camera_transform.local_y());
+            let z = camera_to_orbit_center.dot(camera_transform.local_z());
+            let camera_to_orbit_center_next = target_transform.local_x() * x
+                + target_transform.local_y() * y
+                + target_transform.local_z() * z;
 
-            let start_rotation = Mat3::from_quat(camera_transform.rotation);
-            keyboard_command.rotation_delta =
-                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+            let zoom_translation = camera_to_orbit_center_next.normalize()
+                * zoom_motion
+                * zoom_distance_factor
+                * MAX_TRANSLATION_VEL
+                * delta_seconds;
+            target_transform.translation =
+                orbit_center - camera_to_orbit_center_next - zoom_translation;
+
             keyboard_command.translation_delta =
                 target_transform.translation - camera_transform.translation;
+            let start_rotation = Mat3::from_quat(camera_transform.rotation);
+            let target_rotation = Mat3::from_quat(target_transform.rotation);
+            keyboard_command.rotation_delta =
+                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
             keyboard_command.camera_selection = Some(orbit_center);
         }
         _ => (),
@@ -342,10 +362,17 @@ fn get_perspective_command(
 }
 
 pub fn get_camera_selected_point(
-    camera_transform: &Transform,
+    camera: &Camera,
+    camera_global_transform: &GlobalTransform,
+    uncovered_window: Res<UncoveredWindow>,
     mut immediate_raycast: Raycast,
 ) -> Vec3 {
-    let camera_ray = Ray3d::new(camera_transform.translation, camera_transform.forward());
+    // Assume that the camera spans the full window, covered by egui panels
+    let available_viewport_center = uncovered_window.area.center();
+    let camera_ray = camera
+        .viewport_to_world(camera_global_transform, available_viewport_center)
+        .expect("Active camera does not have a valid ray from center of its viewport");
+    let camera_ray = Ray3d::new(camera_ray.origin, camera_ray.direction);
     let raycast_setting = RaycastSettings::default()
         .always_early_exit()
         .with_visibility(RaycastVisibility::MustBeVisible);
