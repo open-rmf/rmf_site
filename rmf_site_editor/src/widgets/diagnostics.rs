@@ -50,7 +50,7 @@ fn diagnostics_panel(
     world: &mut World,
 ) {
     if world.resource::<DiagnosticsDisplay>().show {
-        egui::SidePanel::left("diagnsotics")
+        egui::SidePanel::left("diagnostics")
             .resizable(true)
             .min_width(320.0)
             .show(&input.context, |ui| {
