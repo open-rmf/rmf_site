@@ -290,7 +290,7 @@ fn get_perspective_command(
 
     let zoom_distance_factor =
         (0.2 * (camera_transform.translation - camera_selection).length()).max(1.0);
-    let zoom_translation = camera_transform.forward()
+    let zoom_translation = (camera_selection - camera_transform.translation).normalize()
         * zoom_motion
         * zoom_distance_factor
         * MAX_TRANSLATION_VEL

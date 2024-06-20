@@ -369,7 +369,7 @@ fn get_perspective_cursor_command(
                     + target_transform.local_z() * z;
 
                 let zoom_translation = camera_to_orbit_center_next.normalize()
-                    * translation_zoom_sensitivity
+                    * TRANSLATION_ZOOM_SENSITIVITY
                     * scroll_motion
                     * zoom_distance_factor;
                 target_transform.translation =
