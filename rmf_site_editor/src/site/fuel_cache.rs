@@ -100,7 +100,7 @@ pub fn handle_update_fuel_cache_requests(
 
     while let Ok(next_model) = progress_channel.receiver.try_recv() {
         info!(
-            "Received model {} owned by {}",
+            "Detected model {} owned by {}",
             next_model.name, next_model.owner,
         );
     }
