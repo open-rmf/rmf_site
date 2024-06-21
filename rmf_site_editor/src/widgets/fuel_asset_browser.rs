@@ -64,7 +64,7 @@ pub struct AssetGalleryStatus {
 /// A widget for browsing models that can be downloaded from fuel.
 ///
 /// This is part of the [`StandardUiPlugin`][1]. If you are not using the
-/// `StandardUiLayout` then it is recommended that you use the
+/// `StandardUiPlugin` then it is recommended that you use the
 /// [`FuelAssetBrowserPlugin`] to add this to the editor.
 ///
 /// [1]: crate::widgets::StandardUiPlugin
