@@ -25,13 +25,14 @@ use std::{
 };
 use thiserror::Error as ThisError;
 
-use crate::{recency::RecencyRanking, site::*};
+use crate::{recency::RecencyRanking, site::*, ExportFormat};
 use rmf_site_format::*;
 
 #[derive(Event)]
 pub struct SaveSite {
     pub site: Entity,
     pub to_file: PathBuf,
+    pub format: ExportFormat,
 }
 
 #[derive(Event)]
@@ -363,6 +364,7 @@ fn generate_levels(
             Without<Pending>,
         >,
         Query<&SiteID>,
+        Query<(&Pose, &NameInSite, &SiteID), With<UserCameraPoseMarker>>,
     )> = SystemState::new(world);
 
     let (
@@ -380,6 +382,7 @@ fn generate_levels(
         q_walls,
         q_levels,
         q_site_ids,
+        q_user_camera_poses,
     ) = state.get(world);
 
     let get_anchor_id = |entity| {
@@ -589,6 +592,16 @@ fn generate_levels(
                                 anchors,
                                 texture,
                                 marker: WallMarker,
+                            },
+                        );
+                    }
+                    if let Ok((pose, name, id)) = q_user_camera_poses.get(*c) {
+                        level.user_camera_poses.insert(
+                            id.0,
+                            UserCameraPose {
+                                name: name.clone(),
+                                pose: pose.clone(),
+                                marker: UserCameraPoseMarker,
                             },
                         );
                     }
@@ -1221,42 +1234,154 @@ pub fn save_site(world: &mut World) {
                 continue;
             }
         };
-        if path_str.ends_with(".building.yaml") {
-            warn!("Detected old file format, converting to new format");
-            new_path = path_str.replace(".building.yaml", ".site.ron").into();
-        } else if !path_str.ends_with("site.ron") {
-            info!("Appending .site.ron to {}", new_path.display());
-            new_path = new_path.with_extension("site.ron");
-        }
-        info!("Saving to {}", new_path.display());
-        let f = match std::fs::File::create(new_path.clone()) {
-            Ok(f) => f,
-            Err(err) => {
-                error!("Unable to save file: {err}");
-                continue;
-            }
-        };
-
-        let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
-        migrate_relative_paths(save_event.site, &new_path, world);
-
-        let site = match generate_site(world, save_event.site) {
-            Ok(site) => site,
-            Err(err) => {
-                error!("Unable to compile site: {err}");
-                continue;
-            }
-        };
-
-        match site.to_writer(f) {
-            Ok(()) => {
-                info!("Save successful");
-            }
-            Err(err) => {
-                if let Some(old_default_path) = old_default_path {
-                    world.entity_mut(save_event.site).insert(old_default_path);
+        match save_event.format {
+            ExportFormat::Default => {
+                if path_str.ends_with(".building.yaml") {
+                    warn!("Detected old file format, converting to new format");
+                    new_path = path_str.replace(".building.yaml", ".site.ron").into();
+                } else if path_str.ends_with(".site.json") {
+                    // Noop
+                } else if !path_str.ends_with(".site.ron") {
+                    info!("Appending .site.ron to {}", new_path.display());
+                    new_path = new_path.with_extension("site.ron");
                 }
-                error!("Save failed: {err}");
+                info!("Saving to {}", new_path.display());
+                let f = match std::fs::File::create(new_path.clone()) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file: {err}");
+                        continue;
+                    }
+                };
+
+                let old_default_path = world.get::<DefaultFile>(save_event.site).cloned();
+                migrate_relative_paths(save_event.site, &new_path, world);
+
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+
+                if new_path.extension().is_some_and(|e| e == "json") {
+                    match site.to_writer_json(f) {
+                        Ok(()) => {
+                            info!("Save successful");
+                        }
+                        Err(err) => {
+                            if let Some(old_default_path) = old_default_path {
+                                world.entity_mut(save_event.site).insert(old_default_path);
+                            }
+                            error!("Save failed: {err}");
+                        }
+                    }
+                } else {
+                    match site.to_writer_ron(f) {
+                        Ok(()) => {
+                            info!("Save successful");
+                        }
+                        Err(err) => {
+                            if let Some(old_default_path) = old_default_path {
+                                world.entity_mut(save_event.site).insert(old_default_path);
+                            }
+                            error!("Save failed: {err}");
+                        }
+                    }
+                }
+            }
+            ExportFormat::Sdf => {
+                // TODO(luca) reduce code duplication with default exporting
+
+                // Make sure to generate the site before anything else, because
+                // generating the site will ensure that all items are assigned a
+                // SiteID, and the SDF export process will not work correctly if
+                // any are unassigned.
+                let site = match generate_site(world, save_event.site) {
+                    Ok(site) => site,
+                    Err(err) => {
+                        error!("Unable to compile site: {err}");
+                        continue;
+                    }
+                };
+
+                info!("Saving to {}", new_path.display());
+                let Some(parent_folder) = new_path.parent() else {
+                    error!("Unable to save SDF. Please select a save path that has a parent directory.");
+                    continue;
+                };
+                if !parent_folder.exists() {
+                    if let Err(e) = std::fs::create_dir_all(parent_folder) {
+                        error!("Unable to create folder {}: {e}", parent_folder.display());
+                        continue;
+                    }
+                }
+                let f = match std::fs::File::create(&new_path) {
+                    Ok(f) => f,
+                    Err(err) => {
+                        error!("Unable to save file {}: {err}", new_path.display());
+                        continue;
+                    }
+                };
+
+                let mut meshes_dir = PathBuf::from(parent_folder);
+                meshes_dir.push("meshes");
+                if let Err(e) = std::fs::create_dir_all(&meshes_dir) {
+                    error!("Unable to create folder {}: {e}", meshes_dir.display());
+                    continue;
+                }
+                if let Err(e) = collect_site_meshes(world, save_event.site, &meshes_dir) {
+                    error!("Unable to collect site meshes: {e}");
+                    continue;
+                }
+
+                migrate_relative_paths(save_event.site, &new_path, world);
+                let graphs = legacy::nav_graph::NavGraph::from_site(&site);
+                let sdf = match site.to_sdf() {
+                    Ok(sdf) => sdf,
+                    Err(err) => {
+                        error!("Unable to convert site to sdf: {err}");
+                        continue;
+                    }
+                };
+                let config = yaserde::ser::Config {
+                    perform_indent: true,
+                    write_document_declaration: true,
+                    ..Default::default()
+                };
+                if let Err(e) = yaserde::ser::serialize_with_writer(&sdf, f, &config) {
+                    error!("Failed serializing site to sdf: {e}");
+                    continue;
+                }
+                let mut navgraph_dir = PathBuf::from(parent_folder);
+                navgraph_dir.push("nav_graphs");
+                if let Err(e) = std::fs::create_dir_all(&navgraph_dir) {
+                    error!("Unable to create folder {}: {e}", navgraph_dir.display());
+                    continue;
+                }
+                for (name, graph) in &graphs {
+                    let mut graph_file = navgraph_dir.clone();
+                    graph_file.push(name.to_owned() + ".yaml");
+                    info!(
+                        "Saving legacy nav graph to {}",
+                        graph_file.to_str().unwrap_or("<failed to render??>")
+                    );
+                    let f = match std::fs::File::create(graph_file) {
+                        Ok(f) => f,
+                        Err(err) => {
+                            error!("Unable to save nav graph: {err}");
+                            continue;
+                        }
+                    };
+                    if let Err(err) = serde_yaml::to_writer(f, &graph) {
+                        error!("Failed to save nav graph: {err}");
+                    }
+                }
+            }
+            ExportFormat::Urdf => {
+                warn!("Site exporting to Urdf is not supported.");
+                continue;
             }
         }
     }
@@ -1319,7 +1444,7 @@ pub fn save_nav_graphs(world: &mut World) {
             }
         };
 
-        match site.to_writer(f) {
+        match site.to_writer_ron(f) {
             Ok(()) => {
                 info!("Save successful");
             }

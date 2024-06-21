@@ -97,7 +97,9 @@ use bevy_polyline::PolylinePlugin;
 pub struct SiteRaycastSet;
 
 #[derive(Default)]
-pub struct InteractionPlugin;
+pub struct InteractionPlugin {
+    pub headless: bool,
+}
 
 #[derive(Debug, Clone, Copy, Default, Hash, PartialEq, Eq, States)]
 pub enum InteractionState {
@@ -171,8 +173,10 @@ impl Plugin for InteractionPlugin {
                 CategoryVisibilityPlugin::<WallMarker>::visible(true),
                 CategoryVisibilityPlugin::<WorkcellVisualizationMarker>::visible(true),
             ))
-            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin))
-            .add_systems(
+            .add_plugins((CameraControlsPlugin, ModelPreviewPlugin));
+
+        if !self.headless {
+            app.add_systems(
                 Update,
                 (
                     make_lift_doormat_gizmo,
@@ -255,6 +259,7 @@ impl Plugin for InteractionPlugin {
                     .run_if(in_state(InteractionState::Enable)),
             )
             .add_systems(First, (update_picked, update_interaction_mode));
+        }
     }
 }
 

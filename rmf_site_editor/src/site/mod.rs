@@ -42,6 +42,9 @@ pub use drawing::*;
 pub mod fiducial;
 pub use fiducial::*;
 
+pub mod file_menu;
+pub use file_menu::*;
+
 pub mod floor;
 pub use floor::*;
 
@@ -98,6 +101,9 @@ pub use sdf::*;
 
 pub mod save;
 pub use save::*;
+
+pub mod sdf_exporter;
+pub use sdf_exporter::*;
 
 pub mod site;
 pub use site::*;
@@ -335,6 +341,7 @@ impl Plugin for SitePlugin {
                 align_site_drawings,
                 clear_old_issues_on_new_validate_event,
                 export_lights,
+                set_camera_transform_for_changed_site,
             )
                 .run_if(AppState::in_site_mode())
                 .in_set(SiteUpdateSet::BetweenVisibilityAndTransform),

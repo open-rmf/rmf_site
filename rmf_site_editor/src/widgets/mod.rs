@@ -95,7 +95,9 @@ pub struct PendingModel {
 }
 
 #[derive(Default)]
-pub struct StandardUiLayout;
+pub struct StandardUiLayout {
+    pub headless: bool,
+}
 
 fn add_widgets_icons(app: &mut App) {
     // Taken from https://github.com/bevyengine/bevy/issues/10377#issuecomment-1858797002
@@ -165,32 +167,34 @@ impl Plugin for StandardUiLayout {
             .init_resource::<SearchForFiducial>()
             .add_plugins(MenuPluginManager)
             .init_resource::<SearchForTexture>()
-            .init_resource::<GroupViewModes>()
-            .add_systems(Startup, init_ui_style)
-            .add_systems(
-                Update,
-                site_ui_layout.run_if(in_state(AppState::SiteEditor)),
-            )
-            .add_systems(
-                Update,
-                workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
-            )
-            .add_systems(
-                Update,
-                site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
-            )
-            .add_systems(
-                Update,
-                site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
-            )
-            .add_systems(
-                PostUpdate,
-                (
-                    resolve_light_export_file,
-                    resolve_nav_graph_import_export_files,
+            .init_resource::<GroupViewModes>();
+        if !self.headless {
+            app.add_systems(Startup, init_ui_style)
+                .add_systems(
+                    Update,
+                    site_ui_layout.run_if(in_state(AppState::SiteEditor)),
                 )
-                    .run_if(AppState::in_site_mode()),
-            );
+                .add_systems(
+                    Update,
+                    workcell_ui_layout.run_if(in_state(AppState::WorkcellEditor)),
+                )
+                .add_systems(
+                    Update,
+                    site_drawing_ui_layout.run_if(in_state(AppState::SiteDrawingEditor)),
+                )
+                .add_systems(
+                    Update,
+                    site_visualizer_ui_layout.run_if(in_state(AppState::SiteVisualizer)),
+                )
+                .add_systems(
+                    PostUpdate,
+                    (
+                        resolve_light_export_file,
+                        resolve_nav_graph_import_export_files,
+                    )
+                        .run_if(AppState::in_site_mode()),
+                );
+        }
     }
 }
 

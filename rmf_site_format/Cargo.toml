@@ -18,7 +18,11 @@ uuid = { version = "1.1", features = ["v4", "serde"] }
 # add features=["bevy"] to a dependent Cargo.toml to get the bevy-related features
 # We depend on a bugfix released specifically in 0.7.3
 bevy = { version = "0.12", optional = true }
+sdformat_rs = { git = "https://github.com/open-rmf/sdf_rust_experimental", rev = "9fc35f2"}
+yaserde = "0.7"
 urdf-rs = "0.7.3"
+# Used for lazy initialization of static variable when they are non const
+once_cell = "1"
 pathdiff = "*"
 
 [dev-dependencies]

@@ -250,7 +250,9 @@ impl<'a, 'w1, 's1, 'w2, 's2> ViewNavGraphs<'a, 'w1, 's1, 'w2, 's2> {
                                         None => return None,
                                     };
 
-                                    match rmf_site_format::Site::from_bytes(&file.read().await) {
+                                    // TODO(luca) make this accept different file formats
+                                    match rmf_site_format::Site::from_bytes_ron(&file.read().await)
+                                    {
                                         Ok(from_site) => Some((
                                             file.path().to_owned(),
                                             ImportNavGraphs {
