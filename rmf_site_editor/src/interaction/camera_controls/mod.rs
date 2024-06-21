@@ -26,6 +26,9 @@ use bevy::{
     },
 };
 
+mod utils;
+use utils::*;
+
 mod cursor;
 use cursor::{update_cursor_command, CursorCommand};
 
@@ -490,28 +493,6 @@ fn camera_controls(
             *child_proj = proj.clone();
         }
     }
-}
-
-fn get_groundplane_else_default_selection(
-    selector_origin: Vec3,
-    selector_direction: Vec3,
-    camera_direction: Vec3,
-) -> Vec3 {
-    // If valid intersection with groundplane
-    let denom = Vec3::Z.dot(selector_direction);
-    if denom.abs() > f32::EPSILON {
-        let dist = (-1.0 * selector_origin).dot(Vec3::Z) / denom;
-        if dist > f32::EPSILON && dist < MAX_SELECTION_DIST {
-            return selector_origin + selector_direction * dist;
-        }
-    }
-
-    // No groundplane intersection,
-    // Pick a point on arbitrary plane in front
-    let height = selector_origin.z.abs();
-    let plane_dist = height.max(MIN_SELECTION_DIST);
-    return selector_origin
-        + selector_direction * (plane_dist / selector_direction.dot(camera_direction));
 }
 
 fn update_orbit_center_marker(

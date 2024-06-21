@@ -16,8 +16,8 @@
 */
 
 use super::{
-    get_groundplane_else_default_selection, CameraCommandType, CameraControls, ProjectionMode,
-    MAX_FOV, MAX_PITCH, MAX_SCALE, MIN_FOV, MIN_SCALE,
+    get_groundplane_else_default_selection, orbit_camera_around_point, zoom_distance_factor,
+    CameraCommandType, CameraControls, ProjectionMode, MAX_FOV, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use crate::interaction::SiteRaycastSet;
 use bevy::input::mouse::MouseWheel;
@@ -146,9 +146,12 @@ pub fn update_cursor_command(
         // Update orbit center
         if command_type != CameraCommandType::Orbit {
             camera_controls.orbit_center = None;
-        } else if command_type == CameraCommandType::Orbit && command_type != command_type_prev {
+        } else if (command_type == CameraCommandType::Orbit && command_type != command_type_prev)
+            || camera_controls.orbit_center.is_none()
+        {
             camera_controls.orbit_center = Some(cursor_selection);
         }
+        let orbit_center = camera_controls.orbit_center.unwrap_or(cursor_selection);
 
         match camera_controls.mode() {
             ProjectionMode::Orthographic => {
@@ -174,7 +177,7 @@ pub fn update_cursor_command(
                         cursor_direction_camera_frame_prev,
                         cursor_selection,
                         scroll_motion,
-                        camera_controls.orbit_center,
+                        orbit_center,
                     );
                 }
             }
@@ -206,29 +209,14 @@ fn get_orthographic_cursor_command(
 
     match command_type {
         CameraCommandType::Pan => {
-            let selection_to_camera = cursor_selection - camera_transform.translation;
-            let right_translation = camera_transform.rotation * Vec3::X;
-            let up_translation = camera_transform.rotation * Vec3::Y;
-
-            let a = Matrix3::new(
-                right_translation.x,
-                up_translation.x,
-                -cursor_direction.x,
-                right_translation.y,
-                up_translation.y,
-                -cursor_direction.y,
-                right_translation.z,
-                up_translation.z,
-                -cursor_direction.z,
+            let camera_transform_next = pan_camera_with_cursor(
+                camera_transform,
+                cursor_selection,
+                cursor_direction,
+                scroll_motion,
             );
-            let b = Matrix3x1::new(
-                selection_to_camera.x,
-                selection_to_camera.y,
-                selection_to_camera.z,
-            );
-            let x = a.lu().solve(&b).unwrap();
-
-            cursor_command.translation_delta = x[0] * right_translation + x[1] * up_translation;
+            cursor_command.translation_delta =
+                camera_transform_next.translation - camera_transform.translation;
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
@@ -267,13 +255,10 @@ fn get_perspective_cursor_command(
     cursor_direction_camera_frame_prev: Vec3,
     cursor_selection: Vec3,
     scroll_motion: f32,
-    orbit_center: Option<Vec3>,
+    orbit_center: Vec3,
 ) -> CursorCommand {
     let mut cursor_command = CursorCommand::default();
     let mut is_cursor_selecting = false;
-
-    let zoom_distance_factor =
-        (0.2 * (camera_transform.translation - cursor_selection).length()).max(1.0);
 
     match command_type {
         CameraCommandType::FovZoom => {
@@ -283,53 +268,26 @@ fn get_perspective_cursor_command(
         }
         CameraCommandType::TranslationZoom => {
             cursor_command.translation_delta = cursor_direction
+                * zoom_distance_factor(camera_transform.translation, cursor_selection)
                 * TRANSLATION_ZOOM_SENSITIVITY
                 * scroll_motion
-                * zoom_distance_factor;
         }
         CameraCommandType::Pan => {
-            // To keep the same point below the cursor, we solve
-            // selection_to_camera + translation_delta = selection_to_camera_next
-            // selection_to_camera_next = x3 * -cursor_direction
-            let selection_to_camera = cursor_selection - camera_transform.translation;
-
-            // translation_delta = x1 * right_ transltion + x2 * up_translation
-            let right_translation = camera_transform.rotation * Vec3::X;
-            let up_translation = camera_transform.rotation * Vec3::Y;
-
-            let a = Matrix3::new(
-                right_translation.x,
-                up_translation.x,
-                -cursor_direction.x,
-                right_translation.y,
-                up_translation.y,
-                -cursor_direction.y,
-                right_translation.z,
-                up_translation.z,
-                -cursor_direction.z,
+            let camera_transform_next = pan_camera_with_cursor(
+                camera_transform,
+                cursor_selection,
+                cursor_direction,
+                scroll_motion,
             );
-            let b = Matrix3x1::new(
-                selection_to_camera.x,
-                selection_to_camera.y,
-                selection_to_camera.z,
-            );
-            let x = a.lu().solve(&b).unwrap();
-
-            let zoom_translation = cursor_direction
-                * TRANSLATION_ZOOM_SENSITIVITY
-                * scroll_motion
-                * zoom_distance_factor;
-
             cursor_command.translation_delta =
-                zoom_translation + x[0] * right_translation + x[1] * up_translation;
-            cursor_command.rotation_delta = Quat::IDENTITY;
+                camera_transform_next.translation - camera_transform.translation;
             is_cursor_selecting = true;
         }
         CameraCommandType::Orbit => {
             // Pitch and yaw inputs from cursor direction vector as spherical coordinates
-            let pitch_input = cursor_direction_camera_frame_prev.y.acos()
+            let pitch = cursor_direction_camera_frame_prev.y.acos()
                 - cursor_direction_camera_frame.y.acos();
-            let yaw_input = (cursor_direction_camera_frame_prev
+            let yaw = (cursor_direction_camera_frame_prev
                 .z
                 .atan2(cursor_direction_camera_frame_prev.x))
                 - (cursor_direction_camera_frame
@@ -338,45 +296,18 @@ fn get_perspective_cursor_command(
 
             // Scale inputs to viewport range
             let pitch_viewport_range = camera_proj.fov;
-            let pitch = pitch_input / pitch_viewport_range * std::f32::consts::PI;
-            let pitch = Quat::from_rotation_x(pitch);
+            let pitch = -pitch / pitch_viewport_range * std::f32::consts::PI;
             let yaw_viewport_range = camera_proj.fov * camera_proj.aspect_ratio;
-            let yaw = yaw_input / yaw_viewport_range * 2.0 * std::f32::consts::PI;
-            let yaw = Quat::from_rotation_z(yaw);
+            let yaw = yaw / yaw_viewport_range * 2.0 * std::f32::consts::PI;
+            let zoom = TRANSLATION_ZOOM_SENSITIVITY * scroll_motion;
 
-            let mut target_transform = camera_transform.clone();
-
-            // Rotation
-            // Exclude pitch if exceeds maximum angle
-            target_transform.rotation = (yaw * camera_transform.rotation) * pitch;
-            if target_transform.up().z.acos().to_degrees() > MAX_PITCH {
-                target_transform.rotation = yaw * camera_transform.rotation;
-            };
-
-            // Translation
-            if let Some(orbit_center) = orbit_center {
-                let camera_to_orbit_center = orbit_center - camera_transform.translation;
-                let x = camera_to_orbit_center.dot(camera_transform.local_x());
-                let y = camera_to_orbit_center.dot(camera_transform.local_y());
-                let z = camera_to_orbit_center.dot(camera_transform.local_z());
-                let camera_to_orbit_center_next = target_transform.local_x() * x
-                    + target_transform.local_y() * y
-                    + target_transform.local_z() * z;
-
-                let zoom_translation = camera_to_orbit_center_next.normalize()
-                    * TRANSLATION_ZOOM_SENSITIVITY
-                    * scroll_motion
-                    * zoom_distance_factor;
-                target_transform.translation =
-                    orbit_center - camera_to_orbit_center_next - zoom_translation;
-            }
+            let camera_transform_next =
+                orbit_camera_around_point(camera_transform, orbit_center, pitch, yaw, zoom);
 
             cursor_command.translation_delta =
-                target_transform.translation - camera_transform.translation;
-            let start_rotation = Mat3::from_quat(camera_transform.rotation);
-            let target_rotation = Mat3::from_quat(target_transform.rotation);
+                camera_transform_next.translation - camera_transform.translation;
             cursor_command.rotation_delta =
-                Quat::from_mat3(&(start_rotation.inverse() * target_rotation));
+                camera_transform.rotation.inverse() * camera_transform_next.rotation;
         }
         _ => (),
     }
@@ -392,7 +323,54 @@ fn get_perspective_cursor_command(
     return cursor_command;
 }
 
-// Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
+/// Pans camera such that selection remains under cursor
+fn pan_camera_with_cursor(
+    camera_transform: &Transform,
+    cursor_selection: Vec3,
+    cursor_direction: Vec3,
+    scroll_motion: f32,
+) -> Transform {
+    let mut camera_transform_next = camera_transform.clone();
+    // To keep the same point below the cursor, we solve
+    // selection_to_camera + translation_delta = selection_to_camera_next
+    // selection_to_camera_next = x3 * -cursor_direction
+    // translation_delta = x1 * right_ transltion + x2 * up_translation
+    let selection_to_camera = cursor_selection - camera_transform.translation;
+    let right_translation = camera_transform.rotation * Vec3::X;
+    let up_translation = camera_transform.rotation * Vec3::Y;
+
+    let a = Matrix3::new(
+        right_translation.x,
+        up_translation.x,
+        -cursor_direction.x,
+        right_translation.y,
+        up_translation.y,
+        -cursor_direction.y,
+        right_translation.z,
+        up_translation.z,
+        -cursor_direction.z,
+    );
+    let b = Matrix3x1::new(
+        selection_to_camera.x,
+        selection_to_camera.y,
+        selection_to_camera.z,
+    );
+    let x = a.lu().solve(&b).unwrap();
+    camera_transform_next.translation += x[0] * right_translation + x[1] * up_translation;
+
+    let zoom_translation = cursor_direction
+        * zoom_distance_factor(
+            camera_transform.translation,
+            camera_transform_next.translation,
+        )
+        * TRANSLATION_ZOOM_SENSITIVITY
+        * scroll_motion;
+    camera_transform_next.translation += zoom_translation;
+
+    return camera_transform_next;
+}
+
+/// Returns the object selected by the cursor, if none, defaults to ground plane or arbitrary point in front
 fn get_cursor_selected_point(
     camera_transform: &Transform,
     cursor_raycast_source: &RaycastSource<SiteRaycastSet>,
