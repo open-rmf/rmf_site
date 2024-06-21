@@ -20,7 +20,7 @@ use super::{
     MAX_FOV, MAX_PITCH, MAX_SCALE, MIN_FOV, MIN_SCALE,
 };
 use crate::interaction::SiteRaycastSet;
-use bevy::input::mouse::{MouseMotion, MouseWheel};
+use bevy::input::mouse::MouseWheel;
 use bevy::prelude::*;
 use bevy::window::PrimaryWindow;
 use bevy_mod_raycast::deferred::RaycastSource;
@@ -76,7 +76,6 @@ impl CursorCommand {
 pub fn update_cursor_command(
     mut camera_controls: ResMut<CameraControls>,
     mut cursor_command: ResMut<CursorCommand>,
-    mut mouse_motion: EventReader<MouseMotion>,
     mut mouse_wheel: EventReader<MouseWheel>,
     mouse_input: Res<Input<MouseButton>>,
     keyboard_input: Res<Input<KeyCode>>,
@@ -90,11 +89,7 @@ pub fn update_cursor_command(
             return;
         }
 
-        // Cursor and scroll inputs
-        let cursor_motion = mouse_motion
-            .read()
-            .map(|event| event.delta)
-            .fold(Vec2::ZERO, |acc, delta| acc + delta);
+        // Scroll input
         let mut scroll_motion = 0.0;
         for ev in mouse_wheel.read() {
             #[cfg(not(target_arch = "wasm32"))]

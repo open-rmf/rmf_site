@@ -25,7 +25,6 @@ use bevy_mod_raycast::{
     immediate::{Raycast, RaycastSettings, RaycastVisibility},
     primitives::Ray3d,
 };
-use nalgebra::{Matrix1x3, Matrix3, Matrix3x1};
 
 // Keyboard control limits
 pub const MIN_RESPONSE_TIME: f32 = 0.25; // [s] time taken to reach minimum input, or to reset
@@ -113,10 +112,10 @@ pub fn update_keyboard_command(
         }
 
         let mut target_zoom_motion = 0.0;
-        if keyboard_input.pressed(KeyCode::N) {
+        if keyboard_input.pressed(KeyCode::PageDown) {
             target_zoom_motion += -1.0;
         }
-        if keyboard_input.pressed(KeyCode::M) {
+        if keyboard_input.pressed(KeyCode::PageUp) {
             target_zoom_motion += 1.0;
         }
 

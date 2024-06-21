@@ -544,7 +544,7 @@ fn update_orbit_center_marker(
                 gizmo.sphere(orbit_center, Quat::IDENTITY, 0.1, Color::GREEN);
             }
         // Panning
-        } else if (cursor_command.command_type == CameraCommandType::Pan) {
+        } else if cursor_command.command_type == CameraCommandType::Pan {
             if let Some(cursor_selection) = cursor_command.cursor_selection {
                 *marker_visibility = Visibility::Visible;
                 *marker_material = interaction_assets.camera_control_pan_material.clone();
