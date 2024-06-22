@@ -216,8 +216,7 @@ impl Plugin for SiteEditor {
                 }),
         ));
 
-        app
-            .insert_resource(DirectionalLightShadowMap { size: 2048 })
+        app.insert_resource(DirectionalLightShadowMap { size: 2048 })
             .add_state::<AppState>()
             .add_plugins((
                 AssetLoadersPlugin,
@@ -240,11 +239,7 @@ impl Plugin for SiteEditor {
                 WorkcellEditorPlugin,
             ))
             // Note order matters, plugins that edit the menus must be initialized after the UI
-            .add_plugins((
-                ViewMenuPlugin,
-                OSMViewPlugin,
-                SiteWireframePlugin,
-            ));
+            .add_plugins((ViewMenuPlugin, OSMViewPlugin, SiteWireframePlugin));
         }
 
         // Ref https://github.com/bevyengine/bevy/issues/10877. The default behavior causes issues

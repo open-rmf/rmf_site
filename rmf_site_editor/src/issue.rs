@@ -58,8 +58,7 @@ pub struct IssuePlugin;
 
 impl Plugin for IssuePlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_event::<ValidateWorkspace>()
+        app.add_event::<ValidateWorkspace>()
             .add_plugins((
                 ChangePlugin::<FilteredIssues<Entity>>::default(),
                 ChangePlugin::<FilteredIssueKinds>::default(),

@@ -16,7 +16,7 @@
 */
 
 use super::demo_world::*;
-use crate::{AppState, LoadWorkspace, WorkspaceData, Autoload};
+use crate::{AppState, Autoload, LoadWorkspace, WorkspaceData};
 use bevy::{app::AppExit, prelude::*, window::PrimaryWindow};
 use bevy_egui::{egui, EguiContexts};
 

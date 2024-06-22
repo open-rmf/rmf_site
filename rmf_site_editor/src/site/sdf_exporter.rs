@@ -7,11 +7,11 @@ use std::path::Path;
 use crate::SaveWorkspace;
 
 use crate::{
-    Autoload, LoadWorkspace,
     site::{
         ChildLiftCabinGroup, CollisionMeshMarker, DoorSegments, DrawingMarker, FloorSegments,
         LiftDoormat, ModelSceneRoot, TentativeModelFormat, VisualMeshMarker,
-    }
+    },
+    Autoload, LoadWorkspace,
 };
 use rmf_site_format::{
     IsStatic, LevelElevation, LiftCabin, ModelMarker, NameInSite, NameOfSite, SiteID, WallMarker,
